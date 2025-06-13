@@ -72,7 +72,9 @@ at::Tensor mixture_of_experts_fp8_lazy(
     bool permuted_weights,
     std::string_view activation,
     int64_t experts_min,
-    int64_t experts_max);
+    int64_t experts_max,
+    const int64_t chunk_size = 0,
+    const int64_t total_experts = 0);
 
 at::Tensor mixture_of_experts_fp8_fused_weights_lazy(
     const at::Tensor& hidden_states,
@@ -87,7 +89,9 @@ at::Tensor mixture_of_experts_fp8_fused_weights_lazy(
     bool permuted_weights,
     std::string_view activation,
     int64_t experts_min,
-    int64_t experts_max);
+    int64_t experts_max,
+    const int64_t chunk_size = 0,
+    const int64_t total_experts = 0);
 
 at::Tensor mixture_of_experts_fp8_dynamic_lazy(
     const at::Tensor& hidden_states,
@@ -103,7 +107,9 @@ at::Tensor mixture_of_experts_fp8_dynamic_lazy(
     bool permuted_weights,
     std::string_view activation,
     int64_t experts_min,
-    int64_t experts_max);
+    int64_t experts_max,
+    const int64_t chunk_size = 0,
+    const int64_t total_experts = 0);
 
 at::Tensor mixture_of_experts_fp8_fused_weights_dynamic_lazy(
     const at::Tensor& hidden_states,
@@ -117,6 +123,8 @@ at::Tensor mixture_of_experts_fp8_fused_weights_dynamic_lazy(
     bool permuted_weights,
     std::string_view activation,
     int64_t experts_min,
-    int64_t experts_max);
+    int64_t experts_max,
+    const int64_t chunk_size = 0,
+    const int64_t total_experts = 0);
 
 } // namespace habana_lazy

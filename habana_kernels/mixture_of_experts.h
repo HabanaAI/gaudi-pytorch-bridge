@@ -27,7 +27,9 @@ std::tuple<at::Tensor, at::Tensor> mixture_of_experts_fp8_measurement_lazy(
     const std::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max,
-    const bool measurement_mode);
+    const bool measurement_mode,
+    const int64_t chunk_size = 0,
+    const int64_t total_experts = 0);
 
 std::tuple<at::Tensor, at::Tensor>
 mixture_of_experts_fp8_measurement_fused_weights_lazy(
@@ -40,6 +42,8 @@ mixture_of_experts_fp8_measurement_fused_weights_lazy(
     const std::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max,
-    const bool measurement_mode);
+    const bool measurement_mode,
+    const int64_t chunk_size = 0,
+    const int64_t total_experts = 0);
 
 } // namespace habana_lazy

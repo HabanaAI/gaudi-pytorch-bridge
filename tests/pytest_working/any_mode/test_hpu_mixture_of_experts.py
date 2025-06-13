@@ -17,7 +17,6 @@
 
 
 import math
-from functools import partial
 
 import habana_frameworks.torch.core as htcore
 import habana_frameworks.torch.hpu as ht
@@ -263,6 +262,7 @@ def mixture_of_experts_eager(
 
 
 @pytest.mark.skipif(_is_simulator(), reason="Mixture of experts takes too long on sim")
+@pytest.mark.skipif(is_gaudi1(), reason="Mixture of experts is not supported for Gaudi")
 @pytest.mark.parametrize("measurement_mode", [True, False])
 @pytest.mark.parametrize("dtype", DTYPES, ids=format_tc)
 @pytest.mark.parametrize("activation", ACTIVATIONS)
@@ -272,6 +272,7 @@ def mixture_of_experts_eager(
 @pytest.mark.parametrize("num_tokens", NUM_TOKENS)
 @pytest.mark.parametrize("fused_weights", FUSED_WEIGHTS)
 @pytest.mark.parametrize("permuted_weights", PERMUTED_WEIGHTS)
+@pytest.mark.parametrize("chunk_size, total_experts", [(0, 0), (4, 8)])
 def test_mixture_of_experts(
     permuted_weights,
     fused_weights,
@@ -282,6 +283,8 @@ def test_mixture_of_experts(
     ffn_dim,
     dtype,
     measurement_mode,
+    chunk_size,
+    total_experts,
 ):
     hidden_states = torch.randn((num_tokens, hidden_dim), dtype=dtype)
     router_weights_all = torch.randn((num_tokens, num_experts), dtype=dtype)
@@ -316,16 +319,20 @@ def test_mixture_of_experts(
             0,
             num_experts - 1,
         )
+        kwargs = {
+            "chunk_size": chunk_size,
+            "total_experts": total_experts,
+        }
         if measurement_mode:
-            return fn(*common_inputs, *weights, *common_params, True)
+            return fn(*common_inputs, *weights, *common_params, True, **kwargs)
         else:
-            return fn(*common_inputs, *weights, *common_params)
+            return fn(*common_inputs, *weights, *common_params, **kwargs)
 
     with torch.inference_mode():
         if measurement_mode:
-            result_hpu, amax_per_expert_hpu = partial(call_moe_fn)()
+            result_hpu, amax_per_expert_hpu = call_moe_fn()
         else:
-            result_hpu = partial(call_moe_fn)()
+            result_hpu = call_moe_fn()
 
     check_using_cosine_similarity(result_hpu, result_cpu, 0.98)
 
@@ -342,7 +349,14 @@ def test_mixture_of_experts(
         check_ops_executed_in_jit_ir(op_name)
 
 
+def handle_scales(scales, num_experts):
+    if isinstance(scales, list):
+        return scales[:num_experts]
+    return scales
+
+
 @pytest.mark.skipif(_is_simulator(), reason="Mixture of experts takes too long on sim")
+@pytest.mark.skipif(is_gaudi1(), reason="Mixture of experts is not supported for Gaudi")
 @pytest.mark.parametrize("fp8_dtype", [torch.float8_e4m3fn, torch.float8_e5m2], ids=format_tc)
 @pytest.mark.parametrize("activation", ACTIVATIONS)
 @pytest.mark.parametrize("hidden_dim", HIDDEN_DIMS)
@@ -354,6 +368,7 @@ def test_mixture_of_experts(
 @pytest.mark.parametrize("scales_as_tensors", [True])
 @pytest.mark.parametrize("dynamic_scale", [True, False], ids=["dynamic_quant", "static_quant"])
 @pytest.mark.parametrize("scales_per_token", [None, "scales_unsqueezed_2D", "scales_1D"])
+@pytest.mark.parametrize("chunk_size, total_experts", [(0, 0), (4, 8)])
 @pytest.mark.parametrize(
     "fp8_scales",
     [
@@ -379,17 +394,19 @@ def test_mixture_of_experts_fp8(
     fp8_scales,
     dynamic_scale,
     scales_per_token,
+    chunk_size,
+    total_experts,
 ):
     if scales_per_token and (not dynamic_scale or fp8_dtype is torch.float8_e5m2 or not scales_as_tensors):
         pytest.skip("scales_per_tensor can be tested just for one variant of MoE.fp8, to reduce test time")
 
     if dynamic_scale and fp8_dtype == torch.float8_e5m2 and not is_pytest_mode_eager():
         pytest.skip("Dynamic scale is supported only for torch.float8_e4m3")
-    d_scale_w1 = fp8_scales["d_scale_w1"]
-    d_scale_w2 = d_scale_w1 if fused_weights else fp8_scales["d_scale_w2"]
-    d_scale_w3 = fp8_scales["d_scale_w3"]
-    d_scale_intermediate_hidden_states = fp8_scales["d_scale_intermediate_hidden_states"]
-    d_scale_hidden_states = fp8_scales["d_scale_hidden_states"]
+    d_scale_w1 = handle_scales(fp8_scales["d_scale_w1"], num_experts)
+    d_scale_w2 = handle_scales(d_scale_w1 if fused_weights else fp8_scales["d_scale_w2"], num_experts)
+    d_scale_w3 = handle_scales(fp8_scales["d_scale_w3"], num_experts)
+    d_scale_intermediate_hidden_states = handle_scales(fp8_scales["d_scale_intermediate_hidden_states"], num_experts)
+    d_scale_hidden_states = handle_scales(fp8_scales["d_scale_hidden_states"], num_experts)
 
     hidden_states_hpu = torch.randn((num_tokens, hidden_dim), dtype=torch.float).to(fp8_dtype).to(hpu)
     router_weights_all = torch.randn((num_tokens, num_experts), dtype=torch.bfloat16).to(hpu)
@@ -447,19 +464,23 @@ def test_mixture_of_experts_fp8(
             0,
             num_experts - 1,
         )
-
-        return fn(*common_inputs, *weights, *hidden_state_scales, *weights_scales, *common_params)
+        kwargs = {
+            "chunk_size": chunk_size,
+            "total_experts": total_experts,
+        }
+        return fn(*common_inputs, *weights, *hidden_state_scales, *weights_scales, *common_params, **kwargs)
 
     with torch.inference_mode():
-        result_hpu = partial(call_moe_fn)()
+        result_hpu = call_moe_fn()
 
-    check_using_cosine_similarity(result_hpu, result_cpu, 0.938 if dynamic_scale else 0.975)
+    check_using_cosine_similarity(result_hpu, result_cpu.to(result_hpu.dtype), 0.938 if dynamic_scale else 0.975)
 
     if is_pytest_mode_compile():
         check_ops_executed_in_jit_ir("mixture_of_experts")
 
 
 @pytest.mark.skipif(_is_simulator(), reason="Mixture of experts takes too long on sim")
+@pytest.mark.skipif(is_gaudi1(), reason="Mixture of experts is not supported for Gaudi")
 @pytest.mark.skipif(is_pytest_mode_eager(), reason="Eager mode doesn't support H2D scales.")
 @pytest.mark.parametrize("hw_aligned_scales", [True, False])
 def test_mixture_of_experts_fp8_h2d(hw_aligned_scales):
@@ -599,6 +620,7 @@ def quantize_blockwise(weights_tensorlist, block_size, fp8_dtype):
 
 
 @pytest.mark.skipif(_is_simulator(), reason="Mixture of experts takes too long on sim")
+@pytest.mark.skipif(is_gaudi1(), reason="Mixture of experts is not supported for Gaudi")
 @pytest.mark.parametrize("fp8_dtype", [torch.float8_e4m3fn], ids=format_tc)
 @pytest.mark.parametrize("activation", ACTIVATIONS)
 @pytest.mark.parametrize("hidden_dim", HIDDEN_DIMS)
@@ -608,6 +630,7 @@ def quantize_blockwise(weights_tensorlist, block_size, fp8_dtype):
 @pytest.mark.parametrize("fused_weights", FUSED_WEIGHTS)
 @pytest.mark.parametrize("permuted_weights", PERMUTED_WEIGHTS)
 @pytest.mark.parametrize("block_size", [30, 32], ids=["padding", "matching"])
+@pytest.mark.parametrize("chunk_size, total_experts", [(0, 0), (4, 8)])
 def test_mixture_of_experts_fp8_blockwise_quant(
     permuted_weights,
     fused_weights,
@@ -618,6 +641,8 @@ def test_mixture_of_experts_fp8_blockwise_quant(
     ffn_dim,
     fp8_dtype,
     block_size,
+    chunk_size,
+    total_experts,
 ):
     if fp8_dtype == torch.float8_e5m2 and not is_pytest_mode_eager():
         pytest.skip("Block-wise quantization is supported only for torch.float8_e4m3")
@@ -670,11 +695,14 @@ def test_mixture_of_experts_fp8_blockwise_quant(
             0,
             num_experts - 1,
         )
-
-        return fn(*common_inputs, *weights, *weights_scales, *common_params)
+        kwargs = {
+            "chunk_size": chunk_size,
+            "total_experts": total_experts,
+        }
+        return fn(*common_inputs, *weights, *weights_scales, *common_params, **kwargs)
 
     with torch.inference_mode():
-        result_hpu = partial(call_moe_fn)()
+        result_hpu = call_moe_fn()
 
     check_using_cosine_similarity(result_hpu, result_cpu, 0.9)
 
@@ -683,6 +711,7 @@ def test_mixture_of_experts_fp8_blockwise_quant(
 
 
 @pytest.mark.skipif(_is_simulator(), reason="Mixture of experts takes too long on sim")
+@pytest.mark.skipif(is_gaudi1(), reason="Mixture of experts is not supported for Gaudi")
 @pytest.mark.skip(reason="On-demand test. Used only for debugging and integration testing")
 @pytest.mark.parametrize("fp8_dtype", [torch.float8_e4m3fn], ids=format_tc)
 @pytest.mark.parametrize("activation", ACTIVATIONS)
@@ -706,6 +735,7 @@ def test_mixture_of_experts_fp8_blockwise_quant(
         }
     ],
 )
+@pytest.mark.parametrize("chunk_size, total_experts", [(0, 0), (4, 8)])
 def test_compare_graph_modes_to_eager_decomposition(
     permuted_weights,
     fused_weights,
@@ -718,6 +748,8 @@ def test_compare_graph_modes_to_eager_decomposition(
     scales_as_tensors,
     fp8_scales,
     dynamic_scale,
+    chunk_size,
+    total_experts,
 ):
     if dynamic_scale and fp8_dtype == torch.float8_e5m2 and not is_pytest_mode_eager():
         pytest.skip("Dynamic scale is supported only for torch.float8_e4m3")
@@ -765,8 +797,12 @@ def test_compare_graph_modes_to_eager_decomposition(
             0,
             num_experts - 1,
         )
+        kwargs = {
+            "chunk_size": chunk_size,
+            "total_experts": total_experts,
+        }
 
-        return fn(*common_inputs, *weights, *hidden_state_scales, *weights_scales, *common_params)
+        return fn(*common_inputs, *weights, *hidden_state_scales, *weights_scales, *common_params, **kwargs)
 
     result_eager = mixture_of_experts_eager(
         hidden_states_hpu,
@@ -785,12 +821,13 @@ def test_compare_graph_modes_to_eager_decomposition(
     )
 
     with torch.inference_mode():
-        result_hpu = partial(call_moe_fn)()
+        result_hpu = call_moe_fn()
 
     check_using_cosine_similarity(result_hpu, result_eager.cpu(), 0.95 if dynamic_scale else 0.99)
 
 
 @pytest.mark.skipif(_is_simulator(), reason="Mixture of experts takes too long on sim")
+@pytest.mark.skipif(is_gaudi1(), reason="Mixture of experts is not supported for Gaudi")
 @pytest.mark.parametrize("recomp", [True, False])
 @pytest.mark.parametrize("dtype", DTYPES, ids=format_tc)
 @pytest.mark.parametrize("activation", ACTIVATIONS)
@@ -800,6 +837,7 @@ def test_compare_graph_modes_to_eager_decomposition(
 @pytest.mark.parametrize("num_tokens", NUM_TOKENS)
 @pytest.mark.parametrize("fused_weights", FUSED_WEIGHTS)
 @pytest.mark.parametrize("permuted_weights", PERMUTED_WEIGHTS)
+@pytest.mark.parametrize("chunk_size, total_experts", [(0, 0), (4, 8)])
 def test_mixture_of_experts_fwd_bwd(
     permuted_weights,
     fused_weights,
@@ -810,6 +848,8 @@ def test_mixture_of_experts_fwd_bwd(
     ffn_dim,
     dtype,
     recomp,
+    chunk_size,
+    total_experts,
 ):
     hidden_states = torch.randn((num_tokens, hidden_dim), dtype=dtype, requires_grad=True)
     router_weights_all = torch.randn((num_tokens, num_experts), dtype=dtype)
@@ -852,12 +892,17 @@ def test_mixture_of_experts_fwd_bwd(
             0,
             num_experts - 1,
         )
-        return fn(*common_inputs, *weights, *common_params, recomp=recomp)
+        kwargs = {
+            "recomp": recomp,
+            "chunk_size": chunk_size,
+            "total_experts": total_experts,
+        }
+        return fn(*common_inputs, *weights, *common_params, **kwargs)
 
     with use_eager_fallback():
         fn = compile_function_if_compile_mode(torch.ops.hpu.mixture_of_experts)
         htcore.step_closure._mark_step_if_lazy()
-        result_hpu = partial(call_moe_fn)(fn)
+        result_hpu = call_moe_fn(fn)
         htcore.step_closure._mark_step_if_lazy()
         result_hpu.mean().backward()
         result_hpu.cpu()
@@ -960,7 +1005,7 @@ def test_mixture_of_experts_fwd_bwd_view(
 
     with use_eager_fallback():
         fn = compile_function_if_compile_mode(torch.ops.hpu.mixture_of_experts)
-        result_hpu = partial(call_moe_fn)(fn)
+        result_hpu = call_moe_fn(fn)
         htcore.step_closure._mark_step_if_lazy()
         result_hpu.mean().backward()
         result_hpu.cpu()

@@ -28,7 +28,9 @@ std::vector<at::Tensor> mixture_of_experts_fwd(
     bool permuted_weights,
     std::string_view activation,
     int64_t experts_min,
-    int64_t experts_max);
+    int64_t experts_max,
+    const int64_t chunk_size = 0,
+    const int64_t total_experts = 0);
 
 at::Tensor mixture_of_experts_recomp_fwd(
     const at::Tensor& hidden_states,
@@ -40,7 +42,9 @@ at::Tensor mixture_of_experts_recomp_fwd(
     const bool permuted_weights,
     const std::string_view activation,
     const int64_t experts_min,
-    const int64_t experts_max);
+    const int64_t experts_max,
+    const int64_t chunk_size = 0,
+    const int64_t total_experts = 0);
 
 std::vector<at::Tensor> mixture_of_experts_fwd_fused_weights(
     const at::Tensor& hidden_states,
@@ -51,7 +55,9 @@ std::vector<at::Tensor> mixture_of_experts_fwd_fused_weights(
     const bool permuted_weights,
     const std::string_view activation,
     const int64_t experts_min,
-    const int64_t experts_max);
+    const int64_t experts_max,
+    const int64_t chunk_size = 0,
+    const int64_t total_experts = 0);
 
 at::Tensor mixture_of_experts_recomp_fwd_fused_weights(
     const at::Tensor& hidden_states,
@@ -62,7 +68,9 @@ at::Tensor mixture_of_experts_recomp_fwd_fused_weights(
     const bool permuted_weights,
     const std::string_view activation,
     const int64_t experts_min,
-    const int64_t experts_max);
+    const int64_t experts_max,
+    const int64_t chunk_size = 0,
+    const int64_t total_experts = 0);
 
 std::vector<at::Tensor> mixture_of_experts_bwd(
     const at::Tensor& grad_tokens_in,
@@ -96,7 +104,9 @@ std::vector<at::Tensor> mixture_of_experts_recomp_bwd(
     const bool permuted_weights,
     const std::string_view activation,
     const int64_t experts_min,
-    const int64_t experts_max);
+    const int64_t experts_max,
+    const int64_t chunk_size = 0,
+    const int64_t total_experts = 0);
 
 std::vector<at::Tensor> mixture_of_experts_bwd_fused_weights(
     const at::Tensor& grad_tokens_in,
@@ -127,12 +137,14 @@ std::vector<at::Tensor> mixture_of_experts_recomp_bwd_fused_weights(
     const bool permuted_weights,
     const std::string_view activation,
     const int64_t experts_min,
-    const int64_t experts_max);
+    const int64_t experts_max,
+    const int64_t chunk_size = 0,
+    const int64_t total_experts = 0);
 
 constexpr size_t weights_per_expert = 3;
 constexpr size_t weights_per_expert_fused = 2;
 constexpr size_t non_list_tensors = 3;
-constexpr size_t non_list_inputs = 7;
+constexpr size_t non_list_inputs = 9;
 constexpr size_t outputs_for_bwd = 10;
 constexpr size_t outputs_for_bwd_fused = 9;
 
@@ -147,7 +159,9 @@ at::Tensor mixture_of_experts_fwd_autograd(
     const std::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max,
-    const std::optional<bool> recomp);
+    const std::optional<bool> recomp,
+    const int64_t chunk_size = 0,
+    const int64_t total_experts = 0);
 
 at::Tensor mixture_of_experts_fwd_fused_weights_autograd(
     const at::Tensor& hidden_states,
@@ -159,6 +173,8 @@ at::Tensor mixture_of_experts_fwd_fused_weights_autograd(
     const std::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max,
-    const std::optional<bool> recomp);
+    const std::optional<bool> recomp,
+    const int64_t chunk_size = 0,
+    const int64_t total_experts = 0);
 
 } // namespace habana

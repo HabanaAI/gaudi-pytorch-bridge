@@ -38,11 +38,13 @@ std::vector<at::Tensor> mixture_of_experts_fwd(
     const bool permuted_weights,
     const std::string_view activation,
     const int64_t experts_min,
-    const int64_t experts_max) {
+    const int64_t experts_max,
+    const int64_t chunk_size,
+    const int64_t total_experts) {
   PT_LAZY_OP_TRACE;
   PT_OP_INFO(
       "mixture_of_experts_fwd :",
-      DUMP_10ARGS(
+      DUMP_12ARGS(
           hidden_states,
           expert_routing_table,
           router_weights,
@@ -52,7 +54,9 @@ std::vector<at::Tensor> mixture_of_experts_fwd(
           permuted_weights,
           activation,
           experts_min,
-          experts_max));
+          experts_max,
+          chunk_size,
+          total_experts));
 
   exec::OptPassCfg::GetInstance()->BkupAndDisableAndAllOptPass();
 
@@ -67,7 +71,9 @@ std::vector<at::Tensor> mixture_of_experts_fwd(
        permuted_weights,
        activation,
        experts_min,
-       experts_max},
+       experts_max,
+       chunk_size,
+       total_experts},
       MixtureOfExpertsFwdShapes,
       0};
 
@@ -86,11 +92,13 @@ at::Tensor mixture_of_experts_recomp_fwd(
     const bool permuted_weights,
     const std::string_view activation,
     const int64_t experts_min,
-    const int64_t experts_max) {
+    const int64_t experts_max,
+    const int64_t chunk_size,
+    const int64_t total_experts) {
   PT_LAZY_OP_TRACE;
   PT_OP_INFO(
       "mixture_of_experts_recomp_fwd :",
-      DUMP_10ARGS(
+      DUMP_12ARGS(
           hidden_states,
           expert_routing_table,
           router_weights,
@@ -100,7 +108,9 @@ at::Tensor mixture_of_experts_recomp_fwd(
           permuted_weights,
           activation,
           experts_min,
-          experts_max));
+          experts_max,
+          chunk_size,
+          total_experts));
 
   exec::OptPassCfg::GetInstance()->BkupAndDisableAndAllOptPass();
 
@@ -117,6 +127,8 @@ at::Tensor mixture_of_experts_recomp_fwd(
           activation,
           experts_min,
           experts_max,
+          chunk_size,
+          total_experts,
       },
       {hidden_states.sizes().vec()},
       0};
@@ -136,11 +148,13 @@ std::vector<at::Tensor> mixture_of_experts_fwd_fused_weights(
     const bool permuted_weights,
     const std::string_view activation,
     const int64_t experts_min,
-    const int64_t experts_max) {
+    const int64_t experts_max,
+    const int64_t chunk_size,
+    const int64_t total_experts) {
   PT_LAZY_TRACE;
   PT_OP_INFO(
       "mixture_of_experts_fwd.fused_weights :",
-      DUMP_9ARGS(
+      DUMP_11ARGS(
           hidden_states,
           expert_routing_table,
           router_weights,
@@ -149,7 +163,9 @@ std::vector<at::Tensor> mixture_of_experts_fwd_fused_weights(
           permuted_weights,
           activation,
           experts_min,
-          experts_max));
+          experts_max,
+          chunk_size,
+          total_experts));
 
   exec::OptPassCfg::GetInstance()->BkupAndDisableAndAllOptPass();
 
@@ -163,7 +179,9 @@ std::vector<at::Tensor> mixture_of_experts_fwd_fused_weights(
        permuted_weights,
        activation,
        experts_min,
-       experts_max},
+       experts_max,
+       chunk_size,
+       total_experts},
       MixtureOfExpertsFwdShapes,
       0};
 
@@ -182,11 +200,13 @@ at::Tensor mixture_of_experts_recomp_fwd_fused_weights(
     const bool permuted_weights,
     const std::string_view activation,
     const int64_t experts_min,
-    const int64_t experts_max) {
+    const int64_t experts_max,
+    const int64_t chunk_size,
+    const int64_t total_experts) {
   PT_LAZY_TRACE;
   PT_OP_INFO(
       "mixture_of_experts_recomp_fwd.fused_weights :",
-      DUMP_9ARGS(
+      DUMP_11ARGS(
           hidden_states,
           expert_routing_table,
           router_weights,
@@ -195,7 +215,9 @@ at::Tensor mixture_of_experts_recomp_fwd_fused_weights(
           permuted_weights,
           activation,
           experts_min,
-          experts_max));
+          experts_max,
+          chunk_size,
+          total_experts));
 
   exec::OptPassCfg::GetInstance()->BkupAndDisableAndAllOptPass();
 
@@ -209,7 +231,9 @@ at::Tensor mixture_of_experts_recomp_fwd_fused_weights(
        permuted_weights,
        activation,
        experts_min,
-       experts_max},
+       experts_max,
+       chunk_size,
+       total_experts},
       {hidden_states.sizes().vec()},
       0};
 
@@ -317,11 +341,13 @@ std::vector<at::Tensor> mixture_of_experts_recomp_bwd(
     const bool permuted_weights,
     const std::string_view activation,
     const int64_t experts_min,
-    const int64_t experts_max) {
+    const int64_t experts_max,
+    const int64_t chunk_size,
+    const int64_t total_experts) {
   PT_LAZY_OP_TRACE;
   PT_OP_INFO(
       "mixture_of_experts_recomp_bwd :",
-      DUMP_11ARGS(
+      DUMP_13ARGS(
           grad_tokens_in,
           hidden_states,
           expert_routing_table,
@@ -332,7 +358,9 @@ std::vector<at::Tensor> mixture_of_experts_recomp_bwd(
           permuted_weights,
           activation,
           experts_min,
-          experts_max));
+          experts_max,
+          chunk_size,
+          total_experts));
 
   std::vector<std::vector<int64_t>> out_shapes;
   out_shapes.reserve(2 + 3 * w1.size());
@@ -360,7 +388,9 @@ std::vector<at::Tensor> mixture_of_experts_recomp_bwd(
        permuted_weights,
        activation,
        experts_min,
-       experts_max},
+       experts_max,
+       chunk_size,
+       total_experts},
       std::move(out_shapes),
       0};
 
@@ -459,11 +489,13 @@ std::vector<at::Tensor> mixture_of_experts_recomp_bwd_fused_weights(
     const bool permuted_weights,
     const std::string_view activation,
     const int64_t experts_min,
-    const int64_t experts_max) {
+    const int64_t experts_max,
+    const int64_t chunk_size,
+    const int64_t total_experts) {
   PT_LAZY_TRACE;
   PT_OP_INFO(
       "mixture_of_experts_recomp_bwd.fused_weights :",
-      DUMP_10ARGS(
+      DUMP_12ARGS(
           grad,
           hidden_states,
           expert_routing_table,
@@ -473,7 +505,9 @@ std::vector<at::Tensor> mixture_of_experts_recomp_bwd_fused_weights(
           permuted_weights,
           activation,
           experts_min,
-          experts_max));
+          experts_max,
+          chunk_size,
+          total_experts));
 
   std::vector<std::vector<int64_t>> out_shapes;
   out_shapes.reserve(2 + 2 * w12.size());
@@ -497,7 +531,9 @@ std::vector<at::Tensor> mixture_of_experts_recomp_bwd_fused_weights(
        permuted_weights,
        activation,
        experts_min,
-       experts_max},
+       experts_max,
+       chunk_size,
+       total_experts},
       {hidden_states.sizes().vec()},
       0};
 
@@ -523,11 +559,13 @@ std::tuple<at::Tensor, at::Tensor> mixture_of_experts_fp8_measurement_lazy(
     const std::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max,
-    const bool measurement_mode) {
+    const bool measurement_mode,
+    const int64_t chunk_size,
+    const int64_t total_experts) {
   PT_LAZY_TRACE;
   PT_OP_INFO(
       "mixture_of_experts.fp8_measurement :",
-      DUMP_11ARGS(
+      DUMP_13ARGS(
           hidden_states,
           expert_routing_table,
           router_weights,
@@ -538,7 +576,9 @@ std::tuple<at::Tensor, at::Tensor> mixture_of_experts_fp8_measurement_lazy(
           activation,
           experts_min,
           experts_max,
-          measurement_mode));
+          measurement_mode,
+          chunk_size,
+          total_experts));
 
   LazyOp<std::tuple<at::Tensor, at::Tensor>> op{
       "hpu::mixture_of_experts_fp8_measurement",
@@ -552,7 +592,9 @@ std::tuple<at::Tensor, at::Tensor> mixture_of_experts_fp8_measurement_lazy(
        activation,
        experts_min,
        experts_max,
-       measurement_mode},
+       measurement_mode,
+       chunk_size,
+       total_experts},
       {hidden_states.sizes().vec(), {static_cast<int64_t>(w1.size())}},
       0};
 
@@ -570,11 +612,13 @@ mixture_of_experts_fp8_measurement_fused_weights_lazy(
     const std::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max,
-    const bool measurement_mode) {
+    const bool measurement_mode,
+    const int64_t chunk_size,
+    const int64_t total_experts) {
   PT_LAZY_TRACE;
   PT_OP_INFO(
       "mixture_of_experts.fp8_measurement_fused_weights :",
-      DUMP_10ARGS(
+      DUMP_12ARGS(
           hidden_states,
           expert_routing_table,
           router_weights,
@@ -584,7 +628,9 @@ mixture_of_experts_fp8_measurement_fused_weights_lazy(
           activation,
           experts_min,
           experts_max,
-          measurement_mode));
+          measurement_mode,
+          chunk_size,
+          total_experts));
 
   LazyOp<std::tuple<at::Tensor, at::Tensor>> op{
       "hpu::mixture_of_experts_fp8_measurement",
@@ -597,7 +643,9 @@ mixture_of_experts_fp8_measurement_fused_weights_lazy(
        activation,
        experts_min,
        experts_max,
-       measurement_mode},
+       measurement_mode,
+       chunk_size,
+       total_experts},
       {hidden_states.sizes().vec(), {static_cast<int64_t>(w12.size())}},
       0};
 

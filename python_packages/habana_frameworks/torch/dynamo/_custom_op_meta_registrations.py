@@ -1009,37 +1009,38 @@ def meta_rotary_pos_embedding(input, sin, cos, position_ids, offset, mode):
     return input.new_empty(input.shape)
 
 
-@register_meta([torch.ops.hpu.mixture_of_experts.default, torch.ops.hpu.mixture_of_experts_recomp_fwd.default])
-def meta_mixture_of_experts(
+@register_meta(
+    [
+        torch.ops.hpu.mixture_of_experts.default,
+        torch.ops.hpu.mixture_of_experts.fused_weights,
+        torch.ops.hpu.mixture_of_experts_recomp_fwd.default,
+        torch.ops.hpu.mixture_of_experts_recomp_fwd.fused_weights,
+    ]
+)
+def meta_mixture_of_experts_common(
     hidden_states,
-    expert_routing_table,
-    router_weights,
-    w1,
-    w2,
-    w3,
-    permuted_weights,
-    activation,
-    experts_min,
-    experts_max,
+    *args,
+    **kwargs,
 ):
     return hidden_states.new_empty(hidden_states.shape)
 
 
 @register_meta(
-    [torch.ops.hpu.mixture_of_experts.fused_weights, torch.ops.hpu.mixture_of_experts_recomp_fwd.fused_weights]
+    [
+        torch.ops.hpu.mixture_of_experts.fp8,
+        torch.ops.hpu.mixture_of_experts.fp8_scalars,
+        torch.ops.hpu.mixture_of_experts.fp8_blockwise,
+        torch.ops.hpu.mixture_of_experts.fp8_fused_weights_blockwise,
+        torch.ops.hpu.mixture_of_experts.fp8_fused_weights,
+        torch.ops.hpu.mixture_of_experts.fp8_fused_weights_scalars,
+        torch.ops.hpu.mixture_of_experts.fp8_fused_weights_dynamic,
+        torch.ops.hpu.mixture_of_experts.fp8_fused_weights_scalars_dynamic,
+        torch.ops.hpu.mixture_of_experts.fp8_dynamic,
+        torch.ops.hpu.mixture_of_experts.fp8_scalars_dynamic,
+    ]
 )
-def meta_mixture_of_experts_fused_weights(
-    hidden_states,
-    expert_routing_table,
-    router_weights,
-    w12,
-    w3,
-    permuted_weights,
-    activation,
-    experts_min,
-    experts_max,
-):
-    return hidden_states.new_empty(hidden_states.shape)
+def meta_mixture_of_experts_fp8_common(hidden_states, *args, **kwargs):
+    return hidden_states.new_empty(hidden_states.shape, dtype=torch.bfloat16)
 
 
 @register_meta([torch.ops.hpu.mixture_of_experts_fwd.default])
@@ -1054,10 +1055,13 @@ def meta_mixture_of_experts_fwd(
     activation,
     experts_min,
     experts_max,
+    **kwargs,
 ):
     h2 = w1[0].shape[0 if permuted_weights else 1]
     out_shapes = _hpu_C.custom_op_calc_out_shape_params_int(
-        "mixture_of_experts_fwd", [hidden_states, expert_routing_table], [len(w1), h2, False]
+        "mixture_of_experts_fwd",
+        [hidden_states, expert_routing_table],
+        [len(w1), h2, False, kwargs.get("chunk_size", 0)],
     )
     return [
         hidden_states.new_empty(out_shapes[0]),
@@ -1085,10 +1089,13 @@ def meta_mixture_of_experts_fwd_fused_weights(
     activation,
     experts_min,
     experts_max,
+    **kwargs,
 ):
     h2 = w12[0].shape[0 if permuted_weights else 1]
     out_shapes = _hpu_C.custom_op_calc_out_shape_params_int(
-        "mixture_of_experts_fwd", [hidden_states, expert_routing_table], [len(w12), h2, True]
+        "mixture_of_experts_fwd",
+        [hidden_states, expert_routing_table],
+        [len(w12), h2, True, kwargs.get("chunk_size", 0)],
     )
     return [
         hidden_states.new_empty(out_shapes[0]),
@@ -1173,6 +1180,7 @@ def meta_mixture_of_experts_recomp_bwd(
     activation,
     experts_min,
     experts_max,
+    **kwargs,
 ):
     return common_mixture_of_experts_bwd_meta(grad_tokens_in, router_weights.shape, [w1, w2, w3])
 
@@ -1189,6 +1197,7 @@ def meta_mixture_of_experts_recomp_bwd_fused_weights(
     activation,
     experts_min,
     experts_max,
+    **kwargs,
 ):
     return common_mixture_of_experts_bwd_meta(grad_tokens_in, router_weights.shape, [w12, w3])
 
@@ -1201,13 +1210,8 @@ def meta_mixture_of_experts_fp8_measurement(
     expert_routing_table,
     router_weights,
     w1,
-    w2,
-    w3,
-    permuted_weights,
-    activation,
-    experts_min,
-    experts_max,
-    measurement_mode,
+    *args,
+    **kwargs,
 ):
     return hidden_states.new_empty(hidden_states.shape), hidden_states.new_empty(len(w1))
 
@@ -1223,93 +1227,10 @@ def meta_mixture_of_experts_fp8_measurement_fused_weights(
     expert_routing_table,
     router_weights,
     w12,
-    w3,
-    permuted_weights,
-    activation,
-    experts_min,
-    experts_max,
-    measurement_mode,
+    *args,
+    **kwargs,
 ):
     return hidden_states.new_empty(hidden_states.shape), hidden_states.new_empty(len(w12))
-
-
-@register_meta(
-    [
-        torch.ops.hpu.mixture_of_experts.fp8,
-        torch.ops.hpu.mixture_of_experts.fp8_scalars,
-        torch.ops.hpu.mixture_of_experts.fp8_blockwise,
-        torch.ops.hpu.mixture_of_experts.fp8_fused_weights_blockwise,
-    ]
-)
-def meta_mixture_of_experts_fp8(
-    hidden_states,
-    *args,
-):
-    return hidden_states.new_empty(hidden_states.shape, dtype=torch.bfloat16)
-
-
-@register_meta(
-    [torch.ops.hpu.mixture_of_experts.fp8_fused_weights, torch.ops.hpu.mixture_of_experts.fp8_fused_weights_scalars]
-)
-def meta_mixture_of_experts_fp8_fused_weights(
-    hidden_states,
-    expert_routing_table,
-    router_weights,
-    w12,
-    w3,
-    d_scale_w12,
-    d_scale_w3,
-    d_scale_hidden_states,
-    d_scale_intermediate_hidden_states,
-    permuted_weights,
-    activation,
-    experts_min,
-    experts_max,
-):
-    return hidden_states.new_empty(hidden_states.shape, dtype=torch.bfloat16)
-
-
-@register_meta([torch.ops.hpu.mixture_of_experts.fp8_dynamic, torch.ops.hpu.mixture_of_experts.fp8_scalars_dynamic])
-def meta_mixture_of_experts_fp8_dynamic(
-    hidden_states,
-    expert_routing_table,
-    router_weights,
-    w1,
-    w2,
-    w3,
-    d_scale_w1,
-    d_scale_w2,
-    d_scale_w3,
-    d_scale_hidden_states,
-    permuted_weights,
-    activation,
-    experts_min,
-    experts_max,
-):
-    return hidden_states.new_empty(hidden_states.shape, dtype=torch.bfloat16)
-
-
-@register_meta(
-    [
-        torch.ops.hpu.mixture_of_experts.fp8_fused_weights_dynamic,
-        torch.ops.hpu.mixture_of_experts.fp8_fused_weights_scalars_dynamic,
-    ]
-)
-def meta_mixture_of_experts_fp8_fused_weights_dynamic(
-    hidden_states,
-    expert_routing_table,
-    router_weights,
-    w12,
-    w3,
-    d_scale_w12,
-    d_scale_w3,
-    d_scale_hidden_states,
-    permuted_weights,
-    activation,
-    experts_min,
-    experts_max,
-):
-    return hidden_states.new_empty(hidden_states.shape, dtype=torch.bfloat16)
 
 
 @register_meta([torch.ops.hpu.rotary_pos_embedding_backward.default])

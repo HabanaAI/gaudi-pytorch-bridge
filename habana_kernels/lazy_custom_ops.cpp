@@ -150,7 +150,9 @@ at::Tensor mixture_of_experts_fp8_lazy(
     bool permuted_weights,
     std::string_view activation,
     int64_t experts_min,
-    int64_t experts_max) {
+    int64_t experts_max,
+    const int64_t chunk_size,
+    const int64_t total_experts) {
   PT_LAZY_TRACE;
 
   const std::string_view op_name{"mixture_of_experts.fp8"};
@@ -170,7 +172,9 @@ at::Tensor mixture_of_experts_fp8_lazy(
       permuted_weights,
       activation,
       experts_min,
-      experts_max};
+      experts_max,
+      chunk_size,
+      total_experts};
 
   if (habana_helpers::is_h2d_scales_enabled()) {
     inputs[6] = maybe_convert_tensor_to_h2d(d_scale_hidden_states, op_name);
@@ -199,7 +203,9 @@ at::Tensor mixture_of_experts_fp8_fused_weights_lazy(
     bool permuted_weights,
     std::string_view activation,
     int64_t experts_min,
-    int64_t experts_max) {
+    int64_t experts_max,
+    const int64_t chunk_size,
+    const int64_t total_experts) {
   PT_LAZY_TRACE;
 
   const std::string_view op_name{"mixture_of_experts.fp8_fused_weights"};
@@ -217,7 +223,9 @@ at::Tensor mixture_of_experts_fp8_fused_weights_lazy(
       permuted_weights,
       activation,
       experts_min,
-      experts_max};
+      experts_max,
+      chunk_size,
+      total_experts};
 
   if (habana_helpers::is_h2d_scales_enabled()) {
     inputs[5] = maybe_convert_tensor_to_h2d(d_scale_hidden_states, op_name);
@@ -246,7 +254,9 @@ at::Tensor mixture_of_experts_fp8_dynamic_lazy(
     bool permuted_weights,
     std::string_view activation,
     int64_t experts_min,
-    int64_t experts_max) {
+    int64_t experts_max,
+    const int64_t chunk_size,
+    const int64_t total_experts) {
   PT_LAZY_TRACE;
 
   const std::string_view op_name{"mixture_of_experts.fp8_dynamic"};
@@ -265,7 +275,9 @@ at::Tensor mixture_of_experts_fp8_dynamic_lazy(
       permuted_weights,
       activation,
       experts_min,
-      experts_max};
+      experts_max,
+      chunk_size,
+      total_experts};
 
   if (habana_helpers::is_h2d_scales_enabled()) {
     inputs[6] = maybe_convert_tensor_to_h2d(d_scale_hidden_states, op_name);
@@ -291,7 +303,9 @@ at::Tensor mixture_of_experts_fp8_fused_weights_dynamic_lazy(
     bool permuted_weights,
     std::string_view activation,
     int64_t experts_min,
-    int64_t experts_max) {
+    int64_t experts_max,
+    const int64_t chunk_size,
+    const int64_t total_experts) {
   PT_LAZY_TRACE;
 
   const std::string_view op_name{
@@ -309,7 +323,9 @@ at::Tensor mixture_of_experts_fp8_fused_weights_dynamic_lazy(
       permuted_weights,
       activation,
       experts_min,
-      experts_max};
+      experts_max,
+      chunk_size,
+      total_experts};
 
   if (habana_helpers::is_h2d_scales_enabled()) {
     inputs[6] = maybe_convert_tensor_to_h2d(d_scale_hidden_states, op_name);

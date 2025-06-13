@@ -1971,9 +1971,9 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::habana_expand_into_jagged_permute(Tensor permute, Tensor input_offsets, Tensor output_offsets, int output_size) -> Tensor");
   m.def(
-      "hpu::mixture_of_experts.fp8_measurement(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, bool measurement_mode) -> (Tensor, Tensor)");
+      "hpu::mixture_of_experts.fp8_measurement(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, bool measurement_mode, *, int chunk_size=0, int total_experts=0) -> (Tensor, Tensor)");
   m.def(
-      "hpu::mixture_of_experts.fp8_measurement_fused_weights(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, bool measurement_mode) -> (Tensor, Tensor)");
+      "hpu::mixture_of_experts.fp8_measurement_fused_weights(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, bool measurement_mode, *, int chunk_size=0, int total_experts=0) -> (Tensor, Tensor)");
   m.def(
       "hpu::habana_split_permute_cat(Tensor input, Tensor indices, int batch_size, int num_features, int dims) -> Tensor");
   m.def(

@@ -34,7 +34,9 @@ std::vector<Tensor> MixtureOfExpertsFwdFunction::forward(
     bool permuted_weights,
     std::string_view activation,
     int64_t experts_min,
-    int64_t experts_max) {
+    int64_t experts_max,
+    const int64_t chunk_size,
+    const int64_t total_experts) {
   at::AutoDispatchBelowADInplaceOrView g;
 
   size_t num_experts = w1.size();
@@ -61,7 +63,9 @@ std::vector<Tensor> MixtureOfExpertsFwdFunction::forward(
       permuted_weights,
       activation,
       experts_min,
-      experts_max);
+      experts_max,
+      chunk_size,
+      total_experts);
 
   for (size_t i = 1; i <= outputs_for_bwd; i++) {
     // First output is not needed for backward
@@ -148,7 +152,9 @@ at::Tensor MixtureOfExpertsRecompFwdFunction::forward(
     bool permuted_weights,
     std::string_view activation,
     int64_t experts_min,
-    int64_t experts_max) {
+    int64_t experts_max,
+    const int64_t chunk_size,
+    const int64_t total_experts) {
   at::AutoDispatchBelowADInplaceOrView g;
 
   size_t num_experts = w1.size();
@@ -170,6 +176,8 @@ at::Tensor MixtureOfExpertsRecompFwdFunction::forward(
   ctx->saved_data["activation"] = activation;
   ctx->saved_data["experts_min"] = experts_min;
   ctx->saved_data["experts_max"] = experts_max;
+  ctx->saved_data["chunk_size"] = chunk_size;
+  ctx->saved_data["total_experts"] = total_experts;
   ctx->save_for_backward(to_save);
 
   auto output = mixture_of_experts_recomp_fwd(
@@ -182,7 +190,9 @@ at::Tensor MixtureOfExpertsRecompFwdFunction::forward(
       permuted_weights,
       activation,
       experts_min,
-      experts_max);
+      experts_max,
+      chunk_size,
+      total_experts);
 
   return output;
 }
@@ -214,7 +224,9 @@ std::vector<at::Tensor> MixtureOfExpertsRecompFwdFunction::backward(
       ctx->saved_data["permuted_weights"].toBool(),
       ctx->saved_data["activation"].toStringRef(),
       ctx->saved_data["experts_min"].toInt(),
-      ctx->saved_data["experts_max"].toInt());
+      ctx->saved_data["experts_max"].toInt(),
+      ctx->saved_data["chunk_size"].toInt(),
+      ctx->saved_data["total_experts"].toInt());
 
   const size_t num_fwd_inputs =
       non_list_inputs + weights_per_expert * num_experts;
@@ -242,7 +254,9 @@ torch::autograd::variable_list MixtureOfExpertsFwdFusedWeightsFunction::forward(
     bool permuted_weights,
     std::string_view activation,
     int64_t experts_min,
-    int64_t experts_max) {
+    int64_t experts_max,
+    const int64_t chunk_size,
+    const int64_t total_experts) {
   at::AutoDispatchBelowADInplaceOrView g;
 
   size_t num_experts = w12.size();
@@ -268,7 +282,9 @@ torch::autograd::variable_list MixtureOfExpertsFwdFusedWeightsFunction::forward(
       permuted_weights,
       activation,
       experts_min,
-      experts_max);
+      experts_max,
+      chunk_size,
+      total_experts);
 
   for (size_t i = 1; i <= outputs_for_bwd_fused; i++) {
     to_save.push_back(outputs[i]);
@@ -347,7 +363,9 @@ at::Tensor MixtureOfExpertsRecompFwdFusedWeightsFunction::forward(
     bool permuted_weights,
     std::string_view activation,
     int64_t experts_min,
-    int64_t experts_max) {
+    int64_t experts_max,
+    const int64_t chunk_size,
+    const int64_t total_experts) {
   at::AutoDispatchBelowADInplaceOrView g;
 
   size_t num_experts = w12.size();
@@ -365,6 +383,8 @@ at::Tensor MixtureOfExpertsRecompFwdFusedWeightsFunction::forward(
   ctx->saved_data["activation"] = activation;
   ctx->saved_data["experts_min"] = experts_min;
   ctx->saved_data["experts_max"] = experts_max;
+  ctx->saved_data["chunk_size"] = chunk_size;
+  ctx->saved_data["total_experts"] = total_experts;
   ctx->save_for_backward(to_save);
   auto output = mixture_of_experts_recomp_fwd_fused_weights(
       hidden_states,
@@ -375,7 +395,9 @@ at::Tensor MixtureOfExpertsRecompFwdFusedWeightsFunction::forward(
       permuted_weights,
       activation,
       experts_min,
-      experts_max);
+      experts_max,
+      chunk_size,
+      total_experts);
 
   return output;
 }
@@ -403,7 +425,9 @@ std::vector<at::Tensor> MixtureOfExpertsRecompFwdFusedWeightsFunction::backward(
       ctx->saved_data["permuted_weights"].toBool(),
       ctx->saved_data["activation"].toStringRef(),
       ctx->saved_data["experts_min"].toInt(),
-      ctx->saved_data["experts_max"].toInt());
+      ctx->saved_data["experts_max"].toInt(),
+      ctx->saved_data["chunk_size"].toInt(),
+      ctx->saved_data["total_experts"].toInt());
 
   const size_t num_fwd_inputs =
       non_list_inputs + weights_per_expert_fused * num_experts;
@@ -430,10 +454,12 @@ at::Tensor mixture_of_experts_fwd_autograd(
     const std::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max,
-    const std::optional<bool> recomp) {
+    const std::optional<bool> recomp,
+    const int64_t chunk_size,
+    const int64_t total_experts) {
   PT_OP_INFO(
       "mixture_of_experts.fwd :",
-      DUMP_11ARGS(
+      DUMP_13ARGS(
           hidden_states,
           expert_routing_table,
           router_weights,
@@ -444,7 +470,9 @@ at::Tensor mixture_of_experts_fwd_autograd(
           activation,
           experts_min,
           experts_max,
-          recomp));
+          recomp,
+          chunk_size,
+          total_experts));
   return recomp.value_or(true) ? MixtureOfExpertsRecompFwdFunction::apply(
                                      hidden_states,
                                      expert_routing_table,
@@ -455,7 +483,9 @@ at::Tensor mixture_of_experts_fwd_autograd(
                                      permuted_weights,
                                      activation,
                                      experts_min,
-                                     experts_max)
+                                     experts_max,
+                                     chunk_size,
+                                     total_experts)
                                : MixtureOfExpertsFwdFunction::apply(
                                      hidden_states,
                                      expert_routing_table,
@@ -466,7 +496,9 @@ at::Tensor mixture_of_experts_fwd_autograd(
                                      permuted_weights,
                                      activation,
                                      experts_min,
-                                     experts_max)[0];
+                                     experts_max,
+                                     chunk_size,
+                                     total_experts)[0];
 }
 
 at::Tensor mixture_of_experts_fwd_fused_weights_autograd(
@@ -479,10 +511,12 @@ at::Tensor mixture_of_experts_fwd_fused_weights_autograd(
     const std::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max,
-    const std::optional<bool> recomp) {
+    const std::optional<bool> recomp,
+    const int64_t chunk_size,
+    const int64_t total_experts) {
   PT_OP_INFO(
       "mixture_of_experts_fwd_fused_weights :",
-      DUMP_10ARGS(
+      DUMP_12ARGS(
           hidden_states,
           expert_routing_table,
           router_weights,
@@ -492,7 +526,9 @@ at::Tensor mixture_of_experts_fwd_fused_weights_autograd(
           activation,
           experts_min,
           experts_max,
-          recomp));
+          recomp,
+          chunk_size,
+          total_experts));
 
   return recomp.value_or(true)
       ? MixtureOfExpertsRecompFwdFusedWeightsFunction::apply(
@@ -504,7 +540,9 @@ at::Tensor mixture_of_experts_fwd_fused_weights_autograd(
             permuted_weights,
             activation,
             experts_min,
-            experts_max)
+            experts_max,
+            chunk_size,
+            total_experts)
       : MixtureOfExpertsFwdFusedWeightsFunction::apply(
             hidden_states,
             expert_routing_table,
@@ -514,7 +552,9 @@ at::Tensor mixture_of_experts_fwd_fused_weights_autograd(
             permuted_weights,
             activation,
             experts_min,
-            experts_max)[0];
+            experts_max,
+            chunk_size,
+            total_experts)[0];
 }
 
 } // namespace habana

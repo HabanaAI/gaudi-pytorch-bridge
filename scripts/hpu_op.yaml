@@ -8710,7 +8710,7 @@ calculate_scale_for_cast:
   namespaces: [torch.hpu]
 
 mixture_of_experts:
-  custom_op_schema: "hpu::mixture_of_experts(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, bool? recomp=True) -> Tensor"
+  custom_op_schema: "hpu::mixture_of_experts(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, bool? recomp=True, int chunk_size=0, int total_experts=0) -> Tensor"
   op_validator: MixtureOfExpertsSharedMeta
   op_backend: MixtureOfExperts
   out_ids: [0]
@@ -8718,7 +8718,7 @@ mixture_of_experts:
   namespaces: [torch.hpu]
 
 mixture_of_experts.fused_weights:
-  custom_op_schema: "hpu::mixture_of_experts.fused_weights(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, bool? recomp=True) -> Tensor"
+  custom_op_schema: "hpu::mixture_of_experts.fused_weights(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, bool? recomp=True, int chunk_size=0, int total_experts=0) -> Tensor"
   op_validator: MixtureOfExpertsSharedMeta
   op_backend: MixtureOfExperts
   out_ids: [0]
@@ -8726,7 +8726,7 @@ mixture_of_experts.fused_weights:
   namespaces: [torch.hpu]
 
 mixture_of_experts_fp8_measurement:
-  custom_op_schema: "hpu::mixture_of_experts_fp8_measurement(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, bool measurement_mode) -> (Tensor, Tensor)"
+  custom_op_schema: "hpu::mixture_of_experts_fp8_measurement(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, bool measurement_mode, *, int chunk_size=0, int total_experts=0) -> (Tensor, Tensor)"
   op_validator: MixtureOfExpertsSharedMeta
   output_meta: MixtureOfExpertsMeasurementMeta
   op_backend: MixtureOfExperts
@@ -8735,7 +8735,7 @@ mixture_of_experts_fp8_measurement:
   skip_slrg: true
 
 mixture_of_experts_fp8_measurement.fused_weights:
-  custom_op_schema: "hpu::mixture_of_experts_fp8_measurement.fused_weights(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, bool measurement_mode) -> (Tensor, Tensor)"
+  custom_op_schema: "hpu::mixture_of_experts_fp8_measurement.fused_weights(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, bool measurement_mode, *, int chunk_size=0, int total_experts=0) -> (Tensor, Tensor)"
   op_validator: MixtureOfExpertsSharedMeta
   output_meta: MixtureOfExpertsMeasurementMeta
   op_backend: MixtureOfExperts
@@ -8744,7 +8744,7 @@ mixture_of_experts_fp8_measurement.fused_weights:
   skip_slrg: true
 
 mixture_of_experts.fp8:
-  custom_op_schema: "hpu::mixture_of_experts.fp8(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, Tensor d_scale_hidden_states, Tensor[] d_scale_intermediate_hidden_states, Tensor[] d_scale_w1, Tensor[] d_scale_w2, Tensor[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor"
+  custom_op_schema: "hpu::mixture_of_experts.fp8(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, Tensor d_scale_hidden_states, Tensor[] d_scale_intermediate_hidden_states, Tensor[] d_scale_w1, Tensor[] d_scale_w2, Tensor[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, int chunk_size=0, int total_experts=0) -> Tensor"
   output_meta: MixtureOfExpertsFp8Meta
   op_backend: MixtureOfExpertsFp8
   frontend_blocklist: [eager]
@@ -8756,7 +8756,7 @@ mixture_of_experts.fp8:
     override_fn: mixture_of_experts_fp8_lazy
 
 mixture_of_experts.fp8_fused_weights:
-  custom_op_schema: "hpu::mixture_of_experts.fp8_fused_weights(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, Tensor d_scale_hidden_states, Tensor[] d_scale_intermediate_hidden_states, Tensor[] d_scale_w12, Tensor[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor"
+  custom_op_schema: "hpu::mixture_of_experts.fp8_fused_weights(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, Tensor d_scale_hidden_states, Tensor[] d_scale_intermediate_hidden_states, Tensor[] d_scale_w12, Tensor[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, int chunk_size=0, int total_experts=0) -> Tensor"
   output_meta: MixtureOfExpertsFp8Meta
   op_backend: MixtureOfExpertsFp8
   frontend_blocklist: [eager]
@@ -8768,7 +8768,7 @@ mixture_of_experts.fp8_fused_weights:
     override_fn: mixture_of_experts_fp8_fused_weights_lazy
 
 mixture_of_experts.fp8_scalars:
-  custom_op_schema: "hpu::mixture_of_experts.fp8_scalars(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, float d_scale_hidden_states, float[] d_scale_intermediate_hidden_states, float[] d_scale_w1, float[] d_scale_w2, float[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor"
+  custom_op_schema: "hpu::mixture_of_experts.fp8_scalars(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, float d_scale_hidden_states, float[] d_scale_intermediate_hidden_states, float[] d_scale_w1, float[] d_scale_w2, float[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, int chunk_size=0, int total_experts=0) -> Tensor"
   output_meta: MixtureOfExpertsFp8Meta
   op_backend: MixtureOfExpertsFp8Scalars
   frontend_blocklist: [eager]
@@ -8777,7 +8777,7 @@ mixture_of_experts.fp8_scalars:
   namespaces: [torch.hpu]
 
 mixture_of_experts.fp8_fused_weights_scalars:
-  custom_op_schema: "hpu::mixture_of_experts.fp8_fused_weights_scalars(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, float d_scale_hidden_states, float[] d_scale_intermediate_hidden_states, float[] d_scale_w12, float[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor"
+  custom_op_schema: "hpu::mixture_of_experts.fp8_fused_weights_scalars(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, float d_scale_hidden_states, float[] d_scale_intermediate_hidden_states, float[] d_scale_w12, float[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, int chunk_size=0, int total_experts=0) -> Tensor"
   output_meta: MixtureOfExpertsFp8Meta
   op_backend: MixtureOfExpertsFp8Scalars
   frontend_blocklist: [eager]
@@ -8786,7 +8786,7 @@ mixture_of_experts.fp8_fused_weights_scalars:
   namespaces: [torch.hpu]
 
 mixture_of_experts.fp8_dynamic:
-  custom_op_schema: "hpu::mixture_of_experts.fp8_dynamic(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, Tensor d_scale_hidden_states, Tensor[] d_scale_w1, Tensor[] d_scale_w2, Tensor[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor"
+  custom_op_schema: "hpu::mixture_of_experts.fp8_dynamic(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, Tensor d_scale_hidden_states, Tensor[] d_scale_w1, Tensor[] d_scale_w2, Tensor[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, int chunk_size=0, int total_experts=0) -> Tensor"
   output_meta: MixtureOfExpertsFp8Meta
   op_backend: MixtureOfExpertsFp8Dynamic
   frontend_blocklist: [eager]
@@ -8798,7 +8798,7 @@ mixture_of_experts.fp8_dynamic:
     override_fn: mixture_of_experts_fp8_dynamic_lazy
 
 mixture_of_experts.fp8_fused_weights_dynamic:
-  custom_op_schema: "hpu::mixture_of_experts.fp8_fused_weights_dynamic(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, Tensor d_scale_hidden_states, Tensor[] d_scale_w12, Tensor[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor"
+  custom_op_schema: "hpu::mixture_of_experts.fp8_fused_weights_dynamic(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, Tensor d_scale_hidden_states, Tensor[] d_scale_w12, Tensor[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, int chunk_size=0, int total_experts=0) -> Tensor"
   output_meta: MixtureOfExpertsFp8Meta
   op_backend: MixtureOfExpertsFp8Dynamic
   frontend_blocklist: [eager]
@@ -8810,7 +8810,7 @@ mixture_of_experts.fp8_fused_weights_dynamic:
     override_fn: mixture_of_experts_fp8_fused_weights_dynamic_lazy
 
 mixture_of_experts.fp8_scalars_dynamic:
-  custom_op_schema: "hpu::mixture_of_experts.fp8_scalars_dynamic(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, float d_scale_hidden_states, float[] d_scale_w1, float[] d_scale_w2, float[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor"
+  custom_op_schema: "hpu::mixture_of_experts.fp8_scalars_dynamic(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, float d_scale_hidden_states, float[] d_scale_w1, float[] d_scale_w2, float[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, int chunk_size=0, int total_experts=0) -> Tensor"
   output_meta: MixtureOfExpertsFp8Meta
   op_backend: MixtureOfExpertsFp8ScalarsDynamic
   frontend_blocklist: [eager]
@@ -8819,7 +8819,7 @@ mixture_of_experts.fp8_scalars_dynamic:
   namespaces: [torch.hpu]
 
 mixture_of_experts.fp8_fused_weights_scalars_dynamic:
-  custom_op_schema: "hpu::mixture_of_experts.fp8_fused_weights_scalars_dynamic(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, float d_scale_hidden_states, float[] d_scale_w12, float[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor"
+  custom_op_schema: "hpu::mixture_of_experts.fp8_fused_weights_scalars_dynamic(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, float d_scale_hidden_states, float[] d_scale_w12, float[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, int chunk_size=0, int total_experts=0) -> Tensor"
   output_meta: MixtureOfExpertsFp8Meta
   op_backend: MixtureOfExpertsFp8ScalarsDynamic
   frontend_blocklist: [eager]
@@ -8828,7 +8828,7 @@ mixture_of_experts.fp8_fused_weights_scalars_dynamic:
   namespaces: [torch.hpu]
 
 mixture_of_experts.fp8_blockwise:
-  custom_op_schema: "hpu::mixture_of_experts.fp8_blockwise(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, Tensor[] d_scale_w1, Tensor[] d_scale_w2, Tensor[] d_scale_w3, int block_size, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor"
+  custom_op_schema: "hpu::mixture_of_experts.fp8_blockwise(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, Tensor[] d_scale_w1, Tensor[] d_scale_w2, Tensor[] d_scale_w3, int block_size, bool permuted_weights, str activation, int experts_min, int experts_max, *, int chunk_size=0, int total_experts=0) -> Tensor"
   output_meta: MixtureOfExpertsFp8Meta
   op_backend: MixtureOfExpertsFp8BlockwiseQuantization
   frontend_blocklist: [eager]
@@ -8837,7 +8837,7 @@ mixture_of_experts.fp8_blockwise:
   namespaces: [torch.hpu]
 
 mixture_of_experts.fp8_fused_weights_blockwise:
-  custom_op_schema: "hpu::mixture_of_experts.fp8_fused_weights_blockwise(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, Tensor[] d_scale_w12, Tensor[] d_scale_w3, int block_size, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor"
+  custom_op_schema: "hpu::mixture_of_experts.fp8_fused_weights_blockwise(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, Tensor[] d_scale_w12, Tensor[] d_scale_w3, int block_size, bool permuted_weights, str activation, int experts_min, int experts_max, *, int chunk_size=0, int total_experts=0) -> Tensor"
   output_meta: MixtureOfExpertsFp8Meta
   op_backend: MixtureOfExpertsFp8BlockwiseQuantization
   frontend_blocklist: [eager]
@@ -8846,7 +8846,7 @@ mixture_of_experts.fp8_fused_weights_blockwise:
   namespaces: [torch.hpu]
 
 mixture_of_experts_fwd:
-  custom_op_schema: "hpu::mixture_of_experts_fwd(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor[]"
+  custom_op_schema: "hpu::mixture_of_experts_fwd(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, int chunk_size=0, int total_experts=0) -> Tensor[]"
   custom_fill_params: FillMixtureOfExpertsParams
   guid: moe_v2_fwd
   output_meta: MixtureOfExpertsFwdMeta
@@ -8858,7 +8858,7 @@ mixture_of_experts_fwd:
   autograd: true
 
 mixture_of_experts_recomp_fwd:
-  custom_op_schema: "hpu::mixture_of_experts_recomp_fwd(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor"
+  custom_op_schema: "hpu::mixture_of_experts_recomp_fwd(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, int chunk_size=0, int total_experts=0) -> Tensor"
   custom_fill_params: FillMixtureOfExpertsParams
   guid: moe_fwd
   output_meta: MixtureOfExpertsFwdRecompMeta
@@ -8870,7 +8870,7 @@ mixture_of_experts_recomp_fwd:
   autograd: true
 
 mixture_of_experts_fwd.fused_weights:
-  custom_op_schema: "hpu::mixture_of_experts_fwd.fused_weights(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor[]"
+  custom_op_schema: "hpu::mixture_of_experts_fwd.fused_weights(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, int chunk_size=0, int total_experts=0) -> Tensor[]"
   custom_fill_params: FillMixtureOfExpertsParams
   guid: moe_v2_fwd
   output_meta: MixtureOfExpertsFwdMeta
@@ -8882,7 +8882,7 @@ mixture_of_experts_fwd.fused_weights:
   autograd: true
 
 mixture_of_experts_recomp_fwd.fused_weights:
-  custom_op_schema: "hpu::mixture_of_experts_recomp_fwd.fused_weights(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor"
+  custom_op_schema: "hpu::mixture_of_experts_recomp_fwd.fused_weights(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, int chunk_size=0, int total_experts=0) -> Tensor"
   custom_fill_params: FillMixtureOfExpertsParams
   guid: moe_fwd
   output_meta: MixtureOfExpertsFwdRecompMeta
@@ -8904,7 +8904,7 @@ mixture_of_experts_bwd:
   skip_slrg: true
 
 mixture_of_experts_recomp_bwd:
-  custom_op_schema: "hpu::mixture_of_experts_recomp_bwd(Tensor grad_tokens_in, Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor[]"
+  custom_op_schema: "hpu::mixture_of_experts_recomp_bwd(Tensor grad_tokens_in, Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, int chunk_size=0, int total_experts=0) -> Tensor[]"
   output_meta: MixtureOfExpertsBwdMeta
   op_backend: MixtureOfExpertsRecompBwd
   out_ids: [0]
@@ -8924,7 +8924,7 @@ mixture_of_experts_bwd.fused_weights:
   skip_slrg: true
 
 mixture_of_experts_recomp_bwd.fused_weights:
-  custom_op_schema: "hpu::mixture_of_experts_recomp_bwd.fused_weights(Tensor grad_tokens_in, Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor[]"
+  custom_op_schema: "hpu::mixture_of_experts_recomp_bwd.fused_weights(Tensor grad_tokens_in, Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, int chunk_size=0, int total_experts=0) -> Tensor[]"
   output_meta: MixtureOfExpertsBwdMeta
   op_backend: MixtureOfExpertsRecompBwd
   out_ids: [0]
