@@ -210,7 +210,7 @@ Checks: '-*,
  -readability-use-anyofallof,
  -readability-use-std-min-max,
 
- modernize-concat-nested-namespaces,
+ -modernize-concat-nested-namespaces,
  '
 
 CheckOptions:
