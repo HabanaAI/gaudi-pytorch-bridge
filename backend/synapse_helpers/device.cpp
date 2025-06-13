@@ -1212,7 +1212,7 @@ inline bool device::copy_data_to_device_(
 
   void* mapped_cpu_data = cpu_data;
   synapse_helpers::stream& stream_handle = get_stream(hpu_stream, DMA_H2D);
-  uint8_t* dst_ptr;
+  uint8_t* dst_ptr = nullptr;
 
   if (!is_pinned) {
     if (host_cpu_data) {
@@ -1505,7 +1505,7 @@ synapse_error device::copy_data_to_host(
   sem_.enqueue_wait_event(event_addr, stream_handle);
 
   void* mapped_destination = destination;
-  uint8_t* dst_ptr;
+  uint8_t* dst_ptr = nullptr;
   if (!is_pinned) {
     status = host_memory_.malloc((void**)&dst_ptr, total_bytes);
     if (status != synStatus::synSuccess) {
