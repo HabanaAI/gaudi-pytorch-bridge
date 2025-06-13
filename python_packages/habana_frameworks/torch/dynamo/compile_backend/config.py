@@ -79,6 +79,8 @@ use_boxed_input = _get_bool_from_env("PT_HPU_USE_BOXED_INPUT", "1")
 use_generic_reinplacer = _get_bool_from_env("PT_HPU_USE_GENERIC_REINPLACER", "1")
 enable_synapse_input_reuse = _get_bool_from_env("PT_HPU_ENABLE_SYNAPSE_INPUT_REUSE", "1")
 enable_flex_attention = _get_bool_from_env("PT_HPU_ENABLE_FLEX_ATTENTION", "1")
+# when set to 1, keep only the static parts in cluster and fallback dynamic parts to eager
+fallback_dynamic_to_eager = _get_bool_from_env("PT_HPU_FALLBACK_DYNAMIC_TO_EAGER", "0")
 
 # adds patch, save_config, etc
 install_config_module(sys.modules[__name__])

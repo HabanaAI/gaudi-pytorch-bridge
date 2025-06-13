@@ -525,6 +525,22 @@ def get_dynamic_config_value():
     return is_dynamic
 
 
+def is_fallback_dynamic_to_eager():
+    from torch._dynamo import config
+
+    if not config.assume_static_by_default:
+        # User specifies the dynamic=True for running torch.compile
+        # For this case, most operators will be dynamic operators.
+        # We should not use fallback dynamic to eager for such cases.
+        return False
+
+    if hpu_backend_config.force_static_compile:
+        # If force static compile, we should not fallback dynamic to eager
+        return False
+
+    return hpu_backend_config.fallback_dynamic_to_eager
+
+
 def is_higher_order_node(node: torch.fx.Node) -> bool:
     """
     nodes that need to be executed eagerly, while subgraph can be compiled
@@ -1376,6 +1392,7 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
     """
     assert ctx.graph_module is not None
     h2d_scales_enabled = htexp._get_scale_attribute_hash_id() > 0 and bc.get_pt_hpu_enable_h2d_scales()
+    fallback_dynamic_to_eager = is_fallback_dynamic_to_eager()
 
     for node in ctx.graph_module.graph.nodes:
         placement = None
@@ -1405,13 +1422,20 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
 
             # Internal HPU copies should be placed in the clusters.
             if all(n.meta["output_device"].type == "hpu" for n in args_list_with_node):
-                placement = "hpu_cluster"
+                if fallback_dynamic_to_eager and dynamic_call_function:
+                    placement = "eager"
+                    logger.debug(f"Node {node}: eager placement as dynamic node requires fallback to eager")
+                else:
+                    placement = "hpu_cluster"
             else:
                 placement = "eager"
                 logger.debug(f"Node {node}: eager placement as node is a non D2D copy")
         elif node.op == "call_function" and node._pretty_print_target(node.target) in host_call_functions:
             placement = "eager"
             logger.debug(f"Node {node}: eager placement as node is a host call function")
+        elif node.op == "call_function" and fallback_dynamic_to_eager and dynamic_call_function:
+            placement = "eager"
+            logger.debug(f"Node {node}: eager placement as dynamic node requires fallback to eager")
         elif node.op == "call_function" and is_eager_fallback_required(node, is_dynamic=dynamic_call_function):
             placement = "eager"
             logger.debug(f"Node {node}: eager placement as node require fallback to eager")
