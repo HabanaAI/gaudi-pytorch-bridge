@@ -118,8 +118,8 @@ struct DetectWeightTensorsPass {
     return false;
   }
 
-  std::set<size_t> m_weight_input_indices;
-  std::set<torch::jit::Value*> m_weight_inputs;
+  std::set<size_t> m_weight_input_indices{};
+  std::set<torch::jit::Value*> m_weight_inputs{};
   std::shared_ptr<torch::jit::Graph> m_graph;
 }; // namespace pass
 

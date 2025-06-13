@@ -206,8 +206,8 @@ class tensor final {
     std::string debug_string() const;
 
    private:
-    internal_storage dims_;
-    dimension_count_t rank_;
+    internal_storage dims_{};
+    dimension_count_t rank_{};
   };
 
   class dynamic_shape_t {

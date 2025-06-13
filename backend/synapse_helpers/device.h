@@ -121,11 +121,11 @@ class host_event {
 class device final : public device_interface {
  public:
   struct transfer_desc {
-    device_ptr src;
-    device_ptr dst;
-    device_ptr src_event_addr;
-    device_ptr dst_event_addr;
-    size_t bytes_to_transfer;
+    device_ptr src = 0;
+    device_ptr dst = 0;
+    device_ptr src_event_addr = 0;
+    device_ptr dst_event_addr = 0;
+    size_t bytes_to_transfer = 0;
   };
 
   using transfer_manifest = std::vector<transfer_desc>;

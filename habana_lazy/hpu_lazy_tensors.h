@@ -98,10 +98,10 @@ struct StrideParams {
   at::Tensor parent;
   std::vector<int64_t> sizes;
   std::vector<int64_t> strides;
-  int64_t offset;
-  int64_t parent_id;
+  int64_t offset=0;
+  int64_t parent_id=0;
   StridedOPType optype;
-  OpParams params;
+  OpParams params{};
   ViewStatus viewStatus = kViewRead;
   size_t write_cnt = 0;
 

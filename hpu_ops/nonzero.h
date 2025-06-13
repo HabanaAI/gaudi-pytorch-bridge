@@ -23,7 +23,7 @@ typedef struct NonZeroParams {
   c10::ScalarType dtype;
   std::vector<int64_t> sizes;
   int64_t numel;
-  bool force_long;
+  bool force_long = false;
 } NonZeroParams_t;
 std::vector<int64_t> compute_nonzero_output_shape(
     NonZeroParams_t self_params,
