@@ -3744,16 +3744,18 @@ huber_loss.out:
   op_validator: check-node-with-shared-layer
 
 huber_loss_backward:
+  custom_fill_params: FillHuberLossBwdParams
   output_meta: HuberLossBackwardMeta
-  op_backend: HuberLossBwdOperator
+  guid: huber_loss_bwd
   out_ids: [0]
-  op_validator: HuberLossBackwardSharedMeta
+  op_validator: check-node-with-shared-layer
   skip_slrg: true
 
 huber_loss_backward.out:
+  custom_fill_params: FillHuberLossBwdParams
   output_meta: HuberLossBackwardMeta
-  op_backend: HuberLossBwdOperator
-  op_validator: HuberLossBackwardSharedMeta
+  guid: huber_loss_bwd
+  op_validator: check-node-with-shared-layer
   skip_slrg: true
 
 heaviside:
