@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@
 #include "Stream.h"
 #include "backend/habana_device/HPUDevice.h"
 #include "backend/habana_device/HPUEvent.h"
+#include "habana_helpers/logging.h"
 
 // namespace hpu {
 
@@ -77,15 +78,23 @@ static PyObject* THP_HPU_Stream_pynew(
 
   const auto current_device = habana::HPUDeviceContext::get_device().id();
 
-  auto stream = is_default_stream ? c10::hpu::getDefaultHPUStream(device_index)
+  HABANA_ASSERT(
+      device_index <= std::numeric_limits<at::DeviceIndex>::max(),
+      "Too large device index");
+
+  auto stream = is_default_stream
+      ? c10::hpu::getDefaultHPUStream(static_cast<signed char>(device_index))
       : (stream_id || device_index)
       ? c10::hpu::HPUStream::unpack3(
-            stream_id, device_index, static_cast<c10::DeviceType>(device_type))
+            stream_id,
+            static_cast<signed char>(device_index),
+            static_cast<c10::DeviceType>(device_type))
       : stream_ptr
       ? c10::hpu::getStreamByStreamPtr(
             reinterpret_cast<synapse_helpers::hpuStream_t>(stream_ptr),
-            current_device)
-      : c10::hpu::getStreamFromPool((priority < 0), device_index);
+            static_cast<signed char>(current_device))
+      : c10::hpu::getStreamFromPool(
+            (priority < 0), static_cast<signed char>(device_index));
 
   auto* self = (THP_HPU_Stream*)ptr.get();
   self->stream_id = static_cast<int64_t>(stream.id());
@@ -115,7 +124,7 @@ static PyObject* THP_HPU_Stream_get_hpu_stream(
     [[maybe_unused]] void* unused) {
   HANDLE_TH_ERRORS
 
-  return THPUtils_packInt64(self->hpu_stream.stream());
+  return THPUtils_packInt64(static_cast<int64_t>(self->hpu_stream.stream()));
   // return PyLong_FromVoidPtr(self->hpu_stream.stream());
   END_HANDLE_TH_ERRORS
 }

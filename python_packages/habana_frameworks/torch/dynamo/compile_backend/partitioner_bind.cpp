@@ -359,7 +359,7 @@ class Partition {
     _nodes.erase(node);
   }
 
-  int size() const {
+  size_t size() const {
     return _nodes.size();
   }
 

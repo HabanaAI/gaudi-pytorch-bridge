@@ -28,7 +28,7 @@ struct hlml_utilization_t {
   unsigned int memory; // Memory utilization percentage.
 };
 
-int ResolveDeviceIndex(int device_index) {
+synDeviceId ResolveDeviceIndex(synDeviceId device_index) {
   synDeviceInfoV2 device_info;
   auto status = ::synDeviceGetInfoV2(device_index, &device_info);
   if (status == synFail) {
@@ -78,8 +78,8 @@ void HlmlPowerProvider::init() {
   if (ret != 0) {
     PT_SYNHELPER_FATAL("hlml_init failed with ret:", ret);
   }
-  int device_id = habana::HPUDeviceContext::get_device().id();
-  device_id = ResolveDeviceIndex(device_id);
+  auto device_id =
+      ResolveDeviceIndex(habana::HPUDeviceContext::get_device().id());
   device_ = getDevice(device_id);
 }
 
@@ -171,7 +171,9 @@ void HPUUtilizationPoller::stop() {
   }
   {
     std::lock_guard<std::mutex> lock(mutex_);
-    usage_ = (sampleCount_ == 0) ? usage_ : (totalUtil_ / sampleCount_);
+    usage_ = (sampleCount_ == 0)
+        ? usage_
+        : (totalUtil_ / static_cast<double>(sampleCount_));
   }
 }
 
@@ -194,7 +196,8 @@ void HPUUtilizationPoller::resume() {
 
 double HPUUtilizationPoller::getUtilization() const {
   std::lock_guard<std::mutex> lock(mutex_);
-  return (sampleCount_ == 0) ? usage_ : (totalUtil_ / sampleCount_);
+  return (sampleCount_ == 0) ? usage_
+                             : (totalUtil_ / static_cast<double>(sampleCount_));
 }
 
 void HPUUtilizationPoller::pollLoop() {

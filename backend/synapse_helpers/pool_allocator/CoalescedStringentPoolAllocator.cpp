@@ -21,7 +21,8 @@
 #include "backend/synapse_helpers/lightweight_memory_usage_logger.h"
 #include "backend/synapse_helpers/util.h"
 
-#define DEFRAGMENT_TH(arg) std::ceil(0.9 * (arg))
+#define DEFRAGMENT_TH(arg) \
+  static_cast<decltype(arg)>(std::ceil(0.9 * static_cast<double>(arg)))
 
 namespace synapse_helpers::pool_allocator {
 
@@ -105,7 +106,7 @@ CoalescedStringentPooling::CoalescedStringentPooling(device& device)
   small_allocs_ = nullptr;
   defragmenter_state_started_ = false;
   alignment = device_.get_device_memory_alignment();
-  kMinAllocationBits = std::log2(alignment) + 1;
+  kMinAllocationBits = static_cast<size_t>(std::log2(alignment)) + 1;
   kMinAllocationSize = 1 << kMinAllocationBits;
   bin_utils = new BinUtils(kMinAllocationSize, kMinAllocationBits);
   header_bytes = alignment;
@@ -409,11 +410,11 @@ void* CoalescedStringentPooling::FindChunkPtr(
         // If we can break the size of the chunk into two reasonably large
         // pieces, do so.  In any case don't waste more than
         // kMaxInternalFragmentation bytes on padding this alloc.
-        const int64_t kMaxInternalFragmentation = 128 << 20; // 128mb
+        constexpr uint64_t kMaxInternalFragmentation = 128 << 20; // 128mb
         if ((chunk->size > num_bytes) &&
             (chunk->size >= num_bytes * 2 ||
-             static_cast<int64_t>(chunk->size) - num_bytes >=
-                 kMaxInternalFragmentation ||
+             (chunk->size >= num_bytes &&
+              chunk->size - num_bytes >= kMaxInternalFragmentation) ||
              (num_bytes < DEFRAGMENT_TH(chunk->size)) ||
              defragmenter_state_started_)) {
           try_splitting_chunks(chunk, num_bytes);
@@ -464,7 +465,8 @@ void CoalescedStringentPooling::print_pool_stats() const {
       free_chunks++;
       free_chunks_size += chunk->size;
       cntgs_free_chunks_size = getContigousChunkSize(chunk);
-      max_cntgs_free_chunks_size = std::max(max_cntgs_free_chunks_size, cntgs_free_chunks_size);
+      max_cntgs_free_chunks_size =
+          std::max(max_cntgs_free_chunks_size, cntgs_free_chunks_size);
 
       if (chunk->prev && !chunk->prev->used && chunk->prev->size) {
         PT_DEVMEM_DEBUG(
@@ -501,7 +503,9 @@ void CoalescedStringentPooling::print_pool_stats() const {
   PT_DEVMEM_DEBUG("CS_POOL::{}", pool_status.str());
   PT_DEVMEM_DEBUG(
       "CS_POOL::Fragmentation = ",
-      1 - ((double)max_cntgs_free_chunks_size / free_chunks_size));
+      1. -
+          (static_cast<double>(max_cntgs_free_chunks_size) /
+           static_cast<double>(free_chunks_size)));
   free_chunks = 0;
   free_chunks_size = 0;
   pool_status.str("");
@@ -523,7 +527,8 @@ size_t CoalescedStringentPooling::get_max_cntgs_chunk_size() const {
 
     if (!chunk->used && (chunk->size != 0)) {
       cntgs_free_chunks_size = getContigousChunkSize(chunk);
-      max_cntgs_free_chunks_size = std::max(max_cntgs_free_chunks_size, cntgs_free_chunks_size);
+      max_cntgs_free_chunks_size =
+          std::max(max_cntgs_free_chunks_size, cntgs_free_chunks_size);
     }
   }
 
@@ -561,7 +566,7 @@ Chunk* CoalescedStringentPooling::reuse_chunks(
     uint64_t size,
     hpuStream_t stream,
     bool use_stream) const {
-  int bin_index = bin_utils->BinIndexForSize(size);
+  const auto bin_index = bin_utils->BinIndexForSize(size);
   auto* free_chunk = (Chunk*)FindChunkPtr(bin_index, size, stream, use_stream);
   if (free_chunk == nullptr) {
     PT_DEVMEM_DEBUG(
@@ -1111,7 +1116,7 @@ void CoalescedStringentPooling::SmallAllocs::ValidateEmpty() const {
 }
 
 size_t CoalescedStringentPooling::SmallAllocs::UnitsOccupied() const {
-  return std::count(map_.begin(), map_.end(), true);
+  return static_cast<size_t>(std::count(map_.begin(), map_.end(), true));
 }
 
 void CoalescedStringentPooling::SmallAllocs::Reset() {
@@ -1148,7 +1153,8 @@ bool CoalescedStringentPooling::SmallAllocs::IsAllocated(
 }
 
 size_t CoalescedStringentPooling::SmallAllocs::Offset(const void* ptr) const {
-  return static_cast<const int8_t*>(ptr) - chunk_ptr_.get();
+  return static_cast<size_t>(
+      static_cast<const int8_t*>(ptr) - chunk_ptr_.get());
 }
 
 size_t CoalescedStringentPooling::SmallAllocs::ToUnits(
@@ -1184,7 +1190,7 @@ void* CoalescedStringentPooling::SmallAllocs::Allocate(size_t size) {
 
   if (start != map_.end()) {
     std::fill_n(start, size_in_units, true);
-    const auto offset = std::distance(map_.begin(), start);
+    const auto offset = static_cast<size_t>(std::distance(map_.begin(), start));
 
     size_[offset] = size;
     return chunk_ptr_.get() + ToBytes(offset);
@@ -1272,10 +1278,10 @@ void CoalescedStringentPooling::get_stats(MemoryStats* mem_stats) const {
     for (auto& m : chunks) {
       chunks_ordered.insert(m);
     }
-    int occupied_chunks = 0;
-    int total_chunks = 0;
-    int total_extra_spaced_chunks = 0;
-    int free_chunks = 0;
+    uint64_t occupied_chunks = 0;
+    uint64_t total_chunks = 0;
+    uint64_t total_extra_spaced_chunks = 0;
+    uint64_t free_chunks = 0;
     uint64_t occupied_size = header_bytes;
     uint64_t total_size = header_bytes;
     uint64_t total_exta_size = 0;
@@ -1307,7 +1313,8 @@ void CoalescedStringentPooling::get_stats(MemoryStats* mem_stats) const {
         free_chunks_size += chunk->size;
         available_chunks_size += chunk->size;
         cntgs_free_chunks_size = getContigousChunkSize(chunk);
-        max_cntgs_free_chunks_size = std::max(max_cntgs_free_chunks_size, cntgs_free_chunks_size);
+        max_cntgs_free_chunks_size =
+            std::max(max_cntgs_free_chunks_size, cntgs_free_chunks_size);
       } else {
         occupied_chunks++;
         occupied_size += chunk->size;
@@ -1321,8 +1328,11 @@ void CoalescedStringentPooling::get_stats(MemoryStats* mem_stats) const {
         pool_status << "\n";
       }
     }
-    stats.fragmentation_percent = 100 *
-        (1 - ((double)max_cntgs_free_chunks_size / available_chunks_size));
+    stats.fragmentation_percent = static_cast<uint64_t>(
+        100. *
+        (1. -
+         (static_cast<double>(max_cntgs_free_chunks_size) /
+          static_cast<double>(available_chunks_size))));
     stats.total_chunks = total_chunks;
     stats.total_size = total_size;
     stats.occupied_chunks = occupied_chunks;

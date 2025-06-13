@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,18 +26,14 @@
 #include <c10/util/C++17.h>
 #include <torch/csrc/Export.h>
 #include <torch/csrc/jit/frontend/strtod.h>
-
 #include <algorithm>
 #include <clocale>
 #include <cstdlib>
 #include <memory>
-#include <optional>
 #include <sstream>
 #include <string>
 #include <vector>
-
 #include "habana_helpers/logging.h"
-#include "habana_helpers/pt_version_check.h"
 #include "jit_fork/frontend/error_report.h"
 #include "jit_fork/frontend/parser_constants.h"
 #include "jit_fork/frontend/source_range.h"
@@ -307,8 +303,9 @@ struct TORCH_API SharedParserData {
         const auto end_it = cur->child_chars.end();
         const auto ch_it = std::find(begin_it, end_it, *pos);
 
-        cur = (ch_it == end_it) ? nullptr
-                                : cur->child_tries[ch_it - begin_it].get();
+        cur = (ch_it == end_it)
+            ? nullptr
+            : cur->child_tries[static_cast<size_t>(ch_it - begin_it)].get();
 
         if (cur && cur->kind != 0) {
           matched = true;
@@ -354,7 +351,7 @@ struct TORCH_API SharedParserData {
     // NOLINTNEXTLINE(cppcoreguidelines-init-variables)
     char* endptr;
     torch::jit::strtod_c(startptr, &endptr);
-    *len = endptr - startptr;
+    *len = static_cast<size_t>(endptr - startptr);
     // check if the number is complex valued
     // access is safe because string is assumed to be null terminated
     if (endptr != nullptr && *endptr == 'j') {
@@ -363,10 +360,11 @@ struct TORCH_API SharedParserData {
     return *len > 0;
   }
 
-  bool isCharCount(char c, std::string_view str, size_t start, int len) {
+  bool isCharCount(char c, std::string_view str, size_t start, size_t len) {
     // count checks from [start, start + len)
     return start + len <= str.size() &&
-        std::count(str.begin() + start, str.begin() + start + len, c) == len;
+        static_cast<size_t>(std::count(
+            str.begin() + start, str.begin() + start + len, c)) == len;
   }
 
   // python concatenates all adjacent strings "a" "b" == "ab"
@@ -377,7 +375,7 @@ struct TORCH_API SharedParserData {
     char quote = str[start];
     if (quote != '\"' && quote != '\'')
       return false;
-    int quote_len = isCharCount(quote, str, start, 3) ? 3 : 1;
+    size_t quote_len = isCharCount(quote, str, start, 3) ? 3 : 1;
 
     // end is now set past the opening quotation marks
     size_t end = start + quote_len;
@@ -451,7 +449,7 @@ struct Lexer {
         next_tokens(),
         shared(sharedParserData()) {
     auto first_indent = lexRaw(true);
-    indent_stack.push_back(first_indent.range.size());
+    indent_stack.push_back(static_cast<int64_t>(first_indent.range.size()));
     lex();
   }
   // Return the current token, and then move to the next one
@@ -526,9 +524,9 @@ struct Lexer {
         break;
       case TK_WHITESPACE:
       case TK_WHITESPACE_EOF: {
-        const auto depth = static_cast<int64_t>(
-            r.kind == TK_WHITESPACE_EOF ? indent_stack.front()
-                                        : r.range.size());
+        const auto depth = r.kind == TK_WHITESPACE_EOF
+            ? indent_stack.front()
+            : static_cast<int64_t>(r.range.size());
         // note: TK_WHITESPACE_EOF is whitespace right before the EOF token
         // just like we allow the code to be indented to a particular initial
         // indent level, we allow the final indent to be anything and set
@@ -593,7 +591,7 @@ struct Lexer {
   std::unique_ptr<StringCordView::Iterator> current;
   size_t pos{0};
   size_t nesting{0}; // depth of ( [ { nesting...
-  std::vector<int> indent_stack; // stack of indentation level of blocks
+  std::vector<int64_t> indent_stack; // stack of indentation level of blocks
   // Invariant: this should always contain at least a single element
   std::vector<Token> next_tokens;
   SharedParserData& shared;

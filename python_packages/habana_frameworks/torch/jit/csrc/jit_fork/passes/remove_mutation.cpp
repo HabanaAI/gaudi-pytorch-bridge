@@ -206,24 +206,25 @@ bool MutationRemover::RemoveListMutation(Block* block) {
         list_construct->addInput(node->inputs().at(1));
         break;
       case aten::insert: {
-        int pos = toIValue(node->inputs().at(1))->toInt();
-        int size = list_construct->inputs().size();
+        auto pos = toIValue(node->inputs().at(1))->toInt();
+        const auto size = static_cast<int64_t>(list_construct->inputs().size());
         // insert to neg position equals insert to std::max(pos+size, 0)
         if (pos < 0) {
-          pos = std::max(pos + size, 0);
+          pos = std::max(pos + size, static_cast<int64_t>(0));
         }
         // insert beyond current list length is the same as append
         pos = std::min(pos, size);
-        list_construct->insertInput(pos, node->inputs().at(2));
+        list_construct->insertInput(
+            static_cast<size_t>(pos), node->inputs().at(2));
         break;
       }
       case aten::_set_item: {
-        int pos = toIValue(node->inputs().at(1))->toInt();
-        int size = list_construct->inputs().size();
+        auto pos = toIValue(node->inputs().at(1))->toInt();
+        const auto size = static_cast<int64_t>(list_construct->inputs().size());
         if (pos < 0) {
-          pos = std::max(pos + size, 0);
+          pos = std::max(pos + size, static_cast<int64_t>(0));
         }
-        list_construct->replaceInput(pos, node->input(2));
+        list_construct->replaceInput(static_cast<size_t>(pos), node->input(2));
         break;
       }
       default:

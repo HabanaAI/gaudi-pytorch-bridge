@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -104,7 +104,7 @@ C10_EXPORT int stringToKind(const std::string& str) {
 
 C10_EXPORT std::string kindToString(int kind) {
   if (kind < 256)
-    return std::string(1, kind);
+    return std::string(1, static_cast<char>(kind));
   switch (kind) {
 #define DEFINE_CASE(tok, str, _) \
   case tok:                      \
