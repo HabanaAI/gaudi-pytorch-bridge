@@ -37,6 +37,20 @@ namespace nl = nlohmannV340;
 
 namespace pyjson
 {
+    template <typename T>
+    std::optional<T> try_cast_exact(const py::handle& obj) {
+        try {
+            auto val = obj.cast<T>();
+            if (py::int_(val).equal(obj)) {
+                return val;
+            }
+        } catch (const py::cast_error&) {
+            return std::nullopt;
+        }
+
+        return std::nullopt;
+    }
+
     inline py::object from_json(const nl::json& j)
     {
         if (j.is_null())
@@ -95,29 +109,15 @@ namespace pyjson
         }
         if (py::isinstance<py::int_>(obj))
         {
-            try
-            {
-                auto s = obj.cast<nl::json::number_integer_t>();
-                if (py::int_(s).equal(obj))
-                {
-                    return s;
-                }
+            if (auto s = try_cast_exact<nl::json::number_integer_t>(obj)) {
+                return *s;
+            } else if (auto s = try_cast_exact<nl::json::number_unsigned_t>(obj)) {
+                return *s;
+            } else {
+                throw std::runtime_error(
+                    "to_json received an integer out of range for both nl::json::number_integer_t and"
+                    "nl::json::number_unsigned_t: " + py::repr(obj).cast<std::string>());
             }
-            catch (...)
-            {
-            }
-            try
-            {
-                auto u = obj.cast<nl::json::number_unsigned_t>();
-                if (py::int_(u).equal(obj))
-                {
-                    return u;
-                }
-            }
-            catch (...)
-            {
-            }
-            throw std::runtime_error("to_json received an integer out of range for both nl::json::number_integer_t and nl::json::number_unsigned_t type: " + py::repr(obj).cast<std::string>());
         }
         if (py::isinstance<py::float_>(obj))
         {

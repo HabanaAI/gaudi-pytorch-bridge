@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 #include <iostream>
 #include <mutex>
 #include <stdexcept>
+#include <charconv>
 
 #include "backend/synapse_helpers/env_flags.h"
 #include "backend/synapse_helpers/graph.h"
@@ -124,17 +125,12 @@ void DumpEagerOrCompileGraph(
   std::string folder = synapse_helpers::check_and_prepare_graph_dump_dir();
   ss << folder;
 
-  try {
-    // Multi-node scenario
-    auto rank_str = std::getenv("RANK"); // 0-based
-    if (rank_str != nullptr) {
-      int rank = std::stoi(rank_str);
-      ss << "rank" << rank << "/";
+  if (auto rank_str = std::getenv("RANK")) {
+    int rank = 0;
+    (void)std::from_chars(rank_str, rank_str + std::strlen(rank_str), rank);
 
-      std::filesystem::create_directory(folder + "/rank" + rank_str);
-    }
-  } catch ([[maybe_unused]] const std::invalid_argument& e) {
-    // Means can't parse `RANK` string to int, just ignore
+    ss << "rank" << rank << "/";
+    std::filesystem::create_directory(folder + "/rank" + rank_str);
   }
 
   ss << graph_name << ".pbtxt";
