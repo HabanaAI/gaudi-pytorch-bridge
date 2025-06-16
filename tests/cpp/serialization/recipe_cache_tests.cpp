@@ -17,7 +17,6 @@
 #include "pytorch_helpers/habana_helpers/habana_serialization/include/habana_serialization/recipe_cache.h"
 
 using namespace serialization;
-namespace fs = std::filesystem;
 
 static const std::string kTestCacheDir = "/tmp/recipe_cache_test/";
 

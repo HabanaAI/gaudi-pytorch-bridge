@@ -37,10 +37,8 @@
 #include "absl/memory/memory.h"
 #include "absl/types/optional.h"
 #include "backend/habana_device/tensor_builder.h"
-#include "backend/helpers/tensor_utils.h"
 #include "backend/jitgraph_utils.h"
 #include "habana_helpers/misc_utils.h"
-#include "habana_kernels/kernel_utils.h"
 
 using namespace torch::jit;
 using namespace jitgraph_utils;

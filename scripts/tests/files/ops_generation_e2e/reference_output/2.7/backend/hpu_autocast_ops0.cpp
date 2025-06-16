@@ -19,8 +19,7 @@
 #include <torch/library.h>
 #include "hpu_ops/autocast_helpers.h"
 
-namespace at {
-namespace autocast {
+namespace at::autocast {
 namespace {
 
 
@@ -34,6 +33,5 @@ TORCH_LIBRARY_IMPL(aten, AutocastHPU, m) {
 }
 
 } // namespace
-} // namespace autocast
-} // namespace at
+} // namespace at::autocast
 

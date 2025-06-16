@@ -23,8 +23,7 @@
 #include "remove_mutation.h"
 #include "restore_mutation.h"
 
-namespace habana_torch {
-namespace jit {
+namespace habana_torch::jit {
 
 bool MutationRemover::removeListMutation() {
   return RemoveListMutation(graph_->block());
@@ -402,5 +401,4 @@ bool InplaceToFunctionalActivation(const std::shared_ptr<Graph>& graph) {
   });
 }
 
-} // namespace jit
-} // namespace habana_torch
+} // namespace habana_torch::jit

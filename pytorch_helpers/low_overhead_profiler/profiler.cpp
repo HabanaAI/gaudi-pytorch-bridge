@@ -13,13 +13,13 @@
  * limitations under the License.
  */
 #include <immintrin.h>
-#include <stdint.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <x86intrin.h>
 #include <algorithm>
 #include <climits>
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <iostream>

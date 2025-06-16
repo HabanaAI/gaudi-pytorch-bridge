@@ -8,7 +8,6 @@
 #include "habana_kernels/lazy_kernels.h"
 #include "habana_lazy/hpu_stage_submission.h"
 using habana_lazy::LazyOp;
-using habana_lazy::GraphHashBuilder;
 
 #include "cast_to_fp8_v2.h"
 #include "exp_fast_math.h"
@@ -16,8 +15,8 @@ using habana_lazy::GraphHashBuilder;
 #include "softmax_fp8.h"
 
 
-using habana_helpers::DTypeHelper;
-using synapse_helpers::graph;
+using habana_helpers::DTypeHelper; // NOLINT(misc-unused-using-decls)
+using synapse_helpers::graph; // NOLINT(misc-unused-using-decls)
 using torch::jit::Stack;
 
 

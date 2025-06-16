@@ -1,9 +1,3 @@
----
-# NOTE there must be no spaces before the '-', so put the comma last.
-
-# TODO: fix any changes that are disabled below the 1st blank line
-#
-# goto checks are disabled because clang-tidy reports issues from GTest macros in our sources
 Checks: '-*,
  -bugprone-*,
  -cert-*,
@@ -23,7 +17,6 @@ Checks: '-*,
  -bugprone-forwarding-reference-overload,
  -bugprone-implicit-widening-of-multiplication-result,
  -bugprone-lambda-function-name,
- -bugprone-macro-parentheses,
  -bugprone-move-forwarding-reference,
  -bugprone-multi-level-implicit-pointer-conversion,
  -bugprone-multiple-new-in-one-expression,
@@ -118,7 +111,7 @@ Checks: '-*,
  -hicpp-use-equals-default,
  -hicpp-use-equals-delete,
  -hicpp-use-nullptr,
- -hicpp-use-override,modernize-use-override,
+ -hicpp-use-override,
  -hicpp-vararg,
  -misc-const-correctness,
  -misc-definitions-in-headers,
@@ -129,8 +122,6 @@ Checks: '-*,
  -misc-non-private-member-variables-in-classes,
  -misc-throw-by-value-catch-by-reference,
  -misc-unconventional-assign-operator,
- -misc-unused-alias-decls,
- -misc-unused-using-decls,
  -misc-use-anonymous-namespace,
  -misc-use-internal-linkage,
  -modernize-avoid-bind,
@@ -154,7 +145,6 @@ Checks: '-*,
  -modernize-use-nodiscard,
  -modernize-use-nullptr,
  -modernize-use-override,
- -modernize-use-trailing-return-type,
  -modernize-use-transparent-functors,
  -modernize-use-using,
  -performance-avoid-endl,
@@ -177,7 +167,6 @@ Checks: '-*,
  -readability-container-data-pointer,
  -readability-container-size-empty,
  -readability-convert-member-functions-to-static,
- -readability-duplicate-include,
  -readability-else-after-return,
  -readability-enum-initial-value,
  -readability-function-cognitive-complexity,
@@ -210,7 +199,13 @@ Checks: '-*,
  -readability-use-anyofallof,
  -readability-use-std-min-max,
 
- -modernize-concat-nested-namespaces,
+ bugprone-macro-parentheses,
+ misc-unused-alias-decls,
+ misc-unused-using-decls,
+ modernize-concat-nested-namespaces,
+ readability-duplicate-include,
+
+ -modernize-use-trailing-return-type,
  '
 
 CheckOptions:
@@ -220,4 +215,3 @@ CheckOptions:
 FormatStyle: file
 HeaderFilterRegex: 'habana|hpu|pytorch_helpers|python_packages|tests|sl_report_generator/'
 # WarningsAsErrors: '*'
-...

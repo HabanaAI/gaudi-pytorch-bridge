@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -113,16 +113,14 @@ def env_setting(var, val):\n\
 
 env_namespaces = "\
 using namespace env_flags::new_style;\n\
-namespace env_flags {\n\
-namespace new_style {\n\n"
+namespace env_flags::new_style {\n\n"
 
 cpp_binding_block = "\
 #include <pybind11/pybind11.h>\n\
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {\n\n"
 
 close_namespace = "\n\
-} // namespace new_style\n\
-} // namespace env_flags\n"
+} // namespace env_flags::new_style\n"
 
 cpp_binding_block_close = "\n\
     } // PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {\n\n"

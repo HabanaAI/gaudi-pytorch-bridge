@@ -21,7 +21,6 @@
 #include "hpu_ops/fp8_utils.h"
 #include "hpu_ops/hpu_op_helper.h"
 
-namespace fp8 = habana::fp8;
 namespace sh = synapse_helpers;
 
 #define SDPA_SET_FLAGS(condition, flags, flag_name) \

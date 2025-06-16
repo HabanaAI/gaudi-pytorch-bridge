@@ -13,8 +13,8 @@
  * limitations under the License.
  */
 #include <gtest/gtest.h>
-#include <math.h>
 #include <torch/torch.h>
+#include <cmath>
 #include <stdexcept>
 #include "backend/synapse_helpers/env_flags.h"
 #include "habana_kernels/lazy_kernels_declarations.h"

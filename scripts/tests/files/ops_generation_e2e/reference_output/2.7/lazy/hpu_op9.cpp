@@ -8,7 +8,6 @@
 #include "habana_kernels/lazy_kernels.h"
 #include "habana_lazy/hpu_stage_submission.h"
 using habana_lazy::LazyOp;
-using habana_lazy::GraphHashBuilder;
 
 #include "_foreach_log10.h"
 #include "convolution_backward_overrideable.h"
@@ -16,8 +15,8 @@ using habana_lazy::GraphHashBuilder;
 #include "native_group_norm.h"
 
 
-using habana_helpers::DTypeHelper;
-using synapse_helpers::graph;
+using habana_helpers::DTypeHelper; // NOLINT(misc-unused-using-decls)
+using synapse_helpers::graph; // NOLINT(misc-unused-using-decls)
 using torch::jit::Stack;
 
 

@@ -29,8 +29,7 @@
 #include "jit_fork/ir/alias_analysis.h"
 #include "jit_fork/ir/ir.h"
 
-namespace habana_torch {
-namespace jit {
+namespace habana_torch::jit {
 
 // A map which stores if an activation operator can perform type promotion
 const std::unordered_map<Symbol, bool> activation_type_promotion_mapping = {
@@ -82,5 +81,4 @@ class FunctionalToInplaceRewriter {
 TORCH_API bool FunctionalToInplaceActivation(
     const std::shared_ptr<Graph>& graph);
 
-} // namespace jit
-} // namespace habana_torch
+} // namespace habana_torch::jit

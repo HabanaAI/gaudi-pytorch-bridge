@@ -15,8 +15,6 @@
 #include "generated/backend/calculate_scale_for_cast.h"
 #include "hpu_ops/custom_op_outshape.h"
 
-namespace sh = synapse_helpers;
-
 namespace habana {
 
 FillParamsT FillCalculateScaleForCastParams(const at::Stack& stack) {

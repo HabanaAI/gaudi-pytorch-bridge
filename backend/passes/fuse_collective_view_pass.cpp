@@ -38,7 +38,6 @@
 #include "absl/types/optional.h"
 #include "backend/habana_device/tensor_builder.h"
 #include "backend/helpers/tensor_info.h"
-#include "backend/helpers/tensor_utils.h"
 #include "backend/jitgraph_utils.h"
 #include "habana_helpers/misc_utils.h"
 

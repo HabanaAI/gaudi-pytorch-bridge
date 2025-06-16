@@ -8,14 +8,13 @@
 #include "habana_kernels/lazy_kernels.h"
 #include "habana_lazy/hpu_stage_submission.h"
 using habana_lazy::LazyOp;
-using habana_lazy::GraphHashBuilder;
 
 #include "eq.h"
 #include "squeeze.h"
 
 
-using habana_helpers::DTypeHelper;
-using synapse_helpers::graph;
+using habana_helpers::DTypeHelper; // NOLINT(misc-unused-using-decls)
+using synapse_helpers::graph; // NOLINT(misc-unused-using-decls)
 using torch::jit::Stack;
 
 

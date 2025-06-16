@@ -15,8 +15,8 @@
 
 #include <ATen/ExpandUtils.h>
 #include <gtest/gtest.h>
-#include <math.h>
 #include <torch/torch.h>
+#include <cmath>
 #include <stdexcept>
 #include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/synapse_helpers/env_flags.h"

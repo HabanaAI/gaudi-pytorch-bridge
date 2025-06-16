@@ -15,7 +15,7 @@
 
 #include "hpu_ops/indexing_ops_helper.h"
 #include <c10/core/ScalarType.h>
-#include <stdint.h>
+#include <cstdint>
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_kernels/tensor_shape_kernels.h"
 #include "hpu_ops/hpu_op_helper.h"

@@ -1381,7 +1381,6 @@ def get_frontend_inclusions(mode, ns):
         '#include "habana_kernels/lazy_kernels.h"\n'
         '#include "habana_lazy/hpu_stage_submission.h"\n'
         "using habana_lazy::LazyOp;\n"
-        "using habana_lazy::GraphHashBuilder;\n"
     )
 
     if mode == "eager":

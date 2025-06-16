@@ -26,8 +26,7 @@
 #include <algorithm>
 #include <queue>
 
-namespace habana_torch {
-namespace jit {
+namespace habana_torch::jit {
 namespace {
 
 void makePointerToImpl(Element* from, Element* to) {
@@ -253,5 +252,4 @@ void MemoryDAG::setWildcards(
 Element* MemoryDAG::unsafeMakeFreshValue(const Value* v) {
   return makeFreshValueImpl(v, indexToElementMap_);
 }
-} // namespace jit
-} // namespace habana_torch
+} // namespace habana_torch::jit

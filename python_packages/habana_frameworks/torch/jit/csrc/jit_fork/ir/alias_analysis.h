@@ -29,8 +29,7 @@
 #include "jit_fork/ir/type_hashing.h"
 #include "jit_fork/passes/utils/memory_dag.h"
 
-namespace habana_torch {
-namespace jit {
+namespace habana_torch::jit {
 
 /**
  * Alias analysis pass.
@@ -341,5 +340,4 @@ class AliasDb {
 // the right thing.
 TORCH_API void Lint(const AliasDb* db);
 
-} // namespace jit
-} // namespace habana_torch
+} // namespace habana_torch::jit

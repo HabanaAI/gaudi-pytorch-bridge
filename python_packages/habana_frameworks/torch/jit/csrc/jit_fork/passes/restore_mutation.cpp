@@ -26,8 +26,7 @@
 #include "remove_mutation.h"
 #include "restore_mutation.h"
 
-namespace habana_torch {
-namespace jit {
+namespace habana_torch::jit {
 
 FunctionalToInplaceRewriter::FunctionalToInplaceRewriter(
     std::shared_ptr<Graph> graph)
@@ -104,5 +103,4 @@ bool FunctionalToInplaceActivation(const std::shared_ptr<Graph>& graph) {
   return rewriter.FunctionalToInplace(graph->block());
 }
 
-} // namespace jit
-} // namespace habana_torch
+} // namespace habana_torch::jit

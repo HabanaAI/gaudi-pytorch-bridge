@@ -13,8 +13,8 @@
 #include "native_group_norm.h"
 
 
-using habana_helpers::DTypeHelper;
-using synapse_helpers::graph;
+using habana_helpers::DTypeHelper; // NOLINT(misc-unused-using-decls)
+using synapse_helpers::graph; // NOLINT(misc-unused-using-decls)
 using torch::jit::Stack;
 
 

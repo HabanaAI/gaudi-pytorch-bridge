@@ -30,8 +30,7 @@
 
 #include <utility>
 
-namespace habana_torch {
-namespace jit {
+namespace habana_torch::jit {
 
 struct TORCH_API MutationRemover {
   MutationRemover(
@@ -103,5 +102,4 @@ TORCH_API bool RemoveTensorMutation(
 TORCH_API bool InplaceToFunctionalActivation(
     const std::shared_ptr<Graph>& graph);
 
-} // namespace jit
-} // namespace habana_torch
+} // namespace habana_torch::jit
