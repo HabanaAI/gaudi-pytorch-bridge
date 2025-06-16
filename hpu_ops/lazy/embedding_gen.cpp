@@ -20,7 +20,7 @@ namespace habana {
 FALLBACK_CHECK(EmbeddingFallbackCheck, bool scale_grad_by_freq, bool sparse) {
   if (scale_grad_by_freq == true || sparse == true) {
     return false;
-  } else
-    return true;
+  }
+  return true;
 }
 } // namespace habana

@@ -75,15 +75,14 @@ class Mock {
     increase_counter_verify_enablement(function_name);
     const auto output_val_it = output_values.find(function_name);
     if (output_val_it == std::end(output_values) ||
-        output_val_it->second.empty())
+        output_val_it->second.empty()) {
       return {};
-    else {
-      const auto output_vals = output_val_it->second;
-      auto index = counters[function_name] - 1;
-      if (cycle_outputs[function_name])
-        index %= output_vals.size();
-      return std::get<T>(output_vals.at(index));
     }
+    const auto output_vals = output_val_it->second;
+    auto index = counters[function_name] - 1;
+    if (cycle_outputs[function_name])
+      index %= output_vals.size();
+    return std::get<T>(output_vals.at(index));
   }
 
  protected:

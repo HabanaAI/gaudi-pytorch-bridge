@@ -49,7 +49,8 @@ using namespace habana;
 static std::tuple<int, int> GetInputOutputIndices(torch::jit::Node* node) {
   if (strcmp(node->kind().toQualString(), "hccl::alltoall_out") == 0) {
     return std::make_tuple(0, 4);
-  } else if (strcmp(node->kind().toQualString(), "hccl::allgather_out") == 0) {
+  }
+  if (strcmp(node->kind().toQualString(), "hccl::allgather_out") == 0) {
     return std::make_tuple(0, 2);
   }
   return std::make_tuple(-1, -1);
@@ -310,24 +311,22 @@ bool FuseCollectiveViewPass::RunFuseOps(
       if (strcmp(node->kind().toQualString(), "aten::slice") == 0) {
         if (is_check_mode) {
           return true;
-        } else {
-          FuseSliceOps(node);
-          input = collective_node->input(input_index);
-          node = input->node();
-          if (strcmp(node->kind().toQualString(), "aten::view") == 0) {
-            FuseViewOps(node);
-          }
+        }
+        FuseSliceOps(node);
+        input = collective_node->input(input_index);
+        node = input->node();
+        if (strcmp(node->kind().toQualString(), "aten::view") == 0) {
+          FuseViewOps(node);
         }
       } else if (strcmp(node->kind().toQualString(), "aten::view") == 0) {
         if (is_check_mode) {
           return true;
-        } else {
-          FuseViewOps(node);
-          input = collective_node->input(input_index);
-          node = input->node();
-          if (strcmp(node->kind().toQualString(), "aten::slice") == 0) {
-            FuseSliceOps(node);
-          }
+        }
+        FuseViewOps(node);
+        input = collective_node->input(input_index);
+        node = input->node();
+        if (strcmp(node->kind().toQualString(), "aten::slice") == 0) {
+          FuseSliceOps(node);
         }
       }
     }
@@ -341,10 +340,9 @@ bool FuseCollectiveViewPass::RunFuseOps(
           strcmp(uses.at(1).user->kind().toQualString(), "prim::Return") == 0) {
         if (is_check_mode) {
           return true;
-        } else {
-          FuseSliceInsertOps(
-              collective_node, output, successor_node, const_node_vec);
         }
+        FuseSliceInsertOps(
+            collective_node, output, successor_node, const_node_vec);
       }
     }
   }

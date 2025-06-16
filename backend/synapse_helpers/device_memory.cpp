@@ -407,7 +407,8 @@ void* device_memory::workspace_alloc(
     size_t actual_size = num_chunks * chunk_size;
     if (ws_size >= actual_size) {
       return ptr;
-    } else if (ws_size < actual_size) {
+    }
+    if (ws_size < actual_size) {
       auto& recipe_counter = device_.get_active_recipe_counter();
       while (recipe_counter.get_count() > DEFAULT_RECIPE_COUNT) {
         recipe_counter.wait_for_next_decrease_call();
@@ -436,78 +437,76 @@ void* device_memory::workspace_alloc(
     record(v_ptr, ws_size, true);
     log_synDeviceMemStats(*this);
     return v_ptr;
-  } else {
-    if ((ws_size >= req_size) && (ptr != nullptr)) {
-      return ptr;
-    } else {
-      void* v_ptr{nullptr};
-      std::unique_lock<std::mutex> lock(defragmentation_mutex_);
-
-      auto extend_high_memory_alloc = [&](size_t new_workspace_size,
-                                          size_t curr_size) -> void* {
-        std::unique_lock<std::mutex> lock(mutex_);
-        void* v_ptr{nullptr};
-        v_ptr = suballoc_->extend_high_memory_allocation(
-            new_workspace_size, curr_size);
-        return v_ptr;
-      };
-      auto& recipe_counter = device_.get_active_recipe_counter();
-      v_ptr = extend_high_memory_alloc(block_align(req_size), ws_size);
-
-      if (v_ptr == nullptr) {
-        habana_lazy::log_dev_mem_stats("OOM-Workspace", "", req_size);
-        towl::emitDeviceMemorySummary("OOM-Workspace");
-
-        while (recipe_counter.get_count() > DEFAULT_RECIPE_COUNT) {
-          recipe_counter.wait_for_next_decrease_call();
-        }
-        PT_DEVMEM_DEBUG(
-            "workspace requested size::",
-            block_align(req_size),
-            " current size::",
-            ws_size);
-        habana_lazy::log_dev_mem_stats(
-            "Post-Recipe-Decrease-Workspace", "", req_size);
-
-        towl::emitDeviceMemorySummary("Post-Recipe-Decrease-Workspace");
-        v_ptr = extend_high_memory_alloc(block_align(req_size), ws_size);
-      }
-      memory_reporter_event_create(device_, MEM_DEFRAGMENT_START);
-      bool defragmentation_done = false;
-      if (v_ptr == nullptr && device_.IsMemorydefragmentationEnabled()) {
-        MemoryStats stats;
-        get_memory_stats(&stats);
-        PT_DEVMEM_DEBUG(
-            "Workspace extension failed. Attempt to defragment memory.");
-        PT_DEVMEM_DEBUG(
-            "Memory Stats in case workspace failure", stats.DebugString());
-        defragmentation_done = defragment_memory(alignment_, req_size, true);
-      }
-
-      if (defragmentation_done) {
-        v_ptr = extend_high_memory_alloc(block_align(req_size), ws_size);
-        memory_reporter_event_create(device_, MEM_DEFRAGMENT_SUCCESS);
-      } else {
-        memory_reporter_event_create(device_, MEM_DEFRAGMENT_FAIL);
-      }
-
-      if (v_ptr != nullptr) {
-        ws_size = block_align(req_size);
-        record(v_ptr, req_size - ws_size, true);
-        log_synDeviceMemStats(*this);
-      } else {
-        suballoc_->print_pool_stats();
-        MemoryStats stats;
-        get_memory_stats(&stats);
-        PT_DEVMEM_DEBUG(
-            "Memory Stats in case workspace failure", stats.DebugString());
-        log_synDeviceAllocFail(device_, true, block_align(req_size));
-        memory_reporter_event_create(device_, MEM_REPORTER_OOM);
-      }
-
-      return v_ptr;
-    }
   }
+  if ((ws_size >= req_size) && (ptr != nullptr)) {
+    return ptr;
+  }
+  void* v_ptr{nullptr};
+  std::unique_lock<std::mutex> lock(defragmentation_mutex_);
+
+  auto extend_high_memory_alloc = [&](size_t new_workspace_size,
+                                      size_t curr_size) -> void* {
+    std::unique_lock<std::mutex> lock(mutex_);
+    void* v_ptr{nullptr};
+    v_ptr =
+        suballoc_->extend_high_memory_allocation(new_workspace_size, curr_size);
+    return v_ptr;
+  };
+  auto& recipe_counter = device_.get_active_recipe_counter();
+  v_ptr = extend_high_memory_alloc(block_align(req_size), ws_size);
+
+  if (v_ptr == nullptr) {
+    habana_lazy::log_dev_mem_stats("OOM-Workspace", "", req_size);
+    towl::emitDeviceMemorySummary("OOM-Workspace");
+
+    while (recipe_counter.get_count() > DEFAULT_RECIPE_COUNT) {
+      recipe_counter.wait_for_next_decrease_call();
+    }
+    PT_DEVMEM_DEBUG(
+        "workspace requested size::",
+        block_align(req_size),
+        " current size::",
+        ws_size);
+    habana_lazy::log_dev_mem_stats(
+        "Post-Recipe-Decrease-Workspace", "", req_size);
+
+    towl::emitDeviceMemorySummary("Post-Recipe-Decrease-Workspace");
+    v_ptr = extend_high_memory_alloc(block_align(req_size), ws_size);
+  }
+  memory_reporter_event_create(device_, MEM_DEFRAGMENT_START);
+  bool defragmentation_done = false;
+  if (v_ptr == nullptr && device_.IsMemorydefragmentationEnabled()) {
+    MemoryStats stats;
+    get_memory_stats(&stats);
+    PT_DEVMEM_DEBUG(
+        "Workspace extension failed. Attempt to defragment memory.");
+    PT_DEVMEM_DEBUG(
+        "Memory Stats in case workspace failure", stats.DebugString());
+    defragmentation_done = defragment_memory(alignment_, req_size, true);
+  }
+
+  if (defragmentation_done) {
+    v_ptr = extend_high_memory_alloc(block_align(req_size), ws_size);
+    memory_reporter_event_create(device_, MEM_DEFRAGMENT_SUCCESS);
+  } else {
+    memory_reporter_event_create(device_, MEM_DEFRAGMENT_FAIL);
+  }
+
+  if (v_ptr != nullptr) {
+    ws_size = block_align(req_size);
+    record(v_ptr, req_size - ws_size, true);
+    log_synDeviceMemStats(*this);
+  } else {
+    suballoc_->print_pool_stats();
+    MemoryStats stats;
+    get_memory_stats(&stats);
+    PT_DEVMEM_DEBUG(
+        "Memory Stats in case workspace failure", stats.DebugString());
+    log_synDeviceAllocFail(device_, true, block_align(req_size));
+    memory_reporter_event_create(device_, MEM_REPORTER_OOM);
+  }
+
+  return v_ptr;
 }
 
 synStatus device_memory::workspace_free(void* ptr) {
@@ -532,9 +531,8 @@ device_ptr device_memory::fix_address(void* ptr) {
 
     handle2pointer_.MarkMemoryFixed(h.id());
     return get_pointer(h);
-  } else {
-    return reinterpret_cast<uint64_t>(ptr);
   }
+  return reinterpret_cast<uint64_t>(ptr);
 }
 
 void device_memory::record_param(
@@ -1014,13 +1012,12 @@ device_ptr_lock device_memory::lock_addresses(
     update_on_defragment_ = false;
     return device_ptr_lock(absl::make_unique<defragment::Lock>(
         threads_in_defragmenter_critical_section_, std::move(out)));
-  } else {
-    for (const auto address : addresses) {
-      out.emplace_back(address);
-    }
-    return device_ptr_lock(absl::make_unique<defragment::Lock>(
-        threads_in_defragmenter_critical_section_, std::move(out)));
   }
+  for (const auto address : addresses) {
+    out.emplace_back(address);
+  }
+  return device_ptr_lock(absl::make_unique<defragment::Lock>(
+      threads_in_defragmenter_critical_section_, std::move(out)));
 }
 
 device_ptr device_memory::get_pointer(mem_handle h) {

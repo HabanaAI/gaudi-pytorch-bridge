@@ -97,9 +97,8 @@ class MutableTypePtrHelper {
       auto it =
           mutable_type_cache_->emplace(type, std::move(*mutable_types)).first;
       return &it->second;
-    } else {
-      return nullptr;
     }
+    return nullptr;
   }
 
  private:
@@ -189,9 +188,8 @@ bool isMutableTypeImpl(
   MutableTypePtrHelper helper(mutable_type_cache);
   if (mutable_type_cache) {
     return helper.mapTypeToBorrowedAliasTypeSet(type) != nullptr;
-  } else {
-    return helper.mapTypeToAliasTypeSet(type).has_value();
   }
+  return helper.mapTypeToAliasTypeSet(type).has_value();
 }
 
 } // namespace
@@ -431,19 +429,18 @@ std::string AliasDb::getElementName(const Element* e) const {
       }
     }
     return "WILDCARD";
-  } else {
-    std::ostringstream ss;
-    if (e->values.size() == 1) {
-      ss << "%" << (*e->values.begin())->debugName();
-      return ss.str();
-    }
-    ss << "(";
-    for (const Value* v : e->values) {
-      ss << "%" << v->debugName() << ", ";
-    }
-    ss << ")";
+  }
+  std::ostringstream ss;
+  if (e->values.size() == 1) {
+    ss << "%" << (*e->values.begin())->debugName();
     return ss.str();
   }
+  ss << "(";
+  for (const Value* v : e->values) {
+    ss << "%" << v->debugName() << ", ";
+  }
+  ss << ")";
+  return ss.str();
 }
 
 void AliasDb::dump() const {
@@ -523,19 +520,18 @@ std::string AliasDb::toGraphviz() const {
         }
       }
       return "\"WILDCARD\"";
-    } else {
-      std::ostringstream ss;
-      if (e->values.size() == 1) {
-        ss << "\"\\%" << (*e->values.begin())->debugName() << "\"";
-        return ss.str();
-      }
-      ss << "\"(";
-      for (const Value* v : e->values) {
-        ss << "\\%" << v->debugName() << ", ";
-      }
-      ss << ")\"";
+    }
+    std::ostringstream ss;
+    if (e->values.size() == 1) {
+      ss << "\"\\%" << (*e->values.begin())->debugName() << "\"";
       return ss.str();
     }
+    ss << "\"(";
+    for (const Value* v : e->values) {
+      ss << "\\%" << v->debugName() << ", ";
+    }
+    ss << ")\"";
+    return ss.str();
   };
 
   // Include the textual representation for reference
@@ -1649,9 +1645,8 @@ class AliasDb::WorkingSet {
     const Node* pivot = mover_ ? mover_ : nodes_.front();
     if (n->isAfter(pivot)) {
       return producesFor(n);
-    } else {
-      return consumesFrom(n);
     }
+    return consumesFrom(n);
   }
 
   bool hasMutabilityDependency(Node* n) const {
@@ -1722,18 +1717,16 @@ class AliasDb::WorkingSet {
     HABANA_ASSERT(target->owningGraph() == n->owningGraph());
     if (target->owningBlock() == n->owningBlock()) {
       return target;
-    } else {
-      // This user is in a sub-block. Traverse the blockchain upward until
-      // we arrive at a node that shares a block with `this`
-      auto curNode = target;
-      while (curNode->owningBlock() != n->owningBlock()) {
-        curNode = curNode->owningBlock()->owningNode();
-        if (curNode == nullptr) {
-          return curNode;
-        }
+    } // This user is in a sub-block. Traverse the blockchain upward until
+    // we arrive at a node that shares a block with `this`
+    auto curNode = target;
+    while (curNode->owningBlock() != n->owningBlock()) {
+      curNode = curNode->owningBlock()->owningNode();
+      if (curNode == nullptr) {
+        return curNode;
       }
-      return curNode;
     }
+    return curNode;
   }
 
   // NOLINTNEXTLINE(cppcoreguidelines-avoid-const-or-ref-data-members)

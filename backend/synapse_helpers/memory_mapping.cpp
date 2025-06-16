@@ -52,20 +52,18 @@ memory_mapper::acquired_entry memory_mapper::fixed_size_entries::acquire() {
     auto status = synHostMap(device_.id(), size_, allocated_buf.get());
     if (status != synStatus::synSuccess) {
       return {size_, 0, nullptr, status};
-    } else {
-      auto* ptr = allocated_buf.get();
-      mapped_entries_.emplace_back(true, std::move(allocated_buf));
-      return {size_, mapped_entries_.size() - 1, ptr, synStatus::synSuccess};
     }
-  } else {
-    // alloc new
-    it->in_use = true;
-    return {
-        size_,
-        static_cast<std::size_t>(std::distance(mapped_entries_.begin(), it)),
-        it->buf.get(),
-        synStatus::synSuccess};
+    auto* ptr = allocated_buf.get();
+    mapped_entries_.emplace_back(true, std::move(allocated_buf));
+    return {size_, mapped_entries_.size() - 1, ptr, synStatus::synSuccess};
   }
+  // alloc new
+  it->in_use = true;
+  return {
+      size_,
+      static_cast<std::size_t>(std::distance(mapped_entries_.begin(), it)),
+      it->buf.get(),
+      synStatus::synSuccess};
 }
 
 void memory_mapper::fixed_size_entries::release(std::size_t idx) {

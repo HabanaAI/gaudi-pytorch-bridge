@@ -148,10 +148,9 @@ std::string synStatusToStr(synStatus statusArg) {
     if (isDescriptionValid) {
       statusStr[idx] = std::string(statusDescription);
       return statusStr[idx];
-    } else {
-      PT_BRIDGE_WARN("Could not get translation for synStatus: ", statusArg);
-      return std::string("UnkownDescription");
     }
+    PT_BRIDGE_WARN("Could not get translation for synStatus: ", statusArg);
+    return std::string("UnkownDescription");
   }
 
   return statusStr[idx];

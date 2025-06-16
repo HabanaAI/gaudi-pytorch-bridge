@@ -298,18 +298,15 @@ bool PermuteTensors::shouldPermutePreCastedWeight(const torch::Tensor& weight) {
           PT_LAYOUTS_DEBUG(
               "Permuting pre-casted weight. IR Value id: ", d1->unique_id);
           return true;
-        } else {
-          PT_LAYOUTS_DEBUG(
-              "Already permuted pre-casted weight. IR Value id: ",
-              d1->unique_id);
-          return false;
         }
-      } else {
         PT_LAYOUTS_DEBUG(
-            "Pre-casted weight isn't input to graph, not permuting. IR Value id: ",
-            d1->unique_id);
+            "Already permuted pre-casted weight. IR Value id: ", d1->unique_id);
         return false;
       }
+      PT_LAYOUTS_DEBUG(
+          "Pre-casted weight isn't input to graph, not permuting. IR Value id: ",
+          d1->unique_id);
+      return false;
     }
     std::shared_ptr<Data> d1 = ir_value.m_data_ptr.lock();
     PT_LAYOUTS_DEBUG("Weight isn't an output of a cast: ", d1->unique_id);

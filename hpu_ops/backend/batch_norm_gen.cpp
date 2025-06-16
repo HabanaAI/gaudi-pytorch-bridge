@@ -53,7 +53,8 @@ static synTensor cast_if_necessary_or_default(
         c10::ScalarType::BFloat16,
         c10::ScalarType::Float);
     return storage->get();
-  } else if (should_cast_from_Half(source_opt)) {
+  }
+  if (should_cast_from_Half(source_opt)) {
     storage = OpBackend::BuildCast(
         op,
         graph,

@@ -34,10 +34,9 @@ std::string getThreadName() {
 
   if (result != 0 || name[0] == '\0') {
     return "UnnamedThread";
-  } else {
-    name[kMaxThreadName] = '\0';
-    return std::string(name.data());
   }
+  name[kMaxThreadName] = '\0';
+  return std::string(name.data());
 }
 
 int64_t getOffset(TraceSourceVariant variant) {

@@ -41,11 +41,10 @@ synapse_helpers::tensor& allocate_synapse_tensor(
     auto& syn_tensor = habana_op->AllocateSynapseInput(
         syn_graph, pt_tensor, true, tmeta->get_tensor_type(), host_ptr);
     return syn_tensor;
-  } else {
-    auto& syn_tensor =
-        habana_op->AllocateSynapseInput(syn_graph, pt_tensor, true);
-    return syn_tensor;
   }
+  auto& syn_tensor =
+      habana_op->AllocateSynapseInput(syn_graph, pt_tensor, true);
+  return syn_tensor;
 }
 } // namespace
 

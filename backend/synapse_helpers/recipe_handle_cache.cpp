@@ -60,13 +60,12 @@ std::shared_ptr<recipe> recipe_handle_cache::get_recipe(
         keys_access_list_.begin(), keys_access_list_, iter->second.second);
     increaseHitCount_(key);
     return iter->second.first;
-  } else {
-    std::shared_ptr<recipe> r = std::make_shared<recipe>(device_);
-    if (r->create(graph)) {
-      insert(r, key);
-      increaseHitCount_(key);
-      return r;
-    }
+  }
+  std::shared_ptr<recipe> r = std::make_shared<recipe>(device_);
+  if (r->create(graph)) {
+    insert(r, key);
+    increaseHitCount_(key);
+    return r;
   }
   return nullptr;
 }

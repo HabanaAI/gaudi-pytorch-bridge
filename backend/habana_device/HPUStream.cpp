@@ -118,16 +118,14 @@ bool HPUStream::query() const {
   }
   if (hpu_stream_id == 0) {
     return device.query_default_stream();
-  } else {
-    auto status = stream.query();
-    if (status == synSuccess)
-      return true;
-    else
-      PT_DEVICE_DEBUG(
-          Logger::formatStatusMsg(status), "STREAM:: synStreamQuery");
-
-    return false;
   }
+  auto status = stream.query();
+  if (status == synSuccess) {
+    return true;
+  }
+
+  PT_DEVICE_DEBUG(Logger::formatStatusMsg(status), "STREAM:: synStreamQuery");
+  return false;
 }
 
 void HPUStream::synchronize() const {

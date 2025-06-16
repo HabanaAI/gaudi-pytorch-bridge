@@ -56,18 +56,16 @@ class PersistenceMarkerPassData {
     if (valptr_to_persistent_map_.find(value_ptr) !=
         valptr_to_persistent_map_.end()) {
       return valptr_to_persistent_map_[value_ptr];
-    } else {
-      return false;
     }
+    return false;
   }
 
   bool IsExternalNode(CValPtr value_ptr) {
     if (valptr_to_external_map_.find(value_ptr) !=
         valptr_to_external_map_.end()) {
       return valptr_to_external_map_[value_ptr];
-    } else {
-      return false;
     }
+    return false;
   }
 
  private:

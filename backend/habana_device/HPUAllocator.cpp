@@ -48,23 +48,19 @@ at::DataPtr CreateDataPtr(void* v_ptr, size_t num_bytes) {
         &HPUDeviceAllocator::deleter,
         at::Device(
             at::DeviceType::HPU,
-            static_cast<c10::DeviceIndex>(
-                HPUDeviceAllocator::allocator_active_device_id))};
-  } else {
-    PT_EAGER_DEBUG(
-        "Created DataPtr without HPUAllocationContext due to v_ptr=",
-        v_ptr,
-        " for num_bytes ",
-        num_bytes);
-    return {
-        v_ptr,
-        v_ptr,
-        &HPUDeviceAllocator::deleter,
-        at::Device(
-            at::DeviceType::HPU,
-            static_cast<c10::DeviceIndex>(
-                HPUDeviceAllocator::allocator_active_device_id))};
+            HPUDeviceAllocator::allocator_active_device_id)};
   }
+  PT_EAGER_DEBUG(
+      "Created DataPtr without HPUAllocationContext due to v_ptr=",
+      v_ptr,
+      " for num_bytes ",
+      num_bytes);
+  return {
+      v_ptr,
+      v_ptr,
+      &HPUDeviceAllocator::deleter,
+      at::Device(
+          at::DeviceType::HPU, HPUDeviceAllocator::allocator_active_device_id)};
 }
 
 at::Allocator* getHABANADeviceAllocator() {

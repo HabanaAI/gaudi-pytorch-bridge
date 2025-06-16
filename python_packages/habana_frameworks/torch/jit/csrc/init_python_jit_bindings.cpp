@@ -98,37 +98,37 @@ PYBIND11_DECLARE_HOLDER_TYPE(
     true);
 
 namespace pybind11::detail {
+
 // NOLINTBEGIN(bugprone-macro-parentheses)
-#define CREATE_UNWRAPPING_CASTER(Class)                                                   \
-  template <>                                                                             \
-  struct type_caster<Class> : public type_caster_base<Class> {                            \
-   public:                                                                                \
-    using type = Class;                                                                   \
-    using holder_type = habana_torch::jit::unwrapping_shared_ptr<Class>;                  \
-                                                                                          \
-    bool load(handle src, bool convert) {                                                 \
-      return load_impl<type_caster<Class>>(src, convert);                                 \
-    }                                                                                     \
-                                                                                          \
-    explicit operator type*() {                                                           \
-      return static_cast<type*>(value);                                                   \
-    }                                                                                     \
-    explicit operator type&() {                                                           \
-      return *static_cast<type*>(value);                                                  \
-    }                                                                                     \
-                                                                                          \
-   protected:                                                                             \
-    friend class type_caster_generic;                                                     \
-                                                                                          \
-    bool load_value(value_and_holder&& v_h) {                                             \
-      if (v_h.holder_constructed()) {                                                     \
-        value = v_h.template holder<holder_type>().get();                                 \
-        return true;                                                                      \
-      } else {                                                                            \
-        throw cast_error(                                                                 \
-            "Unable to cast from non-held to held instance (#Class& to Holder<#Class>)"); \
-      }                                                                                   \
-    }                                                                                     \
+#define CREATE_UNWRAPPING_CASTER(Class)                                                 \
+  template <>                                                                           \
+  struct type_caster<Class> : public type_caster_base<Class> {                          \
+   public:                                                                              \
+    using type = Class;                                                                 \
+    using holder_type = habana_torch::jit::unwrapping_shared_ptr<Class>;                \
+                                                                                        \
+    bool load(handle src, bool convert) {                                               \
+      return load_impl<type_caster<Class>>(src, convert);                               \
+    }                                                                                   \
+                                                                                        \
+    explicit operator type*() {                                                         \
+      return static_cast<type*>(value);                                                 \
+    }                                                                                   \
+    explicit operator type&() {                                                         \
+      return *static_cast<type*>(value);                                                \
+    }                                                                                   \
+                                                                                        \
+   protected:                                                                           \
+    friend class type_caster_generic;                                                   \
+                                                                                        \
+    bool load_value(value_and_holder&& v_h) {                                           \
+      if (v_h.holder_constructed()) {                                                   \
+        value = v_h.template holder<holder_type>().get();                               \
+        return true;                                                                    \
+      }                                                                                 \
+      throw cast_error(                                                                 \
+          "Unable to cast from non-held to held instance (#Class& to Holder<#Class>)"); \
+    }                                                                                   \
   }
 // NOLINTEND(bugprone-macro-parentheses)
 

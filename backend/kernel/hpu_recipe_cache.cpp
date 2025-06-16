@@ -116,7 +116,8 @@ std::shared_ptr<RecipeHolder> RecipeCacheLRU::get(
     // decrement the use count after the execution is completed
 
     return list_.front().second;
-  } else if (disk_cache_) {
+  }
+  if (disk_cache_) {
     auto val = disk_cache_->Find(*key);
     if (val) {
       PT_BRIDGE_DEBUG(
@@ -182,12 +183,11 @@ RecipeCacheLRU::dropped_recipe_t RecipeCacheLRU::drop_lru_impl(
           ", total size of graph recipes ",
           synapse_helpers::get_mem_str(RecipeValueSpec::total_recipe_ntbytes));
       return dropped_recipe;
-    } else {
-      PT_BRIDGE_DEBUG(
-          "all recipes are in use used_recipe_count=",
-          map_.size(),
-          " can not drop any recipe");
     }
+    PT_BRIDGE_DEBUG(
+        "all recipes are in use used_recipe_count=",
+        map_.size(),
+        " can not drop any recipe");
   }
   return {};
 }

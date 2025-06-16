@@ -90,10 +90,9 @@ FillParamsT FillConvolutionOverrideableParams(const at::Stack& stack) {
   if (stack_tensor(stack, 0).dim() == 5) {
     return ConvolutionOverrideable3dParams(
         weight_shape, stride, padding, dilation, groups);
-  } else {
-    return ConvolutionOverrideable2dParams(
-        weight_shape, stride, padding, dilation, groups);
   }
+  return ConvolutionOverrideable2dParams(
+      weight_shape, stride, padding, dilation, groups);
 }
 
 static int64_t ComputeOutputSize(
@@ -108,12 +107,11 @@ static int64_t ComputeOutputSize(
     return (input_dim + 2 * padding - dilation * (kernel_size - 1) - 1) /
         stride +
         1;
-  } else {
-    // conv2d fwd output shape computation done as per formula provided below
-    // https://pytorch.org/docs/stable/generated/torch.nn.ConvTranspose2d.html#torch.nn.ConvTranspose2d
-    return (input_dim - 1) * stride - 2 * padding +
-        dilation * (kernel_size - 1) + output_padding + 1;
   }
+  // conv2d fwd output shape computation done as per formula provided below
+  // https://pytorch.org/docs/stable/generated/torch.nn.ConvTranspose2d.html#torch.nn.ConvTranspose2d
+  return (input_dim - 1) * stride - 2 * padding + dilation * (kernel_size - 1) +
+      output_padding + 1;
 }
 
 OutputMetaDataVector ConvolutionOverrideableMeta(const at::Stack& stack) {

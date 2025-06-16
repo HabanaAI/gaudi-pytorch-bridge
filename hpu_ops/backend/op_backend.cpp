@@ -148,7 +148,8 @@ void OpBackend::EraseSynInput(int index) {
 OutputMetaDataVector OpBackend::OutputMeta(const at::Stack& stack) const {
   if (m_output_meta_fn) {
     return m_output_meta_fn(stack);
-  } else if (m_partial_output_meta_fn) {
+  }
+  if (m_partial_output_meta_fn) {
     OutputMetaDataVector meta;
     for (const auto& m : m_partial_output_meta_fn(stack)) {
       meta.emplace_back(m.dtype, m.shape);
@@ -205,11 +206,10 @@ bool OpBackend::STMeta(
   if (m_st_meta_fn) {
     HandleScalarToTensorSTMeta(inputs);
     return m_st_meta_fn(inputs, outputs);
-  } else {
-    // Return false for failure case
-    PT_BRIDGE_DEBUG("ST meta not registered !!!");
-    return false;
   }
+  // Return false for failure case
+  PT_BRIDGE_DEBUG("ST meta not registered !!!");
+  return false;
 }
 
 void OpBackend::HandleScalarToTensor(sh::graph& graph, const at::Stack& stack) {
@@ -1106,30 +1106,29 @@ sh::tensor OpBackend::BuildConstant(
          &paramsV2,
          sizeof(paramsV2)});
     return std::move(constant.at(0));
-  } else {
-    ns_ConstantKernel::Params params{};
-    if (valtype == c10::ScalarType::Int or valtype == c10::ScalarType::Long) {
-      get<int>(params.constant) = val.to<int>();
-      if (habana_helpers::is_downcast_to_int_needed(valtype)) {
-        valtype = c10::ScalarType::Int;
-      }
-    } else if (valtype == c10::ScalarType::Bool) {
-      get<float>(params.constant) = static_cast<float>(val.to<bool>());
-    } else {
-      get<float>(params.constant) = val.to<float>();
-    }
-
-    auto constant = BuildNode(
-        op,
-        graph,
-        {get_guid_with_precision("constant"sv, valtype),
-         input,
-         {{constant_outshape, valtype, final_result_index}},
-         &params,
-         sizeof(params)});
-
-    return std::move(constant.at(0));
   }
+  ns_ConstantKernel::Params params{};
+  if (valtype == c10::ScalarType::Int or valtype == c10::ScalarType::Long) {
+    get<int>(params.constant) = val.to<int>();
+    if (habana_helpers::is_downcast_to_int_needed(valtype)) {
+      valtype = c10::ScalarType::Int;
+    }
+  } else if (valtype == c10::ScalarType::Bool) {
+    get<float>(params.constant) = static_cast<float>(val.to<bool>());
+  } else {
+    get<float>(params.constant) = val.to<float>();
+  }
+
+  auto constant = BuildNode(
+      op,
+      graph,
+      {get_guid_with_precision("constant"sv, valtype),
+       input,
+       {{constant_outshape, valtype, final_result_index}},
+       &params,
+       sizeof(params)});
+
+  return std::move(constant.at(0));
 }
 
 sh::tensor OpBackend::BuildCopy(
@@ -1174,10 +1173,9 @@ sh::tensor OpBackend::BuildCopy(
         src_type == at::ScalarType::Char)) {
     return OpBackend::BuildIdentity(
         op, graph, inputs[1], shape, src_type, result_index);
-  } else {
-    return OpBackend::BuildCast(
-        op, graph, inputs[1], shape, src_type, dest_type, result_index);
   }
+  return OpBackend::BuildCast(
+      op, graph, inputs[1], shape, src_type, dest_type, result_index);
 }
 
 sh::tensor OpBackend::BuildConstantTensor(

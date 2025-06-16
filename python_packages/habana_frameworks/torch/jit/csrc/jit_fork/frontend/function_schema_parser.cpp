@@ -242,19 +242,23 @@ struct SchemaParser {
         auto text = tok.text();
         if ("float" == text) {
           return static_cast<int64_t>(at::kFloat);
-        } else if ("complex" == text) {
-          return static_cast<int64_t>(at::kComplexFloat);
-        } else if ("long" == text) {
-          return static_cast<int64_t>(at::kLong);
-        } else if ("strided" == text) {
-          return static_cast<int64_t>(at::kStrided);
-        } else if ("Mean" == text) {
-          return static_cast<int64_t>(at::Reduction::Mean);
-        } else if ("contiguous_format" == text) {
-          return static_cast<int64_t>(c10::MemoryFormat::Contiguous);
-        } else {
-          throw ErrorReport(L.cur().range) << "invalid numeric default value";
         }
+        if ("complex" == text) {
+          return static_cast<int64_t>(at::kComplexFloat);
+        }
+        if ("long" == text) {
+          return static_cast<int64_t>(at::kLong);
+        }
+        if ("strided" == text) {
+          return static_cast<int64_t>(at::kStrided);
+        }
+        if ("Mean" == text) {
+          return static_cast<int64_t>(at::Reduction::Mean);
+        }
+        if ("contiguous_format" == text) {
+          return static_cast<int64_t>(c10::MemoryFormat::Contiguous);
+        }
+        throw ErrorReport(L.cur().range) << "invalid numeric default value";
       }
       default:
         std::string n;
@@ -266,14 +270,13 @@ struct SchemaParser {
         if (kind == TypeKind::ComplexType || n.find('j') != std::string::npos) {
           auto imag = std::stod(n.substr(0, n.size() - 1));
           return c10::complex<double>(0, imag);
-        } else if (
-            kind == TypeKind::FloatType || n.find('.') != std::string::npos ||
+        }
+        if (kind == TypeKind::FloatType || n.find('.') != std::string::npos ||
             n.find('e') != std::string::npos) {
           return std::stod(n);
-        } else {
-          int64_t v = std::stoll(n);
-          return v;
         }
+        int64_t v = std::stoll(n);
+        return v;
     }
   }
   IValue convertToList(
@@ -344,13 +347,13 @@ struct SchemaParser {
         auto elem_type = arg_type.containedType(0);
         if (L.cur().kind == TK_IDENT) {
           return parseTensorDefault(range);
-        } else if (arg_N && L.cur().kind != '[') {
+        }
+        if (arg_N && L.cur().kind != '[') {
           IValue v = parseSingleConstant(*elem_type, elem_type->kind());
           std::vector<IValue> repeated(*arg_N, v);
           return convertToList(*elem_type, elem_type->kind(), range, repeated);
-        } else {
-          return parseConstantList(*elem_type, elem_type->kind());
         }
+        return parseConstantList(*elem_type, elem_type->kind());
       } break;
       case TypeKind::DynamicType:
         return parseDefaultValue(

@@ -111,19 +111,17 @@ static std::vector<synapse_helpers::tensor> ComputeAlphaSide(
 
   if (alpha_val == 1.0) {
     return gemm_out;
-  } else {
-    auto alpha_tensor =
-        OpBackend::BuildConstant(op, graph, alpha_val, meta.dtype, meta.shape);
-    std::vector<synTensor> mul_node_inputs{
-        gemm_out[0].get(), alpha_tensor.get()};
-    std::vector<synapse_helpers::tensor> alpha_mul_out = OpBackend::BuildNode(
-        op,
-        graph,
-        {get_guid_with_precision("mult"sv, meta.dtype),
-         std::move(mul_node_inputs),
-         {{meta.shape, meta.dtype, final_idx}}});
-    return alpha_mul_out;
   }
+  auto alpha_tensor =
+      OpBackend::BuildConstant(op, graph, alpha_val, meta.dtype, meta.shape);
+  std::vector<synTensor> mul_node_inputs{gemm_out[0].get(), alpha_tensor.get()};
+  std::vector<synapse_helpers::tensor> alpha_mul_out = OpBackend::BuildNode(
+      op,
+      graph,
+      {get_guid_with_precision("mult"sv, meta.dtype),
+       std::move(mul_node_inputs),
+       {{meta.shape, meta.dtype, final_idx}}});
+  return alpha_mul_out;
 }
 
 static std::vector<synapse_helpers::tensor> BaddbMMCommon(

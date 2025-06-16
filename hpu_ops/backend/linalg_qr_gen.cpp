@@ -19,13 +19,15 @@ namespace habana {
 QRMode_t GetQrMode(std::string_view mode_str) {
   if (mode_str == "complete") {
     return QRMode_t::COMPLETE;
-  } else if (mode_str == "r") {
-    return QRMode_t::R;
-  } else if (mode_str == "reduced") {
-    return QRMode_t::REDUCED;
-  } else {
-    HABANA_ASSERT(false, "Invalid QR mode: ", mode_str);
   }
+  if (mode_str == "r") {
+    return QRMode_t::R;
+  }
+  if (mode_str == "reduced") {
+    return QRMode_t::REDUCED;
+  }
+
+  HABANA_ASSERT(false, "Invalid QR mode: ", mode_str);
 }
 
 OutputMetaDataVector QrMeta(const at::Stack& stack) {

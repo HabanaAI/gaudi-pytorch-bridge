@@ -286,7 +286,7 @@ class OutputMetaData {
   std::optional<at::Tensor> allocated_tensor{};
   bool undefined{false};
 
-  OutputMetaData(const torch::jit::Value& value) : name(value.debugName()) {};
+  OutputMetaData(const torch::jit::Value& value) : name(value.debugName()){};
   OutputMetaData(
       at::ScalarType dtype,
       std::vector<int64_t> shape,
@@ -831,9 +831,11 @@ class RegisterKernel {
       c10::ScalarType node_type) {
     if (kernels_.count(opname)) {
       return kernels_[opname](device_id, node_type);
-    } else if (user_custom_ops_.count(opname)) {
+    }
+    if (user_custom_ops_.count(opname)) {
       return user_custom_ops_[opname](device_id, opname.name);
-    } else if (legacy_user_custom_ops.count(opname)) {
+    }
+    if (legacy_user_custom_ops.count(opname)) {
       return legacy_user_custom_ops[opname](device_id, opname.name);
     }
     return nullptr;

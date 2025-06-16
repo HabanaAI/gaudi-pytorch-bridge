@@ -164,10 +164,12 @@ void CheckIfAutoCastNodePresent(
         if (cast_u.user == conv) {
           if (node->output(0) == conv->input(0)) {
             continue;
-          } else if (node->output(0) == conv->input(1)) {
+          }
+          if (node->output(0) == conv->input(1)) {
             PT_LAZY_DEBUG("[CheckIfAutoCastNodePresent] Conv weight auto_cast");
             w_auto_cast.emplace_back(node);
-          } else if (node->output(0) == conv->input(2)) {
+          }
+          if (node->output(0) == conv->input(2)) {
             PT_LAZY_DEBUG("[CheckIfAutoCastNodePresent] Conv bias auto_cast");
             b_auto_cast.emplace_back(node);
           }

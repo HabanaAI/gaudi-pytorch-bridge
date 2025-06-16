@@ -72,11 +72,9 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> linear_bwd(
   std::tuple<at::Tensor, at::Tensor, at::Tensor> result = hpu_op.call();
   if (output_mask[2]) {
     return result;
-  } else {
-    at::Tensor none_tensor = torch::Tensor();
-    return std::make_tuple(
-        std::get<0>(result), std::get<1>(result), none_tensor);
   }
+  at::Tensor none_tensor = torch::Tensor();
+  return std::make_tuple(std::get<0>(result), std::get<1>(result), none_tensor);
 }
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor> linear_bwd_dispatch(

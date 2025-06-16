@@ -443,33 +443,32 @@ sh::tensor& HabanaLaunchOpPT::AllocateSynapseTensor(
     auto& syn_tensor = habana_op->AllocateSynapseInput(
         *syn_graph_ptr_, pt_tensor, true, tmeta->get_tensor_type(), host_ptr);
     return syn_tensor;
-  } else {
-    habana_helpers::TensorShape min_shape, max_shape;
-
-    void* pt_tensor_buffer_start = pt_tensor.storage().data_ptr().get();
-    bool is_duplicate_syn_tensor{
-        (pt_tensor_buffer_start != nullptr &&
-         buff_to_syn_tensor_map_.count(pt_tensor_buffer_start))};
-    if (is_duplicate_syn_tensor) {
-      auto syn_tensor_it = buff_to_syn_tensor_map_.find(pt_tensor_buffer_start);
-      sh::tensor& st = syn_tensor_it->second;
-      habana_op->set_is_duplicate_input_flag(true);
-      habana_op->add_syn_input_tensor_orig(st);
-    }
-    auto& syn_tensor = habana_op->AllocateSynapseInput(
-        *syn_graph_ptr_, pt_tensor, true, DATA_TENSOR, nullptr, idx);
-
-    if (is_duplicate_syn_tensor) {
-      habana_op->set_is_duplicate_input_flag(false);
-      habana_op->clear_syn_input_tensor_orig();
-    }
-
-    if (pt_tensor_buffer_start != nullptr) {
-      buff_to_syn_tensor_map_.emplace(
-          pt_tensor_buffer_start, sh::tensor_or_ref(syn_tensor));
-    }
-    return syn_tensor;
   }
+  habana_helpers::TensorShape min_shape, max_shape;
+
+  void* pt_tensor_buffer_start = pt_tensor.storage().data_ptr().get();
+  bool is_duplicate_syn_tensor{
+      (pt_tensor_buffer_start != nullptr &&
+       buff_to_syn_tensor_map_.count(pt_tensor_buffer_start))};
+  if (is_duplicate_syn_tensor) {
+    auto syn_tensor_it = buff_to_syn_tensor_map_.find(pt_tensor_buffer_start);
+    sh::tensor& st = syn_tensor_it->second;
+    habana_op->set_is_duplicate_input_flag(true);
+    habana_op->add_syn_input_tensor_orig(st);
+  }
+  auto& syn_tensor = habana_op->AllocateSynapseInput(
+      *syn_graph_ptr_, pt_tensor, true, DATA_TENSOR, nullptr, idx);
+
+  if (is_duplicate_syn_tensor) {
+    habana_op->set_is_duplicate_input_flag(false);
+    habana_op->clear_syn_input_tensor_orig();
+  }
+
+  if (pt_tensor_buffer_start != nullptr) {
+    buff_to_syn_tensor_map_.emplace(
+        pt_tensor_buffer_start, sh::tensor_or_ref(syn_tensor));
+  }
+  return syn_tensor;
 }
 
 void HabanaLaunchOpPT::HandleUnmappedTensor(
@@ -1925,9 +1924,11 @@ std::string DumpPassInfo(
   if (graph.is_dynamic_graph()) {
     if (pass == ShapeInfo::InferencePass::MIN_SHAPE) {
       return "SIF_MIN ";
-    } else if (pass == ShapeInfo::InferencePass::MAX_SHAPE) {
+    }
+    if (pass == ShapeInfo::InferencePass::MAX_SHAPE) {
       return "SIF_MAX ";
-    } else if (pass == ShapeInfo::InferencePass::OUTPUT_SHAPE) {
+    }
+    if (pass == ShapeInfo::InferencePass::OUTPUT_SHAPE) {
       return "SIF_OUTPUT ";
     }
   }
@@ -2171,8 +2172,8 @@ bool is_allow_view_output_permutation(const at::Tensor& t) {
   if (tmeta->is_maybe_grad_view()) {
     PT_BRIDGE_DEBUG("Allowed view output permutation. sizes: ", t.sizes())
     return true;
-  } else
-    return false;
+  }
+  return false;
 }
 void HabanaLaunchOpPT::setSynapsePermuteFlag(
     sh::tensor& out_syntensor,
@@ -4501,11 +4502,10 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS(
       }
       PT_BRIDGE_END;
       return;
-    } else {
-      PT_DYNAMIC_SHAPE_DEBUG(
-          "HabanaOp recipe cache miss :: key ", cur_rargpsh_->hashCode());
-      PT_DYNAMIC_SHAPE_DEBUG("HabanaOp recipe cache miss :: dynamic shapes");
     }
+    PT_DYNAMIC_SHAPE_DEBUG(
+        "HabanaOp recipe cache miss :: key ", cur_rargpsh_->hashCode());
+    PT_DYNAMIC_SHAPE_DEBUG("HabanaOp recipe cache miss :: dynamic shapes");
   }
 
   if (enable_optim_output_sif_) {
@@ -5195,18 +5195,17 @@ void HabanaLaunchOpPT::run(
       }
       PT_BRIDGE_END;
       return;
-    } else {
-      emitCacheEvent(
-          habana_helpers::EventDispatcher::Topic::CACHE_MISS,
-          std::to_string(cur_rargpsh_->hashCode()));
-      PT_BRIDGE_DEBUG(
-          GetSynapseGraphName(),
-          ": ",
-          "HabanaOp recipe cache miss :: key ",
-          cur_rargpsh_->hashCode());
-      PT_IRGRAPH_DEBUG("HabanaOp recipe cache miss :: static shapes");
-      PT_TEST_DEBUG("HabanaOp recipe cache miss :: static path");
     }
+    emitCacheEvent(
+        habana_helpers::EventDispatcher::Topic::CACHE_MISS,
+        std::to_string(cur_rargpsh_->hashCode()));
+    PT_BRIDGE_DEBUG(
+        GetSynapseGraphName(),
+        ": ",
+        "HabanaOp recipe cache miss :: key ",
+        cur_rargpsh_->hashCode());
+    PT_IRGRAPH_DEBUG("HabanaOp recipe cache miss :: static shapes");
+    PT_TEST_DEBUG("HabanaOp recipe cache miss :: static path");
   }
   // eager and graph recipe caching :: end
 
@@ -5358,118 +5357,116 @@ void HabanaLaunchOpPT::run(
             launch_op.RemoveDuplicateGraph();
           });
       return;
-    } else {
-      PT_EAGER_DEBUG("[SHAPE AGNOSTIC] shape agnostic cache hit (begin)");
-      is_shape_agnostic_supported_ = true;
-
-      auto [duplicate_graph, tensorsMap, nodesMap] =
-          sh::graph::duplicate(*rvs->shape_agnostic_synapse_graph_);
-      syn_graph_ptr_ = std::make_shared<sh::graph>(std::move(duplicate_graph));
-      MaybePrintDuplicateGraphInformation(
-          *syn_graph_ptr_, tensorsMap, nodesMap, true);
-
-      RecipeValueSpec& rv = *rvs;
-      rv.update_hit_count();
-      PT_EAGER_DEBUG(
-          GetSynapseGraphName(),
-          ": ",
-          "HabanaOp shape agnostic graph cache hit :: key ",
-          graph_key_,
-          "\n",
-          rv.header_str(),
-          "\n",
-          rv.digest_str());
-      PT_EAGER_DEBUG(
-          "HabanaOp shape agnostic graph cache hit :: static shapes");
-
-      std::unordered_map<synTensor, synTensor> synapse_orig_to_new_handle{};
-      for (size_t i = 0; i < tensorsMap.size(); i++) {
-        synapse_orig_to_new_handle.insert(
-            {tensorsMap.at(i).origHandle, tensorsMap.at(i).newHandle});
-      }
-
-      std::unordered_map<synNodeId, synNodeId>
-          synapse_nodes_orig_to_new_handle{};
-      for (size_t i = 0; i < nodesMap.size(); i++) {
-        synapse_nodes_orig_to_new_handle.insert(
-            {nodesMap.at(i).origHandle, nodesMap.at(i).newHandle});
-      }
-
-      for (const auto& out_shape : out_shapes_) {
-        PT_EAGER_DEBUG("[SHAPE AGNOSTIC] output shape - ", out_shape);
-      }
-
-      /*
-       * Hybrid SIF is used for shape inference for intermediate tensors
-       * and node parameters inference only if param agnostic is supported
-       * Inputs shape is retrieved from input refs.
-       * Ouptut shape info is passed in the jit ir graph meta data.
-       */
-      std::unordered_map<int64_t, at::Tensor> local_tidx_to_tensor_map{};
-      auto node_params_vec_ptr =
-          jit_graph_and_meta_data_->get_is_param_agnostic_supported()
-          ? std::make_shared<std::vector<InferNodeParams>>()
-          : nullptr;
-      if (syn_graph_ptr_->get_num_of_inter_tensors() > 0) {
-        habana::ShapeInference::ResetSifTensorId();
-        constexpr bool dynamic_shapes_false = false;
-        RunHybridSif<dynamic_shapes_false>(
-            local_tidx_to_tensor_map, node_params_vec_ptr);
-      }
-
-      constexpr bool is_shape_agnostic_graph = true;
-      UpdatePatchingInformation(
-          rv,
-          syn_graph_ptr_->is_empty(),
-          false,
-          local_tidx_to_tensor_map,
-          synapse_orig_to_new_handle,
-          is_shape_agnostic_graph);
-
-      // Get updated nodes params for if param agnostic is supported
-      // and for single node graph for which Hybrid SIF did not run earlier
-      // ToDO: Check and optimize Hybrid SIF for getting only node params
-      if (node_params_vec_ptr && local_tidx_to_tensor_map.empty()) {
-        PT_EAGER_DEBUG("[SHAPE AGNOSTIC] Calling Hybrid SIF for node params");
-        constexpr bool dynamic_shapes_false = false;
-        RunHybridSif<dynamic_shapes_false>(
-            local_tidx_to_tensor_map, node_params_vec_ptr);
-      }
-
-      // Update node params only if available and param agnostic is supported
-      if (node_params_vec_ptr) {
-        rv.update_node_params(
-            synapse_nodes_orig_to_new_handle,
-            syn_graph_ptr_->get_syn_node_id_vec(),
-            syn_graph_ptr_->get_graph_handle(),
-            node_params_vec_ptr);
-      }
-
-      // Run Synapse Shape inference if required
-      if (jit_graph_and_meta_data_->get_is_synapse_shape_inf_required()) {
-        HABANA_ASSERT(
-            syn_graph_ptr_->inferShapes() == true,
-            "[SHAPE AGNOSTIC] Cache hit Synapse shape inference failed !");
-      }
-
-      recipe_launcher_ = std::make_unique<RecipeLauncher>(rv);
-
-      // Once SAG supports control edges, we'll have to double-check if we
-      // need additional control edge processing here
-
-      PT_LAZY_EAGER_DEBUG(
-          "[LAZY EAGER MT] Enqueue new task to the Compile and Execute Thread");
-      pipeline_execution.execute(
-          [](habana::HabanaLaunchOpPT& launch_op) {
-            launch_op.recipe_launcher_->SetRecipe(
-                launch_op.CompileSynapseGraph());
-          },
-          [](habana::HabanaLaunchOpPT& launch_op) {
-            launch_op.ExecuteSynapseGraph();
-            launch_op.ClearStatics();
-            launch_op.RemoveDuplicateGraph();
-          });
     }
+    PT_EAGER_DEBUG("[SHAPE AGNOSTIC] shape agnostic cache hit (begin)");
+    is_shape_agnostic_supported_ = true;
+
+    auto [duplicate_graph, tensorsMap, nodesMap] =
+        sh::graph::duplicate(*rvs->shape_agnostic_synapse_graph_);
+    syn_graph_ptr_ = std::make_shared<sh::graph>(std::move(duplicate_graph));
+    MaybePrintDuplicateGraphInformation(
+        *syn_graph_ptr_, tensorsMap, nodesMap, true);
+
+    RecipeValueSpec& rv = *rvs;
+    rv.update_hit_count();
+    PT_EAGER_DEBUG(
+        GetSynapseGraphName(),
+        ": ",
+        "HabanaOp shape agnostic graph cache hit :: key ",
+        graph_key_,
+        "\n",
+        rv.header_str(),
+        "\n",
+        rv.digest_str());
+    PT_EAGER_DEBUG("HabanaOp shape agnostic graph cache hit :: static shapes");
+
+    std::unordered_map<synTensor, synTensor> synapse_orig_to_new_handle{};
+    for (size_t i = 0; i < tensorsMap.size(); i++) {
+      synapse_orig_to_new_handle.insert(
+          {tensorsMap.at(i).origHandle, tensorsMap.at(i).newHandle});
+    }
+
+    std::unordered_map<synNodeId, synNodeId> synapse_nodes_orig_to_new_handle{};
+    for (size_t i = 0; i < nodesMap.size(); i++) {
+      synapse_nodes_orig_to_new_handle.insert(
+          {nodesMap.at(i).origHandle, nodesMap.at(i).newHandle});
+    }
+
+    for (const auto& out_shape : out_shapes_) {
+      PT_EAGER_DEBUG("[SHAPE AGNOSTIC] output shape - ", out_shape);
+    }
+
+    /*
+     * Hybrid SIF is used for shape inference for intermediate tensors
+     * and node parameters inference only if param agnostic is supported
+     * Inputs shape is retrieved from input refs.
+     * Ouptut shape info is passed in the jit ir graph meta data.
+     */
+    std::unordered_map<int64_t, at::Tensor> local_tidx_to_tensor_map{};
+    auto node_params_vec_ptr =
+        jit_graph_and_meta_data_->get_is_param_agnostic_supported()
+        ? std::make_shared<std::vector<InferNodeParams>>()
+        : nullptr;
+    if (syn_graph_ptr_->get_num_of_inter_tensors() > 0) {
+      habana::ShapeInference::ResetSifTensorId();
+      constexpr bool dynamic_shapes_false = false;
+      RunHybridSif<dynamic_shapes_false>(
+          local_tidx_to_tensor_map, node_params_vec_ptr);
+    }
+
+    constexpr bool is_shape_agnostic_graph = true;
+    UpdatePatchingInformation(
+        rv,
+        syn_graph_ptr_->is_empty(),
+        false,
+        local_tidx_to_tensor_map,
+        synapse_orig_to_new_handle,
+        is_shape_agnostic_graph);
+
+    // Run Synapse Shape inference if required
+    if (jit_graph_and_meta_data_->get_is_synapse_shape_inf_required()) {
+      HABANA_ASSERT(
+          syn_graph_ptr_->inferShapes() == true,
+          "[SHAPE AGNOSTIC] Cache hit Synapse shape inference failed !");
+    }
+
+    // Get updated nodes params for if param agnostic is supported
+    // and for single node graph for which Hybrid SIF did not run earlier
+    // ToDO: Check and optimize Hybrid SIF for getting only node params
+    if (node_params_vec_ptr && local_tidx_to_tensor_map.empty()) {
+      PT_EAGER_DEBUG("[SHAPE AGNOSTIC] Calling Hybrid SIF for node params");
+      constexpr bool dynamic_shapes_false = false;
+      RunHybridSif<dynamic_shapes_false>(
+          local_tidx_to_tensor_map, node_params_vec_ptr);
+    }
+
+    // Update node params only if available and param agnostic is supported
+    if (node_params_vec_ptr) {
+      rv.update_node_params(
+          synapse_nodes_orig_to_new_handle,
+          syn_graph_ptr_->get_syn_node_id_vec(),
+          syn_graph_ptr_->get_graph_handle(),
+          node_params_vec_ptr);
+    }
+
+    recipe_launcher_ = std::make_unique<RecipeLauncher>(rv);
+
+    // Once SAG supports control edges, we'll have to double-check if we
+    // need additional control edge processing here
+
+    PT_LAZY_EAGER_DEBUG(
+        "[LAZY EAGER MT] Enqueue new task to the Compile and Execute Thread");
+    pipeline_execution.execute(
+        [](habana::HabanaLaunchOpPT& launch_op) {
+          launch_op.recipe_launcher_->SetRecipe(
+              launch_op.CompileSynapseGraph());
+        },
+        [](habana::HabanaLaunchOpPT& launch_op) {
+          launch_op.ExecuteSynapseGraph();
+          launch_op.ClearStatics();
+          launch_op.RemoveDuplicateGraph();
+        });
+
     PT_BRIDGE_END;
     return;
   }

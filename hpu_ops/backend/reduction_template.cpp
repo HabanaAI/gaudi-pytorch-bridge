@@ -82,22 +82,21 @@ std::vector<int64_t> CalculateReductionMultiDimAndKeepdimOutputSize(
       outputSize[dim] = 1;
     }
     return outputSize;
-  } else {
-    const size_t numOfDimsLeft = inputSize.size() - dimsToReduce.size();
-    if (numOfDimsLeft == 0) {
-      return {1};
-    }
-    std::vector<int64_t> outputSize;
-    outputSize.reserve(numOfDimsLeft);
-
-    for (size_t i = 0; i < inputSize.size(); ++i) {
-      if (std::find(dimsToReduce.begin(), dimsToReduce.end(), i) ==
-          dimsToReduce.end()) {
-        outputSize.push_back(inputSize[i]);
-      }
-    }
-    return outputSize;
   }
+  const size_t numOfDimsLeft = inputSize.size() - dimsToReduce.size();
+  if (numOfDimsLeft == 0) {
+    return {1};
+  }
+  std::vector<int64_t> outputSize;
+  outputSize.reserve(numOfDimsLeft);
+
+  for (size_t i = 0; i < inputSize.size(); ++i) {
+    if (std::find(dimsToReduce.begin(), dimsToReduce.end(), i) ==
+        dimsToReduce.end()) {
+      outputSize.push_back(inputSize[i]);
+    }
+  }
+  return outputSize;
 }
 
 std::vector<synapse_helpers::tensor> HandleReduction(

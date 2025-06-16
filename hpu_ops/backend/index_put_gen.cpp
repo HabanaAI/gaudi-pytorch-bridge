@@ -45,22 +45,21 @@ static std::vector<int64_t> broadcast_size(
       size.insert(size.end(), sz.begin(), sz.end());
     }
     return size;
+  }
+  auto isz = indices[0].sizes().vec();
+  if ((indices[0].scalar_type() == c10::ScalarType::Bool)) {
+    std::vector<int64_t> sz{isz[0]}; // if index is 2-D (for bool), number of
+                                     // rows indicates broadcast size
+    size = sz;
   } else {
-    auto isz = indices[0].sizes().vec();
-    if ((indices[0].scalar_type() == c10::ScalarType::Bool)) {
-      std::vector<int64_t> sz{isz[0]}; // if index is 2-D (for bool), number of
-                                       // rows indicates broadcast size
-      size = sz;
-    } else {
-      size = isz;
-    }
-    for (size_t i = 1; i < indices.size(); i++) {
-      size = at::infer_size(size, indices[i].sizes());
-    }
-    if ((indices[0].scalar_type() == c10::ScalarType::Bool) &&
-        (int)size.size() < self.dim()) {
-      size = self_sizes;
-    }
+    size = isz;
+  }
+  for (size_t i = 1; i < indices.size(); i++) {
+    size = at::infer_size(size, indices[i].sizes());
+  }
+  if ((indices[0].scalar_type() == c10::ScalarType::Bool) &&
+      (int)size.size() < self.dim()) {
+    size = self_sizes;
   }
   return size;
 }
@@ -889,64 +888,61 @@ static synapse_helpers::tensor IndexPutLongHelper(
                  self.sizes().vec(), self_scalar_type, 0}}});
       }
       return std::move(next_node[0]);
-    } else {
-      return HandleIndexPutWithAcc(
+    }
+    return HandleIndexPutWithAcc(
+        op,
+        graph,
+        self,
+        catop,
+        reshape_val_op,
+        self_synin,
+        rank_idx,
+        indices_scalar_type);
+  }
+  if (!accumulate) {
+    if (cast_needed) {
+      auto scatter_op = OpBackend::BuildNode(
           op,
           graph,
-          self,
-          catop,
-          reshape_val_op,
-          self_synin,
-          rank_idx,
-          indices_scalar_type);
-    }
-  } else {
-    if (!accumulate) {
-      if (cast_needed) {
-        auto scatter_op = OpBackend::BuildNode(
-            op,
-            graph,
-            {get_guid_with_precision(
-                 "scatter_nd_onnx_fwd"sv, scatter_nd_onnx_fwd_dtype),
-             {self_synin,
-              catop.get(),
-              values_bcast_or_reshape_sh_tensor[0].get()},
-             {NodeAttr::NodeOutputAttr{
-                 self.sizes().vec(), scatter_nd_onnx_fwd_dtype}}});
+          {get_guid_with_precision(
+               "scatter_nd_onnx_fwd"sv, scatter_nd_onnx_fwd_dtype),
+           {self_synin,
+            catop.get(),
+            values_bcast_or_reshape_sh_tensor[0].get()},
+           {NodeAttr::NodeOutputAttr{
+               self.sizes().vec(), scatter_nd_onnx_fwd_dtype}}});
 
-        next_node = OpBackend::BuildNode(
-            op,
-            graph,
-            {cast_guid,
-             {scatter_op[0].get()},
-             {NodeAttr::NodeOutputAttr{
-                 self.sizes().vec(), self_scalar_type, 0}}});
-
-      } else {
-        next_node = OpBackend::BuildNode(
-            op,
-            graph,
-            {get_guid_with_precision(
-                 "scatter_nd_onnx_fwd"sv, scatter_nd_onnx_fwd_dtype),
-             {self_synin,
-              catop.get(),
-              values_bcast_or_reshape_sh_tensor[0].get()},
-             {NodeAttr::NodeOutputAttr{
-                 self.sizes().vec(), scatter_nd_onnx_fwd_dtype, 0}}});
-      }
-      return std::move(next_node[0]);
-    } else {
-      return HandleIndexPutWithAcc(
+      next_node = OpBackend::BuildNode(
           op,
           graph,
-          self,
-          catop,
-          values_bcast_or_reshape_sh_tensor[0],
-          self_synin,
-          rank_idx,
-          indices_scalar_type);
+          {cast_guid,
+           {scatter_op[0].get()},
+           {NodeAttr::NodeOutputAttr{
+               self.sizes().vec(), self_scalar_type, 0}}});
+
+    } else {
+      next_node = OpBackend::BuildNode(
+          op,
+          graph,
+          {get_guid_with_precision(
+               "scatter_nd_onnx_fwd"sv, scatter_nd_onnx_fwd_dtype),
+           {self_synin,
+            catop.get(),
+            values_bcast_or_reshape_sh_tensor[0].get()},
+           {NodeAttr::NodeOutputAttr{
+               self.sizes().vec(), scatter_nd_onnx_fwd_dtype, 0}}});
     }
-  };
+    return std::move(next_node[0]);
+  }
+  return HandleIndexPutWithAcc(
+      op,
+      graph,
+      self,
+      catop,
+      values_bcast_or_reshape_sh_tensor[0],
+      self_synin,
+      rank_idx,
+      indices_scalar_type);
 }
 
 IndexPutCompile::IndexPutCompile(int device_id, c10::ScalarType scalar_type)

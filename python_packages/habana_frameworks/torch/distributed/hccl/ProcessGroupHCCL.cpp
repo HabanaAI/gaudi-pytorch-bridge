@@ -761,13 +761,12 @@ void ProcessGroupHCCL::clearPermutesFromRecvTensors(
           self_hb_tensor.getTensorUniqueId(),
           " is non contiguous view, skipping clearing its permutation");
       continue;
-    } else {
-      PT_DISTRIBUTED_DEBUG(
-          "recieved tensor: ",
-          self_hb_tensor.getTensorUniqueId(),
-          " Clearing its permutation");
-      hb_weight_impl->SetMemoryPermutation({});
     }
+    PT_DISTRIBUTED_DEBUG(
+        "recieved tensor: ",
+        self_hb_tensor.getTensorUniqueId(),
+        " Clearing its permutation");
+    hb_weight_impl->SetMemoryPermutation({});
   }
 }
 } // namespace c10d

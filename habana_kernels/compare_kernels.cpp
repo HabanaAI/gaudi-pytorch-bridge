@@ -139,27 +139,27 @@ InferOutputMetaRetType CompareOutWrapperOperator::InferOutputMeta(
     auto compareOp_out_tensor = compareOp_out.GetOutputTensor(0);
     out.MoveToOutput(std::move(compareOp_out_tensor));
     return out;
-  } else { // 2nd input is a scalar
-    // add constant node to convert 2nd input to tensor
-    auto arg1 = inputs[0].toTensor();
-    auto constOp = make_operator<ConstantOperator>(
-        this->p_context_->device_id_, this->scalarType_);
-    auto const_shape_tensor = habana::createPTTensor(
-        arg1, {1}, arg1.options(), at::MemoryFormat::Contiguous, false);
-    torch::jit::Stack constOp_stack = {IValue(const_shape_tensor), inputs[1]};
-    auto& constOp_out = out.call_InferOutputMeta(constOp, constOp_stack);
-
-    // replace 2nd scalar input with a tensor in stack
-    inputs.erase(inputs.cbegin() + 1);
-    inputs.emplace(
-        inputs.cbegin() + 1, std::get<1>(constOp_out.GetOutputTensor(0)));
-    compareOp = make_operator<CompareOutOperator>(
-        this->p_context_->device_id_, this->scalarType_, guid_);
-    auto& compareOp_out = out.call_InferOutputMeta(compareOp, inputs);
-    auto compareOp_out_tensor = compareOp_out.GetOutputTensor(0);
-    out.MoveToOutput(std::move(compareOp_out_tensor));
-    return out;
   }
+  // 2nd input is a scalar
+  // add constant node to convert 2nd input to tensor
+  auto arg1 = inputs[0].toTensor();
+  auto constOp = make_operator<ConstantOperator>(
+      this->p_context_->device_id_, this->scalarType_);
+  auto const_shape_tensor = habana::createPTTensor(
+      arg1, {1}, arg1.options(), at::MemoryFormat::Contiguous, false);
+  torch::jit::Stack constOp_stack = {IValue(const_shape_tensor), inputs[1]};
+  auto& constOp_out = out.call_InferOutputMeta(constOp, constOp_stack);
+
+  // replace 2nd scalar input with a tensor in stack
+  inputs.erase(inputs.cbegin() + 1);
+  inputs.emplace(
+      inputs.cbegin() + 1, std::get<1>(constOp_out.GetOutputTensor(0)));
+  compareOp = make_operator<CompareOutOperator>(
+      this->p_context_->device_id_, this->scalarType_, guid_);
+  auto& compareOp_out = out.call_InferOutputMeta(compareOp, inputs);
+  auto compareOp_out_tensor = compareOp_out.GetOutputTensor(0);
+  out.MoveToOutput(std::move(compareOp_out_tensor));
+  return out;
 }
 
 void CompareOutWrapperOperator::SetPTOutputs(torch::jit::Stack& inputs) {

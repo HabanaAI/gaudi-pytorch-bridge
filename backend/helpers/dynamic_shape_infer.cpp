@@ -26,17 +26,15 @@ IShapeType IShape::getType() const {
 at::Scalar IShape::getScalar() const {
   if (type == IShapeType::SCALAR) {
     return std::get<at::Scalar>(data);
-  } else {
-    throw std::runtime_error("Get scalar failed!!!");
   }
+  throw std::runtime_error("Get scalar failed!!!");
 }
 
 std::vector<int64_t> IShape::getTensorShape() const {
   if (type == IShapeType::TENSOR_SHAPE) {
     return std::get<std::vector<int64_t>>(data);
-  } else {
-    throw std::runtime_error("Get tensor shape failed!!!");
   }
+  throw std::runtime_error("Get tensor shape failed!!!");
 }
 
 c10::ScalarType IShape::getScalarType() const {
@@ -81,9 +79,8 @@ c10::ScalarType IShape::toScalarType() const {
   if (type == IShapeType::SCALAR) {
     auto scalar_data = std::get<at::Scalar>(data);
     return torch::jit::IValue(scalar_data).toScalarType();
-  } else {
-    throw std::runtime_error("To Scalar failed!!!");
   }
+  throw std::runtime_error("To Scalar failed!!!");
 }
 
 void UpdateSTShapeInfo(std::vector<int64_t>& shape) {

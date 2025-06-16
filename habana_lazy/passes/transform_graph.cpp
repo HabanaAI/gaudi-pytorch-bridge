@@ -32,9 +32,8 @@ Patterns internal_patts = {};
 std::string get_transform_graph_file() {
   if (std::getenv("HABANA_TRANSFORM_GRAPH_FILE")) {
     return static_cast<std::string>(std::getenv("HABANA_TRANSFORM_GRAPH_FILE"));
-  } else {
-    return {};
   }
+  return {};
 }
 
 /**

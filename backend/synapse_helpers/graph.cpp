@@ -966,13 +966,12 @@ std::string_view graph::name_suffix_from_type(
     case synDataType::syn_type_int64: {
       if (use_int64) {
         return "i64"sv;
-      } else {
-        // Temporary solution: To use autocast feature from complex guid, we
-        // need to call _i32 version of the kernel, but pass i64 tensors.
-        // Instead of changing guid names in every op implementation, it was
-        // changed here.
-        return "i32"sv;
       }
+      // Temporary solution: To use autocast feature from complex guid, we
+      // need to call _i32 version of the kernel, but pass i64 tensors.
+      // Instead of changing guid names in every op implementation, it was
+      // changed here.
+      return "i32"sv;
     }
     case synDataType::syn_type_uint64: {
       return "u64"sv;

@@ -38,10 +38,9 @@ FillParamsT FillGeluParams(const at::Stack& stack, int approx_index) {
   if (GET_ENV_FLAG_NEW(PT_HPU_FORCE_TANH_FOR_GELU)) {
     params->approximation = true;
     return paramsT;
-  } else {
-    params->approximation = stack.at(approx_index).to<std::string>() == "tanh";
-    return paramsT;
   }
+  params->approximation = stack.at(approx_index).to<std::string>() == "tanh";
+  return paramsT;
 }
 
 FillParamsT FillGeluFwdParams(const at::Stack& stack) {

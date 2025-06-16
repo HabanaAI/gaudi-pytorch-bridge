@@ -28,9 +28,8 @@ struct VariableGet {
   static auto get(int i, const T& v) {
     if (i == I) {
       return std::get<I>(v);
-    } else {
-      return VariableGet<I + 1, N>::get(i, v);
     }
+    return VariableGet<I + 1, N>::get(i, v);
   }
 };
 

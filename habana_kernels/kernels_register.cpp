@@ -1656,7 +1656,8 @@ struct DropoutFunction : public Function<DropoutFunction> {
     ctx->saved_data["p"] = train ? p : 0.0;
     if ((p == 0) || !train || (input.numel() == 0)) {
       return input;
-    } else if (p == 1) {
+    }
+    if (p == 1) {
       return input * 0.0;
     }
     std::optional<at::Generator> gen = std::nullopt;
@@ -1672,7 +1673,8 @@ struct DropoutFunction : public Function<DropoutFunction> {
     auto p = ctx->saved_data["p"].toDouble();
     if (p == 0) {
       return {grad_output[0], torch::Tensor(), torch::Tensor()};
-    } else if (p == 1) {
+    }
+    if (p == 1) {
       return {grad_output[0] * 0.0, torch::Tensor(), torch::Tensor()};
     }
     variable_list saved_vars = ctx->get_saved_variables();

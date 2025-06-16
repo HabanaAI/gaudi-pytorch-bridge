@@ -50,9 +50,8 @@ class HpuSearchSortedOpTest
     auto hpu_indices = cpu_indices.to(torch::kHPU);
     if (create_sorter) {
       return {GetHpuInput(0), hpu_indices, GetCpuInput(0), cpu_indices};
-    } else {
-      return {hpu_sorted, hpu_indices, cpu_sorted, cpu_indices};
     }
+    return {hpu_sorted, hpu_indices, cpu_sorted, cpu_indices};
   }
 
   void parse_params() {

@@ -355,9 +355,8 @@ bool ArangeOperatorDS::ReplaceWithDynamicHPUOp(
         &ArangeOperatorDS::UpdateDynamicInputs, dtensor_indexes);
     m_dmeta->ds_input_patching_list.push_back(patch_info);
     return true;
-  } else {
-    return false;
   }
+  return false;
 }
 
 void ArangeOperatorDS::UpdateDynamicInputs(

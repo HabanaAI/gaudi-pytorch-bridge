@@ -54,20 +54,16 @@ std::shared_ptr<Snapshot> StaleLazyTensorKeeper::extract_snapshot() {
       }
 
       return snapshot;
-    } else {
-      if (!front.tensor.is_null() &&
-          !front.tensor.IsOpAccumulationInProgress()) {
-        snapshot->tensors.emplace_back(std::move(front.tensor));
-      } else if (front.tensor.IsOpAccumulationInProgress()) {
-        Holder holder(std::move(front.tensor), false);
-        Holder stopper(HbLazyTensor(), true);
-        kept_alive.push_back(std::move(holder));
-        kept_alive.push_back(std::move(stopper));
-      } else {
-        // nothing to do
-      }
-      kept_alive.pop_front();
     }
+    if (!front.tensor.is_null() && !front.tensor.IsOpAccumulationInProgress()) {
+      snapshot->tensors.emplace_back(std::move(front.tensor));
+    } else if (front.tensor.IsOpAccumulationInProgress()) {
+      Holder holder(std::move(front.tensor), false);
+      Holder stopper(HbLazyTensor(), true);
+      kept_alive.push_back(std::move(holder));
+      kept_alive.push_back(std::move(stopper));
+    }
+    kept_alive.pop_front();
   }
   return snapshot;
 }
@@ -287,18 +283,17 @@ at::Tensor HbLazyTensor::ToTensor(bool detached) {
     // calls
     // so this case shouldnt arise
     return tensor;
-  } else {
-    tensor = *tensor_data;
-    if (detached) {
-      if (data()->ir_value) {
-        // If we have other authoritive sources, just drop our reference and
-        // transfer it to the caller.
-        data()->tensor_data = std::nullopt;
-      } else {
-        // Otherwise we need to make a copy to prevent the caller changing our
-        // version.
-        tensor = CopyTensor(tensor);
-      }
+  }
+  tensor = *tensor_data;
+  if (detached) {
+    if (data()->ir_value) {
+      // If we have other authoritive sources, just drop our reference and
+      // transfer it to the caller.
+      data()->tensor_data = std::nullopt;
+    } else {
+      // Otherwise we need to make a copy to prevent the caller changing our
+      // version.
+      tensor = CopyTensor(tensor);
     }
   }
   return tensor;
@@ -370,13 +365,12 @@ void HbLazyTensor::MarkStep(const c10::Device& device) {
 
 bool HbLazyTensor::isStorageAttached() {
   if (data()->tensor_data) {
-    if (data()->tensor_data.value().unsafeGetTensorImpl())
+    if (data()->tensor_data.value().unsafeGetTensorImpl()) {
       return true;
-    else
-      return false;
-  } else {
+    }
     return false;
   }
+  return false;
 }
 void HbLazyTensor::SetTensorDataNullOpt() {
   data()->tensor_data = std::nullopt;
@@ -480,9 +474,8 @@ const std::optional<at::Tensor>& HbLazyTensor::GetCPUTensorData() const {
 c10::TensorImpl* HbLazyTensor::getAttachedTensorImpl() const {
   if (data()->tensor_data) {
     return (data()->tensor_data.value().unsafeGetTensorImpl());
-  } else {
-    return nullptr;
   }
+  return nullptr;
 }
 std::optional<at::Tensor> HbLazyTensor::CurrentTensorData() const {
   auto context = habana_lazy::get_device_lazy_execution_context();
@@ -492,8 +485,6 @@ std::optional<at::Tensor> HbLazyTensor::CurrentTensorData() const {
       // brave assert that when kInput then IR is Input
       // actually we can assert
       return data()->tensor_data;
-    } else {
-      return std::nullopt;
     }
   }
   return std::nullopt;
@@ -525,9 +516,8 @@ Data* HbLazyTensor::data() const {
 at::ScalarType HbLazyTensor::dtype() const {
   if (data()->logical_element_type) {
     return *data()->logical_element_type;
-  } else {
-    return c10::ScalarType::Float;
   }
+  return c10::ScalarType::Float;
 }
 
 std::optional<at::ScalarType> HbLazyTensor::dtype_optional() const {
@@ -720,15 +710,15 @@ std::optional<at::Tensor> HbLazyTensor::GetHbLazyTensorDataForMedia() {
     // Return tensor_data if it is graph input
     if (currentIrValue.mp_node->is_input() == true) {
       return data()->tensor_data;
-    } else if (GET_ENV_FLAG_NEW(PT_USE_MARKSTEP)) {
+    }
+    if (GET_ENV_FLAG_NEW(PT_USE_MARKSTEP)) {
       PT_IRGRAPH_DEBUG(
           "step marker due to GetHbLazyTensorDataForMedia-PT_USE_MARKSTEP");
       HbLazyTensor::StepMarker({});
-    } else {
-      std::lock_guard<std::recursive_mutex> lock(
-          HbContextArena::Get()->GetMutex());
-      applyPendingGraph();
     }
+    std::lock_guard<std::recursive_mutex> lock(
+        HbContextArena::Get()->GetMutex());
+    applyPendingGraph();
   }
   return data()->tensor_data;
 }
@@ -848,19 +838,25 @@ std::string DumpGraph(std::shared_ptr<torch::jit::Graph> jit_graph) {
   return str;
 }
 
-std::vector<ir::NodePtr> GetNodePtrRoots(std::vector<HbLazyTensor>* tensors, std::vector<int>& indices) {
+std::vector<ir::NodePtr> GetNodePtrRoots(
+    std::vector<HbLazyTensor>* tensors,
+    std::vector<int>& indices) {
   std::vector<ir::NodePtr> p_roots;
   p_roots.reserve(indices.size());
   for (auto index : indices) {
-      auto ir_value = tensors->at(index).CurrentIrValue();
-      if (ir_value) {
-          p_roots.push_back(ir_value.mp_node);
-        }
+    auto ir_value = tensors->at(index).CurrentIrValue();
+    if (ir_value) {
+      p_roots.push_back(ir_value.mp_node);
     }
+  }
   return p_roots;
 }
 
-void ValidateSyncInputTensors(std::vector<HbLazyTensor>* tensors, std::vector<int>& indices, habana_lazy::ir::ValueList& inputs, habana_lazy::ir::NodePtrList* ptr_post_order = nullptr) {
+void ValidateSyncInputTensors(
+    std::vector<HbLazyTensor>* tensors,
+    std::vector<int>& indices,
+    habana_lazy::ir::ValueList& inputs,
+    habana_lazy::ir::NodePtrList* ptr_post_order = nullptr) {
   for (const auto& in : inputs) {
     std::shared_ptr<Data> d = in.m_data_ptr.lock();
     if (d == nullptr) {
@@ -1107,7 +1103,11 @@ void LaunchSyncTensorsGraph(
   } else {
     try {
       if (launch_info.has_queued) {
-        ValidateSyncInputTensors(tensors, launch_info.indices, launch_info.po_data.inputs, &launch_info.po_data.post_order);
+        ValidateSyncInputTensors(
+            tensors,
+            launch_info.indices,
+            launch_info.po_data.inputs,
+            &launch_info.po_data.post_order);
         launch_info.stack = PrepareInputStack(
             tensors,
             launch_info.indices,

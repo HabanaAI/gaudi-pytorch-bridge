@@ -135,50 +135,47 @@ InferOutputMetaRetType NonZeroOperator::InferOutputMeta(
         self.suggest_memory_format());
     out.AddShapeTensor(shape_metaData);
     return out;
-
-  } else {
-    SetGuid(get_guid_with_precision("non_zero_v2_fwd"sv, self.scalar_type()));
-    InferOutputMetaRetType out;
-    // (i) This output_describing_shape_tensor is created to be used by
-    // "reshape" node within CGUID. This should be created within CGUID in
-    // future. (ii) This shape tensor should not be created in as part of
-    // accumulation (lazy_kernels) else relationship between input tensor and
-    // shape tensor st = f(input) is not preserved in all cases (e.g. min, max
-    // shape inference with Calculated or Local Historic policies). (iii)
-    // Creating shape tensor in back-end kernel is ok for cases where shape
-    // tensor is strictly a function of another input tensor(s) and not a scalar
-    // value coming from framework.
-    // (iv) Please consult with vgoel@habana.ai before removing or modifying
-    // this shape_tensor.
-    auto st_shape = compute_output_st_shape(self);
-
-    auto shape_metaData1 = TensorMetaData(
-        st_shape,
-        HabanaOperator::CalculateStrides(
-            st_shape, self.suggest_memory_format()),
-        self.scalar_type(),
-        self.suggest_memory_format());
-    out.AddShapeTensor(shape_metaData1);
-    auto output_shape = compute_output_shape(self);
-    std::vector<int64_t> shape_tensor_shape = {5};
-
-    auto metaData = TensorMetaData(
-        output_shape,
-        HabanaOperator::CalculateStrides(
-            output_shape, self.suggest_memory_format()),
-        self.scalar_type(),
-        self.suggest_memory_format());
-
-    out.AddOutputTensor(metaData);
-    auto metaData2 = TensorMetaData(
-        shape_tensor_shape,
-        HabanaOperator::CalculateStrides(
-            shape_tensor_shape, self.suggest_memory_format()),
-        self.scalar_type(),
-        self.suggest_memory_format());
-    out.AddOutputTensor(metaData2);
-    return out;
   }
+  SetGuid(get_guid_with_precision("non_zero_v2_fwd"sv, self.scalar_type()));
+  InferOutputMetaRetType out;
+  // (i) This output_describing_shape_tensor is created to be used by
+  // "reshape" node within CGUID. This should be created within CGUID in
+  // future. (ii) This shape tensor should not be created in as part of
+  // accumulation (lazy_kernels) else relationship between input tensor and
+  // shape tensor st = f(input) is not preserved in all cases (e.g. min, max
+  // shape inference with Calculated or Local Historic policies). (iii)
+  // Creating shape tensor in back-end kernel is ok for cases where shape
+  // tensor is strictly a function of another input tensor(s) and not a scalar
+  // value coming from framework.
+  // (iv) Please consult with vgoel@habana.ai before removing or modifying
+  // this shape_tensor.
+  auto st_shape = compute_output_st_shape(self);
+
+  auto shape_metaData1 = TensorMetaData(
+      st_shape,
+      HabanaOperator::CalculateStrides(st_shape, self.suggest_memory_format()),
+      self.scalar_type(),
+      self.suggest_memory_format());
+  out.AddShapeTensor(shape_metaData1);
+  auto output_shape = compute_output_shape(self);
+  std::vector<int64_t> shape_tensor_shape = {5};
+
+  auto metaData = TensorMetaData(
+      output_shape,
+      HabanaOperator::CalculateStrides(
+          output_shape, self.suggest_memory_format()),
+      self.scalar_type(),
+      self.suggest_memory_format());
+
+  out.AddOutputTensor(metaData);
+  auto metaData2 = TensorMetaData(
+      shape_tensor_shape,
+      HabanaOperator::CalculateStrides(
+          shape_tensor_shape, self.suggest_memory_format()),
+      self.scalar_type(),
+      self.suggest_memory_format());
+  out.AddOutputTensor(metaData2);
+  return out;
 }
 
 void NonZeroOperator::AllocateAndAddSynapseNode(

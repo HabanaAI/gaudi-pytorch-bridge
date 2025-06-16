@@ -191,13 +191,12 @@ static std::string get_guid(
   if (it == map_of_unsupported_dtypes.end() ||
       it->second.find(dtype) == it->second.end()) {
     return get_guid_with_precision(guid, dtype);
-  } else if (
-      isIntegralType(dtype, true) &&
+  }
+  if (isIntegralType(dtype, true) &&
       it->second.find(torch::kInt32) == it->second.end()) {
     return get_guid_with_precision(guid, torch::kInt32);
-  } else {
-    return get_guid_with_precision(guid, torch::kFloat32);
   }
+  return get_guid_with_precision(guid, torch::kFloat32);
 }
 
 void Foreach::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {

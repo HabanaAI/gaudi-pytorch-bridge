@@ -88,7 +88,6 @@ static sizes_vec IndexOutShapeFromOrigStack(const at::Stack& stack) {
   std::array<int64_t, MAX_DIMS_FOR_ADVANCED_INDEXING> adv_index_dims = {
       -1, -1, -1, -1, -1};
 
-  std::vector<at::Tensor> indices;
   std::vector<int64_t> self_permute_dims(self.dim());
   bool explicit_indices_together = false;
   int index_tensor_groups = 0;
@@ -162,15 +161,14 @@ static sizes_vec IndexOutShapeFromOrigStack(const at::Stack& stack) {
       }
     }
     return std::vector<std::vector<int64_t>>{output_shape};
-  } else {
-    std::vector<at::Tensor> indices;
-    for (const auto& i : indices_ival) {
-      indices.emplace_back(i.toTensor());
-    }
-    sizes_vec shape = std::vector<std::vector<int64_t>>{
-        ComputeIndexOperatorOutputShape(self, indices)};
-    return shape;
   }
+  std::vector<at::Tensor> indices;
+  for (const auto& i : indices_ival) {
+    indices.emplace_back(i.toTensor());
+  }
+  sizes_vec shape = std::vector<std::vector<int64_t>>{
+      ComputeIndexOperatorOutputShape(self, indices)};
+  return shape;
 }
 
 sizes_vec IndexOutputShape(const at::Stack& stack) {
@@ -194,16 +192,14 @@ sizes_vec IndexOutputShape(const at::Stack& stack) {
           {habana::ComputeOutputShapeWithAdvIndexing(
               permuted_input_sizes, adv_ind_dim, indexing_tensor_shapes)}};
       return shape;
-    } else {
-      sizes_vec shape = std::vector<std::vector<int64_t>>{
-          ComputeIndexOperatorOutputShape(input, indices)};
-      return shape;
     }
-  } else {
-    HABANA_ASSERT(
-        "!!!Not expected to hit IndexOutShapeFromOrigStack as index op uses custom schema!!!");
-    return IndexOutShapeFromOrigStack(stack);
+    sizes_vec shape = std::vector<std::vector<int64_t>>{
+        ComputeIndexOperatorOutputShape(input, indices)};
+    return shape;
   }
+  HABANA_ASSERT(
+      "!!!Not expected to hit IndexOutShapeFromOrigStack as index op uses custom schema!!!");
+  return IndexOutShapeFromOrigStack(stack);
 }
 
 OutputMetaDataVector IndexMeta(const at::Stack& stack) {

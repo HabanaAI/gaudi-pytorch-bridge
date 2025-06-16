@@ -185,64 +185,71 @@ std::optional<IValue> toIValue(const Value* v) {
   const TypePtr& type = v->type();
   if (type->isSubtypeOf(*TensorType::get())) {
     return node->t(attr::value);
-  } else if (type->isSubtypeOf(*BoolType::get())) {
+  }
+  if (type->isSubtypeOf(*BoolType::get())) {
     return (bool)node->i(attr::value);
-  } else if (
-      type->isSubtypeOf(*NumberType::get()) &&
+  }
+  if (type->isSubtypeOf(*NumberType::get()) &&
       node->kindOf(attr::value) == AttributeKind::i) {
     return node->i(attr::value);
-  } else if (
-      type->isSubtypeOf(*NumberType::get()) &&
+  }
+  if (type->isSubtypeOf(*NumberType::get()) &&
       node->kindOf(attr::value) == AttributeKind::f) {
     return node->f(attr::value);
-  } else if (
-      type->isSubtypeOf(*NumberType::get()) &&
+  }
+  if (type->isSubtypeOf(*NumberType::get()) &&
       node->kindOf(attr::value) == AttributeKind::c) {
     return node->c(attr::value);
-  } else if (
-      type->cast<ListType>() &&
+  }
+  if (type->cast<ListType>() &&
       node->kindOf(attr::value) == AttributeKind::ival) {
     const auto& list = node->ival(attr::value);
     HABANA_ASSERT(list.isList());
     return list;
-  } else if (
-      type->cast<DictType>() &&
+  }
+  if (type->cast<DictType>() &&
       node->kindOf(attr::value) == AttributeKind::ival) {
     const auto& dict = node->ival(attr::value);
     HABANA_ASSERT(dict.isGenericDict());
     return dict;
-  } else if (
-      type->cast<TupleType>() &&
+  }
+  if (type->cast<TupleType>() &&
       node->kindOf(attr::value) == AttributeKind::ival) {
     const auto& tup = node->ival(attr::value);
     HABANA_ASSERT(tup.isTuple());
     return tup;
-  } else if (type == StringType::get()) {
+  }
+  if (type == StringType::get()) {
     const auto& s = node->s(attr::value);
     return s;
-  } else if (type == DeviceObjType::get()) {
+  }
+  if (type == DeviceObjType::get()) {
     auto d = c10::Device(node->s(attr::value));
     return d;
-  } else if (type == GeneratorType::get()) {
+  }
+  if (type == GeneratorType::get()) {
     auto generator = node->ival(attr::value).toGenerator();
     return generator;
-  } else if (type == StreamObjType::get()) {
+  }
+  if (type == StreamObjType::get()) {
     // int64_t packing removed
     auto s = node->ival(attr::value).toStream();
     return s;
-  } else if (node->mustBeNone()) {
+  }
+  if (node->mustBeNone()) {
     return IValue();
-  } else if (type->cast<EnumType>()) {
+  }
+  if (type->cast<EnumType>()) {
     const auto& enum_val = node->ival(attr::value);
     return enum_val;
-  } else if (type->cast<ClassType>() && !type->is_module()) {
+  }
+  if (type->cast<ClassType>() && !type->is_module()) {
     const auto& class_val = node->ival(attr::value);
     return class_val;
-  } else {
-    std::stringstream ss;
-    ss << "constant literal not supported for: " << type->str();
-    throw std::runtime_error(ss.str());
   }
+  std::stringstream ss;
+  ss << "constant literal not supported for: " << type->str();
+  throw std::runtime_error(ss.str());
 }
 
 } // namespace habana_torch::jit

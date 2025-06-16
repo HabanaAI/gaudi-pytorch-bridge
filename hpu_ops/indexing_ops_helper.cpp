@@ -132,10 +132,10 @@ int hasContiguousSubspace(std::vector<int64_t> implicit_indices_pos_vec) {
     }
     dim++;
   }
-  if (index_tensor_groups <= 1)
+  if (index_tensor_groups <= 1) {
     return index_tensor_group_start;
-  else
-    return 0;
+  }
+  return 0;
 }
 
 // Transposes the tensor and indices together so that all the non-null indices
@@ -189,7 +189,8 @@ bool check_for_adv_indexing(c10::ArrayRef<c10::IValue> indices_in_orig) {
       if (!o1.has_value() || !o1->defined()) {
         advanced_indexing = true;
         break;
-      } else if (o1.has_value() && o1->defined()) {
+      }
+      if (o1.has_value() && o1->defined()) {
         // if we are indexing using a mixture of long and boolean indices,then
         // also we will work in advanced indexing mode
         if (first_scalar) {

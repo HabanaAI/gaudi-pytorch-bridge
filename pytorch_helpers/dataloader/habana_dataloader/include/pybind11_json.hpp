@@ -57,27 +57,27 @@ namespace pyjson
         {
             return py::none();
         }
-        else if (j.is_boolean())
+        if (j.is_boolean())
         {
             return py::bool_(j.get<bool>());
         }
-        else if (j.is_number_integer())
+        if (j.is_number_integer())
         {
             return py::int_(j.get<nl::json::number_integer_t>());
         }
-        else if (j.is_number_unsigned())
+        if (j.is_number_unsigned())
         {
             return py::int_(j.get<nl::json::number_unsigned_t>());
         }
-        else if (j.is_number_float())
+        if (j.is_number_float())
         {
             return py::float_(j.get<double>());
         }
-        else if (j.is_string())
+        if (j.is_string())
         {
             return py::str(j.get<std::string>());
         }
-        else if (j.is_array())
+        if (j.is_array())
         {
             py::list obj;
             for (const auto& el : j)
@@ -86,15 +86,12 @@ namespace pyjson
             }
             return obj;
         }
-        else // Object
-        {
             py::dict obj;
             for (nl::json::const_iterator it = j.cbegin(); it != j.cend(); ++it)
             {
                 obj[py::str(it.key())] = from_json(it.value());
             }
             return obj;
-        }
     }
 
     inline nl::json to_json(const py::handle& obj)

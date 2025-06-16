@@ -223,9 +223,8 @@ bool BaseCacheFileHandler::acquire_access_for_eviction(bool block) {
   if (eviction_lock_fd_ >= 0) {
     PT_HABHELPER_DEBUG(CACHEFILE_LOG, "Locked eviction directory successfully");
     return true;
-  } else {
-    return false;
   }
+  return false;
 }
 
 void BaseCacheFileHandler::release_access_for_eviction() {

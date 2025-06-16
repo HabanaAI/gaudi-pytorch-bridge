@@ -83,14 +83,16 @@ std::vector<int64_t> habana::MMOperator::compute_output_shape(
     at::Tensor other,
     bool self_transposed,
     bool other_transposed) {
-  if (self_transposed == false && other_transposed == false)
+  if (self_transposed == false && other_transposed == false) {
     return {self.size(0), other.size(1)};
-  else if (self_transposed == true && other_transposed == false)
+  }
+  if (self_transposed == true && other_transposed == false) {
     return {self.size(1), other.size(1)};
-  else if (self_transposed == false && other_transposed == true)
+  }
+  if (self_transposed == false && other_transposed == true) {
     return {self.size(0), other.size(0)};
-  else
-    return {self.size(1), other.size(0)};
+  }
+  return {self.size(1), other.size(0)};
 }
 
 void habana::MMOperator::AllocateAndAddSynapseNode(

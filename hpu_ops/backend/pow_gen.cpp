@@ -48,7 +48,8 @@ static synapse_helpers::tensor createForeachPowNode(
         {get_guid_with_precision("pow_fwd"sv, result_type),
          syn_inputs,
          {{outshape, result_type, out_index}}})[0]);
-  } else if (pt_inputs[0].isTensor() && pt_inputs[1].isScalar()) {
+  }
+  if (pt_inputs[0].isTensor() && pt_inputs[1].isScalar()) {
     const at::Tensor& self = pt_inputs[0].toTensor();
     const at::Scalar& other = pt_inputs[1].toScalar();
 
@@ -68,23 +69,22 @@ static synapse_helpers::tensor createForeachPowNode(
          {{self.sizes().vec(), result_type, out_index}},
          &params,
          sizeof(params)})[0]);
-  } else {
-    const at::Scalar& self = pt_inputs[0].toScalar();
-    const at::Tensor& other = pt_inputs[1].toTensor();
-
-    auto result_type = at::result_type(self, other);
-    if (isIntegralType(result_type, true)) {
-      result_type = torch::kFloat32;
-    }
-
-    auto syn_self = OpBackend::BuildConstant(op, graph, self, result_type);
-    return std::move(OpBackend::BuildNode(
-        op,
-        graph,
-        {get_guid_with_precision("pow_fwd"sv, result_type),
-         {syn_self.get(), syn_inputs[0]},
-         {{other.sizes().vec(), result_type, out_index}}})[0]);
   }
+  const at::Scalar& self = pt_inputs[0].toScalar();
+  const at::Tensor& other = pt_inputs[1].toTensor();
+
+  auto result_type = at::result_type(self, other);
+  if (isIntegralType(result_type, true)) {
+    result_type = torch::kFloat32;
+  }
+
+  auto syn_self = OpBackend::BuildConstant(op, graph, self, result_type);
+  return std::move(OpBackend::BuildNode(
+      op,
+      graph,
+      {get_guid_with_precision("pow_fwd"sv, result_type),
+       {syn_self.get(), syn_inputs[0]},
+       {{other.sizes().vec(), result_type, out_index}}})[0]);
 }
 
 static SharedMetaDataVector ForeachPowOneIterationSharedMeta(
@@ -105,7 +105,8 @@ static SharedMetaDataVector ForeachPowOneIterationSharedMeta(
     powSharedMeta.inputs_data = {{selfRank, dtype}, {otherRank, dtype}};
     powSharedMeta.outputs_data = {{outputRank, dtype}};
     return {powSharedMeta};
-  } else if (self.isTensor() && other.isScalar()) {
+  }
+  if (self.isTensor() && other.isScalar()) {
     const auto& selfTensor = self.toTensor();
     auto rank = selfTensor.dim();
     const auto& otherScalar = other.toScalar();
@@ -117,19 +118,18 @@ static SharedMetaDataVector ForeachPowOneIterationSharedMeta(
     powSharedMeta.inputs_data = {{rank, dtype}, {1, dtype}};
     powSharedMeta.outputs_data = {{rank, dtype}};
     return {powSharedMeta};
-  } else {
-    const auto& selfScalar = self.toScalar();
-    const auto& otherTensor = other.toTensor();
-    auto rank = otherTensor.dim();
-    auto dtype = at::result_type(selfScalar, otherTensor);
-    if (isIntegralType(dtype, true))
-      dtype = torch::kFloat32;
-
-    SharedMetaData powSharedMeta{"pow_fwd"};
-    powSharedMeta.inputs_data = {{1, dtype}, {rank, dtype}};
-    powSharedMeta.outputs_data = {{rank, dtype}};
-    return {powSharedMeta};
   }
+  const auto& selfScalar = self.toScalar();
+  const auto& otherTensor = other.toTensor();
+  auto rank = otherTensor.dim();
+  auto dtype = at::result_type(selfScalar, otherTensor);
+  if (isIntegralType(dtype, true))
+    dtype = torch::kFloat32;
+
+  SharedMetaData powSharedMeta{"pow_fwd"};
+  powSharedMeta.inputs_data = {{1, dtype}, {rank, dtype}};
+  powSharedMeta.outputs_data = {{rank, dtype}};
+  return {powSharedMeta};
 }
 
 SharedMetaDataVector PowForeachBinarySharedMeta(

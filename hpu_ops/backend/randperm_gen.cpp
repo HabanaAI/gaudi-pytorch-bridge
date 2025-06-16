@@ -67,43 +67,41 @@ synapse_helpers::tensor RandPermCommon(
          std::move(inputs),
          {{out_shape, tpc_supported_randperm_dtype, final_result_index}}});
     return std::move(randperm[0]);
-  } else {
-    auto randperm = OpBackend::BuildNode(
-        op,
-        graph,
-        {get_guid_with_precision(
-             "random_shuffle"sv, tpc_supported_randperm_dtype),
-         std::move(inputs),
-         {{out_shape, tpc_supported_randperm_dtype}}});
-    if ((out_dtype == c10::ScalarType::Long) &&
-        (tpc_supported_randperm_dtype == c10::ScalarType::Int)) {
-      // Current handling of Long in the cast builder utilities
-      // has issues handling cast_i32_to_i64 though this cast guid
-      // doesn't have any documented dependencies on Synapse int64 support
-      // and hence the env variable PT_ENABLE_INT64_SUPPORT.
-      const std::string cast_guid = "cast_i32_to_i64";
-      ns_CastKernel::Params params;
-      params.round_mode = CAST_ROUND_ZERO;
-      NodeAttr castnode{
-          cast_guid,
-          {randperm[0].get()},
-          {{out_shape, out_dtype, final_result_index}},
-          &params,
-          sizeof(params)};
-      auto castop = OpBackend::BuildNode(op, graph, std::move(castnode));
-      return std::move(castop[0]);
-    } else {
-      auto castop = OpBackend::BuildCast(
-          op,
-          graph,
-          randperm[0].get(),
-          out_shape,
-          tpc_supported_randperm_dtype,
-          out_dtype,
-          final_result_index);
-      return castop;
-    }
   }
+  auto randperm = OpBackend::BuildNode(
+      op,
+      graph,
+      {get_guid_with_precision(
+           "random_shuffle"sv, tpc_supported_randperm_dtype),
+       std::move(inputs),
+       {{out_shape, tpc_supported_randperm_dtype}}});
+  if ((out_dtype == c10::ScalarType::Long) &&
+      (tpc_supported_randperm_dtype == c10::ScalarType::Int)) {
+    // Current handling of Long in the cast builder utilities
+    // has issues handling cast_i32_to_i64 though this cast guid
+    // doesn't have any documented dependencies on Synapse int64 support
+    // and hence the env variable PT_ENABLE_INT64_SUPPORT.
+    const std::string cast_guid = "cast_i32_to_i64";
+    ns_CastKernel::Params params;
+    params.round_mode = CAST_ROUND_ZERO;
+    NodeAttr castnode{
+        cast_guid,
+        {randperm[0].get()},
+        {{out_shape, out_dtype, final_result_index}},
+        &params,
+        sizeof(params)};
+    auto castop = OpBackend::BuildNode(op, graph, std::move(castnode));
+    return std::move(castop[0]);
+  }
+  auto castop = OpBackend::BuildCast(
+      op,
+      graph,
+      randperm[0].get(),
+      out_shape,
+      tpc_supported_randperm_dtype,
+      out_dtype,
+      final_result_index);
+  return castop;
 }
 
 OutputMetaDataVector RandPermMeta(const at::Stack& stack) {

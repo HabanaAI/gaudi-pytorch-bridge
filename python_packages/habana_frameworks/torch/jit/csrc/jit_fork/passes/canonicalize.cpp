@@ -202,7 +202,8 @@ static std::vector<size_t> sort_indexes(at::ArrayRef<Value*> values) {
     }
     if (first_uses[i1] == std::nullopt) {
       return false;
-    } else if (first_uses[i2] == std::nullopt) {
+    }
+    if (first_uses[i2] == std::nullopt) {
       return true;
     }
 

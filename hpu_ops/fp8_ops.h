@@ -34,11 +34,11 @@ const bool is_sr_sftz = GET_ENV_FLAG_NEW(PT_HPU_STOCHASTIC_ROUNDING_MODE) == 1;
 inline SharedMetaTensor getSharedMetaTensorFromScale(const at::IValue& scale) {
   if (scale.isNone()) {
     return createOptionalNotPresentSharedMetaTensor();
-  } else if (scale.isTensor()) {
-    return getSharedMetaFromTensor(scale.toTensor());
-  } else {
-    return {1, at::ScalarType::Float};
   }
+  if (scale.isTensor()) {
+    return getSharedMetaFromTensor(scale.toTensor());
+  }
+  return {1, at::ScalarType::Float};
 }
 
 } // namespace habana

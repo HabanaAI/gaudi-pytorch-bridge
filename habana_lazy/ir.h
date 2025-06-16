@@ -252,21 +252,23 @@ class MetaData {
   static size_t ival_hash(const torch::jit::IValue& v, size_t h = 0) {
     if (v.isInt()) {
       return at::hash_combine(h, at::get_hash(habana::mod_exp(v.toInt())));
-    } else if (v.isString()) {
+    }
+    if (v.isString()) {
       return at::hash_combine(h, at::get_hash(v.toStringView()));
-    } else if (v.isBool()) {
+    }
+    if (v.isBool()) {
       return at::hash_combine(h, at::get_hash(habana::mod_exp(v.toBool())));
-    } else if (v.isScalar()) {
+    }
+    if (v.isScalar()) {
       return at::hash_combine(
           h, c10::WeakIValue(v).hash()); // hash() moved to WeakIvalue
-    } else {
-      if (!v.isNone() && !v.isDevice()) {
-        PT_LAZY_WARN(
-            "Metadata of type ",
-            v.type()->str(),
-            " is not hashed. Might get false Lazy IR Cache hits, ",
-            "if the value of the constant metadata changes");
-      }
+    }
+    if (!v.isNone() && !v.isDevice()) {
+      PT_LAZY_WARN(
+          "Metadata of type ",
+          v.type()->str(),
+          " is not hashed. Might get false Lazy IR Cache hits, ",
+          "if the value of the constant metadata changes");
     }
     return h;
   }

@@ -66,12 +66,12 @@ ControlEdgeType NodeRequiresControlEdge(const torch::jit::Node* const node) {
   using namespace std::literals;
   if (habana::control_edges::IsControlEdgeNode(node)) {
     return ControlEdgeType::Default;
-  } else if (int inputId = jitgraph_utils::inplaceInputId(node); inputId >= 0) {
+  }
+  if (int inputId = jitgraph_utils::inplaceInputId(node); inputId >= 0) {
     return (inputId == 0) ? ControlEdgeType::InplaceInput0
                           : ControlEdgeType::InplaceInput1;
-  } else {
-    return ControlEdgeType::None;
   }
+  return ControlEdgeType::None;
 }
 
 /**
@@ -764,10 +764,9 @@ void ProcessStridedInsertAtOutput(
     if (!IsNodeStridedInsertOrSliceInsert(node_qual_str)) {
       if (NodeRequiresControlEdge(input_node) == ControlEdgeType::None) {
         break;
-      } else {
-        memory_reuse_pairs.emplace_back(
-            std::make_pair(input_node->output(0), node));
       }
+      memory_reuse_pairs.emplace_back(
+          std::make_pair(input_node->output(0), node));
     }
 
     val_ins = input_node->inputs();

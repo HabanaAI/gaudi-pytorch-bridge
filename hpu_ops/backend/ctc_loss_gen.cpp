@@ -39,16 +39,15 @@ OutputMetaDataVector CtcLossMeta(const at::Stack& stack) {
       meta_n.shape = std::vector<int64_t>{1};
 
     return {meta_n};
-  } else {
-    OutputMetaData meta_tns;
-    meta_tns.dtype = log_probs.scalar_type();
-    meta_tns.shape = std::vector<int64_t>{
-        input_sequence_length,
-        batch_size,
-        2 * max_target_length + 1}; // (T, N, 2*S+1)
-
-    return {meta_n, meta_tns};
   }
+  OutputMetaData meta_tns;
+  meta_tns.dtype = log_probs.scalar_type();
+  meta_tns.shape = std::vector<int64_t>{
+      input_sequence_length,
+      batch_size,
+      2 * max_target_length + 1}; // (T, N, 2*S+1)
+
+  return {meta_n, meta_tns};
 }
 
 SharedMetaDataVector CtcLossSharedMeta(

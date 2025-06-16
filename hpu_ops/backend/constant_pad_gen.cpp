@@ -123,23 +123,23 @@ FillParamsT FillConstantPadParams(const at::Stack& stack) {
   if ((stack.size() == 4) && (stack.at(1).isTensor())) {
     FillPadParamsValue(params, self, stack.at(3).toScalar());
     return paramsT;
-  } else if ((stack.size() == 4) && (!stack.at(1).isTensor())) {
+  }
+  if ((stack.size() == 4) && (!stack.at(1).isTensor())) {
     FillPadParamsValue(params, self, stack.at(2).toScalar());
-    return paramsT;
-  } else {
-    FillPadParamsValue(params, self, stack.at(2).toScalar());
-    auto pad = stack.at(1).toIntVector();
-
-    auto ndim = self.dim();
-    auto lpad = pad.size() / 2;
-
-    for (unsigned int i = 0; i < lpad; i++) {
-      params->pads[i] = pad[2 * i];
-      params->pads[i + ndim] = pad[2 * i + 1];
-    }
-
     return paramsT;
   }
+  FillPadParamsValue(params, self, stack.at(2).toScalar());
+  auto pad = stack.at(1).toIntVector();
+
+  auto ndim = self.dim();
+  auto lpad = pad.size() / 2;
+
+  for (unsigned int i = 0; i < lpad; i++) {
+    params->pads[i] = pad[2 * i];
+    params->pads[i + ndim] = pad[2 * i + 1];
+  }
+
+  return paramsT;
 }
 
 void ConstantPad::AddNode(

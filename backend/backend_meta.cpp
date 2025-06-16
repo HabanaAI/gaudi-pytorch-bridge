@@ -246,44 +246,43 @@ StorageExtraMeta* get_storage_extra_meta(
         " with ",
         ToString(alloc_ctx->meta_map));
     return ptr;
-  } else {
-    if (nbytes.has_value()) {
-      HABANA_ASSERT(
-          tensor_impl->storage_offset() == 0,
-          " non-zero storage offset not expected when accessing base meta. offset: ",
-          tensor_impl->storage_offset());
-
-      /* In lazy mode for int64, we internally treat it as int32. So during
-      resize/set operations, the a new storage is not allocated.
-      // ref: TEST_F(LazyTensorShapeKernelTest, Resize)
-      In this case alloc_ctx->num_bytes can differ from that of
-      tensor_impl->storage().nbytes() */
-      /*In case of constants, it is possible that the device's storage differs
-      from the original size of the tensor*/
-      if (!tmeta->has_valid_const_id() and
-          nbytes.value() != tensor_impl->storage().nbytes()) {
-        PT_BRIDGE_DEBUG(
-            " Accessing base meta. Nbytes: ",
-            nbytes.value(),
-            " alloc_ctx->num_bytes: ",
-            alloc_ctx->num_bytes,
-            " storage nbytes ",
-            tensor_impl->storage().nbytes());
-        HABANA_ASSERT(
-            common::getLoadedLibraryType() == common::LibraryType::LAZY,
-            " when accessing base meta, tensor size should match the storage size");
-      }
-    }
-
-    PT_BRIDGE_DEBUG(
-        "Accessing HPUAllocationContext ",
-        alloc_ctx,
-        " and base StorageExtraMeta ",
-        &alloc_ctx->base_meta,
-        " with ",
-        ToString(alloc_ctx->meta_map));
-    return &alloc_ctx->base_meta;
   }
+  if (nbytes.has_value()) {
+    HABANA_ASSERT(
+        tensor_impl->storage_offset() == 0,
+        " non-zero storage offset not expected when accessing base meta. offset: ",
+        tensor_impl->storage_offset());
+
+    /* In lazy mode for int64, we internally treat it as int32. So during
+    resize/set operations, the a new storage is not allocated.
+    // ref: TEST_F(LazyTensorShapeKernelTest, Resize)
+    In this case alloc_ctx->num_bytes can differ from that of
+    tensor_impl->storage().nbytes() */
+    /*In case of constants, it is possible that the device's storage differs
+    from the original size of the tensor*/
+    if (!tmeta->has_valid_const_id() and
+        nbytes.value() != tensor_impl->storage().nbytes()) {
+      PT_BRIDGE_DEBUG(
+          " Accessing base meta. Nbytes: ",
+          nbytes.value(),
+          " alloc_ctx->num_bytes: ",
+          alloc_ctx->num_bytes,
+          " storage nbytes ",
+          tensor_impl->storage().nbytes());
+      HABANA_ASSERT(
+          common::getLoadedLibraryType() == common::LibraryType::LAZY,
+          " when accessing base meta, tensor size should match the storage size");
+    }
+  }
+
+  PT_BRIDGE_DEBUG(
+      "Accessing HPUAllocationContext ",
+      alloc_ctx,
+      " and base StorageExtraMeta ",
+      &alloc_ctx->base_meta,
+      " with ",
+      ToString(alloc_ctx->meta_map));
+  return &alloc_ctx->base_meta;
 }
 
 StorageExtraMeta* get_storage_extra_meta(const at::Tensor& tensor) {
@@ -349,8 +348,7 @@ std::vector<int64_t> get_base_tensor_size(const at::Tensor& tensor) {
   auto elem_size =
       c10::elementSize(habana_helpers::getInternalDtype(tensor.scalar_type()));
   auto total_num_elements =
-      (int64_t)(habana_helpers::GetNBytes(tensor.unsafeGetTensorImpl()) /
-                elem_size);
+      (int64_t)(habana_helpers::GetNBytes(tensor.unsafeGetTensorImpl()) / elem_size);
   std::vector<int64_t> base_size({total_num_elements});
   return base_size;
 }

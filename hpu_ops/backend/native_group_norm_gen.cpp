@@ -177,11 +177,11 @@ void NativeGroupNormFwd::AddNode(sh::graph& graph, const at::Stack& stack) {
     auto layout = [rank]() {
       if (rank == 3) {
         return synapse_helpers::layouts::SynapseLayoutFormat::WCN;
-      } else if (rank == 4) {
-        return synapse_helpers::layouts::SynapseLayoutFormat::WHCN;
-      } else {
-        return synapse_helpers::layouts::SynapseLayoutFormat::WHDCN;
       }
+      if (rank == 4) {
+        return synapse_helpers::layouts::SynapseLayoutFormat::WHCN;
+      }
+      return synapse_helpers::layouts::SynapseLayoutFormat::WHDCN;
     }();
 
     SetSynapseLayouts(
@@ -225,11 +225,11 @@ void NativeGroupNormBwd::AddNode(sh::graph& graph, const at::Stack& stack) {
   auto layout = [rank]() {
     if (rank == 3) {
       return synapse_helpers::layouts::SynapseLayoutFormat::WCN;
-    } else if (rank == 4) {
-      return synapse_helpers::layouts::SynapseLayoutFormat::WHCN;
-    } else {
-      return synapse_helpers::layouts::SynapseLayoutFormat::WHDCN;
     }
+    if (rank == 4) {
+      return synapse_helpers::layouts::SynapseLayoutFormat::WHCN;
+    }
+    return synapse_helpers::layouts::SynapseLayoutFormat::WHDCN;
   }();
 
   SetSynapseLayouts(

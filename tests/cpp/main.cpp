@@ -40,12 +40,11 @@ int main(int argc, char* argv[]) {
     }
     listeners.Release(listener.get());
     return result;
-  } else {
-    try {
-      return RUN_ALL_TESTS();
-    } catch (...) {
-      PT_TEST_DEBUG("Caught unknown exception");
-      return 1;
-    }
+  }
+  try {
+    return RUN_ALL_TESTS();
+  } catch (...) {
+    PT_TEST_DEBUG("Caught unknown exception");
+    return 1;
   }
 }

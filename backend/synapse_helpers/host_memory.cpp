@@ -76,12 +76,11 @@ size_t compute_huge_pages_limit() {
         device_count;
     PT_SYNHELPER_DEBUG("Huge pages limit calculated: {} MB per device", limit);
     return limit;
-  } else {
-    PT_SYNHELPER_WARN(
-        "Failed to get device count for huge pages limit calculation. {}",
-        status);
-    return 0;
   }
+  PT_SYNHELPER_WARN(
+      "Failed to get device count for huge pages limit calculation. {}",
+      status);
+  return 0;
 }
 } // namespace
 
@@ -119,11 +118,11 @@ std::tuple<synStatus, host_memory::Block::is_huge_page_t> host_memory::
           actual_allocation_size = aligned_actual_allocation_size;
           remaining_huge_pages_mb_ -= actual_allocation_size;
           return std::make_tuple(map_result, Block::is_huge_page_t{true});
-        } else {
-          PT_SYNHELPER_WARN("Mapping huge page to Synapse failed.", map_result);
-          munmap(*ptr, aligned_actual_allocation_size);
-          *ptr = nullptr;
         }
+        PT_SYNHELPER_WARN("Mapping huge page to Synapse failed.", map_result);
+        munmap(*ptr, aligned_actual_allocation_size);
+        *ptr = nullptr;
+
       } else {
         *ptr = nullptr;
         PT_SYNHELPER_WARN(
@@ -375,12 +374,11 @@ bool host_memory::is_host_memory(void* ptr) {
   auto it = blocks_.find(ptr);
   if (it == blocks_.end()) {
     return false;
-  } else {
-    Block& block = it->second;
-    if (block.allocated)
-      return true;
-    else
-      return false;
   }
+  Block& block = it->second;
+  if (block.allocated) {
+    return true;
+  }
+  return false;
 }
 } // namespace synapse_helpers

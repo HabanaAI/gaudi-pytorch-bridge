@@ -221,6 +221,10 @@ std::vector<at::Tensor> maybe_convert_list_to_h2d(
           " received non cpu-float-0D scale.");
       converted_tensors.push_back(tensor);
     }
+    PT_BRIDGE_WARN(
+        "H2D scales flow is enabled, but op ",
+        op_name,
+        " received non cpu-float-0D scale.");
   }
   return converted_tensors;
 }

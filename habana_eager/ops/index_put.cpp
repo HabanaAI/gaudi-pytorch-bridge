@@ -42,26 +42,25 @@ static bool check_for_advanced_indexing(
       if (!input.defined()) {
         advanced_indexing = true;
         break;
-      } else {
-        // if we are indexing using a mixture of long and boolean indices,
-        // or if we have more than one bool indices, then
-        // also we will work in advanced indexing mode
-        auto cur_scalar_type = input.scalar_type();
-        if (cur_scalar_type == c10::ScalarType::Bool) {
-          bool_indices_count++;
-          if (bool_indices_count > 1) {
-            advanced_indexing = true;
-            break;
-          }
-        }
-        if (first_scalar) {
-          first_scalar = false;
-        } else if (prev_scalar_type != cur_scalar_type) {
+      }
+      // if we are indexing using a mixture of long and boolean indices,
+      // or if we have more than one bool indices, then
+      // also we will work in advanced indexing mode
+      auto cur_scalar_type = input.scalar_type();
+      if (cur_scalar_type == c10::ScalarType::Bool) {
+        bool_indices_count++;
+        if (bool_indices_count > 1) {
           advanced_indexing = true;
           break;
         }
-        prev_scalar_type = cur_scalar_type;
       }
+      if (first_scalar) {
+        first_scalar = false;
+      } else if (prev_scalar_type != cur_scalar_type) {
+        advanced_indexing = true;
+        break;
+      }
+      prev_scalar_type = cur_scalar_type;
     }
   }
   return advanced_indexing;
@@ -107,20 +106,19 @@ static c10::List<std::optional<at::Tensor>> check_for_boolean_advanced_indexing(
   }
   if (has_bool_mask) {
     return c10::List<std::optional<at::Tensor>>(bool_indices_vec);
-  } else {
-    c10::List<std::optional<at::Tensor>> upcast_indices;
-    for (std::optional<at::Tensor> ind : indices) {
-      // For non-bool case we need to upcast the indices to long as it may
-      // happen that different indices have different dtypes.
-      if (ind.has_value() && ind.value().defined() &&
-          ind.value().scalar_type() != c10::kLong) {
-        upcast_indices.push_back(ind.value().to(c10::kLong));
-      } else {
-        upcast_indices.push_back(ind);
-      }
-    }
-    return upcast_indices;
   }
+  c10::List<std::optional<at::Tensor>> upcast_indices;
+  for (std::optional<at::Tensor> ind : indices) {
+    // For non-bool case we need to upcast the indices to long as it may
+    // happen that different indices have different dtypes.
+    if (ind.has_value() && ind.value().defined() &&
+        ind.value().scalar_type() != c10::kLong) {
+      upcast_indices.push_back(ind.value().to(c10::kLong));
+    } else {
+      upcast_indices.push_back(ind);
+    }
+  }
+  return upcast_indices;
 }
 
 static std::tuple<at::Tensor, std::vector<at::Tensor>>

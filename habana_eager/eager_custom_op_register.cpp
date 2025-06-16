@@ -498,34 +498,32 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_fwd(
          c10::ScalarType::Float,
          c10::ScalarType::Int});
     return hpu_op.call();
-
-  } else {
-    habana::eager::EagerOp<
-        std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor>>
-        hpu_op{
-            "hpu::sdpa_recomp_fwd",
-            {q,
-             k,
-             v,
-             attention_mask,
-             p,
-             scale,
-             is_causal,
-             requires_backward,
-             softmax_mode,
-             valid_seq_len,
-             seq_padding_type},
-            habana::SDPARecompFwdOutputShape};
-    auto linvType = c10::ScalarType::Float;
-
-    if ((softmax_mode == "fast") &&
-        (q.scalar_type() == c10::ScalarType::BFloat16)) {
-      linvType = c10::ScalarType::BFloat16;
-    }
-    hpu_op.set_scalar_types(
-        {q.scalar_type(), q.scalar_type(), linvType, c10::ScalarType::Int});
-    return hpu_op.call();
   }
+  habana::eager::EagerOp<
+      std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor>>
+      hpu_op{
+          "hpu::sdpa_recomp_fwd",
+          {q,
+           k,
+           v,
+           attention_mask,
+           p,
+           scale,
+           is_causal,
+           requires_backward,
+           softmax_mode,
+           valid_seq_len,
+           seq_padding_type},
+          habana::SDPARecompFwdOutputShape};
+  auto linvType = c10::ScalarType::Float;
+
+  if ((softmax_mode == "fast") &&
+      (q.scalar_type() == c10::ScalarType::BFloat16)) {
+    linvType = c10::ScalarType::BFloat16;
+  }
+  hpu_op.set_scalar_types(
+      {q.scalar_type(), q.scalar_type(), linvType, c10::ScalarType::Int});
+  return hpu_op.call();
 }
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_fwd(
@@ -576,26 +574,23 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_fwd(
     hpu_op.set_scalar_types(
         {q.scalar_type(), q.scalar_type(), c10::ScalarType::Char});
     return hpu_op.call();
-
-  } else {
-    habana::eager::EagerOp<std::tuple<at::Tensor, at::Tensor, at::Tensor>>
-        hpu_op{
-            "hpu::sdpa_fwd",
-            {q,
-             k,
-             v,
-             attention_mask,
-             p,
-             scale,
-             is_causal,
-             softmax_mode,
-             valid_seq_len,
-             seq_padding_type},
-            habana::SDPAFwdOutputShape};
-    hpu_op.set_scalar_types(
-        {q.scalar_type(), q.scalar_type(), c10::ScalarType::Char});
-    return hpu_op.call();
   }
+  habana::eager::EagerOp<std::tuple<at::Tensor, at::Tensor, at::Tensor>> hpu_op{
+      "hpu::sdpa_fwd",
+      {q,
+       k,
+       v,
+       attention_mask,
+       p,
+       scale,
+       is_causal,
+       softmax_mode,
+       valid_seq_len,
+       seq_padding_type},
+      habana::SDPAFwdOutputShape};
+  hpu_op.set_scalar_types(
+      {q.scalar_type(), q.scalar_type(), c10::ScalarType::Char});
+  return hpu_op.call();
 }
 
 at::Tensor weight_permutation(const at::Tensor& weight) {
@@ -692,34 +687,32 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> fp8_sdpa_fwd(
         {fwdOutType, sfmxType, c10::ScalarType::Char, c10::ScalarType::Float});
 
     return hpu_op.call();
-
-  } else {
-    habana::eager::EagerOp<
-        std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor>>
-        hpu_op{
-            "hpu::fp8_sdpa_fwd",
-            {q,
-             k,
-             v,
-             attention_mask,
-             p,
-             scale,
-             is_causal,
-             softmax_mode,
-             d_scale_q,
-             d_scale_k,
-             d_scale_v,
-             q_scale_s,
-             q_scale_o,
-             d_scale_s,
-             is_amax_s,
-             valid_seq_len,
-             seq_padding_type},
-            habana::Fp8SDPAFwdOutputShape};
-    hpu_op.set_scalar_types(
-        {fwdOutType, sfmxType, c10::ScalarType::Char, c10::ScalarType::Float});
-    return hpu_op.call();
   }
+  habana::eager::EagerOp<
+      std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor>>
+      hpu_op{
+          "hpu::fp8_sdpa_fwd",
+          {q,
+           k,
+           v,
+           attention_mask,
+           p,
+           scale,
+           is_causal,
+           softmax_mode,
+           d_scale_q,
+           d_scale_k,
+           d_scale_v,
+           q_scale_s,
+           q_scale_o,
+           d_scale_s,
+           is_amax_s,
+           valid_seq_len,
+           seq_padding_type},
+          habana::Fp8SDPAFwdOutputShape};
+  hpu_op.set_scalar_types(
+      {fwdOutType, sfmxType, c10::ScalarType::Char, c10::ScalarType::Float});
+  return hpu_op.call();
 }
 
 template <class T>
@@ -834,46 +827,45 @@ fp8_sdpa_recomp_fwd_common(
          c10::ScalarType::Float});
 
     return hpu_op.call();
-  } else {
-    habana::eager::EagerOp<std::tuple<
-        at::Tensor,
-        at::Tensor,
-        at::Tensor,
-        at::Tensor,
-        at::Tensor,
-        at::Tensor>>
-        hpu_op{
-            "hpu::fp8_sdpa_recomp_fwd",
-            {q,
-             k,
-             v,
-             attention_mask,
-             p,
-             scale,
-             is_causal,
-             requires_backward,
-             softmax_mode,
-             d_scale_q,
-             d_scale_k,
-             d_scale_v,
-             q_scale_s,
-             q_scale_o,
-             d_scale_s,
-             is_amax_s,
-             is_amax_o,
-             valid_seq_len,
-             seq_padding_type},
-            habana::Fp8SDPARecompFwdOutputShape};
-    hpu_op.set_scalar_types(
-        {fwdOutType,
-         mType,
-         linvType,
-         c10::ScalarType::Int,
-         c10::ScalarType::Float,
-         c10::ScalarType::Float});
-
-    return hpu_op.call();
   }
+  habana::eager::EagerOp<std::tuple<
+      at::Tensor,
+      at::Tensor,
+      at::Tensor,
+      at::Tensor,
+      at::Tensor,
+      at::Tensor>>
+      hpu_op{
+          "hpu::fp8_sdpa_recomp_fwd",
+          {q,
+           k,
+           v,
+           attention_mask,
+           p,
+           scale,
+           is_causal,
+           requires_backward,
+           softmax_mode,
+           d_scale_q,
+           d_scale_k,
+           d_scale_v,
+           q_scale_s,
+           q_scale_o,
+           d_scale_s,
+           is_amax_s,
+           is_amax_o,
+           valid_seq_len,
+           seq_padding_type},
+          habana::Fp8SDPARecompFwdOutputShape};
+  hpu_op.set_scalar_types(
+      {fwdOutType,
+       mType,
+       linvType,
+       c10::ScalarType::Int,
+       c10::ScalarType::Float,
+       c10::ScalarType::Float});
+
+  return hpu_op.call();
 }
 
 std::tuple<
@@ -1684,9 +1676,8 @@ T get_functional_tensor(const T& tensor) {
   if (at::functionalization::impl::isFunctionalTensor(tensor)) {
     at::functionalization::impl::sync(tensor);
     return at::functionalization::impl::from_functional_tensor(tensor);
-  } else {
-    return tensor;
   }
+  return tensor;
 }
 
 at::Tensor& kv_reorder_functionalization_glue(

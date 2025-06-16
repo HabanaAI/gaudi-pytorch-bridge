@@ -80,11 +80,9 @@ DimT calculate_num_chunks(
     DimT chunk_size) {
   if (num_tokens <= device_threshold) {
     return std::min(experts_per_token * num_tokens, num_experts);
-  } else {
-    return num_experts *
-        (ceil_div(experts_per_token * num_tokens, num_experts * chunk_size) +
-         1);
   }
+  return num_experts *
+      (ceil_div(experts_per_token * num_tokens, num_experts * chunk_size) + 1);
 }
 
 template <class DimT>
@@ -354,11 +352,12 @@ SharedMetaDataVector MixtureOfExpertsSharedMetaCommon(
   const at::Tensor& router_weights = stack_tensor(stack, 2);
 
   std::vector<std::vector<at::Tensor>> weightsLists = isFusedWeights
-      ? (std::vector<std::vector<at::Tensor>>){stack.at(3).toTensorVector(),
-                                               stack.at(4).toTensorVector()}
-      : (std::vector<std::vector<at::Tensor>>){stack.at(3).toTensorVector(),
-                                               stack.at(4).toTensorVector(),
-                                               stack.at(5).toTensorVector()};
+      ? (std::vector<std::vector<
+             at::Tensor>>){stack.at(3).toTensorVector(), stack.at(4).toTensorVector()}
+      : (std::vector<std::vector<at::Tensor>>){
+            stack.at(3).toTensorVector(),
+            stack.at(4).toTensorVector(),
+            stack.at(5).toTensorVector()};
 
   const SharedMetaTensor weightSharedMetaTensor =
       getWeightSharedMetaTensor(weightsLists);
@@ -473,11 +472,12 @@ SharedMetaDataVector MixtureOfExpertsBwdSharedMeta(
   const bool isFusedWeights = stack.at(10).isTensorList();
 
   std::vector<std::vector<at::Tensor>> weightsLists = isFusedWeights
-      ? (std::vector<std::vector<at::Tensor>>){stack.at(10).toTensorVector(),
-                                               stack.at(11).toTensorVector()}
-      : (std::vector<std::vector<at::Tensor>>){stack.at(11).toTensorVector(),
-                                               stack.at(12).toTensorVector(),
-                                               stack.at(13).toTensorVector()};
+      ? (std::vector<std::vector<
+             at::Tensor>>){stack.at(10).toTensorVector(), stack.at(11).toTensorVector()}
+      : (std::vector<std::vector<at::Tensor>>){
+            stack.at(11).toTensorVector(),
+            stack.at(12).toTensorVector(),
+            stack.at(13).toTensorVector()};
   const SharedMetaTensor weightSharedMetaTensor =
       getWeightSharedMetaTensor(weightsLists);
 
@@ -527,11 +527,12 @@ SharedMetaDataVector MixtureOfExpertsRecompBwdSharedMeta(
   const bool isFusedWeights = !stack.at(6).isTensorList();
 
   std::vector<std::vector<at::Tensor>> weightsLists = isFusedWeights
-      ? (std::vector<std::vector<at::Tensor>>){stack.at(4).toTensorVector(),
-                                               stack.at(5).toTensorVector()}
-      : (std::vector<std::vector<at::Tensor>>){stack.at(4).toTensorVector(),
-                                               stack.at(5).toTensorVector(),
-                                               stack.at(6).toTensorVector()};
+      ? (std::vector<std::vector<
+             at::Tensor>>){stack.at(4).toTensorVector(), stack.at(5).toTensorVector()}
+      : (std::vector<std::vector<at::Tensor>>){
+            stack.at(4).toTensorVector(),
+            stack.at(5).toTensorVector(),
+            stack.at(6).toTensorVector()};
   const SharedMetaTensor weightSharedMetaTensor =
       getWeightSharedMetaTensor(weightsLists);
 

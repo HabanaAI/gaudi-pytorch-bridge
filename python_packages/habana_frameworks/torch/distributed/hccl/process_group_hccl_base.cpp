@@ -232,7 +232,8 @@ void restoreTensorsize(
 }
 
 bool is_valid_hccl_dtype(hcclDataType_t data_type) {
-  if (data_type == hcclBfloat16 || data_type == hcclFloat || data_type == hcclFloat16) {
+  if (data_type == hcclBfloat16 || data_type == hcclFloat ||
+      data_type == hcclFloat16) {
     return true;
   }
   return false;
@@ -1047,32 +1048,31 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::allgather(
 
     PT_DISTRIBUTED_END;
     return work;
-  } else {
-    const auto num_devices = outputTensors.size();
-    const auto num_reduces = outputTensors[0].size();
-    auto rank = getRank();
-    c10::intrusive_ptr<Work> work;
-    for (const auto i : c10::irange(num_reduces)) {
-      std::vector<at::Tensor> inputs_multi_dev(num_devices);
-      std::vector<at::Tensor> outputs_multi_dev(num_devices);
-      for (const auto j : c10::irange(num_devices)) {
-        outputs_multi_dev[j] = outputTensors[j][i];
-        inputs_multi_dev[j] = i == (rank * num_devices + j)
-            ? inputTensors[j]
-            : outputs_multi_dev[j];
-      }
-      auto broadcastOpts = BroadcastOptions{
-          static_cast<int64_t>(i),
-          static_cast<int64_t>(i % num_devices),
-          opts.timeout};
-      work = _broadcast_oop(outputs_multi_dev, inputs_multi_dev, broadcastOpts);
-    }
-    if (coalescing_state_) {
-      coalesed_works_->append(work);
-    }
-
-    return work;
   }
+  const auto num_devices = outputTensors.size();
+  const auto num_reduces = outputTensors[0].size();
+  auto rank = getRank();
+  c10::intrusive_ptr<Work> work;
+  for (const auto i : c10::irange(num_reduces)) {
+    std::vector<at::Tensor> inputs_multi_dev(num_devices);
+    std::vector<at::Tensor> outputs_multi_dev(num_devices);
+    for (const auto j : c10::irange(num_devices)) {
+      outputs_multi_dev[j] = outputTensors[j][i];
+      inputs_multi_dev[j] = i == (rank * num_devices + j)
+          ? inputTensors[j]
+          : outputs_multi_dev[j];
+    }
+    auto broadcastOpts = BroadcastOptions{
+        static_cast<int64_t>(i),
+        static_cast<int64_t>(i % num_devices),
+        opts.timeout};
+    work = _broadcast_oop(outputs_multi_dev, inputs_multi_dev, broadcastOpts);
+  }
+  if (coalescing_state_) {
+    coalesed_works_->append(work);
+  }
+
+  return work;
 }
 
 c10::intrusive_ptr<Work> ProcessGroupHcclBase::_allgather_base(

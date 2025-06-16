@@ -1560,10 +1560,9 @@ Tensor view_hpu(const Tensor& self_, SymIntArrayRef size) {
   auto func = std::bind(view_hpu_lazy_parallel_impl, self_, size_.vec(), out);
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_ACC_VIEW_OPS_MODE) != 0) {
     RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(view, func, out);
-  } else {
-    func();
-    return out;
   }
+  func();
+  return out;
 }
 
 // Computes the strides for view_dtype output when the view dtype is
@@ -1866,8 +1865,8 @@ at::Tensor cast_to_32(const at::Tensor& self) {
       self.scalar_type() == c10::ScalarType::Char ||
       self.scalar_type() == c10::ScalarType::Short) {
     return self.to(c10::ScalarType::Int);
-  } else if (
-      self.scalar_type() == c10::ScalarType::Double ||
+  }
+  if (self.scalar_type() == c10::ScalarType::Double ||
       self.scalar_type() == c10::ScalarType::Half ||
       self.scalar_type() == c10::ScalarType::BFloat16) {
     return self.to(c10::ScalarType::Float);
@@ -1956,10 +1955,9 @@ at::Tensor prepare_hpu_tensor(const at::Tensor& t) {
       auto dtype = t.scalar_type();
       return get_tensor_for_scalar(
           t.item().toDouble(), at::TensorOptions().dtype(dtype));
-    } else {
-      // Use non_blocking .to()
-      return t.to(c10::kHPU, true);
     }
+    // Use non_blocking .to()
+    return t.to(c10::kHPU, true);
   }
   return t;
 }
@@ -2217,26 +2215,25 @@ static bool check_for_advanced_indexing(
       if (!input.defined()) {
         advanced_indexing = true;
         break;
-      } else {
-        // if we are indexing using a mixture of long and boolean indices,
-        // or if we have more than one bool indices, then
-        // also we will work in advanced indexing mode
-        auto cur_scalar_type = input.scalar_type();
-        if (cur_scalar_type == c10::ScalarType::Bool) {
-          bool_indices_count++;
-          if (bool_indices_count > 1) {
-            advanced_indexing = true;
-            break;
-          }
-        }
-        if (first_scalar) {
-          first_scalar = false;
-        } else if (prev_scalar_type != cur_scalar_type) {
+      }
+      // if we are indexing using a mixture of long and boolean indices,
+      // or if we have more than one bool indices, then
+      // also we will work in advanced indexing mode
+      auto cur_scalar_type = input.scalar_type();
+      if (cur_scalar_type == c10::ScalarType::Bool) {
+        bool_indices_count++;
+        if (bool_indices_count > 1) {
           advanced_indexing = true;
           break;
         }
-        prev_scalar_type = cur_scalar_type;
       }
+      if (first_scalar) {
+        first_scalar = false;
+      } else if (prev_scalar_type != cur_scalar_type) {
+        advanced_indexing = true;
+        break;
+      }
+      prev_scalar_type = cur_scalar_type;
     }
   }
   return advanced_indexing;
@@ -2284,9 +2281,8 @@ static c10::List<std::optional<at::Tensor>> check_for_boolean_advanced_indexing(
   if (has_bool_mask) {
     c10::List<std::optional<at::Tensor>> bool_mask_indices(bool_indices_vec);
     return bool_mask_indices;
-  } else {
-    return indices;
   }
+  return indices;
 }
 
 static std::tuple<at::Tensor, std::vector<at::Tensor>>
@@ -3060,46 +3056,44 @@ Tensor index_put_frontend_impl_hpu_lazy(
       return k_.call();
     }
     return scatter_nd_out;
-  } else {
-    // Convert indices to values (ravelling indices) for sorting
-    std::vector<int64_t> indices_shape;
-    for (int i = 0; i < concatenated_indices.sizes().vec()[1]; i++)
-      indices_shape.push_back(self_cast.sizes().vec()[i]);
-    // Compute multiplication factor for each dimension
-    std::vector<int> mul_factor_v{1};
-    for (size_t i = 0; i < indices_shape.size() - 1; i++) {
-      mul_factor_v.push_back(mul_factor_v[i] * indices_shape[i]);
-    }
-    auto mul_factor =
-        torch::from_blob(
-            mul_factor_v.data(), {1, int64_t(mul_factor_v.size())}, torch::kInt)
-            .to(c10::kHPU, true);
-    auto multiplied_indices = at::mul(concatenated_indices, mul_factor);
-    auto ravelled_indices = at::sum(multiplied_indices, 1);
-    auto sorted_results = at::sort(ravelled_indices, -1, true);
-    auto permutation = std::get<1>(sorted_results).to(torch::kInt);
-    auto grouped_indices =
-        at::index_select(concatenated_indices, 0, permutation);
-    auto update_locs =
-        at::reshape(permutation, {permutation.sizes().vec()[0], 1});
-    LazyOp<Tensor> scatter_nd_onnx_op(
-        "hpu::scatter_nd",
-        {self_cast,
-         concatenated_indices,
-         grouped_indices,
-         update_locs,
-         broadcasted_values});
-    Tensor scatter_nd_onnx_out = scatter_nd_onnx_op.call();
-    auto result = at::add(self_cast, scatter_nd_onnx_out);
-
-    if (cast_required(self.scalar_type())) {
-      LazyOp<at::Tensor> k_{
-          "hpu::cast", {result, self.scalar_type()}, {result.sizes().vec()}};
-      k_.set_scalar_types({self.scalar_type()});
-      return k_.call();
-    }
-    return result;
   }
+  // Convert indices to values (ravelling indices) for sorting
+  std::vector<int64_t> indices_shape;
+  for (int i = 0; i < concatenated_indices.sizes().vec()[1]; i++)
+    indices_shape.push_back(self_cast.sizes().vec()[i]);
+  // Compute multiplication factor for each dimension
+  std::vector<int> mul_factor_v{1};
+  for (size_t i = 0; i < indices_shape.size() - 1; i++) {
+    mul_factor_v.push_back(mul_factor_v[i] * indices_shape[i]);
+  }
+  auto mul_factor =
+      torch::from_blob(
+          mul_factor_v.data(), {1, int64_t(mul_factor_v.size())}, torch::kInt)
+          .to(c10::kHPU, true);
+  auto multiplied_indices = at::mul(concatenated_indices, mul_factor);
+  auto ravelled_indices = at::sum(multiplied_indices, 1);
+  auto sorted_results = at::sort(ravelled_indices, -1, true);
+  auto permutation = std::get<1>(sorted_results).to(torch::kInt);
+  auto grouped_indices = at::index_select(concatenated_indices, 0, permutation);
+  auto update_locs =
+      at::reshape(permutation, {permutation.sizes().vec()[0], 1});
+  LazyOp<Tensor> scatter_nd_onnx_op(
+      "hpu::scatter_nd",
+      {self_cast,
+       concatenated_indices,
+       grouped_indices,
+       update_locs,
+       broadcasted_values});
+  Tensor scatter_nd_onnx_out = scatter_nd_onnx_op.call();
+  auto result = at::add(self_cast, scatter_nd_onnx_out);
+
+  if (cast_required(self.scalar_type())) {
+    LazyOp<at::Tensor> k_{
+        "hpu::cast", {result, self.scalar_type()}, {result.sizes().vec()}};
+    k_.set_scalar_types({self.scalar_type()});
+    return k_.call();
+  }
+  return result;
 }
 
 std::vector<Tensor> nonzero_ip_hpu_lazy(const Tensor& self) {
@@ -3358,10 +3352,9 @@ Tensor slice_backward_hpu_lazy(
   if (std::find(grad_output_sizes.begin(), grad_output_sizes.end(), 0) !=
       grad_output_sizes.end()) {
     return torch::zeros(input_sizes, at::TensorOptions(at::kHPU));
-  } else {
-    return at::native::slice_backward(
-        grad_output, input_sizes, dim, start, end, step);
   }
+  return at::native::slice_backward(
+      grad_output, input_sizes, dim, start, end, step);
 }
 
 Tensor alias_hpu_lazy(const Tensor& self) {
@@ -3701,24 +3694,23 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu_lazy(
         res,
         std::get<BNFwdTPCRetIndex::SavedMean>(res_),
         std::get<BNFwdTPCRetIndex::SavedIStd>(res_)};
-  } else {
-    auto res_ = _batch_norm_fwd_inference(
-        input,
-        weight,
-        bias,
-        running_mean,
-        running_var,
-        !inference_mode,
-        momentum,
-        eps);
-    Tensor res;
-    if (input_.ndimension() != 4) {
-      res = bn_reshape_from_4d_to_orig(res_, in_sizes);
-    } else {
-      res = res_;
-    }
-    return {res, running_mean, running_var};
   }
+  auto res_ = _batch_norm_fwd_inference(
+      input,
+      weight,
+      bias,
+      running_mean,
+      running_var,
+      !inference_mode,
+      momentum,
+      eps);
+  Tensor res;
+  if (input_.ndimension() != 4) {
+    res = bn_reshape_from_4d_to_orig(res_, in_sizes);
+  } else {
+    res = res_;
+  }
+  return {res, running_mean, running_var};
 }
 
 std::tuple<Tensor, Tensor, Tensor> batch_norm_legit_hpu_lazy(
@@ -4283,11 +4275,10 @@ Tensor& randperm_hpu_lazy(
       (output.scalar_type() == c10::ScalarType::Int ||
        output.scalar_type() == c10::ScalarType::Long)) {
     return randperm_hpu_lazy_ht(output, n, seed);
-  } else {
-    LazyOp<Tensor&> op{
-        "hpu::randperm_out", {Scalar((int32_t)n), seed, output}, {{n}}};
-    RUN_INPLACE_MAYBE_WITH_ACC_THREAD(randperm_hpu_lazy_ht, op, output);
   }
+  LazyOp<Tensor&> op{
+      "hpu::randperm_out", {Scalar((int32_t)n), seed, output}, {{n}}};
+  RUN_INPLACE_MAYBE_WITH_ACC_THREAD(randperm_hpu_lazy_ht, op, output);
 }
 
 Tensor randperm_nogen_hpu_lazy(
@@ -4777,9 +4768,8 @@ Tensor permute_hpu_lazy(const Tensor& self, IntArrayRef dims_in) {
           dims_in);
     };
     RUN_VIEW_OP_MAYBE_WITH_ACC_THREAD(permute, self, out, param_setter);
-  } else {
-    return permute_hpu_lazy_phy(self, dims_in);
   }
+  return permute_hpu_lazy_phy(self, dims_in);
 }
 
 Tensor expand_hpu_lazy(const Tensor& self, SymIntArrayRef size, bool implicit) {
@@ -4950,8 +4940,8 @@ std::tuple<Tensor, Tensor> sort_hpu_lazy(
     auto permuted_out_0 = permute_hpu_lazy_phy(std::get<0>(out), permute_dims);
     auto permuted_out_1 = permute_hpu_lazy_phy(std::get<1>(out), permute_dims);
     return std::tie(permuted_out_0, permuted_out_1);
-  } else
-    return topk_hpu_lazy_impl(self, size_dim, dim, descending, true);
+  }
+  return topk_hpu_lazy_impl(self, size_dim, dim, descending, true);
 }
 
 Scalar _local_scalar_dense_hpu(const Tensor& self) {
@@ -5179,10 +5169,9 @@ std::tuple<Tensor, Tensor> _unique_hpu_lazy(
 
     flush_op();
     return std::make_tuple(result, inverse_result);
-  } else {
-    Tensor inverse_indices;
-    return std::make_tuple(result, inverse_indices);
   }
+  Tensor inverse_indices;
+  return std::make_tuple(result, inverse_indices);
 };
 
 std::tuple<Tensor, Tensor, Tensor> unique2_hpu_lazy(
@@ -5277,17 +5266,18 @@ std::tuple<Tensor, Tensor, Tensor> unique2_hpu_lazy(
 
   if (return_inverse && return_counts) {
     return std::make_tuple(unique_result, inverse_tensor, counts_result);
-  } else if (return_inverse && !return_counts) {
+  }
+  if (return_inverse && !return_counts) {
     Tensor counts;
     return std::make_tuple(unique_result, inverse_tensor, counts);
-  } else if (!return_inverse && return_counts) {
+  }
+  if (!return_inverse && return_counts) {
     Tensor inverse;
     return std::make_tuple(unique_result, inverse, counts_result);
-  } else {
-    Tensor inverse;
-    Tensor counts;
-    return std::make_tuple(unique_result, inverse, counts);
   }
+  Tensor inverse;
+  Tensor counts;
+  return std::make_tuple(unique_result, inverse, counts);
 };
 
 std::tuple<Tensor, Tensor, Tensor> unique_dim_hpu_lazy(
@@ -5404,17 +5394,18 @@ std::tuple<Tensor, Tensor, Tensor> unique_dim_hpu_lazy(
 
   if (return_inverse && return_counts) {
     return std::make_tuple(unique_result, inverse_tensor, counts_result);
-  } else if (return_inverse && !return_counts) {
+  }
+  if (return_inverse && !return_counts) {
     Tensor counts;
     return std::make_tuple(unique_result, inverse_tensor, counts);
-  } else if (!return_inverse && return_counts) {
+  }
+  if (!return_inverse && return_counts) {
     Tensor inverse;
     return std::make_tuple(unique_result, inverse, counts_result);
-  } else {
-    Tensor inverse;
-    Tensor counts;
-    return std::make_tuple(unique_result, inverse, counts);
   }
+  Tensor inverse;
+  Tensor counts;
+  return std::make_tuple(unique_result, inverse, counts);
 };
 
 Tensor matmul_hpu_lazy(
@@ -6081,11 +6072,10 @@ std::vector<at::Tensor> habana_permute_1D_sparse_data_lazy(
     return habana_permute_1D_2D_sparse_data_helper_lazy<
         std::tuple<Tensor, Tensor, Tensor>,
         true>(inputs);
-  } else {
-    return habana_permute_1D_2D_sparse_data_helper_lazy<
-        std::tuple<Tensor, Tensor>,
-        true>(inputs);
   }
+  return habana_permute_1D_2D_sparse_data_helper_lazy<
+      std::tuple<Tensor, Tensor>,
+      true>(inputs);
 }
 
 std::vector<at::Tensor> habana_permute_2D_sparse_data_lazy(
@@ -6103,11 +6093,10 @@ std::vector<at::Tensor> habana_permute_2D_sparse_data_lazy(
     return habana_permute_1D_2D_sparse_data_helper_lazy<
         std::tuple<Tensor, Tensor, Tensor>,
         false>(inputs);
-  } else {
-    return habana_permute_1D_2D_sparse_data_helper_lazy<
-        std::tuple<Tensor, Tensor>,
-        false>(inputs);
   }
+  return habana_permute_1D_2D_sparse_data_helper_lazy<
+      std::tuple<Tensor, Tensor>,
+      false>(inputs);
 }
 
 at::Tensor habana_expand_into_jagged_permute_lazy(
@@ -6307,24 +6296,23 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_fwd_lazy(
     hpu_op.set_scalar_types(
         {q.scalar_type(), q.scalar_type(), c10::ScalarType::Char});
     RUN_TUPLE_MAYBE_WITH_ACC_THREAD(sdpa_recomp_fwd, hpu_op)
-  } else {
-    LazyOp<std::tuple<Tensor, Tensor, Tensor>> hpu_op{
-        "hpu::sdpa_fwd",
-        {q,
-         k,
-         v,
-         attention_mask,
-         p,
-         scale,
-         is_causal,
-         softmax_mode,
-         valid_seq_len,
-         seq_padding_type},
-        SDPAFwdOutputShape};
-    hpu_op.set_scalar_types(
-        {q.scalar_type(), q.scalar_type(), c10::ScalarType::Char});
-    RUN_TUPLE_MAYBE_WITH_ACC_THREAD(sdpa_recomp_fwd, hpu_op)
   }
+  LazyOp<std::tuple<Tensor, Tensor, Tensor>> hpu_op{
+      "hpu::sdpa_fwd",
+      {q,
+       k,
+       v,
+       attention_mask,
+       p,
+       scale,
+       is_causal,
+       softmax_mode,
+       valid_seq_len,
+       seq_padding_type},
+      SDPAFwdOutputShape};
+  hpu_op.set_scalar_types(
+      {q.scalar_type(), q.scalar_type(), c10::ScalarType::Char});
+  RUN_TUPLE_MAYBE_WITH_ACC_THREAD(sdpa_recomp_fwd, hpu_op)
 }
 
 template <class T>
@@ -6431,39 +6419,39 @@ fp8_sdpa_recomp_fwd_common(
          c10::ScalarType::Float});
 
     RUN_TUPLE_MAYBE_WITH_ACC_THREAD(fp8_sdpa_recomp_fwd, hpu_op)
-  } else {
-    LazyOp<std::tuple<Tensor, Tensor, Tensor, Tensor, Tensor, Tensor>> hpu_op{
-        "hpu::fp8_sdpa_recomp_fwd",
-        {q,
-         k,
-         v,
-         attention_mask,
-         p,
-         scale,
-         is_causal,
-         requires_backward,
-         softmax_mode,
-         d_scale_q,
-         d_scale_k,
-         d_scale_v,
-         q_scale_s,
-         q_scale_o,
-         d_scale_s,
-         is_amax_s,
-         is_amax_o,
-         valid_seq_len,
-         seq_padding_type},
-        Fp8SDPARecompFwdOutputShape};
-    hpu_op.set_scalar_types(
-        {fwdOutType,
-         mType,
-         linvType,
-         c10::ScalarType::Int,
-         c10::ScalarType::Float,
-         c10::ScalarType::Float});
-
-    RUN_TUPLE_MAYBE_WITH_ACC_THREAD(fp8_sdpa_recomp_fwd, hpu_op)
   }
+
+  LazyOp<std::tuple<Tensor, Tensor, Tensor, Tensor, Tensor, Tensor>> hpu_op{
+      "hpu::fp8_sdpa_recomp_fwd",
+      {q,
+       k,
+       v,
+       attention_mask,
+       p,
+       scale,
+       is_causal,
+       requires_backward,
+       softmax_mode,
+       d_scale_q,
+       d_scale_k,
+       d_scale_v,
+       q_scale_s,
+       q_scale_o,
+       d_scale_s,
+       is_amax_s,
+       is_amax_o,
+       valid_seq_len,
+       seq_padding_type},
+      Fp8SDPARecompFwdOutputShape};
+  hpu_op.set_scalar_types(
+      {fwdOutType,
+       mType,
+       linvType,
+       c10::ScalarType::Int,
+       c10::ScalarType::Float,
+       c10::ScalarType::Float});
+
+  RUN_TUPLE_MAYBE_WITH_ACC_THREAD(fp8_sdpa_recomp_fwd, hpu_op)
 }
 
 std::tuple<
@@ -6690,31 +6678,31 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_fwd_lazy(
          c10::ScalarType::Float,
          c10::ScalarType::Int});
     RUN_TUPLE_MAYBE_WITH_ACC_THREAD(sdpa_recomp_fwd, hpu_op)
-  } else {
-    LazyOp<std::tuple<Tensor, Tensor, Tensor, Tensor>> hpu_op{
-        "hpu::sdpa_recomp_fwd",
-        {q,
-         k,
-         v,
-         attention_mask,
-         p,
-         scale,
-         is_causal,
-         requires_backward,
-         softmax_mode,
-         valid_seq_len,
-         seq_padding_type},
-        SDPARecompFwdOutputShape};
-    auto linvType = c10::ScalarType::Float;
-
-    if ((softmax_mode == "fast") &&
-        (q.scalar_type() == c10::ScalarType::BFloat16)) {
-      linvType = c10::ScalarType::BFloat16;
-    }
-    hpu_op.set_scalar_types(
-        {q.scalar_type(), q.scalar_type(), linvType, c10::ScalarType::Int});
-    RUN_TUPLE_MAYBE_WITH_ACC_THREAD(sdpa_recomp_fwd, hpu_op)
   }
+
+  LazyOp<std::tuple<Tensor, Tensor, Tensor, Tensor>> hpu_op{
+      "hpu::sdpa_recomp_fwd",
+      {q,
+       k,
+       v,
+       attention_mask,
+       p,
+       scale,
+       is_causal,
+       requires_backward,
+       softmax_mode,
+       valid_seq_len,
+       seq_padding_type},
+      SDPARecompFwdOutputShape};
+  auto linvType = c10::ScalarType::Float;
+
+  if ((softmax_mode == "fast") &&
+      (q.scalar_type() == c10::ScalarType::BFloat16)) {
+    linvType = c10::ScalarType::BFloat16;
+  }
+  hpu_op.set_scalar_types(
+      {q.scalar_type(), q.scalar_type(), linvType, c10::ScalarType::Int});
+  RUN_TUPLE_MAYBE_WITH_ACC_THREAD(sdpa_recomp_fwd, hpu_op)
 }
 std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor>
 fp8_sdpa_recomp_bwd_lazy(

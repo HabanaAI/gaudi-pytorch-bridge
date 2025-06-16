@@ -359,9 +359,8 @@ at::Tensor CreateHbLazyTensor(
           std::nullopt,
           std::nullopt,
           std::nullopt);
-    } else {
-      return tensor;
     }
+    return tensor;
   }
   return tensor;
 }

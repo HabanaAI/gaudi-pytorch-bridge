@@ -185,28 +185,25 @@ at::Tensor habana_lazy::empty_hpu_lazy(
         }
       }
       return at_tensor;
-    } else {
-      // else return the internal tensor with storage
-      return at_internal_tensor;
     }
-  } else {
-    HbLazyTensor hb_tensor = HbLazyTensor::CreateHbLazyTensor(
-        size, 0, options.device(), c10::typeMetaToScalarType(original_dtype));
-    if (base_view.has_value()) {
-      const auto& base = base_view.value().get();
-      const auto& storage = base.storage();
-      auto key_set = base.key_set();
-      return (AtenFromHbLazyTensor(
-          std::move(hb_tensor),
-          storage,
-          key_set,
-          tensor_type,
-          size,
-          std::nullopt,
-          mem_format));
-    } else {
-      return (AtenFromHbLazyTensor(
-          std::move(hb_tensor), tensor_type, size, std::nullopt, mem_format));
-    }
+    // else return the internal tensor with storage
+    return at_internal_tensor;
   }
+  HbLazyTensor hb_tensor = HbLazyTensor::CreateHbLazyTensor(
+      size, 0, options.device(), c10::typeMetaToScalarType(original_dtype));
+  if (base_view.has_value()) {
+    const auto& base = base_view.value().get();
+    const auto& storage = base.storage();
+    auto key_set = base.key_set();
+    return (AtenFromHbLazyTensor(
+        std::move(hb_tensor),
+        storage,
+        key_set,
+        tensor_type,
+        size,
+        std::nullopt,
+        mem_format));
+  }
+  return (AtenFromHbLazyTensor(
+      std::move(hb_tensor), tensor_type, size, std::nullopt, mem_format));
 }

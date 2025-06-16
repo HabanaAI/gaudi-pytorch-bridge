@@ -470,13 +470,12 @@ synapse_error_v<device_handle> device::create(
             device_type);
         acquired_device_type = device_type;
         break;
-      } else {
-        PT_SYNHELPER_DEBUG(
-            "Device acquire failed for device_type: ",
-            device_type,
-            " with status ",
-            Logger::formatStatusMsg(status));
       }
+      PT_SYNHELPER_DEBUG(
+          "Device acquire failed for device_type: ",
+          device_type,
+          " with status ",
+          Logger::formatStatusMsg(status));
     }
     if (!device_detected) {
       return synapse_error{
@@ -486,10 +485,9 @@ synapse_error_v<device_handle> device::create(
 
   if (status != synSuccess) {
     return synapse_error{"Device acquire failed.", status};
-  } else {
-    habana_helpers::EmitEvent(
-        habana_helpers::EventDispatcher::Topic::DEVICE_ACQUIRED);
   }
+  habana_helpers::EmitEvent(
+      habana_helpers::EventDispatcher::Topic::DEVICE_ACQUIRED);
 
   uint64_t alignmentInfo[] = {0};
   const synDeviceAttribute attributes[] = {
@@ -922,15 +920,13 @@ bool device::query_default_stream() {
       }
     }
     return true;
-  } else {
-    auto& stream = *default_streams_[COMPUTE];
-    auto status = stream.query();
-    if (status != synSuccess) {
-      PT_SYNHELPER_DEBUG(
-          Logger::formatStatusMsg(status), "STREAM:: synStreamQuery failed");
-      return false;
-    }
-    return true;
+  }
+  auto& stream = *default_streams_[COMPUTE];
+  auto status = stream.query();
+  if (status != synSuccess) {
+    PT_SYNHELPER_DEBUG(
+        Logger::formatStatusMsg(status), "STREAM:: synStreamQuery failed");
+    return false;
   }
   return true;
 }
@@ -1015,44 +1011,35 @@ stream& device::get_stream(hpuStream_t id, default_stream_type stream_type) {
 
     PT_SYNHELPER_DEBUG("STREAM:: get stream handle ", *stream, " for id::", id);
     return *stream;
-  } else {
-    if (id == 0 || stream_type != COMPUTE) { // any type stream
-      auto& stream = *default_streams_[stream_type];
-      PT_SYNHELPER_DEBUG(
-          "STREAM:: get stream handle ", stream, " for id::", id);
-      return stream;
-    } else {
-      auto compute_stream_count = get_compute_stream_count();
-      auto index = id;
-      // if not using generic stream, compute stream is assigned
-      // in round robin fashion to user_stream in case if
-      // it exceed actaul stream count.
-      if (id >= compute_stream_count) {
-        index = id % compute_stream_count;
-      }
-
-      if (index == 0) { // coumpute stream
-        auto& stream = *default_streams_[stream_type];
-        PT_SYNHELPER_DEBUG(
-            "STREAM:: get stream handle ", stream, " for id::", id);
-        return stream;
-      }
-
-      auto it = streams_.find(index);
-      HABANA_ASSERT(
-          it != streams_.end(), "Invalid Compute stream streamId::", index);
-
-      auto& stream = *it->second;
-      PT_SYNHELPER_DEBUG(
-          "STREAM:: get stream handle",
-          stream,
-          " for id::",
-          id,
-          " index::",
-          index);
-      return stream;
-    }
   }
+  if (id == 0 || stream_type != COMPUTE) { // any type stream
+    auto& stream = *default_streams_[stream_type];
+    PT_SYNHELPER_DEBUG("STREAM:: get stream handle ", stream, " for id::", id);
+    return stream;
+  }
+  auto compute_stream_count = get_compute_stream_count();
+  auto index = id;
+  // if not using generic stream, compute stream is assigned
+  // in round robin fashion to user_stream in case if
+  // it exceed actaul stream count.
+  if (id >= compute_stream_count) {
+    index = id % compute_stream_count;
+  }
+
+  if (index == 0) { // coumpute stream
+    auto& stream = *default_streams_[stream_type];
+    PT_SYNHELPER_DEBUG("STREAM:: get stream handle ", stream, " for id::", id);
+    return stream;
+  }
+
+  auto it = streams_.find(index);
+  HABANA_ASSERT(
+      it != streams_.end(), "Invalid Compute stream streamId::", index);
+
+  auto& stream = *it->second;
+  PT_SYNHELPER_DEBUG(
+      "STREAM:: get stream handle", stream, " for id::", id, " index::", index);
+  return stream;
 }
 
 hpuStream_t device::get_dma_pt_stream(
@@ -1254,7 +1241,8 @@ inline bool device::copy_data_to_device_(
             "DMA to HPU start succeeded on ", attempt + 1, " attempt.");
       }
       break;
-    } else if (attempt < max_dma_copy_retry_count_ - 1) {
+    }
+    if (attempt < max_dma_copy_retry_count_ - 1) {
       PT_SYNHELPER_WARN(
           Logger::formatStatusMsg(status),
           "DMA to HPU start failed. Attempt ",
@@ -1447,7 +1435,8 @@ synapse_error device::copy_data_to_device(
             " attempt.");
       }
       break;
-    } else if (attempt < max_dma_copy_retry_count_ - 1) {
+    }
+    if (attempt < max_dma_copy_retry_count_ - 1) {
       PT_SYNHELPER_WARN(
           Logger::formatStatusMsg(status),
           "DMA to HPU start failed. Attempt ",
@@ -1533,7 +1522,8 @@ synapse_error device::copy_data_to_host(
             "DMA from HPU start succeeded on ", attempt + 1, " attempt.");
       }
       break;
-    } else if (attempt < max_dma_copy_retry_count_ - 1) {
+    }
+    if (attempt < max_dma_copy_retry_count_ - 1) {
       PT_SYNHELPER_WARN(
           Logger::formatStatusMsg(status),
           "DMA from HPU start failed. Attempt ",
