@@ -66,8 +66,8 @@ static const auto& kr_gen_1 = KernelRegistry()
 ;
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {
-  m.impl("_fused_dropout", static_cast<::std::tuple<at::Tensor,at::Tensor> (*)(const at::Tensor &, double, ::std::optional<at::Generator>)>(&habana::_fused_dropout));
-  m.impl("native_dropout", static_cast<::std::tuple<at::Tensor,at::Tensor> (*)(const at::Tensor &, double, ::std::optional<bool>)>(&habana::native_dropout));
+  m.impl("_fused_dropout", habana::_fused_dropout);
+  m.impl("native_dropout", habana::native_dropout);
 
 }
 

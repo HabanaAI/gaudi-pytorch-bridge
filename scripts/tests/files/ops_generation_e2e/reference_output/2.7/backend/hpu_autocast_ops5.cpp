@@ -26,7 +26,7 @@ namespace {
 
 TORCH_LIBRARY_IMPL(aten, AutocastHPU, m) {
   Hpu_KERNEL(matmul, "matmul", at::Tensor(const at::Tensor &, const at::Tensor &))
-  Hpu_KERNEL(_reshape_alias, "_reshape_alias", at::Tensor(const at::Tensor &, c10::IntArrayRef, c10::IntArrayRef))
+  Hpu_KERNEL(_reshape_alias, "_reshape_alias", at::Tensor(const at::Tensor &, at::IntArrayRef, at::IntArrayRef))
 }
 
 } // namespace

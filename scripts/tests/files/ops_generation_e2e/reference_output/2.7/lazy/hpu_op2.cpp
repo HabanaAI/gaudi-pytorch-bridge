@@ -58,8 +58,8 @@ static const auto& kr_gen_2 = KernelRegistry()
 ;
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {
-  m.impl("as_strided", static_cast<at::Tensor (*)(const at::Tensor &, c10::SymIntArrayRef, c10::SymIntArrayRef, ::std::optional<c10::SymInt>)>(&habana::as_strided));
-  m.impl("addbmm", static_cast<at::Tensor (*)(const at::Tensor &, const at::Tensor &, const at::Tensor &, const at::Scalar &, const at::Scalar &)>(&habana::addbmm));
+  m.impl("as_strided", habana::as_strided);
+  m.impl("addbmm", habana::addbmm);
 
 }
 

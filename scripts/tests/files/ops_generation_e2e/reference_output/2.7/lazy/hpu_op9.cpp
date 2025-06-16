@@ -86,9 +86,9 @@ static const auto& kr_gen_9 = KernelRegistry()
 ;
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {
-  m.impl("convolution_backward_overrideable", static_cast<::std::tuple<at::Tensor,at::Tensor,at::Tensor> (*)(const at::Tensor &, const at::Tensor &, const at::Tensor &, c10::SymIntArrayRef, c10::SymIntArrayRef, c10::SymIntArrayRef, bool, c10::SymIntArrayRef, c10::SymInt, ::std::array<bool,3>)>(&habana::convolution_backward_overrideable));
-  m.impl("native_group_norm", static_cast<::std::tuple<at::Tensor,at::Tensor,at::Tensor> (*)(const at::Tensor &, const ::std::optional<at::Tensor> &, const ::std::optional<at::Tensor> &, c10::SymInt, c10::SymInt, c10::SymInt, int64_t, double)>(&habana::native_group_norm));
-  m.impl("linear_backward", static_cast<::std::tuple<at::Tensor,at::Tensor,at::Tensor> (*)(const at::Tensor &, const at::Tensor &, const at::Tensor &, ::std::array<bool,3>)>(&habana::linear_backward));
+  m.impl("convolution_backward_overrideable", habana::convolution_backward_overrideable);
+  m.impl("native_group_norm", habana::native_group_norm);
+  m.impl("linear_backward", habana::linear_backward);
 
 }
 

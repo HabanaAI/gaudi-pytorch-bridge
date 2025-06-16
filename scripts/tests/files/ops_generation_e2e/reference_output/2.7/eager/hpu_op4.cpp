@@ -42,7 +42,7 @@ static const auto& kr_gen_4 = KernelRegistry()
 ;
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {
-  m.impl("addbmm", static_cast<at::Tensor (*)(const at::Tensor &, const at::Tensor &, const at::Tensor &, const at::Scalar &, const at::Scalar &)>(&habana::addbmm));
+  m.impl("addbmm", habana::addbmm);
 
 }
 

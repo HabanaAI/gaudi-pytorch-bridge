@@ -209,12 +209,11 @@ def get_function_signature(t, orig_sig, namefn):
     # Emit full function return type.
     emit_string(typed_child(t, 0, "type"), emit, lambda t: 0)
     fnname = typed_child(t, 1, "fnname").children[0]
-    xfname = namefn(fnname.value)
-    emit.append(f" {xfname}(")
+    emit.append(f" {namefn(fnname.value)}(")
     # Emit parameter list w/out parameter names.
     emit_string(typed_child(t, 3, "params"), emit, lambda t: 0)
     emit.append(")")
-    return str(emit), fnname.value, xfname
+    return str(emit), fnname.value
 
 
 def get_parameters(t):

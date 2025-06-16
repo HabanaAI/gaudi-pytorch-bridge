@@ -24,7 +24,7 @@ namespace habana {
 CheckNodeWithSharedLayerValidator validator_eq_Scalar_out("eq.Scalar_out", "equal_fwd", {-1}, {1}, CompareMeta, {0, 1}, false, false, false, true);
 
 
-at::Tensor squeeze(const at::Tensor & self, at::IntArrayRef dim) {
+at::Tensor squeeze_dims(const at::Tensor & self, at::IntArrayRef dim) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO("squeeze: ", DUMP_2ARGS(self, dim));
@@ -38,7 +38,7 @@ at::Tensor squeeze(const at::Tensor & self, at::IntArrayRef dim) {
   return habana_lazy::squeeze_dims_hpu_lazy(self, dim);
 }
 
-at::Tensor & eq_out(const at::Tensor & self, const at::Scalar & other, at::Tensor & out) {
+at::Tensor & eq_Scalar_out(const at::Tensor & self, const at::Scalar & other, at::Tensor & out) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO("eq_out: ", DUMP_3ARGS(self, other, out));
@@ -65,8 +65,8 @@ static const auto& kr_gen_6 = KernelRegistry()
 ;
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {
-  m.impl("squeeze.dims", static_cast<at::Tensor (*)(const at::Tensor &, at::IntArrayRef)>(&habana::squeeze));
-  m.impl("eq.Scalar_out", static_cast<at::Tensor & (*)(const at::Tensor &, const at::Scalar &, at::Tensor &)>(&habana::eq_out));
+  m.impl("squeeze.dims", habana::squeeze_dims);
+  m.impl("eq.Scalar_out", habana::eq_Scalar_out);
 
 }
 

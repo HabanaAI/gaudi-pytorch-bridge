@@ -194,6 +194,7 @@ _foreach_tanh\_                          Yes      Yes      Yes     No    torch
 _foreach_trunc                           Yes      Yes      Yes     No    torch
 _foreach_trunc\_                         Yes      Yes      Yes     No    torch
 _foreach_zero\_                          Yes      Yes      Yes     Yes   torch
+_fused_adamw\_                           Yes      Yes      Yes     No    torch
 _fused_dropout                           Yes      Yes      Yes     No    torch
 _logcumsumexp                            Yes      Yes      Yes     No    torch
 _masked_scale                            Yes      Yes      Yes     Yes   torch
@@ -354,8 +355,8 @@ heaviside                                Yes      Yes      Yes     No    torch
 histc                                    Yes      No       No      No    torch
 histogram                                Yes      No       No      No    torch
 hypot                                    Yes      Yes      Yes     No    torch
-igamma                                   Yes      Yes      Yes     No    torch
-igammac                                  Yes      Yes      Yes     No    torch
+igamma                                   Yes      No       No      No    torch
+igammac                                  Yes      No       No      No    torch
 index_add                                Yes      Yes      Yes     No    torch
 index_copy                               Yes      Yes      Yes     Yes   torch
 index_fill                               Yes      Yes      Yes     Yes   torch
@@ -1141,6 +1142,7 @@ _foreach_tanh\_                           Yes      Yes       Yes       Yes      
 _foreach_trunc                            Yes      Yes       Yes       Yes      Yes    torch
 _foreach_trunc\_                          Yes      Yes       Yes       Yes      Yes    torch
 _foreach_zero\_                           Yes      Yes       Yes       Yes      Yes    torch
+_fused_adamw\_                            No       No        No        No       No     torch
 _fused_dropout                            No       No        No        No       No     torch
 _logcumsumexp                             No       No        No        No       No     torch
 _masked_scale                             Yes      Yes       Yes       Yes      Yes    torch

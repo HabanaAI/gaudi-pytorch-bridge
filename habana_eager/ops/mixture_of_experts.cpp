@@ -655,6 +655,56 @@ mixture_of_experts_fp8_measurement_fused_weights(
       measurement_mode);
 }
 
+template <typename Scale>
+static at::Tensor moe_cast_to_fp8_v2(
+    const at::Tensor& input,
+    const Scale& scale,
+    at::ScalarType dtype) {
+  if constexpr (std::is_same<Scale, double>::value) {
+    return std::get<0>(
+        cast_to_fp8_v2_scalar(input, scale, false, false, dtype, std::nullopt));
+  } else {
+    return std::get<0>(
+        cast_to_fp8_v2(input, scale, false, false, dtype, std::nullopt));
+  }
+}
+
+template <typename Scale>
+static at::Tensor moe_fp8_gemm_v2(
+    const at::Tensor& A,
+    const at::Tensor& B,
+    at::ScalarType out_dtype,
+    const Scale& A_scale_inv,
+    const Scale& B_scale_inv) {
+  if constexpr (std::is_same<Scale, double>::value) {
+    return fp8_gemm_v2_scalar(
+        A,
+        false,
+        B,
+        false,
+        std::nullopt,
+        out_dtype,
+        A_scale_inv,
+        B_scale_inv,
+        std::nullopt,
+        false,
+        std::nullopt);
+  } else {
+    return fp8_gemm_v2(
+        A,
+        false,
+        B,
+        false,
+        std::nullopt,
+        out_dtype,
+        A_scale_inv,
+        B_scale_inv,
+        std::nullopt,
+        false,
+        std::nullopt);
+  }
+}
+
 template <typename Scale, typename Scales>
 static at::Tensor mixture_of_experts_fp8_common(
     const at::Tensor& hidden_states,
@@ -706,54 +756,33 @@ static at::Tensor mixture_of_experts_fp8_common(
     const at::Tensor current_expert_w3 =
         permuted_weights ? w3[expert_idx].transpose(0, 1) : w3[expert_idx];
 
-    auto hidden_states_w1 = activation_fn(fp8_gemm_v2(
+    auto hidden_states_w1 = activation_fn(moe_fp8_gemm_v2(
         hidden_states,
-        false,
         current_expert_w1,
-        false,
-        std::nullopt,
         torch::kBFloat16,
         d_scale_hidden_states,
-        d_scale_w1[expert_idx],
-        std::nullopt,
-        false,
-        std::nullopt));
+        d_scale_w1[expert_idx]));
 
-    auto hidden_states_w2 = fp8_gemm_v2(
+    auto hidden_states_w2 = moe_fp8_gemm_v2(
         hidden_states,
-        false,
         current_expert_w2,
-        false,
-        std::nullopt,
         torch::kBFloat16,
         d_scale_hidden_states,
-        d_scale_w2[expert_idx],
-        std::nullopt,
-        false,
-        std::nullopt);
+        d_scale_w2[expert_idx]);
 
     auto hidden_states_w12 = hidden_states_w1 * hidden_states_w2;
 
-    hidden_states_w12 = std::get<0>(cast_to_fp8_v2(
+    hidden_states_w12 = moe_cast_to_fp8_v2(
         hidden_states_w12,
         d_scale_intermediate_hidden_states[expert_idx],
-        false,
-        false,
-        fp8_type,
-        std::nullopt));
+        fp8_type);
 
-    auto hidden_states_w3 = fp8_gemm_v2(
+    auto hidden_states_w3 = moe_fp8_gemm_v2(
         hidden_states_w12,
-        false,
         current_expert_w3,
-        false,
-        std::nullopt,
         torch::kBFloat16,
         default_scale,
-        d_scale_w3[expert_idx],
-        std::nullopt,
-        false,
-        std::nullopt);
+        d_scale_w3[expert_idx]);
 
     final_hidden_states += hidden_states_w3 * padded_weights[expert_idx];
   }
@@ -1026,31 +1055,19 @@ static at::Tensor mixture_of_experts_fp8_common_dynamic(
     const at::Tensor current_expert_w3 =
         permuted_weights ? w3[expert_idx].transpose(0, 1) : w3[expert_idx];
 
-    auto hidden_states_w1 = activation_fn(fp8_gemm_v2(
+    auto hidden_states_w1 = activation_fn(moe_fp8_gemm_v2(
         hidden_states,
-        false,
         current_expert_w1,
-        false,
-        std::nullopt,
         torch::kBFloat16,
         d_scale_hidden_states,
-        d_scale_w1[expert_idx],
-        std::nullopt,
-        false,
-        std::nullopt));
+        d_scale_w1[expert_idx]));
 
-    auto hidden_states_w2 = fp8_gemm_v2(
+    auto hidden_states_w2 = moe_fp8_gemm_v2(
         hidden_states,
-        false,
         current_expert_w2,
-        false,
-        std::nullopt,
         torch::kBFloat16,
         d_scale_hidden_states,
-        d_scale_w2[expert_idx],
-        std::nullopt,
-        false,
-        std::nullopt);
+        d_scale_w2[expert_idx]);
 
     auto hidden_states_w12 = hidden_states_w1 * hidden_states_w2;
     at::Tensor hidden_states_w3;
@@ -1369,13 +1386,13 @@ at::Tensor mixture_of_experts_fp8_blockwise(
   std::vector<at::Tensor> dequant_w3_vec;
   for (size_t i = 0; i < w1.size(); i++) {
     dequant_w1_vec.push_back(
-        cast_from_fp8(w1[i], 1.0, scales_dtype, std::nullopt) *
+        cast_from_fp8_scalar(w1[i], 1.0, scales_dtype, std::nullopt) *
         broadcast_scales(d_scale_w1[i], block_size, w1[0].sizes()));
     dequant_w2_vec.push_back(
-        cast_from_fp8(w2[i], 1.0, scales_dtype, std::nullopt) *
+        cast_from_fp8_scalar(w2[i], 1.0, scales_dtype, std::nullopt) *
         broadcast_scales(d_scale_w2[i], block_size, w2[0].sizes()));
     dequant_w3_vec.push_back(
-        cast_from_fp8(w3[i], 1.0, scales_dtype, std::nullopt) *
+        cast_from_fp8_scalar(w3[i], 1.0, scales_dtype, std::nullopt) *
         broadcast_scales(d_scale_w3[i], block_size, w3[0].sizes()));
   }
 
@@ -1437,10 +1454,10 @@ at::Tensor mixture_of_experts_fp8_fused_weights_blockwise(
   std::vector<at::Tensor> dequant_w3_vec;
   for (size_t i = 0; i < w12.size(); i++) {
     dequant_w12_vec.push_back(
-        cast_from_fp8(w12[i], 1.0, scales_dtype, std::nullopt) *
+        cast_from_fp8_scalar(w12[i], 1.0, scales_dtype, std::nullopt) *
         broadcast_scales(d_scale_w12[i], block_size, w12[0].sizes()));
     dequant_w3_vec.push_back(
-        cast_from_fp8(w3[i], 1.0, scales_dtype, std::nullopt) *
+        cast_from_fp8_scalar(w3[i], 1.0, scales_dtype, std::nullopt) *
         broadcast_scales(d_scale_w3[i], block_size, w3[0].sizes()));
   }
 

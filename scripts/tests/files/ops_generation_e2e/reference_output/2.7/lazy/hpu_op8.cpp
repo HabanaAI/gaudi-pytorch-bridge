@@ -23,7 +23,7 @@ namespace habana {
 
 
 
-at::Tensor bitwise_left_shift(const at::Tensor & self, const at::Scalar & other) {
+at::Tensor bitwise_left_shift_Tensor_Scalar(const at::Tensor & self, const at::Scalar & other) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO("bitwise_left_shift: ", DUMP_2ARGS(self, other));
@@ -68,8 +68,8 @@ static const auto& kr_gen_8 = KernelRegistry()
 ;
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {
-  m.impl("bitwise_left_shift.Tensor_Scalar", static_cast<at::Tensor (*)(const at::Tensor &, const at::Scalar &)>(&habana::bitwise_left_shift));
-  m.impl("_native_batch_norm_legit", static_cast<::std::tuple<at::Tensor,at::Tensor,at::Tensor> (*)(const at::Tensor &, const ::std::optional<at::Tensor> &, const ::std::optional<at::Tensor> &, at::Tensor &, at::Tensor &, bool, double, double)>(&habana::_native_batch_norm_legit));
+  m.impl("bitwise_left_shift.Tensor_Scalar", habana::bitwise_left_shift_Tensor_Scalar);
+  m.impl("_native_batch_norm_legit", habana::_native_batch_norm_legit);
 
 }
 

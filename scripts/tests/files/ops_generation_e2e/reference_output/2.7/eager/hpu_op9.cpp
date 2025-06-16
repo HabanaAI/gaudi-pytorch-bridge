@@ -23,7 +23,7 @@ namespace habana {
 static CheckNodeWithSharedLayerValidator validator_eq_Tensor_out("eq.Tensor_out", "equal_fwd", {-1}, {}, CompareMeta, {0, 1}, false, false, false, true);
 
 
-at::Tensor & eq_out(const at::Tensor & self, const at::Tensor & other, at::Tensor & out) {
+at::Tensor & eq_Tensor_out(const at::Tensor & self, const at::Tensor & other, at::Tensor & out) {
   PT_EAGER_TRACE;
   PT_OP_INFO("eq_out: ", DUMP_3ARGS(self, other, out));
 
@@ -124,11 +124,11 @@ static const auto& kr_gen_9 = KernelRegistry()
 ;
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {
-  m.impl("eq.Tensor_out", static_cast<at::Tensor & (*)(const at::Tensor &, const at::Tensor &, at::Tensor &)>(&habana::eq_out));
-  m.impl("_native_batch_norm_legit", static_cast<::std::tuple<at::Tensor,at::Tensor,at::Tensor> (*)(const at::Tensor &, const ::std::optional<at::Tensor> &, const ::std::optional<at::Tensor> &, at::Tensor &, at::Tensor &, bool, double, double)>(&habana::_native_batch_norm_legit));
-  m.impl("convolution_backward_overrideable", static_cast<::std::tuple<at::Tensor,at::Tensor,at::Tensor> (*)(const at::Tensor &, const at::Tensor &, const at::Tensor &, c10::SymIntArrayRef, c10::SymIntArrayRef, c10::SymIntArrayRef, bool, c10::SymIntArrayRef, c10::SymInt, ::std::array<bool,3>)>(&habana::convolution_backward_overrideable));
-  m.impl("native_group_norm", static_cast<::std::tuple<at::Tensor,at::Tensor,at::Tensor> (*)(const at::Tensor &, const ::std::optional<at::Tensor> &, const ::std::optional<at::Tensor> &, c10::SymInt, c10::SymInt, c10::SymInt, int64_t, double)>(&habana::native_group_norm));
-  m.impl("linear_backward", static_cast<::std::tuple<at::Tensor,at::Tensor,at::Tensor> (*)(const at::Tensor &, const at::Tensor &, const at::Tensor &, ::std::array<bool,3>)>(&habana::linear_backward));
+  m.impl("eq.Tensor_out", habana::eq_Tensor_out);
+  m.impl("_native_batch_norm_legit", habana::_native_batch_norm_legit);
+  m.impl("convolution_backward_overrideable", habana::convolution_backward_overrideable);
+  m.impl("native_group_norm", habana::native_group_norm);
+  m.impl("linear_backward", habana::linear_backward);
 
 }
 

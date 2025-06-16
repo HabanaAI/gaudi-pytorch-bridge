@@ -43,7 +43,7 @@ static const auto& kr_gen__torchvision = KernelRegistry()
 ;
 
 TORCH_LIBRARY_IMPL(torchvision, HPU, m) {
-  m.impl("_deform_conv2d_backward", static_cast<::std::tuple<at::Tensor,at::Tensor,at::Tensor,at::Tensor,at::Tensor> (*)(const at::Tensor &, const at::Tensor &, const at::Tensor &, const at::Tensor &, const at::Tensor &, const at::Tensor &, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, bool)>(&habana::_deform_conv2d_backward));
+  m.impl("_deform_conv2d_backward", habana::_deform_conv2d_backward);
 
 }
 

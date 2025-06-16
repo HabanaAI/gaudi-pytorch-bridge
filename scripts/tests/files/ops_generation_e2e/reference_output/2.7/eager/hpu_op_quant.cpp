@@ -39,7 +39,7 @@ static const auto& kr_gen__quant = KernelRegistry()
 ;
 
 TORCH_LIBRARY_IMPL(quantized_decomposed, HPU, m) {
-  m.impl("quantize_per_channel", static_cast<at::Tensor (*)(const at::Tensor &, const at::Tensor &, const at::Tensor &, int64_t, int64_t, int64_t, at::ScalarType)>(&habana::quantize_per_channel));
+  m.impl("quantize_per_channel", habana::quantize_per_channel);
 
 }
 

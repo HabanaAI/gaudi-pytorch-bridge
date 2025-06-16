@@ -42,9 +42,7 @@ class FuncDef(NamedTuple):
 
 class OpGen(NamedTuple):
     tree: Tree
-    xtree: Tree
     func: str
-    xfunc: str
     op_frontend_eager: str | None
     op_frontend_lazy: str
     op_backend: str
@@ -52,9 +50,7 @@ class OpGen(NamedTuple):
     sig: str
     cppsig: str
     funsig: str
-    mapsig: str
     aten_sig: str
-    dtdf: bool
     ctxop: Op
     opgroup: str
     fc_params: Any

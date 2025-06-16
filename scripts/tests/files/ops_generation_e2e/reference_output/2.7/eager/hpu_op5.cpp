@@ -19,7 +19,7 @@ namespace habana {
 static CheckNodeWithSharedLayerValidator validator_bucketize_Scalar("bucketize.Scalar", "search_sorted_fwd", {1}, {0}, BucketizeMeta, {0, 1}, false, false, false, false);
 
 
-at::Tensor bucketize(const at::Scalar & self, const at::Tensor & boundaries, bool out_int32, bool right) {
+at::Tensor bucketize_Scalar(const at::Scalar & self, const at::Tensor & boundaries, bool out_int32, bool right) {
   PT_EAGER_TRACE;
   PT_OP_INFO("bucketize: ", DUMP_4ARGS(self, boundaries, out_int32, right));
 
@@ -46,7 +46,7 @@ static const auto& kr_gen_5 = KernelRegistry()
 ;
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {
-  m.impl("bucketize.Scalar", static_cast<at::Tensor (*)(const at::Scalar &, const at::Tensor &, bool, bool)>(&habana::bucketize));
+  m.impl("bucketize.Scalar", habana::bucketize_Scalar);
 
 }
 

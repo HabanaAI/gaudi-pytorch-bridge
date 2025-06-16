@@ -23,7 +23,7 @@ namespace habana {
 
 
 
-at::Tensor & __ilshift__(at::Tensor & self, const at::Scalar & other) {
+at::Tensor & __ilshift___Scalar(at::Tensor & self, const at::Scalar & other) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO("__ilshift__: ", DUMP_2ARGS(self, other));
@@ -38,7 +38,7 @@ at::Tensor & __ilshift__(at::Tensor & self, const at::Scalar & other) {
   RUN_INPLACE_MAYBE_WITH_ACC_THREAD(__ilshift__, hpu_op, self);
 }
 
-void _foreach_add_(at::TensorList self, const at::Scalar & scalar) {
+void _foreach_add__Scalar(at::TensorList self, const at::Scalar & scalar) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO("_foreach_add_: ", DUMP_2ARGS(self, scalar));
@@ -60,8 +60,8 @@ static const auto& kr_gen_0 = KernelRegistry()
 ;
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {
-  m.impl("__ilshift__.Scalar", static_cast<at::Tensor & (*)(at::Tensor &, const at::Scalar &)>(&habana::__ilshift__));
-  m.impl("_foreach_add_.Scalar", static_cast<void (*)(at::TensorList, const at::Scalar &)>(&habana::_foreach_add_));
+  m.impl("__ilshift__.Scalar", habana::__ilshift___Scalar);
+  m.impl("_foreach_add_.Scalar", habana::_foreach_add__Scalar);
 
 }
 

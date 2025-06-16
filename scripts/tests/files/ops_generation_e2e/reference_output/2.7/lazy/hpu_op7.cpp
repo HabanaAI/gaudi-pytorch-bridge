@@ -24,7 +24,7 @@ namespace habana {
 CheckNodeWithSharedLayerValidator validator_eq_Tensor_out("eq.Tensor_out", "equal_fwd", {-1}, {}, CompareMeta, {0, 1}, false, false, false, true);
 
 
-at::Tensor & eq_out(const at::Tensor & self, const at::Tensor & other, at::Tensor & out) {
+at::Tensor & eq_Tensor_out(const at::Tensor & self, const at::Tensor & other, at::Tensor & out) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO("eq_out: ", DUMP_3ARGS(self, other, out));
@@ -66,8 +66,8 @@ static const auto& kr_gen_7 = KernelRegistry()
 ;
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {
-  m.impl("eq.Tensor_out", static_cast<at::Tensor & (*)(const at::Tensor &, const at::Tensor &, at::Tensor &)>(&habana::eq_out));
-  m.impl("isfinite", static_cast<at::Tensor (*)(const at::Tensor &)>(&habana::isfinite));
+  m.impl("eq.Tensor_out", habana::eq_Tensor_out);
+  m.impl("isfinite", habana::isfinite);
 
 }
 

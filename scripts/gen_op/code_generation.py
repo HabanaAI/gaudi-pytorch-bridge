@@ -138,21 +138,11 @@ def extract_reduction_vars_indices(param_vars, use_int=False):
 
 
 def get_op_backend_class_impl(ctxop, fname, cname, num_out_tensors, param_vars):
-    guid = ctxop.get_guid()
     out_ids = ctxop.get_out_ids()
     inplace_ids = ctxop.get_inplace_ids()
     scalar_ids = ctxop.get_scalar_ids()
-    no_compute_flag = ctxop.get_no_compute_flag()
-    custom_fill_params = ctxop.get_custom_fill_params()
-    tpc_input_order = ctxop.get_tpc_input_order()
-    op_backend_class = ctxop.get_op_backend_class()
-    output_shape_fn = ctxop.get_custom_output_shape()
-    output_meta_fn = ctxop.get_output_meta()
-    shared_layer_meta_meta_fn = ctxop.get_shared_layer_meta()
-    st_meta_fn = ctxop.get_st_meta()
     promote_to_common_type = ctxop.promote_to_common_type()
     promote_int_to_float = ctxop.promote_int_to_float()
-    handle_bool_inputs = ctxop.handle_bool_inputs()
     is_custom_op_out_variant = ctxop.get_is_custom_op_out_variant()
 
     assert (not out_ids) ^ (not inplace_ids) ^ is_out_fn(is_custom_op_out_variant, fname), (
@@ -169,13 +159,14 @@ def get_op_backend_class_impl(ctxop, fname, cname, num_out_tensors, param_vars):
     inplace_ids = ", ".join([str(i) for i in inplace_ids])
     scalar_ids = ", ".join([str(s) for s in scalar_ids])
 
+    guid = ctxop.get_guid()
     if fname.startswith("bitwise_"):
         custom_handler = templates.CUSTOM_HANDLER.format(body=bitwise_ops_alt_guid(guid))
     else:
         custom_handler = ""
 
     ctor_extra_calls = []
-    if no_compute_flag:
+    if ctxop.get_no_compute_flag():
         ctor_extra_calls.append("setNoComputeFlag();")
 
     synapse_layouts = ctxop.get_synapse_layouts()
@@ -190,6 +181,8 @@ def get_op_backend_class_impl(ctxop, fname, cname, num_out_tensors, param_vars):
     if is_out_fn(is_custom_op_out_variant, fname) and num_out_tensors > 1:
         ctor_extra_calls.append(f"SetNumOutTensors({num_out_tensors});")
 
+    output_meta_fn = ctxop.get_output_meta()
+    output_shape_fn = ctxop.get_custom_output_shape()
     if output_meta_fn:
         ctor_extra_calls.append(f"SetOutputMetaFn({output_meta_fn});")
     elif promote_to_common_type or promote_int_to_float:
@@ -211,12 +204,15 @@ def get_op_backend_class_impl(ctxop, fname, cname, num_out_tensors, param_vars):
     elif output_shape_fn:
         ctor_extra_calls.append(f"SetComputeOutputShapes({output_shape_fn});")
 
+    st_meta_fn = ctxop.get_st_meta()
     if st_meta_fn:
         ctor_extra_calls.append(f"SetSTMetaFn({st_meta_fn});")
 
+    custom_fill_params = ctxop.get_custom_fill_params()
     if custom_fill_params:
         ctor_extra_calls.append(f"SetFillParams({custom_fill_params});")
 
+    tpc_input_order = ctxop.get_tpc_input_order()
     if tpc_input_order:
         tpc_input_order_str = ", ".join(map(str, tpc_input_order))
         ctor_extra_calls.append(f"SetTpcInputOrder({{{tpc_input_order_str}}});")
@@ -226,14 +222,15 @@ def get_op_backend_class_impl(ctxop, fname, cname, num_out_tensors, param_vars):
     elif promote_int_to_float:
         ctor_extra_calls.append("PromoteIntToFloat();")
 
-    if handle_bool_inputs:
+    if ctxop.handle_bool_inputs():
         ctor_extra_calls.append("HandleBoolInputs();")
 
+    shared_layer_meta_meta_fn = ctxop.get_shared_layer_meta()
     if shared_layer_meta_meta_fn:
         ctor_extra_calls.append(f"SetSharedLayerMetaFn({shared_layer_meta_meta_fn});")
 
     return templates.OPCLASS_HEADER.format(
-        op_backend_class=op_backend_class,
+        op_backend_class=ctxop.get_op_backend_class(),
         cname=cname,
         guid=guid,
         out_ids=out_ids,
@@ -245,9 +242,8 @@ def get_op_backend_class_impl(ctxop, fname, cname, num_out_tensors, param_vars):
     )
 
 
-def generate_impl(op_variant, funsig, override_fn):
-    overload = funsig.replace("(", " (*)(", 1)
-    return f'  m.impl("{op_variant}", static_cast<{overload}>(&{override_fn}));\n'
+def generate_impl(op_variant, override_fn):
+    return f'  m.impl("{op_variant}", {override_fn});\n'
 
 
 def generate_dtype_defs(fgen, execution_mode_for_shared_layer):
@@ -260,9 +256,8 @@ def generate_dtype_defs(fgen, execution_mode_for_shared_layer):
 
 
 def generate_frontend_functions(fgen, mode):
-    # torch registrations
-    override_fn = f"habana::{fgen.func}"
-    impl = generate_impl(get_aten_opname(fgen.aten_sig), fgen.funsig, override_fn) if not fgen.only_slrg else ""
+    override_fn = f"habana::{fgen.op_variant.replace('.', '_')}"
+    impl = generate_impl(get_aten_opname(fgen.aten_sig), override_fn) if not fgen.only_slrg else ""
 
     dtype_defs = generate_dtype_defs(fgen, constants.get_execution_mode_from_string(mode))
 
@@ -357,7 +352,10 @@ def generate_header_decls(fgens, gen_check_node_with_sl_val=False):
     output_mask_handler_decls = ""
     for fgen in fgens:
         if not fgen.only_slrg:
-            reg_decls += f"{fgen.sig};\n"
+            op_name_with_variant = get_aten_opname(fgen.aten_sig).replace(".", "_")
+
+            sig_fun = fgen.sig.replace(fgen.func, op_name_with_variant, 1)
+            reg_decls += f"{sig_fun};\n"
 
         early_exit_fun = fgen.ctxop.get_early_exit_fun()
         if early_exit_fun is not None and early_exit_fun not in early_exit_fns:
@@ -431,6 +429,13 @@ def gen_cpp_output_file(args, opgroup):
     return gen_output_file(args, f"{opgroup}.cpp")
 
 
+def update_arguments(arguments: str) -> str:
+    arguments = arguments.replace("at::OptionalSymIntArrayRef", "at::OptionalIntArrayRef")
+    arguments = arguments.replace("c10::SymIntArrayRef", "at::IntArrayRef")
+    arguments = arguments.replace("c10::SymInt", "int64_t")
+    return arguments
+
+
 # Generate file with all potential ops for autocast. The actual ops registered
 # for autocast are based on the default lists in autocast_helpers.h file or
 # on the external file provided via env.
@@ -446,9 +451,7 @@ def generate_autocast_ops(op_metas, args):
         signature_split = signature.split("(")
         return_type = signature_split[0]
 
-        arguments = signature_split[1]
-        arguments = arguments.replace("SymIntArrayRef", "IntArrayRef")
-        arguments = arguments.replace("c10::SymInt", "int64_t")
+        arguments = update_arguments(signature_split[1])
 
         signature = return_type + "(" + arguments
 
@@ -694,7 +697,7 @@ def handle_override_fn(ctxop, param_vars, is_eager):
     return code_line + "\n}"
 
 
-def handle_output_shape_fn(ctxop, param_vars):
+def handle_output_shape_fn(ctxop):
     if ctxop.get_output_meta():
         return "};\n"
     code = ""
@@ -782,11 +785,11 @@ def lazy_frontend(
     aten_opname = get_aten_opname(aten_sig)
     opname = aten_opname.split(".")[0]
     overload = aten_opname.split(".")[1] if len(aten_opname.split(".")) > 1 else None
-    schema_fn = f"{ns}::{opname}"
-    is_op_out_variant = False
-    if ".out" in aten_opname:
-        is_op_out_variant = True
-    code = f"{sig} {{\n"
+
+    op_name_with_variant = aten_opname.replace(".", "_")
+    sig_fun = sig if is_check_kernel_support else sig.replace(fname, op_name_with_variant, 1)
+    code = f"{sig_fun} {{\n"
+
     if not is_check_kernel_support:
         code += generate_entry_debug_code(fname, params, False)
     if not (is_check_kernel_support or is_acc_thread_supported(ctxop, rtype, sig)):
@@ -836,10 +839,14 @@ def lazy_frontend(
         code += f"    return {early_exit_fun}(eePath, {', '.join(param_vars)});\n\n"
 
     op_frontend_class = ctxop.get_op_frontend_class()
+    schema_fn = f"{ns}::{opname}"
     code += f'  {op_frontend_class}<{rtype}> hpu_op{{"{schema_fn}", {{{", ".join(param_vars)}}}'
-    code += handle_output_shape_fn(ctxop, param_vars)
+    code += handle_output_shape_fn(ctxop)
+
     if use_compute_type:
         code += "  hpu_op.set_scalar_types({compute_type});\n"
+
+    is_op_out_variant = ".out" in aten_opname
     if is_op_out_variant:
         code += "  hpu_op.SetOutVariant(true);\n"
     code += handle_output_meta(ctxop, promote_types, dtype_helper_inputs, param_vars, type_promo_variant)
@@ -891,7 +898,7 @@ def handle_return_eager(
     elif inplace_op_info[1] == "aten::_fused_adamw":  # currently only fused_adamw is supported
         code += f"  std::vector<at::TensorList> tensorlists = {{ {fe_call_args} }};"
         code += " \n"
-        code += "  hpu_op.call({})".format("tensorlists")
+        code += "  hpu_op.call(tensorlists)"
     else:
         code += "  {}hpu_op.call({})".format("" if rtype == "void" else "return ", fe_call_args)
     if not is_eager_op_supported:
@@ -946,7 +953,12 @@ def eager_frontend(
     opname = aten_opname.split(".")[0]
     overload = aten_opname.split(".")[1] if len(aten_opname.split(".")) > 1 else None
     schema_fn = f"{ns}::{opname}"
-    code = f"{sig} {{\n"
+
+    op_name_with_variant = aten_opname.replace(".", "_")
+
+    sig_fun = sig.replace(fname, op_name_with_variant, 1)
+    code = f"{sig_fun} {{\n"
+
     code += generate_entry_debug_code(fname, params, True)
 
     fe_call_args = ""
@@ -1000,7 +1012,7 @@ def eager_frontend(
     op_frontend_class = "eager::EagerOp" if ctxop.get_op_frontend_class() == "LazyOp" else ctxop.get_op_frontend_class()
 
     code += f'  {op_frontend_class}<{rtype}> hpu_op{{"{schema_fn}", {{{", ".join(param_vars)}}}'
-    code += handle_output_shape_fn(ctxop, param_vars)
+    code += handle_output_shape_fn(ctxop)
 
     if use_compute_type:
         code += "  hpu_op.set_scalar_types({compute_type});\n"
@@ -1027,10 +1039,9 @@ def eager_frontend(
 def prepare_sig_for_kernel_support(sig):
     pos = sig.find("(")
     pos2 = sig.find(")")
-    sig = "bool impl" + sig[pos:pos2] + ", bool is_dynamic" + sig[pos2:]
-    sig = sig.replace("at::OptionalSymIntArrayRef", "at::OptionalIntArrayRef")
-    sig = sig.replace("c10::SymIntArrayRef", "at::IntArrayRef")
-    sig = sig.replace("c10::SymInt", "int64_t")
+    arguments = update_arguments(sig[pos:pos2])
+    sig = "bool impl" + arguments + ", bool is_dynamic" + sig[pos2:]
+
     return sig
 
 
@@ -1047,14 +1058,11 @@ def generate_op(fndef, op_name, ctxop, op_params, is_check_kernel_support=False,
     only_slrg = ctxop.get_only_slrg()
     tree = parser.parse(fndef.cpp_sig)
     xtree = parser.xparse(fndef.cpp_sig)
-    mapsig = parser.create_map_sig(xtree, fndef.cpp_sig)
     params = parser.get_parameters(tree)
-    aten_sig = fndef.aten_sig
     funsig = parser.create_stdfunc_sig(xtree, fndef.cpp_sig)
-    opgroup = get_op_group(op_name)
     rtype = parser.get_return_type_str(xtree, fndef.cpp_sig)
 
-    sig, fname, xfname = parser.get_function_signature(xtree, fndef.cpp_sig, lambda x: f"{x}")
+    sig, fname = parser.get_function_signature(xtree, fndef.cpp_sig, lambda x: f"{x}")
 
     if is_check_kernel_support:
         sig = prepare_sig_for_kernel_support(sig)
@@ -1089,7 +1097,7 @@ def generate_op(fndef, op_name, ctxop, op_params, is_check_kernel_support=False,
             ctxop,
             tfetcher,
             fname,
-            aten_sig,
+            fndef.aten_sig,
             rtype,
             param_vars,
             call_args,
@@ -1108,7 +1116,7 @@ def generate_op(fndef, op_name, ctxop, op_params, is_check_kernel_support=False,
             ctxop,
             tfetcher,
             fname,
-            aten_sig,
+            fndef.aten_sig,
             rtype,
             param_vars,
             call_args,
@@ -1120,21 +1128,17 @@ def generate_op(fndef, op_name, ctxop, op_params, is_check_kernel_support=False,
 
     return constants.OpGen(
         tree=tree,
-        xtree=xtree,
         func=fname,
-        xfunc=xfname,
         op_frontend_eager=op_frontend_eager,
         op_frontend_lazy=op_frontend_lazy,
         op_backend=op_backend,
         cname=op_backend_class,
         sig=fndef.cpp_sig,
         cppsig=sig,
-        mapsig=mapsig,
         funsig=funsig,
-        aten_sig=aten_sig,
-        dtdf=dtdf,
+        aten_sig=fndef.aten_sig,
         ctxop=ctxop,
-        opgroup=opgroup,
+        opgroup=get_op_group(op_name),
         fc_params=fc_params,
         op_variant=op_name,
         ns=ns,
@@ -1147,7 +1151,7 @@ def generate_op_meta(cpp_sig, op_name, op_params):
     mapsig = parser.create_map_sig(xtree, cpp_sig)
     funsig = parser.create_stdfunc_sig(xtree, cpp_sig)
 
-    _, fname, _ = parser.get_function_signature(xtree, cpp_sig, lambda x: f"{x}")
+    _, fname = parser.get_function_signature(xtree, cpp_sig, lambda x: f"{x}")
     return constants.OpMeta(
         op_variant=op_name,
         mapsig=mapsig,
@@ -1167,7 +1171,7 @@ def gen_hpu_wrap_ops(op_metas, args, out_dir):
         override_fn = f"hpu_wrap::{fgen.func}"
 
         pos = fgen.funsig.find("(")
-        impl = generate_impl(fgen.op_variant, fgen.funsig, override_fn)
+        impl = generate_impl(fgen.op_variant, override_fn)
         header_impls.append(f"{fgen.funsig[:pos]} {fgen.func}{fgen.funsig[pos:]};")
         if fgen.autograd:
             autograd_impls.append(impl)
@@ -1671,7 +1675,7 @@ def generate_autograd_functions_cpp_file(fgens_autograd: list[constants.OpGen]) 
 
         if "autograd" not in fgen.ctxop.get_frontend_blocklist():
             op_name = f"{fgen.op_variant}_autograd".replace(".", "_")
-            impls += generate_impl(fgen.op_variant, fgen.funsig, op_name)
+            impls += generate_impl(fgen.op_variant, op_name)
 
             frontend += create_autograd_frontend(fgen, input_names, input_names_len, inputs)
 

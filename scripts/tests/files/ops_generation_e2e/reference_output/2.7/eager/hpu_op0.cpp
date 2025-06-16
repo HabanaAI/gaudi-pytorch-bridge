@@ -18,7 +18,7 @@ namespace habana {
 
 
 
-at::Tensor & __ilshift__(at::Tensor & self, const at::Scalar & other) {
+at::Tensor & __ilshift___Scalar(at::Tensor & self, const at::Scalar & other) {
   PT_EAGER_TRACE;
   PT_OP_INFO("__ilshift__: ", DUMP_2ARGS(self, other));
 
@@ -41,7 +41,7 @@ static const auto& kr_gen_0 = KernelRegistry()
 ;
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {
-  m.impl("__ilshift__.Scalar", static_cast<at::Tensor & (*)(at::Tensor &, const at::Scalar &)>(&habana::__ilshift__));
+  m.impl("__ilshift__.Scalar", habana::__ilshift___Scalar);
 
 }
 

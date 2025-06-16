@@ -46,7 +46,7 @@ static const auto& kr_gen__torch_sparse = KernelRegistry()
 ;
 
 TORCH_LIBRARY_IMPL(torch_sparse, HPU, m) {
-  m.impl("ind2ptr", static_cast<at::Tensor (*)(at::Tensor, int64_t)>(&habana::ind2ptr));
+  m.impl("ind2ptr", habana::ind2ptr);
 
 }
 
