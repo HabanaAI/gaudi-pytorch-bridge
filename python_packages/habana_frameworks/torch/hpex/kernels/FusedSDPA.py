@@ -152,6 +152,19 @@ def sdpa_fwd_wrapper(
             "softmax_mode = fp32 is supported only for inference mode and when q/k/v inputs are BF16"
         )
 
+    # if attention mask is 2D (Nt, Ns) expand it to Q rank
+    # along with the same batch size
+    if attn_mask is not None and attn_mask.dim() == 2:
+        assert attn_mask.shape[0] == q.shape[-2] and attn_mask.shape[1] == k.shape[-2], (
+            "unsupported 2D attention mask, the shape is not (Nt, Ns)"
+        )
+        new_attn_mask_shape = [q.shape[0], attn_mask.shape[0], attn_mask.shape[1]]
+        # the -1 is an already added batch_size
+        rank_diff = q.dim() - attn_mask.dim() - 1
+        if rank_diff > 0:
+            new_attn_mask_shape[1:1] = rank_diff * [1]
+        attn_mask = attn_mask.expand(new_attn_mask_shape)
+
     gqa = is_gqa(q, k)
     if gqa:
         q, k, v, attn_mask = gqa_input_reshape_fwd(q, k, v, attn_mask)
