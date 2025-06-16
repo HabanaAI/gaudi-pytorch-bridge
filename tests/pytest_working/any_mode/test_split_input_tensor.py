@@ -51,7 +51,7 @@ class ModelWithDecorater(torch.nn.Module):
         super().__init__()
         self.Lin = torch.nn.Linear(4, 4)
 
-    @split_tensor_batch(num_splits=4, split_index_list=[1])
+    @split_tensor_batch(num_splits=4, split_index_list=[0])
     def forward(self, x):
         return self.Lin(x)
 
@@ -62,13 +62,44 @@ class SimpleMultiInputModelWithDecorater(torch.nn.Module):
         self.Lin = torch.nn.Linear(4, 4)
         self.Lin2 = torch.nn.Linear(4, 2)
 
-    @split_tensor_batch(num_splits=4, split_index_list=[1, 3])
+    @split_tensor_batch(num_splits=4, split_index_list=[0, 2])
     def forward(self, x, y, z):
         lin1 = self.Lin(x)
         lin2 = self.Lin2(z)
         lin2 += y
         lin3 = lin1[:, 2:] + lin2
         return lin3
+
+
+class SimpleMultiIOModel(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.Lin = torch.nn.Linear(4, 4)
+        self.Lin2 = torch.nn.Linear(4, 2)
+
+    def forward(self, x, y, z):
+        lin1 = self.Lin(x)
+        lin2 = self.Lin2(z)
+        lin2 += y
+        lin3 = lin1[:, 2:] + lin2
+        lin4 = lin3 + lin2
+        return lin1, lin2, lin3, lin4
+
+
+class SimpleMultiIOWithDecorater(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.Lin = torch.nn.Linear(4, 4)
+        self.Lin2 = torch.nn.Linear(4, 2)
+
+    @split_tensor_batch(num_splits=4, split_index_list=[0, 2], cat_out_index_list=[0, 1, 2, 3])
+    def forward(self, x, y, z):
+        lin1 = self.Lin(x)
+        lin2 = self.Lin2(z)
+        lin2 += y
+        lin3 = lin1[:, 2:] + lin2
+        lin4 = lin3 + lin2
+        return lin1, lin2, lin3, lin4
 
 
 def test_split_model_input_tensor():
@@ -150,3 +181,80 @@ def test_split_model_multiple_input_tensor():
         assert torch.allclose(cpu_out, hpu_out4.to("cpu"))
     elif lazy_mode == "0":
         assert torch.allclose(cpu_out, hpu_compile_out.to("cpu"))
+
+
+def test_split_model_multiple_IO_tensor():
+    torch.manual_seed(0)
+    i = torch.rand(7, 4)
+    j = torch.rand(7, 4)
+    torch.manual_seed(0)
+    M = SimpleMultiIOModel()
+    co1, co2, co3, co4 = M(i, 1, j)
+
+    MH = M.to("hpu")
+    iH = i.to("hpu")
+    jH = j.to("hpu")
+    h1, h2, h3, h4 = MH(iH, 1, jH)
+
+    SH = split_tensor_batch(MH, num_splits=2, split_index_list=[2, 0], cat_out_index_list=[0, 1, 2, 3])
+    with torch.no_grad():
+        ho1, ho2, ho3, ho4 = SH(iH, 1, jH)
+
+    SH2 = split_tensor_batch(MH, num_splits=2, split_index_list=[2, 0])
+    with torch.no_grad():
+        ho1_1, ho2_1, ho3_1, ho4_1 = SH2(iH, 1, jH)
+
+    SH3 = split_tensor_batch(MH, num_splits=2, split_index_list=[2, 0], cat_out_index_list=[1, 2])
+    with torch.no_grad():
+        ho1_2, ho2_2, ho3_2, ho4_2 = SH3(iH, 1, jH)
+
+    torch.manual_seed(0)
+    MH2 = SimpleMultiIOWithDecorater().to("hpu")
+    hod1, hod2, hod3, hod4 = MH2(iH, 1, jH)
+
+    lazy_mode = os.getenv("PT_HPU_LAZY_MODE")
+    if lazy_mode == "1":
+        hpu_graph_model = ht.hpu.wrap_in_hpu_graph(MH2)
+        with torch.inference_mode():
+            hog1, hog2, hog3, hog4 = hpu_graph_model(iH, 1, jH)
+            hog1, hog2, hog3, hog4 = hpu_graph_model(iH, 1, jH)
+    elif lazy_mode == "0":
+        hpu_compile_model = torch.compile(MH2, backend="hpu_backend")
+        with torch.inference_mode():
+            hoc1, hoc2, hoc3, hoc4 = hpu_compile_model(iH, 1, jH)
+
+    assert torch.allclose(co1, h1.to("cpu"))
+    assert torch.allclose(co2, h2.to("cpu"))
+    assert torch.allclose(co3, h3.to("cpu"))
+    assert torch.allclose(co4, h4.to("cpu"))
+
+    assert torch.allclose(co1, ho1.to("cpu"))
+    assert torch.allclose(co2, ho2.to("cpu"))
+    assert torch.allclose(co3, ho3.to("cpu"))
+    assert torch.allclose(co4, ho4.to("cpu"))
+
+    assert torch.allclose(co1, ho1_1.to("cpu"))
+    assert torch.allclose(co2, ho2_1.to("cpu"))
+    assert torch.allclose(co3, ho3_1.to("cpu"))
+    assert torch.allclose(co4, ho4_1.to("cpu"))
+
+    assert torch.allclose(co1, torch.cat(ho1_2, dim=0).to("cpu"))
+    assert torch.allclose(co2, ho2_2.to("cpu"))
+    assert torch.allclose(co3, ho3_2.to("cpu"))
+    assert torch.allclose(co4, torch.cat(ho4_2, dim=0).to("cpu"))
+
+    assert torch.allclose(co1, hod1.to("cpu"))
+    assert torch.allclose(co2, hod2.to("cpu"))
+    assert torch.allclose(co3, hod3.to("cpu"))
+    assert torch.allclose(co4, hod4.to("cpu"))
+
+    if lazy_mode == "1":
+        assert torch.allclose(co1, hog1.to("cpu"))
+        assert torch.allclose(co2, hog2.to("cpu"))
+        assert torch.allclose(co3, hog3.to("cpu"))
+        assert torch.allclose(co4, hog4.to("cpu"))
+    elif lazy_mode == "0":
+        assert torch.allclose(co1, hoc1.to("cpu"))
+        assert torch.allclose(co2, hoc2.to("cpu"))
+        assert torch.allclose(co3, hoc3.to("cpu"))
+        assert torch.allclose(co4, hoc4.to("cpu"))

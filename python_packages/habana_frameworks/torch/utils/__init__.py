@@ -16,49 +16,124 @@
 ###############################################################################
 
 import functools
+from collections.abc import Callable
+from typing import Optional
 
 import torch
 
 
-# Split Index is list which contains which input to split, index starts with 1 if decorater is used and 0 if simple function is called
-def split_tensor_batch(_func=None, *, num_splits=1, split_index_list=[]):
-    def decorator_split_tensor_batch(func):
+def split_tensor_batch(
+    _func: Callable | None = None, *, num_splits: int = 1, split_index_list=[], cat_out_index_list=[]
+):
+    """
+    A decorator to automatically split specified tensor arguments along the batch dimension,
+    apply the wrapped function to each split independently, and then concatenate selected outputs.
+
+    Args:
+        _func (Callable, optional): The function to wrap (used internally by decorator).
+        num_splits (int): Number of splits to divide the input tensors into. Default is 1 (no split).
+        split_index_list (List[int]): List of argument indices (0-based) indicating which inputs to split.
+                                      Inputs can be either tensors or lists/tuples of tensors.
+        cat_out_index_list (List[int] | None): Specifies which outputs (0-based indices) should be concatenated.
+            - If None: returns all outputs as lists without concatenation.
+            - If empty list: concatenates all outputs.
+            - If specific list: only those outputs are concatenated.
+
+    Returns:
+        Decorated function that automatically splits input tensors and merges selected outputs.
+
+    Raises:
+        IndexError: If `cat_out_index_list`/'split_index_list` contains an index out of bounds.
+        TypeError: If non-tensor inputs are given for split or non-tensor outputs are given to torch.cat.
+    """
+
+    def decorator_split_tensor_batch(func: Callable):
         @functools.wraps(func)
         def wrapper_split_tensor_batch(*args, **kwargs):
-            call_orig_func = (num_splits == 1) or torch.is_grad_enabled() or (len(split_index_list) == 0)
-            if not call_orig_func:
-                args_len = len(args)
-                split_index_list.sort()
-                for i in split_index_list:
-                    if (i >= args_len) or (not torch.is_tensor(args[i])):
-                        call_orig_func = True
-                        break
+            # Decide whether to skip splitting logic
+            call_orig_func = (num_splits <= 1) or torch.is_grad_enabled() or (len(split_index_list) == 0)
+            # Fallback: Call original function if splitting isn't applicable
             if call_orig_func:
                 return func(*args, **kwargs)
-            else:
-                split_tensor = []
-                list_of_args = list(args)
-                for i in split_index_list:
-                    split_tensor.append(torch.tensor_split(args[i], num_splits))
 
-                # Verify if all tensors to be split gave same number of splits
-                actual_splits = len(split_tensor[0])
-                for i in range(len(split_index_list)):
-                    if len(split_tensor[i]) != actual_splits:
-                        # If not all input splits are equal, fallback to original function.
-                        return func(*args, **kwargs)
+            args_len = len(args)
+            split_index_list_sorted = sorted(split_index_list)
+            split_index_list_sorted = [i + 1 if _func is None else i for i in split_index_list_sorted]
 
-                out_tensor = []
-                for n in range(actual_splits):
-                    for k, i in enumerate(split_index_list):
-                        list_of_args[i] = split_tensor[k][n]
-                    out_tensor.append(func(*list_of_args, **kwargs))
+            # Validate split indices
+            for i in split_index_list_sorted:
+                if i >= args_len:
+                    raise IndexError(
+                        f"split_index_list contains index {i}, but only {args_len} positional arguments were provided."
+                    )
+                arg_i = args[i]
+                if torch.is_tensor(arg_i):
+                    continue
+                if isinstance(arg_i, (list | tuple)) and len(arg_i) > 0 and torch.is_tensor(arg_i[0]):
+                    continue
+                raise TypeError(
+                    f"Argument at index {i} is neither a tensor nor a non-empty list/tuple of tensors. Got type: {type(arg_i)}"
+                )
 
-                return torch.cat(out_tensor)
+            # Split specified tensor arguments
+            split_tensor = []
+            list_of_args = list(args)
+            for i in split_index_list_sorted:
+                arg_i = args[i]
+                if isinstance(arg_i, (list | tuple)):
+                    split_tensor.append(arg_i)
+                else:
+                    split_tensor.append(torch.tensor_split(arg_i, num_splits))
+
+            # Ensure all splits have equal number of elements
+            actual_splits = len(split_tensor[0])
+            if any(len(t) != actual_splits for t in split_tensor):
+                raise ValueError(
+                    f"All split tensors must have the same number of splits. Found: {[len(t) for t in split_tensor]}"
+                )
+
+            all_outputs = []
+            # Call function on each split
+            for n in range(actual_splits):
+                for k, i in enumerate(split_index_list_sorted):
+                    list_of_args[i] = split_tensor[k][n]
+                all_outputs.append(func(*list_of_args, **kwargs))
+
+            # Normalize outputs
+            if not isinstance(all_outputs[0], (tuple | list)):
+                all_outputs = [(out,) for out in all_outputs]
+
+            num_outputs = len(all_outputs[0])
+            cat_out_idx_list = cat_out_index_list
+
+            # Validate output indices for concatenation
+            if cat_out_index_list is not None and max(cat_out_idx_list, default=-1) > num_outputs:
+                raise IndexError(f"cat_out_index_list has index >= number of outputs ({num_outputs})")
+
+            # Default: cat all outputs if no specific list is given
+            if cat_out_index_list is not None and len(cat_out_idx_list) == 0:
+                cat_out_idx_list = list(range(num_outputs))
+
+            merged_outputs = []
+            for i in range(num_outputs):
+                output_chunks = [out[i] for out in all_outputs]
+
+                if cat_out_index_list is None or i not in cat_out_idx_list:
+                    merged_outputs.append(output_chunks)
+                    continue
+
+                if all(x is None for x in output_chunks):
+                    merged_outputs.append(None)
+                elif all(isinstance(x, list) for x in output_chunks):
+                    merged_outputs.append([torch.cat(tensors, dim=0) for tensors in zip(*output_chunks, strict=False)])
+                elif all(torch.is_tensor(x) for x in output_chunks):
+                    merged_outputs.append(torch.cat(output_chunks, dim=0))
+                else:
+                    merged_outputs.append(output_chunks)
+
+            # Return tuple if multiple outputs, else unwrap
+            return tuple(merged_outputs) if len(merged_outputs) > 1 else merged_outputs[0]
 
         return wrapper_split_tensor_batch
 
-    if _func is None:
-        return decorator_split_tensor_batch
-    else:
-        return decorator_split_tensor_batch(_func)
+    return decorator_split_tensor_batch if _func is None else decorator_split_tensor_batch(_func)
