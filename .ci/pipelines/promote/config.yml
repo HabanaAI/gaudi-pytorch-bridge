@@ -42,7 +42,6 @@ orchestratorConfig:
     - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi3_sim_promote_training_suite_sub_graph_other
     # PT perf 8 card jobs in K8S container mode <Start>
     - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_8cards_performance_8cards_promote
-      silentMode: true
     # PT perf 8 card jobs in K8S container mode <End>
     - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_8cards_topology_8cards
     # deepspeed-fork <Start>
