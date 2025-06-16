@@ -12,6 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#pragma once
 #include <stdint.h>
 #include <array>
 #include <atomic>
@@ -32,12 +33,12 @@
 namespace LOP {
 
 enum class PipelineStageID {
-  PIPELIE_STAGE_MAIN_ID = 0,
-  PIPELIE_STAGE_LOWERING_ID = 1,
-  PIPELIE_STAGE_COMPILE_ID = 2,
-  PIPELIE_STAGE_EXECUTE_ID = 3,
-  PIPELIE_STAGE_BACKGROUND_ID = 4,
-  PIPELIE_STAGE_DEFAULT_ID = -1
+  PIPELINE_STAGE_MAIN_ID = 0,
+  PIPELINE_STAGE_LOWERING_ID = 1,
+  PIPELINE_STAGE_COMPILE_ID = 2,
+  PIPELINE_STAGE_EXECUTE_ID = 3,
+  PIPELINE_STAGE_BACKGROUND_ID = 4,
+  PIPELINE_STAGE_DEFAULT_ID = -1
 };
 
 struct Event {

@@ -29,6 +29,7 @@
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/resize.h"
 #include "habana_kernels/template_helpers.h"
+#include "pytorch_helpers/low_overhead_profiler/profiler.h"
 
 namespace habana::eager {
 
@@ -146,6 +147,14 @@ class EagerOp : public EagerOpBase {
   template <typename T = ReturnType>
   typename std::enable_if_t<std::is_same_v<T, at::Tensor&>, T> call(
       at::Tensor& self) {
+    LOP::ScopeEvent main_stage_scope_event(
+        "EagerMainStage()",
+        m_symbol.toQualString(),
+        static_cast<int32_t>(LOP::PipelineStageID::PIPELINE_STAGE_MAIN_ID),
+        0,
+        0,
+        0,
+        0);
     PT_EAGER_DEBUG("Eager Call inplace/out :: ", m_symbol.toQualString());
 
     HABANA_ASSERT(
@@ -195,6 +204,14 @@ class EagerOp : public EagerOpBase {
   template <typename T = ReturnType>
   typename std::enable_if_t<std::is_same_v<T, const at::Tensor&>, T> call(
       const at::Tensor& self) {
+    LOP::ScopeEvent main_stage_scope_event(
+        "EagerMainStage()",
+        m_symbol.toQualString(),
+        static_cast<int32_t>(LOP::PipelineStageID::PIPELINE_STAGE_MAIN_ID),
+        0,
+        0,
+        0,
+        0);
     PT_EAGER_DEBUG("Eager Call const inplace :: ", m_symbol.toQualString());
 
     HABANA_ASSERT(
@@ -232,6 +249,14 @@ class EagerOp : public EagerOpBase {
 
   template <typename T = ReturnType>
   typename std::enable_if_t<is_tuple_of_tensor_ref<T>::value, T> call(T self) {
+    LOP::ScopeEvent main_stage_scope_event(
+        "EagerMainStage()",
+        m_symbol.toQualString(),
+        static_cast<int32_t>(LOP::PipelineStageID::PIPELINE_STAGE_MAIN_ID),
+        0,
+        0,
+        0,
+        0);
     PT_EAGER_DEBUG(
         "Eager Call tuple_of_tensor_ref :: ", m_symbol.toQualString());
 
@@ -284,6 +309,14 @@ class EagerOp : public EagerOpBase {
 
   template <typename T = ReturnType>
   typename std::enable_if_t<std::is_arithmetic_v<T>, T> call() {
+    LOP::ScopeEvent main_stage_scope_event(
+        "EagerMainStage()",
+        m_symbol.toQualString(),
+        static_cast<int32_t>(LOP::PipelineStageID::PIPELINE_STAGE_MAIN_ID),
+        0,
+        0,
+        0,
+        0);
     PT_EAGER_DEBUG("Eager Call arithmetic :: ", m_symbol.toQualString());
 
     auto result = at::empty(
@@ -299,6 +332,14 @@ class EagerOp : public EagerOpBase {
   typename std::enable_if_t<std::is_void_v<T>, T> call(
       at::TensorList tensors1,
       at::TensorList tensors2) {
+    LOP::ScopeEvent main_stage_scope_event(
+        "EagerMainStage()",
+        m_symbol.toQualString(),
+        static_cast<int32_t>(LOP::PipelineStageID::PIPELINE_STAGE_MAIN_ID),
+        0,
+        0,
+        0,
+        0);
     PT_EAGER_DEBUG(
         "Eager call void ( 2x TensorList ) :: ", m_symbol.toQualString());
 
@@ -326,6 +367,14 @@ class EagerOp : public EagerOpBase {
   typename std::enable_if_t<std::is_void_v<T>, T> call_internal_lists(
       U list,
       const char* label) {
+    LOP::ScopeEvent main_stage_scope_event(
+        "EagerMainStage()",
+        m_symbol.toQualString(),
+        static_cast<int32_t>(LOP::PipelineStageID::PIPELINE_STAGE_MAIN_ID),
+        0,
+        0,
+        0,
+        0);
     PT_EAGER_DEBUG(
         "Eager call void ( ", label, " ) :: ", m_symbol.toQualString());
 
@@ -352,12 +401,28 @@ class EagerOp : public EagerOpBase {
 
   template <typename T = ReturnType>
   typename std::enable_if_t<std::is_void_v<T>, T> call(at::TensorList tensors) {
+    LOP::ScopeEvent main_stage_scope_event(
+        "EagerMainStage()",
+        m_symbol.toQualString(),
+        static_cast<int32_t>(LOP::PipelineStageID::PIPELINE_STAGE_MAIN_ID),
+        0,
+        0,
+        0,
+        0);
     return call_internal_lists<T>(tensors, "1x TensorList");
   }
 
   template <typename T = ReturnType>
   typename std::enable_if_t<std::is_void_v<T>, T> call(
       const std::vector<at::Tensor>& tensors) {
+    LOP::ScopeEvent main_stage_scope_event(
+        "EagerMainStage()",
+        m_symbol.toQualString(),
+        static_cast<int32_t>(LOP::PipelineStageID::PIPELINE_STAGE_MAIN_ID),
+        0,
+        0,
+        0,
+        0);
     return call_internal_lists<T>(
         at::TensorList{tensors}, "const ref std::vector<at::Tensor>");
   }
@@ -365,6 +430,14 @@ class EagerOp : public EagerOpBase {
   template <typename T = ReturnType>
   typename std::enable_if_t<std::is_void_v<T>, T> call(
       const std::vector<at::TensorList>& tensorlists) {
+    LOP::ScopeEvent main_stage_scope_event(
+        "EagerMainStage()",
+        m_symbol.toQualString(),
+        static_cast<int32_t>(LOP::PipelineStageID::PIPELINE_STAGE_MAIN_ID),
+        0,
+        0,
+        0,
+        0);
     return call_internal_lists<T>(
         c10::ArrayRef<at::TensorList>{tensorlists},
         "const ref std::vector<at::TensorList>");
@@ -373,6 +446,14 @@ class EagerOp : public EagerOpBase {
   template <typename T = ReturnType>
   typename std::enable_if_t<std::is_void_v<T>, T> call(
       const at::Tensor& tensor) {
+    LOP::ScopeEvent main_stage_scope_event(
+        "EagerMainStage()",
+        m_symbol.toQualString(),
+        static_cast<int32_t>(LOP::PipelineStageID::PIPELINE_STAGE_MAIN_ID),
+        0,
+        0,
+        0,
+        0);
     PT_EAGER_DEBUG(
         "Eager call void ( const ref at::Tensor ) :: ",
         m_symbol.toQualString());
@@ -388,6 +469,14 @@ class EagerOp : public EagerOpBase {
   // For regular variants
   template <typename T = ReturnType>
   typename std::enable_if_t<std::is_same_v<T, at::Tensor>, T> call() {
+    LOP::ScopeEvent main_stage_scope_event(
+        "EagerMainStage()",
+        m_symbol.toQualString(),
+        static_cast<int32_t>(LOP::PipelineStageID::PIPELINE_STAGE_MAIN_ID),
+        0,
+        0,
+        0,
+        0);
     PT_EAGER_DEBUG("Eager Call regular :: ", m_symbol.toQualString());
 
     auto result = get_result();
@@ -397,6 +486,14 @@ class EagerOp : public EagerOpBase {
 
   template <typename T = ReturnType>
   typename std::enable_if_t<is_tuple_of_tensors<T>::value, T> call() {
+    LOP::ScopeEvent main_stage_scope_event(
+        "EagerMainStage()",
+        m_symbol.toQualString(),
+        static_cast<int32_t>(LOP::PipelineStageID::PIPELINE_STAGE_MAIN_ID),
+        0,
+        0,
+        0,
+        0);
     PT_EAGER_DEBUG("Eager Call tuple_of_tensors :: ", m_symbol.toQualString());
     // TODO avoid calling get_result
     auto result = get_result();
@@ -424,6 +521,14 @@ class EagerOp : public EagerOpBase {
   template <typename T = ReturnType>
   typename std::enable_if_t<std::is_same_v<T, std::vector<at::Tensor>>, T>
   call() {
+    LOP::ScopeEvent main_stage_scope_event(
+        "EagerMainStage()",
+        m_symbol.toQualString(),
+        static_cast<int32_t>(LOP::PipelineStageID::PIPELINE_STAGE_MAIN_ID),
+        0,
+        0,
+        0,
+        0);
     PT_EAGER_DEBUG(
         "Eager Call std::vector<at::Tensor> :: ", m_symbol.toQualString());
 
@@ -441,6 +546,14 @@ class EagerOp : public EagerOpBase {
  private:
   template <typename T = ReturnType>
   typename std::enable_if_t<std::is_same_v<T, at::Tensor>, T> get_result() {
+    LOP::ScopeEvent main_stage_scope_event(
+        "EagerMainStage()",
+        m_symbol.toQualString(),
+        static_cast<int32_t>(LOP::PipelineStageID::PIPELINE_STAGE_MAIN_ID),
+        0,
+        0,
+        0,
+        0);
     PT_EAGER_TRACE;
     if (m_output_meta_fn) {
       TORCH_INTERNAL_ASSERT_DEBUG_ONLY(m_out_index == 0);
@@ -469,6 +582,14 @@ class EagerOp : public EagerOpBase {
 
   template <typename T = ReturnType>
   typename std::enable_if_t<is_tuple_of_tensors<T>::value, T> get_result() {
+    LOP::ScopeEvent main_stage_scope_event(
+        "EagerMainStage()",
+        m_symbol.toQualString(),
+        static_cast<int32_t>(LOP::PipelineStageID::PIPELINE_STAGE_MAIN_ID),
+        0,
+        0,
+        0,
+        0);
     PT_EAGER_TRACE;
 
     if (m_output_meta_fn) {
@@ -521,6 +642,14 @@ class EagerOp : public EagerOpBase {
   template <typename T = ReturnType>
   typename std::enable_if_t<std::is_same_v<T, std::vector<at::Tensor>>, T>
   get_result() {
+    LOP::ScopeEvent main_stage_scope_event(
+        "EagerMainStage()",
+        m_symbol.toQualString(),
+        static_cast<int32_t>(LOP::PipelineStageID::PIPELINE_STAGE_MAIN_ID),
+        0,
+        0,
+        0,
+        0);
     if (m_output_meta_fn) {
       TORCH_INTERNAL_ASSERT_DEBUG_ONLY(m_out_index == 0);
       const auto& meta = m_output_meta_fn(get_inputs());

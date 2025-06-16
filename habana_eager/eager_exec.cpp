@@ -509,7 +509,7 @@ void EagerExec::launch() {
       false,
       "EagerLoweringTask()",
       graph_and_meta->GetOpName(),
-      (int32_t)LOP::PipelineStageID::PIPELIE_STAGE_LOWERING_ID,
+      (int32_t)LOP::PipelineStageID::PIPELINE_STAGE_LOWERING_ID,
       lowering_queue_length,
       key,
       jit_cache_hit_count_for_event);
