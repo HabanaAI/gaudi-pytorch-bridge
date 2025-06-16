@@ -1,5 +1,5 @@
 # Common
-numpy<2
+numpy
 packaging>=24.1
 pandas
 protobuf==3.20.3,<4
