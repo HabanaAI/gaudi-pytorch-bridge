@@ -225,17 +225,7 @@
             "pytest_working/compile/test_hpu_random_ops.py::test_randperm[dtype0-17]",
             "pytest_working/compile/test_ops.py::test_randperm[dtype2-None-32]",
             "pytest_working/compile/test_ops.py::test_randperm[dtype2-None-1]",
-            "pytest_working/compile/dynamic/test_hpu_subgraphs.py::test_graph_control_flow_static",
-            "pytest_working/any_mode/test_hpu_fp8_te.py::test_amax_measure_interval[E5M2-True-True-1-1-dtype0]",
-            "pytest_working/any_mode/test_hpu_fp8_te.py::test_amax_measure_interval[E5M2-True-False-1-1-dtype0]",
-            "pytest_working/any_mode/test_hpu_fp8_te.py::test_amax_measure_interval[E5M2-False-True-1-1-dtype0]",
-            "pytest_working/any_mode/test_hpu_fp8_te.py::test_amax_measure_interval[E5M2-False-False-1-1-dtype0]",
-            "pytest_working/any_mode/test_hpu_fp8_te.py::test_amax_measure_interval[HYBRID-True-True-1-1-dtype0]",
-            "pytest_working/any_mode/test_hpu_fp8_te.py::test_amax_measure_interval[HYBRID-True-False-3-1-dtype0]",
-            "pytest_working/any_mode/test_hpu_fp8_te.py::test_amax_measure_interval[HYBRID-True-False-1-1-dtype0]",
-            "pytest_working/any_mode/test_hpu_fp8_te.py::test_amax_measure_interval[HYBRID-False-True-1-1-dtype0]",
-            "pytest_working/any_mode/test_hpu_fp8_te.py::test_amax_measure_interval[HYBRID-False-False-1-1-dtype0]",
-            "pytest_working/eager/test_eager_view_ops.py::test_view_permutation_contiguous_view_update"
+            "pytest_working/compile/dynamic/test_hpu_subgraphs.py::test_graph_control_flow_static"
         ]
     },
     "gaudi2": {
