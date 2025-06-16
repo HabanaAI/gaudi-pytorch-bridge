@@ -139,6 +139,21 @@ void LoweringTask(
     // has been called before
     return;
   }
+  auto jit_graph_and_meta_data = launch_op->get_jit_graph_and_meta_data();
+  if (!jit_graph_and_meta_data) {
+    PT_BRIDGE_FATAL("Error: JIT graph and metadata not available.");
+  }
+
+  LOP::emit_event_fast(
+      true,
+      "PipelineQueueWaitTime",
+      jit_graph_and_meta_data->GetOpName(),
+      (int32_t)LOP::PipelineStageID::PIPELINE_STAGE_LOWERING_ID,
+      HPUDeviceContext::lowering_thread().get_active_task_count());
+
+  auto jit_cache_hit_count_for_event =
+      launch_op->get_jit_graph_cache_hit_count();
+  auto jit_key = launch_op->get_graph_key();
 
   eager::PipelineTaskLowering(
       std::move(launch_op),
@@ -150,6 +165,15 @@ void LoweringTask(
           std::unique_ptr<habana::HabanaLaunchOpPT>& launch_op) mutable {
         ExecuteSynapseTaskWrapper(*launch_op, std::move(execute_task));
       });
+
+  LOP::emit_event_fast(
+      false,
+      "PipelineQueueWaitTime",
+      jit_graph_and_meta_data->GetOpName(),
+      (int32_t)LOP::PipelineStageID::PIPELINE_STAGE_LOWERING_ID,
+      HPUDeviceContext::lowering_thread().get_active_task_count(),
+      jit_key,
+      jit_cache_hit_count_for_event);
 
   if (sync_with_compile_stage)
     HPUDeviceContext::compile_thread_pool().waitWorkComplete();
