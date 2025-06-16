@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -123,7 +123,8 @@ synDeviceId PytMediaProxy::getSynDeviceId() {
 
 synStreamHandle PytMediaProxy::getComputeStream() {
   auto& device = habana::HPUDeviceContext::get_device(device_id_);
-  auto hpu_stream = c10::hpu::getDefaultHPUStream(device.id());
+  auto hpu_stream =
+      c10::hpu::getDefaultHPUStream(static_cast<c10::DeviceIndex>(device.id()));
   return static_cast<synStreamHandle>(
       (void*)device.get_stream(hpu_stream.id()));
 }

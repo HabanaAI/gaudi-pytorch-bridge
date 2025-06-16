@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -198,10 +198,9 @@ struct SliceInsert : public ir::Node {
       if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_H2D_DYNAMIC_SLICE)) {
         std::vector<int64_t> host_params{
             orig_t.dim(), 1, 1, 1, 1, 1, 0, 0, 0, 0, 0};
-        int num_slice_params = params.size() / 4;
-        int index = 0;
+        const size_t num_slice_params = params.size() / 4;
 
-        for (int i = 0; i < num_slice_params; i++) {
+        for (size_t i = 0; i < num_slice_params; i++) {
           int64_t dim = params[i * 4];
           int64_t start = params[i * 4 + 1];
           int64_t end = params[i * 4 + 2];
@@ -210,7 +209,7 @@ struct SliceInsert : public ir::Node {
           // one place to wrap all dim, start and end indicies
           habana::SliceOperator::compute_output_shape(
               orig_t, dim, start, end, step);
-          index = orig_t.dim() - dim;
+          auto index = static_cast<size_t>(orig_t.dim() - dim);
           host_params[index] = step;
           host_params[index + 5] = start;
         }
@@ -238,8 +237,8 @@ struct SliceInsert : public ir::Node {
         std::vector<int64_t> step_vec(dims, 1);
         std::vector<int64_t> start_vec(dims, 0);
 
-        int num_slice_params = params.size() / 4;
-        for (int i = 0; i < num_slice_params; i++) {
+        const size_t num_slice_params = params.size() / 4;
+        for (size_t i = 0; i < num_slice_params; i++) {
           int64_t dim = params[i * 4];
           int64_t start = params[i * 4 + 1];
           int64_t end = params[i * 4 + 2];

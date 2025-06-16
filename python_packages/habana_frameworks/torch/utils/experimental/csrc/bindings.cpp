@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,8 +26,8 @@ intptr_t GetDataPtr(const at::Tensor& t) {
   void* data_ptr = common::GetDataPtrFromTensor(t);
 
   if (data_ptr) {
-    size_t device_id = t.device().index();
-    auto& device = habana::HPUDeviceContext::get_device(device_id);
+    auto& device = habana::HPUDeviceContext::get_device(
+        static_cast<synDeviceId>(t.device().index()));
 
     auto address = reinterpret_cast<void*>(device.get_fixed_address(data_ptr));
     return reinterpret_cast<intptr_t>(address);
@@ -84,7 +84,8 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       py::arg("t"));
   m.def("compute_stream", []() {
     auto& d = habana::HPUDeviceContext::get_device();
-    auto hpu_stream = c10::hpu::getDefaultHPUStream(d.id());
+    auto hpu_stream =
+        c10::hpu::getDefaultHPUStream(static_cast<c10::DeviceIndex>(d.id()));
     void* stream = (void*)d.get_stream(hpu_stream.id());
     return reinterpret_cast<uintptr_t>(stream);
   });
@@ -114,9 +115,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       py::arg("t_size"));
   m.def(
       "set_profiler_tracer_memory",
-      [](const uint32_t device_id) {
-        SetProfilerTracerMemory(device_id);
-      },
+      [](const uint32_t device_id) { SetProfilerTracerMemory(device_id); },
       py::arg("device_id"));
   py::enum_<synDeviceType>(m, "synDeviceType")
       .value("synDeviceGaudi", synDeviceGaudi)

@@ -41,8 +41,7 @@
 
 // RING_SIZE HAVE TO BE POWER OF 2 - due to algorithm used later.
 #define EVENT_TABLE_SIZE 10000000
-#define STAGE_INITIALIZER \
-  { 0, 0, 0, 0, 0 }
+#define STAGE_INITIALIZER {0, 0, 0, 0, 0}
 #define NUM_EXPONENTIAL_BUCKETS 3
 #define NUM_EQUIDISTANT_BUCKETS 5
 #define NUM_TOP_OPS 5
@@ -132,8 +131,8 @@ uint64_t calculate_adaptive_cutoff(
     return max_time;
   }
   std::sort(event_times.begin(), event_times.end());
-  uint64_t cutoff_index =
-      static_cast<uint64_t>(event_times.size() * percentile);
+  uint64_t cutoff_index = static_cast<uint64_t>(
+      static_cast<double>(event_times.size()) * percentile);
   return event_times[cutoff_index];
 }
 
@@ -278,8 +277,9 @@ void print_device_queue_histogram(
   fprintf(metrics_file, "   ------------------------------------------\n");
 
   for (uint64_t i = max_device_queue_len; i >= min_device_queue_len; i--) {
-    float device_queue_percent =
-        (static_cast<float>(device_queue_len[i]) / total_events) * 100;
+    float device_queue_percent = (static_cast<float>(device_queue_len[i]) /
+                                  static_cast<float>(total_events)) *
+        100;
     fprintf(metrics_file, "   %lu\t %f\n", i, device_queue_percent);
     if (i == 0) {
       break;
@@ -778,9 +778,11 @@ void ProfilerEngine::flush() {
     // Metrics are getting dumped to metric jSON file
     uint64_t total_events_metrics = 0;
     for (int i = 0; i < NUM_OF_PIPELINE_STAGES - 1; ++i) {
-      total_events_metrics += this->events_counter[i].load(std::memory_order_acquire);
+      total_events_metrics +=
+          this->events_counter[i].load(std::memory_order_acquire);
     }
-    fprintf(metrics_file, " Total number of events = %lu \n", total_events_metrics);
+    fprintf(
+        metrics_file, " Total number of events = %lu \n", total_events_metrics);
     std::string stage_name;
     for (int pipeline_stage = 0; pipeline_stage < NUM_OF_PIPELINE_STAGES - 1;
          pipeline_stage++) {
@@ -791,7 +793,8 @@ void ProfilerEngine::flush() {
           fprintf(metrics_file, "\n MAIN STAGE \n");
         } else if (
             pipeline_stage ==
-            static_cast<int>(LOP::PipelineStageID::PIPELINE_STAGE_LOWERING_ID)) {
+            static_cast<int>(
+                LOP::PipelineStageID::PIPELINE_STAGE_LOWERING_ID)) {
           stage_name = "Lowering";
           fprintf(metrics_file, "\n LOWERING STAGE \n");
         } else if (

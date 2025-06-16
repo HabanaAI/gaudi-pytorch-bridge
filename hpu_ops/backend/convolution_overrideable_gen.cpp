@@ -15,6 +15,7 @@
 #include <string>
 #include "backend/synapse_helpers/layout_utils.h"
 #include "generated/backend/convolution_overrideable.h"
+#include "habana_helpers/logging.h"
 #include "hpu_ops/common/convolution_gen.h"
 
 using namespace synapse_helpers::layouts;
@@ -24,54 +25,78 @@ namespace habana {
 using SynapseLayouts =
     std::vector<synapse_helpers::layouts::SynapseLayoutFormat>;
 
-static FillParamsT ConvolutionOverrideable3dParams(
+namespace {
+
+template <typename TTarget, typename TIn>
+void check_range(size_t start, size_t end, TIn& arr) {
+  for (auto i = start; i <= end; ++i) {
+    HABANA_ASSERT(
+        arr[i] >= std::numeric_limits<TTarget>::min() &&
+        arr[i] <= std::numeric_limits<TTarget>::max());
+  }
+};
+
+FillParamsT ConvolutionOverrideable3dParams(
     const at::IntArrayRef& weight, // DHWCK
     const at::IntArrayRef& stride, // DHW
     const at::IntArrayRef& padding, // DHW
     const at::IntArrayRef& dilation, // DHW
     int64_t groups) {
   PARAMS_STUB(synConvolution3DParams);
-  params->kernel[CONV_KERNEL_DEPTH] = weight[2];
-  params->kernel[CONV_KERNEL_HEIGHT] = weight[3];
-  params->kernel[CONV_KERNEL_WIDTH] = weight[4];
-  params->stride[CONV_STRIDE_DEPTH] = stride[0];
-  params->stride[CONV_STRIDE_HEIGHT] = stride[1];
-  params->stride[CONV_STRIDE_WIDTH] = stride[2];
-  params->dilation[CONV_DIL_DEPTH] = dilation[0];
-  params->dilation[CONV_DIL_HEIGHT] = dilation[1];
-  params->dilation[CONV_DIL_WIDTH] = dilation[2];
-  params->padding[CONV_PAD_FRONT] = padding[0];
-  params->padding[CONV_PAD_BACK] = padding[0];
-  params->padding[CONV_PAD_TOP] = padding[1];
-  params->padding[CONV_PAD_BOTTOM] = padding[1];
-  params->padding[CONV_PAD_LEFT] = padding[2];
-  params->padding[CONV_PAD_RIGHT] = padding[2];
+  check_range<unsigned int>(2, 4, weight);
+  params->kernel[CONV_KERNEL_DEPTH] = static_cast<unsigned int>(weight[2]);
+  params->kernel[CONV_KERNEL_HEIGHT] = static_cast<unsigned int>(weight[3]);
+  params->kernel[CONV_KERNEL_WIDTH] = static_cast<unsigned int>(weight[4]);
+  check_range<unsigned int>(0, 2, stride);
+  params->stride[CONV_STRIDE_DEPTH] = static_cast<unsigned int>(stride[0]);
+  params->stride[CONV_STRIDE_HEIGHT] = static_cast<unsigned int>(stride[1]);
+  params->stride[CONV_STRIDE_WIDTH] = static_cast<unsigned int>(stride[2]);
+  check_range<unsigned int>(0, 2, dilation);
+  params->dilation[CONV_DIL_DEPTH] = static_cast<unsigned int>(dilation[0]);
+  params->dilation[CONV_DIL_HEIGHT] = static_cast<unsigned int>(dilation[1]);
+  params->dilation[CONV_DIL_WIDTH] = static_cast<unsigned int>(dilation[2]);
+  check_range<int>(0, 2, padding);
+  params->padding[CONV_PAD_FRONT] = static_cast<int>(padding[0]);
+  params->padding[CONV_PAD_BACK] = static_cast<int>(padding[0]);
+  params->padding[CONV_PAD_TOP] = static_cast<int>(padding[1]);
+  params->padding[CONV_PAD_BOTTOM] = static_cast<int>(padding[1]);
+  params->padding[CONV_PAD_LEFT] = static_cast<int>(padding[2]);
+  params->padding[CONV_PAD_RIGHT] = static_cast<int>(padding[2]);
   params->nGroups = groups;
 
   return paramsT;
 }
 
-static FillParamsT ConvolutionOverrideable2dParams(
+FillParamsT ConvolutionOverrideable2dParams(
     const at::IntArrayRef& weight, // HWCK
     const at::IntArrayRef& stride, // HW
     const at::IntArrayRef& padding, // HW
     const at::IntArrayRef& dilation, // HW
     int64_t groups) {
   PARAMS_STUB(synConvolutionParams);
-  params->dH = stride[0];
-  params->dW = stride[1];
-  params->kH = weight[2];
-  params->kW = weight[3];
-  params->dilH = dilation[0];
-  params->dilW = dilation[1];
-  params->setPadT(padding[0]);
-  params->setPadB(padding[0]);
-  params->setPadL(padding[1]);
-  params->setPadR(padding[1]);
-  params->nGroups = groups;
+  check_range<unsigned int>(0, 1, stride);
+  params->dH = static_cast<unsigned int>(stride[0]);
+  params->dW = static_cast<unsigned int>(stride[1]);
+  check_range<unsigned int>(2, 3, weight);
+  params->kH = static_cast<unsigned int>(weight[2]);
+  params->kW = static_cast<unsigned int>(weight[3]);
+  check_range<unsigned int>(0, 1, dilation);
+  params->dilH = static_cast<unsigned int>(dilation[0]);
+  params->dilW = static_cast<unsigned int>(dilation[1]);
+  check_range<int>(0, 1, padding);
+  params->setPadT(static_cast<int>(padding[0]));
+  params->setPadB(static_cast<int>(padding[0]));
+  params->setPadL(static_cast<int>(padding[1]));
+  params->setPadR(static_cast<int>(padding[1]));
+  HABANA_ASSERT(
+      groups >= 0 && groups <= std::numeric_limits<unsigned int>::max(),
+      "Invalid groups value: ",
+      groups);
+  params->nGroups = static_cast<unsigned int>(groups);
 
   return paramsT;
 }
+} // namespace
 
 FillParamsT FillConvolutionOverrideableParams(const at::Stack& stack) {
   auto weight_shape = stack_tensor(stack, 1).sizes().vec();

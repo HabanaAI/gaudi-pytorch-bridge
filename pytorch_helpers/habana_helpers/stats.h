@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -123,10 +123,7 @@ class StatsBase {
 
   // Per-stat point attributes, only available when using
   // PT_HPU_PRINT_STATS_DUMP_FREQ > 0
-  void add_attribute(
-      int point,
-      std::string attr_key,
-      std::string attr_val) {
+  void add_attribute(int point, std::string attr_key, std::string attr_val) {
     if (!m_enabled)
       return;
 
@@ -157,7 +154,7 @@ class StatsBase {
   };
 
   std::string m_statName;
-  int m_maxEnum{0};
+  size_t m_maxEnum{0};
   uint32_t m_dumpFreq{0};
   bool m_enabled{false};
   bool m_headerPrinted{false};
@@ -174,7 +171,7 @@ template <class T>
 class Stats : public StatsBase {
  public:
   Stats();
-  ~Stats(){};
+  ~Stats() {};
 
   Stats(
       std::string statName,

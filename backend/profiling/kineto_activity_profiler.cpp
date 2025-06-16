@@ -60,8 +60,8 @@ void GenericTraceActivitySink::addCompleteActivity(
       static_cast<std::string>(activity.name));
   ev->startTime = start;
   ev->endTime = end;
-  ev->device = activity.device;
-  ev->resource = activity.resource;
+  ev->device = static_cast<int32_t>(activity.device);
+  ev->resource = static_cast<int32_t>(activity.resource);
   if (recipeInfo) {
     ev->addMetadata("recipeId", recipeInfo->recipeId);
     ev->addMetadata("recipeName", toString(recipeInfo->recipeName));
@@ -134,8 +134,8 @@ void GenericTraceActivitySink::addMemoryEvent(
       defaultTraceSpan(),
       libkineto::ActivityType::CPU_INSTANT_EVENT,
       "[memory]");
-  ev->device = device;
-  ev->resource = resource;
+  ev->device = static_cast<int32_t>(device);
+  ev->resource = static_cast<int32_t>(resource);
   ev->startTime = time;
   profiler_event_index_++;
   ev->addMetadata("Addr", addr);
@@ -209,10 +209,10 @@ std::unique_ptr<GenericTraceActivity> GenericTraceActivitySink::constructFlow(
     bool start) {
   auto flow =
       std::make_unique<GenericTraceActivity>(defaultTraceSpan(), type, name);
-  flow->device = device;
-  flow->resource = resource;
+  flow->device = static_cast<int32_t>(device);
+  flow->resource = static_cast<int32_t>(resource);
   flow->startTime = time;
-  flow->flow.id = flow_id;
+  flow->flow.id = static_cast<uint32_t>(flow_id);
   flow->flow.type = kLinkAsyncCpuGpu;
   flow->flow.start = start;
   return flow;

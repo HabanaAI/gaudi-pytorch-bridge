@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -88,8 +88,7 @@ at::Tensor habana_lazy::empty_hpu_lazy(
         n_elements =
             (tensor_type == DEVICE_SHAPE_TENSOR) ? SYN_MAX_TENSOR_DIM : 0;
       }
-      int elem_size = new_dtype.itemsize();
-      size_t storage_size_bytes = n_elements * elem_size;
+      const size_t storage_size_bytes = n_elements * new_dtype.itemsize();
       size_bytes = n_elements * original_dtype.itemsize();
       auto storage_impl = c10::make_intrusive<c10::StorageImpl>(
           c10::StorageImpl::use_byte_size_t(),

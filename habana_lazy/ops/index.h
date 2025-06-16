@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -69,7 +69,7 @@ struct Slice : public ir::Node {
       if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_H2D_DYNAMIC_SLICE)) {
         std::vector<int64_t> host_params{
             self.dim(), 1, 1, 1, 1, 1, 0, 0, 0, 0, 0};
-        int index = self.dim() - dim;
+        const auto index = static_cast<size_t>(self.dim() - dim);
         host_params[index] = step;
         host_params[index + 5] = start;
         auto host_tensor = empty_hpu_lazy(
