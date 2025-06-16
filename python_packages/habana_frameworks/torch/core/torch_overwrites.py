@@ -643,26 +643,41 @@ def overwrite_export_functions():
     # wrap torch.export.export
     @wraps(torch.export.export)
     def wrap_export(
-        f: torch.nn.Module,
-        args: tuple[Any] = None,
+        mod: torch.nn.Module,
+        args: tuple[Any, ...] = None,
         kwargs: dict[str, Any] | None = None,
-        dynamic_shapes: dict[str, Any] | tuple[Any] | None = None,
+        *,
+        dynamic_shapes: dict[str, Any] | tuple[Any] | list[Any] | None = None,
+        strict: bool = True,
+        preserve_module_call_signature: tuple[str, ...] = (),
     ) -> torch.nn.Module | ExportedProgram | GraphModule:
-        return habana_export(f, args, add_export_type_kwargs(kwargs, "export.export"), dynamic_shapes)
+        return habana_export(
+            mod,
+            args,
+            add_export_type_kwargs(kwargs, "export.export"),
+            dynamic_shapes=dynamic_shapes,
+            strict=strict,
+            preserve_module_call_signature=preserve_module_call_signature,
+        )
 
     # wrap torch.export.export_for_training
     @wraps(torch.export.export_for_training)
     def wrap_export_for_training(
-        f: torch.nn.Module,
-        args: tuple[Any] = None,
+        mod: torch.nn.Module,
+        args: tuple[Any, ...] = None,
         kwargs: dict[str, Any] | None = None,
-        dynamic_shapes: dict[str, Any] | tuple[Any] | None = None,
+        *,
+        dynamic_shapes: dict[str, Any] | tuple[Any] | list[Any] | None = None,
+        strict: bool = True,
+        preserve_module_call_signature: tuple[str, ...] = (),
     ) -> torch.nn.Module | ExportedProgram | GraphModule:
         return habana_export(
-            f,
+            mod,
             args,
             add_export_type_kwargs(kwargs, "export.export_for_training"),
-            dynamic_shapes,
+            dynamic_shapes=dynamic_shapes,
+            strict=strict,
+            preserve_module_call_signature=preserve_module_call_signature,
         )
 
     torch.export.export = wrap_export

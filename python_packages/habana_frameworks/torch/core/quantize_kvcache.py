@@ -536,6 +536,7 @@ def prepare_for_inference(pt2eq_context, new_graph_module, update_scale=False) -
     converted_module = replace_pattern_for_kvcache_quant(pt2eq_context, converted_module)
 
     if not update_scale:
+        pt2eq_context.record_transformed_gm(converted_module, converted=True)
         return converted_module
 
     matching_transformed_module = pt2eq_context.get_transformed_gm(converted=True)

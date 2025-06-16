@@ -76,23 +76,20 @@ class SimpleModelWithMultipleGraphs(torch.nn.Module):
 
 
 def get_sample_model(test_case, quant_dtype, graph_breaks=False):
-    dtype = torch.float32 if quant_dtype == torch.int8 else torch.bfloat16
+    dtype = torch.bfloat16
     if test_case == "linear_relu":
         return SimpleModelWithMultipleGraphs(dtype) if graph_breaks else SimpleModel(dtype)
 
 
 def get_sample_input(test_case, quant_dtype):
     CPU = torch.device("cpu")
-    dtype = torch.float32 if quant_dtype == torch.int8 else torch.bfloat16
+    dtype = torch.bfloat16
     if test_case == "linear_relu":
         return torch.randn(2, 4, device=CPU, dtype=dtype)
 
 
 test_case_list = [
     "linear_relu",
-]
-quant_int_dtype_list = [
-    torch.int8,
 ]
 quant_float_dtype_list = [
     torch.float8_e4m3fn,
@@ -373,66 +370,6 @@ def test_pt2e_quant_float(
                     (2, 0),
                 ],
                 "torch.ops.hpu.fp8_gemm_v2.default": [(1, 0), (1, 0)],
-                "torch.ops.aten.relu.default": [(1, 0), (1, 0)],
-            },
-        }
-
-        use_pt2e_quant_flow(
-            test_case,
-            quant_dtype,
-            quantizer,
-            expected_op_count,
-            use_graph_break,
-            pass_input_during_export,
-        )
-
-
-@pytest.mark.skip(reason="PT2E-Quantization with pattern matching supports fp8 dtype only")
-@pytest.mark.skipif(is_gaudi1(), reason="skip pt2e-quant feature testing on gaudi1")
-@pytest.mark.parametrize("test_case", test_case_list)
-@pytest.mark.parametrize("quant_dtype", quant_int_dtype_list)
-@pytest.mark.parametrize("use_graph_break", [False, True])
-@pytest.mark.parametrize("pass_input_during_export", [False, True])
-def test_pt2e_quant_int(
-    test_case,
-    quant_dtype,
-    use_graph_break,
-    pass_input_during_export,
-    inference_env_fixture,
-):
-    with (
-        bc.env_setting("PT_HPU_PT2EQ_FX_GRAPH_PATTERN_MATCHING", False),
-        bc.env_setting("PT_HPU_PT2EQ_FX_GRAPH_FREEZING", False),
-    ):
-        quant_config = custom_quant_config_symmetric(quant_dtype)
-        quantizer = custom_quantizer(quant_config)
-
-        expected_op_count = {
-            "after_prepare_pt2e": {
-                "torch.ops.aten.relu.default": [(1, 0), (1, 0)],
-                "torch.ops.aten.minimum.default": [(2, 0), (2, 0)],
-                "torch.ops.aten.maximum.default": [(2, 0), (2, 0)],
-                "torch.ops.aten.copy_.default": [(4, 0), (4, 0)],
-                "skip_torch.ops.hpu.linear.default": [(1, 0), (1, 0)],
-                "skip_torch.ops.aten.linear": [(1, 0), (1, 0)],
-                "torch.ops.aten.transpose.int": [(1, 0), (1, 0)],
-                "torch.ops.aten.mm.default": [(1, 0), (0, 0)],
-                "torch.ops.aten.addmm.default": [(0, 0), (1, 0)],
-            },
-            "after_convert_pt2e": {
-                "torch.ops.quantized_decomposed.quantize_per_tensor.default": [
-                    (2, 0),
-                    (2, 0),
-                ],
-                "torch.ops.quantized_decomposed.dequantize_per_tensor.default": [
-                    (2, 0),
-                    (2, 0),
-                ],
-                "skip_torch.ops.hpu.linear.default": [(1, 0), (1, 0)],
-                "skip_torch.ops.aten.linear": [(1, 0), (1, 0)],
-                "torch.ops.aten.transpose.int": [(1, 0), (1, 0)],
-                "torch.ops.aten.mm.default": [(1, 0), (0, 0)],
-                "torch.ops.aten.addmm.default": [(0, 0), (1, 0)],
                 "torch.ops.aten.relu.default": [(1, 0), (1, 0)],
             },
         }

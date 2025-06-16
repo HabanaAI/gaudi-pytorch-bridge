@@ -29,10 +29,12 @@ import itertools
 from typing import Any
 
 import habana_frameworks.torch.internal.bridge_config as bc
+from habana_frameworks.torch import hpu
 from habana_frameworks.torch.core.observer import AbsMaxObserver
 from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
 
 import torch
+from torch._ops import OpOverload as TorchOpOverload
 from torch.ao.quantization.observer import PlaceholderObserver
 from torch.ao.quantization.qconfig import _ObserverOrFakeQuantizeConstructor
 from torch.ao.quantization.quantizer.x86_inductor_quantizer import (
@@ -59,10 +61,24 @@ from torch.fx.passes.utils.source_matcher_utils import (
 
 logger = get_compile_backend_logger()
 
+
+def is_fp8_e4m3_on_gaudi2():
+    device_name = hpu.get_device_name()
+    if device_name == "GAUDI2":
+        try:
+            fp8_e4m3_range_on_gaudi2 = torch.finfo(torch.float8_e4m3fnuz)
+            return True
+        except:
+            pass
+    return False
+
+
 QUANTIZER_MIN_MAX = {
-    torch.int8: (-128, 127),
-    torch.float8_e4m3fn: (-240, 240),
-    torch.float8_e5m2: (-240, 240),
+    torch.int8: (int(torch.iinfo(torch.int8).min), int(torch.iinfo(torch.int8).max)),
+    torch.float8_e4m3fn: (int(torch.finfo(torch.float8_e4m3fnuz).min), int(torch.finfo(torch.float8_e4m3fnuz).max))
+    if is_fp8_e4m3_on_gaudi2()
+    else (int(torch.finfo(torch.float8_e4m3fn).min), int(torch.finfo(torch.float8_e4m3fn).max)),
+    torch.float8_e5m2: (int(torch.finfo(torch.float8_e5m2).min), int(torch.finfo(torch.float8_e5m2).max)),
 }
 extra_args_act: dict[str, Any] = {"for_observer": {"eps": 2**-12, "backoff_margin": 2}}
 extra_args_weight: dict[str, Any] = {"for_observer": {"eps": 2**-12, "backoff_margin": 1}}
@@ -193,14 +209,24 @@ class habana_quantizer(Quantizer):
         if len(conv_partitions) == 0:
             return
 
+        def is_conv_node(node):
+            return node.op == "call_function" and (
+                node.target == torch.ops.aten.convolution.default
+                or node.target == torch.ops.aten.conv2d.default
+                or (
+                    isinstance(node.target, TorchOpOverload)
+                    and (node.target._name == "aten::convolution" or node.target._name == "aten::conv2d")
+                )
+            )
+
         conv_partitions = list(itertools.chain(*conv_partitions.values()))
 
         for conv_partition in conv_partitions:
             if len(conv_partition.output_nodes) > 1:
                 raise ValueError("conv partition has more than one output node")
             conv_node = conv_partition.output_nodes[0]
-            if conv_node.op != "call_function" or conv_node.target != torch.ops.aten.convolution.default:
-                raise ValueError(f"{conv_node} is not an aten conv2d operator")
+            if not is_conv_node(conv_node):
+                raise ValueError(f"{conv_node} is not a convolution operator!")
             # skip annotation if it is already annotated
             if _is_annotated([conv_node]):
                 continue
@@ -316,14 +342,27 @@ class habana_quantizer(Quantizer):
         if len(module_partitions) == 0:
             return
 
+        def is_max_pool_node(node):
+            return node.op == "call_function" and (
+                node.target == torch.ops.aten.max_pool2d_with_indices.default
+                or node.target == torch.ops.aten.max_pool2d.default
+                or (
+                    isinstance(node.target, TorchOpOverload)
+                    and (
+                        node.target._name == "aten::max_pool2d_with_indices" or node.target._name == "aten::max_pool2d"
+                    )
+                )
+            )
+
         maxpool_partitions = list(itertools.chain(*module_partitions.values()))
 
         for maxpool_partition in maxpool_partitions:
             output_node = maxpool_partition.output_nodes[0]
             maxpool_node = None
             for n in maxpool_partition.nodes:
-                if n.target == torch.ops.aten.max_pool2d_with_indices.default:
+                if is_max_pool_node(n):
                     maxpool_node = n
+                    break
             if _is_annotated([output_node, maxpool_node]):  # type: ignore[list-item]
                 continue
 
@@ -335,9 +374,6 @@ class habana_quantizer(Quantizer):
                 input_qspec_map={
                     input_act: act_qspec,
                 },
-                _annotated=True,
-            )
-            output_node.meta["quantization_annotation"] = QuantizationAnnotation(
                 output_qspec=SharedQuantizationSpec((input_act, maxpool_node)),
                 _annotated=True,
             )

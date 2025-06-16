@@ -118,7 +118,7 @@ def replace_quantize_with_cast(module: torch.fx.GraphModule):
                         invert_scale_node,
                         False,
                         False,
-                        torch.float8_e4m3fn,
+                        node.args[5],
                     ),
                 )
                 quant_out = module.graph.call_function(operator.getitem, args=(cast_node, 0))
@@ -505,10 +505,22 @@ def replace_pattern_view_mm_view(graph_module: torch.fx.GraphModule):
 # Match patterns and replace with fp8 ops
 # ======================================================================================
 class PatternMatchAndReplacer:
-    def __init__(self, graph_module: torch.fx.GraphModule):
+    def __init__(self, graph_module: torch.fx.GraphModule, quant_dtype_checked=True):
         self._graph_module = graph_module
+        self._quant_dtype_is_fp8 = True
+
+        if not quant_dtype_checked:
+            quant_dtype = None
+            for node in graph_module.graph.nodes:
+                if is_node(node, "quantize_per_tensor.default"):
+                    quant_dtype = node.args[5]
+                    break
+            self._quant_dtype_is_fp8 = quant_dtype in [torch.float8_e4m3fn, torch.float8_e5m2]
 
     def run(self):
+        if not self._quant_dtype_is_fp8:
+            return
+
         logger.debug("=================BEFORE PASS================")
         logger.debug(self._graph_module.graph)
         logger.debug("============================================")

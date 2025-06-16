@@ -16,7 +16,6 @@
 ###############################################################################
 
 
-import copy
 import importlib
 import io
 import json
@@ -31,6 +30,7 @@ import habana_frameworks.torch.internal.bridge_config as bc
 from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
 
 import torch
+from torch._dynamo import OptimizedModule
 from torch._dynamo.backends.common import aot_autograd
 from torch.ao.quantization.quantizer import Quantizer
 from torch.export.exported_program import ExportedProgram
@@ -63,6 +63,7 @@ habana_pt2e_quant_context = None
 param_id = 0
 hash_counter = 0
 json_counter = 0
+use_json_counter_based_scale_filename = True
 
 
 def calculate_hash(fx_graph_module):
@@ -94,9 +95,9 @@ def reset_counters():
 
 def get_scale_filename(key):
     filename = f"{key}.json"
-    if bc.get_pt_hpu_pt2eq_kvcq():
+    if use_json_counter_based_scale_filename or bc.get_pt_hpu_pt2eq_kvcq():
         global json_counter
-        filename = f"_{json_counter}_.json"
+        filename = f"pt2e_quant_scales_{json_counter}.json"
         json_counter = json_counter + 1
     return filename
 
@@ -122,7 +123,7 @@ def print_readable(
                 )
             )
         module_code = "\n".join(module_code_list)
-        suffix = "\nNote: Eager ops (if any) are not captured."
+        suffix = "\nNote: Eager ops (if any) are not shown here."
         output = prefix + module_code + suffix
     elif hasattr(module, "l_print_readable"):
         output = module.l_print_readable
@@ -155,7 +156,7 @@ class HabanaPT2EQuantGraphManager:
                 print(f"graph[{idx}]:")
                 gm.graph.print_tabular()
                 print("\n")
-            print("Note: Eager ops (if any) are not captured.", flush=True)
+            print("Note: Eager ops (if any) are not shown here.", flush=True)
         elif self.l_print_tabular:
             print(self.l_print_tabular, flush=True)
         else:
@@ -189,6 +190,7 @@ class HabanaPT2EQuantContext:
         self._ep_dict = {}
         self._model = None
         self._quantizer = None
+        self._quant_dtype = None
         self._args = []
         self._gm_hash = []
         self._preprocessed_gms = []
@@ -198,6 +200,24 @@ class HabanaPT2EQuantContext:
         self._kvcache_quant_details = {}
         self._kvcache_details_loaded = {}
         self._convert_settings = {}
+
+    def set_quant_dtype(self):
+        """
+        It assumes that same quant dtype is used for all quantized nodes
+        """
+        converted_gms = self.get_all_transformed_gms(converted=True)
+        for gm in converted_gms:
+            for node in gm.graph.nodes:
+                if is_node(node, "quantize_per_tensor.default"):
+                    self._quant_dtype = node.args[5]
+                    break
+            if self._quant_dtype is not None:
+                break
+
+    def get_quant_dtype(self):
+        if self._quant_dtype is None:
+            self.set_quant_dtype()
+        return self._quant_dtype
 
     def set_kvcache_quant_details(
         self,
@@ -516,7 +536,12 @@ class HabanaQuantWrapperModule(torch.nn.Module):
                     logger.debug("Start quantization scale dumping.")
                     dump_scale(self._converted_module, True)
 
-                if bc.get_pt_hpu_pt2eq_fx_graph_pattern_matching():
+                quant_dtype_is_fp8 = habana_pt2e_quant_context.get_quant_dtype() in [
+                    torch.float8_e4m3fn,
+                    torch.float8_e5m2,
+                ]
+                # Skip fx-graph pattern matching if quant_dtype is not fp8
+                if quant_dtype_is_fp8 and bc.get_pt_hpu_pt2eq_fx_graph_pattern_matching():
                     replacer = PatternMatchAndReplacer(self._converted_module)
                     replacer.run()
 
@@ -525,9 +550,11 @@ class HabanaQuantWrapperModule(torch.nn.Module):
                 else:
                     logger.warn("Fp8 FSDPA supported only with synapse pattern matching!!!")
 
-                # Now we call hpu_inference_compiler to convert it into synapse graph.
-                with torch.no_grad():
-                    self._converted_module = torch.compile(self._converted_module, backend="hpu_backend")
+                # Skip torch compile if quant_dtype is not fp8
+                if quant_dtype_is_fp8:
+                    with torch.no_grad():
+                        # Now we call hpu_inference_compiler to convert it into synapse graph.
+                        self._converted_module = torch.compile(self._converted_module, backend="hpu_backend")
 
                 self._converted = True
 
@@ -554,7 +581,12 @@ class HabanaQuantWrapperModule(torch.nn.Module):
                     extra_file = os.path.join(queue_element["dir_path"], get_scale_filename(key))
                     load_scale(self._converted_module, extra_file=extra_file)
 
-                if bc.get_pt_hpu_pt2eq_fx_graph_pattern_matching():
+                quant_dtype_is_fp8 = habana_pt2e_quant_context.get_quant_dtype() in [
+                    torch.float8_e4m3fn,
+                    torch.float8_e5m2,
+                ]
+                # Skip fx-graph pattern matching if quant_dtype is not fp8
+                if quant_dtype_is_fp8 and bc.get_pt_hpu_pt2eq_fx_graph_pattern_matching():
                     replacer = PatternMatchAndReplacer(self._converted_module)
                     replacer.run()
 
@@ -566,9 +598,11 @@ class HabanaQuantWrapperModule(torch.nn.Module):
                 assert self._converted_module is not None
                 self._pt2e_quant_context.record_transformed_gm(self._converted_module, converted=True)
 
-                # We call hpu_inference_compiler to convert it into synapse graph.
-                with torch.no_grad():
-                    self._converted_module = torch.compile(self._converted_module, backend="hpu_backend")
+                # Skip torch compile if quant_dtype is not fp8
+                if quant_dtype_is_fp8:
+                    with torch.no_grad():
+                        # We call hpu_inference_compiler to convert it into synapse graph.
+                        self._converted_module = torch.compile(self._converted_module, backend="hpu_backend")
 
                 self._converted = True
 
@@ -640,9 +674,12 @@ def habana_quant_backend(
 # ======================================================================================
 def export(
     f: torch.nn.Module,
-    args: tuple[Any] = None,
+    args: tuple[Any, ...] = None,
     kwargs: dict[str, Any] | None = None,
-    dynamic_shapes: dict[str, Any] | tuple[Any] | None = None,
+    *,
+    dynamic_shapes: dict[str, Any] | tuple[Any] | list[Any] | None = None,
+    strict: bool = True,
+    preserve_module_call_signature: tuple[str, ...] = (),
 ) -> torch.nn.Module | ExportedProgram | GraphModule:
     """
     Habana's implementation of PT2E like multi-graph export.
@@ -655,6 +692,9 @@ def export(
 
     # Check if we already have previous export result of the given module
     # If so, retrieve the same and return the previous export result
+
+    if isinstance(f, OptimizedModule | GraphModule) and hasattr(f, "_orig_mod"):
+        f = f._orig_mod
 
     id_model = hash((id(f), type(f).__name__))
     if id_model in export_model_record.keys():
@@ -712,16 +752,21 @@ def export(
         if kwargs:
             if "graph_break_present" in kwargs:
                 kwargs.pop("graph_break_present")
-            if "strict" in kwargs:
-                kwargs.pop("strict")
             if "export_type" in kwargs:
                 export_type = kwargs["export_type"]
                 kwargs.pop("export_type")
 
-        if hasattr(f, "_orig_mod") and isinstance(f._orig_mod, torch.fx.GraphModule):
+        if isinstance(f, OptimizedModule | GraphModule) and hasattr(f, "_orig_mod"):
             f = f._orig_mod
 
-        model = _native_pt2e_quantization_interface(export_type)(f, args, kwargs)
+        model = _native_pt2e_quantization_interface(export_type)(
+            f,
+            args,
+            kwargs,
+            dynamic_shapes=dynamic_shapes,
+            strict=strict,
+            preserve_module_call_signature=preserve_module_call_signature,
+        )
         logger.debug(f"Graph after pt2 export:\n {model.graph}")
 
         model.pt2e_quant_backend = False
@@ -773,11 +818,9 @@ def prepare_pt2e(
 
         habana_pt2e_quant_context.set_misc_attributes(model, prepared=True)
         model.pt2e_quant_backend = True
-        id_model = hash((id(model), type(model).__name__))
-        export_model_record[id_model] = [model, habana_pt2e_quant_context]
         return model
     else:
-        if hasattr(model, "_orig_mod") and isinstance(model._orig_mod, torch.fx.GraphModule):
+        if isinstance(model, OptimizedModule | GraphModule) and hasattr(model, "_orig_mod"):
             model = model._orig_mod
 
         model = _native_pt2e_quantization_interface("prepare_pt2e")(model, quantizer)
@@ -788,8 +831,6 @@ def prepare_pt2e(
             model = torch.compile(model, backend="hpu_backend")
 
         model.pt2e_quant_backend = False
-        id_model = hash((id(model), type(model).__name__))
-        export_model_record[id_model] = [model, None]
         return model
 
 
@@ -825,18 +866,22 @@ def convert_pt2e(
         global habana_pt2e_quant_context
         calibrated_gms = habana_pt2e_quant_context.get_all_transformed_gms(prepared=True)
 
-        if len(calibrated_gms) > 0:
-            habana_pt2e_quant_context.reset_graph_counter()
-            logger.debug("Graphs after convert_pt2e:")
-            for gm in calibrated_gms:
-                # Conversion of each prepared + calibrated fx_graph
-                converted_module = _native_pt2e_quantization_interface("convert_pt2e")(
-                    gm,
-                    use_reference_representation=use_reference_representation,
-                    fold_quantize=False,
-                )
-                habana_pt2e_quant_context.record_transformed_gm(converted_module, converted=True)
-                logger.debug(f"{converted_module.graph}")
+        assert len(calibrated_gms) > 0, "Please run calibration before calling convert_pt2e()."
+
+        habana_pt2e_quant_context.reset_graph_counter()
+        logger.debug("Graphs after convert_pt2e:")
+        for gm in calibrated_gms:
+            # Conversion of each prepared + calibrated fx_graph
+            converted_module = _native_pt2e_quantization_interface("convert_pt2e")(
+                gm,
+                use_reference_representation=use_reference_representation,
+                fold_quantize=False,
+            )
+            habana_pt2e_quant_context.record_transformed_gm(converted_module, converted=True)
+            logger.debug(f"{converted_module.graph}")
+
+        # Find out low precision dtype
+        habana_pt2e_quant_context.set_quant_dtype()
 
         # Try to use kv-cache quantization.
         # This takes effect only if kv-cache allocation is done as part of model forward method.
@@ -848,11 +893,9 @@ def convert_pt2e(
 
         habana_pt2e_quant_context.set_misc_attributes(model, converted=True)
         model.pt2e_quant_backend = True
-        id_model = hash((id(model), type(model).__name__))
-        export_model_record[id_model] = [model, habana_pt2e_quant_context]
         return model
     else:
-        if hasattr(model, "_orig_mod") and isinstance(model._orig_mod, torch.fx.GraphModule):
+        if isinstance(model, OptimizedModule | GraphModule) and hasattr(model, "_orig_mod"):
             model = model._orig_mod
 
         model = _native_pt2e_quantization_interface("convert_pt2e")(
@@ -861,7 +904,7 @@ def convert_pt2e(
         logger.debug(f"Graph after convert_pt2e:\n {model.graph}")
 
         if bc.get_pt_hpu_pt2eq_fx_graph_pattern_matching():
-            replacer = PatternMatchAndReplacer(model)
+            replacer = PatternMatchAndReplacer(model, quant_dtype_checked=False)
             replacer.run()
 
         # Now we call hpu_inference_compiler to convert it into synapse graph.
@@ -869,8 +912,6 @@ def convert_pt2e(
             model = torch.compile(model, backend="hpu_backend")
 
         model.pt2e_quant_backend = False
-        id_model = hash((id(model), type(model).__name__))
-        export_model_record[id_model] = [model, habana_pt2e_quant_context]
         return model
 
 
@@ -900,7 +941,6 @@ def create_kvcache_module_name(input_str, annotation):
 
 
 def dump_scale(module: torch.fx.GraphModule, save_to_file: bool, extra_file: str | None = None):
-    graph = copy.deepcopy(module.graph)
     graph = module.graph
     dump_json_output = {
         "GlobalRank": None,
@@ -1296,6 +1336,21 @@ def load_scale(module: torch.fx.GraphModule, scale_info_json=None, extra_file: s
         module.recompile()
 
 
+def get_dir_file_name(path):
+    """
+    From user provided path, derive the folder and file names.
+    """
+    dir_name = os.path.dirname(path)
+    if dir_name == "":
+        dir_name = os.path.join(dir_name, "pt2e_quant")
+    filename = os.path.basename(path)
+    if filename == "":
+        filename = "pt2e_quant_model.pt2"
+    filename = os.path.join(dir_name, filename)
+
+    return dir_name, filename
+
+
 # ======================================================================================
 # Habana's implementation of torch.export.save for multi-graph scenario
 # ======================================================================================
@@ -1314,17 +1369,21 @@ def save_pt2e(
     use_pt2e_quant_backend = getattr(model, "pt2e_quant_backend", False)
     logger.debug(f"[save_pt2e] Habana PT2E Quant backend used? {use_pt2e_quant_backend}")
 
+    dir_name, saved_model_filename = get_dir_file_name(f)
+    os.makedirs(dir_name, exist_ok=True)
+
     if use_pt2e_quant_backend:
         reset_counters()
         global habana_pt2e_quant_context
+
+        quant_dtype = habana_pt2e_quant_context.get_quant_dtype()
+        if quant_dtype not in [torch.float8_e4m3fn, torch.float8_e5m2]:
+            raise NotImplementedError(
+                f"[save_pt2e] Serialization/Deserialization in multi-graph scenario not implemented for quant_dtype: {quant_dtype}"
+            )
+
         org_model = habana_pt2e_quant_context.get_original_model()
         org_model.pt2e_quant_backend = True
-
-        dir_name = os.path.dirname(f)
-
-        saved_model_filename = f"{f}"
-        if os.path.isdir(f):
-            saved_model_filename = os.path.join(dir_name, "pt2e_quant_model.pt2")
 
         # save original model
         # ToDo: explore to save org model with out state dict
@@ -1332,21 +1391,15 @@ def save_pt2e(
 
         use_export_program = bc.get_pt_hpu_pt2eq_use_export_program()
         if not use_export_program:
+            pt2e_quant_info = {}
             # save quantizer used
-            quantizer_filename = os.path.join(dir_name, "quantizer.pt2")
-            torch.save(habana_pt2e_quant_context.get_quantizer(), quantizer_filename)
+            pt2e_quant_info["quantizer"] = habana_pt2e_quant_context.get_quantizer()
             # save convert_pt2e settings used
-            convert_settings_filename = os.path.join(dir_name, "convert_settings.pt2")
-            torch.save(
-                habana_pt2e_quant_context.get_convert_settings(),
-                convert_settings_filename,
-            )
+            pt2e_quant_info["convert_settings"] = habana_pt2e_quant_context.get_convert_settings()
             # save kv-cache quant details
-            kvcq_details_filename = os.path.join(dir_name, "kvcache_quant_details.pt2")
-            torch.save(
-                habana_pt2e_quant_context.get_kvcache_quant_details(),
-                kvcq_details_filename,
-            )
+            pt2e_quant_info["kvcache_quant_details"] = habana_pt2e_quant_context.get_kvcache_quant_details()
+            pt2e_quant_info_filename = os.path.join(dir_name, "pt2e_quant_info.pt2")
+            torch.save(pt2e_quant_info, pt2e_quant_info_filename)
             # save scale information
             fx_module_hashkeys = habana_pt2e_quant_context.get_hash_list()
             converted_gms = habana_pt2e_quant_context.get_all_transformed_gms(converted=True)
@@ -1384,12 +1437,12 @@ def save_pt2e(
             torch.save(fx_module_hashkeys, hashkeys_filename)
             logger.debug("[save_pt2e] Export Program Dump Completed.")
     else:
-        if hasattr(model, "_orig_mod") and isinstance(model._orig_mod, torch.fx.GraphModule):
+        if isinstance(model, OptimizedModule | GraphModule) and hasattr(model, "_orig_mod"):
             model = model._orig_mod
 
         with torch.no_grad():
             _native_pt2e_quantization_interface("save_pt2e")(
-                model, f, extra_files=extra_files, opset_version=opset_version
+                model, saved_model_filename, extra_files=extra_files, opset_version=opset_version
             )
         return
 
@@ -1408,10 +1461,16 @@ def load_pt2e(
     """
     logger.debug("Habana's implementation of PT2E based quantization flow: [load_pt2e]")
 
-    # load original model
-    # weights_only flag is True by default from PT2.6 onwards, Hence explicitly setting it as False
-    model = torch.load(f"{f}", weights_only=False).to(device="hpu")
-    use_pt2e_quant_backend = getattr(model, "pt2e_quant_backend", False)
+    dir_name, saved_model_filename = get_dir_file_name(f)
+
+    try:
+        # load original model
+        # weights_only flag is True by default from PT2.6 onwards, Hence explicitly setting it as False
+        model = torch.load(saved_model_filename, weights_only=False).to(device="hpu")
+        use_pt2e_quant_backend = getattr(model, "pt2e_quant_backend", False)
+    except:
+        use_pt2e_quant_backend = False
+
     logger.debug(f"[load_pt2e] Habana PT2E Quant backend used? {use_pt2e_quant_backend}")
 
     if use_pt2e_quant_backend:
@@ -1444,8 +1503,6 @@ def load_pt2e(
         habana_pt2e_quant_context.set_model(model)
         habana_pt2e_quant_context.extract_graph_info_from_loaded_model()
 
-        quantizer = None
-        dir_name = os.path.dirname(f)
         use_export_program = bc.get_pt_hpu_pt2eq_use_export_program()
         if use_export_program:
             # load all exported converted fx graphs and create a dictionary
@@ -1463,22 +1520,21 @@ def load_pt2e(
                 logger.debug(f"loading exported program from file {exported_program_filename}")
             habana_pt2e_quant_context.initialize_ep_dict(ep_dict)
         else:
+            pt2e_quant_info_filename = os.path.join(dir_name, "pt2e_quant_info.pt2")
+            pt2e_quant_info = torch.load(pt2e_quant_info_filename, weights_only=False)
             # load quantizer for original model if export use scale
-            quantizer_filename = os.path.join(dir_name, "quantizer.pt2")
-            quantizer = torch.load(quantizer_filename, weights_only=False)
+            quantizer = pt2e_quant_info["quantizer"]
             assert quantizer is not None
             habana_pt2e_quant_context.set_quantizer(quantizer)
             # load convert_pt2e settings
-            convert_settings_filename = os.path.join(dir_name, "convert_settings.pt2")
-            convert_settings = torch.load(convert_settings_filename, weights_only=False)
+            convert_settings = pt2e_quant_info["convert_settings"]
             assert convert_settings is not None
             habana_pt2e_quant_context.set_convert_settings(
                 convert_settings["use_reference_representation"],
                 convert_settings["fold_quantize"],
             )
             # load kv-cache quant details
-            kvcq_details_filename = os.path.join(dir_name, "kvcache_quant_details.pt2")
-            kvcache_quant_details = torch.load(kvcq_details_filename, weights_only=False)
+            kvcache_quant_details = pt2e_quant_info["kvcache_quant_details"]
             assert kvcache_quant_details is not None
             habana_pt2e_quant_context.set_kvcache_quant_details(kvcache_quant_details, loaded=True)
 
@@ -1492,7 +1548,7 @@ def load_pt2e(
     else:
         with torch.no_grad():
             model = _native_pt2e_quantization_interface("load_pt2e")(
-                f,
+                saved_model_filename,
                 extra_files=extra_files,
                 expected_opset_version=expected_opset_version,
             )

@@ -16,6 +16,7 @@
 ###############################################################################
 
 
+from habana_frameworks.torch import hpu
 from habana_frameworks.torch.utils.debug import Logger
 
 import torch
@@ -32,6 +33,103 @@ __all__ = [
 ]
 
 logger = Logger("PT2E-QUANT CUSTOM HABANA OBSERVERS")
+
+
+def get_hw_aligned_scale(scale_pow2):
+    """
+    Derives the value of H/W aligned scale for GAUDI2, GAUDI3 device and torch.float8_e4m3fn quantized dtype.
+    """
+    import habana_frameworks.torch.utils.experimental as htexp
+
+    GAUDI2 = htexp.synDeviceType.synDeviceGaudi2
+    GAUDI3 = htexp.synDeviceType.synDeviceGaudi3
+
+    DEVICE_MAP = {"GAUDI2": GAUDI2, "GAUDI3": GAUDI3}
+
+    EXP_BIAS_SETS = {
+        (GAUDI2, torch.float8_e4m3fn): [3, 7, 11, 15],
+        (GAUDI3, torch.float8_e4m3fn): range(63),
+    }
+
+    EXP_WIDTH = {
+        torch.float8_e4m3fn: 4,
+    }
+
+    def get_default_exp_bias(dtype):
+        exp_width = EXP_WIDTH[dtype]
+        return 2 ** (exp_width - 1) - 1
+
+    MAX_RANGE = {
+        torch.float8_e4m3fn: torch.finfo(torch.float8_e4m3fn).max,
+        # float8_e4m3fn data type is 8-bit floating point consist of Exponent: 4, Mantissa: 3, bias: 7. It's supported by Gaudi3.
+    }
+
+    try:
+        MAX_RANGE[torch.float8_e4m3fnuz] = torch.finfo(torch.float8_e4m3fnuz).max
+        # float8_e4m3fnuz data type is 8-bit floating point consist of Exponent: 4, Mantissa: 3, bias: 8 with 1 sign bit. It's supported by Gaudi2.
+    except AttributeError as e:
+        pass
+
+    def get_fullscale(dtype, device, exp_bias=None):
+        default_exp_bias = get_default_exp_bias(dtype)
+        fullscale = 1
+        if device == GAUDI2 and dtype == torch.float8_e4m3fn:
+            # TODO FSW-12066 solve fp_utils
+            try:
+                fullscale = MAX_RANGE[torch.float8_e4m3fnuz]
+            except AttributeError as e:
+                pass
+        else:
+            fullscale = MAX_RANGE[dtype]
+        exp_bias = default_exp_bias if exp_bias is None else exp_bias
+        fullscale = fullscale * (2 ** (default_exp_bias - exp_bias))
+        return float(fullscale)
+
+    def get_fullscales_by_expbias_set(dtype, device, expbias_set):
+        return [get_fullscale(dtype, device, exp_bias=eb) for eb in expbias_set]
+
+    def get_fp8_hw_alligned_scales_by_device(dtype, device):
+        exp_bias_set = EXP_BIAS_SETS.get((device, dtype), None)
+        return (
+            None
+            if exp_bias_set is None
+            else [x / get_fullscale(dtype, device) for x in get_fullscales_by_expbias_set(dtype, device, exp_bias_set)]
+        )
+
+    DEVICES_SCALE_FACTORS = {GAUDI2: 4, GAUDI3: 1}
+    FP8_143_SCALES = {
+        device: get_fp8_hw_alligned_scales_by_device(torch.float8_e4m3fn, device)
+        for device in DEVICES_SCALE_FACTORS.keys()
+    }
+    FP8_143_SCALES_TRAITS = {
+        device: (
+            min(FP8_143_SCALES[device]),
+            max(FP8_143_SCALES[device]),
+            DEVICES_SCALE_FACTORS[device],
+        )
+        for device in DEVICES_SCALE_FACTORS.keys()
+    }
+
+    # Check device support
+    device = DEVICE_MAP[hpu.get_device_name()]
+    if device not in [GAUDI2, GAUDI3]:
+        logger.warning(f"hw aligned scales not supported for device {device}")
+        return scale_pow2
+
+    # Get information required to derive hw aligned scale
+    min_scale, max_scale, scale_factor = FP8_143_SCALES_TRAITS[device]
+    scale_dtype, scale_device = scale_pow2.dtype, scale_pow2.device
+
+    # Derive hw aligned scale
+    scale_pow2_hw = torch.minimum(
+        torch.maximum(
+            2.0 ** (torch.ceil(torch.log2(scale_pow2) / scale_factor) * scale_factor),
+            torch.tensor(min_scale, dtype=scale_dtype, device=scale_device),
+        ),
+        torch.tensor(max_scale, dtype=scale_dtype, device=scale_device),
+    )
+
+    return scale_pow2_hw
 
 
 class AbsMaxObserver(UniformQuantizationObserverBase):
@@ -151,77 +249,9 @@ class AbsMaxObserver(UniformQuantizationObserverBase):
     def calculate_qparams(self):
         r"""Calculates the quantization parameters."""
 
-        def scale_to_pow2_hw(scale, quant_dtype):
-            import habana_frameworks.torch.utils.experimental as htexp
-
-            GAUDI2 = htexp.synDeviceType.synDeviceGaudi2
-            GAUDI3 = htexp.synDeviceType.synDeviceGaudi3
-
-            EXP_BIAS_SETS = {
-                (GAUDI2, torch.float8_e4m3fn): [3, 7, 11, 15],
-                (GAUDI2, torch.float8_e5m2): [15],
-                (GAUDI3, torch.float8_e4m3fn): range(63),
-                (GAUDI3, torch.float8_e5m2): range(63),
-            }
-
-            EXP_WIDTH = {torch.float8_e4m3fn: 4, torch.float8_e5m2: 5}
-
-            def get_default_exp_bias(dtype):
-                exp_width = EXP_WIDTH[dtype]
-                return 2 ** (exp_width - 1) - 1
-
-            MAX_RANGE = {
-                torch.float8_e4m3fn: 2 ** (2**4 - 2 - get_default_exp_bias(torch.float8_e4m3fn))
-                * (2 - 2 ** -(8 - 1 - 4)),
-                torch.float8_e5m2: 2 ** (2**5 - 2 - get_default_exp_bias(torch.float8_e5m2)) * (2 - 2 ** -(8 - 1 - 5)),
-            }
-
-            def get_fullscale(dtype, exp_bias=None):
-                default_exp_bias = get_default_exp_bias(dtype)
-                fullscale = MAX_RANGE[dtype]
-                exp_bias = default_exp_bias if exp_bias is None else exp_bias
-                fullscale = fullscale * (2 ** (default_exp_bias - exp_bias))
-                return fullscale
-
-            def get_fullscales_by_expbias_set(dtype, expbias_set):
-                return [get_fullscale(dtype, exp_bias=eb) for eb in expbias_set]
-
-            def get_fp8_hw_alligned_scales(dtype, device):
-                exp_bias_set = EXP_BIAS_SETS.get((device, dtype), None)
-                return (
-                    None
-                    if exp_bias_set is None
-                    else [x / MAX_RANGE[dtype] for x in get_fullscales_by_expbias_set(dtype, exp_bias_set)]
-                )
-
-            DEVICES_SCALE_FACTORS = {GAUDI2: 4, GAUDI3: 1}
-            FP8_143_SCALES = {
-                device: get_fp8_hw_alligned_scales(quant_dtype, device) for device in DEVICES_SCALE_FACTORS.keys()
-            }
-            FP8_143_SCALES_TRAITS = {
-                device: (
-                    min(FP8_143_SCALES[device]),
-                    max(FP8_143_SCALES[device]),
-                    DEVICES_SCALE_FACTORS[device],
-                )
-                for device in DEVICES_SCALE_FACTORS.keys()
-            }
-
-            def scale_to_pow2(scale):
-                scale_pow2 = 2 ** torch.ceil(torch.log2(scale))
-                return scale_pow2
-
-            scale_pow2 = scale_to_pow2(scale)
-            min_scale, max_scale, scale_factor = FP8_143_SCALES_TRAITS[GAUDI2]
-            scale_pow2_hw = torch.minimum(
-                torch.maximum(
-                    2 ** (torch.ceil(torch.log2(scale_pow2) / scale_factor) * scale_factor),
-                    torch.tensor(min_scale, dtype=scale.dtype, device=scale.device),
-                ),
-                torch.tensor(max_scale, dtype=scale.dtype, device=scale.device),
-            )
-
-            return scale_pow2_hw
+        def scale_to_pow2_hw(scale):
+            scale_pow2 = 2.0 ** torch.ceil(torch.log2(scale))
+            return get_hw_aligned_scale(scale_pow2)
 
         def calc_maxabs_scale(self):
             min_val_neg = torch.min(self.min_val, torch.zeros_like(self.min_val))
@@ -235,8 +265,8 @@ class AbsMaxObserver(UniformQuantizationObserverBase):
             return scale, scale_adjusted
 
         scale, scale_adjusted = calc_maxabs_scale(self)
-        if (self.dtype == torch.float8_e4m3fn) or (self.dtype == torch.float8_e5m2):
-            scale_adjusted = scale_to_pow2_hw(scale_adjusted, self.dtype)
+        if torch.hpu.is_available() and self.dtype == torch.float8_e4m3fn:
+            scale_adjusted = scale_to_pow2_hw(scale_adjusted)
         logger.debug(f"old_scale = {scale.item()}, new_scale = {scale_adjusted.item()}")
         scale = scale_adjusted
 
@@ -357,77 +387,9 @@ class SimpleAbsMaxObserver(UniformQuantizationObserverBase):
     def calculate_qparams(self):
         r"""Calculates the quantization parameters."""
 
-        def scale_to_pow2_hw(scale, quant_dtype):
-            import habana_frameworks.torch.utils.experimental as htexp
-
-            GAUDI2 = htexp.synDeviceType.synDeviceGaudi2
-            GAUDI3 = htexp.synDeviceType.synDeviceGaudi3
-
-            EXP_BIAS_SETS = {
-                (GAUDI2, torch.float8_e4m3fn): [3, 7, 11, 15],
-                (GAUDI2, torch.float8_e5m2): [15],
-                (GAUDI3, torch.float8_e4m3fn): range(63),
-                (GAUDI3, torch.float8_e5m2): range(63),
-            }
-
-            EXP_WIDTH = {torch.float8_e4m3fn: 4, torch.float8_e5m2: 5}
-
-            def get_default_exp_bias(dtype):
-                exp_width = EXP_WIDTH[dtype]
-                return 2 ** (exp_width - 1) - 1
-
-            MAX_RANGE = {
-                torch.float8_e4m3fn: 2 ** (2**4 - 2 - get_default_exp_bias(torch.float8_e4m3fn))
-                * (2 - 2 ** -(8 - 1 - 4)),
-                torch.float8_e5m2: 2 ** (2**5 - 2 - get_default_exp_bias(torch.float8_e5m2)) * (2 - 2 ** -(8 - 1 - 5)),
-            }
-
-            def get_fullscale(dtype, exp_bias=None):
-                default_exp_bias = get_default_exp_bias(dtype)
-                fullscale = MAX_RANGE[dtype]
-                exp_bias = default_exp_bias if exp_bias is None else exp_bias
-                fullscale = fullscale * (2 ** (default_exp_bias - exp_bias))
-                return fullscale
-
-            def get_fullscales_by_expbias_set(dtype, expbias_set):
-                return [get_fullscale(dtype, exp_bias=eb) for eb in expbias_set]
-
-            def get_fp8_hw_alligned_scales(dtype, device):
-                exp_bias_set = EXP_BIAS_SETS.get((device, dtype), None)
-                return (
-                    None
-                    if exp_bias_set is None
-                    else [x / MAX_RANGE[dtype] for x in get_fullscales_by_expbias_set(dtype, exp_bias_set)]
-                )
-
-            DEVICES_SCALE_FACTORS = {GAUDI2: 4, GAUDI3: 1}
-            FP8_143_SCALES = {
-                device: get_fp8_hw_alligned_scales(quant_dtype, device) for device in DEVICES_SCALE_FACTORS.keys()
-            }
-            FP8_143_SCALES_TRAITS = {
-                device: (
-                    min(FP8_143_SCALES[device]),
-                    max(FP8_143_SCALES[device]),
-                    DEVICES_SCALE_FACTORS[device],
-                )
-                for device in DEVICES_SCALE_FACTORS.keys()
-            }
-
-            def scale_to_pow2(scale):
-                scale_pow2 = 2 ** torch.ceil(torch.log2(scale))
-                return scale_pow2
-
-            scale_pow2 = scale_to_pow2(scale)
-            min_scale, max_scale, scale_factor = FP8_143_SCALES_TRAITS[GAUDI2]
-            scale_pow2_hw = torch.minimum(
-                torch.maximum(
-                    2 ** (torch.ceil(torch.log2(scale_pow2) / scale_factor) * scale_factor),
-                    torch.tensor(min_scale, dtype=scale.dtype, device=scale.device),
-                ),
-                torch.tensor(max_scale, dtype=scale.dtype, device=scale.device),
-            )
-
-            return scale_pow2_hw
+        def scale_to_pow2_hw(scale):
+            scale_pow2 = 2.0 ** torch.ceil(torch.log2(scale))
+            return get_hw_aligned_scale(scale_pow2)
 
         def calc_maxabs_scale(self):
             fullscale = float(self.quant_max)
@@ -442,8 +404,8 @@ class SimpleAbsMaxObserver(UniformQuantizationObserverBase):
             return scale, scale_adjusted
 
         scale, scale_adjusted = calc_maxabs_scale(self)
-        if (self.dtype == torch.float8_e4m3fn) or (self.dtype == torch.float8_e5m2):
-            scale_adjusted = scale_to_pow2_hw(scale_adjusted, self.dtype)
+        if torch.hpu.is_available() and self.dtype == torch.float8_e4m3fn:
+            scale_adjusted = scale_to_pow2_hw(scale_adjusted)
         logger.debug(f"old_scale = {scale.item()}, new_scale = {scale_adjusted.item()}")
         scale = scale_adjusted
 
