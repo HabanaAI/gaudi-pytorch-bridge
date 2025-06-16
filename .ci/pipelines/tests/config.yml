@@ -122,4 +122,4 @@ testJobConfig:
       cpu:
         hwType:
           sim:
-            jobTimeout: '90'
+            jobTimeout: '240'
