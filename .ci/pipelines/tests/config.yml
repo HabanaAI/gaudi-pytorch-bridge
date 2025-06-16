@@ -118,8 +118,8 @@ testJobConfig:
             jobTimeout: '30'
   tidy:
     dockerImage: artifactory-kfs.habana-labs.com/devops-docker-local/habana-builder-pt:${OS}-${RELEASE_VERSION}
+    jobTimeout: '240'
     devices:
       cpu:
         hwType:
           sim:
-            jobTimeout: '240'
