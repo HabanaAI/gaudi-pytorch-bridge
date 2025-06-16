@@ -11,6 +11,8 @@ common:
       githubOrg: habana-internal
     - repository: specs_external
       githubOrg: habana-internal
+    - repository: embedded-specs
+      githubOrg: habana-internal
   dependencies:
     - AEON
     - COMPLEX_GUID
