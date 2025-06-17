@@ -6770,15 +6770,17 @@ smooth_l1_loss.out:
 
 smooth_l1_loss_backward:
   output_meta: SmoothL1LossBackwardMeta
-  op_backend: SmoothL1LossBwdOperator
-  op_validator: SmoothL1LossBwdSharedMeta
+  custom_fill_params: FillSmoothL1LossBwdParams
+  guid: smooth_l1_loss_bwd
+  op_validator: check-node-with-shared-layer
   out_ids: [0]
   skip_slrg: true
 
 smooth_l1_loss_backward.grad_input:
   output_meta: SmoothL1LossBackwardMeta
-  op_backend: SmoothL1LossBwdOperator
-  op_validator: SmoothL1LossBwdSharedMeta
+  custom_fill_params: FillSmoothL1LossBwdParams
+  guid: smooth_l1_loss_bwd
+  op_validator: check-node-with-shared-layer
   skip_slrg: true
 
 _softmax:
