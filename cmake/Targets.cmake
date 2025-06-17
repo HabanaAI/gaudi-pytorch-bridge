@@ -140,3 +140,15 @@ endif()
 if(THREAD_SANITIZER)
   message("Building thread sanitizer configuration")
 endif()
+
+function(set_fabi_version)
+  execute_process(
+    COMMAND ${Python_EXECUTABLE} ${PROJECT_SOURCE_DIR}/scripts/get_fabi_flag.py ${CMAKE_CXX_COMPILER}
+    OUTPUT_VARIABLE out_get_fabi_flag
+    OUTPUT_STRIP_TRAILING_WHITESPACE)
+
+  if(NOT "${out_get_fabi_flag}" STREQUAL "")
+    add_compile_options(${fabi_flag})
+    message(STATUS "Add compile flag ${fabi_flag}")
+  endif()
+endfunction()

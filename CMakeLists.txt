@@ -93,6 +93,10 @@ unset(CMAKE_CONFIGURABLE_FILE_CONTENT)
 
 include(Targets)
 
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  set_fabi_version()
+endif()
+
 find_program(CCACHE ccache)
 
 if(CCACHE)
