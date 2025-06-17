@@ -88,7 +88,7 @@ def get_version():
             import subprocess  # nosec B404
 
             root = os.environ["PYTORCH_MODULES_ROOT_PATH"]
-            sha = subprocess.check_output(["git", "-C", root, "rev-parse", "--short", "HEAD"]).decode("ascii").strip()
+            sha = subprocess.check_output(["git", "-C", root, "rev-parse", "--short", "HEAD"]).decode("ascii").strip()  # noqa S607
             return f"{version}+git{sha}"
         except Exception as e:
             print(f"Error getting version: {e}", file=sys.stderr)

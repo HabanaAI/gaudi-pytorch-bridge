@@ -383,7 +383,7 @@ def _is_simulator():
         import subprocess  # nosec B404
 
         out = subprocess.Popen(
-            ["cat", "/sys/class/accel/accel0/device/device_type"],
+            ["cat", "/sys/class/accel/accel0/device/device_type"],  # noqa S607
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
         )

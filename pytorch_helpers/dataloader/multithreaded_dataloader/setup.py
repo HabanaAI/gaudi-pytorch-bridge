@@ -34,7 +34,7 @@ def get_version():
         import subprocess  # nosec B404
 
         describe = (
-            subprocess.check_output(["git", "-C", root, "describe", "--abbrev=7", "--tags", "--dirty"])
+            subprocess.check_output(["git", "-C", root, "describe", "--abbrev=7", "--tags", "--dirty"])  # noqa S607
             .decode("ascii")
             .strip()
         )
