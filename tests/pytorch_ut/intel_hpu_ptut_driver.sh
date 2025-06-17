@@ -159,7 +159,7 @@ test_core_ops2_tests()
 ci_tests()
 {
     echo "Running ci test cases"
-    Test_Cmd="python3 run_test_hpu.py -v -k 'hpu' -dir $pwd/pytorch/test --outdir=$out_dir -fp 8 --ci_tests"
+    Test_Cmd="python3 run_test_hpu.py -v -k 'hpu' -dir $pwd/pytorch/test --outdir=$out_dir  --ci_tests"
     echo $Test_Cmd
     (set -x; eval $Test_Cmd)
     return $?
@@ -373,7 +373,7 @@ if [ "$run_clone" == "true" ]; then
         cd ..
         echo "Enabling the tests decorated with @onlyNativeDeviceTypes for HPU"
         sed -i 's/@onlyNativeDeviceTypes/#@onlyNativeDeviceTypes/g' pytorch/test/test_*.py
-        cp -r pytorch/pytest.ini ../../
+        cp -r pytorch/pytest.ini ../
         rm -rf pytorch/pytest.ini
     fi
 fi
