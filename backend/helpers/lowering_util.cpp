@@ -57,8 +57,8 @@ c10::ScalarType LoweringUtil::GetDtype(
     bool promote_integers) {
   if (dtype.has_value()) {
     return dtype.value();
-  }
-  if (result.defined()) {
+
+  } else if (result.defined()) {
     return result.scalar_type();
   }
   c10::ScalarType src_type = self.scalar_type();

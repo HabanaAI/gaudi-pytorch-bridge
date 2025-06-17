@@ -233,8 +233,9 @@ class StackGetter {
     if (stack[pos].isNone()) {
       GetAndIncrStackPos();
       return {};
+    } else {
+      return getNextInputInternal("none or ", (T*){});
     }
-    return getNextInputInternal("none or ", (T*){});
   }
 
   template <class T, class... Ts>

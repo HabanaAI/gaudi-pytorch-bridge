@@ -610,8 +610,9 @@ struct HbContext {
   std::shared_ptr<Data> getDataPtr(int64_t unique_id) {
     if (tensors_data_opt.count(unique_id) != 0) {
       return tensors_data_opt.at(unique_id).lock();
+    } else {
+      return nullptr;
     }
-    return nullptr;
   }
 
  private:

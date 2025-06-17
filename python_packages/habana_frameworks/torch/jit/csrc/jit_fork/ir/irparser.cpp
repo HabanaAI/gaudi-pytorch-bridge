@@ -241,14 +241,15 @@ ParsedLiteral IRParser::parseScalarLiteral(Node* n, std::string starting_str) {
         r = convertStrToNumericAttr(token, str, is_special_value);
         L.next();
         return r;
-      }
-      r.k = AttributeKind::ty;
-      type_alias = type_parser.parseType();
-      HABANA_ASSERT(
-          !type_alias.second, "Parsing IR with Alias Info not handled");
+      } else {
+        r.k = AttributeKind::ty;
+        type_alias = type_parser.parseType();
+        HABANA_ASSERT(
+            !type_alias.second, "Parsing IR with Alias Info not handled");
 
-      r.ty = type_alias.first;
-      return r;
+        r.ty = type_alias.first;
+        return r;
+      }
     }
     case TK_TRUE:
       L.next();

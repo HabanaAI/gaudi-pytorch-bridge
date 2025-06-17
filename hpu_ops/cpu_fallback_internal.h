@@ -283,8 +283,9 @@ at::ScalarType expected_result_dtype(
     ParameterTypes...) {
   if (dtypeOpt.has_value()) {
     return dtypeOpt.value();
+  } else {
+    return at::ScalarType::Int;
   }
-  return at::ScalarType::Int;
 }
 
 template <class... ParameterTypes>
@@ -295,8 +296,9 @@ at::ScalarType expected_result_dtype(
     ParameterTypes...) {
   if (dtypeOpt.has_value()) {
     return dtypeOpt.value();
+  } else {
+    return at::ScalarType::Int;
   }
-  return at::ScalarType::Int;
 }
 
 /*

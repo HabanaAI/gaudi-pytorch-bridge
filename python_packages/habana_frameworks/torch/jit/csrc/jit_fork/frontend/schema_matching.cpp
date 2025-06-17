@@ -782,8 +782,8 @@ Value* emitBuiltinCall(
 
   if (matched.first < variants.size() + upgrader_schemas.size()) {
     return emitBuiltinNode(matched.second, loc, graph, name, graph_version);
-  }
-  /*
+  } else {
+    /*
       TODO: implement Function support and
             implement inserting a graph function to a graph.
 
@@ -802,11 +802,12 @@ Value* emitBuiltinCall(
           return insertGraph(graph, subgraph, matched.second.inputs).at(0);
     */
 
-  auto error_msg = ErrorReport(loc);
-  error_msg
-      << "Unsupported GraphFunction. Please raise a ticket to implement this feature.\n";
+    auto error_msg = ErrorReport(loc);
+    error_msg
+        << "Unsupported GraphFunction. Please raise a ticket to implement this feature.\n";
 
-  throw error_msg;
+    throw error_msg;
+  }
 }
 
 } // namespace habana_torch::jit

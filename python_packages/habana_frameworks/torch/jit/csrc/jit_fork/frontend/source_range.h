@@ -257,8 +257,9 @@ struct TORCH_API Source {
   size_t lineno_to_source_lineno(size_t lineno) const {
     if (filename_) {
       return lineno + starting_line_no_;
+    } else {
+      return lineno;
     }
-    return lineno;
   }
 
   StringCordView get_line(size_t lineno) const {

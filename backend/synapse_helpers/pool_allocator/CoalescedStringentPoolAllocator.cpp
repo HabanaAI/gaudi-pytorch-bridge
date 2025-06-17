@@ -1004,8 +1004,9 @@ void CoalescedStringentPooling::process_events() const {
       if (!res) {
         e.first = event;
         break;
+      } else {
+        device_.get_event_handle_cache().release_handle(event);
       }
-      device_.get_event_handle_cache().release_handle(event);
 
       chunk->event_count--;
       if (chunk->event_count == 0) {

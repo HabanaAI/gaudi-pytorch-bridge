@@ -539,13 +539,14 @@ static std::vector<synapse_helpers::tensor> ComputeNorm(
         {get_guid_with_precision("sqrt_fwd"sv, dtype),
          {sum[0].get()},
          {{{1}, dtype, final_idx}}});
+  } else {
+    return OpBackend::BuildNode(
+        op,
+        graph,
+        {get_guid_with_precision("frobenius_norm_fwd"sv, dtype),
+         {input_syn_tensor},
+         {{{1}, dtype, final_idx}}});
   }
-  return OpBackend::BuildNode(
-      op,
-      graph,
-      {get_guid_with_precision("frobenius_norm_fwd"sv, dtype),
-       {input_syn_tensor},
-       {{{1}, dtype, final_idx}}});
 }
 
 void OptimizerLambPhase1::AddNode(

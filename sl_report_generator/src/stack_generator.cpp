@@ -401,14 +401,15 @@ std::vector<c10::IValue> StackGenerator::getInputVariants(
     const InputDescriptor& input_descriptor,
     const at::ScalarType precision_type,
     const int64_t rank) const {
-  if (is_only_none(input_descriptor)) {
+  if (is_only_none(input_descriptor))
     return {c10::IValue()};
-  }
-  auto variants = handle_optional_input(input_descriptor);
-  const auto values = handle_inputs(input_descriptor, precision_type, rank);
+  else {
+    auto variants = handle_optional_input(input_descriptor);
+    const auto values = handle_inputs(input_descriptor, precision_type, rank);
 
-  variants.insert(std::end(variants), std::begin(values), std::end(values));
-  return variants;
+    variants.insert(std::end(variants), std::begin(values), std::end(values));
+    return variants;
+  }
 }
 
 std::vector<c10::IValue> StackGenerator::handle_inputs(
@@ -852,8 +853,9 @@ std::vector<InputDescriptor> SchemaStackGenerator::generateInputs(
           "SchemaStackGenerator::generateInputs cannot process the input schema for '" +
           op_and_overload_name + "' op. Unknown input type: '" + param_type +
           "' for param '" + param_type + " " + param_name + "'");
+    } else {
+      input_descriptor.type = input_type_it->second;
     }
-    input_descriptor.type = input_type_it->second;
 
     if (input_descriptor.type == InputType::NATIVE_STRING) {
       input_descriptor.is_optional = false;

@@ -36,12 +36,13 @@ SharedMetaDataVector ScatterSharedMeta(
         {updates.dim(), dtype}};
     scatterSharedMeta.outputs_data.emplace_back(rank, dtype);
     return {scatterSharedMeta};
+  } else {
+    SharedMetaData scatterValueSharedMeta{"scatter_value_fwd"};
+    scatterValueSharedMeta.inputs_data = {
+        {rank, dtype}, {index.dim(), index.scalar_type()}};
+    scatterValueSharedMeta.outputs_data.emplace_back(rank, dtype);
+    return {scatterValueSharedMeta};
   }
-  SharedMetaData scatterValueSharedMeta{"scatter_value_fwd"};
-  scatterValueSharedMeta.inputs_data = {
-      {rank, dtype}, {index.dim(), index.scalar_type()}};
-  scatterValueSharedMeta.outputs_data.emplace_back(rank, dtype);
-  return {scatterValueSharedMeta};
 }
 
 SharedMetaDataVector ScatterReduceSharedMeta(

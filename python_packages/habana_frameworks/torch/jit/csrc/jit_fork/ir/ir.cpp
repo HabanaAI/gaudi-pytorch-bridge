@@ -215,12 +215,10 @@ static void printAttribute(std::ostream& out, const IValue& ival) {
     if (input.isTensor()) {
       printAttribute(ss, input.toTensor());
       return true;
-    }
-    if (input.isTensorList()) {
+    } else if (input.isTensorList()) {
       ss << "[<Tensors>]";
       return true;
-    }
-    if (input.isObject() && !input.type()->is_module()) {
+    } else if (input.isObject() && !input.type()->is_module()) {
       ss << "object(" << &input.toObjectRef() << ")";
       return true;
     }
@@ -2431,8 +2429,9 @@ Node* ProfileIValueOp::allocNewInstance(Graph* g) {
 TypePtr NamedValue::type() const {
   if (value_) {
     return value_->type();
+  } else {
+    return ivalue_.type();
   }
-  return ivalue_.type();
 }
 
 const Symbol ProfileOp::Kind = ::c10::prim::profile;

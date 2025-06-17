@@ -30,8 +30,9 @@ std::vector<int64_t> KlDivOperator::compute_output_shape(
     int64_t reduction) {
   if (reduction == at::Reduction::Reduction::None) {
     return self.sizes().vec();
+  } else {
+    return {};
   }
-  return {};
 }
 
 void KlDivOperator::AllocateAndAddSynapseNode(

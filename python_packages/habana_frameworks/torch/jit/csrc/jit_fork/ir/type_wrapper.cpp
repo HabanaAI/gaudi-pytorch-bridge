@@ -106,36 +106,37 @@ TypeWrapper TypeWrapper::createTensorTypeWrapper(
         TensorType::create(scalar_type, device, shape.size(), requires_grad);
 
     return TypeWrapper(tensor_type, shape, strides);
+  } else {
+    std::vector<int64_t> fixed_shape;
+    std::vector<int64_t> fixed_strides;
+    fixed_shape.reserve(shape.size());
+    fixed_strides.reserve(strides.size());
+
+    const auto get_fixed_value = [](const DimVariants& dim) {
+      HABANA_ASSERT(
+          std::holds_alternative<int64_t>(dim),
+          "Found non-fixed dimension for a tensor with a fixed shape.");
+      return std::get<int64_t>(dim);
+    };
+    std::transform(
+        shape.cbegin(),
+        shape.cend(),
+        std::back_inserter(fixed_shape),
+        get_fixed_value);
+    std::transform(
+        strides.cbegin(),
+        strides.cend(),
+        std::back_inserter(fixed_strides),
+        get_fixed_value);
+
+    TensorTypePtr tensor_type = TensorType::create(
+        scalar_type,
+        device,
+        c10::VaryingShape<int64_t>(fixed_shape),
+        c10::VaryingShape<int64_t>(fixed_strides),
+        requires_grad);
+    return TypeWrapper(tensor_type, shape, strides);
   }
-  std::vector<int64_t> fixed_shape;
-  std::vector<int64_t> fixed_strides;
-  fixed_shape.reserve(shape.size());
-  fixed_strides.reserve(strides.size());
-
-  const auto get_fixed_value = [](const DimVariants& dim) {
-    HABANA_ASSERT(
-        std::holds_alternative<int64_t>(dim),
-        "Found non-fixed dimension for a tensor with a fixed shape.");
-    return std::get<int64_t>(dim);
-  };
-  std::transform(
-      shape.cbegin(),
-      shape.cend(),
-      std::back_inserter(fixed_shape),
-      get_fixed_value);
-  std::transform(
-      strides.cbegin(),
-      strides.cend(),
-      std::back_inserter(fixed_strides),
-      get_fixed_value);
-
-  TensorTypePtr tensor_type = TensorType::create(
-      scalar_type,
-      device,
-      c10::VaryingShape<int64_t>(fixed_shape),
-      c10::VaryingShape<int64_t>(fixed_strides),
-      requires_grad);
-  return TypeWrapper(tensor_type, shape, strides);
 }
 
 TypePtr TypeWrapper::initType(TypePtr underlying_type) {
@@ -249,11 +250,9 @@ bool matchTypes(const TypePtr& lhs, const TypePtr& rhs, std::ostream* why_not) {
   auto get_fake_type = [](const TypePtr& type) -> TypePtr {
     if (type->kind() == TypeKind::SymIntType) {
       return IntType::get();
-    }
-    if (type->kind() == TypeKind::SymFloatType) {
+    } else if (type->kind() == TypeKind::SymFloatType) {
       return FloatType::get();
-    }
-    if (type->kind() == TypeKind::SymBoolType) {
+    } else if (type->kind() == TypeKind::SymBoolType) {
       return BoolType::get();
     }
 

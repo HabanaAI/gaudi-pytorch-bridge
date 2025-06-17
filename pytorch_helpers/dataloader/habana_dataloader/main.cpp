@@ -95,7 +95,6 @@ class HabanaAcceleratedPytorchDL {
     else {
       return getTensorTuple(m_user_idx == m_total_batch_count);
     }
-    return getTensorTuple(m_user_idx == m_total_batch_count);
   }
 
   HabanaAcceleratedPytorchDL* getIter() {
@@ -128,8 +127,9 @@ class HabanaAcceleratedPytorchDL {
     if (is_last_batch) {
       if (m_last_batch_remainder == 0) {
         return m_batch_size;
+      } else {
+        return m_last_batch_remainder;
       }
-      return m_last_batch_remainder;
     }
     return m_batch_size;
   }
@@ -140,11 +140,12 @@ class HabanaAcceleratedPytorchDL {
           {m_batch_size, 3, m_img_height, m_img_width},
           image_options,
           {torch::MemoryFormat::Contiguous});
+    } else {
+      return torch::empty(
+          {m_batch_size, m_img_height, m_img_width, 3},
+          image_options,
+          {torch::MemoryFormat::Contiguous});
     }
-    return torch::empty(
-        {m_batch_size, m_img_height, m_img_width, 3},
-        image_options,
-        {torch::MemoryFormat::Contiguous});
   }
 
   void maybe_permute(at::Tensor& t) {
@@ -380,9 +381,10 @@ class Factory {
     if (is_ssd_config(config)) {
       return std::make_unique<SsdHDL>(
           dict_config, pin_memory, use_prefetch, channels_last, drop_last);
+    } else {
+      return std::make_unique<HabanaAcceleratedPytorchDL>(
+          dict_config, pin_memory, use_prefetch, channels_last, drop_last);
     }
-    return std::make_unique<HabanaAcceleratedPytorchDL>(
-        dict_config, pin_memory, use_prefetch, channels_last, drop_last);
   }
   static bool is_ssd_config(json config) {
     try {

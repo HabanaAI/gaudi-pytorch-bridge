@@ -316,18 +316,20 @@ std::unordered_set<std::string> load_static_guids(
           static_guids_path,
           ". Use built in list instead.");
       return default_list;
+    } else {
+      std::unordered_set<std::string> static_guids_list;
+      std::string line;
+      std::string ops;
+      while (getline(file, line)) {
+        static_guids_list.insert(line);
+        ops += line + ", ";
+      }
+      PT_BRIDGE_DEBUG("Static guids loaded: ", ops);
+      return static_guids_list;
     }
-    std::unordered_set<std::string> static_guids_list;
-    std::string line;
-    std::string ops;
-    while (getline(file, line)) {
-      static_guids_list.insert(line);
-      ops += line + ", ";
-    }
-    PT_BRIDGE_DEBUG("Static guids loaded: ", ops);
-    return static_guids_list;
+  } else {
+    return default_list;
   }
-  return default_list;
 }
 
 bool is_guid_support_dynamic_shape(const std::string& guid) {
@@ -427,8 +429,7 @@ bool CheckNodeWithSharedLayerValidator::Validate(
           ToDebugString(validation_result));
       PT_OP_INFO("Fallback for op: ", m_opname);
       return false;
-    }
-    if (check_st_h2d) {
+    } else if (check_st_h2d) {
       unsigned query_bit_map = 0;
       unsigned result_bit_map = 0;
       query_bit_map |= SharedLayer::QUERY_SHAPE_TENSOR_REQ;
@@ -513,8 +514,7 @@ bool CheckNodeWithSharedLayerValidator::ValidateCustom(
             ToDebugString(validation_result));
         PT_OP_INFO("Fallback for op: ", m_opname);
         return false;
-      }
-      if (check_st_h2d && !m_require_h2d && !m_require_st) {
+      } else if (check_st_h2d && !m_require_h2d && !m_require_st) {
         unsigned query_bit_map = 0;
         unsigned result_bit_map = 0;
         query_bit_map |= SharedLayer::QUERY_SHAPE_TENSOR_REQ;
@@ -612,8 +612,7 @@ bool SharedLayerGuidValidator::fillGuidParamInfo(
 
 template <typename T>
 bool SharedLayerGuidValidator::fillParam(
-    T& params,
-    SharedLayer::DeviceId deviceId) {
+    T & params, SharedLayer::DeviceId deviceId) {
   params.apiVersion = 1;
   params.deviceId = deviceId;
 

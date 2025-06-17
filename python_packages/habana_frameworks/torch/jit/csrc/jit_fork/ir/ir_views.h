@@ -156,11 +156,12 @@ struct LoopView {
     if (condition_is_always_true) {
       // if the trip count was not specified this was a user-written while True:
       return trip_count_is_specified ? For : While;
+    } else {
+      if (trip_count_is_specified) {
+        return ModifiedLoop;
+      }
+      return While;
     }
-    if (trip_count_is_specified) {
-      return ModifiedLoop;
-    }
-    return While;
   }
 
  private:

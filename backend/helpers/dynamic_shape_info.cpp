@@ -52,11 +52,11 @@ bool GetRefineDynamicShapeStatus() {
       return m_enable_refine_dynamic_shape;
     }
     return GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
-  }
-  if (hpu_mod == 0) {
+  } else if (hpu_mod == 0) {
     return GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  } else {
+    return false;
   }
-  return false;
 }
 
 // PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR is used to enable host tensor

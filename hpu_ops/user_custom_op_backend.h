@@ -46,8 +46,9 @@ class UserCustomOpBackend : public OpBackend {
       size_t size;
       auto spp = fill_params_fn(s, size);
       return FillParamsT::createForCustomOp(spp, size);
+    } else {
+      return {};
     }
-    return {};
   }
 
   custom_op::FillParamsFn fill_params_fn = nullptr;

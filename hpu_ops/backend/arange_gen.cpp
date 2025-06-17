@@ -192,44 +192,47 @@ synapse_helpers::tensor ArangeCommon(
 
     if (is_cast_not_required) {
       return std::move(arange_i32[0]);
+    } else {
+      auto cast_to_out_type = OpBackend::BuildCast(
+          op,
+          graph,
+          arange_i32.at(0).get(),
+          outshape,
+          c10::ScalarType::Int,
+          out_dtype,
+          final_result_index);
+
+      return cast_to_out_type;
     }
-    auto cast_to_out_type = OpBackend::BuildCast(
-        op,
-        graph,
-        arange_i32.at(0).get(),
-        outshape,
-        c10::ScalarType::Int,
-        out_dtype,
-        final_result_index);
+  } else {
+    op->CreateShapeTensorInput(graph, op->ScalarType(), outshape, inputs);
+    auto internal_out_dtype = habana_helpers::getInternalDtype(out_dtype);
+    const bool is_cast_not_required = c10::isFloatingType(internal_out_dtype) ||
+        internal_out_dtype == c10::ScalarType::Int ||
+        (internal_out_dtype == c10::ScalarType::Long &&
+         common::IsInt64Supported());
+    auto scalar_type = is_cast_not_required ? out_dtype : c10::ScalarType::Int;
+    auto range_guid = is_cast_not_required ? guid : "range_i32";
+    NodeAttr::NodeOutputAttr out_attr = {outshape, scalar_type};
+    if (is_cast_not_required)
+      out_attr.final_result_index = final_result_index;
+    auto arange = OpBackend::BuildNode(
+        op, graph, {range_guid, {}, {out_attr}, params.ptr(), params.size()});
 
-    return cast_to_out_type;
+    if (is_cast_not_required) {
+      return std::move(arange[0]);
+    } else {
+      auto cast_to_out_type = OpBackend::BuildCast(
+          op,
+          graph,
+          arange.at(0).get(),
+          outshape,
+          c10::ScalarType::Int,
+          out_dtype,
+          final_result_index);
+      return cast_to_out_type;
+    }
   }
-  op->CreateShapeTensorInput(graph, op->ScalarType(), outshape, inputs);
-  auto internal_out_dtype = habana_helpers::getInternalDtype(out_dtype);
-  const bool is_cast_not_required = c10::isFloatingType(internal_out_dtype) ||
-      internal_out_dtype == c10::ScalarType::Int ||
-      (internal_out_dtype == c10::ScalarType::Long &&
-       common::IsInt64Supported());
-  auto scalar_type = is_cast_not_required ? out_dtype : c10::ScalarType::Int;
-  auto range_guid = is_cast_not_required ? guid : "range_i32";
-  NodeAttr::NodeOutputAttr out_attr = {outshape, scalar_type};
-  if (is_cast_not_required)
-    out_attr.final_result_index = final_result_index;
-  auto arange = OpBackend::BuildNode(
-      op, graph, {range_guid, {}, {out_attr}, params.ptr(), params.size()});
-
-  if (is_cast_not_required) {
-    return std::move(arange[0]);
-  }
-  auto cast_to_out_type = OpBackend::BuildCast(
-      op,
-      graph,
-      arange.at(0).get(),
-      outshape,
-      c10::ScalarType::Int,
-      out_dtype,
-      final_result_index);
-  return cast_to_out_type;
 }
 
 OutputMetaDataVector ArangeDefaultCommonMeta(
@@ -356,47 +359,49 @@ OutputMetaDataVector ArangeDefaultStartEndStepMeta(const at::Stack& stack) {
         stack.at(5),
         stack.at(6),
         setToIntegralDType)};
-  }
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 1) {
-    // Lazy Flow
-    auto output_shape_tensor = stack[1].toTensor();
-    depth = output_shape_tensor.sizes()[0];
-    setToIntegralDType =
-        (output_shape_tensor.scalar_type() == c10::ScalarType::Long) ||
-        (output_shape_tensor.scalar_type() == c10::ScalarType::Int);
-    return {ArangeDefaultCommonMeta(
-        depth,
-        stack.at(2),
-        stack.at(3),
-        stack.at(4),
-        stack.at(5),
-        setToIntegralDType)};
-  }
-  // DS Compile Flow
-  std::vector<int32_t> params_data;
-  at::Tensor params_t = stack[0].toTensor();
-  if ((habana::ShapeInference::GetCurrentPass() ==
-       habana::ShapeInfo::InferencePass::MIN_SHAPE) ||
-      (habana::ShapeInference::GetCurrentPass() ==
-       habana::ShapeInfo::InferencePass::MAX_SHAPE)) {
-    params_data = GetArangeH2DParams<int32_t>(params_t, true);
   } else {
-    params_data = GetArangeH2DParams<int32_t>(params_t, false);
+    if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 1) {
+      // Lazy Flow
+      auto output_shape_tensor = stack[1].toTensor();
+      depth = output_shape_tensor.sizes()[0];
+      setToIntegralDType =
+          (output_shape_tensor.scalar_type() == c10::ScalarType::Long) ||
+          (output_shape_tensor.scalar_type() == c10::ScalarType::Int);
+      return {ArangeDefaultCommonMeta(
+          depth,
+          stack.at(2),
+          stack.at(3),
+          stack.at(4),
+          stack.at(5),
+          setToIntegralDType)};
+    } else {
+      // DS Compile Flow
+      std::vector<int32_t> params_data;
+      at::Tensor params_t = stack[0].toTensor();
+      if ((habana::ShapeInference::GetCurrentPass() ==
+           habana::ShapeInfo::InferencePass::MIN_SHAPE) ||
+          (habana::ShapeInference::GetCurrentPass() ==
+           habana::ShapeInfo::InferencePass::MAX_SHAPE)) {
+        params_data = GetArangeH2DParams<int32_t>(params_t, true);
+      } else {
+        params_data = GetArangeH2DParams<int32_t>(params_t, false);
+      }
+
+      PT_KERNEL_DEBUG("ArangeOutputShape params_data:", params_data);
+      depth = get_arange_depth_ds(
+          static_cast<float>(params_data[0]),
+          static_cast<float>(params_data[1]),
+          static_cast<float>(params_data[2]));
+
+      return {ArangeDefaultCommonMeta(
+          depth,
+          stack.at(2),
+          stack.at(3),
+          stack.at(4),
+          stack.at(5),
+          setToIntegralDType)};
+    }
   }
-
-  PT_KERNEL_DEBUG("ArangeOutputShape params_data:", params_data);
-  depth = get_arange_depth_ds(
-      static_cast<float>(params_data[0]),
-      static_cast<float>(params_data[1]),
-      static_cast<float>(params_data[2]));
-
-  return {ArangeDefaultCommonMeta(
-      depth,
-      stack.at(2),
-      stack.at(3),
-      stack.at(4),
-      stack.at(5),
-      setToIntegralDType)};
 }
 
 FillParamsT FillArangeDefaultCommonParams(
@@ -465,35 +470,37 @@ FillParamsT FillArangeDefaultStartEndStepParams(const at::Stack& stack) {
                            : torch::get_default_dtype_as_scalartype());
 
     return FillArangeDefaultCommonParams(start, end, step, out_dtype);
-  }
-  const auto meta = ArangeDefaultStartEndStepMeta(stack);
-  const auto out_dtype = meta[0].dtype;
-  if (c10::isFloatingType(out_dtype)) {
-    std::vector<float> params_data;
-    at::Tensor params_t = stack[0].toTensor();
-    if ((habana::ShapeInference::GetCurrentPass() ==
-         habana::ShapeInfo::InferencePass::MIN_SHAPE) ||
-        (habana::ShapeInference::GetCurrentPass() ==
-         habana::ShapeInfo::InferencePass::MAX_SHAPE)) {
-      params_data = GetArangeH2DParams<float>(params_t, true);
-    } else {
-      params_data = GetArangeH2DParams<float>(params_t, false);
-    }
-    return FillArangeDefaultCommonParams(
-        params_data[0], params_data[1], params_data[2], out_dtype);
-  }
-  std::vector<int32_t> params_data;
-  at::Tensor params_t = stack[0].toTensor();
-  if ((habana::ShapeInference::GetCurrentPass() ==
-       habana::ShapeInfo::InferencePass::MIN_SHAPE) ||
-      (habana::ShapeInference::GetCurrentPass() ==
-       habana::ShapeInfo::InferencePass::MAX_SHAPE)) {
-    params_data = GetArangeH2DParams<int32_t>(params_t, true);
   } else {
-    params_data = GetArangeH2DParams<int32_t>(params_t, false);
+    const auto meta = ArangeDefaultStartEndStepMeta(stack);
+    const auto out_dtype = meta[0].dtype;
+    if (c10::isFloatingType(out_dtype)) {
+      std::vector<float> params_data;
+      at::Tensor params_t = stack[0].toTensor();
+      if ((habana::ShapeInference::GetCurrentPass() ==
+           habana::ShapeInfo::InferencePass::MIN_SHAPE) ||
+          (habana::ShapeInference::GetCurrentPass() ==
+           habana::ShapeInfo::InferencePass::MAX_SHAPE)) {
+        params_data = GetArangeH2DParams<float>(params_t, true);
+      } else {
+        params_data = GetArangeH2DParams<float>(params_t, false);
+      }
+      return FillArangeDefaultCommonParams(
+          params_data[0], params_data[1], params_data[2], out_dtype);
+    } else {
+      std::vector<int32_t> params_data;
+      at::Tensor params_t = stack[0].toTensor();
+      if ((habana::ShapeInference::GetCurrentPass() ==
+           habana::ShapeInfo::InferencePass::MIN_SHAPE) ||
+          (habana::ShapeInference::GetCurrentPass() ==
+           habana::ShapeInfo::InferencePass::MAX_SHAPE)) {
+        params_data = GetArangeH2DParams<int32_t>(params_t, true);
+      } else {
+        params_data = GetArangeH2DParams<int32_t>(params_t, false);
+      }
+      return FillArangeDefaultCommonParams(
+          params_data[0], params_data[1], params_data[2], out_dtype);
+    }
   }
-  return FillArangeDefaultCommonParams(
-      params_data[0], params_data[1], params_data[2], out_dtype);
 }
 
 synapse_helpers::tensor ArangeDefaultCommon(
@@ -525,16 +532,17 @@ synapse_helpers::tensor ArangeDefaultCommon(
 
   if (is_cast_not_required) {
     return std::move(arange[0]);
+  } else {
+    auto cast_to_out_type = OpBackend::BuildCast(
+        op,
+        graph,
+        arange.at(0).get(),
+        outshape,
+        c10::ScalarType::Int,
+        out_dtype,
+        FINAL_RESULT_INDEX);
+    return cast_to_out_type;
   }
-  auto cast_to_out_type = OpBackend::BuildCast(
-      op,
-      graph,
-      arange.at(0).get(),
-      outshape,
-      c10::ScalarType::Int,
-      out_dtype,
-      FINAL_RESULT_INDEX);
-  return cast_to_out_type;
 }
 
 static SharedMetaDataVector ArangeDefaultSharedMeta(

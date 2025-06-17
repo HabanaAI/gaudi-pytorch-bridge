@@ -79,8 +79,9 @@ FillParamsT FillClampParams(const at::Stack& stack) {
       false);
   if (c10::isFloatingType(result_type)) {
     return FillClampParamsAndSetMinMax<float>(stack);
+  } else {
+    return FillClampParamsAndSetMinMax<int>(stack);
   }
-  return FillClampParamsAndSetMinMax<int>(stack);
 }
 
 FillParamsT FillClampMinParams(const at::Stack& stack) {
@@ -276,18 +277,19 @@ static synapse_helpers::tensor createForeachClampNode(
     auto outshape = at::infer_size(self.sizes(), other.sizes());
 
     return ClampCommon(op, graph, inputs, result_type, outshape, out_index);
-  }
-  const at::Scalar& other = pt_inputs[1].toScalar();
-  auto result_type = at::result_type(self, other);
+  } else {
+    const at::Scalar& other = pt_inputs[1].toScalar();
+    auto result_type = at::result_type(self, other);
 
-  auto syn_other = OpBackend::BuildConstant(op, graph, other, result_type);
-  std::vector<synTensor> inputs = {syn_inputs[0], syn_other.get()};
-  if (is_max) {
-    inputs = {syn_inputs[0], nullptr, syn_other.get()};
-  }
+    auto syn_other = OpBackend::BuildConstant(op, graph, other, result_type);
+    std::vector<synTensor> inputs = {syn_inputs[0], syn_other.get()};
+    if (is_max) {
+      inputs = {syn_inputs[0], nullptr, syn_other.get()};
+    }
 
-  return ClampCommon(
-      op, graph, inputs, result_type, self.sizes().vec(), out_index);
+    return ClampCommon(
+        op, graph, inputs, result_type, self.sizes().vec(), out_index);
+  }
 }
 
 void ForeachClamp::AddNode(

@@ -397,14 +397,13 @@ std::function<at::Tensor(const at::Tensor& x)> get_activation_fn(
     const std::string_view& activation) {
   if (activation == "gelu") {
     return [](const at::Tensor& x) { return torch::nn::functional::gelu(x); };
-  }
-  if (activation == "relu") {
+  } else if (activation == "relu") {
     return [](const at::Tensor& x) { return torch::nn::functional::relu(x); };
-  }
-  if (activation == "silu") {
+  } else if (activation == "silu") {
     return [](const at::Tensor& x) { return torch::nn::functional::silu(x); };
+  } else {
+    throw std::invalid_argument("Unsupported activation");
   }
-  throw std::invalid_argument("Unsupported activation");
 }
 
 static std::tuple<at::Tensor, at::Tensor> mixture_of_experts_common(

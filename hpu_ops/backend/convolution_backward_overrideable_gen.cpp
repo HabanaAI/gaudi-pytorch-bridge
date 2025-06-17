@@ -50,21 +50,22 @@ static synapse_helpers::tensor ComputeBiasGradEager(
   if (flatten_higher_dims) {
     // TODO: remove or replace if we want to support flatten higher dims
     return std::move(ten_output);
+  } else {
+    ns_Reduction::ParamsV2 params;
+    params.keepDim = false;
+    params.reductionDimensionMask = maskWithoutChannelDim;
+
+    auto multi_dim_reduce_sum = OpBackend::BuildNode(
+        op,
+        graph,
+        {get_guid_with_precision("reduce_sum_multi_dim"sv, op->ScalarType()),
+         std::move(syn_grad_output),
+         {{{grad_output.sizes()[channel_dim]}, grad_output.scalar_type(), 2}},
+         &params,
+         sizeof(params)});
+
+    return std::move(multi_dim_reduce_sum[0]);
   }
-  ns_Reduction::ParamsV2 params;
-  params.keepDim = false;
-  params.reductionDimensionMask = maskWithoutChannelDim;
-
-  auto multi_dim_reduce_sum = OpBackend::BuildNode(
-      op,
-      graph,
-      {get_guid_with_precision("reduce_sum_multi_dim"sv, op->ScalarType()),
-       std::move(syn_grad_output),
-       {{{grad_output.sizes()[channel_dim]}, grad_output.scalar_type(), 2}},
-       &params,
-       sizeof(params)});
-
-  return std::move(multi_dim_reduce_sum[0]);
 }
 
 static synapse_helpers::tensor ComputeBiasGradGraph(
@@ -108,41 +109,42 @@ static synapse_helpers::tensor ComputeBiasGradGraph(
   if (flatten_higher_dims) {
     // TODO: remove or replace if we want to support flatten higher dims
     return std::move(ten_output);
-  }
-  at::ScalarType scalar_type = grad_output.scalar_type();
-  std::string guid =
-      habana::get_guid_with_precision("reduce_sum_fwd"sv, scalar_type);
+  } else {
+    at::ScalarType scalar_type = grad_output.scalar_type();
+    std::string guid =
+        habana::get_guid_with_precision("reduce_sum_fwd"sv, scalar_type);
 
-  std::vector<synapse_helpers::tensor> syn_tmp;
-  std::vector<int64_t> pyt_shape = grad_output.sizes().vec();
-  for (size_t i = 0, j = 0; i < dim_to_reduce.size(); ++i, ++j) {
-    ns_Reduction::Params params{};
-    params.reductionDimension = grad_output.dim() - dim_to_reduce[j] - 1;
+    std::vector<synapse_helpers::tensor> syn_tmp;
+    std::vector<int64_t> pyt_shape = grad_output.sizes().vec();
+    for (size_t i = 0, j = 0; i < dim_to_reduce.size(); ++i, ++j) {
+      ns_Reduction::Params params{};
+      params.reductionDimension = grad_output.dim() - dim_to_reduce[j] - 1;
 
-    pyt_shape[dim_to_reduce[i]] = 1;
-    c10::IntArrayRef shape_red(pyt_shape.data(), pyt_shape.size());
+      pyt_shape[dim_to_reduce[i]] = 1;
+      c10::IntArrayRef shape_red(pyt_shape.data(), pyt_shape.size());
 
-    std::vector<synTensor> syn_tmp_in = (i == 0)
-        ? std::move(syn_grad_output)
-        : std::vector<synTensor>{syn_tmp[0].get()};
-    syn_tmp = habana::OpBackend::BuildNode(
+      std::vector<synTensor> syn_tmp_in = (i == 0)
+          ? std::move(syn_grad_output)
+          : std::vector<synTensor>{syn_tmp[0].get()};
+      syn_tmp = habana::OpBackend::BuildNode(
+          op,
+          graph,
+          {guid,
+           std::move(syn_tmp_in),
+           {{shape_red, scalar_type}},
+           &params,
+           sizeof(params)});
+    }
+
+    synapse_helpers::tensor flattenOp = op->BuildFlatten(
         op,
         graph,
-        {guid,
-         std::move(syn_tmp_in),
-         {{shape_red, scalar_type}},
-         &params,
-         sizeof(params)});
+        syn_tmp[0].get(),
+        grad_output.sizes()[channel_dim],
+        scalar_type,
+        2);
+    return flattenOp;
   }
-
-  synapse_helpers::tensor flattenOp = op->BuildFlatten(
-      op,
-      graph,
-      syn_tmp[0].get(),
-      grad_output.sizes()[channel_dim],
-      scalar_type,
-      2);
-  return flattenOp;
 }
 
 static FillParamsT SynapseConvParamsBuilder(
@@ -227,9 +229,10 @@ static FillParamsT FillConvolutionBackwardOverrideableParams(
   if (input_rank == 5) {
     return SynapseConv3dParamsBuilder(
         weight_shape, stride, padding, dilation, groups);
+  } else {
+    return SynapseConvParamsBuilder(
+        weight_shape, stride, padding, dilation, groups);
   }
-  return SynapseConvParamsBuilder(
-      weight_shape, stride, padding, dilation, groups);
 }
 
 static OutputMetaData CreateMetaData(
@@ -405,10 +408,12 @@ static int64_t ComputeOutputSize(
     return (input_dim + 2 * padding - dilation * (kernel_size - 1) - 1) /
         stride +
         1;
-  } // conv2d fwd output shape computation done as per formula provided below
-  // https://pytorch.org/docs/stable/generated/torch.nn.ConvTranspose2d.html#torch.nn.ConvTranspose2d
-  return (input_dim - 1) * stride - 2 * padding + dilation * (kernel_size - 1) +
-      1;
+  } else {
+    // conv2d fwd output shape computation done as per formula provided below
+    // https://pytorch.org/docs/stable/generated/torch.nn.ConvTranspose2d.html#torch.nn.ConvTranspose2d
+    return (input_dim - 1) * stride - 2 * padding +
+        dilation * (kernel_size - 1) + 1;
+  }
 }
 
 bool ConvBwdDSSTMeta(

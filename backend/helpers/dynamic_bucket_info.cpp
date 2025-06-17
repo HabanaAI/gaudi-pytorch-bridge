@@ -1002,16 +1002,17 @@ bool DynamicBucketInfo::UpdateBucketWithPolicy(
     DynamicDimsPolicy max_policy) {
   if (min_policy == min_policy_ && max_policy == max_policy_) {
     return false;
+  } else {
+    min_policy_ = min_policy;
+    max_policy_ = max_policy;
+    if (min_policy != DynamicDimsPolicy::DEFAULT ||
+        max_policy != DynamicDimsPolicy::DEFAULT) {
+      const PadShapes& pad_shapes = PadShapes{};
+      buckets_[bucket_id].setRanges(CalculateRanges(shapes, pad_shapes));
+      buckets_[bucket_id].setToken(shapes_);
+    }
+    return true;
   }
-  min_policy_ = min_policy;
-  max_policy_ = max_policy;
-  if (min_policy != DynamicDimsPolicy::DEFAULT ||
-      max_policy != DynamicDimsPolicy::DEFAULT) {
-    const PadShapes& pad_shapes = PadShapes{};
-    buckets_[bucket_id].setRanges(CalculateRanges(shapes, pad_shapes));
-    buckets_[bucket_id].setToken(shapes_);
-  }
-  return true;
 }
 
 std::vector<int64_t> DynamicBucketInfo::ExtractDynamicDimsValue(

@@ -33,8 +33,8 @@ FillParamsT FillDivModeParams(const at::Stack& stack) {
     // div_rounding mode operator, for 'trunc' case.
     params->isPyCompatible = !(params->isTruncRoundingMode);
     return paramsT;
-  }
-  return {};
+  } else
+    return {};
 }
 
 OutputMetaDataVector DivModeMeta(const at::Stack& stack) {

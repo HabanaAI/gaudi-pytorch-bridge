@@ -86,18 +86,19 @@ unsigned NativeDropoutEarlyExitCondition(
     std::optional<bool>) {
   if (eePath == 1) {
     return std::make_tuple(input, at::empty_like(input, input.options()));
+  } else {
+    return std::make_tuple(
+        input.clone(),
+        at::full(
+            {1},
+            1,
+            {},
+            c10::CppTypeToScalarType<bool>::value,
+            input.options().layout_opt(),
+            input.options().device_opt(),
+            input.options().pinned_memory_opt())
+            .expand(input.sizes()));
   }
-  return std::make_tuple(
-      input.clone(),
-      at::full(
-          {1},
-          1,
-          {},
-          c10::CppTypeToScalarType<bool>::value,
-          input.options().layout_opt(),
-          input.options().device_opt(),
-          input.options().pinned_memory_opt())
-          .expand(input.sizes()));
 }
 
 HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(

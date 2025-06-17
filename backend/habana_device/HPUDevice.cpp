@@ -397,12 +397,13 @@ std::shared_ptr<synapse_helpers::TimeSlot> create_time_slot(
         device.get_cached_time_event_handle(),
         device.get_cached_time_event_handle(),
         static_cast<synStreamHandle>(device.get_stream(hpu_stream)));
+  } else {
+    PT_BRIDGE_WARN(
+        "High water mark for synapse events ",
+        synapse_helpers::event_handle_cache::get_num_events_high_watermark(),
+        " reached, will not create any time event");
+    return nullptr;
   }
-  PT_BRIDGE_WARN(
-      "High water mark for synapse events ",
-      synapse_helpers::event_handle_cache::get_num_events_high_watermark(),
-      " reached, will not create any time event");
-  return nullptr;
 }
 
 bool is_device_acquired() {

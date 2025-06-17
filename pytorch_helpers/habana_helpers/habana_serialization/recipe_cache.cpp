@@ -70,12 +70,14 @@ absl::optional<synRecipeHandle> get_recipe_handle(
     }
     PT_HABHELPER_DEBUG("Found cache entry with recipe: ", recipe_path);
     return recipeHandle;
+  } else {
+    PT_HABHELPER_DEBUG(
+        "Found cache entry without recipe: ",
+        recipe_path,
+        "- probably empty recipe cached.");
+    return nullptr;
   }
-  PT_HABHELPER_DEBUG(
-      "Found cache entry without recipe: ",
-      recipe_path,
-      "- probably empty recipe cached.");
-  return nullptr;
+  return {};
 }
 
 bool rename_file(const std::string& old_path, const std::string& new_path) {
@@ -351,15 +353,16 @@ absl::optional<synRecipeHandle> RecipeCache::lookup(
       fs::remove(metadata_path);
       cf_handler_->fileUnLock(fd);
       return {};
+    } else {
+      PT_HABHELPER_DEBUG(
+          "Metadata file ",
+          metadata_path,
+          " is not empty. Found valid cache entry.");
+      PT_HABHELPER_DEBUG("Deserializing cache entry for id ", cache_id);
+      auto recipe = get_recipe_handle(metadata_path, metadata, recipe_path);
+      cf_handler_->fileUnLock(fd);
+      return recipe;
     }
-    PT_HABHELPER_DEBUG(
-        "Metadata file ",
-        metadata_path,
-        " is not empty. Found valid cache entry.");
-    PT_HABHELPER_DEBUG("Deserializing cache entry for id ", cache_id);
-    auto recipe = get_recipe_handle(metadata_path, metadata, recipe_path);
-    cf_handler_->fileUnLock(fd);
-    return recipe;
   };
 
   int fd = cf_handler_->fileOpen(metadata_path.c_str(), O_RDONLY);
@@ -367,9 +370,13 @@ absl::optional<synRecipeHandle> RecipeCache::lookup(
     auto recipe = try_lock_and_read(fd);
     cf_handler_->fileClose(fd);
     return recipe;
+  } else {
+    PT_HABHELPER_DEBUG(
+        "Can't read metadata file ",
+        metadata_path,
+        ", errno: ",
+        strerror(errno));
   }
-  PT_HABHELPER_DEBUG(
-      "Can't read metadata file ", metadata_path, ", errno: ", strerror(errno));
 
   return {};
 }
@@ -482,18 +489,18 @@ absl::optional<synRecipeHandle> RecipeCache::lockfree_lookup(
         create_empty_file(append_unique_node_id(metadata_path_compiling));
       }
       return recipe;
+    } else {
+      PT_HABHELPER_DEBUG(
+          "Can't read metadata file ",
+          metadata_path,
+          ", errno: ",
+          strerror(errno),
+          ". Removing..");
+      fs::remove(metadata_path);
+      PT_HABHELPER_DEBUG(
+          "Creating temp metadata file for compilation. This node is going to compile.");
+      create_empty_file(append_unique_node_id(metadata_path_compiling));
     }
-    PT_HABHELPER_DEBUG(
-        "Can't read metadata file ",
-        metadata_path,
-        ", errno: ",
-        strerror(errno),
-        ". Removing..");
-    fs::remove(metadata_path);
-    PT_HABHELPER_DEBUG(
-        "Creating temp metadata file for compilation. This node is going to compile.");
-    create_empty_file(append_unique_node_id(metadata_path_compiling));
-
   } else {
     PT_HABHELPER_DEBUG(
         " Final metadata not found. Creating temp metadata file for compilation. This node is going to compile.");

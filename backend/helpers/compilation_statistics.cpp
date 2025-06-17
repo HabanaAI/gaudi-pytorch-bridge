@@ -364,22 +364,23 @@ void CompilationStatistics::GetDigest(
   std::string recipe_trace_path = GET_ENV_FLAG_NEW(PT_RECIPE_TRACE_PATH);
   if (recipe_trace_path.empty()) {
     return;
+  } else {
+    std::ofstream csv_(recipe_trace_path, std::ofstream::app);
+    if (csv_.tellp() == 0) {
+      csv_ << "graph_key"
+           << ","
+           << "bucket_id"
+           << ","
+           << "token"
+           << ","
+           << "recipe_key"
+           << ","
+           << "cache_hit"
+           << "\n";
+    }
+    csv_ << graph_key << "," << bucket_id << "," << token << "," << recipe_key
+         << "," << cache_hit << "\n";
   }
-  std::ofstream csv_(recipe_trace_path, std::ofstream::app);
-  if (csv_.tellp() == 0) {
-    csv_ << "graph_key"
-         << ","
-         << "bucket_id"
-         << ","
-         << "token"
-         << ","
-         << "recipe_key"
-         << ","
-         << "cache_hit"
-         << "\n";
-  }
-  csv_ << graph_key << "," << bucket_id << "," << token << "," << recipe_key
-       << "," << cache_hit << "\n";
 }
 
 std::string CompilationStatistics::GetStep(uint64_t step) {

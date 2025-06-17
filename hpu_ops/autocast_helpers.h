@@ -145,8 +145,10 @@ inline Tensor& cast(
     DeviceType device_type) {
   if (is_eligible(arg, device_type) && (arg.scalar_type() != to_type)) {
     arg = arg.to(to_type);
+    return arg;
+  } else {
+    return arg;
   }
-  return arg;
 }
 
 template <
@@ -158,8 +160,9 @@ inline Tensor cast(
     DeviceType device_type) {
   if (is_eligible(arg, device_type) && (arg.scalar_type() != to_type)) {
     return arg.to(to_type);
+  } else {
+    return arg;
   }
-  return arg;
 }
 
 template <
@@ -172,8 +175,9 @@ inline std::optional<Tensor> cast(
     DeviceType device_type = DeviceType::HPU) {
   if (arg.has_value()) {
     return cast<decltype(*arg)>(to_type, *arg, device_type);
+  } else {
+    return std::nullopt;
   }
-  return std::nullopt;
 }
 
 template <

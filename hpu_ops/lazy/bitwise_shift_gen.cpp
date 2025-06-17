@@ -46,9 +46,10 @@ at::Tensor ScalarTypeConversion<at::Tensor>::get_result_overrideable() {
     const auto& t = inputs.at(index_of_other).toTensor();
     return habana_lazy::empty_hpu_lazy(
         t.sizes(), t.options(), t.suggest_memory_format(), false);
+  } else {
+    const auto& t = inputs.at(index_of_self).toTensor();
+    return habana_lazy::empty_hpu_lazy(
+        t.sizes(), t.options(), t.suggest_memory_format(), false);
   }
-  const auto& t = inputs.at(index_of_self).toTensor();
-  return habana_lazy::empty_hpu_lazy(
-      t.sizes(), t.options(), t.suggest_memory_format(), false);
 }
 } // namespace habana

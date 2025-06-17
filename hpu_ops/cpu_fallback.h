@@ -147,35 +147,39 @@
           !validator_##opname.Validate({args}, false, check_st_h2d))) {  \
     return dispatch_fallback<ATEN_OP(opname)>::call(                     \
         OpSupportLevel::Value::unsupported_dtype, args);                 \
-  }                                                                      \
-  require_h2d = validator_##opname.IsRequireH2D();                       \
-  require_st = validator_##opname.IsRequireST();
+  } else {                                                               \
+    require_h2d = validator_##opname.IsRequireH2D();                     \
+    require_st = validator_##opname.IsRequireST();                       \
+  }
 
 #define VAL_FAIL_CUSTOM_IF_UNSUPPORTED_DTYPE(opname, check_st_h2d, args...) \
   if (ABSL_PREDICT_FALSE(                                                   \
           !validator_##opname.Validate({args}, false, check_st_h2d))) {     \
     HABANA_ASSERT(false, #opname, " is not yet supported on HPU.")          \
-  }                                                                         \
-  require_h2d = validator_##opname.IsRequireH2D();                          \
-  require_st = validator_##opname.IsRequireST();
+  } else {                                                                  \
+    require_h2d = validator_##opname.IsRequireH2D();                        \
+    require_st = validator_##opname.IsRequireST();                          \
+  }
 
 #define VAL_CUSTOM_FAIL_CUSTOM_IF_UNSUPPORTED_DTYPE(                          \
     opname, check_st_h2d, args...)                                            \
   if (ABSL_PREDICT_FALSE(                                                     \
           !validator_##opname.ValidateCustom({args}, false, check_st_h2d))) { \
     HABANA_ASSERT(false, #opname, " is not yet supported on HPU.")            \
-  }                                                                           \
-  require_h2d = validator_##opname.IsRequireH2D();                            \
-  require_st = validator_##opname.IsRequireST();
+  } else {                                                                    \
+    require_h2d = validator_##opname.IsRequireH2D();                          \
+    require_st = validator_##opname.IsRequireST();                            \
+  }
 
 #define VAL_CUSTOM_FAIL_CUSTOM_IF_UNSUPPORTED_DTYPE2(                     \
     opname, overload, check_st_h2d, args...)                              \
   if (ABSL_PREDICT_FALSE(!validator_##opname##_##overload.ValidateCustom( \
           {args}, false, check_st_h2d))) {                                \
     HABANA_ASSERT(false, #opname, " is not yet supported on HPU.")        \
-  }                                                                       \
-  require_h2d = validator_##opname##_##overload.IsRequireH2D();           \
-  require_st = validator_##opname##_##overload.IsRequireST();
+  } else {                                                                \
+    require_h2d = validator_##opname##_##overload.IsRequireH2D();         \
+    require_st = validator_##opname##_##overload.IsRequireST();           \
+  }
 
 #define VAL_FALLBACK_IF_UNSUPPORTED_DTYPE2(                         \
     opname, overload, check_st_h2d, args...)                        \
@@ -183,9 +187,10 @@
           {args}, false, check_st_h2d))) {                          \
     return dispatch_fallback<ATEN_OP2(opname, overload)>::call(     \
         OpSupportLevel::Value::unsupported_dtype, args);            \
-  }                                                                 \
-  require_h2d = validator_##opname##_##overload.IsRequireH2D();     \
-  require_st = validator_##opname##_##overload.IsRequireST();
+  } else {                                                          \
+    require_h2d = validator_##opname##_##overload.IsRequireH2D();   \
+    require_st = validator_##opname##_##overload.IsRequireST();     \
+  }
 
 #define VAL_CUSTOM_FALLBACK_IF_UNSUPPORTED_DTYPE(                             \
     opname, check_st_h2d, args...)                                            \
@@ -193,9 +198,10 @@
           !validator_##opname.ValidateCustom({args}, false, check_st_h2d))) { \
     return dispatch_fallback<ATEN_OP(opname)>::call(                          \
         OpSupportLevel::Value::unsupported_dtype, args);                      \
-  }                                                                           \
-  require_h2d = validator_##opname.IsRequireH2D();                            \
-  require_st = validator_##opname.IsRequireST();
+  } else {                                                                    \
+    require_h2d = validator_##opname.IsRequireH2D();                          \
+    require_st = validator_##opname.IsRequireST();                            \
+  }
 
 #define VAL_CUSTOM_FALLBACK_IF_UNSUPPORTED_DTYPE2(                        \
     opname, overload, check_st_h2d, args...)                              \
@@ -203,9 +209,10 @@
           {args}, false, check_st_h2d))) {                                \
     return dispatch_fallback<ATEN_OP2(opname, overload)>::call(           \
         OpSupportLevel::Value::unsupported_dtype, args);                  \
-  }                                                                       \
-  require_h2d = validator_##opname##_##overload.IsRequireH2D();           \
-  require_st = validator_##opname##_##overload.IsRequireST();
+  } else {                                                                \
+    require_h2d = validator_##opname##_##overload.IsRequireH2D();         \
+    require_st = validator_##opname##_##overload.IsRequireST();           \
+  }
 
 namespace habana {
 

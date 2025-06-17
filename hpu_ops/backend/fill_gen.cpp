@@ -27,11 +27,12 @@ SharedMetaDataVector FillScalarSharedMeta(
     SharedMetaData constantSharedMeta{"constant"};
     constantSharedMeta.outputs_data = {inOutTensor};
     return {constantSharedMeta};
-  }
-  SharedMetaData memcpySharedMeta{"memcpy"};
+  } else {
+    SharedMetaData memcpySharedMeta{"memcpy"};
     memcpySharedMeta.inputs_data = {inOutTensor};
     memcpySharedMeta.outputs_data = {inOutTensor};
     return {memcpySharedMeta};
+  }
 }
 
 void FillScalar::AddNode(

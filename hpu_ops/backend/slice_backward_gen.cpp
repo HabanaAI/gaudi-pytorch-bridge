@@ -67,12 +67,13 @@ SharedMetaDataVector SliceBwdSharedMeta(
       return {constantSharedMeta};
     }
     return {};
-  }
-  SharedMetaData stridedSliceGrad{"strided_slice_grad"};
-  stridedSliceGrad.inputs_data.emplace_back(rank, dtype);
-  stridedSliceGrad.outputs_data.emplace_back(rank, dtype);
+  } else {
+    SharedMetaData stridedSliceGrad{"strided_slice_grad"};
+    stridedSliceGrad.inputs_data.emplace_back(rank, dtype);
+    stridedSliceGrad.outputs_data.emplace_back(rank, dtype);
 
-  return {stridedSliceGrad};
+    return {stridedSliceGrad};
+  }
 }
 
 void SliceBackward::AddNode(

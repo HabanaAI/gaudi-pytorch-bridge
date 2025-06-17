@@ -334,8 +334,9 @@ class tensor_builder_base {
 
     if (create_result.has_value()) {
       return create_result.value();
+    } else {
+      return {std::move(t)};
     }
-    return {std::move(t)};
   }
 
  protected:

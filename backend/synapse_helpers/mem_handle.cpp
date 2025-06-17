@@ -143,16 +143,17 @@ mem_handle::id_t HandlesMap::Insert(size_t size, hpuStream_t stream) {
     handles_[bucket_index][id] = Record(size, stream);
     return create_memhandle_from_bucket_index_and_handle_index(
         bucket_index, id);
+  } else {
+    if (handles_[bucket_index].size() > bucketInfo[bucket_index].max_handles) {
+      PT_SYNHELPER_FATAL("All possible device memory handles has been used");
+      return mem_handle::invalid_handle;
+    }
+    handles_[bucket_index].emplace_back(size, stream);
+    auto id_inside_bucket = handles_[bucket_index].size() - 1;
+    check_id_overflow(id_inside_bucket, size, offset_bits);
+    return create_memhandle_from_bucket_index_and_handle_index(
+        bucket_index, id_inside_bucket);
   }
-  if (handles_[bucket_index].size() > bucketInfo[bucket_index].max_handles) {
-    PT_SYNHELPER_FATAL("All possible device memory handles has been used");
-    return mem_handle::invalid_handle;
-  }
-  handles_[bucket_index].emplace_back(size, stream);
-  auto id_inside_bucket = handles_[bucket_index].size() - 1;
-  check_id_overflow(id_inside_bucket, size, offset_bits);
-  return create_memhandle_from_bucket_index_and_handle_index(
-      bucket_index, id_inside_bucket);
 }
 
 HandlesMap::PtrSize HandlesMap::GetPtrSize(mem_handle::id_t id) const {

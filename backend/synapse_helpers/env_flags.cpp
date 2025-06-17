@@ -181,9 +181,10 @@ static RT<T> getenv_numeric(
         envval,
         '\"');
     return env_value(envval);
+  } else {
+    // Both undefined and XXX= cases
+    return default_value(def_val);
   }
-  // Both undefined and XXX= cases
-  return default_value(def_val);
 }
 
 template <>
@@ -209,17 +210,6 @@ RT<bool> getenv_by_type(const char* name, bool def_val) {
           def_val,
           "\" due to syntax error");
     }
-    if (false_found) {
-      return env_value(false);
-    }
-    PT_SYNHELPER_FATAL(
-        "Environment variable \"",
-        name,
-        "\"=\"",
-        envstrp,
-        "\" converted to default value \"",
-        def_val,
-        "\" due to syntax error");
   }
 
   return default_value(def_val);

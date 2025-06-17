@@ -47,16 +47,17 @@ bool nodeHasScalarGraphInput(
     if (producer_node->kind() == torch::jit::prim::ListConstruct)
       return nodeHasScalarGraphInput(
           producer_node, org_stack_index_map, value_ivalue_map);
-
-    auto ivalue = value_ivalue_map[const_cast<torch::jit::Value*>(input)];
-    if (!ivalue->isTensor()) {
-      if (org_stack_index_map.count(input->debugName())) {
-        auto node_name = node->kind().toQualString();
-        PT_EAGER_DEBUG(
-            "Node ",
-            node_name,
-            " has scalar inputs that are also graph inputs");
-        return true;
+    else {
+      auto ivalue = value_ivalue_map[const_cast<torch::jit::Value*>(input)];
+      if (!ivalue->isTensor()) {
+        if (org_stack_index_map.count(input->debugName())) {
+          auto node_name = node->kind().toQualString();
+          PT_EAGER_DEBUG(
+              "Node ",
+              node_name,
+              " has scalar inputs that are also graph inputs");
+          return true;
+        }
       }
     }
   }

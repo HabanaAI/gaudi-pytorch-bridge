@@ -64,8 +64,9 @@ class StrongTypeBase {
   std::remove_pointer_t<T>* operator->() {
     if constexpr (std::is_pointer_v<T>) {
       return get_value();
-    }
+    } else {
       return &get_value();
+    }
   }
 
   template <

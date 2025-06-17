@@ -245,8 +245,7 @@ void NormOperator::AllocateAndAddSynapseNode(
     // L0 Norm
     AddL0NormNode(graph, inputs, output_metadata.at(0));
     return;
-  }
-  if (
+  } else if (
       p.toFloat() == LoweringUtil::FP_INFINITY ||
       p.toFloat() == LoweringUtil::FP_NEG_INFINITY) {
     // LInf and LNegInf Norms

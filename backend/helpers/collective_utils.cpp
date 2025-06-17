@@ -52,12 +52,10 @@ hcclRedOp_t getHCCLReduceOp(
     if (reduceOp == c10d::ReduceOp::SUM) {
       // bitwise or
       return hcclMax;
-    }
-    if (reduceOp == c10d::ReduceOp::PRODUCT) {
+    } else if (reduceOp == c10d::ReduceOp::PRODUCT) {
       // bitwise and
       return hcclMin;
-    }
-    if (reduceOp == c10d::ReduceOp::AVG) {
+    } else if (reduceOp == c10d::ReduceOp::AVG) {
       HABANA_ASSERT(false, "Cannot use ReduceOp.AVG with boolean inputs");
     }
   }

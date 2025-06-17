@@ -276,18 +276,19 @@ synapse_helpers::tensor NormalTensorHelper(
            {{meta.shape, meta.dtype, 0}}});
 
       return std::move(addOp[0]);
+    } else {
+      auto addOp = OpBackend::BuildNode(
+          op,
+          graph,
+          {get_guid_with_precision("add_fwd"sv, meta.dtype),
+           {syn_mean, normal[0].get()},
+           {{meta.shape, meta.dtype, 0}}});
+      return std::move(addOp[0]);
     }
-    auto addOp = OpBackend::BuildNode(
-        op,
-        graph,
-        {get_guid_with_precision("add_fwd"sv, meta.dtype),
-         {syn_mean, normal[0].get()},
-         {{meta.shape, meta.dtype, 0}}});
-    return std::move(addOp[0]);
-  }
-  if (normal_variant == NORMAL_FT) {
+  } else if (normal_variant == NORMAL_FT) {
     // insert addOp if necessary
-    auto mean = static_cast<float>(stack.at(MEAN_INDEX + idx_shift).toDouble());
+    auto mean =
+        static_cast<float>(stack.at(MEAN_INDEX + idx_shift).toDouble());
     if (mean != 0.0) {
       auto mulOp = OpBackend::BuildNode(
           op,
@@ -304,28 +305,30 @@ synapse_helpers::tensor NormalTensorHelper(
            {mean_tensor.get(), mulOp[0].get()},
            {{meta.shape, meta.dtype, 0}}});
       return std::move(addOp[0]);
+    } else {
+      auto mulOp = OpBackend::BuildNode(
+          op,
+          graph,
+          {get_guid_with_precision("mult_fwd"sv, meta.dtype),
+           {syn_std, normal[0].get()},
+           {{meta.shape, meta.dtype, 0}}});
+      return std::move(mulOp[0]);
     }
+  } else {
     auto mulOp = OpBackend::BuildNode(
         op,
         graph,
         {get_guid_with_precision("mult_fwd"sv, meta.dtype),
          {syn_std, normal[0].get()},
+         {{meta.shape, meta.dtype}}});
+    auto addOp = OpBackend::BuildNode(
+        op,
+        graph,
+        {get_guid_with_precision("add_fwd"sv, meta.dtype),
+         {syn_mean, mulOp[0].get()},
          {{meta.shape, meta.dtype, 0}}});
-    return std::move(mulOp[0]);
+    return std::move(addOp[0]);
   }
-  auto mulOp = OpBackend::BuildNode(
-      op,
-      graph,
-      {get_guid_with_precision("mult_fwd"sv, meta.dtype),
-       {syn_std, normal[0].get()},
-       {{meta.shape, meta.dtype}}});
-  auto addOp = OpBackend::BuildNode(
-      op,
-      graph,
-      {get_guid_with_precision("add_fwd"sv, meta.dtype),
-       {syn_mean, mulOp[0].get()},
-       {{meta.shape, meta.dtype, 0}}});
-  return std::move(addOp[0]);
 }
 
 synapse_helpers::tensor NormalFloatFloatHelper(
@@ -417,17 +420,18 @@ SharedMetaDataVector NormalSharedMeta(
         return {randomSharedMeta, multSharedMeta, addSharedMeta};
 
       return {randomSharedMeta, addSharedMeta};
-    }
-    if (normalVariant == NORMAL_FT) {
+    } else if (normalVariant == NORMAL_FT) {
       auto mean = stack.at(0).toDouble();
-      if (mean != 0.0) {
+      if (mean != 0.0)
         return {randomSharedMeta, multSharedMeta, addSharedMeta};
-      }
+
       return {randomSharedMeta, multSharedMeta};
+    } else {
+      return {randomSharedMeta, multSharedMeta, addSharedMeta};
     }
-    return {randomSharedMeta, multSharedMeta, addSharedMeta};
+  } else {
+    return {randomSharedMeta};
   }
-  return {randomSharedMeta};
 }
 
 void NormalBE::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
@@ -494,8 +498,9 @@ SharedMetaDataVector RandomSeedTensorInputIntegersSharedMeta(
     floorSharedMeta.inputs_data = randomSharedMeta.outputs_data;
     floorSharedMeta.outputs_data = floorSharedMeta.inputs_data;
     return {randomSharedMeta, floorSharedMeta};
+  } else {
+    return {randomSharedMeta};
   }
-  return {randomSharedMeta};
 }
 
 SharedMetaDataVector RandomNormalSharedMeta(

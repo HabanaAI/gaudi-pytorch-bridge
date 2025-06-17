@@ -308,6 +308,8 @@ void stream_event_manager::wait_until_done(device_ptr device_address) {
     auto it = events_by_addr_.find(device_address);
     if (it != events_by_addr_.end()) {
       evnt = it->second;
+    } else {
+      return;
     }
   }
 
@@ -322,6 +324,8 @@ void stream_event_manager::wait_until_done(const std::string& event_id) {
     auto it = events_by_str_.find(event_id);
     if (it != events_by_str_.end()) {
       evnt = it->second;
+    } else {
+      return;
     }
   }
 
@@ -382,6 +386,7 @@ shared_event stream_event_manager::get_event(device_ptr device_address) {
   auto it = events_by_addr_.find(device_address);
   if (it != events_by_addr_.end()) {
     return it->second;
+  } else {
+    return nullptr;
   }
-  return nullptr;
 }

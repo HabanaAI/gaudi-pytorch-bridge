@@ -467,16 +467,17 @@ bool ConstantInformation::IsNewConstIdForRecipe(
   auto const_checksum_iterator = const_checksum_map_.find(const_id);
   if (const_checksum_iterator == const_checksum_map_.end()) {
     return true;
-  }
-  auto& const_checksum = const_checksum_map_.at(const_id);
-  for (auto& info : const_checksum.infos_) {
-    for (auto key : info.recipe_key_) {
-      if (recipe_key == key) {
-        return false;
+  } else {
+    auto& const_checksum = const_checksum_map_.at(const_id);
+    for (auto& info : const_checksum.infos_) {
+      for (auto key : info.recipe_key_) {
+        if (recipe_key == key) {
+          return false;
+        }
       }
     }
+    return true;
   }
-  return true;
 }
 
 void ConstantInformation::ClearChecksumInformation() {
@@ -489,8 +490,9 @@ bool IsConstantScaleTensor(at::Tensor& tensor) {
   auto tmeta{habana::get_tensor_extra_meta(tensor)};
   if (tmeta->is_const_tensor() && (tensor.numel() == 1)) {
     return true;
+  } else {
+    return false;
   }
-  return false;
 }
 
 } // namespace habana

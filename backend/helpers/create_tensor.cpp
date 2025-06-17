@@ -1132,15 +1132,17 @@ get_tensor_memory_permutation(const at::Tensor& tensor) {
     return {
         habana::StorageExtraMeta().get_memory_permutation(),
         habana::StorageExtraMeta().get_dont_allow_permutation()};
+  } else {
+    auto smeta{habana::get_storage_extra_meta(tensor)};
+    if (smeta) {
+      return {
+          smeta->get_memory_permutation(), smeta->get_dont_allow_permutation()};
+    } else {
+      return {
+          habana::StorageExtraMeta().get_memory_permutation(),
+          habana::StorageExtraMeta().get_dont_allow_permutation()};
+    }
   }
-  auto smeta{habana::get_storage_extra_meta(tensor)};
-  if (smeta) {
-    return {
-        smeta->get_memory_permutation(), smeta->get_dont_allow_permutation()};
-  }
-  return {
-      habana::StorageExtraMeta().get_memory_permutation(),
-      habana::StorageExtraMeta().get_dont_allow_permutation()};
 }
 
 void set_tensor_memory_permutations(

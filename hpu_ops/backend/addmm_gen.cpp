@@ -154,16 +154,17 @@ static std::vector<synapse_helpers::tensor> ComputeGEMM(
 
   if (!is_batch) {
     return gemm_out;
+  } else {
+    return HandleReduction(
+        op,
+        graph,
+        gemm_out[0].get(),
+        "reduce_sum_multi_dim_fwd",
+        {0} /*dimsToReduce*/,
+        3 /*inputRank*/,
+        false /*keepdim*/,
+        {{output_shape, op->ScalarType(), final_idx}});
   }
-  return HandleReduction(
-      op,
-      graph,
-      gemm_out[0].get(),
-      "reduce_sum_multi_dim_fwd",
-      {0} /*dimsToReduce*/,
-      3 /*inputRank*/,
-      false /*keepdim*/,
-      {{output_shape, op->ScalarType(), final_idx}});
 }
 
 static std::vector<synapse_helpers::tensor> ComputeAlphaSide(
@@ -191,17 +192,19 @@ static std::vector<synapse_helpers::tensor> ComputeAlphaSide(
 
   if (alpha_val == 1.0) {
     return gemm_out;
+  } else {
+    auto alpha_tensor = OpBackend::BuildConstant(
+        op, graph, alpha_val, op->ScalarType(), output_shape);
+    std::vector<synTensor> mul_node_inputs{
+        gemm_out[0].get(), alpha_tensor.get()};
+    std::vector<synapse_helpers::tensor> alpha_mul_out = OpBackend::BuildNode(
+        op,
+        graph,
+        {get_guid_with_precision("mult"sv, op->ScalarType()),
+         std::move(mul_node_inputs),
+         {{output_shape, op->ScalarType(), final_idx}}});
+    return alpha_mul_out;
   }
-  auto alpha_tensor = OpBackend::BuildConstant(
-      op, graph, alpha_val, op->ScalarType(), output_shape);
-  std::vector<synTensor> mul_node_inputs{gemm_out[0].get(), alpha_tensor.get()};
-  std::vector<synapse_helpers::tensor> alpha_mul_out = OpBackend::BuildNode(
-      op,
-      graph,
-      {get_guid_with_precision("mult"sv, op->ScalarType()),
-       std::move(mul_node_inputs),
-       {{output_shape, op->ScalarType(), final_idx}}});
-  return alpha_mul_out;
 }
 
 static std::vector<synapse_helpers::tensor> AddMMCommon(

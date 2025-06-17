@@ -781,15 +781,16 @@ bool MemoryDefragementer::Run(
         mem_end_ptr_,
         defragmentation_needed,
         result);
+  } else {
+    // Not expected case, but it needs to be handled for completeness
+    return SelectRegionForResourceAllocation(
+        memory_blocks,
+        allocation_size,
+        mem_start_ptr_,
+        small_allocs_ptr_,
+        defragmentation_needed,
+        result);
   }
-  // Not expected case, but it needs to be handled for completeness
-  return SelectRegionForResourceAllocation(
-      memory_blocks,
-      allocation_size,
-      mem_start_ptr_,
-      small_allocs_ptr_,
-      defragmentation_needed,
-      result);
 
   return true;
 }
