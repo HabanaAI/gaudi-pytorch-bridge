@@ -890,7 +890,7 @@ bool device_memory::defragment_memory(
              {"milliseconds", std::to_string(milliseconds_metric)}}));
   }
 
-  towl::emitDefragFinished("defragmentation Done");
+  towl::emitDefragFinished("defragmentation Done", region);
   PT_DEVMEM_DEBUG("defragmentation Done");
   if (device_.IsMemorydefragmentationInfoEnabled()) {
     auto total_duration =

@@ -15,6 +15,7 @@
 #include "towl.h"
 #include <unistd.h>
 #include "backend/habana_device/HPUDevice.h"
+#include "backend/synapse_helpers/memory_defragmentation.h"
 
 // Defined here, should not be used directly inside bridge.
 
@@ -321,11 +322,23 @@ void emitDefragLaunch(const std::string& info) {
   PT_TOWL_DEBUG("defrag.launch ", info);
 }
 
-void emitDefragFinished(const std::string& info) {
+void emitDefragFinished(const std::string& info, const std::unique_ptr<synapse_helpers::defragment_helpers::Region>& region) {
   if (not config.log_defrag) {
     return;
   }
-  PT_TOWL_DEBUG("defrag.finished ", info);
+
+  std::string addr_string;
+  if (region && (region->begin_ != region->end_)) {
+    addr_string.reserve(64);
+    addr_string += " @";
+    for (std::vector<synapse_helpers::defragment_helpers::MemoryBlock>::const_iterator it = region->begin_; it != region->end_; ++it) {
+      char buffer[32];
+      std::snprintf(buffer, sizeof(buffer), " %zx", it->handle_);
+      addr_string += buffer;
+    }
+  }
+
+  PT_TOWL_DEBUG("defrag.finished ", info + addr_string);
 }
 
 void emitPythonString(const std::string& s) {

@@ -19,6 +19,15 @@
 #include "backend/synapse_helpers/device_types.h"
 #include "backend/synapse_helpers/graph.h"
 #include "logging.h"
+
+// Forward declaration to avoid circular dependency
+// if backend/synapse_helpers/memory_defragmentation.h is included
+namespace synapse_helpers {
+namespace defragment_helpers {
+  class Region;
+}
+}
+
 namespace towl {
 
 namespace impl {
@@ -51,7 +60,7 @@ void emitCollectiveLaunch(const std::string& info);
 void emitCollectiveFinished(const std::string& info);
 
 void emitDefragLaunch(const std::string& info);
-void emitDefragFinished(const std::string& info);
+void emitDefragFinished(const std::string& info, const std::unique_ptr<synapse_helpers::defragment_helpers::Region>& region = nullptr);
 
 void emitPythonString(const std::string& s);
 
@@ -134,7 +143,7 @@ _MAKE_TOWL_ENTRYPOINT(
     (info));
 
 _MAKE_TOWL_ENTRYPOINT(emitDefragLaunch, (const std::string& info), (info));
-_MAKE_TOWL_ENTRYPOINT(emitDefragFinished, (const std::string& info), (info));
+_MAKE_TOWL_ENTRYPOINT(emitDefragFinished, (const std::string& info, const std::unique_ptr<synapse_helpers::defragment_helpers::Region>& region = nullptr), (info, region));
 
 _MAKE_TOWL_ENTRYPOINT(emitPythonString, (const std::string& s), (s));
 _MAKE_TOWL_ENTRYPOINT(emitDeviceMemorySummary, (const char* tag), (tag));
