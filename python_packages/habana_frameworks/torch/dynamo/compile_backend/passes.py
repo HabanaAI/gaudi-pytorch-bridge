@@ -233,24 +233,24 @@ def pass_batch_as_strided_groups(ctx: OptimizerContext):
 
 def pass_allreduce_parents(ctx: OptimizerContext) -> bool:
     # TODO: try to reuse torch.fx.passes.infra.partitioner._DependencyViewer
-    if hpu_backend_config.enable_allreduce_graph_split:
-        gm = ctx.graph_module
-        allreduces = [n for n in gm.graph.nodes if n.name.startswith("all_reduce")]
-        for allreduce in allreduces:
-            downstream_allreduce_name = allreduce.name
-            previous_nodes = allreduce.all_input_nodes
-            new_previous_nodes = []
-            while len(previous_nodes) > 0:
-                for previous_node in previous_nodes:
-                    if "downstream_allreduce_name" not in previous_node.meta:
-                        previous_node.meta["downstream_allreduce_name"] = downstream_allreduce_name
-                        previous_node.parent = downstream_allreduce_name
-                        new_previous_nodes.extend(previous_node.all_input_nodes)
-                previous_nodes = new_previous_nodes
-                new_previous_nodes = []
+    if not hpu_backend_config.enable_allreduce_graph_split:
+        return False
 
-        return len(allreduces) > 0
-    return False
+    gm = ctx.graph_module
+    allreduces = (n for n in gm.graph.nodes if n.name.startswith("all_reduce"))
+    len_allreduces = 0
+    for allreduce in allreduces:
+        len_allreduces += 1
+        downstream_allreduce_name = allreduce.name
+        previous_nodes = [allreduce.all_input_nodes]
+        while previous_nodes:
+            for previous_node in previous_nodes.pop(0):
+                if "downstream_allreduce_name" not in previous_node.meta:
+                    previous_node.meta["downstream_allreduce_name"] = downstream_allreduce_name
+                    previous_node.parent = downstream_allreduce_name
+                    previous_nodes.append(previous_node.all_input_nodes)
+
+    return len_allreduces > 0
 
 
 def pass_mark_waittensor_downstream_ops(ctx: OptimizerContext) -> bool:
@@ -258,20 +258,19 @@ def pass_mark_waittensor_downstream_ops(ctx: OptimizerContext) -> bool:
         return False
 
     gm = ctx.graph_module
-    waittensors = [n for n in gm.graph.nodes if "wait_tensor" in str(n.target)]
+    waittensors = (n for n in gm.graph.nodes if "wait_tensor" in str(n.target))
+    len_waittensors = 0
     for waittensor in waittensors:
+        len_waittensors += 1
         upstream_waittensor_name = waittensor.name
-        user_nodes = list(waittensor.users.keys())
-        new_user_nodes = []
-        while len(user_nodes) > 0:
-            for user_node in user_nodes:
+        user_nodes = [waittensor.users.keys()]
+        while user_nodes:
+            for user_node in user_nodes.pop(0):
                 if "upstream_waittensor_name" not in user_node.meta:
                     user_node.meta["upstream_waittensor_name"] = upstream_waittensor_name
-                    new_user_nodes.extend(list(user_node.users.keys()))
-            user_nodes = new_user_nodes
-            new_user_nodes = []
+                    user_nodes.append(user_node.users.keys())
 
-    return len(waittensors) > 0
+    return len_waittensors > 0
 
 
 def pass_reorder_collectives(ctx: OptimizerContext) -> bool:
@@ -832,11 +831,16 @@ def pass_annotate_nodes_and_inline_submodule(ctx: OptimizerContext) -> bool:
 
 
 def pass_mark_frozen_params(ctx: OptimizerContext) -> bool:
+    graph_changed = False
+
     for n in ctx.graph_module.graph.nodes:
-        if (n.op == "get_attr" or n.op == "placeholder") and "_frozen_param" in n.target:
+        if (n.op in ["get_attr", "placeholder"]) and "_frozen_param" in n.target:
             n.meta["frozen_param"] = True
-    ctx.graph_module.graph.lint()
-    ctx.graph_module.recompile()
+            graph_changed = True
+
+    if graph_changed:
+        ctx.graph_module.graph.lint()
+        ctx.graph_module.recompile()
 
 
 def pass_replace_sym_size(ctx: OptimizerContext) -> bool:
@@ -1061,23 +1065,19 @@ def pass_propose_partitions(ctx: OptimizerContext) -> bool:
 
     ctx.current_partitions = []
     ctx.current_partitions_non_mergeable = []
-    if hpu_backend_config.enable_allreduce_graph_split:
-        allreduces = [n for n in ctx.graph_module.graph.nodes if n.name.startswith("all_reduce")]
-        cls = FusedCollectiveOperatorSupport
-        cls.keyword = "downstream_allreduce_name"
-        ctx.habana_partitioner = HabanaPartitioner(ctx.graph_module, cls)
-        for allreduce in allreduces:
-            cls.target_value = allreduce.name
-            ctx.current_partitions_non_mergeable.extend(ctx.habana_partitioner.propose_partitions())
 
-    if hpu_backend_config.enable_waittensor_graph_split:
-        wait_tensors = [n for n in ctx.graph_module.graph.nodes if n.name.startswith("wait_tensor")]
-        cls = FusedCollectiveOperatorSupport
-        cls.keyword = "upstream_waittensor_name"
-        ctx.habana_partitioner = HabanaPartitioner(ctx.graph_module, cls)
-        for wait_tensor in wait_tensors:
-            cls.target_value = wait_tensor.name
-            ctx.current_partitions_non_mergeable.extend(ctx.habana_partitioner.propose_partitions())
+    def propose_partitions(node_name, nodename, stream):
+        if getattr(hpu_backend_config, f"enable_{nodename}_graph_split"):
+            nodes = (n for n in ctx.graph_module.graph.nodes if n.name.startswith(node_name))
+            cls = FusedCollectiveOperatorSupport
+            cls.keyword = f"{stream}_{nodename}_name"
+            ctx.habana_partitioner = HabanaPartitioner(ctx.graph_module, cls)
+            for node in nodes:
+                cls.target_value = node.name
+                ctx.current_partitions_non_mergeable.extend(ctx.habana_partitioner.propose_partitions())
+
+    propose_partitions("all_reduce", "allreduce", "downstream")
+    propose_partitions("wait_tensor", "waittensor", "upstream")
 
     ctx.habana_partitioner = HabanaPartitioner(ctx.graph_module)
     ctx.current_partitions.extend(ctx.habana_partitioner.propose_partitions())
@@ -1137,9 +1137,7 @@ def post_process_partitions(
             copy_args = list(copy_node.args)
             copy_src_node = copy_args[1]
             if (
-                full_node not in assignments
-                or copy_node not in assignments
-                or copy_src_node not in assignments
+                any(node not in assignments for node in [full_node, copy_node, copy_src_node])
                 or assignments[full_node] != assignments[copy_node]
                 or assignments[full_node] == assignments[copy_src_node]
             ):
@@ -1798,13 +1796,11 @@ def pass_eagerize_leaf_views(ctx: OptimizerContext) -> bool:
     # Find HPU view chains used by eager OPs that are also used by non-eager HPU ops ('blue' color - to be cloned).
     for node in reverse_nodes_list:
         if node.meta["pass_meta_color"] == "red":
-            found_hpu_dst = False
-            for dst in node.users:
-                if (dst.meta["placement"] == "hpu_cluster" and dst.meta["pass_meta_color"] != "red") or (
-                    dst.meta["pass_meta_color"] == "blue"
-                ):
-                    found_hpu_dst = True
-                    break
+            found_hpu_dst = any(
+                (dst.meta["placement"] == "hpu_cluster" and dst.meta["pass_meta_color"] != "red")
+                or (dst.meta["pass_meta_color"] == "blue")
+                for dst in node.users
+            )
 
             if found_hpu_dst:
                 node.meta["pass_meta_color"] = "blue"
@@ -1821,10 +1817,11 @@ def pass_eagerize_leaf_views(ctx: OptimizerContext) -> bool:
                 new_node.meta = copy.copy(node.meta)
 
             # Move non-red (HPU path) edges to the new node.
-            nodes_to_change = []
-            for dst in node.users:
-                if dst.meta["pass_meta_color"] != "red" and dst.meta["placement"] == "hpu_cluster":
-                    nodes_to_change.append(dst)
+            nodes_to_change = [
+                dst
+                for dst in node.users
+                if dst.meta["pass_meta_color"] != "red" and dst.meta["placement"] == "hpu_cluster"
+            ]
             for dst in nodes_to_change:
                 dst.replace_input_with(node, new_node)
 
@@ -1842,7 +1839,7 @@ def pass_eagerize_leaf_views(ctx: OptimizerContext) -> bool:
             graph_changed = True
             node.meta["placement"] = "eager"
             logger.debug(
-                f"{node._pretty_print_target(node.target)} fellback to eager due to being identified as leaf view node"
+                f"{node._pretty_print_target(node.target)} fallback to eager due to being identified as leaf view node"
             )
         del node.meta["pass_meta_color"]
 

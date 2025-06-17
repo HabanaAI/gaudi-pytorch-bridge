@@ -88,10 +88,7 @@ def get_node_args(node: torch.fx.Node):
             args = node.args[0]
 
     if isinstance(args, tuple | list | torch.fx.immutable_collections.immutable_list):
-        cleaned_args = []
-        for arg in args:
-            if isinstance(arg, torch.fx.Node):
-                cleaned_args.append(arg)
+        cleaned_args = [arg for arg in args if isinstance(arg, torch.fx.Node)]
     else:
         cleaned_args = args
 
