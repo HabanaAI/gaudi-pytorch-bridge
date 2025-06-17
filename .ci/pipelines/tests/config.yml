@@ -1,11 +1,11 @@
 # yaml-language-server: $schema=https://artifactory-kfs.habana-labs.com:443/artifactory/devops-generic-dev-local/json-ci-yaml-schemas/test_config.json
 testJobConfig:
   cpp_suite:
+    jobTimeout: '180'
     devices:
       gaudi2:
         hwType:
           sim:
-            jobTimeout: '180'
       gaudi3:
         hwType:
           sim:
@@ -42,11 +42,11 @@ testJobConfig:
         hwType:
           sim:
   cpp_suite_future:
+    jobTimeout: '180'
     devices:
       gaudi2:
         hwType:
           sim:
-            jobTimeout: '180'
       gaudi3:
         hwType:
           sim:
@@ -111,11 +111,11 @@ testJobConfig:
           sim:
             cards: 8
   cd_installation_validation:
+    jobTimeout: '30'
     devices:
       cpu:
         hwType:
           sim:
-            jobTimeout: '30'
   tidy:
     dockerImage: artifactory-kfs.habana-labs.com/devops-docker-local/habana-builder-pt:${OS}-${RELEASE_VERSION}
     jobTimeout: '240'
