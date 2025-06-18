@@ -312,14 +312,14 @@ def run(*args, venv=".") -> None:
         f"^^^ called by {inspect.stack()[1].function} at {inspect.stack()[1].filename}:{inspect.stack()[1].lineno}"
     )
     # must run through shell because otherwise changing PATH has no effect
-    sp.check_call(" ".join(args), env=prepare_env(venv), shell=True, executable="/bin/bash")
+    sp.check_call(" ".join(args), env=prepare_env(venv), shell=True, executable="/bin/bash")  # noqa S602
 
 
 def outof(*args, venv=".") -> str:
     log.debug(f"In {venv} capturing output of `{' '.join(args)}`")
     try:
         # must run through shell because otherwise changing PATH has no effect
-        result = sp.check_output(" ".join(args), encoding="ascii", env=prepare_env(venv), shell=True)
+        result = sp.check_output(" ".join(args), encoding="ascii", env=prepare_env(venv), shell=True)  # noqa S602
         log.debug(f"====\n{result}====")
         return result
     except sp.CalledProcessError as cpe:
@@ -1716,7 +1716,7 @@ class ManylinuxRunner:
             + "--cmake-flag -DMANYLINUX=ON"  # TODO: build_with_shim
         )
         log.debug(f"Running command: {command}")
-        sp.check_call(command, shell=True)
+        sp.check_call(command, shell=True)  # noqa S602
 
 
 def select_targets_and_configs(args, wheel_configs: list[WheelConfig]) -> tuple[set, list]:

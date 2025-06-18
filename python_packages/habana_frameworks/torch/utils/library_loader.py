@@ -74,7 +74,7 @@ def is_habana_available():
         enable_console = False
         os.environ["ENABLE_CONSOLE"] = "true"
     try:
-        result = subprocess.check_output(cmd, stderr=subprocess.STDOUT, shell=True).decode()
+        result = subprocess.check_output(cmd, stderr=subprocess.STDOUT, shell=True).decode()  # noqa S602
         if result.find("Habana") != -1:
             status = True
     except Exception:
