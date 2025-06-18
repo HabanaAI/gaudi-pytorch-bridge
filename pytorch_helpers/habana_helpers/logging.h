@@ -273,44 +273,6 @@ template <class... Args>
 inline void nop(__attribute__((unused)) const Args&... args){};
 } // namespace Logger
 
-class PTFuncLog {
- private:
-  const std::string_view module;
-  const std::string_view pName;
-  const std::string_view name;
-  bool isActive;
-
- public:
-  PTFuncLog(
-      const std::string_view module,
-      const std::string_view pn,
-      const std::string_view n,
-      bool isActive)
-      : module(module), pName(pn), name(n), isActive(isActive) {
-    if (isActive) {
-      HLLOG_TRACE(
-          PT_TRACE,
-          FORMAT_AND_MSG(
-              "[Rank:",
-              Logger::get_rank(),
-              "] ",
-              module,
-              ": begin of ",
-              pName));
-    }
-    habana::profile::bridge::trace_start(name);
-  }
-  ~PTFuncLog() {
-    if (isActive) {
-      HLLOG_TRACE(
-          PT_TRACE,
-          FORMAT_AND_MSG(
-              "[Rank:", Logger::get_rank(), "] ", module, ": end of ", pName));
-    }
-    habana::profile::bridge::trace_end(name);
-  }
-};
-
 #define HABANA_CHECK_MSG(cond, ...) \
   Logger::CheckMsgImpl(             \
       "Expected " #cond " to be true, but got false.", ##__VA_ARGS__)
@@ -529,6 +491,50 @@ class PTFuncLog {
 #define PT_OP_INFO(...) HLLOG_INFO(PT_STATS, FORMAT_AND_MSG(__VA_ARGS__));
 
 // End of logging macros
+
+class PTFuncLog {
+ private:
+  const std::string_view module;
+  const std::string_view pName;
+  const std::string_view name;
+  bool isActive;
+
+ public:
+  PTFuncLog(
+      const std::string_view module,
+      const std::string_view pn,
+      const std::string_view n,
+      bool isActive)
+      : module(module), pName(pn), name(n), isActive(isActive) {
+    if (isActive) {
+      HLLOG_TRACE(
+          PT_TRACE,
+          FORMAT_AND_MSG(
+              "[Rank:",
+              Logger::get_rank(),
+              "] ",
+              module,
+              ": begin of ",
+              pName));
+    }
+    habana::profile::bridge::trace_start(name);
+  }
+  ~PTFuncLog() noexcept {
+    try {
+      if (isActive) {
+        HLLOG_TRACE(
+            PT_TRACE,
+            FORMAT_AND_MSG(
+                "[Rank:", Logger::get_rank(), "] ", module, ": end of ", pName));
+      }
+      habana::profile::bridge::trace_end(name);
+    } catch (const std::exception& e) {
+      PT_BRIDGE_WARN("Exception in destructor PTFuncLog. Message: ", e.what());
+    } catch (...) {
+      PT_BRIDGE_WARN("Unknown exception in destructor PTFuncLog");
+    }
+  }
+};
 
 template <
     typename Integer,

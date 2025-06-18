@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -52,7 +52,13 @@ class ProcessGroupHCCLRegistry {
   }
 
   ~ProcessGroupHCCLRegistry() {
-    cleanup();
+    try {
+      cleanup();
+    } catch (const std::exception& e) {
+      PT_BRIDGE_WARN("Exception in destructor ProcessGroupHCCLRegistry. Message: ", e.what());
+    } catch (...) {
+      PT_BRIDGE_WARN("Unknown exception in destructor ProcessGroupHCCLRegistry");
+    }
   }
 
  private:
