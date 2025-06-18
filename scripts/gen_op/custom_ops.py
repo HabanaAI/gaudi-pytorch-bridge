@@ -44,6 +44,7 @@ input_types_map = {
     "Tensor": "const at::Tensor &",
     "Tensor?": "const ::std::optional<at::Tensor> &",
     "Tensor?[]": "const c10::List<::std::optional<at::Tensor>> &",
+    "Tensor[]?": "::std::optional<at::TensorList>",
     "Tensor[]": "at::TensorList",
     "bool": "bool",
     "bool?": "::std::optional<bool>",

@@ -2086,6 +2086,18 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::fp8_sdpa_recomp_fwd.scalar", fp8_sdpa_recomp_fwd_scalar_lazy);
   m.impl("hpu::fp8_sdpa_fwd", fp8_sdpa_fwd_wrap);
   m.impl("hpu::fp8_sdpa_recomp_bwd", fp8_sdpa_recomp_bwd_lazy);
+  m.impl(
+      "hpu::mixture_of_experts_fwd.fp8_fused",
+      mixture_of_experts_fwd_fp8_fused_weights_lazy);
+  m.impl(
+      "hpu::mixture_of_experts_recomp_fwd.fp8_fused",
+      mixture_of_experts_recomp_fwd_fp8_fused_weights_lazy);
+  m.impl(
+      "hpu::mixture_of_experts_bwd.fp8_fused",
+      mixture_of_experts_bwd_fp8_fused_weights_lazy);
+  m.impl(
+      "hpu::mixture_of_experts_recomp_bwd.fp8_fused",
+      mixture_of_experts_recomp_bwd_fp8_fused_weights_lazy);
 }
 
 TORCH_LIBRARY_IMPL(hpu, Autograd, m) {

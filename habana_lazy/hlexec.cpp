@@ -890,8 +890,11 @@ void HlExec::Create(
   // Because we dont support tensorlist in lowering that matches kernel schema
   // need to disable optimization in case mixture_of_experts_bwd is used in the
   // graph. More details: SW-68937
-  static const std::array<std::string_view, 2> nodes_to_disable_optimization = {
-      "hpu::mixture_of_experts_bwd"sv, "hpu::mixture_of_experts_recomp_bwd"sv};
+  static const std::array<std::string_view, 4> nodes_to_disable_optimization = {
+      "hpu::mixture_of_experts_bwd"sv,
+      "hpu::mixture_of_experts_recomp_bwd"sv,
+      "hpu::mixture_of_experts_fwd"sv,
+      "hpu::mixture_of_experts_recomp_fwd"sv};
 
   const bool call_optimize = std::all_of(
       nodes.cbegin(),

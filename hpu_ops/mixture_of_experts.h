@@ -23,9 +23,9 @@ namespace sh = synapse_helpers;
 namespace habana {
 
 std::vector<std::vector<int64_t>> MixtureOfExpertsFwdShapes(const at::Stack&);
-
-OutputMetaDataVector MixtureOfExpertsFp8Meta(const at::Stack& stack);
-OutputMetaDataVector MixtureOfExpertsFwdMeta(const at::Stack& stack);
-OutputMetaDataVector MixtureOfExpertsFwdRecompMeta(const at::Stack& stack);
+std::vector<std::vector<int64_t>> MixtureOfExpertsFwdFp8Shapes(
+    const at::Stack&);
+std::vector<std::vector<int64_t>> MixtureOfExpertsRecompFwdFp8Shapes(
+    const at::Stack&);
 
 } // namespace habana

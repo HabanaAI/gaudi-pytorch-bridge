@@ -19,6 +19,7 @@
 #include "generated/backend/mixture_of_experts_bwd.h"
 #include "generated/backend/mixture_of_experts_fwd.h"
 #include "generated/backend/mixture_of_experts_recomp_bwd.h"
+#include "generated/backend/mixture_of_experts_recomp_fwd.h"
 #include "hpu_ops/custom_op_outshape.h"
 #include "hpu_ops/hpu_op_helper.h"
 #include "hpu_ops/mixture_of_experts.h"
@@ -178,6 +179,7 @@ std::vector<std::vector<int64_t>> MixtureOfExpertsFwdShapes(
 
   const size_t permuted_weights_idx = fused_weights ? 5 : 6;
   const bool permuted = stack.at(permuted_weights_idx).toBool();
+
   const auto& weights_shape = stack.at(3).toTensorList().get(0).sizes();
 
   const int64_t chunk_size = stack.at(stack.size() - 1).toInt();
@@ -189,6 +191,45 @@ std::vector<std::vector<int64_t>> MixtureOfExpertsFwdShapes(
       static_cast<int64_t>(weights_shape[permuted ? 0 : 1]),
       fused_weights,
       chunk_size);
+}
+
+std::vector<std::vector<int64_t>> MixtureOfExpertsFwdFp8Shapes(
+    const at::Stack& stack) {
+  const bool fused_weights = !stack.at(9).isTensorList();
+
+  const size_t permuted_weights_idx = fused_weights ? 9 : 11;
+  const bool permuted = stack.at(permuted_weights_idx).toBool();
+  const auto& weights_shape = stack.at(3).toTensorList().get(0).sizes();
+  const int64_t chunk_size = 0;
+
+  return MixtureOfExpertsFwdSizes(
+      stack_tensor(stack, 0).sizes(),
+      stack_tensor(stack, 1).sizes(),
+      static_cast<int64_t>(stack.at(3).toTensorList().size()),
+      static_cast<int64_t>(weights_shape[permuted ? 0 : 1]),
+      fused_weights,
+      chunk_size);
+}
+
+std::vector<std::vector<int64_t>> MixtureOfExpertsRecompFwdFp8Shapes(
+    const at::Stack& stack) {
+  const int64_t num_experts =
+      static_cast<int64_t>(stack.at(3).toTensorList().size());
+  const size_t stack_size = stack.size();
+
+  const bool is_first_amax = stack.at(stack_size - 2).toBool();
+  const bool is_second_amax = stack.at(stack_size - 1).toBool();
+
+  std::vector<std::vector<int64_t>> output_shapes = {
+      stack.at(0).toTensor().sizes().vec()};
+  if (is_first_amax) {
+    output_shapes.push_back({num_experts});
+  }
+  if (is_second_amax) {
+    output_shapes.push_back({num_experts});
+  }
+
+  return output_shapes;
 }
 
 sym_sizes_vec mixture_of_experts_fwd_out_shape(
@@ -274,9 +315,99 @@ OutputMetaDataVector MixtureOfExpertsFwdMeta(const at::Stack& stack) {
   return meta;
 }
 
+OutputMetaDataVector MixtureOfExpertsFwdFp8Meta(const at::Stack& stack) {
+  at::ScalarType self_type = stack_tensor(stack, 0).scalar_type();
+  const at::ScalarType weight_type =
+      stack.at(3).toTensorList().get(0).scalar_type();
+  const size_t stack_size = stack.size();
+
+  const bool is_first_amax = stack.at(stack_size - 2).toBool();
+  const bool is_second_amax = stack.at(stack_size - 1).toBool();
+  const size_t amax_outputs = is_first_amax + is_second_amax;
+  const int64_t num_experts = stack.at(3).toTensorList().size();
+  std::vector<std::vector<int64_t>> output_shapes =
+      MixtureOfExpertsFwdFp8Shapes(stack);
+  std::vector<at::ScalarType> dtypes = {
+      self_type,
+      weight_type,
+      torch::kInt,
+      torch::kInt,
+      torch::kInt,
+      self_type,
+      self_type,
+      self_type,
+      weight_type,
+      self_type,
+      self_type};
+
+  const size_t output_number = output_shapes.size();
+  OutputMetaDataVector meta(output_number + amax_outputs);
+  for (size_t i = 0; i < output_number; ++i) {
+    meta[i].shape = output_shapes[i];
+    meta[i].dtype = dtypes[i];
+  }
+
+  for (size_t i = 0; i < amax_outputs; ++i) {
+    meta[output_number + i].shape = {static_cast<int64_t>(num_experts)};
+    meta[output_number + i].dtype = torch::kFloat32;
+  }
+
+  return meta;
+}
+
+OutputMetaDataVector MixtureOfExpertsRecompFwdFp8Meta(const at::Stack& stack) {
+  at::ScalarType self_type = stack_tensor(stack, 0).scalar_type();
+
+  std::vector<std::vector<int64_t>> output_shapes =
+      MixtureOfExpertsRecompFwdFp8Shapes(stack);
+
+  const size_t output_number = output_shapes.size();
+  OutputMetaDataVector meta(output_shapes.size());
+  for (size_t i = 0; i < output_number; ++i) {
+    meta[i].shape = output_shapes[i];
+    meta[i].dtype = i == 0 ? self_type : torch::kFloat;
+  }
+
+  return meta;
+}
+
 OutputMetaDataVector MixtureOfExpertsFwdRecompMeta(const at::Stack& stack) {
   const auto& self = stack_tensor(stack, 0);
   return {{self.scalar_type(), self.sizes().vec()}};
+}
+
+OutputMetaDataVector MixtureOfExpertsBwdCommonMeta(
+    const at::Tensor& grad,
+    std::vector<int64_t> router_weights_shape,
+    std::vector<std::vector<at::Tensor>> weights_lists,
+    const size_t num_experts,
+    const bool is_fp8_flavor,
+    const size_t amax_outputs) {
+  OutputMetaDataVector meta(
+      2 + weights_lists.size() * num_experts + amax_outputs);
+
+  meta[0].shape = grad.sizes().vec();
+  meta[0].dtype = grad.scalar_type();
+
+  meta[1].shape = router_weights_shape;
+  meta[1].dtype = grad.scalar_type();
+
+  size_t i = 2;
+  for (size_t j = 0; j < amax_outputs; ++j) {
+    meta[i].shape = {static_cast<int64_t>(num_experts)};
+    meta[i].dtype = torch::kFloat32;
+    i++;
+  }
+  for (const auto& weights_list : weights_lists) {
+    for (const at::Tensor& weight : weights_list) {
+      meta[i].shape = weight.sizes().vec();
+      meta[i].dtype =
+          is_fp8_flavor ? at::ScalarType::BFloat16 : weight.scalar_type();
+      i++;
+    }
+  }
+
+  return meta;
 }
 
 OutputMetaDataVector MixtureOfExpertsBwdMeta(const at::Stack& stack) {
@@ -288,41 +419,55 @@ OutputMetaDataVector MixtureOfExpertsBwdMeta(const at::Stack& stack) {
   const size_t first_weights_index = is_recompute ? 4 : fused_weights ? 10 : 11;
   const size_t num_experts =
       stack.at(first_weights_index).toTensorList().size();
-  const size_t weights_per_expert = fused_weights ? 2 : 3;
 
   const size_t router_weights_shape_idx = fused_weights ? 16 : 18;
   std::vector<int64_t> router_weights_shape = is_recompute
       ? stack_tensor(stack, 3).sizes().vec()
       : stack.at(router_weights_shape_idx).toIntVector();
 
-  OutputMetaDataVector meta(2 + num_experts * weights_per_expert);
-  meta[0].shape = grad.sizes().vec();
-  meta[0].dtype = grad.scalar_type();
-
-  meta[1].shape = router_weights_shape;
-  meta[1].dtype = grad.scalar_type();
-
-  const auto& w1 = stack.at(first_weights_index).toTensorList();
-  for (size_t i = 0; i < num_experts; ++i) {
-    meta[i + 2].shape = w1[i].sizes().vec();
-    meta[i + 2].dtype = w1[i].scalar_type();
-  }
-
-  const auto& w2 = stack.at(first_weights_index + 1).toTensorList();
-  for (size_t i = 0; i < num_experts; ++i) {
-    meta[i + 2 + num_experts].shape = w2[i].sizes().vec();
-    meta[i + 2 + num_experts].dtype = w2[i].scalar_type();
-  }
-
+  std::vector<std::vector<at::Tensor>> weights_lists = {
+      stack.at(first_weights_index).toTensorVector(),
+      stack.at(first_weights_index + 1).toTensorVector()};
   if (!fused_weights) {
-    const auto& w3 = stack.at(first_weights_index + 2).toTensorList();
-    for (size_t i = 0; i < num_experts; ++i) {
-      meta[i + 2 + 2 * num_experts].shape = w3[i].sizes().vec();
-      meta[i + 2 + 2 * num_experts].dtype = w3[i].scalar_type();
-    }
+    weights_lists.push_back(stack.at(first_weights_index + 2).toTensorVector());
   }
 
-  return meta;
+  return MixtureOfExpertsBwdCommonMeta(
+      grad, router_weights_shape, weights_lists, num_experts, false, 0);
+}
+
+OutputMetaDataVector MixtureOfExpertsBwdFp8Meta(const at::Stack& stack) {
+  const auto& grad = stack_tensor(stack, 0);
+  const size_t stack_size = stack.size();
+  const bool is_first_amax = stack.at(stack_size - 2).toBool();
+  const bool is_second_amax = stack.at(stack_size - 1).toBool();
+  const size_t amax_outputs = is_first_amax + is_second_amax;
+  const bool is_recompute = stack.size() < 22;
+  const bool fused_weights = is_recompute ? !stack.at(12).isTensorList()
+                                          : !stack.at(18).isTensorList();
+  const size_t first_weights_index = is_recompute ? 4 : fused_weights ? 10 : 11;
+  const size_t num_experts =
+      stack.at(first_weights_index).toTensorList().size();
+
+  const size_t router_weights_shape_idx = fused_weights ? 22 : 25;
+  std::vector<int64_t> router_weights_shape = is_recompute
+      ? stack_tensor(stack, 3).sizes().vec()
+      : stack.at(router_weights_shape_idx).toIntVector();
+
+  std::vector<std::vector<at::Tensor>> weights_lists = {
+      stack.at(first_weights_index).toTensorVector(),
+      stack.at(first_weights_index + 1).toTensorVector()};
+  if (!fused_weights) {
+    weights_lists.push_back(stack.at(first_weights_index + 2).toTensorVector());
+  }
+
+  return MixtureOfExpertsBwdCommonMeta(
+      grad,
+      router_weights_shape,
+      weights_lists,
+      num_experts,
+      true,
+      amax_outputs);
 }
 
 SharedMetaTensor getWeightSharedMetaTensor(
@@ -562,6 +707,9 @@ struct MixtureOfExpertsConfig {
   const bool measurement_mode;
   const bool dynamic_scale;
   const bool blockwise_quantization;
+  const bool first_gemm_measurement_mode;
+  const bool hybrid_mode;
+  const bool scaled_swiglu;
   const unsigned int chunk_size;
   const unsigned int total_experts;
 };
@@ -569,7 +717,7 @@ struct MixtureOfExpertsConfig {
 FillParamsT FillMixtureOfExpertsParams(
     const at::Stack& stack,
     const MixtureOfExpertsConfig& cfg) {
-  const auto permuted_weights = stack.at(cfg.permuted_weights_idx).toBool();
+  const bool permuted_weights = stack.at(cfg.permuted_weights_idx).toBool();
   const auto activation_mode =
       stack.at(cfg.permuted_weights_idx + 1).to<std::string_view>();
   auto activationIterator = activationModeMap.find(activation_mode);
@@ -579,7 +727,10 @@ FillParamsT FillMixtureOfExpertsParams(
       activation_mode,
       "\" not found among MoeActivationMode_t enum values.")
 
+  HABANA_ASSERT(!(cfg.hybrid_mode), "Hybrid mode is currently unsupported");
+
   PARAMS_STUB(ns_MoeKernel::ParamsV4);
+
   params->experts.activation = activationIterator->second;
   params->router.experts_min =
       stack.at(cfg.permuted_weights_idx + 2).toScalar().toInt();
@@ -594,6 +745,14 @@ FillParamsT FillMixtureOfExpertsParams(
     params->flags |= MoeFlags_t::MOE_FLAGS_BLOCKWISE_WEIGHT_QUANTIZATION;
     params->block_size = stack.at(cfg.permuted_weights_idx - 1).toInt();
   }
+
+  params->flags |=
+      (cfg.first_gemm_measurement_mode
+           ? MoeFlags_t::MOE_FLAGS_CALC_AMAX_FIRST_GEMM_INPUT
+           : 0);
+  params->flags |= (cfg.hybrid_mode ? MoeFlags_t::MOE_FLAGS_FP8_HYBRID : 0);
+  params->flags |=
+      (cfg.scaled_swiglu ? MoeFlags_t::MOE_FLAGS_SCALED_SWIGLU : 0);
 
   params->total_experts = cfg.total_experts;
   params->chunk_size = cfg.chunk_size;
@@ -613,8 +772,57 @@ FillParamsT FillMixtureOfExpertsParams(const at::Stack& stack) {
       false,
       false,
       false,
+      false,
+      false,
+      false,
       static_cast<unsigned int>(stack.at(stack_size - 2).toInt()),
       static_cast<unsigned int>(stack.at(stack_size - 1).toInt())};
+  return FillMixtureOfExpertsParams(stack, cfg);
+}
+
+FillParamsT FillMixtureOfExpertsFwdFp8Params(const at::Stack& stack) {
+  const bool fused_weights = !stack.at(9).isTensorList();
+  const size_t permuted_weights_idx = fused_weights ? 9 : 11;
+
+  const size_t stack_size = stack.size();
+  const bool measurement_mode = stack.at(stack_size - 1).toBool();
+  const bool first_gemm_measurement_mode = stack.at(stack_size - 2).toBool();
+  const bool hybdrid_mode = stack.at(stack_size - 3).toBool();
+  const bool scaled_swiglu = stack.at(stack_size - 4).toBool();
+
+  MixtureOfExpertsConfig cfg = {
+      permuted_weights_idx,
+      fused_weights,
+      measurement_mode,
+      false,
+      false,
+      first_gemm_measurement_mode,
+      hybdrid_mode,
+      scaled_swiglu,
+      0,
+      0};
+  return FillMixtureOfExpertsParams(stack, cfg);
+}
+
+FillParamsT FillMixtureOfExpertsBwdFp8Params(const at::Stack& stack) {
+  const size_t stack_size = stack.size();
+  const bool is_recomp = !stack.at(4).isTensor();
+  const bool fused_weights =
+      is_recomp ? stack.at(12).isBool() : !stack.at(10).isTensor();
+  const size_t permuted_weights_idx = is_recomp ? 12 : 18;
+
+  MixtureOfExpertsConfig cfg = {
+      permuted_weights_idx,
+      fused_weights,
+      stack.at(stack_size - 1).toBool(),
+      false,
+      false,
+      stack.at(stack_size - 2).toBool(),
+      stack.at(stack_size - 3).toBool(),
+      stack.at(stack_size - 4).toBool(),
+      0,
+      0};
+
   return FillMixtureOfExpertsParams(stack, cfg);
 }
 
@@ -648,8 +856,12 @@ void MixtureOfExperts::AddNode(sh::graph& graph, const at::Stack& stack) {
       measurement_mode,
       false,
       false,
+      false,
+      false,
+      false,
       static_cast<unsigned int>(stack.at(stack_size - 2).toInt()),
       static_cast<unsigned int>(stack.at(stack_size - 1).toInt())};
+
   auto params = FillMixtureOfExpertsParams(stack, cfg);
   auto meta = MixtureOfExpertsMeta(stack, measurement_mode);
   std::vector<NodeAttr::NodeOutputAttr> output_attrs{
@@ -717,8 +929,12 @@ void MixtureOfExpertsFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
       false,
       false,
       false,
+      false,
+      false,
+      false,
       static_cast<unsigned int>(stack.at(stack_size - 2).toInt()),
       static_cast<unsigned int>(stack.at(stack_size - 1).toInt())};
+
   auto params = FillMixtureOfExpertsParams(stack, cfg);
   auto meta = MixtureOfExpertsFp8Meta(stack)[0];
 
@@ -772,8 +988,12 @@ void MixtureOfExpertsFp8Scalars::AddNode(
       false,
       false,
       false,
+      false,
+      false,
+      false,
       static_cast<unsigned int>(stack.at(stack_size - 2).toInt()),
       static_cast<unsigned int>(stack.at(stack_size - 1).toInt())};
+
   auto params = FillMixtureOfExpertsParams(stack, cfg);
   auto meta = MixtureOfExpertsFp8Meta(stack)[0];
   auto moe_result = OpBackend::BuildNode(
@@ -808,8 +1028,12 @@ void MixtureOfExpertsFp8Dynamic::AddNode(
       false,
       true,
       false,
+      false,
+      false,
+      false,
       static_cast<unsigned int>(stack.at(stack_size - 2).toInt()),
       static_cast<unsigned int>(stack.at(stack_size - 1).toInt())};
+
   auto params = FillMixtureOfExpertsParams(stack, cfg);
   auto meta = MixtureOfExpertsFp8Meta(stack)[0];
 
@@ -860,8 +1084,12 @@ void MixtureOfExpertsFp8ScalarsDynamic::AddNode(
       false,
       true,
       false,
+      false,
+      false,
+      false,
       static_cast<unsigned int>(stack.at(stack_size - 2).toInt()),
       static_cast<unsigned int>(stack.at(stack_size - 1).toInt())};
+
   auto params = FillMixtureOfExpertsParams(stack, cfg);
   auto meta = MixtureOfExpertsFp8Meta(stack)[0];
   auto moe_result = OpBackend::BuildNode(
@@ -896,8 +1124,12 @@ void MixtureOfExpertsFp8BlockwiseQuantization::AddNode(
       false,
       false,
       true,
+      false,
+      false,
+      false,
       static_cast<unsigned int>(stack.at(stack_size - 2).toInt()),
       static_cast<unsigned int>(stack.at(stack_size - 1).toInt())};
+
   auto params = FillMixtureOfExpertsParams(stack, cfg);
   auto meta = MixtureOfExpertsFp8Meta(stack)[0];
   auto moe_result = OpBackend::BuildNode(
@@ -928,7 +1160,17 @@ void MixtureOfExpertsBwd::AddNode(sh::graph& graph, const at::Stack& stack) {
   }
 
   MixtureOfExpertsConfig cfg = {
-      permuted_weights_idx, fused_weights, false, false, false, 0, 0};
+      permuted_weights_idx,
+      fused_weights,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      0,
+      0};
+
   auto params = FillMixtureOfExpertsParams(stack, cfg);
   auto meta = OutputMeta(stack);
   std::vector<NodeAttr::NodeOutputAttr> output_attrs = createOutputAttrs(meta);
@@ -967,8 +1209,12 @@ void MixtureOfExpertsRecompBwd::AddNode(
       false,
       false,
       false,
+      false,
+      false,
+      false,
       static_cast<unsigned int>(stack.at(stack_size - 2).toInt()),
       static_cast<unsigned int>(stack.at(stack_size - 1).toInt())};
+
   auto params = FillMixtureOfExpertsParams(stack, cfg);
   auto meta = MixtureOfExpertsBwdMeta(stack);
   std::vector<NodeAttr::NodeOutputAttr> output_attrs = createOutputAttrs(meta);
@@ -981,6 +1227,133 @@ void MixtureOfExpertsRecompBwd::AddNode(
        params.ptr(),
        params.size()});
   for (size_t i = 0; i < output_number; ++i) {
+    syn_out(i) = std::move(moe_result[i]);
+  }
+}
+
+void MixtureOfExpertsFwdFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
+  const bool fused_weights = !stack.at(9).isTensorList();
+  const size_t num_experts = stack.at(3).toTensorList().size();
+  const at::ScalarType weight_dtype =
+      stack.at(3).toTensorList().get(0).scalar_type();
+  const size_t weights_per_expert = fused_weights ? 6 : 8;
+
+  std::vector<synTensor> inputs;
+  for (size_t i = 0; i < 3 + num_experts * weights_per_expert; i++) {
+    inputs.push_back(syn_in(i));
+  }
+
+  auto params = FillMixtureOfExpertsFwdFp8Params(stack);
+  auto meta = MixtureOfExpertsFwdFp8Meta(stack);
+  std::vector<NodeAttr::NodeOutputAttr> output_attrs = createOutputAttrs(meta);
+  auto moe_result = OpBackend::BuildNode(
+      this,
+      graph,
+      {get_guid_with_precision("moe_v2_fwd"sv, weight_dtype),
+       std::move(inputs),
+       output_attrs,
+       params.ptr(),
+       params.size()});
+  for (size_t i = 0; i < meta.size(); ++i) {
+    syn_out(i) = std::move(moe_result[i]);
+  }
+}
+
+void MixtureOfExpertsRecompFwdFp8::AddNode(
+    sh::graph& graph,
+    const at::Stack& stack) {
+  const bool fused_weights = !stack.at(9).isTensorList();
+  const size_t num_experts = stack.at(3).toTensorList().size();
+  const at::ScalarType weight_dtype =
+      stack.at(3).toTensorList().get(0).scalar_type();
+  const size_t weights_per_expert = fused_weights ? 6 : 8;
+
+  std::vector<synTensor> inputs;
+  for (size_t i = 0; i < 3 + num_experts * weights_per_expert; i++) {
+    inputs.push_back(syn_in(i));
+  }
+
+  auto params = FillMixtureOfExpertsFwdFp8Params(stack);
+  auto meta = OutputMeta(stack);
+  std::vector<NodeAttr::NodeOutputAttr> output_attrs = createOutputAttrs(meta);
+  auto moe_result = OpBackend::BuildNode(
+      this,
+      graph,
+      {update_guid_dtype(guid_, weight_dtype),
+       std::move(inputs),
+       output_attrs,
+       params.ptr(),
+       params.size()});
+  for (size_t i = 0; i < meta.size(); ++i) {
+    syn_out(i) = std::move(moe_result[i]);
+  }
+}
+
+void MixtureOfExpertsBwdFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
+  const bool fused_weights = !stack.at(12).isTensorList();
+  const size_t first_weights_index = fused_weights ? 10 : 11;
+  const size_t num_experts =
+      stack.at(first_weights_index).toTensorList().size();
+  const at::ScalarType weight_dtype =
+      stack.at(first_weights_index).toTensorList().get(0).scalar_type();
+  const size_t weights_per_expert = fused_weights ? 8 : 8;
+
+  const size_t non_list_tensors = fused_weights ? 9 : 10;
+
+  std::vector<synTensor> inputs;
+  for (size_t i = 0; i < non_list_tensors + num_experts * weights_per_expert;
+       i++) {
+    inputs.push_back(syn_in(i));
+  }
+
+  auto params = FillMixtureOfExpertsBwdFp8Params(stack);
+  auto meta = OutputMeta(stack);
+  std::vector<NodeAttr::NodeOutputAttr> output_attrs = createOutputAttrs(meta);
+  auto moe_result = OpBackend::BuildNode(
+      this,
+      graph,
+      {get_guid_with_precision("moe_v2_bwd"sv, weight_dtype),
+       std::move(inputs),
+       output_attrs,
+       params.ptr(),
+       params.size()});
+
+  for (size_t i = 0; i < meta.size(); ++i) {
+    syn_out(i) = std::move(moe_result[i]);
+  }
+}
+
+void MixtureOfExpertsRecompBwdFp8::AddNode(
+    sh::graph& graph,
+    const at::Stack& stack) {
+  const bool fused_weights = !stack.at(12).isTensorList();
+  const size_t first_weights_index = 4;
+  const size_t num_experts =
+      stack.at(first_weights_index).toTensorList().size();
+  const at::ScalarType weight_dtype =
+      stack.at(first_weights_index).toTensorList().get(0).scalar_type();
+  const size_t weights_per_expert = fused_weights ? 8 : 8;
+  const size_t non_list_tensors = 4;
+
+  std::vector<synTensor> inputs;
+  for (size_t i = 0; i < non_list_tensors + num_experts * weights_per_expert;
+       i++) {
+    inputs.push_back(syn_in(i));
+  }
+
+  auto params = FillMixtureOfExpertsBwdFp8Params(stack);
+  auto meta = OutputMeta(stack);
+  std::vector<NodeAttr::NodeOutputAttr> output_attrs = createOutputAttrs(meta);
+  auto moe_result = OpBackend::BuildNode(
+      this,
+      graph,
+      {get_guid_with_precision("moe_recomp_v2_bwd"sv, weight_dtype),
+       std::move(inputs),
+       output_attrs,
+       params.ptr(),
+       params.size()});
+
+  for (size_t i = 0; i < meta.size(); ++i) {
     syn_out(i) = std::move(moe_result[i]);
   }
 }

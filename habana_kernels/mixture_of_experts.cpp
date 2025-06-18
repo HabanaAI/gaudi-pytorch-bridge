@@ -17,6 +17,9 @@
 #include <habana_kernels/mixture_of_experts.h>
 #include "common/dump_args.h"
 #include "generated/backend/mixture_of_experts_bwd.h"
+#include "generated/backend/mixture_of_experts_fwd.h"
+#include "generated/backend/mixture_of_experts_recomp_bwd.h"
+#include "generated/backend/mixture_of_experts_recomp_fwd.h"
 #include "habana_helpers/logging.h"
 #include "habana_kernels/lazy_kernels.h"
 #include "habana_lazy/hlexec.h"
@@ -27,6 +30,31 @@
 
 namespace habana {
 using namespace habana_lazy;
+
+static std::vector<std::vector<int64_t>> get_bwd_output_shapes(
+    const at::Tensor& grad_tokens_in,
+    const std::vector<int64_t> router_weights_size,
+    std::vector<at::TensorList> weights_lists,
+    const size_t amax_outputs) {
+  const int64_t num_weights = weights_lists[0].size();
+
+  std::vector<std::vector<int64_t>> output_shapes;
+  output_shapes.reserve(2 + weights_lists.size() * num_weights + amax_outputs);
+  output_shapes.push_back(grad_tokens_in.sizes().vec());
+  output_shapes.push_back(router_weights_size);
+
+  for (size_t i = 0; i < amax_outputs; ++i) {
+    output_shapes.push_back({num_weights});
+  }
+
+  for (auto weights_list : weights_lists) {
+    for (const at::Tensor& weights : weights_list) {
+      output_shapes.push_back(weights.sizes().vec());
+    }
+  }
+
+  return output_shapes;
+}
 
 std::vector<at::Tensor> mixture_of_experts_fwd(
     const at::Tensor& hidden_states,
@@ -650,6 +678,335 @@ mixture_of_experts_fp8_measurement_fused_weights_lazy(
       0};
 
   RUN_MAYBE_WITH_ACC_THREAD(mixture_of_experts, op)
+}
+
+std::vector<at::Tensor> mixture_of_experts_fwd_fp8_fused_weights_lazy(
+    const at::Tensor& hidden_states,
+    const at::Tensor& expert_routing_table,
+    const at::Tensor& router_weights,
+    const at::TensorList w12,
+    const at::TensorList w3,
+    const at::TensorList d_scale_hidden_states,
+    const at::TensorList d_scale_intermediate_hidden_states,
+    const at::TensorList d_scale_w12,
+    const at::TensorList d_scale_w3,
+    const bool permuted_weights,
+    const std::string_view activation,
+    const int64_t experts_min,
+    const int64_t experts_max,
+    const bool scaled_swiglu,
+    const bool hybrid_mode,
+    const bool is_first_amax,
+    const bool is_second_amax) {
+  PT_LAZY_TRACE;
+  PT_OP_INFO(
+      "mixture_of_experts_fwd.fp8_fused_weights :",
+      DUMP_17ARGS(
+          hidden_states,
+          expert_routing_table,
+          router_weights,
+          w12,
+          w3,
+          d_scale_hidden_states,
+          d_scale_intermediate_hidden_states,
+          d_scale_w12,
+          d_scale_w3,
+          permuted_weights,
+          activation,
+          experts_min,
+          experts_max,
+          scaled_swiglu,
+          hybrid_mode,
+          is_first_amax,
+          is_second_amax));
+
+  exec::OptPassCfg::GetInstance()->BkupAndDisableAndAllOptPass();
+
+  LazyOp<std::vector<at::Tensor>> op{
+      "hpu::mixture_of_experts_fwd",
+      {hidden_states,
+       expert_routing_table,
+       router_weights,
+       w12,
+       w3,
+       d_scale_hidden_states,
+       d_scale_intermediate_hidden_states,
+       d_scale_w12,
+       d_scale_w3,
+       permuted_weights,
+       activation,
+       experts_min,
+       experts_max,
+       scaled_swiglu,
+       hybrid_mode,
+       is_first_amax,
+       is_second_amax},
+      MixtureOfExpertsFwdFp8Shapes,
+      0};
+
+  op.viewUpdateInputs();
+  op.SetOutputMetaFn(MixtureOfExpertsFwdFp8Meta);
+
+  RUN_MAYBE_WITH_ACC_THREAD(mixture_of_experts, op)
+}
+
+std::vector<at::Tensor> mixture_of_experts_recomp_fwd_fp8_fused_weights_lazy(
+    const at::Tensor& hidden_states,
+    const at::Tensor& expert_routing_table,
+    const at::Tensor& router_weights,
+    const at::TensorList w12,
+    const at::TensorList w3,
+    const at::TensorList d_scale_hidden_states,
+    const at::TensorList d_scale_intermediate_hidden_states,
+    const at::TensorList d_scale_w12,
+    const at::TensorList d_scale_w3,
+    const bool permuted_weights,
+    const std::string_view activation,
+    const int64_t experts_min,
+    const int64_t experts_max,
+    const bool scaled_swiglu,
+    const bool hybrid_mode,
+    const bool is_first_amax,
+    const bool is_second_amax) {
+  PT_LAZY_TRACE;
+  PT_OP_INFO(
+      "mixture_of_experts_recomp_fwd.fp8_fused_weights :",
+      DUMP_17ARGS(
+          hidden_states,
+          expert_routing_table,
+          router_weights,
+          w12,
+          w3,
+          d_scale_hidden_states,
+          d_scale_intermediate_hidden_states,
+          d_scale_w12,
+          d_scale_w3,
+          permuted_weights,
+          activation,
+          experts_min,
+          experts_max,
+          scaled_swiglu,
+          hybrid_mode,
+          is_first_amax,
+          is_second_amax));
+  exec::OptPassCfg::GetInstance()->BkupAndDisableAndAllOptPass();
+
+  LazyOp<std::vector<at::Tensor>> op{
+      "hpu::mixture_of_experts_recomp_fwd",
+      {hidden_states,
+       expert_routing_table,
+       router_weights,
+       w12,
+       w3,
+       d_scale_hidden_states,
+       d_scale_intermediate_hidden_states,
+       d_scale_w12,
+       d_scale_w3,
+       permuted_weights,
+       activation,
+       experts_min,
+       experts_max,
+       scaled_swiglu,
+       hybrid_mode,
+       is_first_amax,
+       is_second_amax},
+      MixtureOfExpertsRecompFwdFp8Shapes,
+      0};
+
+  op.viewUpdateInputs();
+  op.SetOutputMetaFn(MixtureOfExpertsRecompFwdFp8Meta);
+
+  RUN_MAYBE_WITH_ACC_THREAD(mixture_of_experts_recomp_fwd, op)
+}
+
+std::vector<at::Tensor> mixture_of_experts_bwd_fp8_fused_weights_lazy(
+    const at::Tensor& grad_tokens_in,
+    const at::Tensor& chunks_input,
+    const at::Tensor& token_to_chunk,
+    const at::Tensor& token_in_chunk,
+    const at::Tensor& chunks_routing_table,
+    const at::Tensor& chunks_routing_weights,
+    const at::Tensor& gemm12_out,
+    const at::Tensor& activation_out,
+    const at::Tensor& mult_out,
+    const at::Tensor& mlp_out,
+    const at::TensorList w12,
+    const at::TensorList w3,
+    const at::TensorList d_scale_hidden_states,
+    const at::TensorList d_scale_intermediate_hidden_states,
+    const at::TensorList d_scale_w12,
+    const at::TensorList d_scale_w3,
+    const at::TensorList d_scale_first_gemm_grad,
+    const at::TensorList d_scale_second_gemm_grad,
+    const bool permuted_weights,
+    const std::string_view activation,
+    const int64_t experts_min,
+    const int64_t experts_max,
+    const std::vector<int64_t> router_weights_size,
+    const bool scaled_swiglu,
+    const bool hybrid_mode,
+    const bool is_first_amax,
+    const bool is_second_amax) {
+  PT_LAZY_TRACE;
+  PT_OP_INFO(
+      "mixture_of_experts_bwd.fp8_fused_weights :",
+      DUMP_27ARGS(
+          grad_tokens_in,
+          chunks_input,
+          token_to_chunk,
+          token_in_chunk,
+          chunks_routing_table,
+          chunks_routing_weights,
+          gemm12_out,
+          activation_out,
+          mult_out,
+          mlp_out,
+          w12,
+          w3,
+          d_scale_hidden_states,
+          d_scale_intermediate_hidden_states,
+          d_scale_w12,
+          d_scale_w3,
+          d_scale_first_gemm_grad,
+          d_scale_second_gemm_grad,
+          permuted_weights,
+          activation,
+          experts_min,
+          experts_max,
+          router_weights_size,
+          scaled_swiglu,
+          hybrid_mode,
+          is_first_amax,
+          is_second_amax));
+
+  exec::OptPassCfg::GetInstance()->BkupAndDisableAndAllOptPass();
+
+  std::vector<std::vector<int64_t>> out_shapes = get_bwd_output_shapes(
+      grad_tokens_in,
+      router_weights_size,
+      {w12, w3},
+      static_cast<size_t>(is_first_amax + is_second_amax));
+
+  LazyOp<std::vector<at::Tensor>> op{
+      "hpu::mixture_of_experts_bwd",
+      {grad_tokens_in,
+       chunks_input,
+       token_to_chunk,
+       token_in_chunk,
+       chunks_routing_table,
+       chunks_routing_weights,
+       gemm12_out,
+       activation_out,
+       mult_out,
+       mlp_out,
+       w12,
+       w3,
+       d_scale_hidden_states,
+       d_scale_intermediate_hidden_states,
+       d_scale_w12,
+       d_scale_w3,
+       d_scale_first_gemm_grad,
+       d_scale_second_gemm_grad,
+       permuted_weights,
+       activation,
+       experts_min,
+       experts_max,
+       router_weights_size,
+       scaled_swiglu,
+       hybrid_mode,
+       is_first_amax,
+       is_second_amax},
+      out_shapes,
+      0};
+
+  op.viewUpdateInputs();
+  op.SetOutputMetaFn(MixtureOfExpertsBwdFp8Meta);
+
+  RUN_MAYBE_WITH_ACC_THREAD(mixture_of_experts_recomp_bwd, op)
+}
+
+std::vector<at::Tensor> mixture_of_experts_recomp_bwd_fp8_fused_weights_lazy(
+    const at::Tensor& grad_tokens_in,
+    const at::Tensor& hidden_states,
+    const at::Tensor& expert_routing_table,
+    const at::Tensor& router_weights,
+    const at::TensorList w12,
+    const at::TensorList w3,
+    const at::TensorList d_scale_hidden_states,
+    const at::TensorList d_scale_intermediate_hidden_states,
+    const at::TensorList d_scale_w12,
+    const at::TensorList d_scale_w3,
+    const at::TensorList d_scale_gemm1_grad,
+    const at::TensorList d_scale_gemm2_grad,
+    const bool permuted_weights,
+    const std::string_view activation,
+    const int64_t experts_min,
+    const int64_t experts_max,
+    const bool scaled_swiglu,
+    const bool hybrid_mode,
+    const bool is_first_amax,
+    const bool is_second_amax) {
+  PT_LAZY_TRACE;
+  PT_OP_INFO(
+      "mixture_of_experts_recomp_recomp_bwd.fp8_fused_weights :",
+      DUMP_20ARGS(
+          grad_tokens_in,
+          hidden_states,
+          expert_routing_table,
+          router_weights,
+          w12,
+          w3,
+          d_scale_hidden_states,
+          d_scale_intermediate_hidden_states,
+          d_scale_w12,
+          d_scale_w3,
+          d_scale_gemm1_grad,
+          d_scale_gemm2_grad,
+          permuted_weights,
+          activation,
+          experts_min,
+          experts_max,
+          scaled_swiglu,
+          hybrid_mode,
+          is_first_amax,
+          is_second_amax));
+  exec::OptPassCfg::GetInstance()->BkupAndDisableAndAllOptPass();
+
+  std::vector<std::vector<int64_t>> out_shapes = get_bwd_output_shapes(
+      grad_tokens_in,
+      router_weights.sizes().vec(),
+      {w12, w3},
+      static_cast<size_t>(is_first_amax + is_second_amax));
+
+  LazyOp<std::vector<at::Tensor>> op{
+      "hpu::mixture_of_experts_recomp_bwd",
+      {grad_tokens_in,
+       hidden_states,
+       expert_routing_table,
+       router_weights,
+       w12,
+       w3,
+       d_scale_hidden_states,
+       d_scale_intermediate_hidden_states,
+       d_scale_w12,
+       d_scale_w3,
+       d_scale_gemm1_grad,
+       d_scale_gemm2_grad,
+       permuted_weights,
+       activation,
+       experts_min,
+       experts_max,
+       scaled_swiglu,
+       hybrid_mode,
+       is_first_amax,
+       is_second_amax},
+      out_shapes,
+      0};
+
+  op.viewUpdateInputs();
+  op.SetOutputMetaFn(MixtureOfExpertsBwdFp8Meta);
+
+  RUN_MAYBE_WITH_ACC_THREAD(mixture_of_experts_recomp_bwd, op)
 }
 
 } // namespace habana_lazy

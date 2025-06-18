@@ -1111,11 +1111,66 @@ def meta_mixture_of_experts_fwd_fused_weights(
     ]
 
 
-def common_mixture_of_experts_bwd_meta(grad_tokens_in, router_weights_size, weights_lists):
+@register_meta([torch.ops.hpu.mixture_of_experts_recomp_fwd.fp8_fused])
+def meta_mixture_of_experts_recomp_fwd_fp8_fused(
+    hidden_states,
+    expert_routing_table,
+    router_weights,
+    w12,
+    w3,
+    **kwargs,
+):
+    outputs = [hidden_states.new_empty(hidden_states.shape)]
+    if kwargs.get("is_first_amax", False):
+        outputs.append(torch.empty(len(w3), dtype=torch.float32, device="meta"))
+    if kwargs.get("is_second_amax", False):
+        outputs.append(torch.empty(len(w3), dtype=torch.float32, device="meta"))
+    return outputs
+
+
+@register_meta([torch.ops.hpu.mixture_of_experts_fwd.fp8_fused])
+def meta_mixture_of_experts_fwd_fp8_fused(
+    hidden_states,
+    expert_routing_table,
+    router_weights,
+    w12,
+    w3,
+    **kwargs,
+):
+    h2 = w12[0].shape[0 if kwargs.get("permuted_weights", False) else 1]
+    out_shapes = _hpu_C.custom_op_calc_out_shape_params_int(
+        "mixture_of_experts_fwd",
+        [hidden_states, expert_routing_table],
+        [len(w12), h2, True, kwargs.get("chunk_size", 0)],
+    )
+    outputs = [
+        hidden_states.new_empty(out_shapes[0]),
+        hidden_states.new_empty(out_shapes[1], dtype=w12[0].dtype),
+        hidden_states.new_empty(out_shapes[2], dtype=torch.int),
+        hidden_states.new_empty(out_shapes[3], dtype=torch.int),
+        hidden_states.new_empty(out_shapes[4], dtype=torch.int),
+        hidden_states.new_empty(out_shapes[5]),
+        hidden_states.new_empty(out_shapes[6]),
+        hidden_states.new_empty(out_shapes[7]),
+        hidden_states.new_empty(out_shapes[8], dtype=w12[0].dtype),
+        hidden_states.new_empty(out_shapes[9]),
+    ]
+    if kwargs.get("is_first_amax", False):
+        outputs.append(torch.empty(len(w3), dtype=torch.float32, device="meta"))
+    if kwargs.get("is_second_amax", False):
+        outputs.append(torch.empty(len(w3), dtype=torch.float32, device="meta"))
+    return outputs
+
+
+def common_mixture_of_experts_bwd_meta(
+    grad_tokens_in, router_weights_size, weights_lists, *, amax_outputs=0, weights_dtype=None
+):
     outputs = [torch.empty_like(grad_tokens_in), grad_tokens_in.new_empty(size=router_weights_size)]
+    for _ in range(amax_outputs):
+        outputs.append(torch.empty(len(weights_lists[0]), dtype=torch.float32, device="meta"))
     for weight_list in weights_lists:
         for w in weight_list:
-            outputs.append(torch.empty_like(w))
+            outputs.append(torch.empty_like(w, dtype=weights_dtype))
     return outputs
 
 
@@ -1200,6 +1255,50 @@ def meta_mixture_of_experts_recomp_bwd_fused_weights(
     **kwargs,
 ):
     return common_mixture_of_experts_bwd_meta(grad_tokens_in, router_weights.shape, [w12, w3])
+
+
+@register_meta([torch.ops.hpu.mixture_of_experts_bwd.fp8_fused])
+def meta_mixture_of_experts_bwd_fp8_fused(
+    grad_tokens_in,
+    chunks_input,
+    token_to_chunk,
+    token_in_chunk,
+    chunks_routing_table,
+    chunks_routing_weights,
+    gemm12_out,
+    activation_out,
+    mult_out,
+    mlp_out,
+    w12,
+    w3,
+    **kwargs,
+):
+    return common_mixture_of_experts_bwd_meta(
+        grad_tokens_in,
+        kwargs.get("router_weights_size", []),
+        [w12, w3],
+        amax_outputs=kwargs.get("is_first_amax", 0) + kwargs.get("is_second_amax", 0),
+        weights_dtype=torch.bfloat16,
+    )
+
+
+@register_meta([torch.ops.hpu.mixture_of_experts_recomp_bwd.fp8_fused])
+def meta_mixture_of_experts_recomp_bwd_fp8_fused(
+    grad_tokens_in,
+    hidden_states,
+    expert_routing_table,
+    router_weights,
+    w12,
+    w3,
+    **kwargs,
+):
+    return common_mixture_of_experts_bwd_meta(
+        grad_tokens_in,
+        router_weights.shape,
+        [w12, w3],
+        amax_outputs=kwargs.get("is_first_amax", 0) + kwargs.get("is_second_amax", 0),
+        weights_dtype=torch.bfloat16,
+    )
 
 
 @register_meta(
