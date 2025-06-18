@@ -18,13 +18,13 @@
 #include "backend/synapse_helpers/device_types.h"
 
 #define TO_GB(arg) ((arg) / (static_cast<double>(1024 * 1024) * 1024.))
-#define TO_REPORT_EVENT(key, value)                                         \
-  std::string(" \"") + key + std::string("\":\"") + std::to_string(value) + \
+#define TO_REPORT_EVENT(key, value)                                           \
+  std::string(" \"") + (key) + std::string("\":\"") + std::to_string(value) + \
       std::string("\"")
-#define TO_REPORT_EVENT_GB(key, value)                                      \
-  std::string(" \"") + key + std::string("\":\"") + std::to_string(value) + \
-      std::string(" (") +                                                   \
-      std::to_string(static_cast<double>(value) / (1024 * 1024 * 1024.)) +  \
+#define TO_REPORT_EVENT_GB(key, value)                                        \
+  std::string(" \"") + (key) + std::string("\":\"") + std::to_string(value) + \
+      std::string(" (") +                                                     \
+      std::to_string(static_cast<double>(value) / (1024 * 1024 * 1024.)) +    \
       std::string(" GB)\"")
 #define TO_GB_STR(value)                                                   \
   std::to_string(value) + std::string(" (") +                              \

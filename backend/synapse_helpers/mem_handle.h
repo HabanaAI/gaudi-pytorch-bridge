@@ -48,10 +48,10 @@ struct HandleBucketInfo {
 };
 
 #define create_memhandle_from_bucket_index_and_handle_index(A, B) \
-  (((uint64_t)A << total_bits) | B)
-#define get_max_offset(A) (1ULL << (uint64_t)A)
-#define get_bucket_index(A) ((bucket_type)((uint64_t)A >> total_bits))
-#define get_handle_index(A) (A & ((1ULL << total_bits) - 1))
+  (((uint64_t)(A) << total_bits) | (B))
+#define get_max_offset(A) (1ULL << (uint64_t)(A))
+#define get_bucket_index(A) ((bucket_type)((uint64_t)(A) >> total_bits))
+#define get_handle_index(A) ((A) & ((1ULL << total_bits) - 1))
 
 class mem_handle {
  public:

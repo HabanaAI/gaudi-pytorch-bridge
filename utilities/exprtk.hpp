@@ -60,7 +60,7 @@ namespace exprtk {
 #define exprtk_debug(params) (void)0
 #endif
 
-#define exprtk_error_location "exprtk.hpp:" + details::to_str(__LINE__)
+#define exprtk_error_location ("exprtk.hpp:" + details::to_str(__LINE__))
 
 #if defined(__GNUC__) && (__GNUC__ >= 7)
 #define exprtk_disable_fallthrough_begin \
@@ -1975,7 +1975,7 @@ inline bool string_to_real(
 
 #define parse_digit_1(d)              \
   if ((digit = (*itr - zero)) < 10) { \
-    d = d * T(10) + digit;            \
+    (d) = (d) * T(10) + digit;        \
   } else {                            \
     break;                            \
   }                                   \
@@ -1984,7 +1984,7 @@ inline bool string_to_real(
 
 #define parse_digit_2(d)              \
   if ((digit = (*itr - zero)) < 10) { \
-    d = d * T(10) + digit;            \
+    (d) = (d) * T(10) + digit;        \
   } else {                            \
     break;                            \
   }                                   \
@@ -7074,6 +7074,7 @@ class while_loop_bc_node : public while_loop_node<T> {
 
     T result = T(0);
 
+// NOLINTBEGIN(bugprone-empty-catch)
     while (is_true(parent_t::condition_)) {
       try {
         result = parent_t::loop_body_.first->value();
@@ -7285,6 +7286,7 @@ class for_loop_bc_rtc_node exprtk_final : public for_loop_bc_node<T>,
         }
       }
     }
+// NOLINTEND(bugprone-empty-catch)
 
     return result;
   }
@@ -17386,11 +17388,13 @@ class symbol_table {
 
     type_store() : size(0) {}
 
+// NOLINTBEGIN(bugprone-macro-parentheses)
     struct deleter {
 #define exprtk_define_process(Type)                       \
   static inline void process(std::pair<bool, Type*>& n) { \
     delete n.second;                                      \
   }
+// NOLINTEND(bugprone-macro-parentheses)
 
       exprtk_define_process(variable_node_t) exprtk_define_process(vector_t)
 #ifndef exprtk_disable_string_capabilities
@@ -22535,7 +22539,7 @@ class parser : public lexer::parser_helper {
 #define base_opr_case(N)                                 \
   case N: {                                              \
     expression_node_ptr pl##N[N] = {0};                  \
-    std::copy(param_list, param_list + N, pl##N);        \
+    std::copy(param_list, param_list + (N), pl##N);      \
     lodge_symbol(operation_name, e_st_function);         \
     return expression_generator_(operation.type, pl##N); \
   }
@@ -24067,10 +24071,12 @@ class parser : public lexer::parser_helper {
 
       bool rp_result = false;
 
+// NOLINTBEGIN(bugprone-empty-catch)
       try {
         rp_result = rp(r0, r1);
       } catch (std::runtime_error&) {
       }
+// NOLINTEND(bugprone-empty-catch)
 
       if (!rp_result || (r0 > r1)) {
         set_error(make_error(
@@ -27850,9 +27856,9 @@ class parser : public lexer::parser_helper {
     struct switch_nodes {
       typedef std::vector<std::pair<expression_node_ptr, bool>> arg_list_t;
 
-#define case_stmt(N)                        \
-  if (is_true(arg[(2 * N)].first)) {        \
-    return arg[(2 * N) + 1].first->value(); \
+#define case_stmt(N)                          \
+  if (is_true(arg[(2 * (N))].first)) {        \
+    return arg[(2 * (N)) + 1].first->value(); \
   }
 
       struct switch_impl_1 {
@@ -28051,11 +28057,12 @@ class parser : public lexer::parser_helper {
       T& v = static_cast<details::variable_node<T>*>(branch[0])->ref();
 
       switch (operation) {
+// NOLINTBEGIN(bugprone-macro-parentheses)
 #define case_stmt(op0, op1) \
   case op0:                 \
     return node_allocator_  \
         ->allocate<typename details::unary_variable_node<Type, op1<Type>>>(v);
-
+// NOLINTEND(bugprone-macro-parentheses)
         unary_opr_switch_statements
 #undef case_stmt
             default : return error_node();
@@ -28082,11 +28089,13 @@ class parser : public lexer::parser_helper {
         const details::operator_type& operation,
         expression_node_ptr (&branch)[1]) {
       switch (operation) {
+// NOLINTBEGIN(bugprone-macro-parentheses)
 #define case_stmt(op0, op1)                                               \
   case op0:                                                               \
     return node_allocator_                                                \
         ->allocate<typename details::unary_branch_node<Type, op1<Type>>>( \
             branch[0]);
+// NOLINTEND(bugprone-macro-parentheses)
 
         unary_opr_switch_statements
 #undef case_stmt
@@ -28335,12 +28344,14 @@ class parser : public lexer::parser_helper {
       expression_node_ptr temp_node = error_node();
 
       switch (operation) {
+// NOLINTBEGIN(bugprone-macro-parentheses)
 #define case_stmt(op0, op1)                                               \
   case op0:                                                               \
     temp_node =                                                           \
         node_allocator_->allocate<details::vararg_node<Type, op1<Type>>>( \
             arg_list);                                                    \
     break;
+// NOLINTEND(bugprone-macro-parentheses)
 
         case_stmt(details::e_sum, details::vararg_add_op)
             case_stmt(details::e_prod, details::vararg_mul_op)
@@ -28375,11 +28386,12 @@ class parser : public lexer::parser_helper {
         const details::operator_type& operation,
         Sequence<expression_node_ptr, Allocator>& arg_list) {
       switch (operation) {
+// NOLINTBEGIN(bugprone-macro-parentheses)
 #define case_stmt(op0, op1) \
   case op0:                 \
     return node_allocator_  \
         ->allocate<details::vararg_varnode<Type, op1<Type>>>(arg_list);
-
+// NOLINTEND(bugprone-macro-parentheses)
         case_stmt(details::e_sum, details::vararg_add_op)
             case_stmt(details::e_prod, details::vararg_mul_op)
                 case_stmt(details::e_avg, details::vararg_avg_op)
@@ -28400,11 +28412,12 @@ class parser : public lexer::parser_helper {
         Sequence<expression_node_ptr, Allocator>& arg_list) {
       if (1 == arg_list.size()) {
         switch (operation) {
+// NOLINTBEGIN(bugprone-macro-parentheses)
 #define case_stmt(op0, op1) \
   case op0:                 \
     return node_allocator_  \
         ->allocate<details::vectorize_node<Type, op1<Type>>>(arg_list[0]);
-
+// NOLINTEND(bugprone-macro-parentheses)
           case_stmt(details::e_sum, details::vec_add_op)
               case_stmt(details::e_prod, details::vec_mul_op)
                   case_stmt(details::e_avg, details::vec_avg_op)
@@ -28444,11 +28457,12 @@ class parser : public lexer::parser_helper {
 #endif
       {
         switch (operation) {
+// NOLINTBEGIN(bugprone-macro-parentheses)
 #define case_stmt(op0, op1)                                                  \
   case op0:                                                                  \
     return node_allocator_->allocate<details::vararg_node<Type, op1<Type>>>( \
         arg_list);
-
+// NOLINTEND(bugprone-macro-parentheses)
           case_stmt(details::e_sum, details::vararg_add_op) case_stmt(
               details::e_prod, details::vararg_mul_op)
               case_stmt(details::e_avg, details::vararg_avg_op) case_stmt(
@@ -28953,12 +28967,13 @@ class parser : public lexer::parser_helper {
         lodge_assignment(e_st_variable, branch[0]);
 
         switch (operation) {
+// NOLINTBEGIN(bugprone-macro-parentheses)
 #define case_stmt(op0, op1)                                     \
   case op0:                                                     \
     return node_allocator_->template allocate_rrr<              \
         typename details::assignment_op_node<Type, op1<Type>>>( \
         operation, branch[0], branch[1]);
-
+// NOLINTEND(bugprone-macro-parentheses)
           case_stmt(details::e_addass, details::add_op)
               case_stmt(details::e_subass, details::sub_op)
                   case_stmt(details::e_mulass, details::mul_op)
@@ -28971,12 +28986,13 @@ class parser : public lexer::parser_helper {
         lodge_assignment(e_st_vecelem, branch[0]);
 
         switch (operation) {
+// NOLINTBEGIN(bugprone-macro-parentheses)
 #define case_stmt(op0, op1)                                              \
   case op0:                                                              \
     return node_allocator_->template allocate_rrr<                       \
         typename details::assignment_vec_elem_op_node<Type, op1<Type>>>( \
         operation, branch[0], branch[1]);
-
+// NOLINTEND(bugprone-macro-parentheses)
           case_stmt(details::e_addass, details::add_op)
               case_stmt(details::e_subass, details::sub_op)
                   case_stmt(details::e_mulass, details::mul_op)
@@ -28989,12 +29005,13 @@ class parser : public lexer::parser_helper {
         lodge_assignment(e_st_vecelem, branch[0]);
 
         switch (operation) {
+// NOLINTBEGIN(bugprone-macro-parentheses)
 #define case_stmt(op0, op1)                                                    \
   case op0:                                                                    \
     return node_allocator_->template allocate_rrr<                             \
         typename details::assignment_rebasevec_elem_op_node<Type, op1<Type>>>( \
         operation, branch[0], branch[1]);
-
+// NOLINTEND(bugprone-macro-parentheses)
           case_stmt(details::e_addass, details::add_op)
               case_stmt(details::e_subass, details::sub_op)
                   case_stmt(details::e_mulass, details::mul_op)
@@ -29007,13 +29024,14 @@ class parser : public lexer::parser_helper {
         lodge_assignment(e_st_vecelem, branch[0]);
 
         switch (operation) {
+// NOLINTBEGIN(bugprone-macro-parentheses)
 #define case_stmt(op0, op1)                                       \
   case op0:                                                       \
     return node_allocator_->template allocate_rrr<                \
         typename details::                                        \
             assignment_rebasevec_celem_op_node<Type, op1<Type>>>( \
         operation, branch[0], branch[1]);
-
+// NOLINTEND(bugprone-macro-parentheses)
           case_stmt(details::e_addass, details::add_op)
               case_stmt(details::e_subass, details::sub_op)
                   case_stmt(details::e_mulass, details::mul_op)
@@ -29043,12 +29061,13 @@ class parser : public lexer::parser_helper {
           }
         } else {
           switch (operation) {
+// NOLINTBEGIN(bugprone-macro-parentheses)
 #define case_stmt(op0, op1)                                         \
   case op0:                                                         \
     return node_allocator_->template allocate_rrr<                  \
         typename details::assignment_vec_op_node<Type, op1<Type>>>( \
         operation, branch[0], branch[1]);
-
+// NOLINTEND(bugprone-macro-parentheses)
             case_stmt(details::e_addass, details::add_op)
                 case_stmt(details::e_subass, details::sub_op)
                     case_stmt(details::e_mulass, details::mul_op)
@@ -29101,36 +29120,39 @@ class parser : public lexer::parser_helper {
 
       if (is_b0_ivec && is_b1_ivec) {
         switch (operation) {
+// NOLINTBEGIN(bugprone-macro-parentheses)
 #define case_stmt(op0, op1)                                        \
   case op0:                                                        \
     return node_allocator_->template allocate_rrr<                 \
         typename details::vec_binop_vecvec_node<Type, op1<Type>>>( \
         operation, branch[0], branch[1]);
-
+// NOLINTEND(bugprone-macro-parentheses)
           batch_eqineq_logic_case
 #undef case_stmt
               default : return error_node();
         }
       } else if (is_b0_ivec && !is_b1_ivec) {
         switch (operation) {
+// NOLINTBEGIN(bugprone-macro-parentheses)
 #define case_stmt(op0, op1)                                        \
   case op0:                                                        \
     return node_allocator_->template allocate_rrr<                 \
         typename details::vec_binop_vecval_node<Type, op1<Type>>>( \
         operation, branch[0], branch[1]);
-
+// NOLINTEND(bugprone-macro-parentheses)
           batch_eqineq_logic_case
 #undef case_stmt
               default : return error_node();
         }
       } else if (!is_b0_ivec && is_b1_ivec) {
         switch (operation) {
+// NOLINTBEGIN(bugprone-macro-parentheses)
 #define case_stmt(op0, op1)                                        \
   case op0:                                                        \
     return node_allocator_->template allocate_rrr<                 \
         typename details::vec_binop_valvec_node<Type, op1<Type>>>( \
         operation, branch[0], branch[1]);
-
+// NOLINTEND(bugprone-macro-parentheses)
           batch_eqineq_logic_case
 #undef case_stmt
               default : return error_node();
@@ -29156,36 +29178,39 @@ class parser : public lexer::parser_helper {
 
       if (is_b0_ivec && is_b1_ivec) {
         switch (operation) {
+// NOLINTBEGIN(bugprone-macro-parentheses)
 #define case_stmt(op0, op1)                                        \
   case op0:                                                        \
     return node_allocator_->template allocate_rrr<                 \
         typename details::vec_binop_vecvec_node<Type, op1<Type>>>( \
         operation, branch[0], branch[1]);
-
+// NOLINTEND(bugprone-macro-parentheses)
           vector_ops case_stmt(details::e_pow, details::pow_op)
 #undef case_stmt
               default : return error_node();
         }
       } else if (is_b0_ivec && !is_b1_ivec) {
         switch (operation) {
+// NOLINTBEGIN(bugprone-macro-parentheses)
 #define case_stmt(op0, op1)                                        \
   case op0:                                                        \
     return node_allocator_->template allocate_rrr<                 \
         typename details::vec_binop_vecval_node<Type, op1<Type>>>( \
         operation, branch[0], branch[1]);
-
+// NOLINTEND(bugprone-macro-parentheses)
           vector_ops case_stmt(details::e_pow, details::pow_op)
 #undef case_stmt
               default : return error_node();
         }
       } else if (!is_b0_ivec && is_b1_ivec) {
         switch (operation) {
+// NOLINTBEGIN(bugprone-macro-parentheses)
 #define case_stmt(op0, op1)                                        \
   case op0:                                                        \
     return node_allocator_->template allocate_rrr<                 \
         typename details::vec_binop_valvec_node<Type, op1<Type>>>( \
         operation, branch[0], branch[1]);
-
+// NOLINTEND(bugprone-macro-parentheses)
           vector_ops
 #undef case_stmt
               default : return error_node();
@@ -29323,11 +29348,12 @@ class parser : public lexer::parser_helper {
         const TType& v,
         const unsigned int& p) {
       switch (p) {
+// NOLINTBEGIN(bugprone-macro-parentheses)
 #define case_stmt(cp)      \
   case cp:                 \
     return node_allocator_ \
         ->allocate<IPowNode<T, details::numeric::fast_exp<T, cp>>>(v);
-
+// NOLINTEND(bugprone-macro-parentheses)
         case_stmt(1) case_stmt(2) case_stmt(3) case_stmt(4) case_stmt(
             5) case_stmt(6) case_stmt(7) case_stmt(8) case_stmt(9) case_stmt(10)
             case_stmt(11) case_stmt(12) case_stmt(13) case_stmt(14) case_stmt(
@@ -29556,12 +29582,13 @@ class parser : public lexer::parser_helper {
         }
 
         switch (operation) {
+// NOLINTBEGIN(bugprone-macro-parentheses)
 #define case_stmt(op0, op1)                                  \
   case op0:                                                  \
     return expr_gen.node_allocator_->template allocate<      \
         typename details::binary_ext_node<Type, op1<Type>>>( \
         branch[0], branch[1]);
-
+// NOLINTEND(bugprone-macro-parentheses)
           basic_opr_switch_statements extended_opr_switch_statements
 #undef case_stmt
               default : return error_node();
@@ -29627,12 +29654,13 @@ class parser : public lexer::parser_helper {
         }
 
         switch (operation) {
+// NOLINTBEGIN(bugprone-macro-parentheses)
 #define case_stmt(op0, op1)                                                  \
   case op0:                                                                  \
     return expr_gen.node_allocator_                                          \
         ->template allocate_rc<typename details::vob_node<Type, op1<Type>>>( \
             v, branch[1]);
-
+// NOLINTEND(bugprone-macro-parentheses)
           basic_opr_switch_statements extended_opr_switch_statements
 #undef case_stmt
               default : return error_node();
@@ -29711,12 +29739,13 @@ class parser : public lexer::parser_helper {
         }
 
         switch (operation) {
+// NOLINTBEGIN(bugprone-macro-parentheses)
 #define case_stmt(op0, op1)                                                  \
   case op0:                                                                  \
     return expr_gen.node_allocator_                                          \
         ->template allocate_cr<typename details::bov_node<Type, op1<Type>>>( \
             branch[0], v);
-
+// NOLINTEND(bugprone-macro-parentheses)
           basic_opr_switch_statements extended_opr_switch_statements
 #undef case_stmt
               default : return error_node();
@@ -29841,12 +29870,13 @@ class parser : public lexer::parser_helper {
 #endif
 
         switch (operation) {
+// NOLINTBEGIN(bugprone-macro-parentheses)
 #define case_stmt(op0, op1)                                                  \
   case op0:                                                                  \
     return expr_gen.node_allocator_                                          \
         ->template allocate_tt<typename details::cob_node<Type, op1<Type>>>( \
             c, branch[1]);
-
+// NOLINTEND(bugprone-macro-parentheses)
           basic_opr_switch_statements extended_opr_switch_statements
 #undef case_stmt
               default : return error_node();
@@ -29952,12 +29982,13 @@ class parser : public lexer::parser_helper {
 #endif
 
         switch (operation) {
+// NOLINTBEGIN(bugprone-macro-parentheses)
 #define case_stmt(op0, op1)                                                  \
   case op0:                                                                  \
     return expr_gen.node_allocator_                                          \
         ->template allocate_cr<typename details::boc_node<Type, op1<Type>>>( \
             branch[0], c);
-
+// NOLINTEND(bugprone-macro-parentheses)
           basic_opr_switch_statements extended_opr_switch_statements
 #undef case_stmt
               default : return error_node();
@@ -30313,12 +30344,13 @@ class parser : public lexer::parser_helper {
             static_cast<details::variable_node<Type>*>(branch[1])->ref();
 
         switch (operation) {
+// NOLINTBEGIN(bugprone-macro-parentheses)
 #define case_stmt(op0, op1)                                                  \
   case op0:                                                                  \
     return expr_gen.node_allocator_                                          \
         ->template allocate_rr<typename details::vov_node<Type, op1<Type>>>( \
             v1, v2);
-
+// NOLINTEND(bugprone-macro-parentheses)
           basic_opr_switch_statements extended_opr_switch_statements
 #undef case_stmt
               default : return error_node();
@@ -30348,12 +30380,13 @@ class parser : public lexer::parser_helper {
           return static_cast<details::variable_node<Type>*>(branch[1]);
 
         switch (operation) {
+// NOLINTBEGIN(bugprone-macro-parentheses)
 #define case_stmt(op0, op1)                                                  \
   case op0:                                                                  \
     return expr_gen.node_allocator_                                          \
         ->template allocate_cr<typename details::cov_node<Type, op1<Type>>>( \
             c, v);
-
+// NOLINTEND(bugprone-macro-parentheses)
           basic_opr_switch_statements extended_opr_switch_statements
 #undef case_stmt
               default : return error_node();
@@ -30390,12 +30423,13 @@ class parser : public lexer::parser_helper {
           return static_cast<details::variable_node<Type>*>(branch[0]);
 
         switch (operation) {
+// NOLINTBEGIN(bugprone-macro-parentheses)
 #define case_stmt(op0, op1)                                                  \
   case op0:                                                                  \
     return expr_gen.node_allocator_                                          \
         ->template allocate_rc<typename details::voc_node<Type, op1<Type>>>( \
             v, c);
-
+// NOLINTEND(bugprone-macro-parentheses)
           basic_opr_switch_statements extended_opr_switch_statements
 #undef case_stmt
               default : return error_node();
@@ -35271,13 +35305,14 @@ class parser : public lexer::parser_helper {
         T1 s1,
         range_t rp0) {
       switch (opr) {
+// NOLINTBEGIN(bugprone-macro-parentheses)
 #define case_stmt(op0, op1)                                                \
   case op0:                                                                \
     return node_allocator_->allocate_ttt<                                  \
         typename details::str_xrox_node<Type, T0, T1, range_t, op1<Type>>, \
         T0,                                                                \
         T1>(s0, s1, rp0);
-
+// NOLINTEND(bugprone-macro-parentheses)
         string_opr_switch_statements
 #undef case_stmt
             default : return error_node();
@@ -35291,13 +35326,14 @@ class parser : public lexer::parser_helper {
         T1 s1,
         range_t rp1) {
       switch (opr) {
+// NOLINTBEGIN(bugprone-macro-parentheses)
 #define case_stmt(op0, op1)                                                \
   case op0:                                                                \
     return node_allocator_->allocate_ttt<                                  \
         typename details::str_xoxr_node<Type, T0, T1, range_t, op1<Type>>, \
         T0,                                                                \
         T1>(s0, s1, rp1);
-
+// NOLINTEND(bugprone-macro-parentheses)
         string_opr_switch_statements
 #undef case_stmt
             default : return error_node();
@@ -35312,13 +35348,14 @@ class parser : public lexer::parser_helper {
         range_t rp0,
         range_t rp1) {
       switch (opr) {
+// NOLINTBEGIN(bugprone-macro-parentheses)
 #define case_stmt(op0, op1)                                                 \
   case op0:                                                                 \
     return node_allocator_->allocate_tttt<                                  \
         typename details::str_xroxr_node<Type, T0, T1, range_t, op1<Type>>, \
         T0,                                                                 \
         T1>(s0, s1, rp0, rp1);
-
+// NOLINTEND(bugprone-macro-parentheses)
         string_opr_switch_statements
 #undef case_stmt
             default : return error_node();
@@ -35331,13 +35368,14 @@ class parser : public lexer::parser_helper {
         T0 s0,
         T1 s1) {
       switch (opr) {
+// NOLINTBEGIN(bugprone-macro-parentheses)
 #define case_stmt(op0, op1)                                  \
   case op0:                                                  \
     return node_allocator_->allocate_tt<                     \
         typename details::sos_node<Type, T0, T1, op1<Type>>, \
         T0,                                                  \
         T1>(s0, s1);
-
+// NOLINTEND(bugprone-macro-parentheses)
         string_opr_switch_statements
 #undef case_stmt
             default : return error_node();
@@ -35719,12 +35757,13 @@ class parser : public lexer::parser_helper {
         const details::operator_type& opr,
         expression_node_ptr (&branch)[2]) {
       switch (opr) {
+// NOLINTBEGIN(bugprone-macro-parentheses)
 #define case_stmt(op0, op1)                                                 \
   case op0:                                                                 \
     return node_allocator_                                                  \
         ->allocate_ttt<typename details::str_sogens_node<Type, op1<Type>>>( \
             opr, branch[0], branch[1]);
-
+// NOLINTEND(bugprone-macro-parentheses)
         string_opr_switch_statements
 #undef case_stmt
             default : return error_node();
@@ -36214,9 +36253,10 @@ class parser : public lexer::parser_helper {
   }
 
   inline void load_unary_operations_map(unary_op_map_t& m) {
+// NOLINTBEGIN(bugprone-macro-parentheses)
 #define register_unary_op(Op, UnaryFunctor) \
   m.insert(std::make_pair(Op, UnaryFunctor<T>::process));
-
+// NOLINTEND(bugprone-macro-parentheses)
     register_unary_op(details::e_abs, details::abs_op) register_unary_op(
         details::e_acos,
         details::acos_op) register_unary_op(details::e_acosh, details::acosh_op)
@@ -36293,10 +36333,10 @@ class parser : public lexer::parser_helper {
 
   inline void load_binary_operations_map(binary_op_map_t& m) {
     typedef typename binary_op_map_t::value_type value_type;
-
+// NOLINTBEGIN(bugprone-macro-parentheses)
 #define register_binary_op(Op, BinaryFunctor) \
   m.insert(value_type(Op, BinaryFunctor<T>::process));
-
+// NOLINTEND(bugprone-macro-parentheses)
     register_binary_op(details::e_add, details::add_op) register_binary_op(
         details::e_sub,
         details::sub_op) register_binary_op(details::e_mul, details::mul_op)
@@ -36330,10 +36370,10 @@ class parser : public lexer::parser_helper {
 
   inline void load_inv_binary_operations_map(inv_binary_op_map_t& m) {
     typedef typename inv_binary_op_map_t::value_type value_type;
-
+// NOLINTBEGIN(bugprone-macro-parentheses)
 #define register_binary_op(Op, BinaryFunctor) \
   m.insert(value_type(BinaryFunctor<T>::process, Op));
-
+// NOLINTEND(bugprone-macro-parentheses)
     register_binary_op(details::e_add, details::add_op) register_binary_op(
         details::e_sub,
         details::sub_op) register_binary_op(details::e_mul, details::mul_op)
@@ -37282,7 +37322,7 @@ class polynomial : public ifunction<T> {
 
   virtual ~polynomial() {}
 
-#define poly_rtrn(NN) return (NN != N) ? std::numeric_limits<T>::quiet_NaN():
+#define poly_rtrn(NN) return ((NN) != N) ? std::numeric_limits<T>::quiet_NaN():
 
   inline virtual T operator()(const T& x, const T& c1, const T& c0) {
     poly_rtrn(1)(poly_impl<T, 1>::evaluate(x, c1, c0));
