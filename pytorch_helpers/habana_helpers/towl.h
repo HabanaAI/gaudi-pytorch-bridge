@@ -18,14 +18,11 @@
 #include <cstdint>
 #include "backend/synapse_helpers/device_types.h"
 #include "backend/synapse_helpers/graph.h"
-#include "logging.h"
 
 // Forward declaration to avoid circular dependency
 // if backend/synapse_helpers/memory_defragmentation.h is included
-namespace synapse_helpers {
-namespace defragment_helpers {
-  class Region;
-}
+namespace synapse_helpers::defragment_helpers {
+struct Region;
 }
 
 namespace towl {
