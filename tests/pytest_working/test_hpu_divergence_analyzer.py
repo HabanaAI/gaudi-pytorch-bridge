@@ -148,7 +148,7 @@ def test_divergence_tool(
             outdir=outdir,
             exit_on_first_mismatch=exit_on_first_mismatch,
         )
-        os.system(cmd_train)
+        os.system(cmd_train)  # noqa S605
 
     cmd = get_cmd(
         train_cmd,
@@ -160,7 +160,7 @@ def test_divergence_tool(
         outdir,
         exit_on_first_mismatch,
     )
-    test_status = os.system(cmd)
+    test_status = os.system(cmd)  # noqa S605
 
     assert expected_status == test_status
     assert os.path.exists(os.path.join(outdir, "dumps", "mismatch.txt")) is False

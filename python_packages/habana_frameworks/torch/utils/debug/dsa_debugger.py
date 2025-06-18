@@ -602,7 +602,7 @@ class DivergenceAnalyzer:
             outfile = "/dev/null"
 
         cmd_full = f'script -e -q -c "{cmd}" {outfile} > /dev/null'
-        status = os.system(cmd_full)
+        status = os.system(cmd_full)  # noqa S605
         assert status == 0, f"[ERROR] Dumping error logs to\033[91m {outfile}\033[0m"
 
     def train(self):
@@ -629,7 +629,7 @@ class DivergenceAnalyzer:
         p2 = mp.Process(target=self.run, args=(cmd_dynamic, "dynamic", verbose))
 
         def _await(exit_gracefully=True):
-            os.system("reset")  # noqa S607 # FIXME: The "script" command messes up the terminal.
+            os.system("reset")  # noqa S605 # noqa S607 # FIXME: The "script" command messes up the terminal.
             p1.join()
             p2.join()
             if exit_gracefully:
