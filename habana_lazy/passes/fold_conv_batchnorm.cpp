@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -97,7 +97,7 @@ bool computeUpdatedConvWeightAndBias(
       for (auto a = 0; a < ci * ky * kx; a++) {
         cw[a] = (float)((double)cw[a] * t);
       }
-      cw += (ci * ky * kx);
+      cw += (static_cast<ptrdiff_t>(ci * ky * kx));
     }
   } else {
     for (auto a = 0; a < (ky * kx); a++) {

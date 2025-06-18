@@ -39,7 +39,7 @@ std::vector<int64_t> pad_output_shape(
 
   auto shape = self.sizes().vec();
 
-  for (unsigned int i = 0; i < lpad; i++) {
+  for (size_t i = 0; i < lpad; i++) {
     auto pad_start = pad[2 * i];
     auto pad_end = pad[2 * i + 1];
     shape[ndim - i - 1] += (pad_start + pad_end);
@@ -68,7 +68,7 @@ OutputMetaDataVector ConstantPadMeta(const at::Stack& stack) {
     auto lpad = pad.size() / 2;
     auto shape = stack.at(3).toIntVector();
 
-    for (unsigned int i = 0; i < lpad; i++) {
+    for (size_t i = 0; i < lpad; i++) {
       auto pad_start = pad[2 * i];
       auto pad_end = pad[2 * i + 1];
       shape[ndim - i - 1] += (pad_start + pad_end);
@@ -133,7 +133,7 @@ FillParamsT FillConstantPadParams(const at::Stack& stack) {
     auto ndim = self.dim();
     auto lpad = pad.size() / 2;
 
-    for (unsigned int i = 0; i < lpad; i++) {
+    for (size_t i = 0; i < lpad; i++) {
       params->pads[i] = pad[2 * i];
       params->pads[i + ndim] = pad[2 * i + 1];
     }

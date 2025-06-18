@@ -286,7 +286,7 @@ void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
 
     auto mul_wt = make_operator<habana::MulOperator>(device_id, scalar_type);
     mul_wt->SetSynapseInput(div_wt->GetSynOutputs()[0]);
-    mul_wt->SetSynapseInput(p_context_->syn_inputs_[4 * num_params]);
+    mul_wt->SetSynapseInput(p_context_->syn_inputs_[4 * static_cast<size_t>(num_params)]);
     stack.emplace_back(IValue(div_wt->GetOutputs()[0]));
     stack.emplace_back(IValue(neg_step_size));
     mul_wt->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
@@ -426,7 +426,7 @@ void OptimizerFusedAdagradOperator::AllocateAndAddSynapseNode(
     op->SetSynapseInput(p_context_->syn_inputs_[i]);
     op->SetSynapseInput(p_context_->syn_inputs_[num_params + i]);
     op->SetSynapseInput(p_context_->syn_inputs_[2 * num_params + i]);
-    op->SetSynapseInput(p_context_->syn_inputs_[3 * num_params]);
+    op->SetSynapseInput(p_context_->syn_inputs_[3 * static_cast<size_t>(num_params)]);
     op->SetSynapseInput(p_context_->syn_inputs_[3 * num_params + 1]);
 
     stack.emplace_back(IValue(gradients.get(i)));
@@ -525,7 +525,7 @@ void OptimizerFusedSGDOperator::AllocateAndAddSynapseNode(
         make_operator<OptimizerSGDOperator>(device_id, at::ScalarType::Float);
     op->SetSynapseInput(p_context_->syn_inputs_[i]);
     op->SetSynapseInput(p_context_->syn_inputs_[num_params + i]);
-    op->SetSynapseInput(p_context_->syn_inputs_[2 * num_params]);
+    op->SetSynapseInput(p_context_->syn_inputs_[2 * static_cast<size_t>(num_params)]);
 
     stack.emplace_back(IValue(gradients.get(i)));
     stack.emplace_back(IValue(weights.get(i)));
@@ -590,7 +590,7 @@ void OptimizerFusedEMAOperator::AllocateAndAddSynapseNode(
     auto mul_in_exp =
         make_operator<habana::MulOperator>(device_id, scalar_type);
     mul_in_exp->SetSynapseInput(p_context_->syn_inputs_[num_params + i]);
-    mul_in_exp->SetSynapseInput(p_context_->syn_inputs_[2 * num_params]);
+    mul_in_exp->SetSynapseInput(p_context_->syn_inputs_[2 * static_cast<size_t>(num_params)]);
     stack.emplace_back(IValue(updated_ema.get(i)));
     stack.emplace_back(IValue(decay));
     mul_in_exp->AllocateAndAddSynapseNode(
@@ -598,7 +598,7 @@ void OptimizerFusedEMAOperator::AllocateAndAddSynapseNode(
     stack.clear();
 
     auto sub_exp = make_operator<habana::SubOperator>(device_id, scalar_type);
-    sub_exp->SetSynapseInput(p_context_->syn_inputs_[2 * num_params]);
+    sub_exp->SetSynapseInput(p_context_->syn_inputs_[2 * static_cast<size_t>(num_params)]);
     stack.emplace_back(IValue(1.0));
     stack.emplace_back(IValue(decay));
     stack.emplace_back(IValue(1.0));
@@ -761,7 +761,7 @@ void OptimizerFusedSGDMomentumOperator::AllocateAndAddSynapseNode(
     op->SetSynapseInput(p_context_->syn_inputs_[i]);
     op->SetSynapseInput(p_context_->syn_inputs_[num_params + i]);
     op->SetSynapseInput(p_context_->syn_inputs_[2 * num_params + i]);
-    op->SetSynapseInput(p_context_->syn_inputs_[3 * num_params]);
+    op->SetSynapseInput(p_context_->syn_inputs_[3 * static_cast<size_t>(num_params)]);
     op->SetSynapseInput(p_context_->syn_inputs_[3 * num_params + 1]);
     op->SetSynapseInput(
         p_context_->syn_inputs_[3 * num_params + 2]); // mom tensor

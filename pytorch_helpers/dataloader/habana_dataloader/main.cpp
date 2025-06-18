@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -171,7 +171,7 @@ class HabanaAcceleratedPytorchDL {
     }
 
     const int image_size =
-        m_img_height * m_img_width * 3 * m_batch_size * sizeof(float);
+        static_cast<size_t>(m_img_height * m_img_width * 3 * m_batch_size) * sizeof(float);
     const int target_size = m_batch_size * sizeof(uint32_t);
 
     char* image_data_ptr = (char*)image.data_ptr();
@@ -322,7 +322,7 @@ class SsdHDL : public HabanaAcceleratedPytorchDL {
     }
 
     const int image_size =
-        m_img_height * m_img_width * 3 * m_batch_size * sizeof(float);
+        static_cast<size_t>(m_img_height * m_img_width * 3 * m_batch_size) * sizeof(float);
     char* image_data_ptr = (char*)image.data_ptr();
 
     const int bbox_size = m_batch_size * m_max_gt_boxes * 4 * sizeof(float);
@@ -331,7 +331,7 @@ class SsdHDL : public HabanaAcceleratedPytorchDL {
     const int img_id_size = m_batch_size * sizeof(uint32_t);
     char* label_ptr = (char*)label.data_ptr();
     char* img_id_ptr = (char*)img_id.data_ptr();
-    const int img_shape_size = 2 * m_batch_size * sizeof(uint32_t);
+    const auto img_shape_size = static_cast<size_t>(2 * m_batch_size) * sizeof(uint32_t);
     char* img_shape_ptr = (char*)img_shape.data_ptr();
 
     // // Copy data to the ptr

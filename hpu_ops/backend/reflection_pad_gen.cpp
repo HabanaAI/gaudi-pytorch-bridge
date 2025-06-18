@@ -40,7 +40,7 @@ sizes_vec ReflectionPadOutputShape(
 
   for (uint dim = 0; dim < dimsVariant; dim++) {
     outputShape.rbegin()[dim] = outputShape.rbegin()[dim] +
-        pad[dim * PADS_PER_DIM] + pad[dim * PADS_PER_DIM + 1];
+        pad[static_cast<size_t>(dim * PADS_PER_DIM)] + pad[dim * PADS_PER_DIM + 1];
   }
   return {outputShape};
 }

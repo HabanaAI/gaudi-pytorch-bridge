@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@ OutputMetaDataVector ComputeNmsBatchedAlignMetadata(const at::Stack& stack) {
   return {
       OutputMetaData(
           c10::ScalarType::Long,
-          {static_cast<int>(indexes.sizes()[0]) * max_classes}),
+          {static_cast<int64_t>(indexes.sizes()[0]) * max_classes}),
       OutputMetaData(c10::ScalarType::Int, {5})};
 }
 

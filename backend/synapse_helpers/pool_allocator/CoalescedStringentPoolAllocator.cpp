@@ -261,7 +261,8 @@ bool CoalescedStringentPooling::pool_create(synDeviceId deviceID, uint64_t size)
   stats.bytes_in_use += header_bytes;
   bytes_in_use += header_bytes;
   stats.pre_allocate_size += header_bytes;
-  size_t small_alloc_size = 6 * 1024 * alignment;
+  constexpr auto mem_block_size = 6 * 1024;
+  size_t small_alloc_size = mem_block_size * alignment;
   const auto chunk_ptr = static_cast<int8_t*>(alloc_chunk(
       small_alloc_size, 0 /*default stream*/, false /*use_stream*/));
   const auto free_chunk = [this](int8_t* ptr) { delete_chunk(ptr); };

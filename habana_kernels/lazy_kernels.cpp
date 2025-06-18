@@ -2045,7 +2045,7 @@ Tensor constant_pad_hpu_lazy(
       std::vector<uint32_t> pad_ht_vec(MAX_DIMENSIONS_NUM * 2, 0);
       // assuming that "pad" has a pair of pad values corresponding to each
       // dim that needs to be padded.
-      for (unsigned int i = 0; i < pad.size() / 2; i++) {
+      for (size_t i = 0; i < pad.size() / 2; i++) {
         // Host tensor layout 1D - 10 elements:
         // pad_before[0]...pad_before[4], pad_after[0] ... pad_after[4] (for
         // dimensionality IFM less then 5 some elements not in use)

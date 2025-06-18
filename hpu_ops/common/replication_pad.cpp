@@ -32,8 +32,8 @@ sizes_vec ComputePadOutputShape(const at::Stack& stack, PadType padType) {
       "Only 2D, 3D, 4D, 5D padding with non-constant padding are supported for now");
 
   if (paddingSize == 1)
-    padding.resize((padType + 1) * 2);
-  for (auto i = 0; i <= padType; i++)
+    padding.resize(static_cast<size_t>((padType + 1) * 2));
+  for (size_t i = 0; i <= static_cast<size_t>(padType); i++)
     outputSize.rbegin()[i] += padding.at(i * 2) + padding.at(i * 2 + 1);
 
   return {outputSize};
@@ -51,8 +51,8 @@ FillParamsT FillPadFwdBwdParams(
   params->mode = PadMode_t::PAD_MODE_EDGE;
 
   if (padding.size() == 1)
-    padding.resize((padType + 1) * 2);
-  for (auto i = 0; i <= padType; i += 1) {
+    padding.resize(static_cast<size_t>((padType + 1) * 2));
+  for (size_t i = 0; i <= static_cast<size_t>(padType); i += 1) {
     params->pads[i] = padding.at(i * 2);
     params->pads[i + selfRank] = padding.at(i * 2 + 1);
   }

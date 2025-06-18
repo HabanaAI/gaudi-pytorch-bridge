@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -54,7 +54,7 @@ inline std::string parseStringLiteral(
     const SourceRange& range,
     const std::string& str) {
   int quote_len = isCharCount(str[0], str, 0, 3) ? 3 : 1;
-  auto ret_str = str.substr(quote_len, str.size() - quote_len * 2);
+  auto ret_str = str.substr(quote_len, str.size() - static_cast<size_t>(quote_len * 2));
   size_t pos = ret_str.find('\\');
   while (pos != std::string::npos) {
     // invariant: pos has to escape a character because it is a valid string
