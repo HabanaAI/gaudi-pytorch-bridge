@@ -387,9 +387,6 @@ void device_memory::recordStream(void* ptr, hpuStream_t stream) {
       common::IsRecordStreamEnabled()) {
     auto h =
         mem_handle::reinterpret_from_pointer(reinterpret_cast<uint64_t>(ptr));
-    if (h.offset() != 0) {
-      PT_DEVMEM_FATAL("Cannot free offseted handle ", h);
-    }
     std::unique_lock<std::mutex> lock(mutex_);
     const auto id = h.id();
     auto ptr_and_size = handle2pointer_.GetPtrSize(id);

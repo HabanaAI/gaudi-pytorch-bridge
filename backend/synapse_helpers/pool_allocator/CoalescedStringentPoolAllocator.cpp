@@ -12,10 +12,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <synapse_api.h>
-
-#include <habana_helpers/logging.h>
 #include "CoalescedStringentPoolAllocator.h"
+#include <habana_helpers/logging.h>
+#include <synapse_api.h>
 #include "backend/synapse_helpers/devmem_logger.h"
 #include "backend/synapse_helpers/env_flags.h" // IWYU pragma: keep
 #include "backend/synapse_helpers/lightweight_memory_usage_logger.h"
@@ -700,7 +699,6 @@ void* CoalescedStringentPooling::alloc_chunk(
     hpuStream_t stream,
     bool use_stream) const {
   void* ptr = nullptr;
-
   if (size % alignment != 0) {
     PT_DEVMEM_FATAL(
         "CS_POOL:: alloc_chunk requested size not aligned to default size::",
@@ -972,7 +970,7 @@ void CoalescedStringentPooling::synchronize_and_free_events() const {
 
       chunk->event_count--;
       if (chunk->event_count == 0) {
-        delete_chunk(chunk);
+        delete_chunk((void*)chunk->memptr);
       }
       device_.get_event_handle_cache().release_handle(event);
     }
@@ -1010,7 +1008,7 @@ void CoalescedStringentPooling::process_events() const {
 
       chunk->event_count--;
       if (chunk->event_count == 0) {
-        delete_chunk(chunk);
+        delete_chunk((void*)chunk->memptr);
       }
       it->second.pop_front();
     }
@@ -1056,6 +1054,7 @@ bool CoalescedStringentPooling::is_stream_uses_empty(void* ptr) const {
   }
 
   auto it = chunks.find((uint64_t)ptr);
+
   HABANA_ASSERT(it != chunks.end());
   Chunk* chunk = it->second;
   return chunk->stream_uses.empty();
