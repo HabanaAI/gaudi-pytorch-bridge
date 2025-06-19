@@ -90,8 +90,10 @@ def dequantize_nf4_impl_for_cpu(
     blocksize : int
         The blocksize used in quantization.
     big_endian: bool
-        If True, the most significant bits are stored first in the packed 4-bit values.
-        If False, the least significant bits are stored first.
+        If True, the most significant bits are stored at the even position in the packed 4-bit values and
+                least significant bits are stored at the odd position in the packed 4-bit values.
+        If False, the least significant bits are stored at the even position in the packed 4-bit values and
+                most significant bits are stored at the odd position in the packed 4-bit values.
     Returns
     -------
     torch.Tensor:
