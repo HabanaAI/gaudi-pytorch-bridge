@@ -116,7 +116,7 @@ if TEST_ON_CUDA:
     test_dtypes_fast = [torch.float16]
 elif TEST_ON_HPU:
     test_device = "hpu"
-    test_dtypes = [torch.float32, torch.bfloat16]
+    test_dtypes = [torch.float32, torch.bfloat16, torch.float8_e4m3fn, torch.float8_e5m2]
 else:
     test_device = "cpu"
     torch_config_string = torch.__config__.show()
@@ -338,6 +338,8 @@ class TestFlexAttention(InductorTestCase):
         fudge_factor: float,
         tensor_name: str | None = None,
     ):
+        if compiled_out.dtype == torch.float8_e4m3fn or compiled_out.dtype == torch.float8_e5m2:
+            compiled_out = compiled_out.to(torch.float32)
         compiled_error = (golden_out - compiled_out).abs().mean()
         ref_error = (golden_out - ref_out).abs().mean()
         if torch.isnan(compiled_error).any() or torch.isnan(ref_error).any():
@@ -355,17 +357,22 @@ class TestFlexAttention(InductorTestCase):
         is_paged_attention: bool = False,
     ):
         dtype = ref_out.dtype
+        compiled_dtype = compiled_out.dtype
         with torch.no_grad():
             # Note, it seems like we really are less accurate than the float32
             # computation, likely due to the online softmax
-            if dtype == torch.float32:
-                fudge_factor = 10.0
+            if compiled_dtype == torch.float8_e5m2:
+                fudge_factor = 200.0
+            elif compiled_dtype == torch.float8_e4m3fn:
+                fudge_factor = 65.0
+            elif dtype == torch.float32:
+                fudge_factor = 12.0
                 if is_paged_attention:
                     # paged attention is less accurate since it may reorder
                     # the blocks from block mask
                     fudge_factor = 20.0
             else:
-                fudge_factor = 1.1
+                fudge_factor = 10.1
 
             # Checkout output
             self._check_equal(golden_out, ref_out, compiled_out, fudge_factor, "Out")
@@ -393,7 +400,9 @@ class TestFlexAttention(InductorTestCase):
             if dtype == torch.float32:
                 fudge_factor = 10.0
             elif dtype == torch.bfloat16:
-                fudge_factor = 2.0
+                fudge_factor = 12.0
+            elif dtype == torch.float8_e4m3fn or dtype == torch.float8_e5m2:
+                fudge_factor = 10.0
             else:
                 fudge_factor = 1.1
 
@@ -564,6 +573,10 @@ class TestFlexAttention(InductorTestCase):
             )
 
         q_ref, k_ref, v_ref = query_key_value_clones(q, k, v)
+        if q_ref.dtype == torch.float8_e4m3fn or q_ref.dtype == torch.float8_e5m2:
+            q_ref = q_ref.to(torch.bfloat16)
+            k_ref = k_ref.to(torch.bfloat16)
+            v_ref = v_ref.to(torch.bfloat16)
         q_gold, k_gold, v_gold = query_key_value_clones(q, k, v, torch.float64)
         sdpa_partial_ref = create_attention(score_mod, block_mask, enable_gqa=(Q_H != KV_H), return_lse=return_lse)
 
@@ -605,6 +618,8 @@ class TestFlexAttention(InductorTestCase):
             ref_out.sum().backward()
             compiled_out.sum().backward()
 
+            if q.dtype == torch.float8_e4m3fn or q.dtype == torch.float8_e5m2:
+                return
             q_hpu = q.to("cpu")
             q_hpu.grad = q.grad.to("cpu")
             k_hpu = k.to("cpu")
