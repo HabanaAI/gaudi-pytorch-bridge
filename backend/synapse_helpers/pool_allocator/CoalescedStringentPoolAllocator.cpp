@@ -955,37 +955,14 @@ size_t CoalescedStringentPooling::allocated_size(const void* ptr) const {
   return chunk->size;
 }
 
-void CoalescedStringentPooling::synchronize_and_free_events() const {
-  const std::lock_guard<std::mutex> lock(sp_mutex);
-  // Synchronize on outstanding events and then free associated blocks.
-  for (auto& st : hpu_events) {
-    for (auto& e : st.second) {
-      synEventHandle event = std::move(e.first);
-      Chunk* chunk = e.second;
-
-      auto status = synEventSynchronize(event);
-      if (synStatus::synSuccess != status) {
-        PT_DEVMEM_FATAL(
-            Logger::formatStatusMsg(status), "Event synchronization failed");
-      }
-
-      chunk->event_count--;
-      if (chunk->event_count == 0) {
-        delete_chunk((void*)chunk->memptr);
-      }
-      device_.get_event_handle_cache().release_handle(event);
-    }
-  }
-
-  hpu_events.clear();
-}
-
 void CoalescedStringentPooling::process_events() const {
   // Process outstanding HpuEvents. Events that are completed are
   // removed from the queue, and the 'event_count' for the
   // corresponding allocation is decremented. We maintain a separate
   // list of events per stream to avoid head-of-line delays if one
   // or more streams has long-running operations.
+
+  PT_DEVMEM_DEBUG("CS_POOL::hpu_events.size() is ", hpu_events.size());
 
   // Iterate over different streams.
   for (auto it = hpu_events.begin(); it != hpu_events.end();) {
@@ -1026,7 +1003,6 @@ void CoalescedStringentPooling::insert_events(Chunk* chunk) const {
   stream_set streams(std::move(chunk->stream_uses));
   AT_ASSERT(chunk->stream_uses.empty());
   for (auto& stream : streams) {
-    // for default stream it will use compute stream
     synapse_helpers::stream& s = device_.get_stream(stream);
     synEventHandle event = device_.get_event_handle_cache().get_free_handle();
     auto status = synEventRecord(event, s);
@@ -1040,6 +1016,7 @@ void CoalescedStringentPooling::insert_events(Chunk* chunk) const {
           event);
     }
 
+    PT_DEVMEM_DEBUG("CS_POOL::Event ", event, " is inserted to stream ", s);
     chunk->event_count++;
     hpu_events[stream].emplace_back(event, chunk);
   }
@@ -1081,6 +1058,8 @@ void CoalescedStringentPooling::record_stream(void* ptr, hpuStream_t stream)
     // special synchronization
     return;
   }
+
+  PT_DEVMEM_DEBUG("CS_POOL::Stream ", stream, " is recorded to Chunk ", chunk);
   chunk->stream_uses.insert(stream);
 }
 

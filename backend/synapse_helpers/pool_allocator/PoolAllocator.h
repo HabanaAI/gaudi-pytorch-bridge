@@ -87,7 +87,6 @@ class PoolingStrategy {
   virtual bool is_stream_uses_empty([[maybe_unused]] void* p) const {
     return true;
   };
-  virtual void synchronize_and_free_events() const {};
 
   // [Fix Me:] need to have the pool size to accomodate one
   // complete model for static pooling
@@ -207,10 +206,6 @@ class SubAllocator {
 
   bool is_stream_uses_empty(void* p) const {
     return this->strategy_->is_stream_uses_empty(p);
-  }
-
-  void synchronize_and_free_events() const {
-    this->strategy_->synchronize_and_free_events();
   }
 };
 

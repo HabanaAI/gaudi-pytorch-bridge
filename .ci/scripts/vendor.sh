@@ -115,6 +115,8 @@ run_pytorch_integration_tests()
             __test_status=$((__test_status | $?))
             (set -x; eval PT_HPU_AUTOLOAD=1 DO_NOT_IMPORT_HABANA_TORCH=1 ${__pytorch_modules_tests_exe} pytest_working/test_autoload.py -v $__failures $__py_rerun_fail --junit-xml="${__xml}_eager_pytest_autoload.xml" --mode="eager" --dut="${__dut}" --junit-prefix="PytestEager" ${__marker})
             __test_status=$((__test_status | $?))
+            (set -x; eval PT_HPU_ENABLE_RECORD_STREAM=1 PT_HPU_USE_LAUNCH_RECORD_STREAM=1 ${__pytorch_modules_tests_exe} pytest_working/eager/test_record_stream.py -v $__failures $__py_rerun_fail $__py_filter --junit-xml="${__xml}_eager_record_stream.xml" --vendor --mode="eager" --dut="${__dut}" --junit-prefix="PytestEager" ${__marker})
+            __test_status=$((__test_status | $?))
         fi
         popd
     fi

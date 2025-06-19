@@ -118,7 +118,6 @@ class CoalescedStringentPooling : public PoolingStrategy {
   void set_defragmenter_state(bool started) const override;
   void record_stream(void* ptr, hpuStream_t stream) const override;
   bool is_stream_uses_empty(void* p) const override;
-  void synchronize_and_free_events() const override;
 
   void get_memory_mask(std::vector<uint64_t>& mmask) const;
 
