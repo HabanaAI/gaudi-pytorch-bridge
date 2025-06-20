@@ -1,3 +1,4 @@
+
 .. _pytorch-custom-operators:
 
 ****************************
@@ -94,6 +95,5 @@ fp8_sdpa_recomp_fwd_non_dropout            No       No       No       No       N
 fp8_sdpa_recomp_fwd_dropout                No       No       No       No       No        No       No        Yes        No       No
 sum_fp8                                    No       No       No       No       No        No       No        Yes        No       No
 fused_clip_norm                           Yes      Yes       No       No       No        No       No         No        No       No
-block_softmax                             Yes      Yes       No       No       No        No       No         No        No       No
 block_softmax_adjustment                  Yes      Yes       No       No       No        No       No         No        No       No
 ======================================  ======== ======== ======== ========= ========= ======== ======== ========= ======== ========

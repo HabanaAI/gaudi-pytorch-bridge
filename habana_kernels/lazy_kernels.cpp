@@ -5886,27 +5886,6 @@ at::Tensor dequantize_nf4_lazy(
   RUN_MAYBE_WITH_ACC_THREAD(dequantize_nf4, hpu_op);
 }
 
-Tensor block_softmax_adjustment_lazy(
-    const Tensor& block_maxes,
-    const Tensor& block_sums,
-    const Tensor& block_groups,
-    int64_t batch_size,
-    at::IntArrayRef out_shape) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-
-  PT_OP_INFO(
-      "block_softmax_adjustment :",
-      DUMP_5ARGS(block_maxes, block_sums, block_groups, batch_size, out_shape));
-
-  LazyOp<at::Tensor> hpu_op{
-      "hpu::block_softmax_adjustment",
-      {block_maxes, block_sums, block_groups, batch_size, out_shape},
-      {out_shape.vec()}};
-
-  RUN_MAYBE_WITH_ACC_THREAD(block_softmax_adjustment, hpu_op);
-}
-
 inline bool is_main_thread_and_lazy_collectives_enabled() {
   return GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAZY_COLLECTIVES) &&
       not(habana_lazy::AccThread::IsAccThreadEnabled() &&

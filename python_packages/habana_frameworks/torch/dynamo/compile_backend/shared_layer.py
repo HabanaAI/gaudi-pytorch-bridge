@@ -44,7 +44,6 @@ hpu_supported_op_list = {
     "instance_norm_backward",
     # Custom ops
     "block_softmax_adjustment",
-    "block_softmax",
     "convert_from_int4",
     "convert_from_uint4",
     "dequantize_nf4",
