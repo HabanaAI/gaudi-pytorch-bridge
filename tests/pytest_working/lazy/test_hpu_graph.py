@@ -936,6 +936,6 @@ def test_inplace_view_test():
         x = torch.randn(4, 1).to("hpu")
         y = torch.randn(4, 1).to("hpu")
         x = y[: len(y)]
-        z_hpu = model_hpugraph(x)
+        z_hpu = model_hpugraph(x.clone())
         z = model(x)
         assert torch.allclose(z_hpu, z)
