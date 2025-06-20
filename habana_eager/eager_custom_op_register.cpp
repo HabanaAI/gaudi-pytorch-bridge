@@ -30,6 +30,7 @@
 #include "hpu_ops/common/mixture_of_experts.h"
 #include "hpu_ops/cpu_fallback.h"
 #include "hpu_ops/fp8_ops.h"
+#include "hpu_ops/hpu_op_helper.h"
 #include "hpu_ops/op_logger.h"
 #include "hpu_ops/op_validator.h"
 #include "hpu_ops/optimizer_lamb_gen.h"
@@ -1059,6 +1060,26 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> fp8_sdpa_recomp_bwd(
 
   return hpu_op.call();
 }
+
+at::Tensor block_softmax_adjustment(
+    const at::Tensor& block_maxes,
+    const at::Tensor& block_sums,
+    const at::Tensor& block_groups,
+    const int64_t batch_size,
+    const at::IntArrayRef out_shape) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "block_softmax_adjustment:",
+      DUMP_5ARGS(block_maxes, block_sums, block_groups, batch_size, out_shape));
+
+  habana::eager::EagerOp<at::Tensor> hpu_op{
+      "hpu::block_softmax_adjustment",
+      {block_maxes, block_sums, block_groups, batch_size, out_shape},
+      {{out_shape.vec()}}};
+
+  return hpu_op.call();
+}
+
 /***********************************************************************************
  * Native ops
  **********************************************************************************/
@@ -1560,6 +1581,8 @@ TORCH_LIBRARY(hpu, m) {
       {at::Tag::nondeterministic_seeded});
   m.def(
       "hpu::habana_random(Tensor seed, Tensor self, int low, int? high) -> Tensor");
+  m.def(
+      "hpu::block_softmax_adjustment(Tensor block_maxes, Tensor block_sums, Tensor block_groups, int batch_size, int[] out_shape) -> Tensor");
 }
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {
@@ -1634,6 +1657,7 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::weight_permutation", weight_permutation);
   m.impl("hpu::one_hot", one_hot_forward);
   m.impl("hpu::dequantize_nf4", dequantize_nf4_impl);
+  m.impl("hpu::block_softmax_adjustment", block_softmax_adjustment);
 }
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {
