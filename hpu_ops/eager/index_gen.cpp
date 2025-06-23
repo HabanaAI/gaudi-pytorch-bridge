@@ -22,6 +22,23 @@
 
 namespace habana {
 
+FALLBACK_CHECK(
+    IndexFallbackCheck,
+    [[maybe_unused]] const c10::List<std::optional<at::Tensor>>& indices) {
+  at::Stack stack = {indices};
+  c10::ArrayRef<c10::IValue> indices_in = stack.at(0).toListRef();
+  // TBD: NOTE: For eager: we are going to execute on CPU if indices are either
+  // boolean or they are on CPU
+  for (auto input : indices_in) {
+    auto o1 = input.toOptional<at::Tensor>();
+
+    if (o1.has_value() && o1.value().defined() &&
+        (o1.value().device() == torch::kCPU))
+      return false;
+  }
+  return true;
+};
+
 HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(eager::EagerOp, IndexOutFE, at::Tensor&) {
   m_symbol = at::Symbol::fromQualString("hpu::index");
   auto& sub_inputs = get_inputs();
@@ -105,11 +122,7 @@ HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(eager::EagerOp, IndexOutFE, at::Tensor&) {
     for (auto input : indices_in) {
       auto o1 = input.toOptional<at::Tensor>();
       if (o1.has_value() && o1->defined()) {
-        if (o1.value().device() == torch::kCPU) {
-          indices_vec.push_back(o1.value().to("hpu"));
-        } else {
-          indices_vec.push_back(o1.value());
-        }
+        indices_vec.push_back(o1.value());
       }
       advanced_indexing_present.emplace_back(false);
     }

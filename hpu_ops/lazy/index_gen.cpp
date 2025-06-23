@@ -20,6 +20,12 @@
 
 namespace habana {
 
+FALLBACK_CHECK(
+    IndexFallbackCheck,
+    [[maybe_unused]] const c10::List<std::optional<at::Tensor>>& indices) {
+  return true;
+};
+
 static inline void index_fe(torch::jit::Stack& in_stack) {
   auto& sub_inputs = in_stack;
   const at::Tensor self = sub_inputs.at(0).toTensor();
@@ -102,11 +108,7 @@ static inline void index_fe(torch::jit::Stack& in_stack) {
     for (auto input : indices_in) {
       auto o1 = input.toOptional<at::Tensor>();
       if (o1.has_value() && o1->defined()) {
-        if (o1.value().device() == torch::kCPU) {
-          indices_vec.push_back(o1.value().to("hpu"));
-        } else {
-          indices_vec.push_back(o1.value());
-        }
+        indices_vec.push_back(o1.value());
       }
       advanced_indexing_present.emplace_back(false);
     }
