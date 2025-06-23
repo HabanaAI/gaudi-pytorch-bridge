@@ -166,72 +166,70 @@ def test_convert_from_int4(packed_shape, variant, is_zero_point, packed_zero_poi
 
 @pytest.mark.parametrize("packed_shape", [(6, 2)], ids=format_tc)
 @pytest.mark.parametrize("random_group_index", [True, False])
-def test_convert_from_int4_group_index_zero_point(packed_shape, random_group_index):
+@pytest.mark.parametrize("variant", ["int4", "uint4"])
+@pytest.mark.parametrize("num_groups", [1, 3, 6])
+@pytest.mark.parametrize("is_zero_point", [True, False])
+def test_convert_from_int4_group_index(packed_shape, random_group_index, variant, num_groups, is_zero_point):
     out_dtype = torch.bfloat16
-    # weights - zero_points are done on 8bit
     sub_dtype = torch.int8
 
-    fn = torch.ops.hpu.convert_from_int4
+    fn = torch.ops.hpu.convert_from_int4 if variant == "int4" else torch.ops.hpu.convert_from_uint4
     fn = compile_function_if_compile_mode(fn)
 
     real_shape = list(packed_shape)
     real_shape[-1] = real_shape[-1] * 8
+    group_size = real_shape[0] // num_groups
+    group_index_shape = (real_shape[0],)
+    scales_shape = (num_groups, real_shape[1])
 
+    zeros_shape_unpacked = scales_shape
+    zeros_shape_packed = (zeros_shape_unpacked[0], zeros_shape_unpacked[1] // 8)
+
+    # Generates tensor of range 0-15 to simulate uint4 values.
+    # For int4 variant rolls values > 7 to be negative.
     input = torch.randint(0, 16, real_shape, dtype=torch.int)
+    if variant == "int4":
+        input = torch.where(input > 7, input - 16, input)
+
     input_hpu = torch.tensor(pack_int4_into_int32(input, packed_shape), dtype=torch.int).to("hpu")
-    input = torch.where(input > 7, input - 16, input)
     input = input.to(sub_dtype)
-    scale = (torch.randn(real_shape) * 50.0).to(torch.bfloat16)
+    scale = (torch.randn(scales_shape) / 50).to(torch.bfloat16)
+    scale = torch.ones(scales_shape).to(torch.bfloat16) * 2
     scale_hpu = scale.to("hpu")
-    zero_point = torch.randint(1, 5, real_shape, dtype=torch.int)
-    zero_point_hpu = torch.tensor(pack_int4_into_int32(zero_point, packed_shape), dtype=torch.int).to("hpu")
-    zero_point = zero_point.to(sub_dtype)
+
+    zero_point_hpu = None
+    if is_zero_point:
+        zero_point = torch.randint(1, 5, zeros_shape_unpacked, dtype=torch.int)
+        zero_point_hpu = torch.tensor(pack_int4_into_int32(zero_point, zeros_shape_packed), dtype=torch.int).to("hpu")
+        zero_point = zero_point.to(sub_dtype)
+
     if random_group_index:
-        group_index = torch.randperm(real_shape[1], dtype=torch.int32)
+        group_index = torch.randint(0, num_groups, group_index_shape, dtype=torch.int32)
     else:
-        group_index = torch.arange(start=0, end=real_shape[1], dtype=torch.int32)
+        group_index = torch.repeat_interleave(torch.arange(num_groups, dtype=torch.int32), group_size)
+        assert group_index.shape == group_index_shape
     group_index_hpu = group_index.to("hpu")
+
     result_hpu = fn(input_hpu, scale_hpu, zero_point_hpu, out_dtype, group_index_hpu)
+    if not random_group_index:
+        # The result should be the same as if group_index was not provided.
+        result_hpu_label = fn(input_hpu, scale_hpu, zero_point_hpu, out_dtype)
+        compare_tensors(result_hpu, result_hpu_label.cpu(), atol=0.001, rtol=0.001)
+
     result_ref = torch.zeros_like(input, dtype=out_dtype)
     subtraction = torch.zeros_like(input, dtype=sub_dtype)
-    for rowj in range(real_shape[0]):
-        for i in range(real_shape[1]):
-            subtraction[rowj][i] = (input[rowj][i] - zero_point[rowj][group_index[i]]).to(sub_dtype)
-            result_ref[rowj][i] = scale[rowj][group_index[i]] * subtraction[rowj][i]
 
+    for j in range(real_shape[0]):
+        for i in range(real_shape[1]):
+            if is_zero_point:
+                subtraction[j][i] = (input[j][i] - zero_point[group_index[j]][i]).to(sub_dtype)
+            else:
+                subtraction[j][i] = input[j][i].to(sub_dtype)
+            result_ref[j][i] = scale[group_index[j]][i] * subtraction[j][i]
     compare_tensors(result_hpu, result_ref.cpu(), atol=0.001, rtol=0.001)
 
     if is_pytest_mode_compile():
-        check_ops_executed_in_jit_ir("convert_from_int4")
-
-
-@pytest.mark.parametrize("packed_shape", [(6, 2)], ids=format_tc)
-@pytest.mark.parametrize("random_group_index", [True, False])
-def test_convert_from_int4_group_index(packed_shape, random_group_index):
-    out_dtype = torch.bfloat16
-    fn = torch.ops.hpu.convert_from_int4
-    fn = compile_function_if_compile_mode(fn)
-    real_shape = list(packed_shape)
-    real_shape[-1] = real_shape[-1] * 8
-    input = torch.randint(0, 16, real_shape, dtype=torch.int)
-    input_hpu = torch.tensor(pack_int4_into_int32(input, packed_shape), dtype=torch.int).to("hpu")
-    input = torch.where(input > 7, input - 16, input)
-    input = input.to(torch.int8)
-    scale = (torch.randn(real_shape) * 50.0).to(torch.bfloat16)
-    scale_hpu = scale.to("hpu")
-    if random_group_index:
-        group_index = torch.randperm(real_shape[1], dtype=torch.int32)
-    else:
-        group_index = torch.arange(start=0, end=real_shape[1], dtype=torch.int32)
-    group_index_hpu = group_index.to("hpu")
-    result_hpu = fn(input_hpu, scale_hpu, None, out_dtype, group_index_hpu)
-    result_ref = torch.zeros_like(input, dtype=out_dtype)
-    for rowj in range(real_shape[0]):
-        for i in range(real_shape[1]):
-            result_ref[rowj][i] = scale[rowj][group_index[i]] * input[rowj][i]
-    compare_tensors(result_hpu, result_ref.cpu(), atol=0.001, rtol=0.001)
-    if is_pytest_mode_compile():
-        check_ops_executed_in_jit_ir("convert_from_int4")
+        check_ops_executed_in_jit_ir("convert_from_int4" if variant == "int4" else "convert_from_uint4")
 
 
 @pytest.mark.parametrize("variant", ["int4", "uint4"])
