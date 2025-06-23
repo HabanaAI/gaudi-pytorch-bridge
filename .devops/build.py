@@ -149,7 +149,7 @@ def call_with_error_logging(cmd):
 
 
 def ensure_icecc_setup():
-    lsb_release = sp.check_output(["lsb_release", "-d"], encoding="ascii")
+    lsb_release = sp.check_output(["lsb_release", "-d"], text=True)
     if "Ubuntu" not in lsb_release and "Debian" not in lsb_release:
         log.fatal("--use-icecc flag only supported for dpkg-based distros")
         sys.exit(1)
@@ -319,7 +319,7 @@ def outof(*args, venv=".") -> str:
     log.debug(f"In {venv} capturing output of `{' '.join(args)}`")
     try:
         # must run through shell because otherwise changing PATH has no effect
-        result = sp.check_output(" ".join(args), encoding="ascii", env=prepare_env(venv), shell=True)  # noqa S602
+        result = sp.check_output(" ".join(args), env=prepare_env(venv), shell=True, text=True)  # noqa S602
         log.debug(f"====\n{result}====")
         return result
     except sp.CalledProcessError as cpe:
