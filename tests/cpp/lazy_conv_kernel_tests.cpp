@@ -260,7 +260,7 @@ TEST_F(LazyConvKernelGraphTest, ConvolutionBackward) {
       std::make_move_iterator(input_list.begin()),
       std::make_move_iterator(input_list.end()));
 
-  auto* hlexec = new exec::HlExec();
+  auto hlexec = std::make_unique<exec::HlExec>();
   hlexec->GetOrCreate(po_data, stack);
 
   torch::jit::testing::FileCheck()

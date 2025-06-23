@@ -60,7 +60,7 @@ TEST_F(GraphOptimizeTest, PeepholeOptimTest) {
   std::vector<int> indices = {0};
   auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
 
-  auto* hlexec = new exec::HlExec();
+  auto hlexec = std::make_unique<exec::HlExec>();
   exec::OptPassCfg::GetInstance()->SetPeepholeOpt(true);
 
   std::vector<at::Tensor> input_list{hl_tensor_in};
@@ -154,7 +154,7 @@ TEST_F(GraphOptimizeTest, SubGraphRewriteTest) {
   std::vector<int> indices = {0};
   auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
 
-  auto* hlexec = new exec::HlExec();
+  auto hlexec = std::make_unique<exec::HlExec>();
 
   std::vector<at::Tensor> input_list{hA, hB};
   auto stack = torch::jit::Stack(
@@ -198,7 +198,7 @@ TEST_F(GraphOptimizeTest, FuseMmTransposeTest) {
   std::vector<int> indices = {0};
   auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
 
-  auto* hlexec = new exec::HlExec();
+  auto hlexec = std::make_unique<exec::HlExec>();
   exec::OptPassCfg::GetInstance()->SetFuseTMM(true);
 
   std::vector<at::Tensor> input_list{hl_tensor_in1, hl_tensor_in2};
@@ -250,7 +250,7 @@ TEST_F(GraphOptimizeTest, BnReluOptTest) {
   std::vector<int> indices = {0};
   auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
 
-  auto* hlexec = new exec::HlExec();
+  auto hlexec = std::make_unique<exec::HlExec>();
   exec::OptPassCfg::GetInstance()->SetFuseTMM(true);
 
   std::vector<at::Tensor> input_list{hl_tensor_in1, hl_tensor_in2};
@@ -577,7 +577,7 @@ TEST_F(GraphOptimizeTest, RemoveInplaceOps_pass1) {
   std::vector<int> indices = {0};
   auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
 
-  auto* hlexec = new exec::HlExec();
+  auto hlexec = std::make_unique<exec::HlExec>();
   exec::OptPassCfg::GetInstance()->SetReplaceInplaceOps(true);
 
   std::vector<at::Tensor> input_list{hA, hB};
@@ -609,7 +609,7 @@ TEST_F(GraphOptimizeTest, RemoveInplaceOps_pass2) {
   std::vector<int> indices = {0};
   auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
 
-  auto* hlexec = new exec::HlExec();
+  auto hlexec = std::make_unique<exec::HlExec>();
   exec::OptPassCfg::GetInstance()->SetReplaceInplaceOps(true);
 
   std::vector<at::Tensor> input_list{hA, hB};
@@ -646,7 +646,7 @@ TEST_F(GraphOptimizeTest, RemoveInplaceOps_pass3) {
   std::vector<int> indices = {0};
   auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
 
-  auto* hlexec = new exec::HlExec();
+  auto hlexec = std::make_unique<exec::HlExec>();
   exec::OptPassCfg::GetInstance()->SetReplaceInplaceOps(true);
 
   std::vector<at::Tensor> input_list{hA, hB};

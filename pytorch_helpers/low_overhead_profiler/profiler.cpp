@@ -610,7 +610,6 @@ void ProfilerEngine::flush() {
   }
 
   fprintf(timing_data_file, "}\n");
-  fclose(timing_data_file);
 
   if (all_stages_empty(stage_counter)) {
     printf(
@@ -1018,6 +1017,7 @@ void ProfilerEngine::flush() {
       fprintf(events_file, "{}]}");
     }
   }
+  fclose(timing_data_file);
   fclose(metrics_file);
   fclose(events_file);
   this->flushed = true;

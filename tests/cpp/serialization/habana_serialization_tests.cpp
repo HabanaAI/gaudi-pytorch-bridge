@@ -241,10 +241,11 @@ TEST(HabanaSerializationTest, CharArrayTest) {
   std::stringstream ss;
   serialization::serialize(ss, testArray.c_str());
 
-  char* restored_testArray;
+  char* restored_testArray = nullptr;
   serialization::deserialize(ss, restored_testArray);
 
   string restored_str = string(restored_testArray);
+  delete[] restored_testArray;
 
   ASSERT_EQ(testArray, restored_str);
 }

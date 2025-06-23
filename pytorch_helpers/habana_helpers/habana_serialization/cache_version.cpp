@@ -129,8 +129,8 @@ size_t hash64_file_content(const std::string& path_to_file) {
             ", hash: ",
             reinterpret_cast<void*>(hashRes));
       }
-      close(fh);
     }
+    close(fh);
   }
   return hashRes;
 }
