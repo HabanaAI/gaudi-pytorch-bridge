@@ -366,6 +366,7 @@ void EagerExec::launch() {
         NodeParamAgnosticOpList::isNodeParamAgnosticOp(m_symbol);
     graph_and_meta->set_is_param_agnostic_supported(param_agnsotic_flag);
     graph_and_meta->set_param_jit_val_to_ivalue_map(jit_val_to_ivalue_map);
+    graph_and_meta->SetHPUStream(m_stream);
 
     if (!graph_and_meta->get_new_strided_insert_output_shape().empty()) {
       auto& temp_outputs = m_outputs.get_outputs();
