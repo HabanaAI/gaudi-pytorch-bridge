@@ -41,7 +41,7 @@ def print_fabi_flag(args: argparse.Namespace):
 
     try:
         torch_gcc_version = get_major_version(get_torch_gcc_version())
-        system_gcc_version = get_major_version(get_gcc_version(args.compiler_path))
+        plugin_gcc_version = get_major_version(get_gcc_version(args.compiler_path))
     except FileNotFoundError:
         print("Invalid path to the GCC compiler", file=sys.stderr)
         return
@@ -49,15 +49,19 @@ def print_fabi_flag(args: argparse.Namespace):
         print("GCC version cannot be determined!", file=sys.stderr)
         return
 
-    if torch_gcc_version == system_gcc_version:
-        # No action needed, no fabi flag and compilers are the same
-        return
-    else:
+    if torch_gcc_version < plugin_gcc_version:
         try:
             print(f"-fabi-version={FABI_VERSIONS_PER_GCC[torch_gcc_version]}")
         except KeyError:
             print("The system GCC version is not supported!", file=sys.stderr)
             return
+    elif torch_gcc_version > plugin_gcc_version:
+        print(
+            f"The version of GCC used {plugin_gcc_version} is lower than the Torch version {torch_gcc_version}. "
+            f"This may cause problems in runtime! It is recommended to upgrade GCC to version {torch_gcc_version}",
+            file=sys.stderr,
+        )
+        return
 
 
 def get_torch_fabi_flag() -> str:
