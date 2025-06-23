@@ -527,6 +527,7 @@ _pdist_backward                          Yes      Yes      Yes     No    torch.o
 alias                                    Yes      Yes      Yes     Yes   torch.ops.aten
 glu_jvp                                  Yes      Yes      Yes     No    torch.ops.aten
 im2col                                   Yes      Yes      Yes     No    torch.ops.aten
+narrow_copy                              Yes      Yes      Yes     Yes   torch.ops.aten
 AdaptiveAvgPool1d                        Yes      Yes      Yes     No    torch.nn
 AdaptiveAvgPool2d                        Yes      Yes      Yes     No    torch.nn
 AdaptiveAvgPool3d                        Yes      Yes      Yes     No    torch.nn
@@ -1475,6 +1476,7 @@ _pdist_backward                           No       No        No        No       
 alias                                     Yes      Yes       Yes       Yes      Yes    torch.ops.aten
 glu_jvp                                   No       No        No        No       No     torch.ops.aten
 im2col                                    No       No        No        No       No     torch.ops.aten
+narrow_copy                               Yes      Yes       Yes       Yes      Yes    torch.ops.aten
 AdaptiveAvgPool1d                         No       No        No        No       No     torch.nn
 AdaptiveAvgPool2d                         No       No        No        No       No     torch.nn
 AdaptiveAvgPool3d                         No       No        No        No       No     torch.nn

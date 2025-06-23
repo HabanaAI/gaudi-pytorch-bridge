@@ -217,6 +217,7 @@ add_habana_library(
   backend/mv_gen.cpp
   backend/nansum_gen.cpp
   backend/nantonum_gen.cpp
+  backend/narrow_copy_gen.cpp
   backend/native_group_norm_gen.cpp
   backend/ne_gen.cpp
   backend/new_zeros_gen.cpp

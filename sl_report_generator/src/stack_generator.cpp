@@ -53,8 +53,11 @@ static std::unordered_map<
             std::string("mean"),
             std::string("amax"),
             std::string("amin")}}}},
-        {"searchsorted",
-         {{"right", {false}}, {"side", {std::string("left")}}}}};
+        {"searchsorted", {{"right", {false}}, {"side", {std::string("left")}}}},
+        {"narrow_copy",
+         {{"dim", {0}},
+          {"start", {c10::SymInt{0}}},
+          {"length", {c10::SymInt{1}}}}}};
 
 static std::unordered_map<std::string, std::vector<std::any>>
     default_values_all_ops = {
