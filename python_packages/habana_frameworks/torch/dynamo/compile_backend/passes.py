@@ -1082,6 +1082,12 @@ def pass_propose_partitions(ctx: OptimizerContext) -> bool:
     ctx.habana_partitioner = HabanaPartitioner(ctx.graph_module)
     ctx.current_partitions.extend(ctx.habana_partitioner.propose_partitions())
 
+    if not hpu_backend_config.use_cpp_partitioner:
+        # Update partition ids of current_partitions and current_partitions_non_mergeable
+        # as every call to ctx.habana_partitioner.propose_partitions() the partition id resets from 0
+        for i, partition in enumerate(ctx.current_partitions + ctx.current_partitions_non_mergeable):
+            partition.id = i
+
     # Nothing was really changed.
     return False
 
