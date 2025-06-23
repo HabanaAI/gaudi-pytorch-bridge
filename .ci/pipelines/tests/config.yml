@@ -119,6 +119,8 @@ testJobConfig:
   tidy:
     dockerImage: artifactory-kfs.habana-labs.com/devops-docker-local/habana-builder-pt:${OS}-${RELEASE_VERSION}
     jobTimeout: '240'
+    envVars:
+      DOCKER_BUILD_CACHE_VOLUME: /software/.ci_ccache/${COMPONENT_NAME}/${OS}/
     devices:
       cpu:
         hwType:

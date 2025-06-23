@@ -18,6 +18,7 @@ common:
     - COMPLEX_GUID
     - HCL
     - HL_THUNK
+    - HLML
     - MEDIA
     - PT_FORK
     - SCAL
@@ -29,16 +30,21 @@ common:
   config:
     testCommand: ""
     loadLKD: false
-    testXMLOutputKey: --xml
+    testXMLOutputKey: ""
     saveToFileBeatMount: true
+    releaseFlag: false
   envVars:
     CC: clang-20
     CXX: clang++-20
+    CTCACHE_DIR: /build_cache/.ctcache
   preTestStages:
     Install PyTorch:
       command: |
         set -xe
         pip install -U ${PYTORCH_FORK_RELEASE_BUILD}/pkgs/*torch*.whl
+    configure ctcache:
+      runOutsideDocker: true
+      command: mkdir -p ${DOCKER_BUILD_CACHE_VOLUME}.ctcache
 testsMap:
   Test_pytorch_modules_cpu_tidy:
     stages:
