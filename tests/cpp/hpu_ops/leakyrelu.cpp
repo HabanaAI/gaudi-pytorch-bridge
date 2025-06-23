@@ -18,7 +18,7 @@ class HpuOpTest : public HpuOpTestUtil {};
 
 TEST_F(HpuOpTest, LeakyRelu_bwd_out) {
   GenerateInputs(2);
-  float neg_slope = GenerateScalar<float>(1e-2, 1e2);
+  auto neg_slope = GenerateScalar<float>(1e-2, 1e2);
   bool self_is_result = false;
 
   torch::ScalarType dtype = torch::kFloat;
@@ -34,7 +34,7 @@ TEST_F(HpuOpTest, LeakyRelu_bwd_out) {
 
 TEST_F(HpuOpTest, LeakyRelu_bwd_out_bf16) {
   GenerateInputs(2, {torch::kBFloat16});
-  float neg_slope = GenerateScalar<float>(1e-2, 1e2);
+  auto neg_slope = GenerateScalar<float>(1e-2, 1e2);
   bool self_is_result = false;
 
   torch::ScalarType dtype = torch::kBFloat16;

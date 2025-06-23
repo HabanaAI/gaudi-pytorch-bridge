@@ -138,10 +138,9 @@ nlohmannV340::json read_json(std::string input_json) {
 
 std::string get_jit_graph(nlohmannV340::json json_) {
   auto jit_json_vec = json_[0]["000000000"]["compilations"][0]["jit ir graph"];
-  std::stringstream graph_ss;
   std::string graph_str;
   for (auto& jit_json : jit_json_vec) {
-    std::string str = jit_json.get<std::string>();
+    auto str = jit_json.get<std::string>();
     size_t pos = str.find(", scope");
     if (pos != std::string::npos) {
       str = str.substr(0, pos);

@@ -133,7 +133,7 @@ auto linear_backward_test =
         hgrad_wt = hwt.grad();
         if (bias_required)
           hgrad_bias = hbias.grad();
-        std::array<bool, 3> mask{1, 1, bias_required};
+        std::array<bool, 3> mask{true, true, bias_required};
 
         std::tie(hgrad_in, hgrad_wt, hgrad_bias) =
             linear_backward(hin, hgrad_out, hwt, mask);
@@ -154,106 +154,106 @@ auto linear_backward_test =
     };
 
 TEST_F(HpuOpTest, LinearBwdTest2D) {
-  linear_test({3}, 0, 0);
+  linear_test({3}, false, false);
 }
 TEST_F(HpuOpTest, LinearBwdTest2DBias) {
-  linear_test({3}, 1, 0);
+  linear_test({3}, true, false);
 }
 TEST_F(HpuOpTest, LinearBwdTest2DDynamic) {
-  linear_test({3}, 0, 1);
+  linear_test({3}, false, true);
 }
 TEST_F(HpuOpTest, LinearBwdTest2DBiasDynamic) {
-  linear_test({3}, 1, 1);
+  linear_test({3}, true, true);
 }
 
 TEST_F(HpuOpTest, LinearBwdTest1D) {
-  linear_test({}, 0, 0);
+  linear_test({}, false, false);
 }
 TEST_F(HpuOpTest, LinearBwdTest1DBias) {
-  linear_test({}, 1, 0);
+  linear_test({}, true, false);
 }
 TEST_F(HpuOpTest, LinearBwdTest1DDynamic) {
-  linear_test({}, 0, 1);
+  linear_test({}, false, true);
 }
 TEST_F(HpuOpTest, LinearBwdTest1DBiasDynamic) {
-  linear_test({}, 1, 1);
+  linear_test({}, true, true);
 }
 
 TEST_F(HpuOpTest, LinearBwdTest3D) {
-  linear_test({2, 3}, 0, 0);
+  linear_test({2, 3}, false, false);
 }
 TEST_F(HpuOpTest, LinearBwdTest3DBias) {
-  linear_test({2, 3}, 1, 0);
+  linear_test({2, 3}, true, false);
 }
 TEST_F(HpuOpTest, LinearBwdTest3DDynamic) {
-  linear_test({2, 3}, 0, 1);
+  linear_test({2, 3}, false, true);
 }
 TEST_F(HpuOpTest, LinearBwdTest3DBiasDynamic) {
-  linear_test({2, 3}, 1, 1);
+  linear_test({2, 3}, true, true);
 }
 
 TEST_F(HpuOpTest, LinearBwdTest4D) {
-  linear_test({2, 4, 3}, 0, 0);
+  linear_test({2, 4, 3}, false, false);
 }
 TEST_F(HpuOpTest, LinearBwdTest4DBias) {
-  linear_test({2, 4, 3}, 1, 0);
+  linear_test({2, 4, 3}, true, false);
 }
 TEST_F(HpuOpTest, LinearBwdTest4DDynamic) {
-  linear_test({2, 4, 3}, 0, 1);
+  linear_test({2, 4, 3}, false, true);
 }
 TEST_F(HpuOpTest, LinearBwdTest4DBiasDynamic) {
-  linear_test({2, 4, 3}, 1, 1);
+  linear_test({2, 4, 3}, true, true);
 }
 
 // aten::linear_backward tests
 TEST_F(HpuOpTest, LinearBackwardTest2D) {
-  linear_backward_test({3}, 0, 0);
+  linear_backward_test({3}, false, false);
 }
 TEST_F(HpuOpTest, LinearBackwardTest2DBias) {
-  linear_backward_test({3}, 1, 0);
+  linear_backward_test({3}, true, false);
 }
 TEST_F(HpuOpTest, LinearBackwardTest2DDynamic) {
-  linear_backward_test({3}, 0, 1);
+  linear_backward_test({3}, false, true);
 }
 TEST_F(HpuOpTest, LinearBackwardTest2DBiasDynamic) {
-  linear_backward_test({3}, 1, 1);
+  linear_backward_test({3}, true, true);
 }
 
 TEST_F(HpuOpTest, LinearBackwardTest1D) {
-  linear_backward_test({}, 0, 0);
+  linear_backward_test({}, false, false);
 }
 TEST_F(HpuOpTest, LinearBackwardTest1DBias) {
-  linear_backward_test({}, 1, 0);
+  linear_backward_test({}, true, false);
 }
 TEST_F(HpuOpTest, LinearBackwardTest1DDynamic) {
-  linear_backward_test({}, 0, 1);
+  linear_backward_test({}, false, true);
 }
 TEST_F(HpuOpTest, LinearBackwardTest1DBiasDynamic) {
-  linear_backward_test({}, 1, 1);
+  linear_backward_test({}, true, true);
 }
 
 TEST_F(HpuOpTest, LinearBackwardTest3D) {
-  linear_backward_test({2, 3}, 0, 0);
+  linear_backward_test({2, 3}, false, false);
 }
 TEST_F(HpuOpTest, LinearBackwardTest3DBias) {
-  linear_backward_test({2, 3}, 1, 0);
+  linear_backward_test({2, 3}, true, false);
 }
 TEST_F(HpuOpTest, LinearBackwardTest3DDynamic) {
-  linear_backward_test({2, 3}, 0, 1);
+  linear_backward_test({2, 3}, false, true);
 }
 TEST_F(HpuOpTest, LinearBackwardTest3DBiasDynamic) {
-  linear_backward_test({2, 3}, 1, 1);
+  linear_backward_test({2, 3}, true, true);
 }
 
 TEST_F(HpuOpTest, LinearBackwardTest4D) {
-  linear_backward_test({2, 4, 3}, 0, 0);
+  linear_backward_test({2, 4, 3}, false, false);
 }
 TEST_F(HpuOpTest, LinearBackwardTest4DBias) {
-  linear_backward_test({2, 4, 3}, 1, 0);
+  linear_backward_test({2, 4, 3}, true, false);
 }
 TEST_F(HpuOpTest, LinearBackwardTest4DDynamic) {
-  linear_backward_test({2, 4, 3}, 0, 1);
+  linear_backward_test({2, 4, 3}, false, true);
 }
 TEST_F(HpuOpTest, LinearBackwardTest4DBiasDynamic) {
-  linear_backward_test({2, 4, 3}, 1, 1);
+  linear_backward_test({2, 4, 3}, true, true);
 }

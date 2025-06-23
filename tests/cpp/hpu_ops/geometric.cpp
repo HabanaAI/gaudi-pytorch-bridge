@@ -55,7 +55,7 @@ TEST_F(HpuOpTest, geometric_bf16) {
 }
 
 TEST_F(HpuOpTest, geometric_out_f32) {
-  double p = GenerateScalar<double>(0.0, 1.0);
+  auto p = GenerateScalar<double>(0.0, 1.0);
   auto gen1 = at::detail::createCPUGenerator(/*seed_val=*/67280421310721);
   auto gen2 = at::detail::createCPUGenerator(/*seed_val=*/41216728023107);
 
@@ -71,7 +71,7 @@ TEST_F(HpuOpTest, geometric_out_f32) {
 }
 
 TEST_F(HpuOpTest, geometric_out_bf16) {
-  double p = GenerateScalar<double>(0.0, 1.0);
+  auto p = GenerateScalar<double>(0.0, 1.0);
   auto gen1 = at::detail::createCPUGenerator(/*seed_val=*/67280421310721);
   auto gen2 = at::detail::createCPUGenerator(/*seed_val=*/41216728023107);
 
@@ -86,7 +86,7 @@ TEST_F(HpuOpTest, geometric_out_bf16) {
   EXPECT_FALSE(torch::equal(result1, result2));
 }
 TEST_F(HpuOpTest, geometric_out_f32_seed) {
-  double p = GenerateScalar<double>(0.0, 1.0);
+  auto p = GenerateScalar<double>(0.0, 1.0);
 
   GenerateInputs(1);
   auto result1 = torch::empty(0).to(torch::kHPU);
@@ -104,7 +104,7 @@ TEST_F(HpuOpTest, geometric_out_f32_seed) {
 }
 
 TEST_F(HpuOpTest, geometric_out_bf16_seed) {
-  double p = GenerateScalar<double>(0.0, 1.0);
+  auto p = GenerateScalar<double>(0.0, 1.0);
 
   GenerateInputs(1, torch::kBFloat16);
   auto result1 = torch::empty(0, torch::kBFloat16).to(torch::kHPU);

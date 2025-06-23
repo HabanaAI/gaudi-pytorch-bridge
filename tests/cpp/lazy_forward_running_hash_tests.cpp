@@ -67,7 +67,7 @@ TEST_F(LazyFwdRunningHashTest, remove_post_order_test) {
 
   // Graph2
   // create a new graph only change the order of nodes see if we get new hash
-  if (1) {
+  {
     torch::Tensor A = torch::randn({2, 2});
     torch::Tensor B = torch::randn({2, 2});
     auto hA = A.to(torch::kHPU);

@@ -79,11 +79,11 @@ INSTANTIATE_TEST_CASE_P(
             std::vector<long int>{2, 3, 4, 5},
             at::kFloat,
             true,
-            0.999f,
-            1e-5f),
+            0.999F,
+            1e-5F),
         std::make_tuple(
             std::vector<long int>{5, 4, 3, 2},
             at::kFloat,
             false,
-            0.999f,
-            1e-5f)));
+            0.999F,
+            1e-5F)));

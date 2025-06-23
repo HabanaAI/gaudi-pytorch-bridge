@@ -237,7 +237,7 @@ TEST_F(LazyConvKernelGraphTest, ConvolutionBackward) {
       false,
       {0, 0},
       1,
-      {1, 1, 1});
+      {true, true, true});
 
   std::vector<HbLazyTensor> tensors = {
       SyncAndGetHbLazyTensor(out1),

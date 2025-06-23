@@ -91,7 +91,7 @@ TEST_F(HpuOpTest, fills_i8) {
 TEST_F(HpuOpTest, fill_bool) {
   auto dtype = torch::kBFloat16;
   GenerateInputs(1, {{5, 2, 4, 6, 8}}, dtype);
-  bool other = 1;
+  bool other = true;
   auto res = torch::empty(0, torch::TensorOptions(dtype).device("hpu"));
   GetCpuInput(0).fill_(other);
   torch::fill_outf(GetHpuInput(0), other, res);

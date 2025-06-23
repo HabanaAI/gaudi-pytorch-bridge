@@ -253,7 +253,7 @@ TEST_F(LazyBinaryKernelTest, DivTensorByScalar) {
 TEST_F(LazyBinaryKernelTest, MulOutScalar) {
   torch::Tensor input1 = torch::randn({2, 2});
   int divFactor_ = 2;
-  auto wrapped = c10::scalar_to_tensor(1.0 / divFactor_);
+  auto wrapped = c10::scalar_to_tensor(1. / divFactor_);
   wrapped.unsafeGetTensorImpl()->set_wrapped_number(true);
   torch::Tensor out_cpu = torch::zeros_like(input1);
   torch::Tensor out_hpu = torch::zeros_like(input1).to(torch::kHPU);

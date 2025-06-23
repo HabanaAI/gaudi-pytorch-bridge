@@ -397,6 +397,5 @@ TEST_F(PostOrderTest, poTestCat) {
   std::vector<HbLazyTensor> tensors = {hl_result};
   std::vector<int> indices = {0};
   auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
-  auto str = po_data.post_order[0]->ToString();
   EXPECT_TRUE(po_data.outputs.size() == 1);
 }

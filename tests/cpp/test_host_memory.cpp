@@ -273,7 +273,7 @@ TEST_F(HostMemoryTest, DropCache) {
 TEST_F(HostMemoryTest, OutOfMemoryWithCacheDrop) {
   host_memory memory(*device);
 
-  constexpr size_t size_1mb = 1ull * 1024 * 1024;
+  constexpr size_t size_1mb = 1ULL * 1024 * 1024;
   constexpr size_t size_2mb = 2 * size_1mb;
   constexpr size_t size_3mb = 3 * size_1mb;
 

@@ -16,7 +16,7 @@
 #ifndef SYNAPSE_COMMON_TYPES_H
 #define SYNAPSE_COMMON_TYPES_H
 
-#include <stdint.h>
+#include <cstdint>
 
 typedef struct internalTensor* synTensor;
 typedef struct syn_cb_internal* synCommandBuffer;

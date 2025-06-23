@@ -255,7 +255,7 @@ TEST(HabanaSerializationTest, StringTest) {
   std::stringstream ss;
   serialization::serialize(ss, testArray);
 
-  string restored_testArray("");
+  string restored_testArray;
   serialization::deserialize(ss, restored_testArray);
 
   ASSERT_EQ(testArray, restored_testArray);

@@ -30,8 +30,8 @@ TEST_F(HpuOpTest, threshold) {
 
 TEST_F(HpuOpTest, threshold_) {
   GenerateInputs(1, torch::kBFloat16);
-  float threshold = GenerateScalar<float>(0, 1);
-  float value = GenerateScalar<float>();
+  auto threshold = GenerateScalar<float>(0, 1);
+  auto value = GenerateScalar<float>();
   torch::threshold_(GetCpuInput(0), threshold, value);
   torch::threshold_(GetHpuInput(0), threshold, value);
   Compare(GetCpuInput(0), GetHpuInput(0));
@@ -39,8 +39,8 @@ TEST_F(HpuOpTest, threshold_) {
 
 TEST_F(HpuOpTest, threshold_out) {
   GenerateInputs(1, torch::kBFloat16);
-  float threshold = GenerateScalar<float>(0, 1);
-  float value = GenerateScalar<float>();
+  auto threshold = GenerateScalar<float>(0, 1);
+  auto value = GenerateScalar<float>();
   torch::ScalarType dtype = torch::kBFloat16;
   auto expected = torch::empty(0, dtype);
   auto result = torch::empty(0, torch::TensorOptions(dtype).device("hpu"));

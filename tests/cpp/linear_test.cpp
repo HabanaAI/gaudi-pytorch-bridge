@@ -57,7 +57,7 @@ TEST_F(LazyLinearTest, LinearBwdTest) {
   auto grad_wt = wt.grad();
 
   at::Tensor hgrad_in, hgrad_wt, hgrad_bias;
-  std::array<bool, 3> mask{1, 1, 0};
+  std::array<bool, 3> mask{true, true, false};
   std::tie(hgrad_in, hgrad_wt, hgrad_bias) =
       torch::linear_backward(hin, hgrad_out, hwt, mask);
 

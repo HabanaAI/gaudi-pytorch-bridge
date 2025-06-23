@@ -21,7 +21,7 @@ class LazyDynamicShapesSerializtionTest
     : public habana_lazy_test::LazyDynamicTest {};
 
 std::string read_csv_file(std::string path) {
-  std::string text = "", line;
+  std::string text, line;
   std::ifstream file(path);
   while (std::getline(file, line)) {
     text += line + "\n";
@@ -71,7 +71,7 @@ TEST_F(LazyDynamicShapesSerializtionTest, SerializeDeserializeDBITest) {
 
   std::string f1 = read_csv_file("recipe_trace.csv");
   std::string f2 = read_csv_file("recipe_trace_rerun.csv");
-  const bool is_match = (f1.compare(f2) == 0);
+  const bool is_match = (f1 == f2);
 
   if (is_match) {
     std::remove("ds_checkpoint.pt");

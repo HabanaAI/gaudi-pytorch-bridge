@@ -473,7 +473,7 @@ TEST_F(LazyDynamicFallbackTest, UniqueGraph_Broadcast) {
 
 TEST_F(LazyDynamicFallbackTest, maxpool_2d_with_indices_backward) {
   // Static Maxpool Fwd +BWD
-  if (1) {
+  {
     torch::Tensor A = torch::randn(
         {2, 8, 40, 121}, torch::dtype(torch::kFloat).requires_grad(false));
     torch::Tensor B = torch::randn(
@@ -520,7 +520,7 @@ TEST_F(LazyDynamicFallbackTest, maxpool_2d_with_indices_backward) {
         true);
   }
   // Dynamic Maxpool Fwd +BWD
-  if (1) {
+  {
     torch::Tensor A = torch::randn(
         {2, 16, 41, 123}, torch::dtype(torch::kFloat).requires_grad(false));
     torch::Tensor B = torch::randn(
