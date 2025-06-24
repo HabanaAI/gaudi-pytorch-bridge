@@ -81,6 +81,8 @@ enable_synapse_input_reuse = _get_bool_from_env("PT_HPU_ENABLE_SYNAPSE_INPUT_REU
 enable_flex_attention = _get_bool_from_env("PT_HPU_ENABLE_FLEX_ATTENTION", "1")
 # when set to 1, keep only the static parts in cluster and fallback dynamic parts to eager
 fallback_dynamic_to_eager = _get_bool_from_env("PT_HPU_FALLBACK_DYNAMIC_TO_EAGER", "0")
+# insert debug NaN checks for compiled graphs
+enable_compile_debug_nan_checks = _get_bool_from_env("PT_HPU_COMPILE_DEBUG_NAN_ASSERTS", "0")
 
 # adds patch, save_config, etc
 install_config_module(sys.modules[__name__])

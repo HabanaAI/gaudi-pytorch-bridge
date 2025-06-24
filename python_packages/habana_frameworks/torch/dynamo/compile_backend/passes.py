@@ -61,6 +61,7 @@ from ._helpers import (
     wrap_random_ops,
 )
 from ._passes.batch_as_strided import batch_as_strided, group_batch_as_strided
+from ._passes.debug.insert_debug_nan_asserts import pass_insert_debug_nan_asserts
 from ._passes.fuse_allreduce_calls import pass_fuse_collectives
 from ._passes.fuse_view_chains import pass_fuse_view_chains
 from ._passes.pattern_rewriter import pass_pattern_rewriter
@@ -185,6 +186,7 @@ def get_passes(stage: OptimizationPassPlacement):
             pass_detect_reusable_inputs_for_partition,
             pass_compile_clusters,
             pass_make_boxed_graph,
+            pass_insert_debug_nan_asserts,
         ],
     }
 
