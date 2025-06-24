@@ -28,6 +28,13 @@ import torch
 from torch.types import Device
 from torch.utils.checkpoint import DefaultDeviceType
 
+try:
+    from habana_frameworks.torch.version import __version__, version
+except ImportError:
+    warnings.warn(
+        "Failed loading version info for torch.hpu. You are probably importing directly from repository. The version info will not be available."
+    )
+
 from ._proxy_module import *
 from ._utils import (
     HABANA_VISIBLE_MODULES_VAR,

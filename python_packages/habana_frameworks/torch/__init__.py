@@ -66,3 +66,10 @@ if bc.get_pt_hpu_gpu_migration():
             "ImportError: no module named habana_frameworks.torch.gpu_migration. "
             "Check if GPU Migration Toolkit package is installed. "
         )
+
+try:
+    from habana_frameworks.torch.version import __version__, version
+except ImportError:
+    warnings.warn(
+        "Failed loading version info for habana_frameworks.torch. You are probably importing directly from repository. The version info will not be available."
+    )
