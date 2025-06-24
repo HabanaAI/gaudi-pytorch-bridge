@@ -532,12 +532,12 @@ def test_mixture_of_experts_fp8_h2d(hw_aligned_scales):
     import habana_frameworks.torch.utils.experimental as htexp
     import numpy as np
 
-    htexp._set_scale_attributes(True, 10)
+    htexp._set_scale_attributes(hw_aligned_scales, 10)
 
     fp8_dtype = torch.float8_e4m3fn
     permuted_weights = False
     num_tokens = 32
-    num_experts = 8
+    num_experts = 8 if hw_aligned_scales else 6
     activation = "silu"
     hidden_dim = 64
     ffn_dim = 224
