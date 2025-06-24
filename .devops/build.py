@@ -808,6 +808,7 @@ def prepare_build_dirs(
                         build_env,
                         current_ver_build_dir,
                         cmake_flags,
+                        args.build_tool_flag,
                     )
 
         wheel_configs = create_wheel_targets(
@@ -1117,6 +1118,7 @@ def prepare_single_build_directory(
     build_env: BuildEnv,
     current_ver_build_dir,
     cmake_flags: CMakeFlags,
+    build_tool_flags: list[str],
 ):
     cmake_flags = append_cmake_flags(cmake_flags, build_env)
 
@@ -1136,9 +1138,10 @@ def prepare_single_build_directory(
         cmake_config,
     )
     activate = f"source {build_env.venv_dir}/bin/activate" if build_env.venv_dir != "." else "true"
+    joined_build_tool_flags = f"-- {' '.join(build_tool_flags)}" if build_tool_flags else ""
     pmake(f".PHONY: {subtarget}/all {subtarget}/wheel {subtarget}/ctest")
     pmake(f"{subtarget}/all:")
-    pmake(f"\t{activate} && cmake --build {current_ver_build_dir} $(filter -j%,$(MAKEFLAGS))")
+    pmake(f"\t{activate} && cmake --build {current_ver_build_dir} $(filter -j%,$(MAKEFLAGS)) {joined_build_tool_flags}")
     pmake(f"SUBNAMES += {subtarget}")
     pmake(f"SUBNAMES_PY_{build_env.py_ver}_{cmake_config.upper()} += {subtarget}")
     pmake(f"{subtarget}/wheel_install:")
@@ -1146,7 +1149,7 @@ def prepare_single_build_directory(
     wheel_installs = [
         f"\t{'-' if build_env.optional else ''} "
         f"DESTDIR={whl_build_dir}/py{build_env.py_ver}/pt{pt_ver_dir} "
-        f"cmake --build {current_ver_build_dir} $(filter -j%,$(MAKEFLAGS)) --target install"
+        f"cmake --build {current_ver_build_dir} $(filter -j%,$(MAKEFLAGS)) --target install {joined_build_tool_flags}"
     ]
     pmake("\n".join(wheel_installs))
     pmake(f"{subtarget}/ctest: {subtarget}/all")
@@ -1291,8 +1294,10 @@ def get_cmake_configurations(args) -> dict[str, list[str]]:
     cmake_flags = CMakeFlags(["-GNinja"] + (args.cmake_flag if args.cmake_flag else []))
     if args.no_swig:
         cmake_flags.set_if_missing("SWIG", "")
-    if not args.tidy:
+    if not args.tidy and not args.tidy_fix:
         cmake_flags.set_if_missing("CLANG_TIDY", "")
+    if args.tidy_fix:
+        cmake_flags.set_if_missing("CLANG_TIDY_FIX", "ON")
     if args.no_iwyu:
         cmake_flags.set_if_missing("IWYU", "")
     if args.sanitize:
@@ -1564,6 +1569,9 @@ def parse_args():
         help="Generate operator statistics",
     )
     parser.add_argument("--tidy", action="store_true", help="Build with clang-tidy")
+    parser.add_argument(
+        "--tidy-fix", action="store_true", help="Build with clang-tidy and apply fixes (implies --tidy)"
+    )
     parser.add_argument("--no-iwyu", action="store_true", help="Build without Include What You Use")
     parser.add_argument(
         "-v",
@@ -1581,6 +1589,13 @@ def parse_args():
         help="Args forwarded to CMake. "
         "Unless otherwise noted, when conflicting with flags imposed by other"
         "arguments, the effective setting is the one given explicitly.",
+    )
+    parser.add_argument(
+        "--build-tool-flag",
+        action="append",
+        default=[],
+        help="Pass an additional flag to the build tool (e.g. Ninja) when building. "
+        "Values starting with a dash ('-') must be passed with equals, e.g. --build-tool-flag=\"-k0\"",
     )
     available_profiles = profiles.get_available_profiles()
     parser.add_argument(

@@ -30,8 +30,6 @@ common:
   config:
     testCommand: ""
     loadLKD: false
-    testXMLOutputKey: ""
-    saveToFileBeatMount: true
     releaseFlag: false
   envVars:
     CC: clang-20
@@ -49,7 +47,8 @@ testsMap:
   Test_pytorch_modules_cpu_tidy:
     stages:
       Analyze sources with clang-tidy:
+        # -k0 continues the build after the first error
         filter: |
           set -x
           cd ${PYTORCH_MODULES_ROOT_PATH}
-          build_pytorch_modules -c --tidy
+          build_pytorch_modules -c --tidy  # --build-tool-flag=-k0
