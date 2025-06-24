@@ -3819,7 +3819,6 @@ index.Tensor:
   output_meta: IndexMeta
   custom_fill_params: FillIndexParams
   guid: index
-  fallback_check: [IndexFallbackCheck, indices]
   op_backend: IndexHabanaOperator
   op_validator: IndexSharedMeta
   op_frontend: IndexFE
@@ -3831,7 +3830,6 @@ index.Tensor_out:
   output_meta: IndexMeta
   custom_fill_params: FillIndexParams
   guid: index
-  fallback_check: [IndexFallbackCheck, indices]
   op_backend: IndexHabanaOperator
   op_validator: IndexSharedMeta
   op_frontend: IndexOutFE

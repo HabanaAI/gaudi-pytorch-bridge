@@ -22,23 +22,6 @@
 
 namespace habana {
 
-FALLBACK_CHECK(
-    IndexFallbackCheck,
-    [[maybe_unused]] const c10::List<std::optional<at::Tensor>>& indices) {
-  at::Stack stack = {indices};
-  c10::ArrayRef<c10::IValue> indices_in = stack.at(0).toListRef();
-  // TBD: NOTE: For eager: we are going to execute on CPU if indices are either
-  // boolean or they are on CPU
-  for (auto input : indices_in) {
-    auto o1 = input.toOptional<at::Tensor>();
-
-    if (o1.has_value() && o1.value().defined() &&
-        (o1.value().device() == torch::kCPU))
-      return false;
-  }
-  return true;
-};
-
 HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(eager::EagerOp, IndexOutFE, at::Tensor&) {
   m_symbol = at::Symbol::fromQualString("hpu::index");
   auto& sub_inputs = get_inputs();
@@ -122,7 +105,11 @@ HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(eager::EagerOp, IndexOutFE, at::Tensor&) {
     for (auto input : indices_in) {
       auto o1 = input.toOptional<at::Tensor>();
       if (o1.has_value() && o1->defined()) {
-        indices_vec.push_back(o1.value());
+        if (o1.value().device() == torch::kCPU) {
+          indices_vec.push_back(o1.value().to("hpu"));
+        } else {
+          indices_vec.push_back(o1.value());
+        }
       }
       advanced_indexing_present.emplace_back(false);
     }
@@ -132,7 +119,6 @@ HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(eager::EagerOp, IndexOutFE, at::Tensor&) {
   }
   for (size_t i = 0; i < indices_vec.size(); i++) {
     if (indices_vec[i].device().type() != c10::DeviceType::HPU) {
-      HABANA_ASSERT(0, "Indexing with CPU tensors is not supported for PT 2.0");
       indices_vec[i] = indices_vec[i].to(c10::kHPU);
     }
   }
