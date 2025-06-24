@@ -151,7 +151,7 @@ void GenericTraceActivitySink::addMemoryEvent(
 void GenericTraceActivitySink::addDevice(
     std::string_view name,
     int64_t device) {
-  int64_t sort_index = device < 8 ? device + 0x1000000ll : device;
+  int64_t sort_index = device < 8 ? device + 0x1000000LL : device;
   std::string dev_name = static_cast<std::string>(name);
   deviceInfos_.push_back({device, sort_index, dev_name, dev_name});
 }

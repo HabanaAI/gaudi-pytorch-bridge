@@ -137,7 +137,7 @@ void JsonFileParser::addDevice(std::string_view name, int64_t id) {
   process_sort_index["ts"] = 0.0;
   process_sort_index["pid"] = id;
   process_sort_index["tid"] = 0;
-  process_sort_index["args"]["sort_index"] = id < 8 ? id + 0x1000000ll : id;
+  process_sort_index["args"]["sort_index"] = id < 8 ? id + 0x1000000LL : id;
 
   addToEvents(process_name);
   addToEvents(process_labels);

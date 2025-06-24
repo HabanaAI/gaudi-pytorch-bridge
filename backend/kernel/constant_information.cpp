@@ -37,8 +37,7 @@ std::shared_ptr<ConstantInformation>& ConstantInformationPtr() {
 
 ConstantInformation& ConstantInformationValue() {
   // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-  static ConstantInformation& constant_checksum =
-      *ConstantInformationPtr().get();
+  static ConstantInformation& constant_checksum = *ConstantInformationPtr();
   return constant_checksum;
 }
 
@@ -191,7 +190,7 @@ ConstantInformation::ConstantChecksums ConstantInformation::
   }
   HABANA_ASSERT(
       false, "No checksum found for const_id: ", id, " for recipe: ", key);
-  return {checksum_iterator->second.device_checksum_, checksum_t{0ul}};
+  return {checksum_iterator->second.device_checksum_, checksum_t{0UL}};
 }
 
 bool ConstantInformation::IsCheckSumExistInAnyConstInfo(

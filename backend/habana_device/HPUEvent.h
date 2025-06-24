@@ -70,7 +70,7 @@ struct HPUEvent {
   }
 
   Device device() const {
-    return Device(DeviceType::HPU, device_index_);
+    return {DeviceType::HPU, device_index_};
   }
 
   DeviceIndex device_index() const {

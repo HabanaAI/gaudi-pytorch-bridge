@@ -104,11 +104,11 @@ class HPUUtilizationPoller {
   void pollLoop();
 
   int interval_;
-  std::atomic<bool> started_;
-  double totalUtil_;
-  size_t sampleCount_;
-  double usage_;
-  HlmlPowerProvider provider_;
+  std::atomic<bool> started_{false};
+  double totalUtil_{0.0};
+  size_t sampleCount_{0};
+  double usage_{0.0};
+  HlmlPowerProvider provider_{};
 
   std::thread pollThread_;
 

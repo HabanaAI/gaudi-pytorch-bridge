@@ -120,7 +120,7 @@ class device_context : std::enable_shared_from_this<device_context> {
   mutable uint32_t sync_tag_{2020};
   // Device ID currently selected using set_device().
   synapse_helpers::device_handle device_;
-  std::map<synStreamHandle, synapse_helpers::stream*> stream_objects_{};
+  std::map<synStreamHandle, synapse_helpers::stream*> stream_objects_;
   std::map<synStreamHandle, synapse_helpers::hpuStream_t> hpustream_handle_map_;
 };
 

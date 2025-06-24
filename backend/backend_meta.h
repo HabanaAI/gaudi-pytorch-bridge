@@ -142,10 +142,10 @@ struct StorageExtraMeta {
 
  private:
   // Memory permutation represents how tensor layout is set in memory
-  synapse_helpers::layouts::MemoryPermutation memory_permutation_{};
+  synapse_helpers::layouts::MemoryPermutation memory_permutation_;
   bool dont_allow_permutation_{false};
   // view meta
-  std::vector<int64_t> base_sizes_{};
+  std::vector<int64_t> base_sizes_;
 };
 
 StorageExtraMeta* get_storage_extra_meta(const at::Tensor& tensor);
@@ -540,7 +540,7 @@ struct TensorExtraMeta : public BaseTensorExtraMeta {
   size_t el_size_{0};
   at::optional<size_t> nbytes_inference_;
   HostDataType dt_type_{HostDataType::INVALID_T};
-  ShapeTensorStruct shape_tensor_struct_{};
+  ShapeTensorStruct shape_tensor_struct_;
   bool is_redundant_ = false;
   size_t host_checksum_{INVALID_CHECKSUM};
   synDeviceId id_{SYN_INVALID_DEVICE_ID};

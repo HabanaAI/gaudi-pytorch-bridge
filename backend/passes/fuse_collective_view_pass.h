@@ -46,10 +46,10 @@ namespace habana {
 class HabanaLaunchOpPT;
 class FuseCollectiveViewPassData;
 
-typedef struct {
+struct ExternalParams {
   uint64_t offset;
   uint64_t numel;
-} ExternalParams;
+};
 
 // Derived class
 class FuseCollectiveViewPass : public JITGraphPass<FuseCollectiveViewPassData> {

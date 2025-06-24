@@ -132,12 +132,7 @@ void HlmlPowerProvider::hlmlShutdown() {
 }
 
 HPUUtilizationPoller::HPUUtilizationPoller(int interval)
-    : interval_(interval),
-      started_(false),
-      totalUtil_(0.0),
-      sampleCount_(0),
-      usage_(0.0),
-      provider_() {}
+    : interval_(interval) {}
 
 HPUUtilizationPoller::~HPUUtilizationPoller() {
   if (started_.load()) {

@@ -99,7 +99,7 @@ std::vector<int64_t> habana::HabanaOperator::CalculateStrides(
       ((sizes.size() == 4) && (format == c10::MemoryFormat::ChannelsLast))) {
     std::vector<int64_t> prod(sizes.begin() + 2, sizes.end());
     prod.push_back(sizes[1]);
-    if (prod.size() >= 2ull) {
+    if (prod.size() >= 2ULL) {
       for (auto it = prod.rbegin() + 1; it != prod.rend(); ++it) {
         *it *= *(it - 1);
       }
@@ -114,7 +114,7 @@ std::vector<int64_t> habana::HabanaOperator::CalculateStrides(
       result.push_back(1);
     }
 
-    if (result.size() >= 3ull) {
+    if (result.size() >= 3ULL) {
       for (auto it = result.rbegin() + 2; it != result.rend(); ++it) {
         *it *= *(it - 1);
       }

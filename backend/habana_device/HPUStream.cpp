@@ -102,8 +102,7 @@ bool HPUStream::query() const {
   auto& stream = device.get_stream(hpu_stream_id);
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 1) { /* only for lazy mode */
     /*TDB check if StepMarker is required for query */
-    if (id() !=
-        getCurrentHPUStream(static_cast<DeviceIndex>(device_index)).id()) {
+    if (id() != getCurrentHPUStream(device_index).id()) {
       PT_IRGRAPH_DEBUG("step marker due to HPUStream::query");
       habana_lazy::HbLazyTensor::StepMarker({});
     } else {
@@ -142,8 +141,7 @@ void HPUStream::synchronize() const {
       hpu_stream_id);
   auto& stream = device.get_stream(hpu_stream_id);
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 1) {
-    if (id() !=
-        getCurrentHPUStream(static_cast<DeviceIndex>(device_index)).id()) {
+    if (id() != getCurrentHPUStream(device_index).id()) {
       PT_IRGRAPH_DEBUG("step marker due to HPUStream::synchronize");
       habana_lazy::HbLazyTensor::StepMarker({});
     } else {

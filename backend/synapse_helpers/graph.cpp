@@ -449,7 +449,8 @@ graph::~graph() {
 template <
     typename T,
     typename Alloc,
-    template <typename, typename> class V,
+    template <typename, typename>
+    class V,
     typename std::enable_if_t<std::negation<typename std::is_same<
         std::string,
         typename V<T, Alloc>::value>::value>::type>>
@@ -808,7 +809,7 @@ void graph::launch(
       least_workspace_size =
           device.get_least_workspace_size(tensor_mem, workspace_size);
       // Set minimal size of workspace to 4MB to prevent it from being 0
-      constexpr size_t min_required_workspace_size = 4ull * 1024 * 1024;
+      constexpr size_t min_required_workspace_size = 4ULL * 1024 * 1024;
       least_workspace_size =
           std::max(least_workspace_size, min_required_workspace_size);
       device.cleanup_workspace_buffer();
@@ -829,7 +830,7 @@ void graph::launch(
 
   log_graph_info(
       device,
-      recipe_handle.recipe_name_.c_str(),
+      recipe_handle.recipe_name_,
       tensor_mem,
       workspace_size,
       device.get_workspace_size());

@@ -77,7 +77,7 @@ void SplitStatImplDynamic::Increment(
       ", expected ",
       ranges.size());
 
-  std::vector<bool> pos(num_dyn_ranges_, 0);
+  std::vector<bool> pos(num_dyn_ranges_, false);
   for (size_t i = 0; i < ranges.size(); ++i) {
     auto mid{(ranges[i].second + ranges[i].first) / 2};
     pos[i] = (dims[i] > mid ? 1 : 0);
@@ -305,7 +305,7 @@ Bucket Bucket::CreateNewBucket(SplitPolicy sp) {
   DynamicRanges new_ranges;
   split_stat_impl_->CalculateNewRanges(ranges_, new_ranges);
   split_stat_impl_->ResetMax();
-  return Bucket(std::move(new_ranges), dynamic_dims_, true, sp);
+  return {std::move(new_ranges), dynamic_dims_, true, sp};
 }
 
 void Bucket::ResetBaseLine(const HistoryItemLog& hist) {
@@ -865,8 +865,7 @@ Bucket DynamicBucketInfo::ConstructNewBucket(
     result_computed.max_shapes[input.first] = shape_max;
   }
 
-  return Bucket(
-      std::move(new_ranges), dynamic_dims, true, split_policy_, shapes_);
+  return {std::move(new_ranges), dynamic_dims, true, split_policy_, shapes_};
 }
 
 void DynamicBucketInfo::split_history(
@@ -1528,8 +1527,7 @@ DynamicRanges DynamicBucketInfo::CalculateRanges(
             false,
             "Policy FLATTENED is currently unsupported for choosing max");
         dim_max_multiplier = dim_multipliers.at(el.num).at(el.pos).second;
-        max_value =
-            shapes.at(el.num).dim_size(el.pos) * dim_max_multiplier;
+        max_value = shapes.at(el.num).dim_size(el.pos) * dim_max_multiplier;
         break;
       case DynamicDimsPolicy::CALCULATED:
         // use default max multiplier
@@ -1537,8 +1535,7 @@ DynamicRanges DynamicBucketInfo::CalculateRanges(
             1 == min_value) {
           max_value = 1;
         } else {
-          max_value =
-              shapes.at(el.num).dim_size(el.pos) * dim_max_multiplier;
+          max_value = shapes.at(el.num).dim_size(el.pos) * dim_max_multiplier;
         }
         break;
     }

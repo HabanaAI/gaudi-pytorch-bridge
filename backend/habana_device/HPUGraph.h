@@ -148,7 +148,7 @@ struct HPUGraph {
   bool dynamic_env_ = false;
   bool capturing_ = false;
   std::vector<std::shared_ptr<SingleHPUGraph>> captured_graphs;
-  std::vector<std::vector<int64_t>> user_input_sizes_ = {};
+  std::vector<std::vector<int64_t>> user_input_sizes_;
   std::unordered_set<size_t> user_input_match_indices_;
   // tensors that are input as well as intermediate outputs
   std::vector<habana_lazy::HbLazyTensor> hblazy_tensors_in_out_;

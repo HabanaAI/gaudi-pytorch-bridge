@@ -105,7 +105,7 @@ void PtTensorInferenceData::update_entry(
   } else {
     PT_BRIDGE_DEBUG(" Add new entry for Key: ", name);
   }
-  SetInferenceTensorRange(name.c_str(), min, max);
+  SetInferenceTensorRange(name, min, max);
 }
 
 std::string habana_helpers::DebugString(const at::Tensor& t, bool print_data) {
@@ -361,8 +361,7 @@ void habana_helpers::copy_data_to_host(
     const at::Tensor& src,
     const at::Tensor& dst,
     bool non_blocking) {
-  copy_data_to_host(
-      src, dst, non_blocking, c10::hpu::getCurrentHPUStream());
+  copy_data_to_host(src, dst, non_blocking, c10::hpu::getCurrentHPUStream());
 }
 
 void habana_helpers::copy_data_to_host(
@@ -462,8 +461,7 @@ void habana_helpers::copy_data_to_device(
     const at::Tensor& src,
     const at::Tensor& dst,
     bool non_blocking) {
-  copy_data_to_device(
-      src, dst, non_blocking, c10::hpu::getCurrentHPUStream());
+  copy_data_to_device(src, dst, non_blocking, c10::hpu::getCurrentHPUStream());
 }
 
 /******************************************************************************

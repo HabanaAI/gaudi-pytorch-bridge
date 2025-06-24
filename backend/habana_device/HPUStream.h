@@ -66,8 +66,6 @@
  * priority
  */
 
-typedef void (*JoinEagerThreads)(void);
-
 namespace c10::hpu {
 
 // Value object representing a HPU stream.  This is just a wrapper
@@ -121,7 +119,7 @@ class HPUStream {
   /// Get the full Device that this stream is associated with.  The Device
   /// is guaranteed to be a HPU device.
   Device device() const {
-    return Device(DeviceType::HPU, device_index());
+    return {DeviceType::HPU, device_index()};
   }
 
   /// Return the stream ID corresponding to this particular stream.

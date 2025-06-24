@@ -223,7 +223,7 @@ class GraphAffinityAnalyzer {
   /**
    * Node order storage for each node in the forest of graphs.
    */
-  std::unordered_map<const torch::jit::Node*, DfsNodeOrder> dfs_time_map_{};
+  std::unordered_map<const torch::jit::Node*, DfsNodeOrder> dfs_time_map_;
 
   /**
    * Current order.

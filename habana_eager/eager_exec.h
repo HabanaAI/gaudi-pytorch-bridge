@@ -46,7 +46,12 @@ class OutputSpecsOrTensors {
   std::variant<std::vector<OutputSpec>, std::vector<at::Tensor>> m_outputs;
 };
 
-enum eagerOpKind { OutOfPlace = 0, InplaceOut = 1, Inplace = 2, UnknownType };
+enum eagerOpKind {
+  OutOfPlace = 0,
+  InplaceOut = 1,
+  Inplace = 2,
+  UnknownType = 3
+};
 
 struct EagerOpMetaData {
   EagerOpMetaData() : op_kind_(UnknownType) {}

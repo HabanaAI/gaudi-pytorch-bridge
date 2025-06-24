@@ -18,59 +18,32 @@
 namespace synapse_helpers {
 struct MemoryStats {
   synDeviceId pool_id;
-  uint64_t num_allocs; /* Number of allocs from start_collect to stop_collect.*/
-  uint64_t total_allocs; /* Total Number of allocations.*/
-  uint64_t bytes_in_use; /* Number of bytes in use. */
-  uint64_t peak_bytes_in_use; /* The maximum bytes in use. */
-  uint64_t largest_alloc_size; /* The largest single allocation seen */
-  uint64_t num_frees; /* Number of frees from start_collect to stop_collect.*/
-  uint64_t total_frees; /* Total number of frees.*/
-  uint64_t memory_limit; /* Max memory bytes */
-  uint64_t scratch_mem_in_use; /* internal memory used */
-  uint64_t
-      fragmentation_percent; /* fragmentation % = 100 x (1-
-                                max_contiguous_free_chunk/total_free_chunk_memory)
-                              */
+  uint64_t num_allocs{0}; // Number of allocs from start_collect to stop_collect
+  uint64_t total_allocs{0}; // Total Number of allocations
+  uint64_t bytes_in_use{0}; // Number of bytes in use
+  uint64_t peak_bytes_in_use{0}; // The maximum bytes in use
+  uint64_t largest_alloc_size{0}; // The largest single allocation seen
+  uint64_t num_frees{0}; // Number of frees from start_collect to stop_collect
+  uint64_t total_frees{0}; // Total number of frees
+  uint64_t memory_limit{0}; // Max memory bytes
+  uint64_t scratch_mem_in_use{0}; // internal memory used
+  uint64_t fragmentation_percent{0}; /* fragmentation % = 100 x
+          (1-max_contiguous_free_chunk/total_free_chunk_memory)*/
 
-  uint64_t total_chunks;
-  uint64_t total_size;
-  uint64_t occupied_chunks;
-  uint64_t occupied_size;
-  uint64_t free_chunks;
-  uint64_t free_chunks_size;
-  uint64_t max_cntgs_free_chunks_size;
-  uint64_t total_extra_spaced_chunks;
-  uint64_t total_extra_size;
+  uint64_t total_chunks{0};
+  uint64_t total_size{0};
+  uint64_t occupied_chunks{0};
+  uint64_t occupied_size{0};
+  uint64_t free_chunks{0};
+  uint64_t free_chunks_size{0};
+  uint64_t max_cntgs_free_chunks_size{0};
+  uint64_t total_extra_spaced_chunks{0};
+  uint64_t total_extra_size{0};
   std::string fragmentation_mask;
 
-  uint64_t pre_allocate_size;
-  uint64_t min_chunk_size;
-  uint64_t max_chunk_size;
-
-  MemoryStats()
-      : num_allocs(0),
-        total_allocs(0),
-        bytes_in_use(0),
-        peak_bytes_in_use(0),
-        largest_alloc_size(0),
-        num_frees(0),
-        total_frees(0),
-        memory_limit(0),
-        scratch_mem_in_use(0),
-        fragmentation_percent(0),
-        total_chunks(0),
-        total_size(0),
-        occupied_chunks(0),
-        occupied_size(0),
-        free_chunks(0),
-        free_chunks_size(0),
-        max_cntgs_free_chunks_size(0),
-        total_extra_spaced_chunks(0),
-        total_extra_size(0),
-        fragmentation_mask(""),
-        pre_allocate_size(0),
-        min_chunk_size(0),
-        max_chunk_size(0) {}
+  uint64_t pre_allocate_size{0};
+  uint64_t min_chunk_size{0};
+  uint64_t max_chunk_size{0};
 
   std::string DebugString() const {
     return absl::StrFormat(

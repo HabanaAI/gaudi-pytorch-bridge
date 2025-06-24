@@ -56,7 +56,7 @@ enum StridedOPType {
   kStridedOpSqueezeDims
 };
 
-enum ViewStatus { kViewRead = 0, kViewWrite = 1, kEvaluated };
+enum ViewStatus { kViewRead = 0, kViewWrite = 1, kEvaluated = 2 };
 
 struct StridedOpSliceParams {
   int64_t dim;
@@ -98,10 +98,10 @@ struct StrideParams {
   at::Tensor parent;
   std::vector<int64_t> sizes;
   std::vector<int64_t> strides;
-  int64_t offset=0;
-  int64_t parent_id=0;
+  int64_t offset = 0;
+  int64_t parent_id = 0;
   StridedOPType optype;
-  OpParams params{};
+  OpParams params;
   ViewStatus viewStatus = kViewRead;
   size_t write_cnt = 0;
 
@@ -258,12 +258,12 @@ struct HbLazyFrontEndInfoToBackend {
   size_t optimized_lazy_eager_key = 0;
   std::string op_name = getHabanaLazyGraphName();
   bool is_optimized_lazy_eager = false;
-  std::vector<ir::Value> input_values{};
+  std::vector<ir::Value> input_values;
   bool is_hccl_send_mark_step = false;
   bool is_broadcastable = false;
-  std::vector<uint64_t> lazy_eager_op_input_uids{};
+  std::vector<uint64_t> lazy_eager_op_input_uids;
   size_t lazy_eager_op_num_of_uids = 0;
-  std::vector<std::vector<int64_t>> out_shapes{};
+  std::vector<std::vector<int64_t>> out_shapes;
 };
 
 class HbLazyTensor {
