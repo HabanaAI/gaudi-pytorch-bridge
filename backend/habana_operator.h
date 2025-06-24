@@ -286,7 +286,7 @@ class OutputMetaData {
   std::optional<at::Tensor> allocated_tensor{};
   bool undefined{false};
 
-  OutputMetaData(const torch::jit::Value& value) : name(value.debugName()) {};
+  OutputMetaData(const torch::jit::Value& value) : name(value.debugName()){};
   OutputMetaData(
       at::ScalarType dtype,
       std::vector<int64_t> shape,
@@ -771,7 +771,6 @@ class HabanaOperator {
   std::vector<std::tuple<std::string, at::Tensor, uint64_t>>
       appended_tensor_infos;
 
-  //
   std::vector<HabanaOperatorPtr> kernels_;
   bool deterministic{false};
   habana_helpers::HabanaFrontendTypes execution_mode{

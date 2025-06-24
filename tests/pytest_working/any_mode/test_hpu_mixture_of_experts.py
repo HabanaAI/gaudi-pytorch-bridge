@@ -1273,7 +1273,7 @@ def _create_d_scales(size, name, hybrid_mode, fp8_dtype, scales_dict={}):
     scales_as_tensors_143 = _create_d_scale(size, name + "_143", scales_dict)
     scales_as_tensors_152 = _create_d_scale(size, name + "_152", scales_dict)
 
-    if hybrid_mode:
+    if hybrid_mode and is_gaudi2():
         scales_as_tensors = [
             torch.cat([scale_143, scale_152])
             for scale_143, scale_152 in zip(scales_as_tensors_143, scales_as_tensors_152, strict=False)
@@ -1297,15 +1297,15 @@ def _create_scale_and_downcast_tensors(tensor_list, name, fp8_dtype, hybrid_mode
         tensor_list_152[i], _ = torch.ops.hpu.cast_to_fp8_v2(
             tensor_list[i],
             1 / scales_as_tensors_152[i],
-            dtype=fp8_dtype,
+            dtype=torch.float8_e5m2,
         )
         tensor_list_143[i], _ = torch.ops.hpu.cast_to_fp8_v2(
             tensor_list[i],
             1 / scales_as_tensors_143[i],
-            dtype=fp8_dtype,
+            dtype=torch.float8_e4m3fn,
         )
 
-    if hybrid_mode:
+    if hybrid_mode and is_gaudi2():
         tensor_list = (tensor_list_143, tensor_list_152)
         scales_as_tensors = [
             torch.cat([scale_143, scale_152])
@@ -1415,15 +1415,15 @@ class MixtureOfExpertsFwdBwdWrapper(torch.autograd.Function):
             d_scale_first_gemm_grad=_create_d_scales(
                 experts_num,
                 "d_scale_first_gemm_grad",
-                hybrid_mode,
-                fp8_dtype,
+                False,
+                torch.float8_e5m2 if hybrid_mode else fp8_dtype,
                 MixtureOfExpertsFwdBwdWrapper.scales_dict,
             ),
             d_scale_second_gemm_grad=_create_d_scales(
                 experts_num,
                 "d_scale_second_gemm_grad",
-                hybrid_mode,
-                fp8_dtype,
+                False,
+                torch.float8_e5m2 if hybrid_mode else fp8_dtype,
                 MixtureOfExpertsFwdBwdWrapper.scales_dict,
             ),
         )
@@ -1519,7 +1519,7 @@ def mixture_of_experts_training_fp8(
 @pytest.mark.skipif(is_pytest_mode_eager(), reason="Mixture of experts fp8 training is not yet supported in eager mode")
 @pytest.mark.parametrize(
     "fp8_dtype, hybrid_mode",
-    [(torch.float8_e4m3fn, False), (torch.float8_e5m2, False)],
+    [(torch.float8_e4m3fn, False), (torch.float8_e5m2, False), (torch.float8_e4m3fn, True)],
     ids=format_tc,
 )
 @pytest.mark.parametrize("activation", ACTIVATIONS)

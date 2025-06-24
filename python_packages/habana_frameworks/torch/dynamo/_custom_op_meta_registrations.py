@@ -15,6 +15,7 @@
 #
 ###############################################################################
 
+import habana_frameworks.torch.utils.experimental as htexp
 from habana_frameworks.torch import _hpu_C
 
 import torch
@@ -1143,16 +1144,23 @@ def meta_mixture_of_experts_fwd_fp8_fused(
         [hidden_states, expert_routing_table],
         [len(w12), h2, True, kwargs.get("chunk_size", 0)],
     )
+
+    is_gaudi2 = htexp._get_device_type() == htexp.synDeviceType.synDeviceGaudi2
+
+    fp8_output_dtype = w12[0].dtype
+    if fp8_output_dtype == torch.float8_e4m3fn and kwargs.get("hybrid_mode", False) and is_gaudi2:
+        fp8_output_dtype = torch.float8_e5m2
+
     outputs = [
         hidden_states.new_empty(out_shapes[0]),
-        hidden_states.new_empty(out_shapes[1], dtype=w12[0].dtype),
+        hidden_states.new_empty(out_shapes[1], dtype=fp8_output_dtype),
         hidden_states.new_empty(out_shapes[2], dtype=torch.int),
         hidden_states.new_empty(out_shapes[3], dtype=torch.int),
         hidden_states.new_empty(out_shapes[4], dtype=torch.int),
         hidden_states.new_empty(out_shapes[5]),
         hidden_states.new_empty(out_shapes[6]),
         hidden_states.new_empty(out_shapes[7]),
-        hidden_states.new_empty(out_shapes[8], dtype=w12[0].dtype),
+        hidden_states.new_empty(out_shapes[8], dtype=fp8_output_dtype),
         hidden_states.new_empty(out_shapes[9]),
     ]
     if kwargs.get("is_first_amax", False):
@@ -1163,13 +1171,13 @@ def meta_mixture_of_experts_fwd_fp8_fused(
 
 
 def common_mixture_of_experts_bwd_meta(
-    grad_tokens_in, router_weights_size, weights_lists, *, amax_outputs=0, weights_dtype=None
+    grad_tokens_in, router_weights_size, weights_lists, *, amax_outputs=0, weights_dtype=None, num_experts=None
 ):
     outputs = [torch.empty_like(grad_tokens_in), grad_tokens_in.new_empty(size=router_weights_size)]
     for _ in range(amax_outputs):
-        outputs.append(torch.empty(len(weights_lists[0]), dtype=torch.float32, device="meta"))
+        outputs.append(torch.empty(len(weights_lists[0][:num_experts]), dtype=torch.float32, device="meta"))
     for weight_list in weights_lists:
-        for w in weight_list:
+        for w in weight_list[:num_experts]:
             outputs.append(torch.empty_like(w, dtype=weights_dtype))
     return outputs
 
@@ -1298,6 +1306,7 @@ def meta_mixture_of_experts_recomp_bwd_fp8_fused(
         [w12, w3],
         amax_outputs=kwargs.get("is_first_amax", 0) + kwargs.get("is_second_amax", 0),
         weights_dtype=torch.bfloat16,
+        num_experts=len(kwargs.get("d_scale_second_gemm_grad", [])),
     )
 
 
