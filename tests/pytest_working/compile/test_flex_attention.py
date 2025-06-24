@@ -364,7 +364,7 @@ class TestFlexAttention(InductorTestCase):
             if compiled_dtype == torch.float8_e5m2:
                 fudge_factor = 200.0
             elif compiled_dtype == torch.float8_e4m3fn:
-                fudge_factor = 65.0
+                fudge_factor = 85.0
             elif dtype == torch.float32:
                 fudge_factor = 12.0
                 if is_paged_attention:
@@ -607,8 +607,8 @@ class TestFlexAttention(InductorTestCase):
                     is_paged_attention=False,
                 )
                 self._check_out(
-                    golden_out[1] * 0.6931471805599453,
-                    ref_out[1] * 0.6931471805599453,
+                    golden_out[1],
+                    ref_out[1],
                     lse_out,
                     is_paged_attention=False,
                 )

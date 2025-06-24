@@ -343,6 +343,7 @@ def flex_attention_fwd(q, k, v, block_size=128, is_noop_mask=False, is_ret_lse=F
         out_sums = torch.cat(out_row_sums, -2)
         out_maxes = torch.cat(out_row_maxes, -2)
         lse = (out_sums.to(compatible_dtype).log()).to(orig_dtype) + out_maxes
+        lse = (lse.to(compatible_dtype) / math.log(2)).to(orig_dtype)
         lse_leaf = lse.squeeze(-1)
         # remove this WA leaf nodes runs eagerly on hpu
         lse = lse_leaf * 1.0
@@ -443,6 +444,8 @@ def flex_attention_bwd(q, k, v, o, lse, do, glse, block_size=128, is_noop_mask=F
         dvc_list = []
 
         for q_ind, (qc, oc, doc, lsec, glsec, dqc) in enumerate(row_splits):
+            lsec = lsec * math.log(2)
+            glsec = glsec / math.log(2)
             for k_ind, (kc, vc) in enumerate(col_splits):
                 attn_weights = torch.matmul(qc.to(working_precision), kc.transpose(-2, -1).to(working_precision)).to(
                     dtype=working_precision
