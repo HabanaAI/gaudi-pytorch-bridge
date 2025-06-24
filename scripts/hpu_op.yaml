@@ -9000,12 +9000,11 @@ mixture_of_experts_recomp_bwd.fused_weights:
   namespaces: [torch.hpu]
   skip_slrg: true
 
-block_softmax_adjustment:
-  custom_op_schema: "hpu::block_softmax_adjustment(Tensor block_maxes, Tensor block_sums, Tensor block_groups, int batch_size) -> Tensor"
-  guid: block_softmax_adjustment
+block_softmax:
+  custom_op_schema: "hpu::block_softmax(Tensor attn, Tensor block_bias, Tensor block_ind) -> (Tensor, Tensor, Tensor)"
+  guid: block_softmax
   out_ids: [0]
-  output_meta: BlockSoftmaxAdjustmentMeta
-  custom_fill_params: BlockSoftmaxAdjustmentParams
+  output_meta: BlockSoftmaxMeta
   op_validator_exception: custom_op
 
 optimizer_adamw:

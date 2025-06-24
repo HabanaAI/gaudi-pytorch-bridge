@@ -2063,6 +2063,8 @@ TORCH_LIBRARY(hpu, m) {
       {at::Tag::nondeterministic_seeded});
   m.def(
       "hpu::habana_random(Tensor seed, Tensor self, int low, int? high) -> Tensor");
+  m.def(
+      "hpu::block_softmax_adjustment(Tensor block_maxes, Tensor block_sums, Tensor block_groups, int batch_size, int[] out_shape) -> Tensor");
 }
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {
@@ -2086,6 +2088,7 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::fp8_sdpa_recomp_fwd.scalar", fp8_sdpa_recomp_fwd_scalar_lazy);
   m.impl("hpu::fp8_sdpa_fwd", fp8_sdpa_fwd_wrap);
   m.impl("hpu::fp8_sdpa_recomp_bwd", fp8_sdpa_recomp_bwd_lazy);
+  m.impl("hpu::block_softmax_adjustment", block_softmax_adjustment_lazy);
   m.impl(
       "hpu::mixture_of_experts_fwd.fp8_fused",
       mixture_of_experts_fwd_fp8_fused_weights_lazy);

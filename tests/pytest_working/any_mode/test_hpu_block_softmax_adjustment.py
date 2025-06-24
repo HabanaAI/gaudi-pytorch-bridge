@@ -26,7 +26,6 @@ from test_utils import (
     hpu,
     is_gaudi2,
     is_pytest_mode_compile,
-    is_pytest_mode_lazy,
 )
 
 
@@ -62,11 +61,6 @@ def block_softmax_adjustment_ref(b_max, b_sum, groups, batch_size):
 @pytest.mark.parametrize("dtype", [torch.float32, torch.bfloat16])
 @pytest.mark.skipif(is_gaudi2(), reason="Gaudi2 not supported yet")
 def test_block_softmax_adjustment(input_shape, dtype, batch_size):
-    if dtype in [torch.float32] and (is_pytest_mode_compile() or is_pytest_mode_lazy()):
-        pytest.skip(
-            reason="https://jira.habana-labs.com/browse/SW-224619, Accuracy issues with float32 dtype in compile and lazy mode"
-        )
-
     num_blocks = input_shape[0]
     block_maxes = torch.rand(input_shape, dtype=dtype, requires_grad=False)
     block_sums = torch.rand(input_shape, dtype=dtype, requires_grad=False)
@@ -79,14 +73,198 @@ def test_block_softmax_adjustment(input_shape, dtype, batch_size):
     # Reference output
     ref_output = block_softmax_adjustment_ref(block_maxes, block_sums, block_groups, batch_size)
 
-    def hpu_fn(block_maxes_hpu, block_sums_hpu, block_groups_hpu, batch_size):
-        return torch.ops.hpu.block_softmax_adjustment(block_maxes_hpu, block_sums_hpu, block_groups_hpu, batch_size)
+    def hpu_fn(block_maxes_hpu, block_sums_hpu, block_groups_hpu, batch_size, out_shape):
+        return torch.ops.hpu.block_softmax_adjustment(
+            block_maxes_hpu, block_sums_hpu, block_groups_hpu, batch_size, out_shape
+        )
 
     # Compile mode
     hpu_fn = compile_function_if_compile_mode(hpu_fn)
-    hpu_output = hpu_fn(block_maxes_hpu, block_sums_hpu, block_groups_hpu, batch_size)
+    hpu_output = hpu_fn(block_maxes_hpu, block_sums_hpu, block_groups_hpu, batch_size, block_maxes.shape)
     assert torch.allclose(ref_output, hpu_output.to(cpu), atol=0.01, rtol=0.01)
 
     # Check ops executed in JIT IR
     if is_pytest_mode_compile():
         check_ops_executed_in_jit_ir("block_softmax_adjustment")
+
+
+def reference_block_softmax(attn, block_bias, block_indicators):
+    block_maxes = torch.zeros_like(attn[..., :1])  # Initialize block_maxes with zeros
+    block_sums = torch.zeros_like(attn[..., :1])  # Initialize block_sums with zeros
+
+    mask = block_indicators != -1  # Create a mask for active blocks
+    attn[mask] = attn[mask] + block_bias[mask]
+    block_maxes[mask] = attn[mask].amax(dim=-1, keepdim=True)
+    attn[mask] = attn[mask].sub(block_maxes[mask])
+    attn[mask] = attn[mask].exp()
+    block_sums[mask] = attn[mask].sum(dim=-1, keepdim=True)
+    attn[~mask] = 0  # Set inactive blocks to 0
+
+    return attn, block_maxes, block_sums
+
+
+@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float32])
+@pytest.mark.parametrize(
+    "num_blocks,kv_heads,gqa,num_tokens,block_size",
+    [
+        (2, 2, 2, 256, 64),  # Minimal Baseline
+        (3, 4, 2, 512, 128),  # Wider Attention
+        (6, 2, 1, 512, 64),  # Deeper Stack
+        (4, 4, 4, 1024, 256),  # Long Context Stress Test
+    ],
+)
+def test_block_softmax(dtype, num_blocks, kv_heads, gqa, num_tokens, block_size):
+    # Create input tensors
+    torch.manual_seed(42)
+    attn = torch.randn(num_blocks, kv_heads, gqa, num_tokens, block_size, dtype=dtype).to(hpu)
+    block_bias = torch.zeros(num_blocks, 1, 1, num_tokens, block_size, dtype=dtype).to(hpu)
+
+    # Apply different masks per block to test masking
+    for i in range(num_blocks):
+        mask_pos = i % (block_size - 1) + 1  # Different mask pattern per block
+        block_bias[i, :, :, :, mask_pos:] = float("-inf")
+
+    # Create block_indicators
+    block_indicators = torch.randint(-1, 1, (num_blocks,), dtype=torch.int32).to(hpu)
+
+    # Run reference implementation
+    ref_attn, ref_max, ref_sum = reference_block_softmax(attn.to(cpu), block_bias.to(cpu), block_indicators.to(cpu))
+
+    # Compile mode support
+    def hpu_block_softmax(attn, block_bias, block_indicators):
+        return torch.ops.hpu.block_softmax(attn, block_bias, block_indicators)
+
+    hpu_block_softmax = compile_function_if_compile_mode(hpu_block_softmax)
+    hpu_attn, hpu_max, hpu_sum = hpu_block_softmax(attn, block_bias, block_indicators)
+
+    # Check shapes
+    assert hpu_attn.shape == attn.shape, f"Expected shape {attn.shape}, got {hpu_attn.shape}"
+    assert hpu_max.shape[0] == num_blocks, f"Expected first dim {num_blocks}, got {hpu_max.shape[0]}"
+    assert hpu_sum.shape[0] == num_blocks, f"Expected first dim {num_blocks}, got {hpu_sum.shape[0]}"
+
+    # Flatten and reshape reference outputs to match HPU outputs
+    flat_size = kv_heads * gqa * num_tokens
+    ref_max_flat = ref_max.squeeze(-1).reshape(num_blocks, flat_size)
+    ref_sum_flat = ref_sum.squeeze(-1).reshape(num_blocks, flat_size)
+
+    # Only compare the valid portion (not the padding added for alignment)
+    # Allow higher tolerance for bfloat16
+    rtol = 1e-2 if dtype == torch.bfloat16 else 1e-5
+    atol = 1e-2 if dtype == torch.bfloat16 else 1e-5
+
+    # Since block_maxes and block_sums are going to be consumed by the adjustment kernel,
+    # we ignore comparing the padding blocks here, as that's a performance consideration taken by the kernel.
+    # We only compare the valid blocks here, and that means ignoring some blocks in the reference and it's
+    # not a direct comparison of the entire tensors.
+    torch.testing.assert_close(hpu_attn.to(cpu), ref_attn, rtol=rtol, atol=atol)
+    valid_blocks = block_indicators != -1  # Ignore blocks with indicator values -1
+    torch.testing.assert_close(
+        hpu_max[valid_blocks, :flat_size].to(cpu), ref_max_flat[valid_blocks.to(cpu)], rtol=rtol, atol=atol
+    )
+    torch.testing.assert_close(
+        hpu_sum[valid_blocks, :flat_size].to(cpu), ref_sum_flat[valid_blocks.to(cpu)], rtol=rtol, atol=atol
+    )
+
+    # Check ops executed in JIT IR
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir("block_softmax")
+
+
+@pytest.mark.skipif(is_gaudi2(), reason="Gaudi2 not supported yet")
+def test_block_softmax_edge_cases():
+    # Test case 1: All values are the same
+    attn = torch.ones(2, 2, 2, 3, 4, dtype=torch.float32).to(hpu)
+    block_bias = torch.zeros(2, 1, 1, 3, 4, dtype=torch.float32).to(hpu)
+    block_indicators = torch.tensor([0, 0], dtype=torch.int32).to(hpu)
+
+    # Compile mode support
+    def hpu_block_softmax(attn, block_bias, block_indicators):
+        return torch.ops.hpu.block_softmax(attn, block_bias, block_indicators)
+
+    hpu_block_softmax = compile_function_if_compile_mode(hpu_block_softmax)
+    hpu_attn, hpu_max, hpu_sum = hpu_block_softmax(attn, block_bias, block_indicators)
+
+    # When all values are the same, softmax gives uniform distribution
+    expected_attn, _, _ = reference_block_softmax(attn.to(cpu), block_bias.to(cpu), block_indicators.to(cpu))
+    torch.testing.assert_close(hpu_attn.to(cpu), expected_attn.to(cpu), rtol=1e-5, atol=1e-5)
+
+    # Test case 2: All -inf values (completely masked)
+    attn = torch.ones(2, 2, 2, 3, 4, dtype=torch.float32).to(hpu)
+    block_bias = torch.full((2, 1, 1, 3, 4), float("-inf"), dtype=torch.float32).to(hpu)
+    block_indicators = torch.tensor([0, -1], dtype=torch.int32).to(hpu)
+
+    hpu_attn, hpu_max, hpu_sum = hpu_block_softmax(attn, block_bias, block_indicators)
+
+    # When all values are -inf, result should be NaN (but implementation might handle this)
+    # The important thing is that the output is zero for padding blocks
+    assert torch.all(torch.isnan(hpu_attn[0].to(cpu)) | (hpu_attn[0].to(cpu) == 0)), "Expected NaN or 0 values"
+    assert torch.all(hpu_attn[1].to(cpu) == 0), "Expected 0 values for padding block"
+
+    # Test case 3: Large values that could cause overflow
+    attn = torch.full((2, 2, 2, 3, 4), 1000.0, dtype=torch.float32).to(hpu)
+    block_bias = torch.zeros(2, 1, 1, 3, 4, dtype=torch.float32).to(hpu)
+    block_indicators = torch.tensor([0, 0], dtype=torch.int32).to(hpu)
+
+    hpu_attn, hpu_max, hpu_sum = hpu_block_softmax(attn, block_bias, block_indicators)
+
+    # Softmax should handle large values correctly (output is uniform)
+    expected_attn, _, _ = reference_block_softmax(attn.to(cpu), block_bias.to(cpu), block_indicators.to(cpu))
+    torch.testing.assert_close(hpu_attn.to(cpu), expected_attn.to(cpu), rtol=1e-5, atol=1e-5)
+
+    # Check ops executed in JIT IR
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir("block_softmax")
+
+
+@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float32])
+@pytest.mark.skipif(is_gaudi2(), reason="Gaudi2 not supported yet")
+def test_block_softmax_with_adjustment(dtype):
+    """Test the integration of block_softmax with block_softmax_adjustment"""
+
+    # Create input tensors
+    num_blocks, kv_heads, gqa, num_tokens, block_size, batch_size = 2, 2, 2, 4, 8, 32
+    torch.manual_seed(42)
+
+    attn = torch.randn(num_blocks, kv_heads, gqa, num_tokens, block_size, dtype=dtype).to(hpu)
+    block_bias = torch.zeros(num_blocks, 1, 1, num_tokens, block_size, dtype=dtype).to(hpu)
+
+    # Apply masking
+    block_bias[0, :, :, :, 4:] = float("-inf")
+    block_bias[1, :, :, :, 6:] = float("-inf")
+
+    # Create block_groups for adjustment (assuming all blocks are active)
+    block_groups = torch.randint(0, batch_size, (num_blocks,), dtype=torch.long).to(hpu)
+
+    # Run block_softmax on HPU
+    def hpu_block_softmax_with_adjustment(attn, block_bias, block_groups):
+        attn_out, block_maxes, block_sums = torch.ops.hpu.block_softmax(attn, block_bias, block_groups)
+        out_shape = [num_blocks, kv_heads, gqa]
+        # Run block_softmax_adjustment
+        adjustment = torch.ops.hpu.block_softmax_adjustment(
+            block_maxes, block_sums, block_groups, batch_size, out_shape
+        )
+        return block_maxes, block_sums, adjustment
+
+    hpu_block_softmax_with_adjustment = compile_function_if_compile_mode(hpu_block_softmax_with_adjustment)
+    block_maxes, block_sums, adjustment = hpu_block_softmax_with_adjustment(attn, block_bias, block_groups)
+    # Run block_softmax_adjustment_ref on CPU for comparison
+    ref_adjustment = block_softmax_adjustment_ref(
+        block_maxes.to(cpu), block_sums.to(cpu), block_groups.to(cpu), batch_size
+    )
+
+    # slice and reshape the reference output for comparison
+    ref_adjustment = ref_adjustment[..., : kv_heads * gqa].reshape(num_blocks, kv_heads, gqa)
+
+    # Basic shape check
+    assert adjustment.dim() == 3, f"Expected 3D tensor, got {adjustment.dim()}D"
+    assert adjustment.size(0) == num_blocks, f"Expected first dim {num_blocks}, got {adjustment.size(0)}"
+
+    # End-to-end check comparing CPU and HPU outputs
+    rtol = 1e-2 if dtype == torch.bfloat16 else 1e-5
+    atol = 1e-2 if dtype == torch.bfloat16 else 1e-5
+
+    torch.testing.assert_close(adjustment.to(cpu), ref_adjustment.to(cpu), rtol=rtol, atol=atol)
+
+    # Check ops executed in JIT IR
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir({"block_softmax", "block_softmax_adjustment"})
