@@ -283,7 +283,8 @@ void deviceMallocData::collect_backtrace(
       bt_string.emplace_back(strings[i]);
     }
 
-    free(strings);
+    free(strings); // NOLINT (bugprone-multi-level-implicit-pointer-conversion)
+                   // this is a single allocation
   }
 
   auto out_stream = get_out_stream();
