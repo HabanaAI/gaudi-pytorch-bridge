@@ -674,7 +674,7 @@ bool HabanaLaunchOpPT::RunHybridSif(
     auto outputs_metadata = populate_node_output_metadata(node);
 
     auto propagate_shape{[&]() -> void {
-      PT_BRIDGE_BEGIN;
+      PT_BRIDGE_LAMBDA_BEGIN("propagate_shape");
       // Non OutputShapeInf based path, adjust SifTensrorId
       PT_DYNAMIC_SHAPE_DEBUG(
           "Using non OutputShapeInf based flow. Going to add tpc kernel ",

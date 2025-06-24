@@ -277,18 +277,18 @@ inline void nop(__attribute__((unused)) const Args&... args){};
   Logger::CheckMsgImpl(             \
       "Expected " #cond " to be true, but got false.", ##__VA_ARGS__)
 
-#define HABANA_ASSERT(condition, ...)                                    \
-  if (__builtin_expect(static_cast<bool>(!(condition)), 0)) {            \
-    auto MSG_ = std::string(HABANA_CHECK_MSG(condition, ##__VA_ARGS__)); \
-    const char* synErrorMsg = synGetLastErrorMessage();                  \
-    if (synErrorMsg) {                                                   \
-      MSG_ += std::string("\nLast synapse error: ") + synErrorMsg;       \
-    }                                                                    \
-    HLLOG_ERR_F(PT_BRIDGE, FORMAT_AND_MSG(FILE_AND_LINE, MSG_));         \
-    hl_logger::logStacktrace(                                            \
-        HlLogger::LoggerType::PT_BRIDGE, HLLOG_LEVEL_ERROR);             \
-    Logger::habana_assert(                                               \
-        __func__, __FILE__, static_cast<uint32_t>(__LINE__), MSG_);      \
+#define HABANA_ASSERT(condition, ...)                                          \
+  if (__builtin_expect(static_cast<bool>(!(condition)), 0)) {                  \
+    auto MSG_ = std::string(HABANA_CHECK_MSG(condition, ##__VA_ARGS__));       \
+    const char* synErrorMsg = synGetLastErrorMessage();                        \
+    if (synErrorMsg) {                                                         \
+      MSG_ += std::string("\nLast synapse error: ") + synErrorMsg;             \
+    }                                                                          \
+    HLLOG_ERR_F(PT_BRIDGE, FORMAT_AND_MSG(FILE_AND_LINE, MSG_));               \
+    hl_logger::logStacktrace(                                                  \
+        HlLogger::LoggerType::PT_BRIDGE, HLLOG_LEVEL_ERROR);                   \
+    Logger::habana_assert(                                                     \
+        __PRETTY_FUNCTION__, __FILE__, static_cast<uint32_t>(__LINE__), MSG_); \
   }
 
 /************************CRITICAL MACROS************************/
@@ -377,6 +377,7 @@ inline void nop(__attribute__((unused)) const Args&... args){};
 // following macro is a non-asserting version of PT_KERNEL_BEGIN
 #define PT_OTHER_OPS_BEGIN PT_MOD_BEGIN(PT_KERNEL)
 #define PT_BRIDGE_BEGIN PT_MOD_BEGIN(PT_BRIDGE)
+#define PT_BRIDGE_LAMBDA_BEGIN(LAMBDA_NAME) PT_MOD_SCOPE(PT_BRIDGE, __PRETTY_FUNCTION__, LAMBDA_NAME)
 #define PT_SYNHELPER_BEGIN PT_MOD_BEGIN(PT_SYNHELPER)
 #define PT_DISTRIBUTED_BEGIN PT_MOD_BEGIN(PT_DISTRIBUTED)
 

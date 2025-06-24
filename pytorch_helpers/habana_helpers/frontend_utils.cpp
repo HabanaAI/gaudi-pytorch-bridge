@@ -136,10 +136,10 @@ c10::Scalar habana_helpers::_local_scalar_dense_internal(
   // Note:
   // 1. This macro expands to more types than HPU supports,
   //   but that should not be an issue issue.
-  // 2. Pytorch uses this function to check a specific emement of a tensor
+  // 2. Pytorch uses this function to check a specific element of a tensor
   //   eg. embedding_bag validates the first value offsets to be 0 using this
   //   function
-  // 3. A TORCH_CHECK is added to ensure that the size at source
+  // 3. A HABANA_ASSERT is added to ensure that the size at source
   //   matches with the destination.
 
   AT_DISPATCH_ALL_TYPES_AND_COMPLEX_AND3(
