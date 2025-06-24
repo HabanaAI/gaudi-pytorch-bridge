@@ -71,7 +71,7 @@ target_link_libraries(
          absl::hash
          absl::raw_hash_set
          npu::hllogger
-         npu::fmt
+         fmt::fmt
          $<TARGET_NAME_IF_EXISTS:npu::specs_embedded>
          npu::specs_external
   PRIVATE Python::Python torch)

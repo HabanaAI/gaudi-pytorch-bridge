@@ -4,7 +4,6 @@
   <remote name="HabanaAI" fetch="https://github.com/HabanaAI/"/>
   <remote name="habana-internal" alias="origin" fetch="ssh://git@github.com/habana-internal"/>
   <default revision="master" remote="habana-internal" sync-j="32"/>
-  <project name="3rd-parties"/>
   <project name="aeon"/>
   <project name="automation"/>
   <project name="coral-sim"/>

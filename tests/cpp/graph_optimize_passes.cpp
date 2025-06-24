@@ -31,7 +31,7 @@
 #include "habana_lazy/lazy_graph_hash_builder.h"
 #include "habana_lazy_test_infra.h"
 
-using json = nlohmannV340::json;
+using json = nlohmann::json;
 
 using namespace habana_lazy;
 using namespace at;

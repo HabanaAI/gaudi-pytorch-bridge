@@ -15,22 +15,37 @@
 #
 ###############################################################################
 
-# define fmt target, so other deps will not compile it from sources. Otherwise we have conflicts
-add_library(fmt INTERFACE IMPORTED)
-set_target_properties(fmt PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "$ENV{THIRD_PARTIES_ROOT}/fmt-9.1.0/include")
-target_compile_definitions(fmt INTERFACE FMT_HEADER_ONLY)
-add_library(npu::fmt ALIAS fmt)
+include(FetchContent)
+
+FetchContent_Declare(
+  nlohmann_json
+  GIT_REPOSITORY https://github.com/nlohmann/json.git
+  GIT_TAG v3.12.0
+  GIT_SHALLOW TRUE
+  SYSTEM EXCLUDE_FROM_ALL)
+
+FetchContent_Declare(
+  fmt
+  GIT_REPOSITORY https://github.com/fmtlib/fmt.git
+  GIT_TAG 9.1.0
+  GIT_SHALLOW TRUE
+  SYSTEM EXCLUDE_FROM_ALL)
+set(FMT_INSTALL ON)
+
+FetchContent_Declare(
+  magic_enum
+  GIT_REPOSITORY https://github.com/Neargye/magic_enum.git
+  GIT_TAG v0.9.7
+  GIT_SHALLOW TRUE
+  SOURCE_DIR ${FETCHCONTENT_BASE_DIR}/magic_enum-0.9.7 SYSTEM EXCLUDE_FROM_ALL)
+
+FetchContent_MakeAvailable(fmt nlohmann_json magic_enum)
 
 add_library(hllogger SHARED IMPORTED)
 set_target_properties(hllogger PROPERTIES IMPORTED_LOCATION "$ENV{BUILD_ROOT_LATEST}/libhl_logger.so")
-set_target_properties(hllogger PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                                          "$ENV{HL_LOGGER_INCLUDE_DIRS};$ENV{THIRD_PARTIES_ROOT}")
+target_link_libraries(hllogger INTERFACE magic_enum::magic_enum)
+target_include_directories(hllogger INTERFACE "$ENV{SWTOOLS_SDK_ROOT}/hl_logger/include" "${FETCHCONTENT_BASE_DIR}")
 add_library(npu::hllogger ALIAS hllogger)
-
-add_library(nlohmann_json INTERFACE IMPORTED)
-set_target_properties(nlohmann_json PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                                               "$ENV{HABANA_SOFTWARE_STACK}/3rd-parties/json/single_include")
-add_library(nlohmann_json::nlohmann_json ALIAS nlohmann_json)
 
 if(MANYLINUX)
   add_library(Synapse INTERFACE IMPORTED)

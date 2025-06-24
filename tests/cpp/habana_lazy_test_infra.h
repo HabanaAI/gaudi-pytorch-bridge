@@ -282,8 +282,8 @@ torch::jit::Stack createStack(std::vector<at::Tensor>&& list);
 } // namespace habana_lazy_test
 
 namespace jit_ir_test {
-nlohmannV340::json read_json(std::string input_json);
-std::string get_jit_graph(nlohmannV340::json json_);
+nlohmann::json read_json(std::string input_json);
+std::string get_jit_graph(nlohmann::json json_);
 at::Tensor create_empty_tensor(
     const std::vector<int64_t>& tshape,
     c10::TensorOptions& tensor_options,

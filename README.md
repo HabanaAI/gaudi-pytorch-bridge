@@ -36,30 +36,13 @@ EOF
 "${PYTORCH_MODULES_ROOT_PATH}"/scripts/install_torch_fork.sh "$VERSION" "$BUILD"
 ```
 
-3. Set up the required 3rd party code:
-```bash
-mkdir 3rd-parties
-pushd 3rd-parties
-
-git clone --depth 1 https://github.com/abseil/abseil-cpp.git
-git clone --depth 1 --branch 9.1.0 https://github.com/fmtlib/fmt fmt-9.1.0
-git clone --depth 1 --branch 3.3.9 https://gitlab.com/libeigen/eigen.git
-git clone --depth 1 --branch v0.9.7 https://github.com/Neargye/magic_enum.git magic_enum-0.9.7
-git clone --depth 1 --branch v1.13.0 https://github.com/google/googletest.git googletest_1_13
-
-git clone --depth 1 --branch v3.4.0 https://github.com/nlohmann/json.git
-sed -i 's/namespace nlohmann/namespace nlohmannV340/; s/nlohmann::/nlohmannV340::/g' json/single_include/nlohmann/json.hpp
-
-popd
-```
-
-4. Install the requirements:
+3. Install the requirements:
 ```bash
 pip install -r "$PYTORCH_MODULES_ROOT_PATH"/requirements.txt
 pip install habana-media-loader==$VERSION.$BUILD
 ```
 
-5. Allow the build command to install artifacts:
+4. Allow the build command to install artifacts:
 
 ```bash
 sudo chmod +w /usr/lib/habanalabs/
@@ -72,7 +55,6 @@ Once the one-time setup is complete, you can configure the necessary environment
 1. Set up source and binary directories used for building the Intel Gaudi PyTorch bridge:
 ```bash
 export HABANA_SOFTWARE_STACK="$(pwd)"
-export THIRD_PARTIES_ROOT="$HABANA_SOFTWARE_STACK/3rd-parties"
 
 export HCL_INCLUDE_DIR=/usr/include/habanalabs/
 export HL_LOGGER_INCLUDE_DIRS=/usr/include/habanalabs/hl_logger

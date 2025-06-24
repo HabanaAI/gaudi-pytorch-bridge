@@ -15,6 +15,15 @@
 #
 ###############################################################################
 
+include(FetchContent)
+FetchContent_Declare(
+  googletest
+  GIT_REPOSITORY https://github.com/google/googletest.git
+  GIT_TAG v1.17.0
+  GIT_SHALLOW TRUE
+  SYSTEM EXCLUDE_FROM_ALL)
+FetchContent_MakeAvailable(googletest)
+
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 set(LAZY_TESTS_SRC

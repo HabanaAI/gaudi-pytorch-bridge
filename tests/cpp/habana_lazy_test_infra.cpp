@@ -127,16 +127,16 @@ uint64_t EnvHelper::InitSeed() {
 } // namespace habana_lazy_test
 
 namespace jit_ir_test {
-nlohmannV340::json read_json(std::string input_json) {
+nlohmann::json read_json(std::string input_json) {
   std::ifstream infile(input_json);
   std::stringstream is;
   is << infile.rdbuf();
   infile.close();
-  auto json_file_ = nlohmannV340::json::parse(is);
+  auto json_file_ = nlohmann::json::parse(is);
   return json_file_;
 }
 
-std::string get_jit_graph(nlohmannV340::json json_) {
+std::string get_jit_graph(nlohmann::json json_) {
   auto jit_json_vec = json_[0]["000000000"]["compilations"][0]["jit ir graph"];
   std::string graph_str;
   for (auto& jit_json : jit_json_vec) {

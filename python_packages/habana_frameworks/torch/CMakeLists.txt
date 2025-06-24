@@ -37,7 +37,7 @@ endif()
 target_compile_options(bindings INTERFACE -fopenmp -fpermissive)
 target_link_libraries(
   bindings
-  INTERFACE npu::fmt
+  INTERFACE fmt::fmt
             npu::hllogger
             npu::hcl
             npu::specs_external

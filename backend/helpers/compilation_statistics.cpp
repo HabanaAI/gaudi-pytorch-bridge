@@ -24,7 +24,7 @@
 #include "habana_lazy/aten_lazy_bridge.h"
 
 using namespace habana_helpers;
-using json = nlohmannV340::json;
+using json = nlohmann::json;
 namespace {
 std::string stringify(DynamicDimsPolicy policy) {
   switch (policy) {
@@ -389,7 +389,7 @@ std::string CompilationStatistics::GetStep(uint64_t step) {
       "%0*d", leading_zeros, step > 0 ? step : GetCurrentStep());
 }
 
-nlohmannV340::json CompilationStatistics::GetRanges(
+nlohmann::json CompilationStatistics::GetRanges(
     ResultShapes ranges,
     std::shared_ptr<torch::jit::Graph> jit_ir_graph) {
   json result;
@@ -421,7 +421,7 @@ CompilationStatistics::CompilationStatistics(std::istream& is) {
   }
 
   std::ifstream infile(path_);
-  auto json_file = nlohmannV340::json::parse(infile, nullptr, false);
+  auto json_file = nlohmann::json::parse(infile, nullptr, false);
   if (json_file.is_discarded()) {
     PT_DYNAMIC_SHAPE_WARN("Json parsing failed");
   }

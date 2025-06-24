@@ -27,12 +27,8 @@ endif()
 add_habana_library(metrics_tests SHARED metrics_test_op.cpp metrics_test_kernel.cpp)
 target_include_directories(
   metrics_tests
-  PRIVATE $ENV{PYTORCH_MODULES_ROOT_PATH}
-          $ENV{SWTOOLS_SDK_ROOT}/hl_logger/include/
-          $ENV{THIRD_PARTIES_ROOT}
-          $ENV{PYTORCH_MODULES_ROOT_PATH}/pytorch_helpers
-          $ENV{PYTORCH_MODULES_ROOT_PATH}/backend/helpers
-          $ENV{THIRD_PARTIES_ROOT}/abseil-cpp
+  PRIVATE $ENV{PYTORCH_MODULES_ROOT_PATH} $ENV{SWTOOLS_SDK_ROOT}/hl_logger/include/
+          $ENV{PYTORCH_MODULES_ROOT_PATH}/pytorch_helpers $ENV{PYTORCH_MODULES_ROOT_PATH}/backend/helpers
           $ENV{SYNAPSE_INCLUDE_DIR})
 target_link_libraries(
   metrics_tests

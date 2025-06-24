@@ -15,7 +15,7 @@
 #
 ###############################################################################
 
-cmake_minimum_required(VERSION 3.26 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.28 FATAL_ERROR)
 
 if(POLICY CMP0076)
   set(ORIGINAL_CMAKE_WARN_DEPRECATED ${CMAKE_WARN_DEPRECATED})
@@ -69,7 +69,6 @@ list(
   APPEND
   REQUIRED_ENV_VARIABLES
   HABANA_SOFTWARE_STACK
-  THIRD_PARTIES_ROOT
   HCL_INCLUDE_DIR
   HL_LOGGER_INCLUDE_DIRS
   MEDIA_ROOT
@@ -135,7 +134,7 @@ if(CODE_COVERAGE)
   message(STATUS "code coverage is enabled.")
 endif()
 
-include(AddNPUStackDependencies)
+include(PrepareDependencies)
 
 set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
 set(CMAKE_INSTALL_RPATH "$ORIGIN")
@@ -350,7 +349,7 @@ target_link_libraries(
          torch
          absl::hash
          npu::hllogger
-         npu::fmt
+         fmt::fmt
          ZLIB::ZLIB)
 
 # Create symlink to latest build from tests dir
@@ -367,15 +366,10 @@ add_dependencies(habana_serialization pytorch_generate_env)
 install(TARGETS habana_pytorch2_plugin LIBRARY DESTINATION habana_torch_plugin/lib)
 
 option(BUILD_TESTS "Build gtest binaries" ON)
-
 if(BUILD_TESTS)
-  set(ORIGINAL_CMAKE_WARN_DEPRECATED ${CMAKE_WARN_DEPRECATED})
-  set(CMAKE_WARN_DEPRECATED OFF)
-  add_subdirectory("$ENV{HABANA_SOFTWARE_STACK}/3rd-parties/googletest_1_13/"
-                   ${CMAKE_BINARY_DIR}/ThirdParty/googletest/ EXCLUDE_FROM_ALL SYSTEM)
-  set(CMAKE_WARN_DEPRECATED ${ORIGINAL_CMAKE_WARN_DEPRECATED})
   add_subdirectory(tests/cpp)
 endif()
+
 option(BUILD_SL_REPORT_GENERATOR "Build Shared Layer Report Generator" OFF)
 if(BUILD_SL_REPORT_GENERATOR)
   add_subdirectory(sl_report_generator)

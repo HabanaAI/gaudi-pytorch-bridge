@@ -33,7 +33,7 @@
 #include "pybind11/pybind11.h"
 
 namespace py = pybind11;
-namespace nl = nlohmannV340;
+namespace nl = nlohmann;
 
 namespace pyjson
 {
@@ -155,7 +155,7 @@ namespace pyjson
 }
 
 // nlohmann_json serializers
-namespace nlohmannV340
+namespace nlohmann
 {
     #define MAKE_NLJSON_SERIALIZER_DESERIALIZER(T)         \
     template <>                                            \

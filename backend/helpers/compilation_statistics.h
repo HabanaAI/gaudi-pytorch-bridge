@@ -215,10 +215,10 @@ class CompilationStatistics {
   size_t refine_init_step_;
   size_t curr_parent_bucket_id_;
   size_t curr_parent_last_step_;
-  nlohmannV340::json json_file_;
+  nlohmann::json json_file_;
   std::ofstream file_handle;
   std::string GetStep(uint64_t step);
-  nlohmannV340::json GetRanges(
+  nlohmann::json GetRanges(
       habana_helpers::ResultShapes ranges,
       std::shared_ptr<torch::jit::Graph> jit_ir_graph);
   CompilationStatistics(std::string path, uint64_t global_count);

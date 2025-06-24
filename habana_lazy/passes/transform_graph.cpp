@@ -19,7 +19,7 @@
 
 #include <fstream>
 
-using json = nlohmannV340::json;
+using json = nlohmann::json;
 
 namespace habana_lazy {
 using Graph = torch::jit::Graph;

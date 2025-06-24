@@ -33,7 +33,7 @@ function(find_absl_targets directory)
   return(PROPAGATE ABSL_TARGETS)
 endfunction()
 
-find_absl_targets($ENV{THIRD_PARTIES_ROOT}/abseil-cpp)
+find_absl_targets("${abseil-cpp_SOURCE_DIR}")
 
 export(
   TARGETS ${ABSL_TARGETS}

@@ -27,7 +27,7 @@
 #include "nlohmann/json.hpp"
 #include "pybind11_json.hpp"
 
-using nlohmannV340::json;
+using nlohmann::json;
 
 namespace py = pybind11;
 namespace aeondataloader = scaleoutdemoloader;

@@ -115,7 +115,7 @@ void JsonFileParser::addMemoryEvent(
 }
 
 void JsonFileParser::addDevice(std::string_view name, int64_t id) {
-  nlohmannV340::json process_name;
+  nlohmann::json process_name;
   process_name["name"] = "process_name";
   process_name["ph"] = "M";
   process_name["ts"] = 0.0;
@@ -123,7 +123,7 @@ void JsonFileParser::addDevice(std::string_view name, int64_t id) {
   process_name["tid"] = 0;
   process_name["args"]["name"] = name;
 
-  nlohmannV340::json process_labels;
+  nlohmann::json process_labels;
   process_labels["name"] = "process_labels";
   process_labels["ph"] = "M";
   process_labels["ts"] = 0.0;
@@ -131,7 +131,7 @@ void JsonFileParser::addDevice(std::string_view name, int64_t id) {
   process_labels["tid"] = 0;
   process_labels["args"]["labels"] = name;
 
-  nlohmannV340::json process_sort_index;
+  nlohmann::json process_sort_index;
   process_sort_index["name"] = "process_sort_index";
   process_sort_index["ph"] = "M";
   process_sort_index["ts"] = 0.0;
@@ -149,7 +149,7 @@ void JsonFileParser::addResource(
     int64_t deviceId,
     int64_t id,
     int64_t sortIndex) {
-  nlohmannV340::json thread_name;
+  nlohmann::json thread_name;
   thread_name["name"] = "thread_name";
   thread_name["ph"] = "M";
   thread_name["ts"] = 0.0;
@@ -157,7 +157,7 @@ void JsonFileParser::addResource(
   thread_name["tid"] = id;
   thread_name["args"]["name"] = name;
 
-  nlohmannV340::json thread_sort_index;
+  nlohmann::json thread_sort_index;
   thread_sort_index["name"] = "thread_sort_index";
   thread_sort_index["ph"] = "M";
   thread_sort_index["ts"] = 0.0;
@@ -183,16 +183,16 @@ void JsonFileParser::addDeviceDetails(
   }
 }
 
-nlohmannV340::json& JsonFileParser::getCreateArray(
-    nlohmannV340::json& json_file,
+nlohmann::json& JsonFileParser::getCreateArray(
+    nlohmann::json& json_file,
     const std::string_view& name) {
   if (json_file.find(name) == json_file.end())
-    json_file[(std::string)name] = nlohmannV340::json::array();
+    json_file[(std::string)name] = nlohmann::json::array();
   return json_file[(std::string)name];
 }
 
 void JsonFileParser::merge(const std::string_view& path) {
-  nlohmannV340::json json_file;
+  nlohmann::json json_file;
   {
     std::ifstream i(static_cast<std::string>(path));
     i >> json_file;
@@ -230,7 +230,7 @@ int64_t JsonFileParser::transToRelativeTime(int64_t time) {
   return habana::profile::transToRelativeTime(time);
 }
 
-void JsonFileParser::addToEvents(const nlohmannV340::json& obj) {
+void JsonFileParser::addToEvents(const nlohmann::json& obj) {
   traceEvents_.push_back(obj);
 }
 
@@ -244,11 +244,11 @@ double JsonFileParser::convertToMs(uint64_t value) {
   return static_cast<double>(value) / 1000.0;
 }
 
-nlohmannV340::json JsonFileParser::constructEvent(
+nlohmann::json JsonFileParser::constructEvent(
     const Activity& activity,
     const std::optional<RecipeInfo>& recipeInfo,
     int64_t ts) {
-  nlohmannV340::json runtime;
+  nlohmann::json runtime;
 
   runtime["cat"] = mapActivityTypeToString(activity.type),
   runtime["name"] = activity.name;
@@ -256,7 +256,7 @@ nlohmannV340::json JsonFileParser::constructEvent(
   runtime["tid"] = activity.resource;
   runtime["ts"] = convertToMs(ts);
 
-  nlohmannV340::json args;
+  nlohmann::json args;
 
   if (recipeInfo) {
     args["recipeId"] = recipeInfo->recipeId;
@@ -281,14 +281,14 @@ nlohmannV340::json JsonFileParser::constructEvent(
 
   return runtime;
 }
-nlohmannV340::json JsonFileParser::constructFlow(
+nlohmann::json JsonFileParser::constructFlow(
     std::string_view name,
     std::string_view cat,
     int64_t pid,
     int64_t tid,
     int64_t ts,
     bool start) {
-  nlohmannV340::json flow;
+  nlohmann::json flow;
   flow["ph"] = start ? "s" : "f";
   flow["cat"] = cat;
   flow["name"] = name;
@@ -302,7 +302,7 @@ nlohmannV340::json JsonFileParser::constructFlow(
     flow_id_counter_++;
   return flow;
 }
-nlohmannV340::json JsonFileParser::constructMemoryEvent(
+nlohmann::json JsonFileParser::constructMemoryEvent(
     int64_t pid,
     int64_t tid,
     int64_t ts,
@@ -312,7 +312,7 @@ nlohmannV340::json JsonFileParser::constructMemoryEvent(
     int64_t device_type,
     uint64_t total_allocated,
     uint64_t total_reserved) {
-  nlohmannV340::json memory_event;
+  nlohmann::json memory_event;
   memory_event["cat"] =
       mapActivityTypeToString(ActivityType::CPU_INSTANT_EVENT);
   memory_event["name"] = "[memory]";
@@ -323,7 +323,7 @@ nlohmannV340::json JsonFileParser::constructMemoryEvent(
   memory_event["ts"] = convertToMs(ts);
 
   profiler_event_index_++;
-  nlohmannV340::json args;
+  nlohmann::json args;
   args["Addr"] = addr;
   args["Bytes"] = bytes;
   args["Device Id"] = device_id;

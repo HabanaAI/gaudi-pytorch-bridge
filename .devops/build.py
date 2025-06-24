@@ -1685,7 +1685,6 @@ class ManylinuxRunner:
             f" -e PYTHONPATH={os.environ['PYTORCH_MODULES_ROOT_PATH']}/python"
             f" -e HABANA_SOFTWARE_STACK={os.environ['HABANA_SOFTWARE_STACK']}"
             f" -e BUILD_ROOT={os.environ['BUILD_ROOT']}"
-            f" -e THIRD_PARTIES_ROOT={os.environ['THIRD_PARTIES_ROOT']}"
             f" -e SYNAPSE_ROOT={os.environ['SYNAPSE_ROOT']}"
             f" -e HCL_INCLUDE_DIR={os.environ['HCL_INCLUDE_DIR']}"
             f" -e MEDIA_ROOT={os.environ['MEDIA_ROOT']}"
