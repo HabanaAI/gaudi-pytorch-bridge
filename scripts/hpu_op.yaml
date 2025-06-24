@@ -3061,16 +3061,18 @@ exponential.out:
   op_validator: ExponentialSharedMeta
 
 eye.out:
+  custom_fill_params: FillEyeParams
   output_meta: EyeMeta
-  op_backend: EyeOpOut
+  guid: eye_fwd
   namespaces: [torch]
-  op_validator: EyeSharedMeta
+  op_validator: check-node-with-shared-layer
 
 eye.m_out:
+  custom_fill_params: FillEyeParams
   output_meta: EyeMeta
-  op_backend: EyeOpOut
+  guid: eye_fwd
   namespaces: [torch]
-  op_validator: EyeSharedMeta
+  op_validator: check-node-with-shared-layer
 
 fill.Scalar:
   op_backend: FillScalar

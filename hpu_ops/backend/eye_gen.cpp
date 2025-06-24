@@ -30,45 +30,17 @@ OutputMetaDataVector EyeMeta(const at::Stack& stack) {
   return {meta};
 }
 
-SharedMetaDataVector EyeSharedMeta(
-    const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
-  const auto& tensor = stack_tensor(stack, stack.size() == 3 ? 2 : 1);
-  const auto dtype = tensor.scalar_type();
+FillParamsT FillEyeParams(const at::Stack& stack) {
+  PARAMS_STUB(ns_Eye::Params);
 
-  SharedMetaData constantSharedMeta{"constant"};
-  constantSharedMeta.outputs_data.emplace_back(2, dtype);
-
-  SharedMetaData matrixDiagSharedMeta("matrix_diagonal_fwd");
-  matrixDiagSharedMeta.inputs_data = {{2, dtype}};
-  matrixDiagSharedMeta.outputs_data = {{2, dtype}};
-  return {constantSharedMeta, matrixDiagSharedMeta};
-}
-
-void EyeOpOut::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
-  std::vector<synapse_helpers::tensor> eye_out;
-  auto meta = EyeMeta(stack)[0];
-
-  auto computeDtype = meta.dtype;
-  std::optional<int> finalResultIndex = 0;
-  if (meta.dtype == c10::ScalarType::Long) {
-    computeDtype = c10::ScalarType::Int;
-    finalResultIndex = std::nullopt;
-  }
-
-  auto constant = ConstantHelper(graph, 1.0F, computeDtype, meta.shape);
-  using namespace std::literals;
-  eye_out = BuildOp(
-      graph,
-      get_guid_with_precision("matrix_diagonal_fwd"sv, computeDtype),
-      {constant.get()},
-      {{meta.shape, computeDtype, finalResultIndex}});
-  if (meta.dtype != computeDtype) {
-    auto castNode = BuildCast(
-        this, graph, eye_out[0].get(), meta.shape, computeDtype, meta.dtype, 0);
-    syn_out(0) = std::move(castNode);
+  const int64_t n = stack.at(0).toInt();
+  params->rows = n;
+  if (stack.size() == 3) {
+    const int64_t m = stack.at(1).toInt();
+    params->cols = m;
   } else {
-    syn_out(0) = std::move(eye_out[0]);
+    params->cols = n;
   }
+  return paramsT;
 }
 } // namespace habana
