@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -303,9 +303,9 @@ TEST_F(SifTest, Cat_Reshape_Relu_Conv2DTransposeBias_Test) {
     int W = in_sizes[i];
     // 1. Cat Node
     auto tensor_1 =
-        torch::randn({N * C * H * (W / 2)}, torch::requires_grad(false));
+        torch::randn({static_cast<int64_t>(N * C * H * (W / 2))}, torch::requires_grad(false));
     auto tensor_2 =
-        torch::randn({N * C * H * (W / 2)}, torch::requires_grad(false));
+        torch::randn({static_cast<int64_t>(N * C * H * (W / 2))}, torch::requires_grad(false));
     auto cat_tensor = torch::cat({tensor_1, tensor_2}, 0);
 
     auto h_tensor_1 = tensor_1.to(torch::kHPU);

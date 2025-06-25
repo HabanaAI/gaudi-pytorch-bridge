@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -147,8 +147,9 @@ TEST_F(LazyTensorShapeKernelTest, CatOutViewTest) {
   auto hBV = B.to(torch::kHPU).view({1, 64});
   auto hCV = C.to(torch::kHPU).view({1, 64});
 
-  auto out_cpu = torch::zeros({3 * 8 * 8}).to(torch::kBFloat16).view({3, 64});
-  auto out_hpu = torch::zeros({3 * 8 * 8})
+  constexpr auto zeros_size = 3 * 8 * 8;
+  auto out_cpu = torch::zeros({zeros_size}).to(torch::kBFloat16).view({3, 64});
+  auto out_hpu = torch::zeros({zeros_size})
                      .to(torch::kBFloat16)
                      .to(torch::kHPU)
                      .view({3, 64});

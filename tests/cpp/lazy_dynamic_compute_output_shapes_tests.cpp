@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -560,7 +560,7 @@ TEST_F(LazyDynamicInferOutputMetasTest, ReshapeTest) {
     PT_TEST_DEBUG("PTI_DBG: Iteration Start -- ", i, " ----\n");
 
     int W = in_sizes[i];
-    auto A = torch::randn({N * C * H * W});
+    auto A = torch::randn({static_cast<int64_t>(N * C * H * W)});
     auto A_reshape = A.reshape({N, C, H, W});
 
     auto hA = A.to(torch::kHPU);

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -186,16 +186,16 @@ TEST_P(VarStdWithParametrizedDim, var_1dWithDifferentDimSizes) {
 
 TEST_P(VarStdWithParametrizedDim, var_2dWithDifferentDimSizes) {
   const auto dimSize = GetParam();
-  RunDimensionsTest({{dimSize, dimSize * 2}}, {0, -1});
-  RunDimensionsTest({{dimSize, dimSize * 2}}, {0, -1}, true);
-  RunDimensionsTest({{dimSize, dimSize * 3}}, {0, 1});
-  RunDimensionsTest({{dimSize, dimSize * 3}}, {0, 1}, true);
+  RunDimensionsTest({{dimSize, static_cast<int64_t>(dimSize * 2)}}, {0, -1});
+  RunDimensionsTest({{dimSize, static_cast<int64_t>(dimSize * 2)}}, {0, -1}, true);
+  RunDimensionsTest({{dimSize, static_cast<int64_t>(dimSize * 3)}}, {0, 1});
+  RunDimensionsTest({{dimSize, static_cast<int64_t>(dimSize * 3)}}, {0, 1}, true);
 }
 
 TEST_P(VarStdWithParametrizedDim, var_3dWithDifferentDimSizes) {
   const auto dimSize = GetParam();
-  RunDimensionsTest({{dimSize, dimSize, dimSize * 2}}, {-1, 0, 1});
-  RunDimensionsTest({{dimSize, dimSize, dimSize * 2}}, {-1, 0, 1}, true);
+  RunDimensionsTest({{dimSize, dimSize, static_cast<int64_t>(dimSize * 2)}}, {-1, 0, 1});
+  RunDimensionsTest({{dimSize, dimSize, static_cast<int64_t>(dimSize * 2)}}, {-1, 0, 1}, true);
 }
 
 INSTANTIATE_TEST_SUITE_P(

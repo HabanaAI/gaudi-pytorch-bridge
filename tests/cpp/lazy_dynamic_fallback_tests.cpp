@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -214,7 +214,7 @@ TEST_F(LazyDynamicFallbackTest, ViewTest) {
     PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
     torch::Tensor A = torch::randn({N, C, H, W}, torch::requires_grad(false));
     torch::Tensor hA = A.to(torch::kHPU);
-    std::vector<int64_t> shape{N, C, H * W, 1};
+    std::vector<int64_t> shape{N, C, static_cast<int64_t>(H * W), 1};
     torch::Tensor C = A.reshape(c10::IntArrayRef(shape));
     torch::Tensor hC = hA.reshape(c10::IntArrayRef(shape));
     auto C_out = hC.to(torch::kCPU);

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -685,7 +685,7 @@ TEST_F(ShapeAgnosticTest, CatAddView) {
       auto b_hpu_view = b_hpu.as_strided({in_shapes[i]}, {1}, offset[i]);
       auto c_hpu_view = c_hpu.as_strided({in_shapes[i]}, {1}, offset[i]);
 
-      auto out = torch::zeros({3 * 8 * 8}).to(torch::kBFloat16);
+      auto out = torch::zeros({static_cast<int64_t>(3 * 8 * 8)}).to(torch::kBFloat16);
       auto out_view = out.as_strided({3 * in_shapes[i]}, {1}, offset[i]);
 
       auto out_hpu = out.to(torch::kHPU);
@@ -695,7 +695,7 @@ TEST_F(ShapeAgnosticTest, CatAddView) {
       torch::cat_out(out_view, {a_view, b_view, c_view});
       torch::cat_out(out_hpu_view, {a_hpu_view, b_hpu_view, c_hpu_view});
 
-      auto d = torch::randn({3 * 8 * 8}).to(torch::kBFloat16);
+      auto d = torch::randn({static_cast<int64_t>(3 * 8 * 8)}).to(torch::kBFloat16);
       auto d_view = d.as_strided({3 * in_shapes[i]}, {1}, offset[i]);
 
       auto d_hpu = d.to(torch::kHPU);

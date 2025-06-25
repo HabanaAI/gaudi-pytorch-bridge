@@ -232,7 +232,7 @@ void dumpEnvSettings() {
         << "---------------------------: System Configuration :---------------------------\n";
     std::clog << "Num CPU Cores : " << std::thread::hardware_concurrency()
               << "\n";
-    auto ram_size = GetSystemRamInKB() / (1024 * 1024);
+    auto ram_size = GetSystemRamInKB() / static_cast<uint64_t>(1024 * 1024);
     std::clog << "CPU RAM       : " << ram_size << " GB\n";
     std::clog
         << "------------------------------------------------------------------------------\n";
@@ -290,7 +290,7 @@ device::device(
   // Set initial size of workspace buffer to 4MB in case of
   // PT_HPU_INITIAL_WORKSPACE is equal to 0
   if (init_size == 0) {
-    init_size = 4 * 1024 * 1024;
+    init_size = static_cast<size_t>(4 * 1024 * 1024);
   }
   if (init_size > 0) {
     workspace_buffer_ = get_workspace_buffer(init_size);
