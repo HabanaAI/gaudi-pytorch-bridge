@@ -4258,15 +4258,36 @@ lerp_.Tensor:
   namespaces: [torch.Tensor]
   op_validator: LerpSharedMeta
 
+lgamma:
+  promote_int_to_float: [self]
+  out_ids: [0]
+  guid: gammaln_fwd
+  namespaces: [torch]
+  op_validator: check-node-with-shared-layer
+
 lgamma.out:
   promote_int_to_float: [self]
   guid: gammaln_fwd
   namespaces: [torch]
   op_validator: check-node-with-shared-layer
 
+igamma:
+  promote_int_to_float: [self]
+  out_ids: [0]
+  guid: igamma_fwd
+  op_validator: check-node-with-shared-layer
+  namespaces: [torch]
+
 igamma.out:
   promote_int_to_float: [self]
   guid: igamma_fwd
+  op_validator: check-node-with-shared-layer
+  namespaces: [torch]
+
+igammac:
+  promote_int_to_float: [self]
+  out_ids: [0]
+  guid: igammac_fwd
   op_validator: check-node-with-shared-layer
   namespaces: [torch]
 
