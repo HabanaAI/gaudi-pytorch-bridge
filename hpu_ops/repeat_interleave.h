@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,5 @@ namespace habana {
 
 struct RepeatInterleave : OpBackend {
   RepeatInterleave(int device_id, c10::ScalarType scalar_type);
-  void AddNode(synapse_helpers::graph&, const at::Stack&) override;
 };
 } // namespace habana

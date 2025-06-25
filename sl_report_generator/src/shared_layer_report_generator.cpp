@@ -3488,7 +3488,7 @@ void SharedLayerReportGenerator::register_static_exceptions() {
       {/* op_name */ "repeat_interleave",
        /* overload */ "",
        /* op_namespace */ "torch.Tensor"},
-      allExceptFp8I16Executor);
+      i64I32Executor);
 
   /* RESHAPE */
   register_op(

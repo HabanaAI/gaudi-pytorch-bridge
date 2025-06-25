@@ -22,6 +22,7 @@ namespace habana {
 OutputMetaDataVector RepeatInterleaveMeta(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   auto output_size_opt = stack.at(1).toOptional<int64_t>();
+  HABANA_ASSERT(self.dim() == 1, "Self tensor is expected to be 1D.");
   HABANA_ASSERT(
       output_size_opt.has_value(),
       "It is expected that output_size is provided after frontend execution.");
@@ -33,68 +34,26 @@ OutputMetaDataVector RepeatInterleaveMeta(const at::Stack& stack) {
   return {meta};
 }
 
+FillParamsT RepeatInterleaveParams(const at::Stack& stack) {
+  PARAMS_STUB(ns_RepeatInterleave::Params);
+  params->outputSize = stack.at(1).toOptional<int64_t>().value();
+
+  return paramsT;
+}
+
 RepeatInterleave::RepeatInterleave(int device_id, c10::ScalarType scalar_type)
-    : OpBackend(device_id, {}, scalar_type, {0}, {}, {}, false) {
+    : OpBackend(
+          device_id,
+          "repeat_interleave_fwd",
+          scalar_type,
+          {0},
+          {},
+          {},
+          false) {
   SetOutputMetaFn(RepeatInterleaveMeta);
+  SetFillParams(RepeatInterleaveParams);
 }
 
-void RepeatInterleave::AddNode(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
-  auto self = stack.at(0).toTensor();
-  auto meta = RepeatInterleaveMeta(stack)[0];
-  const bool isCastNeeded =
-      meta.dtype == torch::kLong && common::IsInt64Supported();
-
-  const auto dtype = torch::kInt;
-
-  HABANA_ASSERT(self.dim() == 1, "Self tensor is expected to be 1D.");
-
-  const auto self_numel = self.numel();
-
-  ns_RangeKernel::Params paramsRange{};
-  paramsRange.start.i = 0;
-  paramsRange.limit.i = static_cast<int>(self_numel);
-  paramsRange.delta.i = 1;
-  using namespace std::literals;
-  auto range = BuildOp(
-      graph,
-      get_guid_with_precision("range"sv, torch::kInt),
-      {},
-      {{self_numel, torch::kInt}},
-      &paramsRange,
-      sizeof(paramsRange));
-
-  std::unique_ptr<synapse_helpers::tensor> cast;
-  if (isCastNeeded) {
-    cast = std::make_unique<synapse_helpers::tensor>(OpBackend::BuildCast(
-        this, graph, syn_in(0), self.sizes(), meta.dtype, dtype));
-  }
-
-  std::vector<synTensor> syn_inputs{
-      range[0].get(), isCastNeeded ? cast->get() : syn_in(0)};
-
-  ns_RepeatKernelGaudiTF::Params params{};
-  params.axis = 0; // Self is always 1D so axis is 0
-
-  auto result = BuildOp(
-      graph,
-      get_guid_with_precision("repeat_fwd"sv, dtype),
-      std::move(syn_inputs),
-      {{meta.shape,
-        dtype,
-        isCastNeeded ? std::nullopt : std::optional<int>(0)}},
-      &params,
-      sizeof(params));
-
-  if (isCastNeeded) {
-    auto res = OpBackend::BuildCast(
-        this, graph, result[0].get(), meta.shape, dtype, meta.dtype, 0);
-    syn_out(0) = std::move(res);
-  } else {
-    syn_out(0) = std::move(result[0]);
-  }
-}
 } // namespace habana
 
 static const auto& HabanaRepeatInterleaveKernelRegistry =
