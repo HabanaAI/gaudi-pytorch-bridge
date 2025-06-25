@@ -60,15 +60,15 @@ absl::optional<AttrTag> ParseAttrTag(
       }
       switch (node_string[pos]) {
         case '(':
-          nested_open = node_string[pos];
+          nested_open = static_cast<unsigned char>(node_string[pos]);
           nested_close = ')';
           break;
         case '[':
-          nested_open = node_string[pos];
+          nested_open = static_cast<unsigned char>(node_string[pos]);
           nested_close = ']';
           break;
         case '{':
-          nested_open = node_string[pos];
+          nested_open = static_cast<unsigned char>(node_string[pos]);
           nested_close = '}';
           break;
       }
