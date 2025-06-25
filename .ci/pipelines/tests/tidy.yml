@@ -5,8 +5,6 @@ common:
       githubOrg: habana-internal
     - repository: pytorch-integration
       githubOrg: habana-internal
-    - repository: 3rd-parties
-      githubOrg: habana-internal
     - repository: swtools_sdk
       githubOrg: habana-internal
     - repository: specs_external
