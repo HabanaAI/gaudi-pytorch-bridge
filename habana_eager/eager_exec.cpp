@@ -220,7 +220,8 @@ std::vector<at::IValue> convert_ivalues_to_backend_tensors(
 }
 
 std::vector<at::IValue> convert_cpu_wrapped_numbers(
-    const std::vector<at::IValue>& inputs) {
+    const std::vector<at::IValue>& inputs,
+    const c10::hpu::HPUStream& stream) {
   auto& scalar_cache = HPUDeviceContext::scalar_cache();
   auto stack = inputs;
   for (size_t i = 0; i < stack.size(); i++) {
@@ -246,7 +247,7 @@ std::vector<at::IValue> convert_cpu_wrapped_numbers(
   }
 
   // Copy wrapped number tensors to HPU
-  scalar_cache.CopyScalarsToDevice();
+  scalar_cache.CopyScalarsToDevice(stream);
   return stack;
 }
 
@@ -338,7 +339,7 @@ void EagerExec::launch() {
   // stack is used for both inputs to synapse lowering and outputs from
   // synapse lowering, therefore allocate memory which is max of input
   // and output size - out is 1, so size(inputs)
-  auto stack = convert_cpu_wrapped_numbers(m_inputs);
+  auto stack = convert_cpu_wrapped_numbers(m_inputs, m_stream);
   auto orig_inputs = stack;
   stack = prepare_input_stack(stack);
 

@@ -243,7 +243,8 @@ void habana_helpers::copy_scalar_to_device(
  * @param[in] tensor_list - list of tensor pairs i.e. src and dst
  *****************************************************************************/
 void habana_helpers::copy_scalars_to_device(
-    const std::vector<std::pair<at::Tensor, at::Tensor>>& tensors_list) {
+    const std::vector<std::pair<at::Tensor, at::Tensor>>& tensors_list,
+    const c10::hpu::HPUStream stream) {
   if (tensors_list.empty()) {
     return;
   }
@@ -274,15 +275,11 @@ void habana_helpers::copy_scalars_to_device(
     // operating on to prevent it from being deallocated while the
     // operation is still in flight.
     habana::HPUDeviceContext::copy_data_to_device(
-        manifest,
-        [src_list, dst_list]() { return; },
-        c10::hpu::getCurrentHPUStream());
+        manifest, [src_list, dst_list]() { return; }, stream);
   } else {
     std::atomic<bool> copyDone{false};
     habana::HPUDeviceContext::copy_data_to_device(
-        manifest,
-        [&copyDone]() { copyDone = true; },
-        c10::hpu::getCurrentHPUStream());
+        manifest, [&copyDone]() { copyDone = true; }, stream);
 
     // Release GIL if going to wait
     habana_helpers::AutoNoGIL gil_release;

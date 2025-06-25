@@ -17,6 +17,7 @@
 
 #include <ATen/core/Tensor.h>
 #include <unordered_map>
+#include "habana_device/HPUStream.h"
 
 namespace habana::backend {
 
@@ -30,7 +31,7 @@ class ScalarCache {
   ~ScalarCache() = default;
 
   at::Tensor GetTensor(const at::Scalar& scalar);
-  void CopyScalarsToDevice();
+  void CopyScalarsToDevice(const c10::hpu::HPUStream& stream);
   void ClearCache();
 
  private:

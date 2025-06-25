@@ -85,12 +85,12 @@ at::Tensor ScalarCache::GetTensor(const at::Scalar& scalar) {
   }
 }
 
-void ScalarCache::CopyScalarsToDevice() {
+void ScalarCache::CopyScalarsToDevice(const c10::hpu::HPUStream& stream) {
   if (copy_tensor_list_.empty()) {
     return;
   }
 
-  habana_helpers::copy_scalars_to_device(copy_tensor_list_);
+  habana_helpers::copy_scalars_to_device(copy_tensor_list_, stream);
   copy_tensor_list_.clear();
 }
 
