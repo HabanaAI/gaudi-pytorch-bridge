@@ -215,6 +215,9 @@ add_subdirectory(hpu_ops)
 add_subdirectory(python_packages/habana_frameworks/torch)
 target_compile_features(habana_pytorch_plugin PRIVATE cxx_std_17)
 
+# Disable clang-tidy checks for lazy mode
+set_target_properties(habana_pytorch_plugin PROPERTIES CXX_CLANG_TIDY "")
+
 # Link against LibTorch and synapse
 target_link_libraries(
   habana_pytorch_plugin

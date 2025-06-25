@@ -302,6 +302,9 @@ add_habana_executable(test_pt_integration ${LAZY_TESTS_SRC} ${HPU_OPS_TESTS_SRC}
 target_compile_definitions(test_pt_integration PRIVATE LAZY_TESTS)
 set_target_properties(test_pt_integration PROPERTIES COMPILE_OPTIONS "-Wno-deprecated-declarations")
 
+# Disable clang-tidy checks for lazy mode
+set_target_properties(test_pt_integration PROPERTIES CXX_CLANG_TIDY "")
+
 # Remove tests unrelated or not working with PT2
 list(
   REMOVE_ITEM
