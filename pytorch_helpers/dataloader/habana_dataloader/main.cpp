@@ -53,7 +53,7 @@ class HabanaAcceleratedPytorchDL {
       bool channels_last,
       bool drop_last)
       : m_prefetchQueue(s_buffer_level) {
-    std::string config_path_name = saveDictToFile(dict_config);
+    const auto config_path_name = saveDictToFile(dict_config);
     m_record_count = initializeAeon(config_path_name);
 
     m_batch_size = m_json_config["batch_size"];
@@ -200,6 +200,7 @@ class HabanaAcceleratedPytorchDL {
   }
 
   std::string saveDictToFile(py::dict dict_config) {
+    using namespace std::literals;
     char tmp_fname[] = "/tmp/dl_dict_XXXXXX";
     int fd = mkstemp(tmp_fname);
     if (fd == -1) {
@@ -216,11 +217,10 @@ class HabanaAcceleratedPytorchDL {
     return config_path_name;
   }
 
-  uint64_t initializeAeon(const std::string& config_path_name) {
+  uint64_t initializeAeon(const std::string_view config_path_name) {
     m_loader = aeondataloader::create_data_loader();
-    aeondataloader::data_loader_init(m_loader, config_path_name.c_str());
-    uint64_t record_count = aeondataloader::get_database_size(m_loader);
-    return record_count;
+    aeondataloader::data_loader_init(m_loader, config_path_name.data());
+    return aeondataloader::get_database_size(m_loader);
   }
 
   void runPrefetchThread() {
@@ -256,10 +256,10 @@ class HabanaAcceleratedPytorchDL {
 
   // Configuration
   json m_json_config;
-  int m_batch_size;
-  int m_img_height;
-  int m_img_width;
-  int m_total_batch_count;
+  long m_batch_size;
+  long m_img_height;
+  long m_img_width;
+  long m_total_batch_count;
   bool m_pin_memory;
   bool m_use_prefetch;
   uint64_t m_record_count;

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
 
 #pragma once
 
-#include <utilities/exprtk.hpp>
+#include <exprtk.hpp>
 #include <chrono>
 #include <cstdio>
 #include <iostream>
@@ -51,7 +51,7 @@ class SizeExpression {
   std::vector<SymExpression> m_size_expr;
 
  public:
-  SizeExpression(){};
+  SizeExpression() {};
   SizeExpression(std::string size_str, SymbolValueMap& in_symbol_value_map);
   std::vector<SymExpression>& get_expressions();
   std::string get_size_expr_str();

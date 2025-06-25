@@ -207,7 +207,7 @@ std::optional<c10::Device> SchemaTypeParser::tryToParseDeviceType() {
       // NOLINTNEXTLINE(cppcoreguidelines-init-variables)
       std::string::size_type num_len;
       try {
-        device_idx = std::stoi(num, &num_len);
+        device_idx = static_cast<c10::DeviceIndex>(std::stoi(num, &num_len));
       } catch (const std::invalid_argument& e) {
         throw ErrorReport(L.cur().range)
             << "Device index cannot be converted to integer";

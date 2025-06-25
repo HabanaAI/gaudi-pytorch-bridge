@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -571,7 +571,7 @@ class Node {
   std::shared_ptr<std::string> m_scope;
   uint64_t m_id;
   bool deterministic = 0;
-  std::unordered_map<uint32_t, uint32_t> m_pt_vec_to_input_ival;
+  std::unordered_map<size_t, size_t> m_pt_vec_to_input_ival;
   std::string module_name = std::string();
 };
 

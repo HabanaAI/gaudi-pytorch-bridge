@@ -13,18 +13,17 @@
  * limitations under the License.
  */
 
+#include "Stream.h"
 #include <pybind11/pybind11.h>
+#include <structmember.h>
 #include <torch/csrc/Device.h>
 #include <torch/csrc/THP.h>
 #include <torch/csrc/cuda/Module.h>
 #include <torch/csrc/utils/pybind.h>
 #include <torch/csrc/utils/python_numbers.h>
-
-#include <structmember.h>
-
-#include "Stream.h"
 #include "backend/habana_device/HPUDevice.h"
 #include "backend/habana_device/HPUEvent.h"
+#include "common/warning_suppress.h"
 #include "habana_helpers/logging.h"
 
 // namespace hpu {
@@ -67,7 +66,7 @@ static PyObject* THP_HPU_Stream_pynew(
   }
 
   THPObjectPtr ptr(type->tp_alloc(type, 0));
-  if (!ptr) {
+  SUPPRESS_WCONVERSION(if (!ptr)) {
     return nullptr;
   }
 

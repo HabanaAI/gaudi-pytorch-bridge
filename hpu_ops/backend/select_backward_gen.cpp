@@ -69,8 +69,8 @@ void SelectBackward::AddNode(
   StackGetter stackGetter(this, stack, "SelectBackward::AddNode");
   auto grad = stackGetter.getNextInput<TensorsPair>();
   auto input_sizes = stackGetter.getNextInput<std::vector<int64_t>>();
-  auto dim = stackGetter.getNextInput<int>();
-  auto index = stackGetter.getNextInput<int>();
+  auto dim = stackGetter.getNextInput<long>();
+  auto index = stackGetter.getNextInput<long>();
 
   dim = at::maybe_wrap_dim(dim, input_sizes.size());
 

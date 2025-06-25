@@ -32,27 +32,36 @@ using GraphPtr = std::shared_ptr<Graph>;
 
 namespace habana_lazy {
 
+struct ScalarValueTypePair {
+  double value{0.};
+  at::ScalarType dtype{at::ScalarType::Float};
+};
+
 struct HashFn {
-  std::size_t operator()(const std::pair<double, at::ScalarType>& pair) const {
-    return std::hash<double>()(pair.first) ^
-        std::hash<float>()((float)pair.second);
+  std::size_t operator()(const ScalarValueTypePair& pair) const {
+    return std::hash<double>()(pair.value) ^
+        std::hash<float>()((float)pair.dtype);
   }
 };
 
 class EqualFn {
  public:
   bool operator()(
-      const std::pair<double, at::ScalarType>& a,
-      const std::pair<double, at::ScalarType>& b) const {
-    return a.first == b.first && a.second == b.second;
+      const ScalarValueTypePair& a,
+      const ScalarValueTypePair& b) const {
+    return a.value == b.value && a.dtype == b.dtype;
   }
 };
 
 // Pair of vector of cached H2D scales and idx of scale that should be used
 // next.
-using ScalesIdxPair = std::pair<std::vector<at::Tensor>, int>;
+struct ScalesIdxPair {
+  std::vector<at::Tensor> scales;
+  // Max value of size_t is special value here, meaning nothing left in cache.
+  size_t current_idx{std::numeric_limits<size_t>::max()};
+};
 using ScalarToScalesMap = std::unordered_map<
-    std::pair<double, at::ScalarType>,
+    ScalarValueTypePair,
     ScalesIdxPair,
     HashFn,
     EqualFn>;
@@ -384,7 +393,7 @@ class HbExecutionContext {
   std::vector<at::Tensor> m_retained_tensor_list;
 
   std::unordered_map<
-      std::pair<double, at::ScalarType>,
+      ScalarValueTypePair,
       at::Tensor,
       HashFn,
       EqualFn>

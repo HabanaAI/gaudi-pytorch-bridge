@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -270,7 +270,7 @@ class LazyOp {
       isOptimizedLazyEager =
           info_to_lazy_backend->get_is_optimized_lazy_eager();
     }
-    int i = 0;
+    size_t i = 0;
     std::vector<at::Tensor> tensors;
     std::vector<HbLazyTensor> hl_results = {};
     tensors.reserve(std::tuple_size<T>::value);
@@ -943,7 +943,7 @@ class LazyOp {
           std::tuple_size<T>::value == m_out_shapes.size());
     }
 
-    int i = 0;
+    size_t i = 0;
     habana::for_each_in_tuple(tensors, [&, this](auto& tensor) {
       /* Same check happens in GetHbLazyTensor, but it's in acc thread.*/
       /* Make sure in main thread, that we get HPU tensor .*/
@@ -1797,17 +1797,19 @@ class LazyBinaryOp : public LazyOp<ReturnType> {
     size_t dimsB = b.size();
     size_t ndim = dimsA > dimsB ? dimsA : dimsB;
 
+    if (ndim == 0) {
+      return {};
+    }
+
     std::vector<bool> bcast_vec;
     bcast_vec.reserve(2 * ndim);
     // Use ptrdiff_t to ensure signed comparison.
-    for (ptrdiff_t i = (ptrdiff_t)ndim - 1; i >= 0; --i) {
+    for (size_t i = ndim; i > 0; --i) {
       bool is_broadcast_a = false;
       bool is_broadcast_b = false;
-      ptrdiff_t offset = ndim - 1 - i;
-      ptrdiff_t dimA = dimsA - 1 - offset;
-      ptrdiff_t dimB = dimsB - 1 - offset;
-      int64_t sizeA = (dimA >= 0) ? a[dimA] : 1;
-      int64_t sizeB = (dimB >= 0) ? b[dimB] : 1;
+      size_t offset = ndim - i;
+      int64_t sizeA = (dimsA >= (offset + 1)) ? a[dimsA - 1 - offset] : 1;
+      int64_t sizeB = (dimsB >= (offset + 1)) ? b[dimsB - 1 - offset] : 1;
       if ((sizeA == 1) ^ (sizeB == 1)) {
         if (sizeA == 1)
           is_broadcast_a = true;

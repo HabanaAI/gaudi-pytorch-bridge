@@ -63,9 +63,9 @@ void ScaledMaskedTriangularSoftmax::AddNode(
   const auto self = stackGetter.getNextInput<TensorsPair>();
   const auto start_end = stackGetter.getNextInput<TensorsPair>();
   const auto inv_scale_attn = stackGetter.getNextInput<double>();
-  const auto grouped_batch_size = stackGetter.getNextInput<int>();
+  const auto grouped_batch_size = stackGetter.getNextInput<long>();
   const auto use_max = stackGetter.getNextInput<bool>();
-  const auto mode = stackGetter.getNextInput<int>();
+  const auto mode = stackGetter.getNextInput<long>();
   const auto out_dtype =
       stackGetter.getNextInput<std::optional<c10::ScalarType>>().value_or(
           self.pt_t.scalar_type());

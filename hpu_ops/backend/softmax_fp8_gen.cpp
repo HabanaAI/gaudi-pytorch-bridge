@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -101,7 +101,7 @@ SharedMetaDataVector SoftmaxFp8SharedMeta(
 void SoftmaxFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
   StackGetter stackGetter(this, stack, "SoftmaxFp8::AddNode");
   auto self = stackGetter.getNextInput<TensorsPair>();
-  int dim = stackGetter.getNextInput<int>();
+  long dim = stackGetter.getNextInput<long>();
   auto input_scale_opt =
       stackGetter.getNextInput<std::variant<TensorsPair, c10::IValue>>();
   auto output_scale_opt =
