@@ -35,6 +35,7 @@ common:
     CC: clang-20
     CXX: clang++-20
     CTCACHE_DIR: /build_cache/.ctcache
+    CTCACHE_SAVE_OUTPUT: 1
   preTestStages:
     Install PyTorch:
       command: |
