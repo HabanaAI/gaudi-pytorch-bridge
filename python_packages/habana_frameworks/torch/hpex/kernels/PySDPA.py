@@ -15,6 +15,7 @@
 #
 ###############################################################################
 
+
 import math
 
 # PREFERRED_SLICE_SIZE = 16
@@ -250,10 +251,6 @@ def flex_attention_fwd(q, k, v, block_size=128, is_noop_mask=False, is_ret_lse=F
                 row_sums_c = row_sums.clone()
                 row_maxes_c = row_maxes.clone()
 
-                # non-contiguous Q
-                if not q.is_contiguous():
-                    qc = qc.contiguous()
-
                 # For FP8, QK is in FP8 precision and output is in FP32
                 attn_weights = torch.matmul(qc, kc.transpose(-2, -1)).to(working_precision)
 
@@ -354,15 +351,6 @@ def flex_attention_fwd(q, k, v, block_size=128, is_noop_mask=False, is_ret_lse=F
         lse_o.append(lse)
         out_o.append(ret)
     ret_o = torch.cat(out_o, -3)
-    if not q.is_contiguous():
-        if not is_fp8:
-            ret_oas = torch.as_strided(ret_o, size=ret_o.shape, stride=q.stride())
-            ret_o = ret_oas * 1.0
-        else:
-            ret_oas = torch.as_strided(ret_o, size=ret_o.shape, stride=q.stride())
-            ret_oasbf16 = ret_oas.to(compatible_dtype)
-            ret_ot = ret_oasbf16 * 1.0
-            ret_o = ret_ot.to(orig_dtype)
     ret_lse = torch.cat(lse_o, -2)
     if is_ret_lse:
         packed_tensors = torch.ops.hpu.flex_attention_pack_tensors(ret_o, ret_lse, None)
@@ -375,9 +363,6 @@ def flex_attention_fwd(q, k, v, block_size=128, is_noop_mask=False, is_ret_lse=F
 def flex_attention_bwd(q, k, v, o, lse, do, glse, block_size=128, is_noop_mask=False):
     # (batch, number of heads, sequence length, dimension of each head)
     orig_dtype = q.dtype
-    is_fp8 = False
-    if orig_dtype == torch.float8_e5m2 or orig_dtype == torch.float8_e4m3fn:
-        is_fp8 = True
     batch = q.shape[q.dim() - 4]
     head = q.shape[q.dim() - 3]
     kv_heads = k.shape[k.dim() - 3]
@@ -462,13 +447,6 @@ def flex_attention_bwd(q, k, v, o, lse, do, glse, block_size=128, is_noop_mask=F
             lsec = lsec * math.log(2)
             glsec = glsec / math.log(2)
             for k_ind, (kc, vc) in enumerate(col_splits):
-                # non-contiguous q, o, do
-                if not q.is_contiguous():
-                    qc = qc.contiguous()
-                if not o.is_contiguous():
-                    oc = oc.contiguous()
-                if not do.is_contiguous():
-                    doc = doc.contiguous()
                 attn_weights = torch.matmul(qc.to(working_precision), kc.transpose(-2, -1).to(working_precision)).to(
                     dtype=working_precision
                 )
@@ -593,15 +571,7 @@ def flex_attention_bwd(q, k, v, o, lse, do, glse, block_size=128, is_noop_mask=F
     grad_v = dv1.view(B, C, q_heads, H, W).sum(dim=2)
     dk1 = grad_k
     dv1 = grad_v
-    if not q.is_contiguous():
-        if not is_fp8:
-            dq1as = torch.as_strided(dq1, size=dq1.shape, stride=q.stride())
-            dq1 = dq1as * 1.0
-        else:
-            dq1as = torch.as_strided(dq1, size=dq1.shape, stride=q.stride())
-            dq1asbf16 = dq1as.to(torch.bfloat16)
-            dq1t = dq1asbf16 * 1.0
-            dq1 = dq1t.to(orig_dtype)
+
     packed_tensors = torch.ops.hpu.flex_attention_pack_tensors(
         dq1.to(orig_dtype), dk1.to(orig_dtype), dv1.to(orig_dtype)
     )
