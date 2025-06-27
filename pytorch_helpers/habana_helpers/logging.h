@@ -137,7 +137,7 @@ inline std::string DebugString(const HlLogger::LoggerType& mod) {
   if (auto result = names.find(mod); result != names.end())
     return result->second;
   else
-    return std::string("UNDEFINED");
+    return {"UNDEFINED"};
 };
 
 template <typename T>
@@ -526,7 +526,12 @@ class PTFuncLog {
         HLLOG_TRACE(
             PT_TRACE,
             FORMAT_AND_MSG(
-                "[Rank:", Logger::get_rank(), "] ", module, ": end of ", pName));
+                "[Rank:",
+                Logger::get_rank(),
+                "] ",
+                module,
+                ": end of ",
+                pName));
       }
       habana::profile::bridge::trace_end(name);
     } catch (const std::exception& e) {

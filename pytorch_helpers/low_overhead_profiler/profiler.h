@@ -13,10 +13,10 @@
  * limitations under the License.
  */
 #pragma once
-#include <stdint.h>
 #include <array>
 #include <atomic>
 #include <climits>
+#include <cstdint>
 #include <mutex>
 #include <string>
 #include <string_view>

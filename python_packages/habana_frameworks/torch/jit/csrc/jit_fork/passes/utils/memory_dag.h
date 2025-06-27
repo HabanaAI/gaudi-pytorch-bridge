@@ -39,7 +39,7 @@
 #include <torch/csrc/Export.h>
 
 // Uses a compressed index representation for faster comparisons
-typedef c10::SparseBitVector<256> MemoryLocations;
+using MemoryLocations = c10::SparseBitVector<256>;
 namespace habana_torch::jit {
 
 struct Value;

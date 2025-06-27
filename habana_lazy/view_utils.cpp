@@ -720,7 +720,7 @@ std::vector<StridedOpSliceParams> HbLazyTensorViews::getSliceInsertParams(
   // operation.
   if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SLICE_INSERT) ||
       (recent_orig_t.sizes().size() != recent_src_t.sizes().size())) {
-    return std::vector<StridedOpSliceParams>();
+    return {};
   }
   std::vector<StridedOpSliceParams> back_to_back_slices{};
   std::optional<StrideParams> params_link_opt = params;
@@ -731,7 +731,7 @@ std::vector<StridedOpSliceParams> HbLazyTensorViews::getSliceInsertParams(
     // If multiple times same dim exists, use strided insert.
     if (dims.find(params_link_opt.value().params.slice_param.dim) !=
         dims.end()) {
-      return std::vector<StridedOpSliceParams>();
+      return {};
     }
     dims.insert(params_link_opt.value().params.slice_param.dim);
     params_link_opt = GetHbLazyTensor(params_link_opt.value().parent)
@@ -820,8 +820,7 @@ Tensor HbLazyTensorViews::add_view_lazy(
   for (auto& i : self.sizes()) {
     sum_elm *= i;
   }
-  auto inferred_size =
-      habana_helpers::infer_size(size, sum_elm);
+  auto inferred_size = habana_helpers::infer_size(size, sum_elm);
 
   HABANA_ASSERT(out_t.has_value());
   Tensor result = out_t.value();

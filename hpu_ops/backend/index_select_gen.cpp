@@ -38,7 +38,9 @@ OutputMetaDataVector IndexSelectMeta(const at::Stack& stack) {
 
   OutputMetaData meta;
   meta.dtype = self.scalar_type();
-  if (shape.size()) {
+  if (shape.empty()) {
+    meta.shape = shape;
+  } else {
     if (self.dim() == index.dim()) {
       meta.shape = index.sizes().vec();
     } else {
@@ -46,8 +48,6 @@ OutputMetaDataVector IndexSelectMeta(const at::Stack& stack) {
       shape.insert(shape.begin() + dim, index.numel());
       meta.shape = shape;
     }
-  } else {
-    meta.shape = shape;
   }
   return {meta};
 }

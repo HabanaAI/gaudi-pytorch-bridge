@@ -24,7 +24,8 @@
 namespace at::autocast {
 
 namespace {
-std::filesystem::path get_top_level_directory(const std::filesystem::path& path) {
+std::filesystem::path get_top_level_directory(
+    const std::filesystem::path& path) {
   const auto root_path = path.root_path();
   const auto top_level_dir = *std::next(std::begin(path));
 
@@ -63,8 +64,8 @@ bool is_root_safe(const std::filesystem::path& path) {
 }
 
 struct ops_list_status {
-  bool is_valid = true;
-  std::string reason = "";
+  bool is_valid{true};
+  std::string reason;
 };
 
 const ops_list_status validate_ops_list_path(

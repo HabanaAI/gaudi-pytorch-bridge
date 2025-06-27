@@ -21,7 +21,7 @@
 
 namespace slrg {
 namespace {
-static std::unordered_map<std::string, InputType> input_type_map = {
+std::unordered_map<std::string, InputType> input_type_map = {
     {"Tensor", InputType::PT_TENSOR},
     {"Scalar", InputType::PT_SCALAR},
     {"float", InputType::NATIVE_FLOAT},
@@ -36,7 +36,7 @@ static std::unordered_map<std::string, InputType> input_type_map = {
     {"Generator", InputType::GENERATOR},
     {"Storage", InputType::STORAGE}};
 
-static std::unordered_map<
+std::unordered_map<
     std::string,
     std::unordered_map<std::string, std::vector<std::any>>>
     default_values_specific_ops = {
@@ -59,15 +59,14 @@ static std::unordered_map<
           {"start", {c10::SymInt{0}}},
           {"length", {c10::SymInt{1}}}}}};
 
-static std::unordered_map<std::string, std::vector<std::any>>
-    default_values_all_ops = {
-        {"approximate", {std::string("none"), std::string("tanh")}},
-        {"dim", {0}},
-        {"dims", {0}},
-        {"p", {0.5f}},
-        {"pin_memory", {false}}};
+std::unordered_map<std::string, std::vector<std::any>> default_values_all_ops =
+    {{"approximate", {std::string("none"), std::string("tanh")}},
+     {"dim", {0}},
+     {"dims", {0}},
+     {"p", {0.5F}},
+     {"pin_memory", {false}}};
 
-static std::unordered_map<std::string, std::vector<at::ScalarType>>
+std::unordered_map<std::string, std::vector<at::ScalarType>>
     blacklisted_precision_types_op_map = {
         {"one_hot", // I32/I16 not supported in compile mode
          {at::ScalarType::Int, at::ScalarType::Short}},
@@ -80,7 +79,7 @@ static std::unordered_map<std::string, std::vector<at::ScalarType>>
           c10::ScalarType::Char,
           c10::ScalarType::Bool}}};
 
-static std::unordered_map<std::string, std::vector<at::ScalarType>>
+std::unordered_map<std::string, std::vector<at::ScalarType>>
     whitelisted_precision_types_op_map = {};
 } // namespace
 

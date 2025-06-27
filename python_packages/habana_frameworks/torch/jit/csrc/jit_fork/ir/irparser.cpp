@@ -693,7 +693,6 @@ void IRParser::parseReturnOperator() {
 void IRParser::parse() {
   // Parse graph definition, it should look like the following:
   // graphName (input1, input2, ... inputN):
-  std::string graphName = L.expect(TK_IDENT).text();
   parseGraphInputs();
   L.expect(':');
 

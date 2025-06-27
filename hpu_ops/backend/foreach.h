@@ -20,18 +20,17 @@ namespace habana {
 
 size_t computeInputsNumber(const at::Stack& stack);
 
-typedef std::function<synapse_helpers::tensor(
+using NodeCreateFunction = std::function<synapse_helpers::tensor(
     OpBackend*,
     synapse_helpers::graph&,
     std::string&,
     const std::vector<synTensor>&,
     const std::vector<at::IValue>&,
-    int out_index)>
-    NodeCreateFunction;
-typedef std::function<SharedMetaDataVector(
+    int out_index)>;
+
+using SharedMetaCreateFunction = std::function<SharedMetaDataVector(
     const at::Stack&,
-    habana_helpers::HabanaExecutionMode executionMode)>
-    SharedMetaCreateFunction;
+    habana_helpers::HabanaExecutionMode executionMode)>;
 
 std::vector<synapse_helpers::tensor> CommonForeachBinary(
     OpBackend* op,

@@ -45,8 +45,7 @@ static SharedMetaDataVector AddCompositeSharedMeta(
   const auto& other1 = stack_tensor(stack, 1);
   const auto& other2 = stack_tensor(stack, 2);
   const bool tensor_value = stack.at(3).isTensor();
-  const auto output_rank =
-      std::max(std::max(self.dim(), other1.dim()), other2.dim());
+  const auto output_rank = std::max({self.dim(), other1.dim(), other2.dim()});
   const at::ScalarType dtype =
       at::promote_types(self.scalar_type(), at::result_type(other1, other2));
 

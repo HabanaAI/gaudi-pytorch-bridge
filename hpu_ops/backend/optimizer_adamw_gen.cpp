@@ -886,7 +886,6 @@ void FusedAdamW::AddNode(sh::graph& graph, const at::Stack& stack) {
   std::string div_node = get_guid_with_precision("div_fwd"sv, scalar_dtype);
   std::string sqrt_node = get_guid_with_precision("sqrt_fwd"sv, scalar_dtype);
   std::string pow_node = get_guid_with_precision("pow_fwd"sv, scalar_dtype);
-  std::string neg_node = get_guid_with_precision("neg_fwd"sv, scalar_dtype);
 
   int64_t scalar_shape[] = {1};
 

@@ -119,7 +119,7 @@ class MediaProxyHolder {
   MediaProxyHolder& operator=(MediaProxyHolder&&) = delete;
 
   PytMediaProxy media_proxy_impl_;
-  mediaFwProxy media_fw_proxy_{};
+  mediaFwProxy media_fw_proxy_;
   std::vector<std::function<void()>> media_deleter_;
 
   ~MediaProxyHolder() {
@@ -151,8 +151,8 @@ class MediaProxyHolder {
 };
 
 std::shared_ptr<std::unique_ptr<MediaProxyHolder>>
-    MediaProxyHolder::instance_{};
-std::once_flag MediaProxyHolder::initialize_once_flag_{};
+    MediaProxyHolder::instance_;
+std::once_flag MediaProxyHolder::initialize_once_flag_;
 } // namespace
 
 uintptr_t CreatePytMediaProxy(int device_id) {

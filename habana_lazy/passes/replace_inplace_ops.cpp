@@ -55,7 +55,6 @@ bool isInList(const std::vector<Value*>& l, const Value* v) {
 }
 
 bool checkOps(const Node* n) {
-  std::string kind = n->kind().toQualString();
   return isInplaceOp(n) || isControlNode(n);
 }
 

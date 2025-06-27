@@ -23,8 +23,8 @@
 
 // -------------- HL LOG ----------------
 namespace HlLogger {
-  constexpr auto logFileSize3GB = 3U * 1024U * 1024U * 1024U;
-  constexpr auto logFileBufferSize4MB = 4UL * 1024UL * 1024UL;
+constexpr auto logFileSize3GB = 3U * 1024U * 1024U * 1024U;
+constexpr auto logFileBufferSize4MB = 4UL * 1024UL * 1024UL;
 // create loggers (all the log files are created immediately when the module is
 // loaded)
 static void createModuleLoggers(LoggerType) {}
@@ -152,7 +152,7 @@ std::string synStatusToStr(synStatus statusArg) {
       return statusStr[idx];
     } else {
       PT_BRIDGE_WARN("Could not get translation for synStatus: ", statusArg);
-      return std::string("UnkownDescription");
+      return {"UnknownDescription"};
     }
   }
 

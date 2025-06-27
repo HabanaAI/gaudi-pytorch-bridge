@@ -250,12 +250,9 @@ struct TORCH_API Node {
     return outputs_.at(i);
   }
   bool hasUses() const {
-    for (auto o : outputs()) {
-      if (!o->uses().empty()) {
-        return true;
-      }
-    }
-    return false;
+    return std::any_of(outputs_.begin(), outputs_.end(), [](Value* v) {
+      return !v->uses().empty();
+    });
   }
 
   void replaceAllUsesWith(Node* n);

@@ -33,7 +33,7 @@ bool isDeviceInLoweringMode() {
 
 std::unique_ptr<SingleTonExecThreadPool> SingleTonExecThreadPool::instance_{
     nullptr};
-std::once_flag SingleTonExecThreadPool::initialize_once_flag_{};
+std::once_flag SingleTonExecThreadPool::initialize_once_flag_;
 
 void SingleTonExecThreadPool::CreateInstance() {
   instance_.reset(new SingleTonExecThreadPool());
@@ -190,8 +190,8 @@ void HbExecutionContext::updateCurrentIndicesOfH2dScales() {
 }
 
 //////////////////////////////////////////////////////////////////////////////ARENA/////////////////////////////////////////////////////////////////////////////////
-std::unique_ptr<HbExecutionContextArena> HbExecutionContextArena::instance_{};
-std::once_flag HbExecutionContextArena::initialize_once_flag_{};
+std::unique_ptr<HbExecutionContextArena> HbExecutionContextArena::instance_;
+std::once_flag HbExecutionContextArena::initialize_once_flag_;
 
 HbExecutionContext* HbExecutionContextArena::getDeviceExecutionContext() {
   return &execution_context_;

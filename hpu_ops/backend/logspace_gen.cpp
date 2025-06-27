@@ -63,7 +63,7 @@ SharedMetaDataVector LogspaceSharedMeta(
     memsetSharedMeta.outputs_data.emplace_back(1, outType);
 
     return {memsetSharedMeta};
-  } else if (base == 1.f) {
+  } else if (base == 1.F) {
     // [SW-205149] return empty vector because shape tensor validation will
     // block shape agnostic flow
     return {};
@@ -130,9 +130,9 @@ void LogSpace::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
     auto result = habana::OpBackend::BuildOp(
         graph, "memset", {}, {{meta.shape, outType, 0}});
     syn_out(0) = std::move(result[0]);
-  } else if (base == 1.f) {
+  } else if (base == 1.F) {
     auto result = ConstantHelper(
-        graph, 1.f, castNeeded ? at::kInt : outType, meta.shape, 0);
+        graph, 1.F, castNeeded ? at::kInt : outType, meta.shape, 0);
     syn_out(0) = std::move(result);
   } else {
     using namespace std::literals;

@@ -132,7 +132,7 @@ std::vector<synapse_helpers::tensor> FusedClipNormOp::compute_norm(
     c10::ScalarType scalar_type) {
   ns_Reduction::ParamsV2 reduce_params{};
   reduce_params.reductionDimensionMask = 0;
-  reduce_params.keepDim = 0;
+  reduce_params.keepDim = false;
   auto sum_result = BuildOp(
       graph,
       get_guid_with_precision("reduce_sum_square_multi_dim_fwd"sv, scalar_type),

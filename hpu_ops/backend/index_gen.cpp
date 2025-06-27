@@ -147,8 +147,8 @@ static sizes_vec IndexOutShapeFromOrigStack(const at::Stack& stack) {
     std::vector<int64_t> input_shape;
     int64_t largest_specified_index_t_size = 0;
     for (int i = 0; i < (int)permuted_input_sizes.size(); i++) {
-      if (adv_index_dims[i] > largest_specified_index_t_size)
-        largest_specified_index_t_size = adv_index_dims[i];
+      largest_specified_index_t_size =
+          std::max(largest_specified_index_t_size, adv_index_dims[i]);
     }
     bool explicit_index_found = false;
     for (int i = 0; i < (int)permuted_input_sizes.size(); i++) {
@@ -789,7 +789,7 @@ std::vector<int64_t> ComputeGatherOperatorOutputShape(
     const at::Tensor& index) {
   auto dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
   auto shape = self.sizes().vec();
-  if (shape.size()) {
+  if (!shape.empty()) {
     // for gather op, output size is same as index
     if (self.dim() == index.dim()) {
       shape = index.sizes().vec();

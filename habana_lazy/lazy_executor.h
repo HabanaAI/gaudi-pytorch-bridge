@@ -69,7 +69,7 @@ class SingleTonExecThreadPool {
   }
 
  private:
-  SingleTonExecThreadPool() : thread_pool_obj_{1} {}
+  SingleTonExecThreadPool() : thread_pool_obj_{true} {}
   SingleTonExecThreadPool(const SingleTonExecThreadPool&) = delete;
   SingleTonExecThreadPool& operator=(const SingleTonExecThreadPool&) = delete;
   static std::unique_ptr<SingleTonExecThreadPool> instance_;
@@ -438,7 +438,7 @@ class HbExecutionContext {
   std::shared_ptr<habana::OptimizedJITGraphAndMetaData> g_mt_ptr{nullptr};
   std::shared_ptr<habana::RecipeArgumentSpec> m_graph_rarg_psh{nullptr};
   size_t mp_g_key{0};
-  std::string mp_g_op_strs = "";
+  std::string mp_g_op_strs;
   ir::ValueList m_input_vals;
   ir::ValueList m_output_vals;
   std::vector<at::Tensor> m_marked_user_inputs;

@@ -69,9 +69,9 @@ class FillParamsT {
   }
 
  private:
-  std::any params_{};
-  decltype(detail::AnyCastToVoid<void>)* ptrFun_{};
-  size_t size_ = 0;
+  std::any params_;
+  decltype(detail::AnyCastToVoid<void>)* ptrFun_{nullptr};
+  size_t size_{0};
 };
 
 } // namespace habana

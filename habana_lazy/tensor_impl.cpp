@@ -123,7 +123,7 @@ c10::intrusive_ptr<c10::TensorImpl> HbLazyTensorImpl::shallow_copy_and_detach(
       /*dest_impl=*/impl.get(),
       /*version_counter=*/version_counter,
       /*allow_tensor_metadata_change=*/allow_tensor_metadata_change);
-  impl.get()->SetupSizeProperties();
+  impl->SetupSizeProperties();
   impl->refresh_numel();
   impl->refresh_contiguous();
 
@@ -154,7 +154,7 @@ c10::intrusive_ptr<c10::TensorImpl> HbLazyTensorImpl::shallow_copy_and_detach(
       /*dest_impl=*/impl.get(),
       /*version_counter=*/std::move(version_counter),
       /*allow_tensor_metadata_change=*/allow_tensor_metadata_change);
-  impl.get()->SetupSizeProperties();
+  impl->SetupSizeProperties();
   impl->refresh_numel();
   impl->refresh_contiguous();
 

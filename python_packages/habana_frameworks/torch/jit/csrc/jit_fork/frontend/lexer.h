@@ -167,7 +167,6 @@ int stringToKind(const std::string& str);
 struct TokenTrie;
 using TokenTrieRef = std::unique_ptr<TokenTrie>;
 struct TokenTrie {
-  TokenTrie() : kind(0) {}
   void insert(const char* str, int tok) {
     if (*str == '\0') {
       HABANA_ASSERT(kind == 0);
@@ -196,7 +195,6 @@ struct TokenTrie {
 // once.
 struct TORCH_API SharedParserData {
   SharedParserData() : head(new TokenTrie()) {
-    std::stringstream ss;
     for (const char* c = valid_single_char_tokens; *c; c++) {
       std::string str(1, *c);
       head->insert(str.c_str(), *c);
@@ -443,10 +441,6 @@ struct Token {
 struct Lexer {
   explicit Lexer(std::shared_ptr<Source> source)
       : source(std::move(source)),
-        pos(0),
-        nesting(0),
-        indent_stack(),
-        next_tokens(),
         shared(sharedParserData()) {
     auto first_indent = lexRaw(true);
     indent_stack.push_back(static_cast<int64_t>(first_indent.range.size()));

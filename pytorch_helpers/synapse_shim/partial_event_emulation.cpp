@@ -14,7 +14,6 @@
  */
 
 #include "synapse_shim/partial_event_emulation.h"
-#include <iostream>
 
 synStatus PartialEventEmulation::synTensorExtExtractExecutionOrder(
     const synRecipeHandle,

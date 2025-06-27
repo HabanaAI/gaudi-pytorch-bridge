@@ -186,9 +186,9 @@ class GraphHashBuilder {
   std::vector<OpArrayEntry> nodes_array;
 
   // Stack input info
-  std::vector<std::weak_ptr<Data>> graph_input_tensors{};
-  std::vector<uint64_t> graph_input_stack_uids{};
-  std::vector<uint64_t> graph_input_stack_uid_map{};
+  std::vector<std::weak_ptr<Data>> graph_input_tensors;
+  std::vector<uint64_t> graph_input_stack_uids;
+  std::vector<uint64_t> graph_input_stack_uid_map;
 
   static GraphHashBuilder* instance;
 

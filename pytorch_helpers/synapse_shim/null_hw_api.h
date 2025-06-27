@@ -143,8 +143,8 @@ class Resource<synRecipeHandle> {
         recipe_name_{pRecipeName},
         build_log_{pBuildLog == nullptr ? "" : pBuildLog} {}
   Graph& graph_;
-  std::string recipe_name_{};
-  std::string build_log_{};
+  std::string recipe_name_;
+  std::string build_log_;
 };
 using Recipe = Resource<synRecipeHandle>;
 
@@ -178,7 +178,7 @@ class SynapseApi : public StubSynapseApi {
     static constexpr std::uint64_t ALLOCATION_START = 0x111D000000000ULL;
     static constexpr std::uint64_t DEVICE_MALLOC_ALIGNMENT = 0x1000;
   };
-  SynapseApi() : StubSynapseApi(), allocation_back_{Consts::ALLOCATION_START} {
+  SynapseApi() : allocation_back_{Consts::ALLOCATION_START} {
     synapse_api_.synDeviceAcquireByDeviceType =
         [this](synDeviceId* id, const synDeviceType) {
           *id = this->AllocateDevice();

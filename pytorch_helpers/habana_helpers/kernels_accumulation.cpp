@@ -77,7 +77,7 @@ const std::unordered_set<std::string> AccThread::SupportedNonAutogenOps = {
 
 thread_local bool AccThread::acc_thread_allowed = true;
 std::unique_ptr<AccThread> AccThread::instance_{nullptr};
-std::once_flag AccThread::initialize_once_flag_{};
+std::once_flag AccThread::initialize_once_flag_;
 
 void AccThread::CreateInstance() {
   instance_.reset(new AccThread());

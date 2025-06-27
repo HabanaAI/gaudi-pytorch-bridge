@@ -50,7 +50,7 @@ namespace habana_torch::jit {
 namespace utils {
 std::string getNodesModuleHierarchy(const Node& n) {
   if (!n.callstack().has_value()) {
-    return std::string();
+    return {};
   }
   InlinedCallStackPtr callstack_ptr = n.callstack().value();
   std::string module_hierarchy;
@@ -324,14 +324,14 @@ SourceRange Node::sourceRange() const {
   if (source_range_) {
     return *source_range_;
   }
-  return SourceRange();
+  return {};
 }
 
 std::string Node::stackTrace() const {
   if (stack_trace_) {
     return *stack_trace_;
   }
-  return std::string();
+  return {};
 }
 
 static std::ostream& indent(std::ostream& out, size_t level) {
@@ -507,16 +507,6 @@ void Node::lint() const {
    *         HABANA_ASSERT(graph_->all_nodes.count(this) == 1);
    *         i++;
    * }
-   * }
-   */
-  /*
-   * for (auto o : outputs()) {
-   *   for (auto use : o->uses()) {
-   *     // Use invariants
-   *     // - Use is consistent with inputs
-   *     // - Every user node is live (checked in Graph)
-   *     HABANA_ASSERT(use.user->inputs_[use.offset] == o);
-   *   }
    * }
    */
 

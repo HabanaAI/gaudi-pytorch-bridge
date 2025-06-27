@@ -47,7 +47,9 @@ static OutputMetaDataVector AminmaxMetaCommon(
   OutputMetaData meta;
   meta.shape = shapes[0];
   meta.dtype = self.scalar_type();
-  return OutputMetaDataVector(count, meta);
+  OutputMetaDataVector outputmeta(count);
+  std::fill(outputmeta.begin(), outputmeta.end(), meta);
+  return outputmeta;
 }
 
 OutputMetaDataVector AminmaxMeta(const at::Stack& stack) {

@@ -55,9 +55,9 @@ LazyArgumentSpec::LazyArgumentSpec(
 torch::jit::Stack LazyArgumentSpec::CreateStack(
     const at::ArrayRef<torch::jit::IValue>& list) {
   // Create a torch::jit::Stack from the IValues
-  return torch::jit::Stack(
+  return {
       std::make_move_iterator(list.begin()),
-      std::make_move_iterator(list.end()));
+      std::make_move_iterator(list.end())};
 }
 
 size_t LazyArgumentSpec::GetInputHash(

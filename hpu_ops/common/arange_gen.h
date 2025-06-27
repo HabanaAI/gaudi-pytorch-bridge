@@ -21,7 +21,7 @@ inline bool can_convert(const c10::Scalar& value) {
     auto float_value = value.toFloat();
     auto int_value = value.toInt();
     auto diff = float_value - static_cast<float>(int_value);
-    return !(diff > 0.f);
+    return (diff <= 0.F);
   }
   return true;
 }

@@ -15,8 +15,6 @@
 
 #include <dlfcn.h>
 #include <syn_sl_api.h>
-#include <memory>
-#include <mutex>
 #include "synapse_shim/logging.h"
 
 #define SLU_INIT_PTR(func) \

@@ -30,7 +30,7 @@ using sym_sizes_vec = sizes_vec_template<c10::SymInt>;
 
 struct NodeAttr {
   struct NodeOutputAttr {
-    at::IntArrayRef sizes{};
+    at::IntArrayRef sizes;
     at::ScalarType dtype{at::kFloat};
     std::optional<int> final_result_index{std::nullopt};
     synTensorType tensor_type{DATA_TENSOR};
@@ -42,9 +42,9 @@ struct NodeAttr {
   std::string guid;
   std::vector<synTensor> inputs;
   std::vector<NodeOutputAttr> output_attrs;
-  void* params = nullptr;
-  size_t param_size = 0;
-  std::string inf_name = std::string();
+  void* params{nullptr};
+  size_t param_size{0};
+  std::string inf_name{}; // NOLINT(readability-redundant-member-init)
 };
 
 class StackGetter;

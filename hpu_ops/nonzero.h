@@ -19,12 +19,12 @@
 #include "hpu_ops/op_backend.h"
 
 namespace habana {
-typedef struct NonZeroParams {
+struct NonZeroParams_t {
   c10::ScalarType dtype;
   std::vector<int64_t> sizes;
   int64_t numel;
-  bool force_long = false;
-} NonZeroParams_t;
+  bool force_long;
+};
 std::vector<int64_t> compute_nonzero_output_shape(
     NonZeroParams_t self_params,
     bool use_tpc_impl = false);

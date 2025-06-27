@@ -19,7 +19,7 @@
 #include <cstdlib>
 #include "habana_helpers/logging.h"
 
-using JoinPendingPipelineThreadsFunc = void (*)(void);
+using JoinPendingPipelineThreadsFunc = void (*)();
 using RestoreToOrgSendTensorsFunc =
     void (*)(std::vector<at::Tensor>&, std::vector<at::Tensor>&);
 

@@ -253,7 +253,7 @@ void emitRecipeFinished(
   if (not config.log_recipe)
     return;
 
-  void* ptr = 0x0;
+  void* ptr = nullptr;
   if (recipe_handle) {
     ptr = recipe_handle->syn_recipe_handle_;
   }
@@ -322,7 +322,10 @@ void emitDefragLaunch(const std::string& info) {
   PT_TOWL_DEBUG("defrag.launch ", info);
 }
 
-void emitDefragFinished(const std::string& info, const std::unique_ptr<synapse_helpers::defragment_helpers::Region>& region) {
+void emitDefragFinished(
+    const std::string& info,
+    const std::unique_ptr<synapse_helpers::defragment_helpers::Region>&
+        region) {
   if (not config.log_defrag) {
     return;
   }
@@ -331,7 +334,7 @@ void emitDefragFinished(const std::string& info, const std::unique_ptr<synapse_h
   if (region && (region->begin_ != region->end_)) {
     addr_string.reserve(64);
     addr_string += " @";
-    for (std::vector<synapse_helpers::defragment_helpers::MemoryBlock>::const_iterator it = region->begin_; it != region->end_; ++it) {
+    for (auto it = region->begin_; it != region->end_; ++it) {
       char buffer[32];
       std::snprintf(buffer, sizeof(buffer), " %zx", it->handle_);
       addr_string += buffer;
@@ -411,8 +414,7 @@ void emitCopyMultipleFinished(
   if (not config.log_copy) {
     return;
   }
-  size_t num_copies =
-      std::size_t(std::distance(locked->begin(), locked->end()));
+  auto num_copies = std::size_t(std::distance(locked->begin(), locked->end()));
   PT_TOWL_DEBUG("copy.multiple.finished ", tag, " num_copies ", num_copies);
   for (size_t i = 0; i < num_copies; ++i) {
     PT_TOWL_DEBUG(
@@ -456,21 +458,19 @@ void emitRecipeCompileFailed(
 void emitMetrics(const std::string& name, float value) {
   if (not config.log_metrics)
     return;
-  std::string msg = name + std::to_string(value);
+  auto msg = name + std::to_string(value);
   PT_TOWL_DEBUG(msg);
 }
 
 void emitTimeDurationJit(const std::string& name, float value) {
   if (not config.log_metrics)
     return;
-  std::string msg = name + std::to_string(value);
   PT_TOWL_DEBUG("time.duration.jit pass ", name, " took(ms): ", value);
 }
 
 void emitTimeDurationFX(const std::string& name, float value) {
   if (not config.log_metrics)
     return;
-  std::string msg = name + std::to_string(value);
   PT_TOWL_DEBUG("time.duration.fx pass ", name, " took(ms): ", value);
 }
 

@@ -50,7 +50,7 @@ absl::optional<synRecipeHandle> get_recipe_handle(
     std::ostream& metadata,
     const std::string& recipe_path) {
   {
-    std::ifstream metadata_file(metadata_path.c_str(), std::ifstream::binary);
+    std::ifstream metadata_file(metadata_path, std::ifstream::binary);
     if (!metadata_file) {
       PT_HABHELPER_WARN("Failed to open metadata file ", metadata_path);
       return {};
@@ -365,7 +365,7 @@ absl::optional<synRecipeHandle> RecipeCache::lookup(
     }
   };
 
-  int fd = cf_handler_->fileOpen(metadata_path.c_str(), O_RDONLY);
+  int fd = cf_handler_->fileOpen(metadata_path, O_RDONLY);
   if (fd >= 0) {
     auto recipe = try_lock_and_read(fd);
     cf_handler_->fileClose(fd);
@@ -419,8 +419,9 @@ absl::optional<synRecipeHandle> RecipeCache::lockfree_lookup(
       }
       // check if file matches and is marked for compiling
       // only firstly encoutered temp file is recorded here
-      if (!temp_found && entry.path().string().find(metadata_path_compiling)
-          != std::string::npos) {
+      if (!temp_found &&
+          entry.path().string().find(metadata_path_compiling) !=
+              std::string::npos) {
         temp_found = true;
         temp_path = entry.path();
       }
@@ -454,7 +455,7 @@ absl::optional<synRecipeHandle> RecipeCache::lockfree_lookup(
   }
 
   auto create_empty_file = [this](const std::string& path) -> void {
-    int fd = cf_handler_->fileOpen(path.c_str(), O_RDONLY | O_CREAT);
+    int fd = cf_handler_->fileOpen(path, O_RDONLY | O_CREAT);
     if (fd < 0) {
       PT_HABHELPER_WARN(
           "Can't create empty file: ", path, ", errno: ", strerror(errno));
@@ -478,7 +479,7 @@ absl::optional<synRecipeHandle> RecipeCache::lockfree_lookup(
     PT_HABHELPER_DEBUG(
         "Retrieving meta and recipe: ", metadata_path, ", ", recipe_path);
 
-    int fd = cf_handler_->fileOpen(metadata_path.c_str(), O_RDONLY);
+    int fd = cf_handler_->fileOpen(metadata_path, O_RDONLY);
     if (fd >= 0) {
       PT_HABHELPER_DEBUG("Deserializing cache entry for id ", cache_id);
       auto recipe = get_recipe_handle(metadata_path, metadata, recipe_path);

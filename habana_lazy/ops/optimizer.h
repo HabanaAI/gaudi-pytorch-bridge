@@ -27,8 +27,8 @@ class OptimizerFusedAdamw : public Node {
  public:
   enum class OptimizerFusedAdamwIndex {
     kbeta1Idx = 5,
-    kbeta2Idx,
-    kepsIdx,
+    kbeta2Idx = 6,
+    kepsIdx = 7,
     kwdIdx = 9
   };
   OptimizerFusedAdamw() = delete;

@@ -75,8 +75,7 @@ void StatsBase::init(
   }
 }
 
-StatsBase::StatsBase(const StatsBase& other)
-    : m_headerPrinted(false), m_isTbl(false) {
+StatsBase::StatsBase(const StatsBase& other) {
   m_statName = other.m_statName + " Cloned";
   m_maxEnum = other.m_maxEnum;
   m_dumpFreq = other.m_dumpFreq;

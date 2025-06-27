@@ -401,7 +401,7 @@ SharedMetaDataVector NllLoss2DBwdSharedMeta(
   const std::string guid = "nll_loss_bwd";
 
   SharedMetaDataVector metaVec;
-  SharedMetaData nllLossBwdSharedMeta{"nll_loss_bwd"};
+  SharedMetaData nllLossBwdSharedMeta{guid};
   nllLossBwdSharedMeta.outputs_data.emplace_back(rank, dtype);
   nllLossBwdSharedMeta.inputs_data = {
       {grad.dim(), dtype}, {target.dim(), target.scalar_type()}};

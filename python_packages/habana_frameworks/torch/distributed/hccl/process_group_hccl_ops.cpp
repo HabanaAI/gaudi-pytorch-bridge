@@ -72,7 +72,7 @@ c10::intrusive_ptr<Work> reduce_hpu_(
       ->reduce(
           tensor_vec,
           ReduceOptions{
-              *reduce_op.get(),
+              *reduce_op,
               root_rank,
               root_tensor,
               std::chrono::milliseconds(timeout),
@@ -91,7 +91,7 @@ c10::intrusive_ptr<Work> reduce_hpu_(
       ->reduce(
           tensor_vec,
           ReduceOptions{
-              *reduce_op.get(),
+              *reduce_op,
               root_rank,
               root_tensor,
               std::chrono::milliseconds(timeout)});
@@ -114,8 +114,7 @@ std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>> broadcast_hpu_(
                           root_tensor,
                           std::chrono::milliseconds(timeout),
                           asyncOp});
-  return std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>>(
-      std::move(tensor_vec), work);
+  return {std::move(tensor_vec), work};
 }
 
 // Return input tensors as output tensors to make inplace allreduce look like
@@ -134,11 +133,10 @@ std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>> allreduce_hpu_(
                   ->allreduce(
                       tensor_vec,
                       AllreduceOptions{
-                          *reduce_op.get(),
+                          *reduce_op,
                           std::chrono::milliseconds(timeout),
                           async_op});
-  return std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>>(
-      std::move(tensor_vec), work);
+  return {std::move(tensor_vec), work};
 }
 #else
 std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>> allreduce_hpu_(
@@ -153,9 +151,8 @@ std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>> allreduce_hpu_(
           ->allreduce(
               tensor_vec,
               AllreduceOptions{
-                  *reduce_op.get(), std::chrono::milliseconds(timeout)});
-  return std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>>(
-      std::move(tensor_vec), work);
+                  *reduce_op, std::chrono::milliseconds(timeout)});
+  return {std::move(tensor_vec), work};
 }
 #endif
 
@@ -168,7 +165,7 @@ c10::intrusive_ptr<Work> allreduce_coalesced_hpu_(
     int64_t timeout) {
   auto tensor_vec = tensors.vec();
   AllreduceCoalescedOptions opts = AllreduceCoalescedOptions{};
-  opts.reduceOp = *reduce_op.get();
+  opts.reduceOp = *reduce_op;
   opts.timeout = std::chrono::milliseconds(timeout);
   opts.asyncOp = async_op;
   return process_group->getBackend(c10::DeviceType::HPU)
@@ -182,7 +179,7 @@ c10::intrusive_ptr<Work> allreduce_coalesced_hpu_(
     int64_t timeout) {
   auto tensor_vec = tensors.vec();
   AllreduceCoalescedOptions opts = AllreduceCoalescedOptions{};
-  opts.reduceOp = *reduce_op.get();
+  opts.reduceOp = *reduce_op;
   opts.timeout = std::chrono::milliseconds(timeout);
   return process_group->getBackend(c10::DeviceType::HPU)
       ->allreduce_coalesced(tensor_vec, opts);
@@ -206,9 +203,7 @@ allgather_hpu_(
               const_cast<std::vector<std::vector<at::Tensor>>&>(output_tensors),
               input_tensors_vec,
               AllgatherOptions{std::chrono::milliseconds(timeout), async_op});
-  return std::
-      tuple<std::vector<std::vector<at::Tensor>>, c10::intrusive_ptr<Work>>(
-          output_tensors, work);
+  return {output_tensors, work};
 }
 #else
 std::tuple<std::vector<std::vector<at::Tensor>>, c10::intrusive_ptr<Work>>
@@ -224,9 +219,7 @@ allgather_hpu_(
               const_cast<std::vector<std::vector<at::Tensor>>&>(output_tensors),
               input_tensors_vec,
               AllgatherOptions{std::chrono::milliseconds(timeout)});
-  return std::
-      tuple<std::vector<std::vector<at::Tensor>>, c10::intrusive_ptr<Work>>(
-          output_tensors, work);
+  return {output_tensors, work};
 }
 #endif
 
@@ -242,7 +235,7 @@ std::tuple<at::Tensor, c10::intrusive_ptr<Work>> _allgather_base_hpu_(
               output_tensor,
               input_tensor,
               AllgatherOptions{std::chrono::milliseconds(timeout), asyncOp});
-  return std::tuple<at::Tensor, c10::intrusive_ptr<Work>>(output_tensor, work);
+  return {output_tensor, work};
 }
 
 #if IS_PYTORCH_AT_LEAST(2, 8)
@@ -334,11 +327,10 @@ reduce_scatter_hpu_(
               output_tensors_vec,
               const_cast<std::vector<std::vector<at::Tensor>>&>(input_tensors),
               ReduceScatterOptions{
-                  *reduce_op.get(),
+                  *reduce_op,
                   std::chrono::milliseconds(timeout),
                   async_op});
-  return std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>>(
-      output_tensors_vec, work);
+  return {output_tensors_vec, work};
 }
 #else
 std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>>
@@ -355,9 +347,8 @@ reduce_scatter_hpu_(
               output_tensors_vec,
               const_cast<std::vector<std::vector<at::Tensor>>&>(input_tensors),
               ReduceScatterOptions{
-                  *reduce_op.get(), std::chrono::milliseconds(timeout)});
-  return std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>>(
-      output_tensors_vec, work);
+                  *reduce_op, std::chrono::milliseconds(timeout)});
+  return {output_tensors_vec, work};
 }
 #endif
 
@@ -373,10 +364,10 @@ std::tuple<at::Tensor, c10::intrusive_ptr<Work>> _reduce_scatter_base_hpu_(
                       output_tensor,
                       input_tensor,
                       ReduceScatterOptions{
-                          *reduce_op.get(),
+                          *reduce_op,
                           std::chrono::milliseconds(timeout),
                           asyncOp});
-  return std::tuple<at::Tensor, c10::intrusive_ptr<Work>>(output_tensor, work);
+  return {output_tensor, work};
 }
 
 #if IS_PYTORCH_AT_LEAST(2, 8)
@@ -394,7 +385,7 @@ c10::intrusive_ptr<c10d::Work> reduce_scatter_tensor_coalesced_hpu_(
           output_vec,
           input_vec,
           ReduceScatterOptions{
-              *reduce_op.get(), std::chrono::milliseconds(timeout), async_op});
+              *reduce_op, std::chrono::milliseconds(timeout), async_op});
 }
 #else
 c10::intrusive_ptr<c10d::Work> reduce_scatter_tensor_coalesced_hpu_(
@@ -410,7 +401,7 @@ c10::intrusive_ptr<c10d::Work> reduce_scatter_tensor_coalesced_hpu_(
           output_vec,
           input_vec,
           ReduceScatterOptions{
-              *reduce_op.get(), std::chrono::milliseconds(timeout)});
+              *reduce_op, std::chrono::milliseconds(timeout)});
 }
 #endif
 
@@ -461,8 +452,7 @@ std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>> scatter_hpu_(
               const_cast<std::vector<std::vector<at::Tensor>>&>(input_tensors),
               ScatterOptions{
                   root_rank, std::chrono::milliseconds(timeout), asyncOp});
-  return std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>>(
-      std::move(output_tensors_vec), work);
+  return {std::move(output_tensors_vec), work};
 }
 
 #if IS_PYTORCH_AT_LEAST(2, 8)
@@ -480,8 +470,7 @@ std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>> alltoall_hpu_(
               output_tensors_vec,
               input_tensors_vec,
               AllToAllOptions{std::chrono::milliseconds(timeout), async_op});
-  return std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>>(
-      std::move(output_tensors_vec), work);
+  return {std::move(output_tensors_vec), work};
 }
 #else
 std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>> alltoall_hpu_(
@@ -496,8 +485,7 @@ std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>> alltoall_hpu_(
                       output_tensors_vec,
                       input_tensors_vec,
                       AllToAllOptions{std::chrono::milliseconds(timeout)});
-  return std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>>(
-      std::move(output_tensors_vec), work);
+  return {std::move(output_tensors_vec), work};
 }
 #endif
 

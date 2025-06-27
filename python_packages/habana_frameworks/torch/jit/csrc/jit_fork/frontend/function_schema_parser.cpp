@@ -209,14 +209,14 @@ struct SchemaParser {
         default_value = parseDefaultValue(*fake_type, fake_type->kind(), N);
       }
     }
-    return Argument(
+    return {
         std::move(name),
         std::move(fake_type),
         std::move(real_type),
         N,
         std::move(default_value),
         !is_return && kwarg_only,
-        std::move(alias_info));
+        std::move(alias_info)};
   }
   IValue parseSingleConstant(const c10::Type& type, TypeKind kind) {
     if (kind == c10::TypeKind::DynamicType) {
@@ -232,7 +232,7 @@ struct SchemaParser {
         return false;
       case TK_NONE:
         L.next();
-        return IValue();
+        return {};
       case TK_STRINGLITERAL: {
         auto token = L.next();
         return parseStringLiteral(token.range, token.text());
@@ -312,7 +312,7 @@ struct SchemaParser {
 
   IValue parseTensorDefault(const SourceRange& /*range*/) {
     L.expect(TK_NONE);
-    return IValue();
+    return {};
   }
   IValue parseDefaultValue(
       const c10::Type& arg_type,
@@ -360,7 +360,7 @@ struct SchemaParser {
       default:
         throw ErrorReport(range) << "unexpected type, file a bug report";
     }
-    return IValue(); // silence warnings
+    return {}; // silence warnings
   }
 
   void parseList(

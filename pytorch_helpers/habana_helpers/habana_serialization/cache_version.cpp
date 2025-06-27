@@ -29,7 +29,6 @@
 #include <string>
 #include <vector>
 
-extern char** environ;
 namespace fs = std::filesystem;
 
 // return first non-zero MAC address from the filesystem

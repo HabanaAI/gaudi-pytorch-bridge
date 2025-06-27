@@ -241,8 +241,7 @@ SharedMetaDataVector ForeachCompoundSharedMeta(
     const auto selfDtype = self.scalar_type();
     at::ScalarType dtype =
         at::promote_types(selfDtype, at::result_type(tensor1, tensor2));
-    const int outputRank =
-        std::max(selfRank, std::max(tensor1Rank, tensor2Rank));
+    const int outputRank = std::max({selfRank, tensor1Rank, tensor2Rank});
     bool isAddcdiv = guid == "addcdiv_fwd";
     const bool isOutputIntegral = c10::isIntegralType(dtype, true);
     dtype = (isAddcdiv && isOutputIntegral) ? torch::kFloat32 : dtype;
@@ -449,7 +448,6 @@ SharedMetaDataVector BinaryWithAlphaSharedMeta(
     // This node will only appear in eager mode but there is no way to
     // distinguish mode here so both possibilities should be added to
     // verification
-    std::string opName;
     SharedMetaData binaryKernelMeta;
     binaryKernelMeta.inputs_data = {
         {selfRank, outputType}, {otherRank, outputType}};

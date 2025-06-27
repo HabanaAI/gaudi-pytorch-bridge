@@ -185,10 +185,10 @@ struct TORCH_API StringCordView {
   };
 
   Iterator begin() const {
-    return Iterator(this, 0, 0, size());
+    return {this, 0, 0, size()};
   }
   Iterator end() const {
-    return Iterator(this, pieces_.size(), 0, 0);
+    return {this, pieces_.size(), 0, 0};
   }
   Iterator iter_for_pos(size_t pos) const;
 

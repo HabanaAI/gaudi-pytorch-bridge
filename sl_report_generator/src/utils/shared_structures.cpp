@@ -74,8 +74,7 @@ std::string InputDescriptor::getMatchPrecisionTypeStr() const {
       ? (match_precision_type.value() ? "true" : "false")
       : "None";
   std::string ret = "  InputDescriptor::match_precision_type=";
-  return "  InputDescriptor::match_precision_type=" + match_precision_type_str +
-      "\n";
+  return ret + match_precision_type_str + "\n";
 }
 
 std::string InputDescriptor::getMatchRankStr() const {

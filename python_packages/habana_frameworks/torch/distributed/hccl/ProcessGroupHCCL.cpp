@@ -378,7 +378,7 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::pointToPoint(
   for (size_t i = 0; i < tensors.size(); ++i) {
     auto deviceCtxt = deviceCtxts[i];
     synStreamHandle collective_stream = commStreams[i];
-    synapse_helpers::device_ptr tensor_storage_ptr =
+    auto tensor_storage_ptr =
         (synapse_helpers::device_ptr)tensors[i].storage().data_ptr().get();
     deviceCtxt->prepare_stream(collective_stream, tensor_storage_ptr);
 
@@ -539,9 +539,9 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::collective(
 
     auto deviceCtxt = deviceCtxts[i];
     synStreamHandle collective_stream = commStreams[i];
-    synapse_helpers::device_ptr input_storage_ptr =
+    auto input_storage_ptr =
         (synapse_helpers::device_ptr)in_view_vec[i].storage().data_ptr().get();
-    synapse_helpers::device_ptr output_storage_ptr =
+    auto output_storage_ptr =
         (synapse_helpers::device_ptr)out_view_vec[i].storage().data_ptr().get();
 
     std::vector<synapse_helpers::shared_event> event_lists = {};

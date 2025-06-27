@@ -506,7 +506,7 @@ void IndexPutEager::AddNode(
             cast_guid,
             {scatter_op[0].get()},
             {{self.sizes().vec(), self_scalar_type, 0}},
-            0);
+            nullptr);
 
       } else {
         next_node = BuildOp(
@@ -875,7 +875,7 @@ static synapse_helpers::tensor IndexPutLongHelper(
             {cast_guid,
              {scatter_op[0].get()},
              {{self.sizes().vec(), self_scalar_type, 0}},
-             0});
+             nullptr});
 
       } else {
         next_node = OpBackend::BuildNode(
