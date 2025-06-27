@@ -15,7 +15,7 @@
 
 #pragma once
 
-#include <utilities/exprtk.hpp>
+#include <exprtk.hpp>
 #include <chrono>
 #include <cstdio>
 #include <iostream>
