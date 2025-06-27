@@ -185,7 +185,7 @@ void HbExecutionContext::updateInputs(ir::ValueList inputVals) {
 
 void HbExecutionContext::updateCurrentIndicesOfH2dScales() {
   for (auto& [key, scales] : m_scalar_to_h2d_scales_map) {
-    scales.current_idx = scales.scales.size() - 1;
+    scales.second = scales.first.size() - 1;
   }
 }
 

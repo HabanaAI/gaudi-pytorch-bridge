@@ -88,13 +88,3 @@ add_library(npu::SynapseUtils ALIAS SynapseUtils)
 add_library(Media INTERFACE IMPORTED)
 list(APPEND MEDIA_INCLUDE_DIRS "$ENV{MEDIA_ROOT}/include")
 set_target_properties(Media PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${MEDIA_INCLUDE_DIRS}")
-
-include(FetchContent)
-FetchContent_Declare(
-  exprtk
-  GIT_REPOSITORY https://github.com/ArashPartow/exprtk.git
-  GIT_TAG 0.0.3
-  SOURCE_SUBDIR "exprtk")
-
-FetchContent_MakeAvailable(exprtk)
-include_directories(BEFORE SYSTEM "${FETCHCONTENT_BASE_DIR}/exprtk-src")

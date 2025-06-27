@@ -51,7 +51,7 @@ void NmsBatched::AddNode(
   auto scores = stackGetter.getNextInput<TensorsPair>();
   auto indexes = stackGetter.getNextInput<TensorsPair>();
   auto iou = stackGetter.getNextInput<double>();
-  auto max_classes = stackGetter.getNextInput<long>();
+  auto max_classes = stackGetter.getNextInput<int>();
   if (boxes.pt_t.numel() == 0 && scores.pt_t.numel() == 0 &&
       indexes.pt_t.numel() == 0) {
     auto zero_tensor = ConstantHelper(graph, 0, c10::ScalarType::Long, {0}, 0);
@@ -102,11 +102,8 @@ void NmsBatched::AddNode(
       true);
 
   ns_BatchedNmsKernel::Params params{};
-  params.nms_threshold = static_cast<float>(iou);
-  HABANA_ASSERT(
-      max_classes <= std::numeric_limits<int>::max(),
-      "Max number of classes exceeded");
-  params.max_num_classes = static_cast<int>(max_classes);
+  params.nms_threshold = iou;
+  params.max_num_classes = max_classes;
 
   const auto& output_meta = ComputeNmsBatchedAlignMetadata(stack);
   auto output = BuildNode(

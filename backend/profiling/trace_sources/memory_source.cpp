@@ -1,3 +1,4 @@
+
 /**
  * Copyright (c) 2021-2025 Intel Corporation
  *
@@ -40,8 +41,8 @@ struct MemoryLogger : public TraceSource {
     enabled_ = false;
   }
   void extract(TraceSink& output) {
-    pid_t tid = static_cast<pid_t>(syscall(__NR_gettid));
-    pid_t pid = getpid() + static_cast<pid_t>(offset_);
+    pid_t tid = syscall(__NR_gettid);
+    pid_t pid = getpid() + offset_;
     std::lock_guard<std::mutex> lg{m};
     for (const auto& event : events_) {
       output.addMemoryEvent(

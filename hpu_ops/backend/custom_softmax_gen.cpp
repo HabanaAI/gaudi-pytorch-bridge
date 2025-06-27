@@ -22,10 +22,10 @@ void CustomSoftmax::AddNode(
     const at::Stack& stack) {
   StackGetter stackGetter(this, stack, "CustomSoftmax::AddNode");
   const auto self = stackGetter.getNextInput<TensorsPair>();
-  const auto flavor = stackGetter.getNextInput<long>();
+  const auto flavor = stackGetter.getNextInput<int>();
 
   ns_CustomSoftmax::Params params{};
-  params.flavor = static_cast<int>(flavor);
+  params.flavor = flavor;
 
   if (flavor == 0) {
     using namespace std::literals;
@@ -53,7 +53,7 @@ SharedMetaDataVector CustomSoftmaxSharedMeta(
     const at::Stack& stack,
     habana_helpers::HabanaExecutionMode) {
   const at::Tensor& input = stack_tensor(stack, 0);
-  const auto flavor = stack.at(1).toInt();
+  const int flavor = stack.at(1).toInt();
 
   SharedMetaData sharedMeta(flavor == 0 ? "softmax_fwd" : "custom_softmax_fwd");
   sharedMeta.inputs_data = {getSharedMetaFromTensor(input)};

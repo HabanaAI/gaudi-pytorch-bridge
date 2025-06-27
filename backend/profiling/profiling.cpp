@@ -21,7 +21,6 @@
 #include "backend/profiling/trace_sources/memory_source.h"
 #include "backend/profiling/trace_sources/synapse_profiler_source.h"
 #include "backend/synapse_helpers/env_flags.h"
-#include "habana_helpers/logging.h"
 
 namespace {
 constexpr size_t kMaxThreadName = 32;
@@ -74,13 +73,7 @@ void Profiler::init_sources(
   }
   // simple trace grouping by log category
   for (auto& trace_source : trace_sources_) {
-    const auto offset = getOffset(trace_source->get_variant());
-    HABANA_ASSERT(
-        offset <= std::numeric_limits<unsigned>::max(),
-        "Offset for trace source {} is too large: {}",
-        static_cast<unsigned>(trace_source->get_variant()),
-        offset);
-    trace_source->set_offset(static_cast<unsigned>(offset));
+    trace_source->set_offset(getOffset(trace_source->get_variant()));
   }
 }
 

@@ -39,7 +39,7 @@ void BinCount::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
   StackGetter stackGetter(this, stack, "Bincount::AddNode");
   auto self = stackGetter.getNextInput<TensorsPair>();
-  auto length = stackGetter.getNextInput<long>();
+  auto length = stackGetter.getNextInput<int32_t>();
   auto weights = stackGetter.getNextInput<std::optional<TensorsPair>>();
 
   ns_BinCountKernel::Params params{

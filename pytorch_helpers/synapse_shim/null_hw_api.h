@@ -135,7 +135,10 @@ template <>
 class Resource<synRecipeHandle> {
  public:
   using SynHandle = synRecipeHandle;
-  Resource(Graph& graph, const char* pRecipeName, const char* pBuildLog)
+  Resource<synRecipeHandle>(
+      Graph& graph,
+      const char* pRecipeName,
+      const char* pBuildLog)
       : graph_{graph},
         recipe_name_{pRecipeName},
         build_log_{pBuildLog == nullptr ? "" : pBuildLog} {}

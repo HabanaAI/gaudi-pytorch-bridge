@@ -564,7 +564,7 @@ void OptimizerLambPhase1::AddNode(
   auto out_adam_norm = stackGetter.getNextInput<std::vector<TensorsPair>>();
   auto out_adam_step = stackGetter.getNextInput<std::vector<TensorsPair>>();
   auto clip_global_grad_norm = stackGetter.getNextInput<TensorsPair>();
-  auto grad_averaging = stackGetter.getNextInput<long>();
+  auto grad_averaging = stackGetter.getNextInput<int>();
   auto beta1 = stackGetter.getNextInput<double>();
   auto beta2 = stackGetter.getNextInput<double>();
   auto epsilon = stackGetter.getNextInput<double>();

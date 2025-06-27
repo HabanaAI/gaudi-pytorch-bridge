@@ -41,11 +41,12 @@ struct BridgeLogsSourceImpl : public TraceSource {
   ~BridgeLogsSourceImpl() override = default;
   void log(std::string_view id, bool is_begin) {
     if (enabled(id)) {
-      const auto dtime = nowNanos();
-      const pid_t tid = static_cast<pid_t>(syscall(__NR_gettid));
+      int64_t dtime = nowNanos();
+      pid_t tid = syscall(__NR_gettid);
+      std::string event_id{id};
       std::lock_guard<std::mutex> lg{m};
       updateThreadNames(tid);
-      events_.emplace_back(std::string{id}, dtime, tid, is_begin);
+      events_.emplace_back(std::move(event_id), dtime, tid, is_begin);
     }
   }
   void set_mandatory_events(
@@ -107,7 +108,7 @@ struct BridgeLogsSourceImpl : public TraceSource {
   void extract(TraceSink& output) override {
     if (events_.empty())
       return;
-    pid_t pid = static_cast<pid_t>(getpid()) + offset_;
+    pid_t pid = getpid() + offset_;
     std::lock_guard<std::mutex> lg{m};
     for (const auto& event : events_) {
       output.addActivity(
@@ -117,8 +118,7 @@ struct BridgeLogsSourceImpl : public TraceSource {
           event.begin);
     }
     for (const auto& entry : threadNames) {
-      std::string name =
-          "thread " + std::to_string(entry.first) + " (" + entry.second + ")";
+      std::string name = "thread " + std::to_string(entry.first) + " (" + entry.second + ")";
       output.addResource(name, pid, entry.first);
     }
     events_.clear();
@@ -139,10 +139,10 @@ struct BridgeLogsSourceImpl : public TraceSource {
   }
   struct Event {
     std::string name;
-    uint64_t time;
+    int64_t time;
     pid_t tid;
     bool begin;
-    Event(std::string&& name, uint64_t time, pid_t tid, bool begin)
+    Event(std::string&& name, int64_t time, pid_t tid, bool begin)
         : name(std::move(name)), time(time), tid(tid), begin(begin) {}
   };
   std::deque<Event> events_;

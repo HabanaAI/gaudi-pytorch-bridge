@@ -13,17 +13,21 @@
  * limitations under the License.
  */
 
-#include "Event.h"
 #include <pybind11/pybind11.h>
-#include <structmember.h>
 #include <torch/csrc/Device.h>
 #include <torch/csrc/THP.h>
 #include <torch/csrc/cuda/Module.h>
 #include <torch/csrc/utils/pybind.h>
 #include <torch/csrc/utils/pycfunction_helpers.h>
 #include <torch/csrc/utils/python_arg_parser.h>
+#include "backend/synapse_helpers/device_types.h"
+// #include <c10/cuda/CUDAGuard.h>
+
+// #include <cuda_runtime_api.h>
+#include <structmember.h>
+
+#include "Event.h"
 #include "Stream.h"
-#include "common/warning_suppress.h"
 
 PyObject* THP_HPU_EventClass = nullptr;
 
@@ -42,7 +46,7 @@ static PyObject* THP_HPU_Event_pynew(
   }
 
   THPObjectPtr ptr(type->tp_alloc(type, 0));
-  SUPPRESS_WCONVERSION(if (!ptr)) {
+  if (!ptr) {
     return nullptr;
   }
 

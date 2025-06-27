@@ -79,7 +79,7 @@ void HandleScaleScalar(
     habana::OpBackend* op,
     sh::graph& graph,
     const c10::IValue& scale,
-    const synDeviceId device_id,
+    const int device_id,
     std::vector<sh::tensor>& maybe_const_scale,
     std::vector<synTensor>& syn_inputs,
     const c10::IValue& scale_shape_ival) {
@@ -494,7 +494,7 @@ void Conv2dFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
       stackGetter.getNextInput<std::vector<int64_t>>(), "padding", 2);
   auto dilation = expand_param_if_needed(
       stackGetter.getNextInput<std::vector<int64_t>>(), "dilation", 2);
-  auto groups = stackGetter.getNextInput<long>();
+  auto groups = stackGetter.getNextInput<int>();
   auto out_dtype =
       stackGetter.getNextInput<std::optional<c10::ScalarType>>().value_or(
           at::ScalarType::BFloat16);

@@ -14,7 +14,6 @@
  */
 
 #include "backend/helpers/tensor_info.h"
-#include <limits>
 #include "backend/backend_meta.h"
 #include "backend/helpers/create_tensor.h"
 #include "backend/helpers/get_n_bytes.h"
@@ -164,14 +163,7 @@ void PtTensorInfo::update_shape_syn() {
       for (size_t i = 0; i < shape_.size(); ++i) {
         // Reverse PyTorch shapes for synapse tensor shape patching
         if (i < shape_.size()) {
-          const auto dim_size = shape_[shape_.size() - 1 - i];
-          HABANA_ASSERT(
-              dim_size >= 0 && dim_size <= std::numeric_limits<uint32_t>::max(),
-              "Dim ",
-              i,
-              " size out of range for synapse tensor: ",
-              dim_size);
-          syn_shape_[i] = static_cast<uint32_t>(shape_[shape_.size() - 1 - i]);
+          syn_shape_[i] = shape_[shape_.size() - 1 - i];
         }
       }
       break;

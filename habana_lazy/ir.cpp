@@ -15,9 +15,10 @@
 
 #include "ir.h"
 #include <absl/strings/str_format.h>
+#include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/helpers/runtime_config.h"
 #include "habana_helpers/logging.h"
-#include "habana_lazy/hpu_lazy_tensors.h"
+#include "lazy_executor.h"
 
 namespace habana_lazy {
 
@@ -89,7 +90,8 @@ size_t Use::operator()(const Use& in) const {
 Node::Node(c10::Symbol op, bool _is_input)
     : m_op(op),
       m_is_input(_is_input),
-      deterministic(at::globalContext().deterministicAlgorithms()) {
+      deterministic(
+          at::globalContext().deterministicAlgorithms()) {
   /*Need to set this node if the deterministic mode is ON*/
   SetModuleName(*(habana_lazy::ir::getCurrentModuleName()));
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_DEBUG_NAMES)) {
@@ -299,7 +301,7 @@ void Node::AddInputPtTensors(std::vector<at::Tensor>& input_pt_vec) {
     input_pt_idx++;
   }
 
-  size_t input_idx = 0;
+  auto input_idx = 0;
   auto pt_idx = m_input_pt_tensors.size();
   for (const auto& inp : m_inputs) {
     if (inp.IsInplaceOnInput()) {

@@ -117,10 +117,12 @@ bool create_h2d_scale_tensors() {
                                     const double scale_value,
                                     void* scale_ptr,
                                     const at::ScalarType dtype) {
-    h2d_scales_map.emplace(ScalarValueTypePair{scale_value, dtype}, ScalesIdxPair{
+    std::pair<double, at::ScalarType> key{scale_value, dtype};
+    ScalesIdxPair scales_and_idx{
         {create_h2d_scale_tensor(
             scale_ptr, dtype, &alloc_pointer, &h2d_pointer)},
-        0});
+        0};
+    h2d_scales_map.emplace(std::move(key), std::move(scales_and_idx));
   };
 
   for (const auto bias : biases) {
@@ -146,7 +148,7 @@ at::Tensor create_h2d_scale(const at::Tensor& scale) {
   if (h2d_scales_map.count({scale.item().toDouble(), dtype}) == 1) {
     auto& [scales_vec, current_idx] =
         h2d_scales_map.at({scale.item().toDouble(), dtype});
-    if (current_idx != std::numeric_limits<decltype(current_idx)>::max()) {
+    if (current_idx >= 0) {
       PT_BRIDGE_DEBUG("H2D scale taken from cache, current idx: ", current_idx);
       return scales_vec[current_idx--];
     }

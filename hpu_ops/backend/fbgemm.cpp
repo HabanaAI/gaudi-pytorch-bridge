@@ -132,7 +132,7 @@ void LazyBoundsCheckIndices::AddNode(
   auto offsets = stackGetter.getNextInput<TensorsPair>();
   auto warning = stackGetter.getNextInput<TensorsPair>();
   auto rowsPerTable = stackGetter.getNextInput<TensorsPair>();
-  auto boundsCheckMode = stackGetter.getNextInput<long>();
+  auto boundsCheckMode = stackGetter.getNextInput<int>();
   auto weights = stackGetter.getNextInput<std::optional<TensorsPair>>();
 
   std::vector<synTensor> inputs = {
@@ -179,23 +179,17 @@ void LazySplitPermuteCat::AddNode(
   auto input = stackGetter.getNextInput<TensorsPair>();
   auto indices = stackGetter.getNextInput<TensorsPair>();
 
-  auto batchSize = stackGetter.getNextInput<long>();
-  auto numFeatures = stackGetter.getNextInput<long>();
-  auto dims = stackGetter.getNextInput<long>();
+  auto batchSize = stackGetter.getNextInput<int>();
+  auto numFeatures = stackGetter.getNextInput<int>();
+  auto dims = stackGetter.getNextInput<int>();
 
   std::string guid = get_guid_with_precision(
       "split_permute_cat_fwd"sv, input.pt_t.scalar_type());
 
   ns_SplitPermuteCat::Params params;
-  HABANA_ASSERT(
-      batchSize <= std::numeric_limits<int>::max(), "Max batch size exceeded");
-  HABANA_ASSERT(
-      numFeatures <= std::numeric_limits<int>::max(),
-      "Max numFeatures exceeded");
-  HABANA_ASSERT(dims <= std::numeric_limits<int>::max(), "Max dims exceeded");
-  params.batchSize = static_cast<int>(batchSize);
-  params.numFeatures = static_cast<int>(numFeatures);
-  params.dims = static_cast<int>(dims);
+  params.batchSize = batchSize;
+  params.numFeatures = numFeatures;
+  params.dims = dims;
 
   auto output = OpBackend::BuildNode(
       this,
