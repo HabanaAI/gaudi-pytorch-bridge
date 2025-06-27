@@ -17,7 +17,7 @@
 #define XXH_STATIC_LINKING_ONLY
 #define XXH_IMPLEMENTATION
 #include <torch/csrc/api/include/torch/jit.h>
-#include <utilities/xxhash.h>
+#include <xxhash.h>
 #include "backend/helpers/dynamic_graph_utils.h"
 #include "backend/passes/detect_weights_tensors.h"
 #include "pytorch_helpers/habana_helpers/misc_utils.h"

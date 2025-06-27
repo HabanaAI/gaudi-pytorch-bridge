@@ -18,6 +18,20 @@
 include(FetchContent)
 
 FetchContent_Declare(
+  exprtk
+  GIT_REPOSITORY https://github.com/ArashPartow/exprtk.git
+  GIT_TAG 0.0.3-cmake
+  GIT_SHALLOW TRUE
+  SYSTEM EXCLUDE_FROM_ALL)
+
+FetchContent_Declare(
+  xxhash
+  GIT_REPOSITORY https://github.com/Cyan4973/xxHash.git
+  GIT_TAG v0.8.3
+  GIT_SHALLOW TRUE
+  SYSTEM EXCLUDE_FROM_ALL)
+
+FetchContent_Declare(
   nlohmann_json
   GIT_REPOSITORY https://github.com/nlohmann/json.git
   GIT_TAG v3.12.0
@@ -39,7 +53,7 @@ FetchContent_Declare(
   GIT_SHALLOW TRUE
   SOURCE_DIR ${FETCHCONTENT_BASE_DIR}/magic_enum-0.9.7 SYSTEM EXCLUDE_FROM_ALL)
 
-FetchContent_MakeAvailable(fmt nlohmann_json magic_enum)
+FetchContent_MakeAvailable(exprtk xxhash fmt nlohmann_json magic_enum)
 
 add_library(hllogger SHARED IMPORTED)
 set_target_properties(hllogger PROPERTIES IMPORTED_LOCATION "$ENV{BUILD_ROOT_LATEST}/libhl_logger.so")

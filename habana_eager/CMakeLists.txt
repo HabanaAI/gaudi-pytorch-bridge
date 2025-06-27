@@ -122,6 +122,7 @@ target_include_directories(habana_pytorch2_frontend PRIVATE ${CMAKE_BINARY_DIR})
 target_link_libraries(
   habana_pytorch2_frontend
   PRIVATE Python::Python
+          exprtk::exprtk
           habana_serialization
           pytorch_synapse_utils_shim
           torch

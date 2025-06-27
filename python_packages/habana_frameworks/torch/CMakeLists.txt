@@ -43,7 +43,8 @@ target_link_libraries(
             npu::specs_external
             $<TARGET_NAME_IF_EXISTS:npu::specs_embedded>
             pytorch_helpers
-            Python::Python)
+            Python::Python
+            exprtk::exprtk)
 
 add_subdirectory(internal/bridge_config)
 add_subdirectory(activity_profiler/csrc)

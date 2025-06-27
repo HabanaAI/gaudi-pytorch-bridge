@@ -351,6 +351,7 @@ target_include_directories(habana_pytorch_backend_ops PRIVATE ${PROJECT_SOURCE_D
 target_link_libraries(
   habana_pytorch_backend_ops
   PRIVATE habana_serialization
+          exprtk::exprtk
           torch
           Python::Python
           nlohmann_json::nlohmann_json
@@ -420,6 +421,7 @@ target_include_directories(habana_pytorch_frontend_ops PRIVATE ${PROJECT_SOURCE_
 target_link_libraries(
   habana_pytorch_frontend_ops
   PRIVATE habana_serialization
+          exprtk::exprtk
           pytorch_synapse_utils_shim
           torch
           Python::Python

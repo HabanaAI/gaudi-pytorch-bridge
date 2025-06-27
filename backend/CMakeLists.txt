@@ -92,7 +92,7 @@ target_include_directories(habana_pytorch_backend PRIVATE ${CMAKE_SOURCE_DIR} ${
 
 target_link_libraries(
   habana_pytorch_backend
-  PUBLIC habana_pytorch_backend_ops pytorch_synapse_helpers c10
+  PUBLIC habana_pytorch_backend_ops pytorch_synapse_helpers c10 exprtk::exprtk
   PRIVATE Python::Python
           habana_serialization
           torch
@@ -103,7 +103,10 @@ target_link_libraries(
           -lstdc++fs
           npu::hllogger)
 
-target_include_directories(habana_pytorch_backend PUBLIC ${PROJECT_SOURCE_DIR})
+target_include_directories(
+  habana_pytorch_backend
+  PUBLIC ${PROJECT_SOURCE_DIR}
+  PRIVATE ${xxhash_SOURCE_DIR})
 target_include_directories(habana_pytorch_backend SYSTEM PUBLIC $<TARGET_PROPERTY:Synapse,INTERFACE_INCLUDE_DIRECTORIES>
                                                                 $<TARGET_PROPERTY:hcl,INTERFACE_INCLUDE_DIRECTORIES>)
 
