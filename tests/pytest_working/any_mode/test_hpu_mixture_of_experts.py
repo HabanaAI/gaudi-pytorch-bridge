@@ -480,12 +480,12 @@ def test_mixture_of_experts_fp8(
     w12_hpu = [torch.cat((w1, w2), dim=cat_dim) for w1, w2 in zip(w1_hpu, w2_hpu, strict=False)]
 
     ffn_dim_for_variant = ffn_dim * 2 if fused_weights else ffn_dim
-    if scales_per_token == "scales_unsqueezed_2D":
+    if scales_per_token == "scales_unsqueezed_2D":  # noqa: S105
         d_scale_hidden_states = d_scale_hidden_states.repeat(num_tokens, 1)
         d_scale_w1 = [scale.repeat(1, ffn_dim_for_variant) for scale in d_scale_w1]
         d_scale_w2 = [scale.repeat(1, ffn_dim_for_variant) for scale in d_scale_w2]
         d_scale_w3 = [scale.repeat(1, hidden_dim) for scale in d_scale_w3]
-    elif scales_per_token == "scales_1D":
+    elif scales_per_token == "scales_1D":  # noqa: S105
         d_scale_hidden_states = d_scale_hidden_states.repeat(num_tokens)
         d_scale_w1 = [scale.repeat(ffn_dim_for_variant) for scale in d_scale_w1]
         d_scale_w2 = [scale.repeat(ffn_dim_for_variant) for scale in d_scale_w2]
