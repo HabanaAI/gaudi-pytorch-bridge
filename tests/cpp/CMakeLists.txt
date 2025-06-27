@@ -339,6 +339,7 @@ target_link_libraries(
           pthread
           stdc++
           stdc++fs
+          fmt::fmt-header-only
           nlohmann_json::nlohmann_json
           absl::strings
           dl
@@ -364,6 +365,7 @@ target_link_libraries(
           pthread
           stdc++
           stdc++fs
+          fmt::fmt-header-only
           nlohmann_json::nlohmann_json
           absl::strings
           dl

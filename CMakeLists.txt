@@ -334,7 +334,7 @@ target_link_libraries(
          torch
          absl::hash
          npu::hllogger
-         fmt::fmt
+         fmt::fmt-header-only
          ZLIB::ZLIB)
 
 # Create symlink to latest build from tests dir

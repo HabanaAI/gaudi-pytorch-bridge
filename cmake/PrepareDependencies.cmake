@@ -43,7 +43,7 @@ FetchContent_Declare(
   GIT_REPOSITORY https://github.com/fmtlib/fmt.git
   GIT_TAG 9.1.0
   GIT_SHALLOW TRUE
-  SYSTEM EXCLUDE_FROM_ALL)
+  SOURCE_DIR ${FETCHCONTENT_BASE_DIR}/fmt-9.1.0 SYSTEM EXCLUDE_FROM_ALL)
 set(FMT_INSTALL ON)
 
 FetchContent_Declare(
@@ -57,7 +57,7 @@ FetchContent_MakeAvailable(exprtk xxhash fmt nlohmann_json magic_enum)
 
 add_library(hllogger SHARED IMPORTED)
 set_target_properties(hllogger PROPERTIES IMPORTED_LOCATION "$ENV{BUILD_ROOT_LATEST}/libhl_logger.so")
-target_link_libraries(hllogger INTERFACE magic_enum::magic_enum)
+target_link_libraries(hllogger INTERFACE magic_enum::magic_enum fmt::fmt-header-only)
 target_include_directories(hllogger INTERFACE "$ENV{SWTOOLS_SDK_ROOT}/hl_logger/include" "${FETCHCONTENT_BASE_DIR}")
 add_library(npu::hllogger ALIAS hllogger)
 
