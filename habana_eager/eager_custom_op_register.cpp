@@ -1346,6 +1346,28 @@ at::Tensor dequantize_nf4_impl(
   return hpu_op.call();
 }
 
+std::tuple<at::Tensor, at::Tensor> quantize_nf4_impl(
+    const at::Tensor& input,
+    c10::SymInt blocksize) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO("quantize_nf4: ", DUMP_2ARGS(input, blocksize));
+
+  int64_t num_elements = input.numel();
+  int64_t blocksize_int = blocksize.expect_int();
+
+  std::vector<int64_t> out_shape0 = {(num_elements + 1) / 2};
+  auto out_dtype0 = at::ScalarType::Byte;
+
+  std::vector<int64_t> out_shape1 = {
+      (num_elements + blocksize_int - 1) / blocksize_int};
+  auto out_dtype1 = input.scalar_type();
+
+  habana::eager::EagerOp<std::tuple<at::Tensor, at::Tensor>> hpu_op{
+      "hpu::quantize_nf4", {input, blocksize}, {out_shape0, out_shape1}};
+  hpu_op.set_scalar_types({out_dtype0, out_dtype1});
+  return hpu_op.call();
+}
+
 void amp_foreach_non_finite_check_and_unscale_inplace(
     at::TensorList self,
     at::Tensor& found_inf,
@@ -1407,6 +1429,8 @@ TORCH_LIBRARY(hpu, m) {
   m.def("control_edge_(Tensor(a) self)-> Tensor(a)");
   m.def(
       "hpu::dequantize_nf4(Tensor input, Tensor absmax, SymInt blocksize, int[] out_shape, ScalarType out_dtype, bool use_big_endian = True) -> Tensor");
+  m.def(
+      "hpu::quantize_nf4(Tensor input, SymInt blocksize) -> (Tensor, Tensor)");
   m.def("hpu::in_place_interleave(Tensor self) -> Tensor");
   m.def(
       "hpu::kv_reorder(Tensor self, Tensor start, Tensor end, Tensor beam_idx) -> Tensor");
@@ -1657,6 +1681,7 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::weight_permutation", weight_permutation);
   m.impl("hpu::one_hot", one_hot_forward);
   m.impl("hpu::dequantize_nf4", dequantize_nf4_impl);
+  m.impl("hpu::quantize_nf4", quantize_nf4_impl);
   m.impl("hpu::block_softmax_adjustment", block_softmax_adjustment);
 }
 

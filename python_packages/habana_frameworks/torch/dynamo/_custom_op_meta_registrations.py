@@ -15,6 +15,8 @@
 #
 ###############################################################################
 
+import math
+
 import habana_frameworks.torch.utils.experimental as htexp
 from habana_frameworks.torch import _hpu_C
 
@@ -1455,6 +1457,14 @@ def meta_calculate_scale_for_cast(
 @register_meta([torch.ops.hpu.dequantize_nf4.default])
 def meta_dequantize_nf4(input, absmax, blocksize, out_shape, out_dtype, big_endian=True):
     return input.new_empty(out_shape, dtype=out_dtype)
+
+
+@register_meta([torch.ops.hpu.quantize_nf4.default])
+def meta_quantize_nf4(input, blocksize):
+    num_elements = input.numel()
+    return input.new_empty(math.ceil(num_elements / 2), dtype=torch.uint8), input.new_empty(
+        math.ceil(num_elements / blocksize), dtype=input.dtype
+    )
 
 
 @register_meta([torch.ops.hpu.block_softmax.default])

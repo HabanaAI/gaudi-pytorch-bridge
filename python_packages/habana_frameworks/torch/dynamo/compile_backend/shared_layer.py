@@ -48,6 +48,7 @@ hpu_supported_op_list = {
     "convert_from_int4",
     "convert_from_uint4",
     "dequantize_nf4",
+    "quantize_nf4",
     "ctc_loss_custom",
     "ctc_loss_custom_backward",
     "in_place_interleave",

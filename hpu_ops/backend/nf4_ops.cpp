@@ -27,6 +27,18 @@ OutputMetaDataVector DequantizeNF4Meta(const at::Stack& stack) {
   return meta;
 }
 
+OutputMetaDataVector QuantizeNF4Meta(const at::Stack& stack) {
+  OutputMetaDataVector meta(2);
+  auto num_elements = stack[0].toTensor().numel();
+  auto block_size = stack[1].toInt();
+
+  meta.at(0).shape = {(num_elements + 1) / 2};
+  meta.at(0).dtype = at::ScalarType::Byte;
+  meta.at(1).shape = {(num_elements + block_size - 1) / block_size};
+  meta.at(1).dtype = stack[0].toTensor().scalar_type();
+  return meta;
+}
+
 FillParamsT FillDequantizeNF4Params(const at::Stack& stack) {
   PARAMS_STUB(ns_CastNF4Kernel::ParamsV2);
   params->group_size = stack[2].toInt();
@@ -35,6 +47,13 @@ FillParamsT FillDequantizeNF4Params(const at::Stack& stack) {
   } else {
     params->big_endian = false;
   }
+  return paramsT;
+}
+
+FillParamsT FillQuantizeNF4Params(const at::Stack& stack) {
+  PARAMS_STUB(ns_CastNF4Kernel::ParamsV2);
+  params->group_size = stack[1].toInt();
+  params->big_endian = true;
   return paramsT;
 }
 
@@ -75,6 +94,34 @@ void DequantizeNF4::AddNode(sh::graph& graph, const at::Stack& stack) {
   syn_out(0) = std::move(result[0]);
 }
 
+void QuantizeNF4::AddNode(sh::graph& graph, const at::Stack& stack) {
+  const auto meta = QuantizeNF4Meta(stack);
+  auto params = FillQuantizeNF4Params(stack);
+
+  // Need to change the guid name based on the dtype
+  // of the input tensor
+  guid_ = get_guid_with_precision(
+      [] {
+        using namespace std::literals;
+        return "cast"sv;
+      }(),
+      meta[1].dtype);
+  guid_ = guid_ + "_to_packed_nf4";
+
+  std::vector<synTensor> inputs{syn_in(0)};
+  auto result = OpBackend::BuildNode(
+      this,
+      graph,
+      {guid_,
+       std::move(inputs),
+       {{meta[0].shape, meta[0].dtype, 0}, {meta[1].shape, meta[1].dtype, 1}},
+       params.ptr(),
+       params.size()});
+
+  syn_out(0) = std::move(result[0]);
+  syn_out(1) = std::move(result[1]);
+}
+
 DequantizeNF4::DequantizeNF4(int device_id, c10::ScalarType scalar_type)
     : OpBackend(
           device_id,
@@ -88,9 +135,27 @@ DequantizeNF4::DequantizeNF4(int device_id, c10::ScalarType scalar_type)
   SetFillParams(FillDequantizeNF4Params);
 }
 
+QuantizeNF4::QuantizeNF4(int device_id, c10::ScalarType scalar_type)
+    : OpBackend(
+          device_id,
+          "cast_packed_nf4_from",
+          scalar_type,
+          {0, 0},
+          {},
+          {},
+          false) {
+  SetOutputMetaFn(QuantizeNF4Meta);
+  SetFillParams(FillQuantizeNF4Params);
+}
+
 } // namespace habana
 
-static const auto& CastKernelRegistry =
+static const auto& CastDequantKernelRegistry =
     habana::KernelRegistry().REGISTER_HPU_BACKEND(
         "hpu::dequantize_nf4",
         habana::DequantizeNF4);
+
+static const auto& CastQuantKernelRegistry =
+    habana::KernelRegistry().REGISTER_HPU_BACKEND(
+        "hpu::quantize_nf4",
+        habana::QuantizeNF4);
