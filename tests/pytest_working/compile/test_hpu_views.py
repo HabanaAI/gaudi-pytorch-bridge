@@ -17,7 +17,10 @@
 import pytest
 import torch
 import torch.nn.functional as F
-from test_utils import compile_function_if_compile_mode
+from test_utils import (
+    compile_function_if_compile_mode,
+    env_var_in_scope,
+)
 
 
 def test_hpu_multilevel_noncontiguous_views():
@@ -512,3 +515,28 @@ def test_leaf_slice_post_partition():
     hpu_out = compiled_fn(t.to("hpu"))
 
     assert torch.allclose(hpu_out.to("cpu"), ref_out, atol=0.001, rtol=0.001)
+
+
+@pytest.mark.parametrize("shape", [(4,), (4, 8)])
+@pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16, torch.float16, torch.uint8])
+def test_view_dtype(shape, dtype):
+    with env_var_in_scope(
+        {
+            "PT_HPU_USE_JIT_FORK": "1",
+        }
+    ):
+
+        def fn(x):
+            x = x.view(torch.float16).float()
+            return x
+
+        # CPU
+        x = torch.randint(128, shape, dtype=dtype)
+        hx = x.to("hpu")
+        res = fn(x)
+
+        # HPU
+        compiled_fn = compile_function_if_compile_mode(fn)
+        hres = compiled_fn(hx)
+
+        assert torch.allclose(hres.cpu(), res, atol=0.001, rtol=0.001)

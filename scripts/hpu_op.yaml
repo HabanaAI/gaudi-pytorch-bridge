@@ -7934,10 +7934,13 @@ view:
   op_validator: EmptySharedMeta
 
 view.dtype:
-  override_fn: view_dtype_hpu
-  acc_thread: true
+  op_backend: ViewDtype
+  out_ids: [0]
   namespaces: [torch.Tensor]
   op_validator: EmptySharedMeta
+  lazy:
+    override_fn: view_dtype_hpu
+    acc_thread: true
 
 where.self:
   guid: where_fwd

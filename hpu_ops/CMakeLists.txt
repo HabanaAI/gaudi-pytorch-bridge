@@ -298,6 +298,7 @@ add_habana_library(
   backend/upsample_gen.cpp
   backend/upsample_ops.cpp
   backend/vdot_gen.cpp
+  backend/view_dtype_gen.cpp
   backend/weight_norm_gen.cpp
   backend/where_gen.cpp
   backend/xlogy_gen.cpp
