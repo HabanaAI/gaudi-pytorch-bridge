@@ -764,5 +764,5 @@ at::Tensor block_softmax_adjustment_lazy(
     const at::Tensor& block_sums,
     const at::Tensor& block_groups,
     int64_t batch_size,
-    at::IntArrayRef out_shape);
+    const at::OptionalIntArrayRef out_shape);
 } // namespace habana_lazy

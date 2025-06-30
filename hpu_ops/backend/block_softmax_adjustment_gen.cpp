@@ -28,10 +28,10 @@ namespace habana {
 
 OutputMetaDataVector BlockSoftmaxAdjustmentMeta(const at::Stack& stack) {
   auto block_maxes = stack_tensor(stack, 0);
-  auto out_shape = stack[4].toIntList().vec();
+  auto adjustment_out_shape = stack[4].toIntList().vec();
 
   OutputMetaData meta;
-  meta.shape = out_shape;
+  meta.shape = adjustment_out_shape;
   meta.dtype = block_maxes.scalar_type();
 
   return {meta};
@@ -67,7 +67,15 @@ OutputMetaDataVector BlockSoftmaxMeta(const at::Stack& stack) {
   int64_t flat_size = kv_heads * gqa * num_tokens;
   int64_t aligned_flat_size = CEIL_TO_VEC_SIZE(flat_size, vec_size);
 
-  std::vector<int64_t> reduced_shape = {num_blocks, aligned_flat_size};
+  const bool is_gaudi2 =
+      habana::HPUDeviceContext::get_device().type() == synDeviceGaudi2;
+
+  std::vector<int64_t> reduced_shape;
+
+  if (is_gaudi2) // no padding for gaudi2
+    reduced_shape = {num_blocks, flat_size};
+  else
+    reduced_shape = {num_blocks, aligned_flat_size};
 
   block_maxes_meta.shape = reduced_shape;
   block_maxes_meta.dtype = dtype;
@@ -122,7 +130,25 @@ void BlockSoftmaxAdjustmentOperator::AddNode(
   auto block_sums = stackGetter.getNextInput<TensorsPair>();
   auto block_groups = stackGetter.getNextInput<TensorsPair>();
   auto batch_size = stackGetter.getNextInput<int>();
-  auto out_shape = stack[4].toIntList().vec();
+  const auto& out_shape = stack.at(4).to<std::optional<std::vector<int64_t>>>();
+
+  std::vector<int64_t> adjustment_out_shape;
+
+  // If out_shape is provided, then use it or it is expected to be 5D
+  if (out_shape.has_value()) {
+    adjustment_out_shape = out_shape.value();
+  } else {
+    HABANA_ASSERT(
+        (block_maxes.pt_t.ndimension() == 5) &&
+            (block_sums.pt_t.ndimension() == 5),
+        "Block maxes and Block sums must have 5D inputs or out_shape provided "
+        "Found block_maxes.ndim=",
+        block_maxes.pt_t.ndimension(),
+        " and block_sums.ndim=",
+        block_sums.pt_t.ndimension());
+
+    adjustment_out_shape = block_maxes.pt_t.sizes().vec();
+  }
 
   ns_BlockSoftmaxAdjustment::Params adjustment_params;
   adjustment_params.batchSize = batch_size;
@@ -136,7 +162,8 @@ void BlockSoftmaxAdjustmentOperator::AddNode(
       graph,
       adjustment_guid,
       std::move(input),
-      {NodeAttr::NodeOutputAttr{out_shape, block_maxes.pt_t.scalar_type(), 0}},
+      {NodeAttr::NodeOutputAttr{
+          adjustment_out_shape, block_maxes.pt_t.scalar_type(), 0}},
       &adjustment_params,
       sizeof(adjustment_params));
   syn_out(0) = std::move(adjustment.at(0));

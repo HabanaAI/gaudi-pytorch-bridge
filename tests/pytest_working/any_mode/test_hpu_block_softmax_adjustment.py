@@ -24,7 +24,6 @@ from test_utils import (
     compile_function_if_compile_mode,
     cpu,
     hpu,
-    is_gaudi2,
     is_pytest_mode_compile,
 )
 
@@ -59,7 +58,6 @@ def block_softmax_adjustment_ref(b_max, b_sum, groups, batch_size):
     [([64, 8, 4, 1, 1], 32), ([512, 32, 1, 1, 1], 38), ([896, 1, 48, 1, 1], 72), ([1152, 2, 12, 1, 1], 88)],
 )
 @pytest.mark.parametrize("dtype", [torch.float32, torch.bfloat16])
-@pytest.mark.skipif(is_gaudi2(), reason="Gaudi2 not supported yet")
 def test_block_softmax_adjustment(input_shape, dtype, batch_size):
     num_blocks = input_shape[0]
     block_maxes = torch.rand(input_shape, dtype=dtype, requires_grad=False)
@@ -73,14 +71,12 @@ def test_block_softmax_adjustment(input_shape, dtype, batch_size):
     # Reference output
     ref_output = block_softmax_adjustment_ref(block_maxes, block_sums, block_groups, batch_size)
 
-    def hpu_fn(block_maxes_hpu, block_sums_hpu, block_groups_hpu, batch_size, out_shape):
-        return torch.ops.hpu.block_softmax_adjustment(
-            block_maxes_hpu, block_sums_hpu, block_groups_hpu, batch_size, out_shape
-        )
+    def hpu_fn(block_maxes_hpu, block_sums_hpu, block_groups_hpu, batch_size):
+        return torch.ops.hpu.block_softmax_adjustment(block_maxes_hpu, block_sums_hpu, block_groups_hpu, batch_size)
 
     # Compile mode
     hpu_fn = compile_function_if_compile_mode(hpu_fn)
-    hpu_output = hpu_fn(block_maxes_hpu, block_sums_hpu, block_groups_hpu, batch_size, block_maxes.shape)
+    hpu_output = hpu_fn(block_maxes_hpu, block_sums_hpu, block_groups_hpu, batch_size)
     assert torch.allclose(ref_output, hpu_output.to(cpu), atol=0.01, rtol=0.01)
 
     # Check ops executed in JIT IR
@@ -170,7 +166,6 @@ def test_block_softmax(dtype, num_blocks, kv_heads, gqa, num_tokens, block_size)
         check_ops_executed_in_jit_ir("block_softmax")
 
 
-@pytest.mark.skipif(is_gaudi2(), reason="Gaudi2 not supported yet")
 def test_block_softmax_edge_cases():
     # Test case 1: All values are the same
     attn = torch.ones(2, 2, 2, 3, 4, dtype=torch.float32).to(hpu)
@@ -217,7 +212,6 @@ def test_block_softmax_edge_cases():
 
 
 @pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float32])
-@pytest.mark.skipif(is_gaudi2(), reason="Gaudi2 not supported yet")
 def test_block_softmax_with_adjustment(dtype):
     """Test the integration of block_softmax with block_softmax_adjustment"""
 
@@ -232,13 +226,13 @@ def test_block_softmax_with_adjustment(dtype):
     block_bias[0, :, :, :, 4:] = float("-inf")
     block_bias[1, :, :, :, 6:] = float("-inf")
 
-    # Create block_groups for adjustment (assuming all blocks are active)
-    block_groups = torch.randint(0, batch_size, (num_blocks,), dtype=torch.long).to(hpu)
+    # Create block_groups for adjustment
+    block_groups = torch.randint(-1, batch_size, (num_blocks,), dtype=torch.long).to(hpu)
 
     # Run block_softmax on HPU
     def hpu_block_softmax_with_adjustment(attn, block_bias, block_groups):
         attn_out, block_maxes, block_sums = torch.ops.hpu.block_softmax(attn, block_bias, block_groups)
-        out_shape = [num_blocks, kv_heads, gqa]
+        out_shape = [num_blocks, kv_heads, gqa, num_tokens]
         # Run block_softmax_adjustment
         adjustment = torch.ops.hpu.block_softmax_adjustment(
             block_maxes, block_sums, block_groups, batch_size, out_shape
@@ -253,10 +247,11 @@ def test_block_softmax_with_adjustment(dtype):
     )
 
     # slice and reshape the reference output for comparison
-    ref_adjustment = ref_adjustment[..., : kv_heads * gqa].reshape(num_blocks, kv_heads, gqa)
+    ref_adjustment = ref_adjustment[..., : kv_heads * gqa * num_tokens].reshape(num_blocks, kv_heads, gqa, num_tokens)
 
     # Basic shape check
-    assert adjustment.dim() == 3, f"Expected 3D tensor, got {adjustment.dim()}D"
+    assert 3 <= adjustment.dim() <= 5, f"Expected tensor with 3-5 dimensions, got {adjustment.dim()}D"
+
     assert adjustment.size(0) == num_blocks, f"Expected first dim {num_blocks}, got {adjustment.size(0)}"
 
     # End-to-end check comparing CPU and HPU outputs
@@ -268,3 +263,32 @@ def test_block_softmax_with_adjustment(dtype):
     # Check ops executed in JIT IR
     if is_pytest_mode_compile():
         check_ops_executed_in_jit_ir({"block_softmax", "block_softmax_adjustment"})
+
+
+@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float32])
+def test_block_softmax_adjustment_missing_out_shape(dtype):
+    """Test that block_softmax_adjustment raises an error when out_shape is not provided for non-5D inputs."""
+    # Setup test data
+    num_blocks, kv_heads, gqa, batch_size = 4, 2, 2, 8
+    torch.manual_seed(42)
+
+    # Create 2D tensors (not 5D) to trigger the error
+    block_maxes = torch.rand((num_blocks, kv_heads * gqa), dtype=dtype).to(hpu)
+    block_sums = torch.rand((num_blocks, kv_heads * gqa), dtype=dtype).to(hpu)
+    block_groups = torch.randint(-1, batch_size, (num_blocks,), dtype=torch.long).to(hpu)
+
+    # Define function to test
+    def run_without_out_shape(block_maxes, block_sums, block_groups, batch_size):
+        return torch.ops.hpu.block_softmax_adjustment(block_maxes, block_sums, block_groups, batch_size)
+
+    # Compile if in compile mode
+    run_without_out_shape = compile_function_if_compile_mode(run_without_out_shape)
+
+    # Actually run the function and catch the expected RuntimeError
+    try:
+        adjustment = run_without_out_shape(block_maxes, block_sums, block_groups, batch_size)
+        adjustment.to(cpu)  # Force execution to trigger the error
+        pytest.fail("Expected RuntimeError was not raised")
+    except RuntimeError as e:
+        # Check that the error message contains the expected text
+        assert "Block maxes and Block sums must have 5D inputs or out_shape provided" in str(e)

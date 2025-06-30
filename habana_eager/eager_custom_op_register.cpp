@@ -1066,7 +1066,7 @@ at::Tensor block_softmax_adjustment(
     const at::Tensor& block_sums,
     const at::Tensor& block_groups,
     const int64_t batch_size,
-    const at::IntArrayRef out_shape) {
+    const at::OptionalIntArrayRef out_shape) {
   PT_EAGER_TRACE;
   PT_OP_INFO(
       "block_softmax_adjustment:",
@@ -1075,7 +1075,8 @@ at::Tensor block_softmax_adjustment(
   habana::eager::EagerOp<at::Tensor> hpu_op{
       "hpu::block_softmax_adjustment",
       {block_maxes, block_sums, block_groups, batch_size, out_shape},
-      {{out_shape.vec()}}};
+      {{out_shape.has_value() ? out_shape.value().vec()
+                              : block_maxes.sizes().vec()}}};
 
   return hpu_op.call();
 }
@@ -1606,7 +1607,7 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::habana_random(Tensor seed, Tensor self, int low, int? high) -> Tensor");
   m.def(
-      "hpu::block_softmax_adjustment(Tensor block_maxes, Tensor block_sums, Tensor block_groups, int batch_size, int[] out_shape) -> Tensor");
+      "hpu::block_softmax_adjustment(Tensor block_maxes, Tensor block_sums, Tensor block_groups, int batch_size, int[]? out_shape=None) -> Tensor");
 }
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {

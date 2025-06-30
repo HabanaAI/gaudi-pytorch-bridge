@@ -5891,7 +5891,7 @@ Tensor block_softmax_adjustment_lazy(
     const Tensor& block_sums,
     const Tensor& block_groups,
     int64_t batch_size,
-    at::IntArrayRef out_shape) {
+    const at::OptionalIntArrayRef out_shape) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
 
@@ -5902,7 +5902,8 @@ Tensor block_softmax_adjustment_lazy(
   LazyOp<at::Tensor> hpu_op{
       "hpu::block_softmax_adjustment",
       {block_maxes, block_sums, block_groups, batch_size, out_shape},
-      {out_shape.vec()}};
+      {out_shape.has_value() ? out_shape.value().vec()
+                             : block_maxes.sizes().vec()}};
 
   RUN_MAYBE_WITH_ACC_THREAD(block_softmax_adjustment, hpu_op);
 }

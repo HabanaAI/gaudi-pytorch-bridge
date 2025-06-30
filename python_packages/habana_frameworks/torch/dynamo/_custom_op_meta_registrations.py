@@ -1478,6 +1478,8 @@ def meta_block_softmax(attn, block_bias, block_ind):
     # Output 1: Same shape as input
     attn_out = attn.new_empty(attn.shape)
 
+    is_gaudi2 = htexp._get_device_type() == htexp.synDeviceType.synDeviceGaudi2
+
     # Output 2 & 3: Reshape and align to vector size
     if attn.dtype == torch.float32:
         vec_size = 64
@@ -1494,7 +1496,13 @@ def meta_block_softmax(attn, block_bias, block_ind):
     flat_size = kv_heads * gqa * num_tokens
     aligned_flat_size = round_up(flat_size, vec_size)
 
-    reduced_shape = (num_blocks, aligned_flat_size)
+    reduce_shape = ()
+
+    if is_gaudi2:  # no padding required for gaudi2
+        reduced_shape = (num_blocks, flat_size)
+    else:
+        reduced_shape = (num_blocks, aligned_flat_size)
+
     b_maxes = attn.new_empty(reduced_shape)
     b_sums = attn.new_empty(reduced_shape)
 
@@ -1502,8 +1510,8 @@ def meta_block_softmax(attn, block_bias, block_ind):
 
 
 @register_meta([torch.ops.hpu.block_softmax_adjustment.default])
-def meta_block_softmax_adjustment(block_maxes, block_sums, block_groups, batch_size, out_shape):
-    return block_maxes.new_empty(out_shape)
+def meta_block_softmax_adjustment(block_maxes, block_sums, block_groups, batch_size, out_shape=None):
+    return block_maxes.new_empty(out_shape if out_shape is not None else block_maxes.shape)
 
 
 def activate_hpu_custom_op_meta():
