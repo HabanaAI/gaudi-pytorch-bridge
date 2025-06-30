@@ -59,7 +59,7 @@ class SizeExpression {
 };
 
 class SymExprFactory {
-  std::unordered_map<std::string_view, int64_t> expr_value_cache;
+  std::unordered_map<std::string, int64_t> expr_value_cache;
   SymExprFactory() {}
   ~SymExprFactory() {}
 
