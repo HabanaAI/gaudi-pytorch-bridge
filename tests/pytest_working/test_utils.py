@@ -383,8 +383,7 @@ def _is_simulator():
 
         with open("/sys/class/accel/accel0/device/device_type") as f:
             out = f.read()
-        stdout, _ = out.communicate()
-        status = "SIM".lower() in str(stdout).lower()
+        status = "SIM".lower() in out.lower()
     return status
 
 
