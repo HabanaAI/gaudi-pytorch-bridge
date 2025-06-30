@@ -162,7 +162,6 @@ orchestratorConfig:
       forbiddenFiles:
       - docs/*
   - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_cpu_tidy
-    silentMode: true
     triggerMap:
     - repository: pytorch-integration
       gitHubOrg: habana-internal
