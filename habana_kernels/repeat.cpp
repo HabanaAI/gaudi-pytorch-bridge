@@ -330,7 +330,7 @@ InferOutputMetaRetType RepeatInlvOperatorHT::InferOutputMeta(
   auto repeats_ht = inputs[1].toTensor();
 
   auto repeat_vec = ComputeRepeatShapefromH2DTensor(repeats_ht);
-  auto out_size = std::accumulate(repeat_vec.begin(), repeat_vec.end(), 0ll);
+  auto out_size = std::accumulate(repeat_vec.begin(), repeat_vec.end(), 0LL);
   auto out_shape = RepeatInlvOperator::compute_output_shape(input, 0, out_size);
 
   auto out_metadata = TensorMetaData(
@@ -372,7 +372,7 @@ void RepeatInlvOperatorHT::AllocateAndAddSynapseNode(
       habana::HostDataType::INT32_T);
 
   auto repeat_vec = ComputeRepeatShapefromH2DTensor(repeats_ht);
-  auto out_size = std::accumulate(repeat_vec.begin(), repeat_vec.end(), 0ll);
+  auto out_size = std::accumulate(repeat_vec.begin(), repeat_vec.end(), 0LL);
 
   auto out_shape = RepeatInlvOperator::compute_output_shape(input, 0, out_size);
 

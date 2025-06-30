@@ -425,7 +425,7 @@ void HlExec::SearchAndDeleteRedundantInputs(
     for (auto value_in : po_data.inputs) {
       std::string str1 = r_value_in->debugName();
       std::string str2 = value_in.ToString();
-      if (str1.compare(str2) == 0) {
+      if (str1 == str2) {
         // std::cout << "~~~ po_data_input_indices_for_deletion ~~~\n"
         //           << r_value_in->debugName()
         //           << ", "

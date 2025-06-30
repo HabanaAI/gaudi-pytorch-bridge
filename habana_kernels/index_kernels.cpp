@@ -2006,7 +2006,7 @@ std::vector<int64_t> SliceOperator::GetH2DTensorData(
   }
 
   std::vector<int64_t> params;
-  uint64_t* h2d_data = static_cast<uint64_t*>(host_ptr);
+  auto* h2d_data = static_cast<uint64_t*>(host_ptr);
   for (size_t i = 0; i < h2d_data_size; i++) {
     params.push_back(*h2d_data++);
   }

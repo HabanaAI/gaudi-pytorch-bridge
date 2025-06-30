@@ -126,10 +126,9 @@ HbCas::HbCas(bool with_grad, at::ArrayRef<c10::IValue> inputs) {
       continue;
 
     auto pt_tensor = inputs[i].toTensor();
-    synapse_helpers::device_ptr storage_data_ptr_ =
-        reinterpret_cast<synapse_helpers::device_ptr>(
-            pt_tensor.storage().data_ptr().get());
-    synapse_helpers::device_ptr buffer_ptr =
+    auto storage_data_ptr_ = reinterpret_cast<synapse_helpers::device_ptr>(
+        pt_tensor.storage().data_ptr().get());
+    auto buffer_ptr =
         reinterpret_cast<synapse_helpers::device_ptr>(pt_tensor.data_ptr());
     *next_offset = (buffer_ptr - storage_data_ptr_);
     next_offset++;
@@ -809,7 +808,7 @@ void RecipeValueSpec::update_patching_table(
       ridx++;
     } else if (input.isTensorList()) {
       SUPPRESS_WDANGLING_REFERENCE(
-          for (const at::Tensor& t : input.toTensorList())) {
+        for (const at::Tensor& t : input.toTensorList())) {
         auto tmeta{habana::get_tensor_extra_meta(t)};
         if (tmeta->has_valid_const_id()) {
           auto impl{t.unsafeGetTensorImpl()};

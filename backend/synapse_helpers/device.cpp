@@ -1919,8 +1919,7 @@ std::string device::get_device_properties(unsigned id) {
         Logger::formatStatusMsg(status), "synDeviceGetInfo failed.");
   }
 
-  std::string properties = "";
-  properties = properties +
+  std::string properties =
       "(sramBaseAddress=" + std::to_string(device_info.sramBaseAddress) +
       ", dramBaseAddress=" + std::to_string(device_info.dramBaseAddress) +
       ", sramSize=" + std::to_string(device_info.sramSize) +

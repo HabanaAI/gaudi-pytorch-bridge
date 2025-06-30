@@ -660,7 +660,7 @@ static at::Tensor moe_cast_to_fp8_v2(
     const at::Tensor& input,
     const Scale& scale,
     at::ScalarType dtype) {
-  if constexpr (std::is_same<Scale, double>::value) {
+  if constexpr (std::is_same_v<Scale, double>) {
     return std::get<0>(
         cast_to_fp8_v2_scalar(input, scale, false, false, dtype, std::nullopt));
   } else {
@@ -676,7 +676,7 @@ static at::Tensor moe_fp8_gemm_v2(
     at::ScalarType out_dtype,
     const Scale& A_scale_inv,
     const Scale& B_scale_inv) {
-  if constexpr (std::is_same<Scale, double>::value) {
+  if constexpr (std::is_same_v<Scale, double>) {
     return fp8_gemm_v2_scalar(
         A,
         false,

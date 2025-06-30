@@ -4153,7 +4153,7 @@ void HabanaLaunchOpPT::EvictSynapseRecipe(size_t& dsi_bucket_id) {
   // Keep evicting recipes until the memory usage goes below threshold
   if (habana::IsHostMemoryThresholdReached()) {
     // Remove in chunks of 512MB
-    int64_t eviction_threshold_left = 512ll * 1024 * 1024;
+    int64_t eviction_threshold_left = 512LL * 1024 * 1024;
     while (eviction_threshold_left > 0) {
       auto dropped_recipe = HPUDeviceContext::recipe_cache().drop_lru();
       if (!dropped_recipe.has_value())

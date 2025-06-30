@@ -387,7 +387,7 @@ at::Tensor& _index_put_impl_eager(
     indices_vec.push_back(input.value());
   }
 
-  auto only_single_index_tensor = (indices_vec.size() == 1ull);
+  auto only_single_index_tensor = (indices_vec.size() == 1ULL);
   for (size_t i = 0; i < indices_vec.size(); i++) {
     if (indices_vec[i].device().type() != c10::DeviceType::HPU) {
       indices_vec[i] = indices_vec[i].to(c10::kHPU);

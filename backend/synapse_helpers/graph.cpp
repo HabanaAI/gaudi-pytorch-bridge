@@ -54,7 +54,7 @@ namespace synapse_helpers {
 std::once_flag create_dir_flag;
 
 std::string check_and_prepare_graph_dump_dir() {
-  static std::string dir = "";
+  static std::string dir;
   std::call_once(create_dir_flag, [&]() {
     std::error_code err_code;
     dir = GET_ENV_FLAG_NEW(PT_HPU_GRAPH_DUMP_PREFIX);

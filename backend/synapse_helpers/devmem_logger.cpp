@@ -168,7 +168,7 @@ std::string deviceMallocData::get_formatted_func_name(
 
   // Find the mangled function name in the frame
   const auto start_of_func_name = string.find('(');
-  std::string out_name = "";
+  std::string out_name;
   std::size_t end_of_func_name;
   bool formatted_name = true;
   if (start_of_func_name != std::string::npos) {
@@ -355,7 +355,8 @@ void deviceMallocData::collect_backtrace(
       // Stats update
       if (!duplicate) {
         running_memory += size;
-        iteration_high_watermark = std::max(iteration_high_watermark, running_memory);
+        iteration_high_watermark =
+            std::max(iteration_high_watermark, running_memory);
       }
 
       if (iteration_high_watermark > overall_high_watermark) {
@@ -1134,7 +1135,7 @@ void memory_reporter_event_create(
     synapse_helpers::device& device,
     synapse_helpers::mem_reporter_type event_type) {
   if (memory_reporter_enable()) {
-    std::string event_name = "";
+    std::string event_name;
     switch (event_type) {
       case MEM_REPORTER_GRAPH_BEFORE_LAUNCH:
         event_name = "GRAPH_BEFORE_LAUNCH_EVENT";

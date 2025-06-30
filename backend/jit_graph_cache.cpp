@@ -210,7 +210,7 @@ void ComputeGraphHashCode(
   // Handle the dims for strided base tensor
   size_t basedims_hash{0};
   for (auto& input : m_input_new_base_sizes) {
-    int64_t dim = static_cast<int64_t>(input.second.size());
+    auto dim = static_cast<int64_t>(input.second.size());
     basedims_hash = at::hash_combine(
         basedims_hash, static_cast<uint64_t>(habana::mod_exp(dim)));
   }

@@ -835,9 +835,8 @@ bool device_memory::defragment_memory(
               "Defragmentation: New and old resource memory location is overlapping. Cannot move allocation");
         }
       }
-      uint64_t src_base_addr = reinterpret_cast<uint64_t>(mover.GetSource());
-      uint64_t dst_base_addr =
-          reinterpret_cast<uint64_t>(mover.GetDestination());
+      auto src_base_addr = reinterpret_cast<uint64_t>(mover.GetSource());
+      auto dst_base_addr = reinterpret_cast<uint64_t>(mover.GetDestination());
       size_t size = mover.ActualSize();
       uint64_t src_end_addr = src_base_addr + size;
       uint64_t dst_end_addr = dst_base_addr + size;
