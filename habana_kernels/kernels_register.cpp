@@ -54,15 +54,17 @@ static CheckNodeWithSharedLayerValidator validator_matmul(
     MatmulSharedMeta,
     habana_helpers::HabanaExecutionMode::LAZY);
 
-static CheckNodeWithSharedLayerValidator validator__reshape_alias(
-    "_reshape_alias",
-    StridedViewSharedMeta,
-    habana_helpers::HabanaExecutionMode::LAZY);
+static CheckNodeWithSharedLayerValidator
+    validator__reshape_alias( // NOLINT (bugprone-reserved-identifier)
+        "_reshape_alias",
+        StridedViewSharedMeta,
+        habana_helpers::HabanaExecutionMode::LAZY);
 
-static CheckNodeWithSharedLayerValidator validator__unsafe_view(
-    "_unsafe_view",
-    StridedViewSharedMeta,
-    habana_helpers::HabanaExecutionMode::LAZY);
+static CheckNodeWithSharedLayerValidator
+    validator__unsafe_view( // NOLINT (bugprone-reserved-identifier)
+        "_unsafe_view",
+        StridedViewSharedMeta,
+        habana_helpers::HabanaExecutionMode::LAZY);
 
 static CheckNodeWithSharedLayerValidator validator_instance_norm(
     "instance_norm",

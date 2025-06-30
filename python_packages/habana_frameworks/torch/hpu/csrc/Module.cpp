@@ -155,7 +155,7 @@ PyObject* THP_HPU_Module_setStream_wrap(
 }
 
 // NOLINTNEXTLINE(*-c-arrays*, *-global-variables)
-static struct PyMethodDef _THP_HPU_Module_methods[] = {
+static struct PyMethodDef THP_HPU_Module_methods_[] = {
     {"_hpu_getCurrentStream",
      THP_HPU_Module_getCurrentStream_wrap,
      METH_O,
@@ -179,5 +179,5 @@ static struct PyMethodDef _THP_HPU_Module_methods[] = {
 };
 
 PyMethodDef* THP_HPU_Module_methods() {
-  return _THP_HPU_Module_methods;
+  return THP_HPU_Module_methods_;
 }

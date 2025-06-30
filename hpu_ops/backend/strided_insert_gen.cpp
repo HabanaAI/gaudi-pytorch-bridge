@@ -19,11 +19,11 @@ namespace sh = synapse_helpers;
 
 namespace habana {
 
-HPU_OP_BACKEND(_StridedInsert_Backend)
+HPU_OP_BACKEND(StridedInsert_Backend_)
 
-struct StridedInsert_Backend : _StridedInsert_Backend {
+struct StridedInsert_Backend : StridedInsert_Backend_ {
   StridedInsert_Backend(int device_id, c10::ScalarType scalar_type)
-      : _StridedInsert_Backend(
+      : StridedInsert_Backend_(
             device_id,
             "strided_insert",
             scalar_type,
@@ -33,7 +33,7 @@ struct StridedInsert_Backend : _StridedInsert_Backend {
             false) {}
 };
 
-void _StridedInsert_Backend::AddNode(sh::graph& graph, const at::Stack& stack) {
+void StridedInsert_Backend_::AddNode(sh::graph& graph, const at::Stack& stack) {
   PARAMS_STUB(synStridedOpParams);
   StridedInsertOperator::compute_params(*this, *params, stack, graph);
 

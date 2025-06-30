@@ -232,17 +232,17 @@ void emitDeviceMemoryAllocFailed(std::size_t size, bool is_workspace) {
 }
 
 const char* getTensorTypeName(synTensorType tp) {
-#define _N(n) \
+#define N_(n) \
   case n:     \
     return #n
 
   switch (tp) {
-    _N(DATA_TENSOR);
-    _N(SHAPE_TENSOR);
-    _N(DATA_TENSOR_DYNAMIC);
-    _N(DEVICE_SHAPE_TENSOR);
-    _N(HOST_SHAPE_TENSOR);
-    _N(HOST_TO_DEVICE_TENSOR);
+    N_(DATA_TENSOR);
+    N_(SHAPE_TENSOR);
+    N_(DATA_TENSOR_DYNAMIC);
+    N_(DEVICE_SHAPE_TENSOR);
+    N_(HOST_SHAPE_TENSOR);
+    N_(HOST_TO_DEVICE_TENSOR);
     default:
       return "other";
   }

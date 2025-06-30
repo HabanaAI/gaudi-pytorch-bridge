@@ -23,7 +23,7 @@
 #include "synapse_api.h"
 
 using namespace synapse_helpers;
-using ::testing::_;
+using ::testing::_; // NOLINT (bugprone-reserved-identifier)
 using ::testing::Return;
 
 // Mock for device_interface

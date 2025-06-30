@@ -329,8 +329,8 @@ TEST_F(LazyBinaryKernelTest, Max2DFloat) {
   // HPU Run
   at::Tensor h_output_ = at::max(h_self);
   // Compare CPU vs HPU
-  at::Tensor h_output__cpu = h_output_.to(at::device(at::kCPU));
-  EXPECT_EQ(allclose(h_output__cpu, output_, 0, 0, true), true);
+  at::Tensor h_output_cpu = h_output_.to(at::device(at::kCPU));
+  EXPECT_EQ(allclose(h_output_cpu, output_, 0, 0, true), true);
 }
 
 TEST_F(LazyBinaryKernelTest, MaxOneInput1DLong) {
@@ -344,8 +344,8 @@ TEST_F(LazyBinaryKernelTest, MaxOneInput1DLong) {
   // HPU Run
   at::Tensor h_output_ = at::max(h_self);
   // Compare CPU vs HPU
-  at::Tensor h_output__cpu = h_output_.to(at::device(at::kCPU));
-  EXPECT_EQ(allclose(h_output__cpu, output_, 0, 0, true), true);
+  at::Tensor h_output_cpu = h_output_.to(at::device(at::kCPU));
+  EXPECT_EQ(allclose(h_output_cpu, output_, 0, 0, true), true);
 }
 
 TEST_F(LazyBinaryKernelTest, MaxOneInput8DLong) {
@@ -362,8 +362,8 @@ TEST_F(LazyBinaryKernelTest, MaxOneInput8DLong) {
   // HPU Run
   at::Tensor h_output_ = at::max(h_self);
   // Compare CPU vs HPU
-  at::Tensor h_output__cpu = h_output_.to(at::device(at::kCPU));
-  EXPECT_EQ(allclose(h_output__cpu, output_, 0, 0, true), true);
+  at::Tensor h_output_cpu = h_output_.to(at::device(at::kCPU));
+  EXPECT_EQ(allclose(h_output_cpu, output_, 0, 0, true), true);
 }
 
 TEST_F(LazyBinaryKernelTest, MaxOneInput0DFloat) {
@@ -376,8 +376,8 @@ TEST_F(LazyBinaryKernelTest, MaxOneInput0DFloat) {
   // HPU Run
   at::Tensor h_output_ = at::max(h_self);
   // Compare CPU vs HPU
-  at::Tensor h_output__cpu = h_output_.to(at::device(at::kCPU));
-  EXPECT_EQ(allclose(h_output__cpu, output_, 0, 0, true), true);
+  at::Tensor h_output_cpu = h_output_.to(at::device(at::kCPU));
+  EXPECT_EQ(allclose(h_output_cpu, output_, 0, 0, true), true);
 }
 
 TEST_F(LazyBinaryKernelTest, Minimum) {
@@ -423,9 +423,9 @@ TEST_F(LazyBinaryKernelTest, MinOneInput0DFloat) {
   // HPU Run
   at::Tensor h_output_ = at::min(h_self);
   // Compare CPU vs HPU
-  at::Tensor h_output__cpu = h_output_.to(at::device(at::kCPU));
+  at::Tensor h_output_cpu = h_output_.to(at::device(at::kCPU));
 
-  EXPECT_EQ(allclose(h_output__cpu, output_, 0, 0, true), true);
+  EXPECT_EQ(allclose(h_output_cpu, output_, 0, 0, true), true);
 }
 
 TEST_F(LazyBinaryKernelTest, MinOneInput8DLong) {
@@ -442,8 +442,8 @@ TEST_F(LazyBinaryKernelTest, MinOneInput8DLong) {
   // HPU Run
   at::Tensor h_output_ = at::min(h_self);
   // Compare CPU vs HPU
-  at::Tensor h_output__cpu = h_output_.to(at::device(at::kCPU));
-  EXPECT_EQ(allclose(h_output__cpu, output_, 0, 0, true), true);
+  at::Tensor h_output_cpu = h_output_.to(at::device(at::kCPU));
+  EXPECT_EQ(allclose(h_output_cpu, output_, 0, 0, true), true);
 }
 
 TEST_F(LazyBinaryKernelTest, MinOneInput1DLong) {
@@ -457,9 +457,9 @@ TEST_F(LazyBinaryKernelTest, MinOneInput1DLong) {
   // HPU Run
   at::Tensor h_output_ = at::min(h_self);
   // Compare CPU vs HPU
-  at::Tensor h_output__cpu = h_output_.to(at::device(at::kCPU));
+  at::Tensor h_output_cpu = h_output_.to(at::device(at::kCPU));
 
-  EXPECT_EQ(allclose(h_output__cpu, output_, 0, 0, true), true);
+  EXPECT_EQ(allclose(h_output_cpu, output_, 0, 0, true), true);
 }
 
 TEST_F(LazyBinaryKernelTest, DivOut) {
