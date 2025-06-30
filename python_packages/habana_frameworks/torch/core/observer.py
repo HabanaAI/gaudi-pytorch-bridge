@@ -30,6 +30,7 @@ the values observed during calibration (PTQ) or training (QAT).
 __all__ = [
     "AbsMaxObserver",
     "SimpleAbsMaxObserver",
+    "SimplePerChannelAbsMaxObserver",
 ]
 
 logger = Logger("PT2E-QUANT CUSTOM HABANA OBSERVERS")
@@ -200,8 +201,8 @@ class AbsMaxObserver(UniformQuantizationObserverBase):
         quant_max=torch.finfo(torch.float8_e4m3fn).max,
         factory_kwargs=None,
         eps=torch.finfo(torch.float32).eps,
-        backoff_margin=0,
         is_dynamic=False,
+        backoff_margin=0,
         **kwargs,
     ) -> None:
         if dtype not in [torch.float8_e5m2, torch.float8_e4m3fn]:
@@ -249,28 +250,32 @@ class AbsMaxObserver(UniformQuantizationObserverBase):
     def calculate_qparams(self):
         r"""Calculates the quantization parameters."""
 
-        def scale_to_pow2_hw(scale):
-            scale_pow2 = 2.0 ** torch.ceil(torch.log2(scale))
-            return get_hw_aligned_scale(scale_pow2)
-
-        def calc_maxabs_scale(self):
-            min_val_neg = torch.min(self.min_val, torch.zeros_like(self.min_val))
-            max_val_pos = torch.max(self.max_val, torch.zeros_like(self.max_val))
-            max_val_pos = torch.max(-min_val_neg, max_val_pos)
-            fullscale = float(self.quant_max - self.quant_min) / 2
-            scale = torch.ones(max_val_pos.size(), dtype=torch.float32, device=self.max_val.device.type)
-            scale = max_val_pos / fullscale
-            scale_adjusted = scale * (2**self.backoff_margin)
-            scale_adjusted = torch.max(scale_adjusted, self.eps)
-            return scale, scale_adjusted
-
-        scale, scale_adjusted = calc_maxabs_scale(self)
-        if torch.hpu.is_available() and self.dtype == torch.float8_e4m3fn:
-            scale_adjusted = scale_to_pow2_hw(scale_adjusted)
-        logger.debug(f"old_scale = {scale.item()}, new_scale = {scale_adjusted.item()}")
-        scale = scale_adjusted
-
+        scale = torch.ones(self.max_val.size(), dtype=torch.float32, device=self.max_val.device.type)
         zero_point = torch.zeros(self.max_val.size(), dtype=torch.int64, device=self.max_val.device.type)
+
+        assert self.max_val.numel() == self.min_val.numel()
+
+        if self.max_val.numel() != 0:
+
+            def scale_to_pow2_hw(scale):
+                scale_pow2 = 2.0 ** torch.ceil(torch.log2(scale))
+                return get_hw_aligned_scale(scale_pow2)
+
+            def calc_maxabs_scale(self):
+                min_val_neg = torch.min(self.min_val, torch.zeros_like(self.min_val))
+                max_val_pos = torch.max(self.max_val, torch.zeros_like(self.max_val))
+                max_val_pos = torch.max(-min_val_neg, max_val_pos)
+                fullscale = float(self.quant_max - self.quant_min) / 2
+                scale = max_val_pos / fullscale
+                scale_adjusted = scale * (2**self.backoff_margin)
+                scale_adjusted = torch.max(scale_adjusted, self.eps)
+                return scale, scale_adjusted
+
+            scale, scale_adjusted = calc_maxabs_scale(self)
+            if torch.hpu.is_available() and self.dtype == torch.float8_e4m3fn:
+                scale_adjusted = scale_to_pow2_hw(scale_adjusted)
+            logger.debug(f"old_scale = {scale.item()}, new_scale = {scale_adjusted.item()}")
+            scale = scale_adjusted
 
         return scale, zero_point
 
@@ -339,8 +344,8 @@ class SimpleAbsMaxObserver(UniformQuantizationObserverBase):
         quant_max=torch.finfo(torch.float8_e4m3fn).max,
         factory_kwargs=None,
         eps=torch.finfo(torch.float32).eps,
-        backoff_margin=0,
         is_dynamic=False,
+        backoff_margin=0,
         **kwargs,
     ) -> None:
         if dtype not in [torch.float8_e5m2, torch.float8_e4m3fn]:
@@ -387,33 +392,36 @@ class SimpleAbsMaxObserver(UniformQuantizationObserverBase):
     def calculate_qparams(self):
         r"""Calculates the quantization parameters."""
 
-        def scale_to_pow2_hw(scale):
-            scale_pow2 = 2.0 ** torch.ceil(torch.log2(scale))
-            return get_hw_aligned_scale(scale_pow2)
-
-        def calc_maxabs_scale(self):
-            fullscale = float(self.quant_max)
-            scale = torch.ones(
-                self.abs_max_val.size(),
-                dtype=torch.float32,
-                device=self.abs_max_val.device.type,
-            )
-            scale = self.abs_max_val / fullscale
-            scale_adjusted = scale * (2**self.backoff_margin)
-            scale_adjusted = torch.max(scale_adjusted, self.eps)
-            return scale, scale_adjusted
-
-        scale, scale_adjusted = calc_maxabs_scale(self)
-        if torch.hpu.is_available() and self.dtype == torch.float8_e4m3fn:
-            scale_adjusted = scale_to_pow2_hw(scale_adjusted)
-        logger.debug(f"old_scale = {scale.item()}, new_scale = {scale_adjusted.item()}")
-        scale = scale_adjusted
+        scale = torch.ones(
+            self.abs_max_val.size(),
+            dtype=torch.float32,
+            device=self.abs_max_val.device.type,
+        )
 
         zero_point = torch.zeros(
             self.abs_max_val.size(),
             dtype=torch.int64,
             device=self.abs_max_val.device.type,
         )
+
+        if self.abs_max_val.numel() != 0:
+
+            def scale_to_pow2_hw(scale):
+                scale_pow2 = 2.0 ** torch.ceil(torch.log2(scale))
+                return get_hw_aligned_scale(scale_pow2)
+
+            def calc_maxabs_scale(self):
+                fullscale = float(self.quant_max)
+                scale = self.abs_max_val / fullscale
+                scale_adjusted = scale * (2**self.backoff_margin)
+                scale_adjusted = torch.max(scale_adjusted, self.eps)
+                return scale, scale_adjusted
+
+            scale, scale_adjusted = calc_maxabs_scale(self)
+            if torch.hpu.is_available() and self.dtype == torch.float8_e4m3fn:
+                scale_adjusted = scale_to_pow2_hw(scale_adjusted)
+            logger.debug(f"old_scale = {scale.item()}, new_scale = {scale_adjusted.item()}")
+            scale = scale_adjusted
 
         return scale, zero_point
 
@@ -425,3 +433,159 @@ class SimpleAbsMaxObserver(UniformQuantizationObserverBase):
     def reset_observer_state(self):
         """Resets the absolute max values."""
         self.abs_max_val.copy_(torch.tensor(float("-inf")))
+
+
+class SimplePerChannelAbsMaxObserver(UniformQuantizationObserverBase):
+    """Habana's custom observer module for computing per channel quantization parameters
+    based on the running per channel absolute max values. This observer can be used in
+    case per tensor symmetric quantization with fp8 quantized data-type is insufficient
+    to meet the accuracy need.
+
+    Args:
+        `ch_axis`: Channel axis
+        `dtype`: Quantized data-type to be used [supported: float8_e4m3fn, float8_e5m2]
+        `qscheme`: Quantization scheme to be used [supported: per channel symmetric]
+        `reduce_range`: Reduces the range of the quantized data type by 1 bit [Not yet supported]
+        `quant_min`: Minimum quantization value possible. Must be specified.
+        `quant_max`: Maximum quantization value possible. Must be specified.
+        `eps`: Epsilon value for float32, Defaults to `torch.finfo(torch.float32).eps`.
+        `backoff_margin`: Backoff margin used in scale calculation, default value is 0.
+        `is_dynamic`: If QuantType is DYNAMIC or not. [supported: False]
+
+    The quantization parameters are computed the same way as in
+    :class:`habana_frameworks.torch.core.observer.SimpleAbsMaxObserver`
+    with the difference that the running absolute max values are stored
+    per channel. Scales and zero points are thus computed per channel as well.
+
+    .. note:: By default, the scales and zero_points are set to 1.0 and 0.
+    """
+
+    abs_max_val: torch.Tensor
+    backoff_margin: torch.float32
+
+    def __init__(
+        self,
+        ch_axis=0,
+        dtype=torch.float8_e4m3fn,
+        qscheme=torch.per_channel_symmetric,
+        reduce_range=False,
+        quant_min=torch.finfo(torch.float8_e4m3fn).min,
+        quant_max=torch.finfo(torch.float8_e4m3fn).max,
+        factory_kwargs=None,
+        eps=torch.finfo(torch.float32).eps,
+        is_dynamic=False,
+        backoff_margin=0,
+        **kwargs,
+    ) -> None:
+        if dtype not in [torch.float8_e5m2, torch.float8_e4m3fn]:
+            raise NotImplementedError(
+                "SimplePerChannelAbsMaxObserver: dtype only supports torch.float8_e5m2 and torch.float8_e4m3fn."
+            )
+        if qscheme != torch.per_channel_symmetric:
+            raise NotImplementedError(
+                "SimplePerChannelAbsMaxObserver: qscheme only supports torch.per_channel_symmetric."
+            )
+        if reduce_range:
+            raise NotImplementedError("SimplePerChannelAbsMaxObserver: reduce_range is not supported.")
+        if is_dynamic:
+            raise NotImplementedError("SimplePerChannelAbsMaxObserver: dynamic quantization is not supported.")
+
+        assert quant_min == -quant_max
+
+        super().__init__(
+            dtype=dtype,
+            qscheme=qscheme,
+            reduce_range=reduce_range,
+            quant_min=quant_min,
+            quant_max=quant_max,
+            factory_kwargs=factory_kwargs,
+            eps=eps,
+            is_dynamic=is_dynamic,
+            **kwargs,
+        )
+
+        factory_kwargs = torch.nn.factory_kwargs(factory_kwargs)
+        self.ch_axis = ch_axis
+        self.register_buffer("abs_max_val", torch.tensor([], **factory_kwargs))
+        self.backoff_margin = backoff_margin
+
+    def forward(self, x_orig):
+        r"""Records the running per channel absolute maximum of ``x``."""
+        if x_orig.numel() == 0:
+            return x_orig
+        x = x_orig.detach()  # avoid keeping autograd tape
+
+        abs_max_val = self.abs_max_val
+
+        if self.ch_axis != 0:
+            new_axis_list = list(range(x.ndim))
+            new_axis_list[self.ch_axis] = 0
+            new_axis_list[0] = self.ch_axis
+            x = x.permute(new_axis_list)
+
+        # Need to match dtype of absolute max because the updates to buffers
+        # are done in place and types need to match for comparisons
+        x = x.to(self.abs_max_val.dtype)
+        x = torch.flatten(x, start_dim=1)
+
+        if abs_max_val.numel() == 0:
+            abs_max_val = torch.amax(torch.abs(x), dim=1)
+            self.abs_max_val.resize_(abs_max_val.shape)
+        else:
+            abs_max_val_cur = torch.amax(torch.abs(x), dim=1)
+            abs_max_val = torch.max(abs_max_val_cur, self.abs_max_val)
+
+        self.abs_max_val.copy_(abs_max_val)
+        return x_orig
+
+    @torch.jit.export
+    def calculate_qparams(self):
+        r"""Calculates the quantization parameters."""
+
+        scale = torch.ones(
+            self.abs_max_val.size(),
+            dtype=torch.float32,
+            device=self.abs_max_val.device.type,
+        )
+
+        # Note: For now, it's sufficient to use int32 data type,
+        # as symmetric quantization implies zero_point at zero.
+        # If we use int64 data type, we may see synapse compilation
+        # error. This will be debugged and fixed as and when needed.
+        zero_point = torch.zeros(
+            self.abs_max_val.size(),
+            dtype=torch.int32,
+            device=self.abs_max_val.device.type,
+        )
+
+        if self.abs_max_val.numel() != 0:
+
+            def scale_to_pow2_hw(scale):
+                scale_pow2 = 2.0 ** torch.ceil(torch.log2(scale))
+                return get_hw_aligned_scale(scale_pow2)
+
+            def calc_maxabs_scale(self):
+                fullscale = float(self.quant_max)
+                scale = self.abs_max_val / fullscale
+                scale_adjusted = scale * (2**self.backoff_margin)
+                scale_adjusted = torch.max(scale_adjusted, self.eps)
+                return scale, scale_adjusted
+
+            scale, scale_adjusted = calc_maxabs_scale(self)
+            if torch.hpu.is_available() and self.dtype == torch.float8_e4m3fn:
+                scale_adjusted = scale_to_pow2_hw(scale_adjusted)
+            logger.debug(f"old_scale = {scale}, new_scale = {scale_adjusted}")
+            scale = scale_adjusted
+
+        return scale, zero_point
+
+    @torch.jit.export
+    def extra_repr(self):
+        return f"abs_max_val={self.abs_max_val}"
+
+    @torch.jit.export
+    def reset_observer_state(self):
+        """Resets the absolute max values."""
+        self.abs_max_val = torch.rand(
+            0,
+        )

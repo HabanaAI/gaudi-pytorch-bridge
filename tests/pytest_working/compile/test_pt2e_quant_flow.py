@@ -236,6 +236,7 @@ def use_pt2e_quant_flow(
     expected_op_count,
     use_graph_break,
     pass_input_during_export,
+    weight_qscheme,
 ):
     # Stabilizing testing.
     torch.manual_seed(0xDEADDEAD)
@@ -294,7 +295,7 @@ def use_pt2e_quant_flow(
             calibrate_result = model(*example_inputs0)
             calibrate_result = model(*example_inputs1)
 
-        if use_graph_break:
+        if use_graph_break and weight_qscheme == "ptq":
             verify_nodes(fga.get_ops_summary(), expected_op_count["after_prepare_pt2e"])
 
         with FxGraphAnalyzer(reset_dynamo=False) as fga:
@@ -312,7 +313,8 @@ def use_pt2e_quant_flow(
                 if bc.get_pt_hpu_pt2eq_fx_graph_pattern_matching()
                 else expected_op_count["after_convert_pt2e"]
             )
-            verify_nodes(fga.get_ops_summary(), expected_op_count_dict)
+            if weight_qscheme == "ptq":
+                verify_nodes(fga.get_ops_summary(), expected_op_count_dict)
             assert torch.allclose(
                 cpu_result2[0].float(),
                 hpu_result2[0].to(CPU).float(),
@@ -333,18 +335,20 @@ def use_pt2e_quant_flow(
 @pytest.mark.parametrize("quant_dtype", quant_float_dtype_list_extended)
 @pytest.mark.parametrize("use_graph_break", [False, True])
 @pytest.mark.parametrize("pass_input_during_export", [False, True])
+@pytest.mark.parametrize("weight_qscheme", ["ptq", "pcq"])
 def test_pt2e_quant_float(
     test_case,
     quant_dtype,
     use_graph_break,
     pass_input_during_export,
+    weight_qscheme,
     inference_env_fixture,
 ):
     with (
         bc.env_setting("PT_HPU_PT2EQ_FX_GRAPH_PATTERN_MATCHING", True),
         bc.env_setting("PT_HPU_PT2EQ_FX_GRAPH_FREEZING", False),
     ):
-        quant_config = habana_quant_config_symmetric(quant_dtype)
+        quant_config = habana_quant_config_symmetric(quant_dtype, weight_qscheme)
         quantizer = custom_quantizer(quant_config)
 
         expected_op_count = {
@@ -381,6 +385,7 @@ def test_pt2e_quant_float(
             expected_op_count,
             use_graph_break,
             pass_input_during_export,
+            weight_qscheme,
         )
 
 

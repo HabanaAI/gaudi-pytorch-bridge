@@ -916,6 +916,12 @@ PT_HPU_PT2EQ_KVCQ:
   settable: true
   doc: "This flag enable KVCache quantization and KV cache pattern matching in PT2E quant backend."
 
+PT_HPU_PT2EQ_USE_WEIGHT_PCQ:
+  type: bool
+  default: false
+  settable: true
+  doc: "This flag enable PCQ Weight quantization in PT2E quant backend."
+
 PT_HPU_PRINT_DEVICE_CONFIG:
   type: bool
   default: false

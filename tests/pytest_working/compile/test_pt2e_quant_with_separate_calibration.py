@@ -48,11 +48,16 @@ from torch.ao.quantization.quantizer.xnnpack_quantizer_utils import (
     QuantizationConfig,
 )
 
-test_mode = ["save", "load"]
-
 
 def use_pt2e_quant_flow_with_separate_calibration(
-    test_case, quant_dtype, quantizer, expected_op_count, use_graph_break, pass_input_during_export, save_or_load="save"
+    test_case,
+    quant_dtype,
+    weight_qscheme,
+    quantizer,
+    expected_op_count,
+    use_graph_break,
+    pass_input_during_export,
+    save_or_load="save",
 ):
     # Stabilizing testing.
     torch.manual_seed(0xDEADDEAD)
@@ -110,7 +115,7 @@ def use_pt2e_quant_flow_with_separate_calibration(
                 calibrate_result = model(*example_inputs0)
                 calibrate_result = model(*example_inputs1)
 
-            if use_graph_break:
+            if use_graph_break and weight_qscheme == "ptq":
                 verify_nodes(fga.get_ops_summary(), expected_op_count["after_prepare_pt2e"])
 
             with FxGraphAnalyzer(reset_dynamo=False) as fga:
@@ -158,20 +163,23 @@ def use_pt2e_quant_flow_with_separate_calibration(
             pass
 
         if use_graph_break:
-            verify_nodes(fga.get_ops_summary(), expected_op_count["after_convert_pt2e"])
+            if weight_qscheme == "ptq":
+                verify_nodes(fga.get_ops_summary(), expected_op_count["after_convert_pt2e"])
             assert torch.allclose(cpu_result2[0].float(), hpu_result2[0].to(CPU).float(), rtol=1e-2, atol=1e-2)
         else:
             assert torch.allclose(cpu_result2[0].float(), hpu_result2[0].to(CPU).float(), rtol=2e-2, atol=2e-2)
 
 
 @pytest.mark.skipif(is_gaudi1(), reason="skip pt2e-quant feature testing on gaudi1")
-@pytest.mark.parametrize("save_or_load", test_mode)
+@pytest.mark.parametrize("save_or_load", ["save", "load"])
+@pytest.mark.parametrize("weight_qscheme", ["ptq", "pcq"])
 @pytest.mark.parametrize("test_case", test_case_list)
 @pytest.mark.parametrize("quant_dtype", quant_float_dtype_list)
 @pytest.mark.parametrize("use_graph_break", [True])
 @pytest.mark.parametrize("pass_input_during_export", [True, False])
 def test_pt2e_quant_float(
     test_case,
+    weight_qscheme,
     quant_dtype,
     use_graph_break,
     pass_input_during_export,
@@ -182,7 +190,7 @@ def test_pt2e_quant_float(
         pytest.skip(reason="SW-203403: Enable it once FP8 data type is added at torch.export serialization")
 
     quantizer = habana_quantizer()
-    quant_config = habana_quant_config_symmetric(quant_dtype)
+    quant_config = habana_quant_config_symmetric(quant_dtype, weight_qscheme)
     quantizer.set_global(quant_config)
 
     expected_op_count = {
@@ -210,6 +218,7 @@ def test_pt2e_quant_float(
     use_pt2e_quant_flow_with_separate_calibration(
         test_case,
         quant_dtype,
+        weight_qscheme,
         quantizer,
         expected_op_count,
         use_graph_break,

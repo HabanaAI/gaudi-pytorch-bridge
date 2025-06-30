@@ -949,6 +949,7 @@ def dump_scale(module: torch.fx.GraphModule, save_to_file: bool, extra_file: str
         "Nodes": {},
     }
 
+    module_params = module.state_dict()
     with torch.no_grad():
         for node in graph.nodes:
             dump_info = []
@@ -966,9 +967,17 @@ def dump_scale(module: torch.fx.GraphModule, save_to_file: bool, extra_file: str
                     if weight_transpose_node and is_node(weight_transpose_node.args[0], "dequantize_per_tensor.default")
                     else None
                 )
+                # Try dequantize_per_channel for weights, if dequantize_per_tensor for weights is None
                 if not weight_dequant_node:
-                    logger.debug("dump_scale: Weight pattern match failed")
-                    continue
+                    weight_dequant_node = (
+                        weight_transpose_node.args[0]
+                        if weight_transpose_node
+                        and is_node(weight_transpose_node.args[0], "dequantize_per_channel.default")
+                        else None
+                    )
+                    if not weight_dequant_node:
+                        logger.debug("dump_scale: Weight pattern match failed")
+                        continue
                 weight_quant_node = weight_dequant_node.args[0]
                 input_dequant_node = None
                 input_view_node = (
@@ -983,13 +992,17 @@ def dump_scale(module: torch.fx.GraphModule, save_to_file: bool, extra_file: str
                     continue
                 input_quant_node = input_dequant_node.args[0]
                 dump_input_scale_attr = torch.tensor(input_quant_node.args[1], device="hpu")
-                dump_weight_scale_attr = torch.tensor(weight_quant_node.args[1], device="hpu")
-                dump_info = [dump_input_scale_attr, dump_weight_scale_attr]
+                if is_node(weight_quant_node, "quantize_per_tensor.default"):
+                    dump_weight_scale = torch.tensor(weight_quant_node.args[1], device="hpu").item()
+                else:
+                    # get dequantize_per_channel values from model param
+                    dump_weight_scale = module_params[weight_quant_node.args[1].name].tolist()
+                dump_info = [dump_input_scale_attr.item(), dump_weight_scale]
                 dump_key = list(nn_module_stack.values())[-1][0]
                 dump_key = convert_to_module_name(dump_key)
                 dump_json_output["Nodes"][dump_key] = {
-                    "inputs": [dump_info[0].item()],
-                    "params": {"weight": dump_info[1].item()},
+                    "inputs": [dump_info[0]],
+                    "params": {"weight": dump_info[1]},
                 }
             if is_node(node, "bmm.default"):
                 input0_dequant_node = get_dequant_node(node.args[0])
@@ -1152,6 +1165,7 @@ def load_scale(module: torch.fx.GraphModule, scale_info_json=None, extra_file: s
             scale_info_json = json.load(file)
 
     count = 0
+    module_params = module.state_dict()
     with torch.no_grad():
         for node in graph.nodes:
             if is_node(node, "bmm.default"):
@@ -1236,11 +1250,17 @@ def load_scale(module: torch.fx.GraphModule, scale_info_json=None, extra_file: s
                     if weight_transpose_node and is_node(weight_transpose_node.args[0], "dequantize_per_tensor.default")
                     else None
                 )
-
+                # Try dequantize_per_channel for weights, if dequantize_per_tensor for weights is None
                 if not weight_dequant_node:
-                    logger.debug("load_scale: Weight pattern match failed")
-                    continue
-
+                    weight_dequant_node = (
+                        weight_transpose_node.args[0]
+                        if weight_transpose_node
+                        and is_node(weight_transpose_node.args[0], "dequantize_per_channel.default")
+                        else None
+                    )
+                    if not weight_dequant_node:
+                        logger.debug("load_scale: Weight pattern match failed")
+                        continue
                 weight_quant_node = weight_dequant_node.args[0]
 
                 input_dequant_node = None
@@ -1257,22 +1277,44 @@ def load_scale(module: torch.fx.GraphModule, scale_info_json=None, extra_file: s
                     continue
 
                 count = count + 1
-                input_quant_node = input_dequant_node.args[0]
                 nn_module_stack = node.meta.get("nn_module_stack", None)
                 module_name = list(nn_module_stack.values())[-1][0]
                 module_name = convert_to_module_name(module_name)
+                if is_node(weight_quant_node, "quantize_per_tensor.default"):
+                    weight_quant_node_args = list(weight_quant_node.args)
+                    weight_quant_node_args[1] = scale_info_json["Nodes"][module_name]["params"]["weight"]
+                    weight_quant_node.args = tuple(weight_quant_node_args)
+                    weight_dequant_node_args = list(weight_dequant_node.args)
+                    weight_dequant_node_args[1] = scale_info_json["Nodes"][module_name]["params"]["weight"]
+                    weight_dequant_node.args = tuple(weight_dequant_node_args)
+                else:
+                    # get dequantize_per_channel values and update module params
+                    scales_list = scale_info_json["Nodes"][module_name]["params"]["weight"]
+                    scales_tensor = torch.tensor(scales_list, device="hpu")
+                    offsets_tensor = torch.zeros_like(scales_tensor, device="hpu")
+                    module_params[weight_quant_node.args[1].name] = scales_tensor
+                    module_params[weight_quant_node.args[2].name] = offsets_tensor
+
+                    with module.graph.inserting_before(weight_quant_node):
+                        scales_attr_name = weight_quant_node.args[1].name + str(count)
+                        setattr(module, scales_attr_name, torch.nn.parameter.Parameter(scales_tensor.detach()))
+                        new_scales_attr_node = module.graph.create_node("get_attr", scales_attr_name)
+                        weight_quant_node.replace_input_with(weight_quant_node.args[1], new_scales_attr_node)
+                        weight_dequant_node.replace_input_with(weight_dequant_node.args[1], new_scales_attr_node)
+
+                        offsets_attr_name = weight_quant_node.args[2].name + str(count)
+                        setattr(module, offsets_attr_name, torch.nn.parameter.Parameter(offsets_tensor.detach()))
+                        new_offsets_attr_node = module.graph.create_node("get_attr", offsets_attr_name)
+                        weight_quant_node.replace_input_with(weight_quant_node.args[2], new_offsets_attr_node)
+                        weight_dequant_node.replace_input_with(weight_dequant_node.args[2], new_offsets_attr_node)
+
+                input_quant_node = input_dequant_node.args[0]
                 input_quant_node_args = list(input_quant_node.args)
-                weight_quant_node_args = list(weight_quant_node.args)
                 input_quant_node_args[1] = scale_info_json["Nodes"][module_name]["inputs"][0]
-                weight_quant_node_args[1] = scale_info_json["Nodes"][module_name]["params"]["weight"]
                 input_quant_node.args = tuple(input_quant_node_args)
-                weight_quant_node.args = tuple(weight_quant_node_args)
                 input_dequant_node_args = list(input_dequant_node.args)
                 input_dequant_node_args[1] = scale_info_json["Nodes"][module_name]["inputs"][0]
                 input_dequant_node.args = tuple(input_dequant_node_args)
-                weight_dequant_node_args = list(weight_dequant_node.args)
-                weight_dequant_node_args[1] = scale_info_json["Nodes"][module_name]["params"]["weight"]
-                weight_dequant_node.args = tuple(weight_dequant_node_args)
             if is_node(node, "full.default"):
                 logger.debug(f"Found full.default node: {node.name}")
                 from .quantize_kvcache import search_node

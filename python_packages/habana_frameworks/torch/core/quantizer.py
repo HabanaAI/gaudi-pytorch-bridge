@@ -30,7 +30,7 @@ from typing import Any
 
 import habana_frameworks.torch.internal.bridge_config as bc
 from habana_frameworks.torch import hpu
-from habana_frameworks.torch.core.observer import AbsMaxObserver
+from habana_frameworks.torch.core.observer import AbsMaxObserver, SimplePerChannelAbsMaxObserver
 from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
 
 import torch
@@ -455,8 +455,10 @@ class habana_quantizer(Quantizer):
 # ======================================================================================
 # Habana Quant Config definition
 # ======================================================================================
-def habana_quant_config_symmetric(quant_dtype):
-    logger.debug(f"habana_quant_config_symmetric: quantizer dtype is {quant_dtype}")
+def habana_quant_config_symmetric(quant_dtype, weight_qscheme="ptq"):
+    logger.debug(
+        f"habana_quant_config_symmetric: quantized data type is {quant_dtype}, weight quant scheme is {weight_qscheme}"
+    )
     quant_min, quant_max = QUANTIZER_MIN_MAX[quant_dtype]
 
     act_observer_or_fake_quant_ctr: _ObserverOrFakeQuantizeConstructor = AbsMaxObserver
@@ -471,12 +473,18 @@ def habana_quant_config_symmetric(quant_dtype):
     )
 
     weight_observer_or_fake_quant_ctr: _ObserverOrFakeQuantizeConstructor = AbsMaxObserver
+    qscheme = torch.per_tensor_symmetric
+
+    if weight_qscheme == "pcq" or bc.get_pt_hpu_pt2eq_use_weight_pcq():
+        weight_observer_or_fake_quant_ctr: _ObserverOrFakeQuantizeConstructor = SimplePerChannelAbsMaxObserver
+        qscheme = torch.per_channel_symmetric
+
     weight_observer_or_fake_quant_args = extra_args_weight.get("for_observer").copy()
     weight_quantization_spec = QuantizationSpec(
         dtype=quant_dtype,
         quant_min=quant_min,
         quant_max=quant_max,
-        qscheme=torch.per_tensor_symmetric,
+        qscheme=qscheme,
         ch_axis=0,
         is_dynamic=False,
         observer_or_fake_quant_ctr=weight_observer_or_fake_quant_ctr.with_args(**weight_observer_or_fake_quant_args),
