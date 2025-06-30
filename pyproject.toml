@@ -64,7 +64,6 @@ ignore = [
    "S101",
    "S110",
    "S307",
-   "S603",
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -85,6 +84,7 @@ ignore = [
 "*tests/*" = [
     "S108",
     "S311",
+    "S603",
 ]
 "*passes.py" = [
     "S105",

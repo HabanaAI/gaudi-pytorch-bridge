@@ -81,7 +81,7 @@ def is_habana_available():
         # Workaround to mitigate hl-smi usage on simulators
         if os.environ.get("ENABLE_EXEUTION_ON_GAUDI_SIM") in ["true", "True", "1"]:
             print("Enabling Gaudi Simulator As Habana Device !!")
-            p = subprocess.Popen(["pgrep", "coral"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)  # noqa S607
+            p = subprocess.Popen(["pgrep", "coral"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)  # noqa S603 # noqa S607
             num_cards = sum(1 for _ in p.stdout)
             if num_cards >= 1:
                 status = True

@@ -380,13 +380,9 @@ def _is_simulator():
     status = False
     if os.path.exists("/sys/class/accel/accel0/device/device_type"):
         # Importing subprocess is safe here as we control the command execution.
-        import subprocess  # nosec B404
 
-        out = subprocess.Popen(
-            ["cat", "/sys/class/accel/accel0/device/device_type"],  # noqa S607
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-        )
+        with open("/sys/class/accel/accel0/device/device_type") as f:
+            out = f.read()
         stdout, _ = out.communicate()
         status = "SIM".lower() in str(stdout).lower()
     return status
