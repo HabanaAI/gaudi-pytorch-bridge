@@ -8984,6 +8984,54 @@ mixture_of_experts_recomp_bwd.fp8_fused:
   namespaces: [torch.hpu]
   skip_slrg: true
 
+mixture_of_experts_fwd.fp8:
+  custom_op_schema: "hpu::mixture_of_experts_fwd.fp8(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, *, Tensor[] d_scale_hidden_states, Tensor[] d_scale_intermediate_hidden_states, Tensor[] d_scale_w1, Tensor[] d_scale_w2, Tensor[] d_scale_w3, bool permuted_weights=False, str activation='silu', int experts_min=0, int experts_max=8, bool scaled_swiglu=False, bool hybrid_mode=False, bool is_first_amax=False, bool is_second_amax=False) -> Tensor[]"
+  custom_fill_params: FillMixtureOfExpertsFwdFp8Params
+  op_backend: MixtureOfExpertsFwdFp8
+  guid: moe_v2_fwd
+  output_meta: MixtureOfExpertsFwdFp8Meta
+  out_ids: [0]
+  frontend_blocklist: [lazy, eager]
+  op_validator_exception: custom_op
+  namespaces: [torch.hpu]
+  skip_slrg: true
+
+mixture_of_experts_bwd.fp8:
+  custom_op_schema: "hpu::mixture_of_experts_bwd.fp8(Tensor grad_tokens_in, Tensor chunks_input, Tensor token_to_chunk, Tensor token_in_chunk, Tensor chunks_routing_table, Tensor chunks_routing_weights, Tensor gemm1_out, Tensor gemm2_out, Tensor activation_out, Tensor mult_out, Tensor mlp_out, Tensor[] w1, Tensor[] w2, Tensor[] w3, *, Tensor[] d_scale_hidden_states, Tensor[] d_scale_intermediate_hidden_states, Tensor[] d_scale_w1, Tensor[] d_scale_w2, Tensor[] d_scale_w3, Tensor[] d_scale_mult_grad, Tensor[] d_scale_activation_grad, Tensor[] d_scale_second_gemm_grad, bool permuted_weights=False, str activation='silu', int experts_min=0, int experts_max=8, int[] router_weights_size=[], bool scaled_swiglu=False, bool hybrid_mode=False, bool is_first_amax=False, bool is_second_amax=False) -> Tensor[]"
+  custom_fill_params: FillMixtureOfExpertsBwdFp8Params
+  op_backend: MixtureOfExpertsBwdFp8
+  guid: moe_v2_bwd
+  output_meta: MixtureOfExpertsBwdFp8Meta
+  out_ids: [0]
+  frontend_blocklist: [lazy, eager]
+  op_validator_exception: custom_op
+  namespaces: [torch.hpu]
+  skip_slrg: true
+
+mixture_of_experts_recomp_fwd.fp8:
+  custom_op_schema: "hpu::mixture_of_experts_recomp_fwd.fp8(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, *, Tensor[] d_scale_hidden_states, Tensor[] d_scale_intermediate_hidden_states, Tensor[] d_scale_w1, Tensor[] d_scale_w2, Tensor[] d_scale_w3, bool permuted_weights=False, str activation='silu', int experts_min=0, int experts_max=8, bool scaled_swiglu=False, bool hybrid_mode=False, bool is_first_amax=False, bool is_second_amax=False) -> Tensor[]"
+  custom_fill_params: FillMixtureOfExpertsFwdFp8Params
+  op_backend: MixtureOfExpertsRecompFwdFp8
+  guid: moe_fwd
+  output_meta: MixtureOfExpertsRecompFwdFp8Meta
+  out_ids: [0]
+  frontend_blocklist: [lazy, eager]
+  op_validator_exception: custom_op
+  namespaces: [torch.hpu]
+  skip_slrg: true
+
+mixture_of_experts_recomp_bwd.fp8:
+  custom_op_schema: "hpu::mixture_of_experts_recomp_bwd.fp8(Tensor grad_tokens_in, Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, *, Tensor[] d_scale_hidden_states, Tensor[] d_scale_intermediate_hidden_states, Tensor[] d_scale_w1, Tensor[] d_scale_w2, Tensor[] d_scale_w3, Tensor[] d_scale_mult_grad, Tensor[] d_scale_activation_grad, Tensor[] d_scale_second_gemm_grad, bool permuted_weights=False, str activation='silu', int experts_min=0, int experts_max=8, bool scaled_swiglu=False, bool hybrid_mode=False, bool is_first_amax=False, bool is_second_amax=False) -> Tensor[]"
+  custom_fill_params: FillMixtureOfExpertsBwdFp8Params
+  op_backend: MixtureOfExpertsRecompBwdFp8
+  guid: moe_recomp_v2_bwd
+  output_meta: MixtureOfExpertsBwdFp8Meta
+  out_ids: [0]
+  frontend_blocklist: [lazy, eager]
+  op_validator_exception: custom_op
+  namespaces: [torch.hpu]
+  skip_slrg: true
+
 mixture_of_experts_bwd:
   custom_op_schema: "hpu::mixture_of_experts_bwd(Tensor grad_tokens_in, Tensor chunks_input, Tensor token_to_chunk, Tensor token_in_chunk, Tensor chunks_routing_table, Tensor chunks_routing_weights, Tensor gemm1_out, Tensor gemm2_out, Tensor activation_out, Tensor mult_out, Tensor mlp_out, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, int[] router_weights_size) -> Tensor[]"
   output_meta: MixtureOfExpertsBwdMeta

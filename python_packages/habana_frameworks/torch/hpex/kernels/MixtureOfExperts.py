@@ -15,7 +15,6 @@
 #
 ###############################################################################
 
-import habana_frameworks.torch.core as htcore
 import habana_frameworks.torch.utils.experimental as htexp
 
 import torch
@@ -198,7 +197,7 @@ def mixture_of_experts_fwd_fp8_wrapper(
     op = torch.ops.hpu.mixture_of_experts_recomp_fwd if recomp else torch.ops.hpu.mixture_of_experts_fwd
     results = op(hidden_states, expert_routing_table, router_weights, **kwargs)
 
-    amax_tensors = is_first_amax + is_second_amax
+    amax_tensors = int(is_first_amax) + int(is_second_amax)
     first_amax_fwd = None
     second_amax_fwd = None
     if is_first_amax and is_second_amax:
@@ -243,6 +242,9 @@ def mixture_of_experts_fwd_fp8_wrapper(
 def mixture_of_experts_bwd_fp8_wrapper(
     ctx,
     grad_output: torch.Tensor,
+    *,
+    d_scale_mult_grad: list[torch.Tensor] | None = None,
+    d_scale_activation_grad: list[torch.Tensor] | None = None,
     d_scale_first_gemm_grad: list[torch.Tensor] | None = None,
     d_scale_second_gemm_grad: list[torch.Tensor] | None = None,
 ):
@@ -261,9 +263,14 @@ def mixture_of_experts_bwd_fp8_wrapper(
         "hybrid_mode": ctx.hybrid_mode,
         "is_first_amax": is_first_amax,
         "is_second_amax": is_second_amax,
-        "d_scale_first_gemm_grad": d_scale_first_gemm_grad,
         "d_scale_second_gemm_grad": d_scale_second_gemm_grad,
     }
+    if is_fused:
+        kwargs["d_scale_first_gemm_grad"] = d_scale_first_gemm_grad
+    else:
+        kwargs["d_scale_mult_grad"] = d_scale_mult_grad
+        kwargs["d_scale_activation_grad"] = d_scale_activation_grad
+
     if not recomp:
         kwargs["router_weights_size"] = ctx.router_weights_size
 
@@ -291,24 +298,29 @@ def mixture_of_experts_bwd_fp8_wrapper(
         current_index = _update_kwargs_with_list("d_scale_w2", current_index)
     current_index = _update_kwargs_with_list("d_scale_w3", current_index)
 
-    htcore.step_closure._mark_step_if_lazy()
     op = torch.ops.hpu.mixture_of_experts_recomp_bwd if recomp else torch.ops.hpu.mixture_of_experts_bwd
     moe_bwd_output = op(grad_output, *args, **kwargs)
-    htcore.step_closure._mark_step_if_lazy()
 
     first_amax_bwd = None
     second_amax_bwd = None
     if is_first_amax and is_second_amax:
-        first_amax_bwd = moe_bwd_output[2]
-        second_amax_bwd = moe_bwd_output[3]
+        if ctx.is_fused:
+            first_amax_bwd = moe_bwd_output[2]
+            second_amax_bwd = moe_bwd_output[3]
+        else:
+            first_amax_bwd = moe_bwd_output[2], moe_bwd_output[3]
+            second_amax_bwd = moe_bwd_output[4]
     elif is_first_amax:
-        first_amax_bwd = moe_bwd_output[2]
+        if ctx.is_fused:
+            first_amax_bwd = moe_bwd_output[2]
+        else:
+            first_amax_bwd = moe_bwd_output[2], moe_bwd_output[3]
     elif is_second_amax:
         second_amax_bwd = moe_bwd_output[2]
 
     gradients = [moe_bwd_output[0], moe_bwd_output[1]]
 
-    current_index = 2 + is_first_amax + is_second_amax
+    current_index = 2 + (2 - int(ctx.is_fused)) * int(is_first_amax) + int(is_second_amax)
 
     def _add_gradients(current_index):
         gradients.extend(moe_bwd_output[current_index : current_index + experts_num])

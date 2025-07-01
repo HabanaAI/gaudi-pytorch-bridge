@@ -2103,6 +2103,14 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl(
       "hpu::mixture_of_experts_recomp_bwd.fp8_fused",
       mixture_of_experts_recomp_bwd_fp8_fused_weights_lazy);
+  m.impl("hpu::mixture_of_experts_fwd.fp8", mixture_of_experts_fwd_fp8_lazy);
+  m.impl(
+      "hpu::mixture_of_experts_recomp_fwd.fp8",
+      mixture_of_experts_recomp_fwd_fp8_lazy);
+  m.impl("hpu::mixture_of_experts_bwd.fp8", mixture_of_experts_bwd_fp8_lazy);
+  m.impl(
+      "hpu::mixture_of_experts_recomp_bwd.fp8",
+      mixture_of_experts_recomp_bwd_fp8_lazy);
 }
 
 TORCH_LIBRARY_IMPL(hpu, Autograd, m) {

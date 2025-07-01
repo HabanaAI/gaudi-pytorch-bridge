@@ -317,6 +317,7 @@ OutputMetaDataVector MixtureOfExpertsFwdMeta(const at::Stack& stack) {
 
 OutputMetaDataVector MixtureOfExpertsFwdFp8Meta(const at::Stack& stack) {
   const at::ScalarType self_type = stack_tensor(stack, 0).scalar_type();
+  const bool is_fused = !stack.at(9).isTensorList();
   const size_t stack_size = stack.size();
   const bool hybrid_mode = stack.at(stack_size - 3).toBool();
 
@@ -344,8 +345,8 @@ OutputMetaDataVector MixtureOfExpertsFwdFp8Meta(const at::Stack& stack) {
       self_type,
       self_type,
       self_type,
-      weight_type,
-      self_type,
+      is_fused ? weight_type : self_type,
+      is_fused ? self_type : weight_type,
       self_type};
 
   const size_t output_number = output_shapes.size();
@@ -450,11 +451,11 @@ OutputMetaDataVector MixtureOfExpertsBwdFp8Meta(const at::Stack& stack) {
   const size_t stack_size = stack.size();
   const bool is_first_amax = stack.at(stack_size - 2).toBool();
   const bool is_second_amax = stack.at(stack_size - 1).toBool();
-  const size_t amax_outputs = is_first_amax + is_second_amax;
-  const bool is_recompute = stack.size() < 22;
-  const bool fused_weights = is_recompute ? !stack.at(12).isTensorList()
-                                          : !stack.at(18).isTensorList();
-  const size_t first_weights_index = is_recompute ? 4 : fused_weights ? 10 : 11;
+  const bool is_recompute = stack.size() < 24;
+  const bool is_fused = is_recompute ? !stack.at(12).isTensorList()
+                                     : !stack.at(18).isTensorList();
+  const size_t amax_outputs = is_first_amax * (2 - is_fused) + is_second_amax;
+  const size_t first_weights_index = is_recompute ? 4 : is_fused ? 10 : 11;
   size_t num_experts = stack.at(first_weights_index).toTensorList().size();
 
   const bool hybrid_mode = stack.at(stack_size - 3).toBool();
@@ -465,7 +466,7 @@ OutputMetaDataVector MixtureOfExpertsBwdFp8Meta(const at::Stack& stack) {
     num_experts /= 2;
   }
 
-  const size_t router_weights_shape_idx = fused_weights ? 22 : 25;
+  const size_t router_weights_shape_idx = is_fused ? 22 : 26;
   std::vector<int64_t> router_weights_shape = is_recompute
       ? stack_tensor(stack, 3).sizes().vec()
       : stack.at(router_weights_shape_idx).toIntVector();
@@ -473,7 +474,7 @@ OutputMetaDataVector MixtureOfExpertsBwdFp8Meta(const at::Stack& stack) {
   std::vector<std::vector<at::Tensor>> weights_lists = {
       stack.at(first_weights_index).toTensorVector(),
       stack.at(first_weights_index + 1).toTensorVector()};
-  if (!fused_weights) {
+  if (!is_fused) {
     weights_lists.push_back(stack.at(first_weights_index + 2).toTensorVector());
   }
 
@@ -826,7 +827,21 @@ FillParamsT FillMixtureOfExpertsBwdFp8Params(const at::Stack& stack) {
   const bool is_recomp = !stack.at(4).isTensor();
   const bool fused_weights =
       is_recomp ? stack.at(12).isBool() : !stack.at(10).isTensor();
-  const size_t permuted_weights_idx = is_recomp ? 12 : 18;
+
+  size_t permuted_weights_idx;
+  if (fused_weights) {
+    if (is_recomp) {
+      permuted_weights_idx = 12;
+    } else {
+      permuted_weights_idx = 18;
+    }
+  } else {
+    if (is_recomp) {
+      permuted_weights_idx = 15;
+    } else {
+      permuted_weights_idx = 22;
+    }
+  }
 
   MixtureOfExpertsConfig cfg = {
       permuted_weights_idx,

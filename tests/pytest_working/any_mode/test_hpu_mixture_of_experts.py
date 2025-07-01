@@ -1083,6 +1083,8 @@ def generate_fp8_scales(size):
         "intermediate_hidden_states_143": torch.from_numpy(np.random.rand(size).astype(np.float32) * 2),
         "w12_143": torch.from_numpy(np.ones(size).astype(np.float32)),
         "w3_143": torch.from_numpy(np.ones(size).astype(np.float32)),
+        "d_scale_mult_grad_143": torch.from_numpy(np.ones(size).astype(np.float32)),
+        "d_scale_activation_grad_143": torch.from_numpy(np.ones(size).astype(np.float32)),
         "d_scale_first_gemm_grad_143": torch.from_numpy(np.ones(size).astype(np.float32)),
         "d_scale_second_gemm_grad_143": torch.from_numpy(np.ones(size).astype(np.float32)),
     }
@@ -1090,6 +1092,8 @@ def generate_fp8_scales(size):
     result["intermediate_hidden_states_152"] = result["intermediate_hidden_states_143"]
     result["w12_152"] = result["w12_143"]
     result["w3_152"] = result["w3_143"]
+    result["d_scale_mult_grad_152"] = result["d_scale_mult_grad_143"]
+    result["d_scale_activation_grad_152"] = result["d_scale_activation_grad_143"]
     result["d_scale_first_gemm_grad_152"] = result["d_scale_first_gemm_grad_143"]
     result["d_scale_second_gemm_grad_152"] = result["d_scale_second_gemm_grad_143"]
     result["w1_143"] = result["w12_143"]
@@ -1127,6 +1131,8 @@ class MixtralBlockSparseMLPFp8(nn.Module):
         self.second_amax_fwd = torch.tensor(0.0, dtype=torch.float)
         self.first_amax_bwd = torch.tensor(0.0, dtype=torch.float)
         self.second_amax_bwd = torch.tensor(0.0, dtype=torch.float)
+        self.first_amax_bwd_activation = torch.tensor(0.0, dtype=torch.float)
+        self.s = torch.tensor(1.0)
 
         self.scales_dict = scales_dict
         self.fp8_dtype = fp8_dtype
@@ -1148,23 +1154,30 @@ class MixtralBlockSparseMLPFp8(nn.Module):
         w2 = self.w2 * w2_scale
         w2 = w2.to(self.fp8_dtype).to(self.w2.dtype)
 
-        hidden_states_w1 = self.activation_fn(
-            torch.matmul(scaled_hidden_states, w1) * (1 / hidden_states_scale) * (1 / w1_scale)
-        )
+        hidden_states_w1 = torch.matmul(scaled_hidden_states, w1) * (1 / hidden_states_scale) * (1 / w1_scale)
+        hidden_states_w1_activated = self.activation_fn(hidden_states_w1)
         hidden_states_w2 = torch.matmul(scaled_hidden_states, w2) * (1 / hidden_states_scale * (1 / w2_scale))
 
         if self.scaled_swiglu:
-            hidden_states_w2, s = self.apply_scaled_swiglu(hidden_states_w2)
+            hidden_states_w2, self.s = self.apply_scaled_swiglu(hidden_states_w2)
 
-        hidden_states_w12 = hidden_states_w1 * hidden_states_w2
+        hidden_states_w12 = hidden_states_w1_activated * hidden_states_w2
         if self.calc_first_amax:
             self.first_amax_fwd = torch.amax(torch.abs(hidden_states)).to(torch.float)
 
             def calc_first_amax_bwd(grad):
-                self.first_amax_bwd = torch.max(self.first_amax_bwd, torch.amax(grad).to(torch.float))
+                self.first_amax_bwd = torch.max(self.first_amax_bwd, torch.amax(torch.abs(grad)).to(torch.float))
+
+            def calc_first_amax_bwd_activation(grad):
+                self.first_amax_bwd_activation = torch.max(
+                    self.first_amax_bwd_activation, torch.amax(torch.abs(grad * self.s)).to(torch.float)
+                )
 
             if hidden_states_w2.requires_grad:
                 hidden_states_w2.register_hook(lambda grad: calc_first_amax_bwd(grad))
+
+            if hidden_states_w1.requires_grad:
+                hidden_states_w1.register_hook(lambda grad: calc_first_amax_bwd_activation(grad))
 
         hidden_states_w12_key = (
             "intermediate_hidden_states_" + "143" if self.fp8_dtype == torch.float8_e4m3fn else "152"
@@ -1246,8 +1259,15 @@ class MixtralSparseMoeBlockFp8(nn.Module):
         second_amax_fwd_expert = torch.stack([x.second_amax_fwd for x in self.experts])
         first_amax_bwd_expert = torch.stack([x.first_amax_bwd for x in self.experts])
         second_amax_bwd_expert = torch.stack([x.second_amax_bwd for x in self.experts])
+        first_amax_bwd_activation = torch.stack([x.first_amax_bwd_activation for x in self.experts])
 
-        return first_amax_fwd_expert, second_amax_fwd_expert, first_amax_bwd_expert, second_amax_bwd_expert
+        return (
+            first_amax_fwd_expert,
+            second_amax_fwd_expert,
+            first_amax_bwd_expert,
+            second_amax_bwd_expert,
+            first_amax_bwd_activation,
+        )
 
     def split_scales(self, scales_dict, i):
         new_scales_dict = {}
@@ -1407,25 +1427,59 @@ class MixtureOfExpertsFwdBwdWrapper(torch.autograd.Function):
         experts_num = ctx.experts_num
         fp8_dtype = ctx.fp8_dtype
 
-        grads, first_amax_bwd, second_amax_bwd = torch.compile(
-            mixture_of_experts_bwd_fp8_wrapper, backend="hpu_backend"
-        )(
-            ctx,
-            grad_outputs,
-            d_scale_first_gemm_grad=_create_d_scales(
+        d_scale_first_gemm_grad = (
+            _create_d_scales(
                 experts_num,
                 "d_scale_first_gemm_grad",
                 False,
                 torch.float8_e5m2 if hybrid_mode else fp8_dtype,
                 MixtureOfExpertsFwdBwdWrapper.scales_dict,
-            ),
-            d_scale_second_gemm_grad=_create_d_scales(
+            )
+            if ctx.is_fused
+            else None
+        )
+        d_scale_second_gemm_grad = _create_d_scales(
+            experts_num,
+            "d_scale_second_gemm_grad",
+            False,
+            torch.float8_e5m2 if hybrid_mode else fp8_dtype,
+            MixtureOfExpertsFwdBwdWrapper.scales_dict,
+        )
+        d_scale_mult_grad = (
+            None
+            if ctx.is_fused
+            else _create_d_scales(
                 experts_num,
-                "d_scale_second_gemm_grad",
+                "d_scale_mult_grad",
                 False,
                 torch.float8_e5m2 if hybrid_mode else fp8_dtype,
                 MixtureOfExpertsFwdBwdWrapper.scales_dict,
-            ),
+            )
+        )
+        d_scale_activation_grad = (
+            None
+            if ctx.is_fused
+            else _create_d_scales(
+                experts_num,
+                "d_scale_activation_grad",
+                False,
+                torch.float8_e5m2 if hybrid_mode else fp8_dtype,
+                MixtureOfExpertsFwdBwdWrapper.scales_dict,
+            )
+        )
+
+        fn = (
+            torch.compile(mixture_of_experts_bwd_fp8_wrapper, backend="hpu_backend")
+            if is_pytest_mode_compile()
+            else mixture_of_experts_bwd_fp8_wrapper
+        )
+        grads, first_amax_bwd, second_amax_bwd = fn(
+            ctx,
+            grad_outputs,
+            d_scale_mult_grad=d_scale_mult_grad,
+            d_scale_activation_grad=d_scale_activation_grad,
+            d_scale_first_gemm_grad=d_scale_first_gemm_grad,
+            d_scale_second_gemm_grad=d_scale_second_gemm_grad,
         )
         if Verbose:
             for i, grad in enumerate(grads):
@@ -1527,7 +1581,7 @@ def mixture_of_experts_training_fp8(
 @pytest.mark.parametrize("ffn_dim", FFN_DIMS)
 @pytest.mark.parametrize("num_experts", NUM_EXPERTS)
 @pytest.mark.parametrize("num_tokens", NUM_TOKENS)
-@pytest.mark.parametrize("fused_weights", [True])
+@pytest.mark.parametrize("fused_weights", [True, False])
 @pytest.mark.parametrize("permuted_weights", PERMUTED_WEIGHTS)
 @pytest.mark.parametrize("scaled_swiglu", [True, False])
 @pytest.mark.parametrize("calc_first_amax", [True, False])
@@ -1591,7 +1645,7 @@ def test_mixture_of_experts_fp8_training(
     )
     result_cpu = mixtral_ref(hidden_states_cpu, expert_routing_table_cpu, router_weights_cpu)
     result_cpu.backward(torch.ones_like(result_cpu))
-    first_amax_fwd_cpu, second_amax_fwd_cpu, first_amax_bwd_cpu, second_amax_bwd_cpu = (
+    first_amax_fwd_cpu, second_amax_fwd_cpu, first_amax_bwd_cpu, second_amax_bwd_cpu, first_amax_bwd_activation = (
         mixtral_ref.calculate_experts_amaxes()
     )
 
@@ -1632,16 +1686,27 @@ def test_mixture_of_experts_fp8_training(
 
     if calc_first_amax:
         if Verbose:
-            print("First amax HPU: ", MixtureOfExpertsFwdBwdWrapper.first_amax_fwd.cpu())
+            print("First amax HPU: ", MixtureOfExpertsFwdBwdWrapper.first_amax_fwd)
             print("First amax CPU: ", first_amax_fwd_cpu)
-            print("First amax HPU grad: ", MixtureOfExpertsFwdBwdWrapper.first_amax_bwd.cpu())
-            print("First amax CPU grad: ", first_amax_bwd_cpu)
+            print("First amax HPU grad: ", MixtureOfExpertsFwdBwdWrapper.first_amax_bwd)
+            print("First amax CPU grad: ", first_amax_bwd_activation, first_amax_bwd_cpu)
         torch.testing.assert_close(
             MixtureOfExpertsFwdBwdWrapper.first_amax_fwd.cpu(), first_amax_fwd_cpu, rtol=1e-3, atol=1e-3
         )
-        torch.testing.assert_close(
-            MixtureOfExpertsFwdBwdWrapper.first_amax_bwd.cpu(), first_amax_bwd_cpu, rtol=3e-1, atol=1e-3
-        )
+        if fused_weights:
+            torch.testing.assert_close(
+                MixtureOfExpertsFwdBwdWrapper.first_amax_bwd.cpu(),
+                torch.max(first_amax_bwd_activation, first_amax_bwd_cpu),
+                rtol=1.5e-1,
+                atol=1e-3,
+            )
+        else:
+            torch.testing.assert_close(
+                MixtureOfExpertsFwdBwdWrapper.first_amax_bwd[0].cpu(), first_amax_bwd_activation, rtol=1.8e-1, atol=1e-3
+            )
+            torch.testing.assert_close(
+                MixtureOfExpertsFwdBwdWrapper.first_amax_bwd[1].cpu(), first_amax_bwd_cpu, rtol=1.8e-1, atol=1e-3
+            )
     if calc_second_amax:
         if Verbose:
             print("Second amax HPU: ", MixtureOfExpertsFwdBwdWrapper.second_amax_fwd.cpu())
