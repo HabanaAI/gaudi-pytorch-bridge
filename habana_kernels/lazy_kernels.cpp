@@ -526,7 +526,7 @@ at::Tensor get_tensor_for_scalar(
 
   std::lock_guard<std::mutex> lock(context->GetScalarToTensorMutex());
   auto map_it =
-      context->scalar_to_tensor_map.find(std::make_pair(alpha, dtype));
+      context->scalar_to_tensor_map.find({alpha, dtype});
   if (map_it == context->scalar_to_tensor_map.end()) {
     if (false == GET_ENV_FLAG_NEW(PT_HPU_SCALAR_H2D_COPY_MULTIPLE)) {
       alpha_tensor = at::tensor(alpha).to(dtype).to(c10::kHPU, true);
@@ -535,7 +535,7 @@ at::Tensor get_tensor_for_scalar(
     }
 
     // Add to scalar value to device tensor cache
-    context->scalar_to_tensor_map[std::make_pair(alpha, dtype)] = alpha_tensor;
+    context->scalar_to_tensor_map.emplace(ScalarValueTypePair{alpha, dtype}, alpha_tensor);
     PT_LAZY_DEBUG(
         "scalar_to_tensor_map #miss: ",
         ++miss_count,

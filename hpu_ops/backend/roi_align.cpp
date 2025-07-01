@@ -56,9 +56,9 @@ void RoiAlign::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto input = stackGetter.getNextInput<TensorsPair>();
   auto rois = stackGetter.getNextInput<TensorsPair>();
   auto spatial_scale = stackGetter.getNextInput<double>();
-  stackGetter.getNextInput<int>();
-  stackGetter.getNextInput<int>();
-  auto sampling_ratio = stackGetter.getNextInput<int>();
+  stackGetter.getNextInput<long>();
+  stackGetter.getNextInput<long>();
+  auto sampling_ratio = stackGetter.getNextInput<long>();
   auto aligned = stackGetter.getNextInput<bool>();
 
   const auto output_meta = ComputeRoiAlignMetadata(stack)[0];
@@ -70,8 +70,11 @@ void RoiAlign::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
   ns_RoiAlignKernel::ParamsAlignment roi_params{};
   roi_params.mode = RoiAlignMode_t::ROI_ALIGN_AVG;
-  roi_params.sampling_ratio = sampling_ratio;
-  roi_params.spatial_scale = spatial_scale;
+  HABANA_ASSERT(
+      sampling_ratio <= std::numeric_limits<int>::max(),
+      "Sampling ratio exceeds maximum value for int.");
+  roi_params.sampling_ratio = static_cast<int>(sampling_ratio);
+  roi_params.spatial_scale = static_cast<float>(spatial_scale);
   roi_params.aligned = aligned;
 
   SetSynapseLayouts(
@@ -118,13 +121,13 @@ void RoiAlignBackward::AddNode(
   auto grad = stackGetter.getNextInput<TensorsPair>();
   auto rois = stackGetter.getNextInput<TensorsPair>();
   auto spatial_scale = stackGetter.getNextInput<double>();
-  stackGetter.getNextInput<int>();
-  stackGetter.getNextInput<int>();
-  auto batch_size = stackGetter.getNextInput<int>();
-  stackGetter.getNextInput<int>();
-  stackGetter.getNextInput<int>();
-  stackGetter.getNextInput<int>();
-  auto sampling_ratio = stackGetter.getNextInput<int>();
+  stackGetter.getNextInput<long>();
+  stackGetter.getNextInput<long>();
+  auto batch_size = stackGetter.getNextInput<long>();
+  stackGetter.getNextInput<long>();
+  stackGetter.getNextInput<long>();
+  stackGetter.getNextInput<long>();
+  auto sampling_ratio = stackGetter.getNextInput<long>();
   auto aligned = stackGetter.getNextInput<bool>();
 
   const auto rois_shape = rois.pt_t.sizes().vec();
@@ -148,7 +151,7 @@ void RoiAlignBackward::AddNode(
   quad_tree_params.segments = 256;
   quad_tree_params.isValidCount = false;
   quad_tree_params.enableAbsoluteCoords = true;
-  quad_tree_params.levelScalarFactor = spatial_scale;
+  quad_tree_params.levelScalarFactor = static_cast<float>(spatial_scale);
   quad_tree_params.enableTorchVersion = true;
 
   SetSynapseLayouts(
@@ -175,8 +178,11 @@ void RoiAlignBackward::AddNode(
 
   ns_RoiAlignBwdKernel::ParamsIsValidCount roi_params{};
   roi_params.mode = RoiAlignMode_t::ROI_ALIGN_AVG;
-  roi_params.sampling_ratio = sampling_ratio;
-  roi_params.spatial_scale = spatial_scale;
+  HABANA_ASSERT(
+      sampling_ratio <= std::numeric_limits<int>::max(),
+      "Sampling ratio exceeds maximum value for int.");
+  roi_params.sampling_ratio = static_cast<int>(sampling_ratio);
+  roi_params.spatial_scale = static_cast<float>(spatial_scale);
   roi_params.aligned = aligned;
   roi_params.isValidCount = false;
 

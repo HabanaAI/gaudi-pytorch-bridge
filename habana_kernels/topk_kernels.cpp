@@ -54,11 +54,19 @@ inline void _allocate_or_resize_output_with_indices(
         self.options().type_equal(values.options()),
         "output values must be of same type as input");
     auto tht_values = values.unsafeGetTensorImpl();
+    HABANA_ASSERT(self.dim() >= 0, "dim must be non-negative");
     if (values.numel() || values_persistent)
-      THHTensor_resizeNd(tht_values, self.dim(), result_sizes.data(), nullptr);
+      THHTensor_resizeNd(
+          tht_values,
+          static_cast<size_t>(self.dim()),
+          result_sizes.data(),
+          nullptr);
     else {
       THHTensor_resizeNd_nonpersistent(
-          tht_values, self.dim(), result_sizes.data(), nullptr);
+          tht_values,
+          static_cast<size_t>(self.dim()),
+          result_sizes.data(),
+          nullptr);
     }
   } else {
     values = at::empty(result_sizes, self.options());

@@ -42,7 +42,7 @@ void HandleScaleScalar(
     habana::OpBackend* op,
     sh::graph& graph,
     const c10::IValue& scale,
-    const int device_id,
+    const synDeviceId device_id,
     std::vector<sh::tensor>& maybe_const_scale,
     std::vector<synTensor>& syn_inputs,
     const c10::IValue& scale_shape_ival = c10::IValue{});

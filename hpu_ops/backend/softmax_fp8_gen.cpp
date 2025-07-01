@@ -101,7 +101,7 @@ SharedMetaDataVector SoftmaxFp8SharedMeta(
 void SoftmaxFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
   StackGetter stackGetter(this, stack, "SoftmaxFp8::AddNode");
   auto self = stackGetter.getNextInput<TensorsPair>();
-  int dim = stackGetter.getNextInput<int>();
+  long dim = stackGetter.getNextInput<long>();
   auto input_scale_opt =
       stackGetter.getNextInput<std::variant<TensorsPair, c10::IValue>>();
   auto output_scale_opt =

@@ -15,8 +15,8 @@
 
 #pragma once
 
+#include <torch/csrc/Stream.h>
 #include <torch/csrc/python_headers.h>
-
 #include "backend/habana_device/HPUStream.h"
 
 struct THP_HPU_Stream : THPStream {

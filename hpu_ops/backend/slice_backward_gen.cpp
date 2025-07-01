@@ -82,10 +82,10 @@ void SliceBackward::AddNode(
   StackGetter stackGetter(this, stack, "SliceBackward::AddNode");
   auto grad = stackGetter.getNextInput<TensorsPair>();
   auto input_sizes = stackGetter.getNextInput<std::vector<int64_t>>();
-  auto dim = stackGetter.getNextInput<int>();
-  auto start = stackGetter.getNextInput<int>();
-  auto end = stackGetter.getNextInput<int>();
-  auto step = stackGetter.getNextInput<int>();
+  auto dim = stackGetter.getNextInput<long>();
+  auto start = stackGetter.getNextInput<long>();
+  auto end = stackGetter.getNextInput<long>();
+  auto step = stackGetter.getNextInput<long>();
 
   auto meta = SliceBackwardMeta(stack);
 

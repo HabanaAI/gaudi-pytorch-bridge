@@ -15,6 +15,7 @@
 
 #include "generated/backend/rotary_pos_embedding.h"
 #include "generated/backend/rotary_pos_embedding_backward.h"
+#include "habana_helpers/logging.h"
 
 namespace habana {
 
@@ -61,11 +62,14 @@ void RotaryPosEmbedding::AddNode(
   auto sin = stackGetter.getNextInput<TensorsPair>();
   auto cos = stackGetter.getNextInput<TensorsPair>();
   auto position_ids = stackGetter.getNextInput<std::optional<TensorsPair>>();
-  auto offset = stackGetter.getNextInput<int>();
-  auto mode = stackGetter.getNextInput<int>();
+  auto offset = stackGetter.getNextInput<long>();
+  auto mode = stackGetter.getNextInput<long>();
 
   ns_RoPESt2::ParamsV2 params{};
-  params.offset = offset;
+  HABANA_ASSERT(
+      offset <= std::numeric_limits<unsigned int>::max(),
+      "Offset value exceeds the maximum limit for int.");
+  params.offset = static_cast<unsigned int>(offset);
   params.mode = static_cast<RotaryPosEmbeddingMode_t>(mode);
 
   std::vector<synTensor> inputs = {input.syn_t, sin.syn_t, cos.syn_t};
@@ -90,11 +94,14 @@ void RotaryPosEmbeddingBackward::AddNode(
   auto sin = stackGetter.getNextInput<TensorsPair>();
   auto cos = stackGetter.getNextInput<TensorsPair>();
   auto position_ids = stackGetter.getNextInput<std::optional<TensorsPair>>();
-  auto offset = stackGetter.getNextInput<int>();
-  auto mode = stackGetter.getNextInput<int>();
+  auto offset = stackGetter.getNextInput<long>();
+  auto mode = stackGetter.getNextInput<long>();
 
   ns_RoPESt2::ParamsV2 params{};
-  params.offset = offset;
+  HABANA_ASSERT(
+      offset <= std::numeric_limits<unsigned int>::max(),
+      "Offset value exceeds the maximum limit for int.");
+  params.offset = static_cast<unsigned int>(offset);
   params.mode = static_cast<RotaryPosEmbeddingMode_t>(mode);
 
   std::vector<synTensor> inputs{grad_in.syn_t, sin.syn_t, cos.syn_t};

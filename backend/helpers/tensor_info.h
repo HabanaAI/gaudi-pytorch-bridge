@@ -302,7 +302,7 @@ class PtTensorInfo {
   synTensorType tensor_type() const {
     return tensor_type_;
   }
-  const std::array<uint32_t, SYN_GAUDI_MAX_TENSOR_DIM>& syn_shape() const {
+  const std::array<uint64_t, SYN_GAUDI_MAX_TENSOR_DIM>& syn_shape() const {
     return syn_shape_;
   }
 
@@ -420,7 +420,7 @@ class PtTensorInfo {
   bool hb_dont_allow_permute_;
 
   synTensorType tensor_type_{DATA_TENSOR};
-  std::array<uint32_t, SYN_GAUDI_MAX_TENSOR_DIM> syn_shape_{0};
+  std::array<uint64_t, SYN_GAUDI_MAX_TENSOR_DIM> syn_shape_{0};
   // uint64_t shape_ndim_{0};
 
   size_t dma_tensor_idx_{ULONG_MAX};

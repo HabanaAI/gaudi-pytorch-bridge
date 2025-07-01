@@ -23,7 +23,7 @@
 namespace sh = synapse_helpers;
 
 #define CEIL_TO_VEC_SIZE(num, roundup) \
-  (((num) + ((roundup)-1)) & ~((roundup)-1))
+  (((num) + ((roundup) - 1)) & ~((roundup) - 1))
 namespace habana {
 
 OutputMetaDataVector BlockSoftmaxAdjustmentMeta(const at::Stack& stack) {
@@ -129,7 +129,7 @@ void BlockSoftmaxAdjustmentOperator::AddNode(
   auto block_maxes = stackGetter.getNextInput<TensorsPair>();
   auto block_sums = stackGetter.getNextInput<TensorsPair>();
   auto block_groups = stackGetter.getNextInput<TensorsPair>();
-  auto batch_size = stackGetter.getNextInput<int>();
+  auto batch_size = stackGetter.getNextInput<long>();
   const auto& out_shape = stack.at(4).to<std::optional<std::vector<int64_t>>>();
 
   std::vector<int64_t> adjustment_out_shape;
@@ -151,7 +151,10 @@ void BlockSoftmaxAdjustmentOperator::AddNode(
   }
 
   ns_BlockSoftmaxAdjustment::Params adjustment_params;
-  adjustment_params.batchSize = batch_size;
+  HABANA_ASSERT(
+      batch_size <= std::numeric_limits<int>::max(),
+      "Batch size exceeds maximum limit for adjustment parameters");
+  adjustment_params.batchSize = static_cast<int>(batch_size);
 
   std::string adjustment_guid = get_guid_with_precision(
       "block_softmax_adjustment"sv, block_maxes.pt_t.scalar_type());
