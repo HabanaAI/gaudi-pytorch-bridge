@@ -198,6 +198,23 @@ def test_hpu_multilevel_view_dtype():
     assert torch.allclose(res_ref, res_hpu.cpu(), atol=0.001, rtol=0.001)
 
 
+@pytest.mark.parametrize("out_dtype", [torch.float16, torch.bfloat16, torch.int16, torch.int8])
+def test_hpu_view_dtype(out_dtype):
+    def fn(a):
+        b = a.to(torch.bfloat16)
+        return b.view(out_dtype)
+
+    x = torch.arange(8, dtype=torch.float32)
+
+    res_ref = fn(x)
+
+    compiled_fn = compile_function_if_compile_mode(fn)
+    res_hpu = compiled_fn(x.to("hpu"))
+
+    assert res_ref.dtype == res_hpu.dtype
+    assert torch.allclose(res_ref, res_hpu.cpu(), atol=0.001, rtol=0.001)
+
+
 def fn(a):
     b = a.t()
     c = b.mul(1.0)

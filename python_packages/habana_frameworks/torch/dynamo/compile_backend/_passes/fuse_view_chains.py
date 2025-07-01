@@ -28,7 +28,7 @@ from .utils import OptimizerContext
 logger = get_compile_backend_logger()
 
 supported_view_ops = [
-    "view",
+    # "view" is handled separately, because not all of its overloads are supported
     "_unsafe_view",
     "as_strided",
     "slice",
@@ -51,7 +51,14 @@ def pass_fuse_view_chains(ctx: OptimizerContext) -> bool:
     It doesn't support dynamic shapes"""
 
     def able_to_convert_to_as_strided(node: torch.fx.Node) -> bool:
-        return is_view_node(node) and node.target.__name__.split(".")[0] in supported_view_ops
+        if not is_view_node(node):
+            return False
+
+        names = node.target.__name__.split(".")
+        if names[0] != "view":
+            return names[0] in supported_view_ops
+
+        return (names[1] if len(names) > 1 else None) != "dtype"
 
     if ctx.is_dynamic:
         logger.warn("Pass fuse view chains doesn't support dynamic graphs")
