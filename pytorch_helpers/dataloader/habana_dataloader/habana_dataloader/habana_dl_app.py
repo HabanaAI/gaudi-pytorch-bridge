@@ -17,7 +17,12 @@
 
 from habana_frameworks.torch import is_torch_fork as _is_torch_fork
 
-if _is_torch_fork:
-    from habana_dataloader.fork.habana_dl_app import *  # noqa F401
-else:
-    from habana_dataloader.upstream.habana_dl_app import *  # noqa F401
+try:
+    if _is_torch_fork:
+        from habana_dataloader.fork.habana_dl_app import *  # noqa F401
+    else:
+        from habana_dataloader.upstream.habana_dl_app import *  # noqa F401
+except ImportError as e:
+    raise RuntimeError(
+        "Could not import the Aeon data loader. If you're on Gaudi2 or Gaudi3, please use the MediaPipe loader (from the habana-media-loader package) instead"
+    ) from e
