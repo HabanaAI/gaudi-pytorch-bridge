@@ -40,7 +40,7 @@ struct MemoryLogger : public TraceSource {
     enabled_ = false;
   }
   void extract(TraceSink& output) {
-    pid_t tid = static_cast<pid_t>(syscall(__NR_gettid));
+    auto tid = static_cast<pid_t>(syscall(__NR_gettid));
     pid_t pid = getpid() + static_cast<pid_t>(offset_);
     std::lock_guard<std::mutex> lg{m};
     for (const auto& event : events_) {

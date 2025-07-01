@@ -42,7 +42,7 @@ struct BridgeLogsSourceImpl : public TraceSource {
   void log(std::string_view id, bool is_begin) {
     if (enabled(id)) {
       const auto dtime = nowNanos();
-      const pid_t tid = static_cast<pid_t>(syscall(__NR_gettid));
+      const auto tid = static_cast<pid_t>(syscall(__NR_gettid));
       std::lock_guard<std::mutex> lg{m};
       updateThreadNames(tid);
       events_.emplace_back(std::string{id}, dtime, tid, is_begin);
