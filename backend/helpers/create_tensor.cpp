@@ -280,15 +280,15 @@ synapse_helpers::tensor create_tensor(
           PtTensorInferenceData::get_instance().extract_key_name(name, "/");
       inference_range =
           PtTensorInferenceData::get_instance().GetInferenceTensorRange(
-              module_name.c_str(), range_found_with_module_name);
+              module_name, range_found_with_module_name);
     }
     if (!range_found_with_module_name) {
       inference_range =
           PtTensorInferenceData::get_instance().GetInferenceTensorRange(
-              inference_name.c_str(), range_found);
+              inference_name, range_found);
       if (range_found && !name.empty()) {
         PtTensorInferenceData::get_instance().duplicate_key(
-            inference_name.c_str(), name.c_str());
+            inference_name, name);
       }
     }
     if (range_found_with_module_name || range_found) {
@@ -427,15 +427,15 @@ synapse_helpers::tensor create_tensor(
           PtTensorInferenceData::get_instance().extract_key_name(name, "/");
       inference_range =
           PtTensorInferenceData::get_instance().GetInferenceTensorRange(
-              module_name.c_str(), range_found_with_module_name);
+              module_name, range_found_with_module_name);
     }
     if (!range_found_with_module_name) {
       inference_range =
           PtTensorInferenceData::get_instance().GetInferenceTensorRange(
-              inference_name.c_str(), range_found);
+              inference_name, range_found);
       if (range_found && !name.empty()) {
         PtTensorInferenceData::get_instance().duplicate_key(
-            inference_name.c_str(), name.c_str());
+            inference_name, name);
       }
     }
     if (range_found_with_module_name || range_found) {
