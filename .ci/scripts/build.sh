@@ -32,6 +32,7 @@ function pytorch_functions_help()
     echo -e "run_habana_lightning_tests     -   Run habana lightning plugin tests"
     echo -e "run_lightning_habana_fw_tests  -   Run Lightning Habana tests"
     echo -e "build_pytorch_vision           -   Build the habana pytorch vision"
+    echo -e "setup_standalone               -   Setup environment to build pytorch_modules out of NPU stack (once per version)"
 }
 
 function pytorch_usage()
@@ -73,6 +74,7 @@ function pytorch_usage()
         echo -e ""
         echo -e "Additionally:"
         echo -e "       --recursive            Build all NPU stack dependencies beforehand"
+        echo -e "       --standalone           Build pytorch_modules outside of NPU stack. Run setup_standalone before using this flag."
     fi
 
     if [ $1 == "build_pytorch_dist" ]; then
@@ -236,6 +238,14 @@ function pytorch_usage()
         echo -e "       --pt-vision-version    Pytorch Vision version"
         echo -e "  -h,  --help                 Prints this help"
     fi
+    if [ $1 == "setup_standalone" ]; then
+        echo -e "\n usage: $1 [options]\n"
+        echo -e "\n setup_standalone should be executed only to setup environment to new version\n"
+
+        echo -e "options:\n"
+        echo -e "  -v,  --version <val>        [Mandatory] Version on which environment would be set"
+        echo -e "  -h,  --help                 Print this help"
+    fi
 }
 
 __error() {
@@ -256,9 +266,10 @@ build_pytorch_modules()
     local __pytorch_module_name="pytorch_bridge"
     local __recursive=""
     local __result=""
+    local __standalone=""
 
     local __variables_to_build
-    __variables_to_build=$(printf "%s\n" "$@" | sed s/--recursive// | sed s/--no-tidy//)
+    __variables_to_build=$(printf "%s\n" "$@" | sed s/--recursive// | sed s/--no-tidy// | sed s/--standalone// )
 
     # parameter while-loop
     while [ -n "$1" ];
@@ -284,11 +295,22 @@ build_pytorch_modules()
         --recursive )
             __recursive="yes"
             ;;
+        --standalone )
+            __standalone="yes"
+            ;;
         esac
         shift
     done
 
-    if [ -n "$__configure" ]; then
+    if [ -n "$__standalone" ]; then
+        __set_build_environment_for_standalone
+        if [ $? -ne 0 ]; then
+            echo "Setting up environment for standalone build_pytorch_modules failed"
+            return 1
+        fi
+    fi
+
+    if [ -n "$__configure" ] && [ -z "$__standalone" ]; then
         __check_mandatory_pkgs
         if [ $? -ne 0 ]; then
             return 1
@@ -2574,4 +2596,118 @@ set_os_specific_vars() {
         *)
             ;;
     esac
+}
+
+__set_build_environment_for_standalone() {
+
+    export HABANA_SOFTWARE_STACK="$(pwd)"
+
+    export HCL_INCLUDE_DIR=/usr/include/habanalabs/
+    export SWTOOLS_SDK_ROOT=/usr/include/habanalabs/
+    export MEDIA_ROOT=$(python -c "import habana_frameworks.mediapipe, os;print(os.path.dirname(habana_frameworks.mediapipe.__file__))")
+    export SPECS_EXT_ROOT=/usr/include/habanalabs/
+    export SYNAPSE_INCLUDE_DIR=/usr/include/habanalabs/
+    export SYNAPSE_UTILS_INCLUDE_DIR=/usr/include/habanalabs/
+
+    export BUILD_ROOT="$HOME/builds"
+    export BUILD_ROOT_LATEST=/usr/lib/habanalabs/
+    export PYTORCH_MODULES_RELEASE_BUILD="$BUILD_ROOT/pytorch_modules_release"  # the release build artifact
+    export PYTORCH_MODULES_DEBUG_BUILD="$BUILD_ROOT/pytorch_modules_debug"
+}
+
+setup_standalone()
+{
+    local __standalone_version=""
+
+    while [ -n "$1" ];
+    do
+        case $1 in
+        -v  | --version )
+             __standalone_version="$2"
+             shift
+            ;;
+        -h  | --help )
+            usage setup_standalone
+            return 0
+            ;;
+        *)
+            echo Invalid argument: $1
+            return 1
+        esac
+        shift
+    done
+
+    if [ -z "$__standalone_version" ]; then
+        echo "Missing version value. Exiting..."
+        return 1
+    fi
+
+    if [ -z "$PYTORCH_MODULES_ROOT_PATH" ]; then
+        echo "PYTORCH_MODULES_ROOT_PATH not defined, exiting..."
+        return 1
+    fi
+
+    local __version=""
+    local __build=""
+
+    if [ -n "$__standalone_version" ]; then
+        PATTERN='^[0-9]+\.[0-9]+\.[0-9]+-[0-9]+$'
+        if [[ $__standalone_version =~ $PATTERN ]]; then
+            __version=$(echo "$__standalone_version" | cut -d '-' -f 1)
+            __build=$(echo "$__standalone_version" | cut -d '-' -f 2)
+        else
+            echo "Version HABANA_STANDALONE_VERSION=$__standalone_version is not a correct format (ex. 1.22.0-100)"
+            return 1
+        fi
+    fi
+
+    export HABANA_STANDALONE_TYPE=
+
+    #Below lines are used for setup environment for unreleased versions
+    echo "deb https://artifactory-kfs.habana-labs.com/artifactory/repo-ubuntu $(lsb_release -cs 2>/dev/null) testing" | sudo tee -a /etc/apt/sources.list
+    sudo apt-get update
+    echo HABANA_SERVER_NAME=artifactory-kfs.habana-labs.com > .env.dev
+    echo HABANALABS_REPO_PATH=artifactory/devops/repos >> .env.dev
+    echo HABANALABS_SERVER_PT_DIR=artifactory/hl-generic-prod-local >> .env.dev
+    echo HABANALABS_MLNX_REPO_PATH=artifactory/devops/tencentos >> .env.dev
+    echo GENERATE_REPOS=FALSE >> .env.dev
+    echo HABANALABS_INSTALLER_LOG=installer-base.log >> .env.dev
+    #End of specific setup
+
+    #Download correct habana-installer (depend if released/unreleased version)
+    rm -f habanalabs-installer.sh
+    local __vault_url="https://vault.habana.ai/artifactory/gaudi-installer/${__version}/habanalabs-installer.sh"
+    local __artifactory_url="https://artifactory-kfs.habana-labs.com/artifactory/hl-generic-prod-local/$__version/$__build/installer/habanalabs-installer.sh"
+    if  wget -S --spider "${__vault_url}"  2>&1 | grep -q 'HTTP/1.1 200'; then
+        wget $__vault_url
+        export HABANA_STANDALONE_TYPE="vault"
+    elif wget -S --spider "${__artifactory_url}"  2>&1 | grep -q 'HTTP/1.1 200'; then
+        wget $__artifactory_url
+        export HABANA_STANDALONE_TYPE="artifactory"
+    else
+        echo "Downloading habanalabs_installer for version ${__version} failed. Exiting..."
+        return 1
+    fi
+
+    bash habanalabs-installer.sh uninstall -y
+    bash habanalabs-installer.sh install -t base -y
+
+    sudo ln -s /usr/lib/habanalabs/libaeon.so.1 /usr/lib/habanalabs/libaeon.so
+
+    export HABANA_SOFTWARE_STACK="$(pwd)"
+
+    IFS=- read -r VERSION BUILD <<EOF
+    $(bash habanalabs-installer.sh -v)
+EOF
+    "${PYTORCH_MODULES_ROOT_PATH}"/scripts/install_torch_fork.sh "$VERSION" "$BUILD"
+    __result=$?
+    if [ $__result -ne 0 ]; then
+        return ${__result}
+    fi
+
+    pip install --force-reinstall https://artifactory-kfs.habana-labs.com/artifactory/habana-pypi-dev-local/habana_media_loader/${VERSION// /}.$BUILD/habana_media_loader-${VERSION// /}.$BUILD-py3-none-any.whl
+
+    sudo chmod +xw /usr/lib/habanalabs
+    sudo ln -s /usr/include/habanalabs/hl_logger /usr/include/habanalabs/hl_logger/include
+
 }

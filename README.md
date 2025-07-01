@@ -45,7 +45,9 @@ pip install habana-media-loader==$VERSION.$BUILD
 4. Allow the build command to install artifacts:
 
 ```bash
-sudo chmod +w /usr/lib/habanalabs/
+sudo chmod +xw /usr/lib/habanalabs
+sudo ln -s /usr/include/habanalabs/hl_logger /usr/include/habanalabs/hl_logger/include
+
 ```
 
 ### Code Build
@@ -57,11 +59,11 @@ Once the one-time setup is complete, you can configure the necessary environment
 export HABANA_SOFTWARE_STACK="$(pwd)"
 
 export HCL_INCLUDE_DIR=/usr/include/habanalabs/
-export HL_LOGGER_INCLUDE_DIRS=/usr/include/habanalabs/hl_logger
 export MEDIA_ROOT=$(python -c "import habana_frameworks.mediapipe, os;print(os.path.dirname(habana_frameworks.mediapipe.__file__))")
 export SPECS_EXT_ROOT=/usr/include/habanalabs/
 export SYNAPSE_INCLUDE_DIR=/usr/include/habanalabs/
 export SYNAPSE_UTILS_INCLUDE_DIR=/usr/include/habanalabs/
+export SWTOOLS_SDK_ROOT=/usr/include/habanalabs/
 
 export BUILD_ROOT="$HOME/builds"
 export BUILD_ROOT_LATEST=/usr/lib/habanalabs/

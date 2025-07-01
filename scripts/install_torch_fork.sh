@@ -50,30 +50,48 @@ main() {
     source /etc/os-release
     if [[ "$ID" == "ubuntu" ]]; then
         if [[ "$VERSION_ID" == "22.04" ]]; then
-            os="ubuntu2204"
+            os="ubuntu22.04"
         elif [[ "$VERSION_ID" == "24.04" ]]; then
-            os="ubuntu2404"
+            os="ubuntu24.04"
         fi
     elif [[ "$ID" == "rhel" ]]; then
         if [[ "$VERSION_ID" == "86" ]]; then
-            os="rhel86"
+            os="rhel8.6"
         elif [[ "$VERSION_ID" == "92" ]]; then
-            os="rhel92"
+            os="rhel9.2"
         elif [[ "$VERSION_ID" == "94" ]]; then
-            os="rhel94"
+            os="rhel9.4"
         fi
     elif [[ "$ID" == "suse" ]]; then
-        os="suse155"
+        os="suse15.5"
     elif [[ "$ID" == "tencentos" ]]; then
-        os="tencentos31"
+        os="tencentos3.1"
+    fi
+
+    local art_os=""
+    local vault_os="$(echo "$os" | tr -d '.')"
+    if [[ "$os" != "ubuntu22.04" ]]; then
+        art_os="-${os}"
     fi
 
     # shellcheck disable=SC2064  # Otherwise storage is already out of scope
     trap "rm -r \"$storage\"" EXIT
 
-    wget "https://vault.habana.ai/artifactory/gaudi-pt-modules/${version}/${build}/pytorch/${os}/pytorch_modules-v${current_torch}_${version}_${build}.tgz" -O - \
-        | tar -C "$storage" -xz --wildcards --no-anchored "torch-${current_torch}*"
-    pip install "$storage/torch-${current_torch}"*
+    local vault_url="https://vault.habana.ai/artifactory/gaudi-pt-modules/${version// /}/${build}/pytorch/${vault_os}/pytorch_modules-v${current_torch}_${version// /}_${build}.tgz"
+    local art_url="https://artifactory-kfs.habana-labs.com:443/artifactory/bin-generic-dev-local/pt_fork/latest/pt_fork-master${art_os}.tgz"
+
+    if wget -S --spider "${vault_url}"  2>&1 | grep -q 'HTTP/1.1 200'; then
+        wget "$vault_url" -O - \
+            | tar -C "$storage" -xz --wildcards --no-anchored "torch-${current_torch}*"
+        pip install "$storage/torch-${current_torch}"*
+    elif wget -S --spider "${art_url}"  2>&1 | grep -q 'HTTP/1.1 200'; then
+        wget "$art_url" -O - \
+            | tar -C "$storage" -xz --wildcards --no-anchored "torch-${current_torch}*"
+        pip install "$storage/pytorch_deps/whl_pyfork/torch-${current_torch}"*
+    else
+        echo "Cannot find correct torch version. Exiting..."
+        return 1
+    fi
 }
 
 main "$@"
