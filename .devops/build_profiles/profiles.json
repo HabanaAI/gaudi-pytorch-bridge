@@ -56,10 +56,10 @@
     "next": {
       "version": "2.8.0",
       "default_source": "build",
-      "cpu_index_url": "https://download.pytorch.org/whl/nightly/cpu",
+      "cpu_index_url": "https://download.pytorch.org/whl/test/cpu",
       "extras": {
-        "torchvision": "main",
-        "torchaudio": "main",
+        "torchvision": "v0.23.0-rc1",
+        "torchaudio": "v2.8.0-rc1",
         "torchtext": "main",
         "torchdata": "main"
       }
