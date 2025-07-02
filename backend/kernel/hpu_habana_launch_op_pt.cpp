@@ -587,7 +587,8 @@ void HabanaLaunchOpPT::GetSynapseInputs(
         scope_string_common + ".placeholder." + std::to_string(input_idx);
 
     bool isTensor = ivalue->isTensor();
-    if ((isTensor || ivalue->isTensorList())) {
+    if ((isTensor || ivalue->isTensorList() ||
+         ivalue->isOptionalTensorList())) {
       GetSynapseInputsForTensors(habana_op, value_in, isTensor, scope_string);
     }
   }

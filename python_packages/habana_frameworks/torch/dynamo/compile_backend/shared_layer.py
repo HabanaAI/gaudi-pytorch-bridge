@@ -15,12 +15,13 @@
 #
 ###############################################################################
 
-
 import habana_frameworks.torch.internal.bridge_config as bc
 from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
 from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
 
 import torch
+import torch.fx
+from torch.fx.experimental.proxy_tensor import py_sym_types
 
 from ._shared_layer_C import shared_layer_validation
 from .random_utils import HABANA_RANDOM_OPS
@@ -173,12 +174,31 @@ hpu_ds_fallback_list = {
 META_SHAPE_CHANGED_EXCEPTION = "Meta output shape changed."
 
 
+def is_index_2d(node):
+    indices_arg = node.args[1]
+    shape = None
+    tensor_meta = node.meta.get("val", node.meta.get("tensor_meta"))
+    if tensor_meta is not None:
+        if isinstance(tensor_meta, torch.Tensor):
+            shape = tensor_meta.shape
+        elif isinstance(tensor_meta, py_sym_types):
+            shape = tensor_meta
+    if len(shape) == 2 and len(shape) == len(indices_arg):
+        return True
+    else:
+        # if not shape or len(shape) != 2 or len(shape) != len(indices_arg):
+        # Currently, we only handle 2D tensors
+        return False
+
+
 # Returns True when the index.hacked_twin op needs to fallback to eager
 def check_for_conditional_eager_fallback(node, op_name, is_dynamic):
     if op_name not in hpu_conditional_fallback_op_list:
         return False, ""
     if is_dynamic:
         return True, "Dynamic shape is not supported for this op"
+    if is_index_2d(node):
+        return False, ""
 
     indices = node.args[1]
     for index in indices:
@@ -292,7 +312,12 @@ def is_eager_fallback_required(node: torch.fx.Node, is_dynamic=False) -> bool:
         if do_fallback:
             # This log line is used by the logging analysis tool. Please be cautious
             # when changing.
-            logger.warn("Fallback required. Node: {} Target: {} Meta: {}", node, node.target, node.meta)
+            logger.warn(
+                "Fallback required. Node: {} Target: {} Meta: {}",
+                node,
+                node.target,
+                node.meta,
+            )
             logger.warn("Node.args: {}, Node.kwargs: {}", args, kwargs)
             logger.warn("Fallback reason: {}", reason)
         elif reason:
@@ -312,7 +337,11 @@ def is_eager_fallback_required(node: torch.fx.Node, is_dynamic=False) -> bool:
     assert node.op == "call_function"
     output_device = node.meta["output_device"].type
     if output_device != "hpu":
-        logger.debug("Node: {} requires fallback: False, due to non-hpu output device: {}", node, output_device)
+        logger.debug(
+            "Node: {} requires fallback: False, due to non-hpu output device: {}",
+            node,
+            output_device,
+        )
         return False
 
     args, kwargs = node.val_args, node.val_kwargs

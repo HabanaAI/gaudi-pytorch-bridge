@@ -125,9 +125,8 @@ static sizes_vec IndexOutShapeFromOrigStack(const at::Stack& stack) {
     int i = 0;
     for (const auto& index_opt : indices_ival) {
       auto o1 = index_opt.toOptional<at::Tensor>();
-      if (o1.has_value() && !o1.value().defined()) {
-        // Don't add undefined tensors to list as Lazy infra can't handle such
-        // tensors
+      if (!o1.has_value() || (o1.has_value() && !o1.value().defined())) {
+        // handle advanced indexing
         adv_index_dims[i] = -1;
         adv_indexing_present = true;
       } else if (o1.has_value() && o1.value().defined()) {
@@ -175,9 +174,10 @@ static sizes_vec IndexOutShapeFromOrigStack(const at::Stack& stack) {
 
 sizes_vec IndexOutputShape(const at::Stack& stack) {
   const at::Tensor input = stack_tensor(stack, 0);
-  auto indices = stack.at(1).toTensorList().vec();
+
   if (stack.size() > 2) { // indicates that we are getting the custom schema
                           // with additional info
+    auto indices = stack.at(1).toTensorList().vec();
     std::vector<bool> adv_ind_dim = stack[2].toBoolList().vec();
     const int num_index_tensors = stack[4].toInt();
     const bool adv_indexing_present = std::any_of(
@@ -200,8 +200,7 @@ sizes_vec IndexOutputShape(const at::Stack& stack) {
       return shape;
     }
   } else {
-    HABANA_ASSERT(
-        "!!!Not expected to hit IndexOutShapeFromOrigStack as index op uses custom schema!!!");
+    // handle non-advanced indexing cases and advanced indexing cases upto 2D
     return IndexOutShapeFromOrigStack(stack);
   }
 }
@@ -236,19 +235,43 @@ static FillParamsT FillPermuteParams(const at::Stack& stack) {
 FillParamsT FillIndexParams(const at::Stack& stack) {
   PARAMS_STUB(ns_IndexKernel::Params);
 
-  auto const& adv_indexing_dims = stack.at(2).toBoolList();
-  auto const aid_size = adv_indexing_dims.size();
-  for (size_t i = 0; i < aid_size; ++i)
-    params->advanced_indexing_dims[i] = adv_indexing_dims[i];
+  if (stack.size() > 2) {
+    auto const& adv_indexing_dims = stack.at(2).toBoolList();
+    auto const aid_size = adv_indexing_dims.size();
+    for (size_t i = 0; i < aid_size; ++i)
+      params->advanced_indexing_dims[i] = adv_indexing_dims[i];
 
-  auto const& self_permute_dims = stack.at(3).toIntList();
-  auto const spd_size = self_permute_dims.size();
-  for (size_t i = 0; i < spd_size; ++i)
-    params->self_permute_dims[i] = self_permute_dims[i];
+    auto const& self_permute_dims = stack.at(3).toIntList();
+    auto const spd_size = self_permute_dims.size();
+    for (size_t i = 0; i < spd_size; ++i)
+      params->self_permute_dims[i] = self_permute_dims[i];
 
-  params->num_index_tensors = stack.at(4).toScalar().toInt();
+    params->num_index_tensors = stack.at(4).toScalar().toInt();
 
-  return paramsT;
+    return paramsT;
+  } else {
+    // handle advanced indexing
+    std::vector<bool> adv_ind_dim;
+    const auto& self = stack_tensor(stack, 0);
+    auto opt_tensorlist_args = stack.at(1).toOptionalTensorList();
+    for (std::optional<at::Tensor> input_ind : opt_tensorlist_args) {
+      auto input = input_ind.value_or(at::Tensor());
+      if (input.defined()) {
+        adv_ind_dim.push_back(false);
+      } else {
+        adv_ind_dim.push_back(true);
+      }
+    }
+    auto const aid_size = adv_ind_dim.size();
+    for (size_t i = 0; i < aid_size; ++i)
+      params->advanced_indexing_dims[i] = adv_ind_dim[i];
+
+    for (int i = 0; i < (int)self.dim(); i++) {
+      params->self_permute_dims[i] = i;
+    }
+    params->num_index_tensors = opt_tensorlist_args.size();
+    return paramsT;
+  }
 }
 
 SharedMetaDataVector IndexSharedMeta(
@@ -296,8 +319,22 @@ void IndexHabanaOperator::AddNode(
     auto indices = stackGetter.getNextInput<std::vector<TensorsPair>>();
 
     std::vector<synTensor> index_input{input.syn_t};
-    for (auto const& index : indices)
-      index_input.push_back(index.syn_t);
+    if (!stack.at(1).isOptionalTensorList()) {
+      for (auto const& index : indices) {
+        index_input.push_back(index.syn_t);
+      }
+    } else {
+      // handle advanced indexing
+      auto opt_tensorlist_args = stack.at(1).toOptionalTensorList();
+      int i = 0;
+      for (std::optional<at::Tensor> input_ind : opt_tensorlist_args) {
+        auto input = input_ind.value_or(at::Tensor());
+        if (input.defined()) {
+          i++;
+          index_input.push_back(syn_in(i));
+        }
+      }
+    }
 
     auto result = BuildOp(
         graph,
