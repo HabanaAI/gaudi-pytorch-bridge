@@ -672,7 +672,11 @@ class OptimizedJitGraphCache {
           "hpu::fused_clip_norm"sv,
           "hpu::custom_foreach_add_"sv,
           "hpu::sdpa"sv,
-          "hpu::fp8_sdpa"sv};
+          "hpu::fp8_sdpa"sv,
+          "hpu::mixture_of_experts_fwd"sv,
+          "hpu::mixture_of_experts_bwd"sv,
+          "hpu::mixture_of_experts_recomp_fwd"sv,
+          "hpu::mixture_of_experts_recomp_bwd"sv};
 };
 
 class OptimizedJitGraphCacheBackup {

@@ -1570,7 +1570,6 @@ def mixture_of_experts_training_fp8(
 
 @pytest.mark.skip("Mixture of experts takes too long on sim")
 @pytest.mark.skipif(is_gaudi1(), reason="Mixture of experts is not supported for Gaudi")
-@pytest.mark.skipif(is_pytest_mode_eager(), reason="Mixture of experts fp8 training is not yet supported in eager mode")
 @pytest.mark.parametrize(
     "fp8_dtype, hybrid_mode",
     [(torch.float8_e4m3fn, False), (torch.float8_e5m2, False), (torch.float8_e4m3fn, True)],

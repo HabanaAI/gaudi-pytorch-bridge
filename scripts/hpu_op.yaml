@@ -8943,7 +8943,7 @@ mixture_of_experts_fwd.fp8_fused:
   guid: moe_v2_fwd
   output_meta: MixtureOfExpertsFwdFp8Meta
   out_ids: [0]
-  frontend_blocklist: [lazy, eager]
+  frontend_blocklist: [lazy]
   op_validator_exception: custom_op
   namespaces: [torch.hpu]
   skip_slrg: true
@@ -8955,7 +8955,7 @@ mixture_of_experts_bwd.fp8_fused:
   guid: moe_v2_bwd
   output_meta: MixtureOfExpertsBwdFp8Meta
   out_ids: [0]
-  frontend_blocklist: [lazy, eager]
+  frontend_blocklist: [lazy]
   op_validator_exception: custom_op
   namespaces: [torch.hpu]
   skip_slrg: true
@@ -8967,7 +8967,7 @@ mixture_of_experts_recomp_fwd.fp8_fused:
   guid: moe_fwd
   output_meta: MixtureOfExpertsRecompFwdFp8Meta
   out_ids: [0]
-  frontend_blocklist: [lazy, eager]
+  frontend_blocklist: [lazy]
   op_validator_exception: custom_op
   namespaces: [torch.hpu]
   skip_slrg: true
@@ -8979,7 +8979,7 @@ mixture_of_experts_recomp_bwd.fp8_fused:
   guid: moe_recomp_v2_bwd
   output_meta: MixtureOfExpertsBwdFp8Meta
   out_ids: [0]
-  frontend_blocklist: [lazy, eager]
+  frontend_blocklist: [lazy]
   op_validator_exception: custom_op
   namespaces: [torch.hpu]
   skip_slrg: true
@@ -8991,7 +8991,7 @@ mixture_of_experts_fwd.fp8:
   guid: moe_v2_fwd
   output_meta: MixtureOfExpertsFwdFp8Meta
   out_ids: [0]
-  frontend_blocklist: [lazy, eager]
+  frontend_blocklist: [lazy]
   op_validator_exception: custom_op
   namespaces: [torch.hpu]
   skip_slrg: true
@@ -9003,7 +9003,7 @@ mixture_of_experts_bwd.fp8:
   guid: moe_v2_bwd
   output_meta: MixtureOfExpertsBwdFp8Meta
   out_ids: [0]
-  frontend_blocklist: [lazy, eager]
+  frontend_blocklist: [lazy]
   op_validator_exception: custom_op
   namespaces: [torch.hpu]
   skip_slrg: true
@@ -9015,7 +9015,7 @@ mixture_of_experts_recomp_fwd.fp8:
   guid: moe_fwd
   output_meta: MixtureOfExpertsRecompFwdFp8Meta
   out_ids: [0]
-  frontend_blocklist: [lazy, eager]
+  frontend_blocklist: [lazy]
   op_validator_exception: custom_op
   namespaces: [torch.hpu]
   skip_slrg: true
@@ -9027,7 +9027,7 @@ mixture_of_experts_recomp_bwd.fp8:
   guid: moe_recomp_v2_bwd
   output_meta: MixtureOfExpertsBwdFp8Meta
   out_ids: [0]
-  frontend_blocklist: [lazy, eager]
+  frontend_blocklist: [lazy]
   op_validator_exception: custom_op
   namespaces: [torch.hpu]
   skip_slrg: true
