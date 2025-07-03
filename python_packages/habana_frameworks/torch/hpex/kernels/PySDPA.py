@@ -197,6 +197,7 @@ def flex_attention_fwd(q, k, v, block_size=128, is_noop_mask=False, is_ret_lse=F
     orig_dtype = q.dtype
     is_fp8 = False
     compatible_dtype = orig_dtype
+    compatible_dtype_for_softmax = torch.float32
     if orig_dtype == torch.float8_e5m2 or orig_dtype == torch.float8_e4m3fn:
         is_fp8 = True
         compatible_dtype = torch.bfloat16
@@ -209,7 +210,7 @@ def flex_attention_fwd(q, k, v, block_size=128, is_noop_mask=False, is_ret_lse=F
     working_precision = torch.float64 if q.dtype == torch.float64 else torch.float32
     if is_fp8:
         working_precision = torch.bfloat16
-    max_neg_value = -torch.finfo(q.dtype).max
+    max_neg_value = -torch.finfo(compatible_dtype_for_softmax).max
     neg_inf = float("-inf")
     scale = 1 / math.sqrt(q.size(-1))
 
@@ -244,14 +245,18 @@ def flex_attention_fwd(q, k, v, block_size=128, is_noop_mask=False, is_ret_lse=F
                 vhc.split(k_bucket_size, dim=-2),
                 strict=False,
             )
-            out_c = torch.zeros_like(qc, dtype=orig_dtype)
-            row_sums = torch.zeros((*qc.shape[:-1], 1), device=device, dtype=compatible_dtype)
-            row_maxes = torch.full((*qc.shape[:-1], 1), max_neg_value, device=device, dtype=compatible_dtype)
+            out_c = torch.zeros_like(qc, dtype=compatible_dtype_for_softmax)
+            row_sums = torch.zeros((*qc.shape[:-1], 1), device=device, dtype=compatible_dtype_for_softmax)
+            row_maxes = torch.full(
+                (*qc.shape[:-1], 1), max_neg_value, device=device, dtype=compatible_dtype_for_softmax
+            )
             for k_ind, (kc, vc) in enumerate(col_splits):
                 row_sums_c = row_sums.clone()
                 row_maxes_c = row_maxes.clone()
 
                 # For FP8, QK is in FP8 precision and output is in FP32
+                qc = qc.to(compatible_dtype_for_softmax)
+                kc = kc.to(compatible_dtype_for_softmax)
                 attn_weights = torch.matmul(qc, kc.transpose(-2, -1)).to(working_precision)
 
                 attn_weights = (attn_weights * scale).to(working_precision)
@@ -270,7 +275,7 @@ def flex_attention_fwd(q, k, v, block_size=128, is_noop_mask=False, is_ret_lse=F
                 # attn_weights = attn_weights + b
 
                 h_base = (
-                    torch.arange(q_heads, device=q.device, dtype=compatible_dtype)
+                    torch.arange(q_heads, device=q.device, dtype=compatible_dtype_for_softmax)
                     .view(q_heads, 1, 1)
                     .expand(q_heads, qc.shape[qc.dim() - 2], kc.shape[kc.dim() - 2])
                 )
@@ -282,7 +287,7 @@ def flex_attention_fwd(q, k, v, block_size=128, is_noop_mask=False, is_ret_lse=F
                         q_ind * qc.shape[qc.dim() - 2],
                         (q_ind + 1) * qc.shape[qc.dim() - 2],
                         device=q.device,
-                        dtype=compatible_dtype,
+                        dtype=compatible_dtype_for_softmax,
                     )
                     .unsqueeze(1)
                     .repeat(1, qc.shape[qc.dim() - 2])
@@ -296,7 +301,7 @@ def flex_attention_fwd(q, k, v, block_size=128, is_noop_mask=False, is_ret_lse=F
                         k_ind * kc.shape[kc.dim() - 2],
                         (k_ind + 1) * kc.shape[kc.dim() - 2],
                         device=q.device,
-                        dtype=compatible_dtype,
+                        dtype=compatible_dtype_for_softmax,
                     )
                     .unsqueeze(0)
                     .repeat(kc.shape[kc.dim() - 2], 1)
@@ -318,32 +323,34 @@ def flex_attention_fwd(q, k, v, block_size=128, is_noop_mask=False, is_ret_lse=F
                 else:
                     safe_post_mod_scores = post_mod_scores - new_row_maxes
 
-                exp_weights = torch.exp(safe_post_mod_scores.to(compatible_dtype))
-
+                exp_weights = torch.exp(safe_post_mod_scores)
                 block_row_sums = exp_weights.sum(dim=-1, keepdims=True)
-                exp_values = torch.matmul(exp_weights, vc.to(compatible_dtype))
 
-                exp_row_max_diff = torch.exp((row_maxes - new_row_maxes).to(compatible_dtype))
+                # TODO: (QK) * V MatMul is precision of original dtype (FP8/BF16/FP32)
+                exp_values = torch.matmul(exp_weights, vc.to(compatible_dtype_for_softmax)).to(
+                    compatible_dtype_for_softmax
+                )
 
+                exp_row_max_diff = torch.exp(row_maxes - new_row_maxes)
                 new_row_sums = exp_row_max_diff * row_sums_c + block_row_sums
 
-                out_c = out_c * exp_row_max_diff.to(orig_dtype)
-                out_c = out_c + exp_values.to(orig_dtype)
+                out_c = out_c * exp_row_max_diff
+                out_c = out_c + exp_values
 
-                row_maxes = new_row_maxes * 1.0
-                row_sums = new_row_sums * 1.0
+                row_maxes = new_row_maxes
+                row_sums = new_row_sums
 
             # div not supported for FP8 so computing on BF16
             # Reciprocal + multiply = div
-            out_c = out_c * (1 / row_sums).to(orig_dtype)
-            out.append(out_c)
-            out_row_sums.append(row_sums.to(orig_dtype))
-            out_row_maxes.append(row_maxes.to(orig_dtype))
+            out_c = out_c / row_sums  # out_c * (1 / row_sums)
+            out.append(out_c.to(orig_dtype))
+            out_row_sums.append(row_sums)
+            out_row_maxes.append(row_maxes)
 
         out_sums = torch.cat(out_row_sums, -2)
         out_maxes = torch.cat(out_row_maxes, -2)
-        lse = (out_sums.to(compatible_dtype).log()).to(orig_dtype) + out_maxes
-        lse = (lse.to(compatible_dtype) / math.log(2)).to(orig_dtype)
+        lse = (out_sums.to(compatible_dtype_for_softmax).log()) + out_maxes
+        lse = lse.to(compatible_dtype_for_softmax) * 1.0 / math.log(2)
         lse_leaf = lse.squeeze(-1)
         # remove this WA leaf nodes runs eagerly on hpu
         lse = lse_leaf * 1.0
@@ -353,7 +360,7 @@ def flex_attention_fwd(q, k, v, block_size=128, is_noop_mask=False, is_ret_lse=F
     ret_o = torch.cat(out_o, -3)
     ret_lse = torch.cat(lse_o, -2)
     if is_ret_lse:
-        packed_tensors = torch.ops.hpu.flex_attention_pack_tensors(ret_o, ret_lse, None)
+        packed_tensors = torch.ops.hpu.flex_attention_pack_tensors(ret_o, ret_lse.to(working_precision), None)
         return packed_tensors
     packed_tensors = torch.ops.hpu.flex_attention_pack_tensors(ret_o, None, None)
     return packed_tensors
