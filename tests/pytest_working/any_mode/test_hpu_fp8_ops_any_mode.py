@@ -17,10 +17,12 @@
 from enum import Enum
 
 import habana_frameworks.torch.hpu as ht
+import habana_frameworks.torch.internal.bridge_config as bc
 import numpy as np
 import pytest
 import torch
 from fp8_utils import FP8_MAX, convertExpBiasToScale, fp8_dtypes, simulateFp8Precision
+from habana_frameworks.torch.hpu.metrics import metric_debug_reload, metric_global
 from test_utils import (
     check_ops_executed_in_jit_ir,
     compare_tensors,
@@ -1299,13 +1301,22 @@ def test_conv2d_fp8_h2d():
     assert "conv2d_fp8.default doesn't support H2D scales feature yet, but received CPU scales." in exception_msg
 
 
-def common_h2d_scales(src_dtype, batched_tensors, fuse_cast, scale_values, scale_out_values, is_hw_aligned):
+def common_h2d_scales(
+    src_dtype,
+    batched_tensors,
+    fuse_cast,
+    scale_values,
+    scale_out_values,
+    is_hw_aligned,
+    in_shape_a=(4, 8),
+    in_shape_b=(8, 16),
+):
     ht.enable_inference_mode()
 
     fp8_dtype = torch.float8_e4m3fn
     # change shape to generate different graphs for hw/non-hw modes
-    shape_a = (4, 8) if is_hw_aligned else (6, 8)
-    shape_b = (8, 16)
+    shape_a = in_shape_a if is_hw_aligned else (6, 8)
+    shape_b = in_shape_b
     if batched_tensors:
         shape_a = (2, 1) + shape_a
         shape_b = (2,) + shape_b
@@ -1393,22 +1404,44 @@ def common_h2d_scales(src_dtype, batched_tensors, fuse_cast, scale_values, scale
 
 
 @pytest.mark.skipif(is_pytest_mode_eager(), reason="Eager mode doesn't support H2D scales.")
-@pytest.mark.parametrize("src_dtype", [torch.float, torch.bfloat16])
-@pytest.mark.parametrize("batched_tensors", [False, True])
-@pytest.mark.parametrize("fuse_cast", [False, True])
-def test_h2d_scales(src_dtype, batched_tensors, fuse_cast):
-    bias_values = [3, 7, 11, 15] if is_gaudi2() else [2, 6, 12, 15]
+@pytest.mark.parametrize(
+    "src_dtype, batched_tensors", [(torch.float, False), (torch.bfloat16, True), (torch.bfloat16, False)]
+)
+@pytest.mark.parametrize("fuse_cast, trivial_scales_mode", [(False, 0), (True, 1), (False, 2), (True, 0)])
+def test_h2d_scales(src_dtype, batched_tensors, fuse_cast, trivial_scales_mode):
+    bias_values = [3, 7, 11, 15] if is_gaudi2() else [2, 7, 12, 15]
     scale_values = convertExpBiasToScale(bias_values)
-    scale_out_values = convertExpBiasToScale((3, 11)) if fuse_cast else (1.0,)
+    scale_out_values = convertExpBiasToScale((3, 7)) if fuse_cast else (1.0,)
 
-    common_h2d_scales(
-        src_dtype,
-        batched_tensors,
-        fuse_cast,
-        scale_values,
-        scale_out_values,
-        is_hw_aligned=True,
-    )
+    exec_count = pow(len(scale_values), 2) * len(scale_out_values)
+    expected_misses = 1
+    if trivial_scales_mode == 1:
+        expected_misses = 8 if fuse_cast else 4
+    elif trivial_scales_mode == 2:
+        expected_misses = 10 if fuse_cast else 5
+    expected_hits = exec_count - expected_misses
+
+    with bc.env_setting("PT_HPU_H2D_TRIVIAL_SCALES_MODE", trivial_scales_mode):
+        bc.set_pt_hpu_enable_cache_metrics(True)
+        metric_debug_reload()
+        metric = metric_global("recipe_cache")
+
+        common_h2d_scales(
+            src_dtype,
+            batched_tensors,
+            fuse_cast,
+            scale_values,
+            scale_out_values,
+            is_hw_aligned=True,
+            in_shape_a=(4 + trivial_scales_mode, 8),
+            in_shape_b=(8, 16 + trivial_scales_mode),
+        )
+
+        stats = dict(metric.stats())
+        assert stats["TotalMiss"] == expected_misses
+        assert stats["TotalHit"] == expected_hits
+        bc.set_pt_hpu_enable_cache_metrics(False)
+        metric_debug_reload()
 
 
 @pytest.mark.skipif(is_pytest_mode_eager(), reason="Eager mode doesn't support H2D scales.")
@@ -1417,8 +1450,17 @@ def test_h2d_scales(src_dtype, batched_tensors, fuse_cast):
 def test_non_hw_h2d_scales(src_dtype, fuse_cast):
     scale_values = (2.5, 0.7)
     scale_out_values = (0.4, 3.0) if fuse_cast else (1.0,)
+    expected_hits = pow(len(scale_values), 2) * len(scale_out_values) - 1
+
+    bc.set_pt_hpu_enable_cache_metrics(True)
+    metric_debug_reload()
+    metric = metric_global("recipe_cache")
 
     common_h2d_scales(src_dtype, False, fuse_cast, scale_values, scale_out_values, is_hw_aligned=False)
+
+    stats = dict(metric.stats())
+    assert stats["TotalMiss"] == 1
+    assert stats["TotalHit"] == expected_hits
 
 
 @pytest.mark.parametrize("src_dtype", [torch.float, torch.bfloat16])

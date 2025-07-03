@@ -35,15 +35,21 @@ std::tuple<at::Tensor, at::Tensor> cast_to_fp8_v2_lazy(
     at::OptionalIntArrayRef scale_shape) {
   PT_LAZY_TRACE;
 
+  std::vector<at::IValue> inputs{
+      input, std::nullopt, stochastic_rounding, is_amax, dtype, scale_shape};
+
+  bool trivial_scales_optimization_disabled =
+      GET_ENV_FLAG_NEW(PT_HPU_H2D_TRIVIAL_SCALES_MODE) == 0;
+
+  if (trivial_scales_optimization_disabled or
+      not(scale.has_value() and scale->defined() and
+          scale->device().is_cpu() and scale->item().toDouble() == 1.0)) {
+    inputs[1] = maybe_convert_tensor_to_h2d(
+        scale, habana_helpers::is_h2d_scales_enabled(), "cast_to_fp8_v2"sv);
+  }
+
   LazyOp<::std::tuple<at::Tensor, at::Tensor>> hpu_op{
-      "hpu::cast_to_fp8_v2",
-      {input,
-       maybe_convert_tensor_to_h2d(
-           scale, habana_helpers::is_h2d_scales_enabled(), "cast_to_fp8_v2"sv),
-       stochastic_rounding,
-       is_amax,
-       dtype,
-       scale_shape}};
+      "hpu::cast_to_fp8_v2", std::move(inputs)};
   hpu_op.SetOutputMetaFn(CastToFp8V2Meta);
   RUN_TUPLE_MAYBE_WITH_ACC_THREAD(cast_to_fp8_v2, hpu_op);
 }
@@ -55,13 +61,19 @@ at::Tensor cast_from_fp8_lazy(
     at::OptionalIntArrayRef scale_shape) {
   PT_LAZY_TRACE;
 
-  LazyOp<at::Tensor> hpu_op{
-      "hpu::cast_from_fp8",
-      {input,
-       maybe_convert_tensor_to_h2d(
-           scale, habana_helpers::is_h2d_scales_enabled(), "cast_from_fp8"sv),
-       dtype,
-       scale_shape}};
+  std::vector<at::IValue> inputs{input, std::nullopt, dtype, scale_shape};
+
+  bool trivial_scales_optimization_disabled =
+      GET_ENV_FLAG_NEW(PT_HPU_H2D_TRIVIAL_SCALES_MODE) == 0;
+
+  if (trivial_scales_optimization_disabled or
+      not(scale.has_value() and scale->defined() and
+          scale->device().is_cpu() and scale->item().toDouble() == 1.0)) {
+    inputs[1] = maybe_convert_tensor_to_h2d(
+        scale, habana_helpers::is_h2d_scales_enabled(), "cast_from_fp8"sv);
+  }
+
+  LazyOp<at::Tensor> hpu_op{"hpu::cast_from_fp8", std::move(inputs)};
   hpu_op.SetOutputMetaFn(CastFromFp8Meta);
   RUN_MAYBE_WITH_ACC_THREAD(cast_from_fp8, hpu_op);
 }
@@ -118,19 +130,36 @@ at::Tensor fp8_gemm_v2_lazy(
 
   const auto h2d_scales_enabled = habana_helpers::is_h2d_scales_enabled();
   const std::string_view op_name{"fp8_gemm_v2"};
-  LazyOp<at::Tensor> hpu_op{
-      "hpu::fp8_gemm_v2",
-      {A,
-       trans_A,
-       B,
-       trans_B,
-       D,
-       out_dtype,
-       maybe_convert_tensor_to_h2d(A_scale_inv, h2d_scales_enabled, op_name),
-       maybe_convert_tensor_to_h2d(B_scale_inv, h2d_scales_enabled, op_name),
-       bias,
-       accumulate,
-       B_scale_shape}};
+
+  std::vector<at::IValue> inputs{
+      A,
+      trans_A,
+      B,
+      trans_B,
+      D,
+      out_dtype,
+      std::nullopt,
+      std::nullopt,
+      bias,
+      accumulate,
+      B_scale_shape};
+
+  bool trivial_scales_optimization_disabled =
+      GET_ENV_FLAG_NEW(PT_HPU_H2D_TRIVIAL_SCALES_MODE) < 2;
+
+  if (trivial_scales_optimization_disabled or
+      not(A_scale_inv.has_value() and A_scale_inv->defined() and
+          A_scale_inv->device().is_cpu() and B_scale_inv.has_value() and
+          B_scale_inv->defined() and B_scale_inv->device().is_cpu() and
+          A_scale_inv->item().toDouble() ==
+              1 / B_scale_inv->item().toDouble())) {
+    inputs[6] =
+        maybe_convert_tensor_to_h2d(A_scale_inv, h2d_scales_enabled, op_name);
+    inputs[7] =
+        maybe_convert_tensor_to_h2d(B_scale_inv, h2d_scales_enabled, op_name);
+  }
+
+  LazyOp<at::Tensor> hpu_op{"hpu::fp8_gemm_v2", std::move(inputs)};
   hpu_op.SetOutputMetaFn(Fp8GemmV2Meta);
   RUN_MAYBE_WITH_ACC_THREAD(fp8_gemm_v2, hpu_op);
 }

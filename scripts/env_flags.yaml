@@ -871,8 +871,8 @@ PT_HPU_ENABLE_H2D_SCALES:
   type: bool
   default: true
   settable: true
-  doc: "When this flag is enabled, CPU scales in cast_to_fp8_v2, cast_from_fp8, fp8_gemm_v2 and fp8_sdpa ops
-        are converted to H2D tensors."
+  doc: "When this flag is enabled, CPU scales in cast_to_fp8_v2, cast_from_fp8, fp8_gemm_v2,
+        fp8_sdpa and mixture_of_experts ops are converted to H2D tensors."
 
 PT_HPU_PT2EQ_SCALE_LOAD_PATH:
   default: ""
@@ -955,3 +955,12 @@ PT_HPU_COMPILE_DEBUG_NAN_ASSERTS:
   type: bool
   default: false
   doc: "This flag enables NaN asserts in graph mode after each node (operations inside fused modules are not checked)"
+
+PT_HPU_H2D_TRIVIAL_SCALES_MODE:
+  type: unsigned
+  default: 0
+  settable: true
+  doc: "This flag controls trivial scales optimization in H2D scales mode:
+        0 - no trivial scales optimization
+        1 - scales equal to 1.0 are removed in cast_to_fp8_v2 and cast_from_fp8
+        2 - as in mode 1, and reciprocal scales are removed in fp8_gemm_v2"

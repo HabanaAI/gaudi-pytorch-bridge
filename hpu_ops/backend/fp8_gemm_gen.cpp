@@ -341,16 +341,21 @@ void Fp8GemmV2::AddNode(sh::graph& graph, const at::Stack& stack) {
   params.transpose_a = transA;
   params.transpose_b = transB;
 
-  if (scaleAOpt.isTensorsPair() and scaleBOpt.isTensorsPair()) {
-    const auto tmetaA{get_tensor_extra_meta(scaleAOpt.toTensorsPair().pt_t)};
-    const auto tmetaB{get_tensor_extra_meta(scaleBOpt.toTensorsPair().pt_t)};
+  bool scaleANoneOrH2d = true;
+  bool scaleBNoneOrH2d = true;
+  if (scaleAOpt.isTensorsPair()) {
+    const auto tmeta{get_tensor_extra_meta(scaleAOpt.toTensorsPair().pt_t)};
+    scaleANoneOrH2d = tmeta->get_tensor_type() == HOST_TO_DEVICE_TENSOR;
+  }
+  if (scaleBOpt.isTensorsPair()) {
+    const auto tmeta{get_tensor_extra_meta(scaleBOpt.toTensorsPair().pt_t)};
+    scaleBNoneOrH2d = tmeta->get_tensor_type() == HOST_TO_DEVICE_TENSOR;
+  }
 
-    if (tmetaA->get_tensor_type() == HOST_TO_DEVICE_TENSOR and
-        tmetaB->get_tensor_type() == HOST_TO_DEVICE_TENSOR) {
-      const auto& device = habana::HPUDeviceContext::get_device();
-      params.is_hw_aligned = device.get_scale_attribute_is_hw_aligned();
-      params.scale_method_hash_id = device.get_scale_attribute_hash_id();
-    }
+  if (scaleANoneOrH2d and scaleBNoneOrH2d) {
+    const auto& device = habana::HPUDeviceContext::get_device();
+    params.is_hw_aligned = device.get_scale_attribute_is_hw_aligned();
+    params.scale_method_hash_id = device.get_scale_attribute_hash_id();
   }
 
   auto meta = Fp8GemmV2Meta(stack)[0];

@@ -18,7 +18,8 @@
 
 namespace habana::graph::pass {
 
-using H2dScalesIndicesNames = std::vector<std::pair<size_t, std::string>>;
+using H2dScalesIndicesNames =
+    std::vector<std::pair<std::vector<size_t>, std::string>>;
 
 namespace {
 std::vector<size_t> get_scales_indices(std::string_view node_name) {
@@ -71,7 +72,8 @@ struct HandleH2dScalesPass {
       const torch::jit::Value* input,
       torch::jit::Stack& org_stack,
       const GraphInputIndexMap& org_stack_index_map,
-      const std::string& node_name) {
+      const std::string& node_name,
+      std::vector<size_t>& op_scale_indices) {
     const auto scale_name = input->debugName();
     const auto scale_idx = org_stack_index_map.at(scale_name);
     const auto scale_ivalue = org_stack[scale_idx];
@@ -108,7 +110,7 @@ struct HandleH2dScalesPass {
     org_stack[scale_idx] = torch::jit::IValue(h2d_tensor);
 
     // Store CPU scales indices for later patching.
-    m_h2d_scales_idx_names.emplace_back(scale_idx, node_name);
+    op_scale_indices.emplace_back(scale_idx);
 
     PT_BRIDGE_DEBUG(
         "Scale CPUTensor ",
@@ -147,17 +149,34 @@ struct HandleH2dScalesPass {
         continue;
       }
 
+      std::vector<size_t> op_scale_indices{};
+      op_scale_indices.reserve(scale_indices.size());
+
+      bool local_changed{false};
       for (const size_t idx : scale_indices) {
         const auto scale = node->inputs().at(idx);
         if (scale->node()->kind() == torch::jit::prim::ListConstruct) {
           for (const auto& input : scale->node()->inputs()) {
-            changed |= convertScaleToH2d(
-                input, org_stack, org_stack_index_map, node_name);
+            local_changed |= convertScaleToH2d(
+                input,
+                org_stack,
+                org_stack_index_map,
+                node_name,
+                op_scale_indices);
           }
         } else {
-          changed |= convertScaleToH2d(
-              scale, org_stack, org_stack_index_map, node_name);
+          local_changed |= convertScaleToH2d(
+              scale,
+              org_stack,
+              org_stack_index_map,
+              node_name,
+              op_scale_indices);
         }
+      }
+      if (local_changed) {
+        m_h2d_scales_idx_names.emplace_back(
+            std::move(op_scale_indices), std::move(node_name));
+        changed = true;
       }
     }
     return changed;

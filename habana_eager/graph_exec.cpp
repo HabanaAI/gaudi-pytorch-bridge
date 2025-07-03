@@ -400,30 +400,73 @@ void GraphExec::PatchScaleH2dTensors(torch::jit::Stack& orig_stack) {
   const auto& h2d_scales_cache = HPUDeviceContext::h2d_scales_cache();
   std::vector<size_t> non_hw_scales_indices;
 
-  for (const auto& [idx, node_name] : m_h2d_scales_idx_names) {
-    const auto& cpu_scale = orig_stack[idx].toTensor();
-    HABANA_ASSERT(cpu_scale.is_cpu(), "Expected scale as a CPU tensor.");
-    const auto scale_value = cpu_scale.item().toDouble();
+  bool cast_trivial_scales_optimization_enabled =
+      GET_ENV_FLAG_NEW(PT_HPU_H2D_TRIVIAL_SCALES_MODE) > 0;
+  bool gemm_trivial_scales_optimization_enabled =
+      GET_ENV_FLAG_NEW(PT_HPU_H2D_TRIVIAL_SCALES_MODE) > 1;
 
-    auto maybe_h2d_scale =
-        h2d_scales_cache.TryGetH2dScale(scale_value, cpu_scale.scalar_type());
+  for (const auto& [scale_indices, node_name] : m_h2d_scales_idx_names) {
+    if ((node_name == "hpu::cast_to_fp8_v2" or
+         node_name == "hpu::cast_from_fp8") and
+        cast_trivial_scales_optimization_enabled) {
+      const auto idx = scale_indices[0];
+      const auto& cpu_scale = orig_stack[idx].toTensor();
+      HABANA_ASSERT(cpu_scale.is_cpu(), "Expected scale as a CPU tensor.");
 
-    std::string_view caching_message;
-    if (maybe_h2d_scale.has_value()) {
-      // Update the original stack with the H2D tensor.
-      orig_stack[idx] = torch::jit::IValue(maybe_h2d_scale.value());
-      caching_message = "from cache ";
-    } else {
-      non_hw_scales_indices.push_back(idx);
+      if (cpu_scale.item().toDouble() == 1.0) {
+        orig_stack[idx] = std::nullopt;
+        PT_BRIDGE_DEBUG(
+            "CPU scale of op ",
+            node_name,
+            " was set to None, because its value is 1.0");
+        continue;
+      }
+    } else if (
+        node_name == "hpu::fp8_gemm_v2" and
+        gemm_trivial_scales_optimization_enabled) {
+      const auto idx_a = scale_indices[0];
+      const auto idx_b = scale_indices[1];
+      const auto& cpu_scale_a = orig_stack[idx_a].toTensor();
+      const auto& cpu_scale_b = orig_stack[idx_b].toTensor();
+      HABANA_ASSERT(cpu_scale_a.is_cpu(), "Expected scale_a as a CPU tensor.");
+      HABANA_ASSERT(cpu_scale_b.is_cpu(), "Expected scale_b as a CPU tensor.");
+
+      if (cpu_scale_a.item().toDouble() == 1 / cpu_scale_b.item().toDouble()) {
+        orig_stack[idx_a] = std::nullopt;
+        orig_stack[idx_b] = std::nullopt;
+        PT_BRIDGE_DEBUG(
+            "CPU scales of op ",
+            node_name,
+            " were set to None, because the're reciprocals");
+        continue;
+      }
     }
+    for (const auto idx : scale_indices) {
+      const auto& cpu_scale = orig_stack[idx].toTensor();
+      HABANA_ASSERT(cpu_scale.is_cpu(), "Expected scale as a CPU tensor.");
 
-    PT_BRIDGE_DEBUG(
-        "CPU scale of op ",
-        node_name,
-        " was patched ",
-        caching_message,
-        "into H2D tensor with value=",
-        scale_value);
+      const auto scale_value = cpu_scale.item().toDouble();
+
+      const auto maybe_h2d_scale =
+          h2d_scales_cache.TryGetH2dScale(scale_value, cpu_scale.scalar_type());
+
+      std::string_view caching_message;
+      if (maybe_h2d_scale.has_value()) {
+        // Update the original stack with the H2D tensor.
+        orig_stack[idx] = torch::jit::IValue(maybe_h2d_scale.value());
+        caching_message = "from cache ";
+      } else {
+        non_hw_scales_indices.push_back(idx);
+      }
+
+      PT_BRIDGE_DEBUG(
+          "CPU scale of op ",
+          node_name,
+          " was patched ",
+          caching_message,
+          "into H2D tensor with value=",
+          scale_value);
+    }
   }
 
   // Patching non-hw-aligned scales with newly created H2D tensors.
@@ -439,8 +482,8 @@ void GraphExec::PatchScaleH2dTensors(torch::jit::Stack& orig_stack) {
       });
   const size_t bfloat_count = non_hw_scales_indices.size() - float_count;
 
-  static constexpr size_t float_size = sizeof(float_t);
   static constexpr size_t bfloat_size = sizeof(at::BFloat16);
+  static constexpr size_t float_size = sizeof(float);
   size_t h2d_memory_required =
       4 * (float_count * float_size + bfloat_count * bfloat_size);
 

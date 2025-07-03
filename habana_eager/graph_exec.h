@@ -29,7 +29,8 @@
 namespace habana::graph {
 
 using InputSymbolIndexMap = std::unordered_map<std::string, int64_t>;
-using H2dScalesIndicesNames = std::vector<std::pair<size_t, std::string>>;
+using H2dScalesIndicesNames =
+    std::vector<std::pair<std::vector<size_t>, std::string>>;
 
 class GraphExec {
  public:
