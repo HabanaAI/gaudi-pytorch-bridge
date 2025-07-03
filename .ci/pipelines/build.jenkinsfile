@@ -6,6 +6,11 @@ src = library("pipeline-library@${libraryBranch}")
 // Enabling git environment variables
 gitVars()
 
+// Run build on KubeVirt VM
+env.IS_K8S_VM_NODE = true
+// Run build on new dedicated CPU CI cluster (booth IS_K8S_VM_NODE and IS_K8S_VM_NODE_CPU_CI must be set to true)
+env.IS_K8S_VM_NODE_CPU_CI = true
+
 def isPrimaryOS = env.IS_PRIMARY_OS ? Boolean.valueOf(env.IS_PRIMARY_OS) : true
 
 def user_install = env.runInDocker == 'true' ? '' : '--user'
