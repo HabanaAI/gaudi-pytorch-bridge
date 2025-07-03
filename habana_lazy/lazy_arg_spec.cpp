@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -127,8 +127,8 @@ void LazyArgumentSpec::GetArgSpecKey(
   for (auto const& input_ival : input_refs) {
     if (input_ival.isTensor()) {
       auto in_tensor = input_ival.toTensor();
-      auto m = in_tensor.suggest_memory_format();
-      int64_t m_int = static_cast<std::underlying_type_t<c10::MemoryFormat>>(m);
+      auto memory_format = in_tensor.suggest_memory_format();
+      int64_t m_int = static_cast<unsigned char>(memory_format);
       mf_hash_code =
           at::hash_combine(mf_hash_code, at::get_hash(habana::mod_exp(m_int)));
       if (habana::is_tensor_const_with_valid_const_id(in_tensor)) {

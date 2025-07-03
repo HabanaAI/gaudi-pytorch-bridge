@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -116,7 +116,14 @@ ir::NodePtr strided_insert_h2d(
       false,
       HOST_TO_DEVICE_TENSOR);
   auto hl_stride_st = GetOrCreateHbLazyTensor(stride_st, c10::kHPU);
-  auto hl_stride_internal = hl_stride_st.CurrentTensorAttached().value();
+
+  at::Tensor hl_stride_internal{};
+  if (hl_stride_st.CurrentTensorAttached().has_value()) {
+    hl_stride_internal = hl_stride_st.CurrentTensorAttached().value();
+  } else {
+    HABANA_ASSERT(hl_stride_st.CurrentTensorAttached(), "No tensor is attached");
+  }
+
   auto tmeta{get_tensor_extra_meta(hl_stride_internal)};
 
   tmeta->set_host_data(

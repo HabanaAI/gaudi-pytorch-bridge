@@ -38,7 +38,7 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
     TORCH_INTERNAL_ASSERT(d.type() == type());
     at::Device old_device = getDevice();
     if (old_device.index() != d.index()) {
-      HPUDeviceAllocator::allocator_active_device_id = synDeviceId(d.index());
+      HPUDeviceAllocator::allocator_active_device_id = synDeviceId(static_cast<unsigned char>(d.index()));
       HABANA_ASSERT(
           habana::HPUDeviceAllocator::allocator_active_device_id == 0,
           "habana active device: ",
@@ -75,7 +75,7 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
   }
 
   void uncheckedSetDevice(at::Device d) const noexcept override {
-    habana::HPUDeviceAllocator::allocator_active_device_id = d.index();
+    habana::HPUDeviceAllocator::allocator_active_device_id = static_cast<unsigned char>(d.index());
     if (habana::HPUDeviceAllocator::allocator_active_device_id != 0) {
       TORCH_WARN(
           "habana active device: ",

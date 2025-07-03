@@ -514,9 +514,9 @@ void ReshapeOperator::AllocateAndAddSynapseNode(
   }
 
   at::Tensor output;
-  if (!graph.is_dry_run() &&
-      output_metadata.at(0).allocated_tensor.has_value()) {
-    output = output_metadata.at(0).allocated_tensor.value();
+  auto allocated_tensor = output_metadata.at(0).allocated_tensor;
+  if (!graph.is_dry_run() && allocated_tensor.has_value()) {
+    output = allocated_tensor.value();
   } else {
     output = habana::createPTTensor(
         self,

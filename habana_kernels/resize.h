@@ -215,7 +215,7 @@ inline void THHTensor_resizeNd_nonpersistent(
   if (self->sizes() == sizes && (!stride || self->strides() == strides)) {
     return;
   }
-  if (stride) {
+  if (strides) {
     self->set_sizes_and_strides(sizes, *strides);
   } else {
     self->set_sizes_contiguous(sizes);

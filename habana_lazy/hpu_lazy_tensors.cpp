@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -685,8 +685,10 @@ at::Tensor HbLazyTensor::EvaluateTensorData(bool sync_acc_thread) {
       applyPendingGraph();
     }
   }
+
   ValidateTensorData();
-  return data()->tensor_data.value();
+  HABANA_ASSERT(data()->tensor_data.has_value(), "Optional tensor data has no value");
+  return *data()->tensor_data;
 }
 
 /*
@@ -935,7 +937,16 @@ torch::jit::Stack PrepareInputStack(
     }
 
     std::shared_ptr<Data> d = in.m_data_ptr.lock();
-    if (!d->tensor_data.has_value()) {
+    if (d->tensor_data.has_value()) {
+      at::Tensor pt_tensor = d->tensor_data.value();
+      auto is_const_tensor = habana::is_tensor_const(pt_tensor);
+
+      if (d->is_const_tensor && !is_const_tensor) {
+        habana::set_tensor_const(pt_tensor, d->is_const_tensor, d->const_id);
+      }
+
+      stack.emplace_back(pt_tensor);
+    } else {
       std::vector<ir::NodePtr> p_roots = GetNodePtrRoots(tensors, indices);
       HABANA_ASSERT(
           d->tensor_data.has_value(),
@@ -949,14 +960,7 @@ torch::jit::Stack PrepareInputStack(
               ? IrGraphDumpUtil::PostOrderToText(*ptr_post_order, p_roots)
               : "null postorder");
     }
-    at::Tensor pt_tensor = d->tensor_data.value();
-    auto is_const_tensor = habana::is_tensor_const(pt_tensor);
 
-    if (d->is_const_tensor && !is_const_tensor) {
-      habana::set_tensor_const(pt_tensor, d->is_const_tensor, d->const_id);
-    }
-
-    stack.emplace_back(pt_tensor);
     // We dont get the correct lazy tensor back from internal tensor
     // So marking for execution here
     context->MarkTensorExecuting(d);

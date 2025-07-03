@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -137,7 +137,7 @@ struct Data {
         ir_value(std::move(ir_value)),
         device(c10::Device(c10::DeviceType::HPU, 0)),
         logical_element_type(logical_element_type),
-        original_element_type(logical_element_type.value()),
+        original_element_type(logical_element_type.value_or(at::ScalarType::Float)),
         unique_id(GetNextTensorId()) {
     static_cast<void>(device);
   }

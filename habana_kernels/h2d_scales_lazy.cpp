@@ -34,14 +34,19 @@ at::Tensor create_h2d_scale_tensor(
 
   auto hl_scale_tensor =
       habana_lazy::GetOrCreateHbLazyTensor(scale_tensor, at::kHPU);
-  auto hl_scale_tensor_internal =
-      hl_scale_tensor.CurrentTensorAttached().value();
-  auto tmeta{habana::get_tensor_extra_meta(hl_scale_tensor_internal)};
   const auto is_float = dtype == at::ScalarType::Float;
   const auto scale_value_size =
       is_float ? sizeof(float_t) : sizeof(at::BFloat16);
   const auto dt_type = is_float ? habana::HostDataType::FLOAT_T
                                 : habana::HostDataType::BFLOAT16_T;
+
+  if (!hl_scale_tensor.CurrentTensorAttached().has_value()) {
+    return scale_tensor;
+  }
+
+  auto hl_scale_tensor_internal =
+      hl_scale_tensor.CurrentTensorAttached().value();
+  auto tmeta{habana::get_tensor_extra_meta(hl_scale_tensor_internal)};
 
   if (nullptr == alloc_pointer and nullptr == h2d_pointer) {
     // Allocate memory for a single H2D scale tensor. This is the case for scale
@@ -174,7 +179,7 @@ bool is_cpu_float_bfloat_0d_tensor(const std::optional<at::Tensor>& tensor) {
 std::optional<at::Tensor> maybe_convert_tensor_to_h2d(
     const std::optional<at::Tensor>& tensor,
     const std::string_view op_name) {
-  if (is_cpu_float_bfloat_0d_tensor(tensor)) {
+  if (tensor.has_value() && is_cpu_float_bfloat_0d_tensor(tensor)) {
     PT_BRIDGE_DEBUG(
         "CPU scale of op ",
         op_name,

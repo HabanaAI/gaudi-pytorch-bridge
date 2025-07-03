@@ -352,12 +352,12 @@ void IdentityOperator::AllocateAndAddSynapseNode(
   auto self = inputs[0].toTensor();
   at::Tensor output;
 
+  auto allocated_tensor = output_metadata.at(0).allocated_tensor;
   if (inputs.size() == 2) {
     output = inputs[1].toTensor();
   } else if (
-      !graph.is_dry_run() &&
-      output_metadata.at(0).allocated_tensor.has_value()) {
-    output = output_metadata.at(0).allocated_tensor.value();
+      !graph.is_dry_run() && allocated_tensor.has_value()) {
+    output = allocated_tensor.value();
   } else {
     output = habana::createPTTensor(self, output_metadata.at(0).persistent);
   }

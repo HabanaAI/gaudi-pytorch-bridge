@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,7 +35,7 @@ LibSynapseLoader::LibSynapseLoader() {
   synapse_lib_handle_ = dlopen("libSynapse.so", RTLD_LOCAL | RTLD_NOW);
   CHECK_NULL_MSG(synapse_lib_handle_, dlerror());
   link_map* l_map = nullptr;
-  CHECK_TRUE_DL(dlinfo(synapse_lib_handle_, RTLD_DI_LINKMAP, &l_map) == 0);
+  CHECK_TRUE_DL(dlinfo(synapse_lib_handle_, RTLD_DI_LINKMAP, reinterpret_cast<void*>(&l_map)) == 0);
   synapse_lib_path_ = l_map->l_name;
 }
 

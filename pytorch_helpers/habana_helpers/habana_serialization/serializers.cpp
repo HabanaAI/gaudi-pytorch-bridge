@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,18 +41,35 @@ void serialize(std::ostream& os, caffe2::TypeMeta input) {
   os.write(reinterpret_cast<char const*>(&scalarType), sizeof(c10::ScalarType));
 }
 
-#define SERIALIZE_OPT(TYPE)                    \
-  serialize(os, input.has_##TYPE());           \
-  if (input.has_##TYPE()) {                    \
-    serialize(os, input.TYPE##_opt().value()); \
+void serialize(std::ostream& os, c10::TensorOptions const& input) {
+  serialize(os, input.has_device());
+  if (input.has_device()) {
+    serialize(os, input.device());
   }
 
-void serialize(std::ostream& os, c10::TensorOptions const& input) {
-  SERIALIZE_OPT(device)
-  SERIALIZE_OPT(dtype)
-  SERIALIZE_OPT(layout)
-  SERIALIZE_OPT(requires_grad)
-  SERIALIZE_OPT(pinned_memory)
-  SERIALIZE_OPT(memory_format)
+  serialize(os, input.has_dtype());
+  if (input.has_dtype()) {
+    serialize(os, input.dtype());
+  }
+
+  serialize(os, input.has_layout());
+  if (input.has_layout()) {
+    serialize(os, input.layout());
+  }
+
+  serialize(os, input.has_requires_grad());
+  if (input.has_requires_grad()) {
+    serialize(os, input.requires_grad());
+  }
+
+  serialize(os, input.has_pinned_memory());
+  if (input.has_pinned_memory()) {
+    serialize(os, input.pinned_memory());
+  }
+
+  serialize(os, input.memory_format_opt().has_value());
+  if (input.memory_format_opt().has_value()) {
+    serialize(os, input.memory_format_opt().value());
+  }
 }
 } // namespace serialization

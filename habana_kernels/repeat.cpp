@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -160,11 +160,11 @@ void RepeatOperatorHT::AllocateAndAddSynapseNode(
     p_context_->syn_inputs_[0] = std::move(syn_tensor);
   }
 
-  if (!graph.is_dry_run() &&
-      output_metadata.at(0).allocated_tensor.has_value()) {
+  auto allocated_tensor = output_metadata.at(0).allocated_tensor;
+  if (!graph.is_dry_run() && allocated_tensor.has_value()) {
     AllocateSynapseOutput(
         graph,
-        output_metadata.at(0).allocated_tensor.value(),
+        allocated_tensor.value(),
         output_metadata.at(0));
   } else {
     auto output = habana::createPTTensor(
@@ -208,11 +208,11 @@ void RepeatOperator::AllocateAndAddSynapseNode(
   }
   ns_TileKernel::ParamsV2 params{};
 
-  if (!graph.is_dry_run() &&
-      output_metadata.at(0).allocated_tensor.has_value()) {
+  auto allocated_tensor = output_metadata.at(0).allocated_tensor;
+  if (!graph.is_dry_run() && allocated_tensor.has_value()) {
     AllocateSynapseOutput(
         graph,
-        output_metadata.at(0).allocated_tensor.value(),
+        allocated_tensor.value(),
         output_metadata.at(0));
   } else {
     auto output = habana::createPTTensor(

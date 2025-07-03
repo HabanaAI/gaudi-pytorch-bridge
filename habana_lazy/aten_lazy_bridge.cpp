@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -321,11 +321,12 @@ HbLazyTensor GetOrCreateHbLazyTensor(
     const std::optional<at::Tensor>& tensor,
     const c10::Device& device) {
   PT_LAZY_TRACE;
-  if (!IsDefined(tensor)) {
+  if (tensor.has_value() && tensor.value().defined()) {
+    auto hb_tensor = TryGetHbLazyTensor(tensor.value());
+    return hb_tensor ? *hb_tensor : HbLazyTensor::Create(*tensor, device);
+  } else {
     return HbLazyTensor();
   }
-  auto hb_tensor = TryGetHbLazyTensor(*tensor);
-  return hb_tensor ? *hb_tensor : HbLazyTensor::Create(*tensor, device);
 }
 
 void MarkTensorAsOutputFromCollectiveOp(const at::Tensor& tensor) {

@@ -192,7 +192,7 @@ void flush_op(
 template <typename SRC_DTYPE, typename DST_DTYPE>
 inline void validateDownCast(const at::Tensor& src, ScalarType dstScalarType) {
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_VALID_DATA_RANGE_CHECK)) {
-    if (IsDefined(src) && src.numel() > 0) {
+    if (src.defined() && src.numel() > 0) {
       auto max_int_val = (SRC_DTYPE)std::numeric_limits<DST_DTYPE>::max();
       auto min_int_val = (SRC_DTYPE)std::numeric_limits<DST_DTYPE>::lowest();
       auto src_detached = src.detach();
@@ -761,9 +761,9 @@ void copy_hpu_lazy_D2H_internal(
     if (_src.dtype() != tensor_data.dtype()) {
       auto tmp_hb_tensor = GetHbLazyTensor(_src);
       // try to find view_dtype in view chain (if available)
-      while (tmp_hb_tensor.getDataPtr()->stride_params.has_value()) {
-        const auto& stride_param =
-            tmp_hb_tensor.getDataPtr()->stride_params.value();
+      auto stride_params = tmp_hb_tensor.getDataPtr()->stride_params;
+      while (stride_params.has_value()) {
+        const auto& stride_param = stride_params.value();
         if (stride_param.optype == kStridedOpViewDtype) {
           tensor_data_ = at::empty_like(
               self, _src.options(), _src.suggest_memory_format());
@@ -772,6 +772,7 @@ void copy_hpu_lazy_D2H_internal(
           break;
         }
         tmp_hb_tensor = GetHbLazyTensor(stride_param.parent);
+        stride_params = tmp_hb_tensor.getDataPtr()->stride_params;
       }
     }
     self = copy_hpu_(self, tensor_data_, non_blocking, hpu_stream);

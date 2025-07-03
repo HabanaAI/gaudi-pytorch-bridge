@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -285,10 +285,9 @@ bool PermuteTensors::shouldPermutePreCastedWeight(const torch::Tensor& weight) {
       const auto& ir_inputs = ir_node->GetInputs();
       const auto& ir_weight_value = ir_inputs[0];
       std::shared_ptr<Data> d1 = ir_weight_value.m_data_ptr.lock();
-      if (ir_weight_value.IsHpuInputNode()) {
+      if (ir_weight_value.IsHpuInputNode() && d1->tensor_data.has_value()) {
         // Checking if orginal weight already permuted
-        auto tensor_data = d1->tensor_data.value();
-        auto hb_weight_impl = habana_lazy::GetHbInternalTensorImpl(tensor_data);
+        auto hb_weight_impl = habana_lazy::GetHbInternalTensorImpl(d1->tensor_data.value());
         auto required_permute = weight.dim() == 4
             ? synapse_helpers::layouts::weight_rsck_in_memory
             : synapse_helpers::layouts::weight_qrsck_in_memory;
