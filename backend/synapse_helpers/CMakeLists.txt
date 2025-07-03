@@ -20,6 +20,7 @@ add_habana_library(
   OBJECT
   tcmalloc_helper.cpp
   device.cpp
+  env_flags_impl.cpp
   env_flags.cpp
   event.cpp
   event_handle_cache.cpp
