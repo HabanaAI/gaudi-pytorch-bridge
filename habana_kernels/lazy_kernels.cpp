@@ -3843,6 +3843,15 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu_lazy(
     double eps,
     [[maybe_unused]] std::array<bool, 3> output_mask) {
   PT_LAZY_TRACE;
+
+  const bool has_running_mean =
+      (running_mean_.has_value() && running_mean_->defined());
+  const bool has_running_var =
+      (running_var_.has_value() && running_var_->defined());
+  TORCH_CHECK_VALUE(
+      has_running_mean == has_running_var,
+      "running_mean and running_var must either both be None or neither be None");
+
   auto in_sizes = input_.sizes().vec();
   auto running_tensor_mean = running_mean_.value_or(Tensor());
   auto preprocess_results = batch_norm_bwd_preprocess(

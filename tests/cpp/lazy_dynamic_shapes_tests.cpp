@@ -2251,16 +2251,18 @@ TEST_F(LazyDynamicShapesTest, BatchNormFwdBwdDS) {
         torch::randn(C, torch::dtype(torch::kFloat).requires_grad(false));
     torch::Tensor beta =
         torch::randn(C, torch::dtype(torch::kFloat).requires_grad(false));
-    std::optional<at::Tensor> mean;
+    torch::Tensor mean =
+        torch::randn(C, torch::dtype(torch::kFloat).requires_grad(false));
     torch::Tensor var =
         torch::ones(C, torch::dtype(torch::kFloat).requires_grad(false));
     torch::Tensor h_gamma = gamma.to(torch::kHPU);
     torch::Tensor h_beta = beta.to(torch::kHPU);
+    torch::Tensor h_mean = mean.to(torch::kHPU);
     torch::Tensor h_var = var.to(torch::kHPU);
     float mom = 0.1;
     float eps = 1e-5;
     auto h_bn_outs = torch::native_batch_norm(
-        h_in_tensor, h_gamma, h_beta, mean, h_var, true, mom, eps);
+        h_in_tensor, h_gamma, h_beta, h_mean, h_var, true, mom, eps);
     auto bn_outs = torch::native_batch_norm(
         in_tensor, gamma, beta, mean, var, true, mom, eps);
     auto h_bn_out = std::get<0>(h_bn_outs);
@@ -2295,7 +2297,7 @@ TEST_F(LazyDynamicShapesTest, BatchNormFwdBwdDS) {
         tHabanaGrad,
         h_in_tensor,
         h_gamma,
-        mean,
+        h_mean,
         h_var,
         tHabanaSaveMean,
         tHabanaSaveIVar,
