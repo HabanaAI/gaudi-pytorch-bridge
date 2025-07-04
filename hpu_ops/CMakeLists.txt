@@ -107,6 +107,7 @@ add_habana_library(
   backend/block_softmax_adjustment_gen.cpp
   backend/bmm_gen.cpp
   backend/bucketize_gen.cpp
+  backend/cast_to_fp8_just_in_time_gen.cpp
   backend/cast_to_fp8_hybrid_gen.cpp
   backend/cat_gen.cpp
   backend/cdist_gen.cpp

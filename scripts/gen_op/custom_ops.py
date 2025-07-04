@@ -55,6 +55,7 @@ input_types_map = {
     "int": "int64_t",
     "int?": "::std::optional<int64_t>",
     "int[]": "at::IntArrayRef",
+    "int[2]": "at::IntArrayRef",
     "int[]?": "at::OptionalIntArrayRef",
     "int[1]?": "at::OptionalIntArrayRef",
     "str": "std::string_view",

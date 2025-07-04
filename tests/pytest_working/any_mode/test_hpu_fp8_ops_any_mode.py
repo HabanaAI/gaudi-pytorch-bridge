@@ -21,7 +21,7 @@ import habana_frameworks.torch.internal.bridge_config as bc
 import numpy as np
 import pytest
 import torch
-from fp8_utils import FP8_MAX, convertExpBiasToScale, fp8_dtypes, simulateFp8Precision
+from fp8_utils import FP8_MAX, convertExpBiasToScale, fp8_dtypes, maxFp8Val, simulateFp8Precision
 from habana_frameworks.torch.hpu.metrics import metric_debug_reload, metric_global
 from test_utils import (
     check_ops_executed_in_jit_ir,
@@ -292,6 +292,56 @@ def test_cast_to_fp8_v2_fwd_bwd(scale, dtype, fp8_dtype):
 
     if is_pytest_mode_compile():
         check_ops_executed_in_jit_ir({"cast_to_fp8_v2", "cast_from_fp8"})
+
+
+def float8_cast_with_scaling(
+    x: torch.Tensor, block_size: tuple[int, int], out_dtype, scale_dtype=None
+) -> tuple[torch.Tensor, torch.Tensor]:
+    bh, bw = block_size
+    a, b = x.shape[-2:]
+    assert a % bh == 0 and b % bw == 0, "Input dimensions must be divisible by block size"
+
+    block_shape = list(x.shape)
+    block_shape[-2] = a // bh
+    block_shape[-1] = b // bw
+    block_shape.insert(-1, bh)
+    block_shape.append(bw)
+
+    x_blocks = x.view(block_shape)
+
+    scales = x_blocks.abs().amax(dim=(-3, -1)) / maxFp8Val(out_dtype, is_gaudi2())
+
+    scales_broadcast = scales.unsqueeze(-2).unsqueeze(-1)
+    x_scaled = x_blocks / scales_broadcast
+    x_scaled = x_scaled.view(x.shape)
+    x_casted = x_scaled.to(out_dtype)
+
+    if scale_dtype:
+        scales = scales.to(scale_dtype)
+
+    return x_casted, scales
+
+
+@pytest.mark.parametrize("block_size", [(1, 4), (4, 4), (4, 1)], ids=format_tc)
+@pytest.mark.parametrize("out_dtype", fp8_dtypes, ids=format_tc)
+@pytest.mark.parametrize("batch", [False, True])
+@pytest.mark.parametrize("scale_dtype", [None, torch.bfloat16])
+def test_cast_per_block(block_size, out_dtype, batch, scale_dtype):
+    dtype = torch.float
+    shape = (8, 24)
+    if batch:
+        shape = (2, 3, *shape)
+
+    factor = 3 * maxFp8Val(out_dtype, is_gaudi2())
+    a = torch.randn(shape, dtype=dtype) * factor
+
+    casted, scales = float8_cast_with_scaling(a, block_size, out_dtype, scale_dtype)
+    casted_hpu, scales_hpu = torch.ops.hpu.cast_to_fp8_just_in_time(
+        a.to("hpu"), block_size, out_dtype=out_dtype, scale_dtype=scale_dtype
+    )
+
+    compare_tensors(casted_hpu, casted.cpu())
+    compare_tensors(scales_hpu, scales.cpu(), atol=1e-5, rtol=1e-5)
 
 
 def cast_to_fp8_hybrid_common(shape, dtype, stochastic, is_amax, is_scale_152, is_scale_143):

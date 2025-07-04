@@ -8399,6 +8399,15 @@ cast_to_fp8_v2.scalar_list:
   op_validator: CastToFp8SharedMeta
   namespaces: [torch.hpu]
 
+cast_to_fp8_just_in_time:
+  custom_op_schema: "hpu::cast_to_fp8_just_in_time(Tensor input, int[2] block_shape, *, ScalarType? out_dtype=None, ScalarType? scale_dtype=None) -> (Tensor, Tensor)"
+  guid: convert_to_fp8_just_in_time
+  out_ids: [0, 0]
+  output_meta: CastToFp8JustInTimeMeta
+  custom_fill_params: CastToFp8JustInTimeParams
+  op_validator: check-node-with-shared-layer
+  namespaces: [torch.hpu]
+
 cast_to_fp8_hybrid:
   custom_op_schema: "hpu::cast_to_fp8_hybrid(Tensor input, Tensor? scale_152=None, Tensor? scale_143=None, bool stochastic_rounding=False, bool is_amax=False) -> (Tensor, Tensor, Tensor)"
   guid: convert_to_fp8_hybrid
