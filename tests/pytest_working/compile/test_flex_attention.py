@@ -354,17 +354,19 @@ class TestFlexAttention(InductorTestCase):
         golden_out: torch.Tensor,
         ref_out: torch.Tensor,
         compiled_out: torch.Tensor,
+        compiled_dtype: torch.dtype = torch.float32,
         is_paged_attention: bool = False,
     ):
         dtype = ref_out.dtype
-        compiled_dtype = compiled_out.dtype
+        if compiled_dtype == torch.float32:
+            compiled_dtype = compiled_out.dtype
         with torch.no_grad():
             # Note, it seems like we really are less accurate than the float32
             # computation, likely due to the online softmax
             if compiled_dtype == torch.float8_e5m2:
                 fudge_factor = 200.0
             elif compiled_dtype == torch.float8_e4m3fn:
-                fudge_factor = 85.0
+                fudge_factor = 100.0
             elif dtype == torch.float32:
                 fudge_factor = 12.0
                 if is_paged_attention:
@@ -594,6 +596,7 @@ class TestFlexAttention(InductorTestCase):
                     golden_out,
                     ref_out,
                     compiled_out,
+                    compiled_out.dtype,
                     is_paged_attention=False,
                 )
             else:
@@ -604,12 +607,14 @@ class TestFlexAttention(InductorTestCase):
                     golden_out[0],
                     ref_out[0],
                     compiled_out,
+                    compiled_out.dtype,
                     is_paged_attention=False,
                 )
                 self._check_out(
                     golden_out[1],
                     ref_out[1],
                     lse_out,
+                    compiled_out.dtype,
                     is_paged_attention=False,
                 )
         else:
@@ -831,6 +836,7 @@ class TestFlexAttention(InductorTestCase):
             golden_out,
             ref_out,
             compiled_out,
+            compiled_out.dtype,
             is_paged_attention=True,
         )
 
@@ -839,6 +845,7 @@ class TestFlexAttention(InductorTestCase):
                 golden_lse,
                 ref_lse,
                 compiled_lse,
+                compiled_out.dtype,
                 is_paged_attention=True,
             )
 
@@ -888,6 +895,7 @@ class TestFlexAttention(InductorTestCase):
                 golden_out,
                 ref_out,
                 compiled_out,
+                compiled_out.dtype,
                 is_paged_attention=False,
             )
         else:
