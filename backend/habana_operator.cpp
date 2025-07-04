@@ -24,6 +24,7 @@
 #include "backend/synapse_helpers/device.h"
 #include "backend/synapse_helpers/layout_utils.h"
 #include "habana_helpers/logging.h"
+#include "habana_helpers/misc_utils.h"
 #include "hpu_ops/hpu_op_helper.h"
 #include "hpu_ops/op_logger.h"
 
@@ -354,6 +355,16 @@ synapse_helpers::tensor& habana::HabanaOperator::AllocateSynapseInput(
     if (p_context_->is_duplicate_input_) {
       size_t syn_offset =
           static_cast<size_t>(input.storage_offset()) * input.itemsize();
+
+      // ZSTs shouldn't have offsets, as this could result in a memory section
+      // filled only with ZSTs having non-zero offsets, which Synapse does not
+      // support
+      if (habana::is_ZST(input)) {
+        syn_offset = 0;
+        PT_BRIDGE_DEBUG(
+            "ZST input detected for duplicate input, reset offset in section");
+      }
+
       auto sizes = input.sizes().vec();
       auto strides = input.strides().vec();
       synapse_helpers::layouts::MemoryPermutation permutation;
