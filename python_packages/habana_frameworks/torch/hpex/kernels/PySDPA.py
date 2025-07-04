@@ -29,6 +29,7 @@ from enum import IntEnum
 import torch
 import torch.nn.functional as F
 from torch._higher_order_ops.hints_wrap import hints_wrapper
+from torch._inductor.utils import argsort
 
 
 class sdpa_q_slice_flow_selection_mask(IntEnum):
@@ -233,6 +234,10 @@ def flex_attention_fwd(q, k, v, block_size=128, is_noop_mask=False, is_ret_lse=F
     lse_o = []
     for _h_idx, (qhc, khc, vhc) in enumerate(headqkv_splits):
         row_splits = torch.split(qhc, q_bucket_size, dim=2)
+        if not khc.is_contiguous():
+            khc = khc.contiguous()
+        if not vhc.is_contiguous():
+            vhc = vhc.contiguous()
         khc = khc.repeat(1, q_heads, 1, 1) if is_gqa_enabled else k
         vhc = vhc.repeat(1, q_heads, 1, 1) if is_gqa_enabled else v
         out = []
@@ -253,6 +258,14 @@ def flex_attention_fwd(q, k, v, block_size=128, is_noop_mask=False, is_ret_lse=F
             for k_ind, (kc, vc) in enumerate(col_splits):
                 row_sums_c = row_sums.clone()
                 row_maxes_c = row_maxes.clone()
+
+                # non-contiguous Q, K, V
+                if not q.is_contiguous():
+                    qc = qc.contiguous()
+                if not k.is_contiguous():
+                    kc = kc.contiguous()
+                if not v.is_contiguous():
+                    vc = vc.contiguous()
 
                 # For FP8, QK is in FP8 precision and output is in FP32
                 qc = qc.to(compatible_dtype_for_softmax)
@@ -290,7 +303,7 @@ def flex_attention_fwd(q, k, v, block_size=128, is_noop_mask=False, is_ret_lse=F
                         dtype=compatible_dtype_for_softmax,
                     )
                     .unsqueeze(1)
-                    .repeat(1, qc.shape[qc.dim() - 2])
+                    .repeat(1, attn_weights.shape[qc.dim() - 1])
                 )
                 q_head = q_base.unsqueeze(0).repeat(q_heads, 1, 1)
                 q_idx = q_head.unsqueeze(0).repeat(batch, 1, 1, 1)
@@ -304,7 +317,7 @@ def flex_attention_fwd(q, k, v, block_size=128, is_noop_mask=False, is_ret_lse=F
                         dtype=compatible_dtype_for_softmax,
                     )
                     .unsqueeze(0)
-                    .repeat(kc.shape[kc.dim() - 2], 1)
+                    .repeat(attn_weights.shape[kc.dim() - 2], 1)
                 )
                 kv_head = kv_base.unsqueeze(0).repeat(q_heads, 1, 1)
                 kv_idx = kv_head.unsqueeze(0).repeat(batch, 1, 1, 1)
@@ -358,6 +371,27 @@ def flex_attention_fwd(q, k, v, block_size=128, is_noop_mask=False, is_ret_lse=F
         lse_o.append(lse)
         out_o.append(ret)
     ret_o = torch.cat(out_o, -3)
+
+    # inline output_stride computation since it is being traced
+    # can't make it a function
+    fill_order = argsort(q.stride())
+    sizes = ret_o.shape
+    out_strides = [0] * len(sizes)
+    current_stride = 1
+    for dim in fill_order:
+        out_strides[dim] = current_stride
+        current_stride *= sizes[dim]
+
+    if not q.is_contiguous():
+        if not is_fp8:
+            ret_oas = torch.as_strided(ret_o, size=ret_o.shape, stride=out_strides)
+            ret_o = ret_oas * 1.0
+        else:
+            ret_oas = torch.as_strided(ret_o, size=ret_o.shape, stride=out_strides)
+            ret_oasbf16 = ret_oas.to(compatible_dtype)
+            ret_ot = ret_oasbf16 * 1.0
+            ret_o = ret_ot.to(orig_dtype)
+
     ret_lse = torch.cat(lse_o, -2)
     if is_ret_lse:
         packed_tensors = torch.ops.hpu.flex_attention_pack_tensors(ret_o, ret_lse.to(working_precision), None)
@@ -370,9 +404,13 @@ def flex_attention_fwd(q, k, v, block_size=128, is_noop_mask=False, is_ret_lse=F
 def flex_attention_bwd(q, k, v, o, lse, do, glse, block_size=128, is_noop_mask=False):
     # (batch, number of heads, sequence length, dimension of each head)
     orig_dtype = q.dtype
+    is_fp8 = False
+    if orig_dtype == torch.float8_e5m2 or orig_dtype == torch.float8_e4m3fn:
+        is_fp8 = True
     batch = q.shape[q.dim() - 4]
     head = q.shape[q.dim() - 3]
     kv_heads = k.shape[k.dim() - 3]
+
     # Number of Qs per KV in GQA
     q_heads = head // kv_heads
     q_head_orig = q_heads
@@ -454,6 +492,17 @@ def flex_attention_bwd(q, k, v, o, lse, do, glse, block_size=128, is_noop_mask=F
             lsec = lsec * math.log(2)
             glsec = glsec / math.log(2)
             for k_ind, (kc, vc) in enumerate(col_splits):
+                # non-contiguous q, k, v, o, do
+                if not q.is_contiguous():
+                    qc = qc.contiguous()
+                if not k.is_contiguous():
+                    kc = kc.contiguous()
+                if not v.is_contiguous():
+                    vc = vc.contiguous()
+                if not o.is_contiguous():
+                    oc = oc.contiguous()
+                if not do.is_contiguous():
+                    doc = doc.contiguous()
                 attn_weights = torch.matmul(qc.to(working_precision), kc.transpose(-2, -1).to(working_precision)).to(
                     dtype=working_precision
                 )
@@ -578,6 +627,69 @@ def flex_attention_bwd(q, k, v, o, lse, do, glse, block_size=128, is_noop_mask=F
     grad_v = dv1.view(B, C, q_heads, H, W).sum(dim=2)
     dk1 = grad_k
     dv1 = grad_v
+
+    # Q WA for tail view in fx graph
+    #   inline output_stride computation since it is being traced
+    #   can't make it a function
+    fill_order = argsort(q.stride())
+    sizes = dq1.shape
+    dq_strides = [0] * len(sizes)
+    current_stride = 1
+    for dim in fill_order:
+        dq_strides[dim] = current_stride
+        current_stride *= sizes[dim]
+
+    if not q.is_contiguous():
+        if not is_fp8:
+            dq1as = torch.as_strided(dq1, size=dq1.shape, stride=dq_strides)
+            dq1 = dq1as * 1.0
+        else:
+            dq1as = torch.as_strided(dq1, size=dq1.shape, stride=dq_strides)
+            dq1asbf16 = dq1as.to(torch.bfloat16)
+            dq1t = dq1asbf16 * 1.0
+            dq1 = dq1t.to(orig_dtype)
+
+    # K WA for tail view in fx graph
+    #   inline output_stride computation since it is being traced
+    #   can't make it a function
+    fill_order = argsort(k.stride())
+    sizes = dk1.shape
+    dk_strides = [0] * len(sizes)
+    current_stride = 1
+    for dim in fill_order:
+        dk_strides[dim] = current_stride
+        current_stride *= sizes[dim]
+
+    if not k.is_contiguous():
+        if not is_fp8:
+            dk1as = torch.as_strided(dk1, size=dk1.shape, stride=dk_strides)
+            dk1 = dk1as * 1.0
+        else:
+            dk1as = torch.as_strided(dk1, size=dk1.shape, stride=dk_strides)
+            dk1asbf16 = dk1as.to(torch.bfloat16)
+            dk1t = dk1asbf16 * 1.0
+            dk1 = dk1t.to(orig_dtype)
+
+    # V WA for tail view in fx graph
+    #   inline output_stride computation since it is being traced
+    #   can't make it a function
+    fill_order = argsort(v.stride())
+    sizes = dv1.shape
+    dv_strides = [0] * len(sizes)
+    current_stride = 1
+    for dim in fill_order:
+        dv_strides[dim] = current_stride
+        current_stride *= sizes[dim]
+
+    if not v.is_contiguous():
+        if not is_fp8:
+            dv1as = torch.as_strided(dv1, size=dv1.shape, stride=dv_strides)
+            dv1 = dv1as * 1.0
+        else:
+            dv1as = torch.as_strided(dv1, size=dv1.shape, stride=dv_strides)
+            dv1asbf16 = dv1as.to(torch.bfloat16)
+            dv1t = dv1asbf16 * 1.0
+            dv1 = dv1t.to(orig_dtype)
 
     packed_tensors = torch.ops.hpu.flex_attention_pack_tensors(
         dq1.to(orig_dtype), dk1.to(orig_dtype), dv1.to(orig_dtype)

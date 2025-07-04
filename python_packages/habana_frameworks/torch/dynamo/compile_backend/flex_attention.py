@@ -70,11 +70,16 @@ def hpu_flex_attention_bwd_pass(graph_module: torch.fx.GraphModule):
 
     for hop_node in hop_flex_attention_bwds:
         qshape = hop_node.args[0].meta["val"].shape
+        qstride = hop_node.args[0].meta["tensor_meta"].stride
         kshape = hop_node.args[1].meta["val"].shape
+        kstride = hop_node.args[1].meta["tensor_meta"].stride
         vshape = hop_node.args[2].meta["val"].shape
+        vstride = hop_node.args[2].meta["tensor_meta"].stride
         outshape = hop_node.args[3].meta["val"].shape
+        ostride = hop_node.args[3].meta["tensor_meta"].stride
         logsumexpshape = hop_node.args[4].meta["val"].shape
         grad_outshape = hop_node.args[5].meta["val"].shape
+        gradstride = hop_node.args[5].meta["tensor_meta"].stride
         grad_logsumexpshape = hop_node.args[6].meta["val"].shape
         is_noop_mask = False
         # dtype of q, k, v is expected to be same
@@ -99,14 +104,24 @@ def hpu_flex_attention_bwd_pass(graph_module: torch.fx.GraphModule):
         from torch._subclasses.fake_tensor import FakeTensorMode
 
         with FakeTensorMode() as fake_mode:
-            q_inp = functools.partial(torch.empty, qshape, device="hpu", requires_grad=False, dtype=dtype)
-            k_inp = functools.partial(torch.empty, kshape, device="hpu", requires_grad=False, dtype=dtype)
-            v_inp = functools.partial(torch.empty, vshape, device="hpu", requires_grad=False, dtype=dtype)
-            o_inp = functools.partial(torch.empty, outshape, device="hpu", requires_grad=False, dtype=dtype)
+            q_inp = functools.partial(
+                torch.empty_strided, qshape, qstride, dtype=dtype, device="hpu", requires_grad=False
+            )
+            k_inp = functools.partial(
+                torch.empty_strided, kshape, kstride, dtype=dtype, device="hpu", requires_grad=False
+            )
+            v_inp = functools.partial(
+                torch.empty_strided, vshape, vstride, dtype=dtype, device="hpu", requires_grad=False
+            )
+            o_inp = functools.partial(
+                torch.empty_strided, outshape, ostride, dtype=dtype, device="hpu", requires_grad=False
+            )
             lse_inp = functools.partial(
                 torch.empty, logsumexpshape, device="hpu", requires_grad=False, dtype=dtype_fp32
             )
-            gout_inp = functools.partial(torch.empty, grad_outshape, device="hpu", requires_grad=False, dtype=dtype)
+            gout_inp = functools.partial(
+                torch.empty_strided, grad_outshape, gradstride, dtype=dtype, device="hpu", requires_grad=False
+            )
             glse_inp = functools.partial(
                 torch.empty, grad_logsumexpshape, device="hpu", requires_grad=False, dtype=dtype_fp32
             )
@@ -251,8 +266,11 @@ def hpu_flex_attention_passes(
 
     for hop_node in hop_flex_attention_fwds:
         qshape = hop_node.args[0].meta["val"].shape
+        qstride = hop_node.args[0].meta["tensor_meta"].stride
         kshape = hop_node.args[1].meta["val"].shape
+        kstride = hop_node.args[1].meta["tensor_meta"].stride
         vshape = hop_node.args[2].meta["val"].shape
+        vstride = hop_node.args[2].meta["tensor_meta"].stride
         # dtype of q, k, v is expected to be same
         dtype = hop_node.args[2].meta["val"].dtype
 
@@ -276,9 +294,9 @@ def hpu_flex_attention_passes(
         if block_size == 1 << 30:
             block_size = 256
 
-        q_inp = functools.partial(torch.empty, qshape, device="hpu", requires_grad=False, dtype=dtype)
-        k_inp = functools.partial(torch.empty, kshape, device="hpu", requires_grad=False, dtype=dtype)
-        v_inp = functools.partial(torch.empty, vshape, device="hpu", requires_grad=False, dtype=dtype)
+        q_inp = functools.partial(torch.empty_strided, qshape, qstride, dtype=dtype, device="hpu", requires_grad=False)
+        k_inp = functools.partial(torch.empty_strided, kshape, kstride, dtype=dtype, device="hpu", requires_grad=False)
+        v_inp = functools.partial(torch.empty_strided, vshape, vstride, dtype=dtype, device="hpu", requires_grad=False)
         search_gm = trace_on_hpu(
             flex_attention_fwd,
             [q_inp(), k_inp(), v_inp(), block_size, is_noop_mask, is_ret_lse],

@@ -393,7 +393,8 @@ def flex_attention_bwd_score_mod(score, b, h, q_idx, kv_idx, grad):
 
 @register_meta([torch.ops.hpu.flex_attention_mask_mod])
 def flex_attention_mask_mod(b, h, q_idx, kv_idx):
-    return q_idx == kv_idx
+    out_shape = (b.size(0), h.size(1), q_idx.size(2), kv_idx.size(3))
+    return kv_idx.new_empty(out_shape, dtype=torch.bool)
 
 
 @register_meta([torch.ops.hpu.flex_attention_pack_tensors])
