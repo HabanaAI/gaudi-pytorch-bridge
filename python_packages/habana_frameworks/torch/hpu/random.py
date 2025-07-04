@@ -15,6 +15,7 @@
 #
 ###############################################################################
 
+import threading
 from collections.abc import Iterable
 
 import habana_frameworks.torch._core_C as htcore
@@ -51,6 +52,9 @@ device_rank_list = []
 global_seed = 0
 global_offset = 0
 use_philox_based_rng = False
+cv = (
+    threading.Condition()
+)  # Condition variable for thread synchronization(https://docs.python.org/3/library/threading.html#condition-objects)
 
 
 class Offset_LFSR64:
@@ -179,7 +183,10 @@ def set_rng_ctx(rng_ctx: str = "philox") -> None:
     if rng_ctx != "philox":
         raise ValueError(f"Unsupported RNG context: {rng_ctx}. Supported context is 'philox'.")
     global use_philox_based_rng
-    use_philox_based_rng = True
+    with cv:
+        while use_philox_based_rng:
+            cv.wait()
+        use_philox_based_rng = True
 
 
 def unset_rng_ctx(rng_ctx: str = "philox") -> None:
@@ -189,4 +196,6 @@ def unset_rng_ctx(rng_ctx: str = "philox") -> None:
     if rng_ctx != "philox":
         raise ValueError(f"Unsupported RNG context: {rng_ctx}. Supported context is 'philox'.")
     global use_philox_based_rng
-    use_philox_based_rng = False
+    with cv:
+        use_philox_based_rng = False
+        cv.notify()
