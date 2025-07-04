@@ -232,7 +232,7 @@ class FxToJitLowering(torch.fx.Interpreter):
                     element_type = parameter.type.getElementType()
                     jit_type = jit.ListType(element_type)
                 elif (
-                    isinstance(jit_type, jit.BoolType)
+                    isinstance(jit_type, jit.BoolType | torch.BoolType)
                     and hasattr(parameter, "type")
                     and (parameter.type.kind() == "NumberType" or parameter.type.kind() == "TensorType")
                 ):
