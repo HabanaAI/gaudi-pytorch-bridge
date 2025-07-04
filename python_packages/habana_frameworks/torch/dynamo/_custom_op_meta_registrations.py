@@ -19,6 +19,7 @@ import math
 
 import habana_frameworks.torch.utils.experimental as htexp
 from habana_frameworks.torch import _hpu_C
+from habana_frameworks.torch.hpu import get_device_name
 
 import torch
 from torch._decomp import global_decomposition_table
@@ -1121,7 +1122,7 @@ def append_amax_outputs(outputs, num_experts, amax_number):
 
 
 def get_fp8_output_dtype(fp8_input_dtype, hybrid_mode):
-    is_gaudi2 = htexp._get_device_type() == htexp.synDeviceType.synDeviceGaudi2
+    is_gaudi2 = get_device_name() == "GAUDI2"
 
     if fp8_input_dtype == torch.float8_e4m3fn and hybrid_mode and is_gaudi2:
         return torch.float8_e5m2

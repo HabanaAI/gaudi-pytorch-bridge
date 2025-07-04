@@ -15,7 +15,7 @@
 #
 ###############################################################################
 
-import habana_frameworks.torch.utils.experimental as htexp
+from habana_frameworks.torch.hpu import get_device_name
 
 import torch
 
@@ -71,22 +71,24 @@ def _check_weights_correctness(w1, w2, w12, w3, d_scale_w1, d_scale_w2, d_scale_
 
 
 def _is_gaudi2():
-    return htexp._get_device_type() == htexp.synDeviceType.synDeviceGaudi2
+    return get_device_name() == "GAUDI2"
 
 
-def _split_weights_into_fwd_and_bwd(weights, hybrid_mode, recomp):
+def _split_weights_into_fwd_and_bwd(weights, hybrid_mode, recomp, is_gaudi2):
     if weights is None:
         return None, None
-    elif hybrid_mode and _is_gaudi2():
+    elif hybrid_mode and is_gaudi2:
         return weights[0], weights[0] + weights[1] if recomp else weights[1]
     else:
         return weights, weights
 
 
-def _split_scales_into_fwd_and_bwd(scales, hybrid_mode, need_fwd_152_scales=False, need_bwd_143_scales=False):
+def _split_scales_into_fwd_and_bwd(
+    scales, hybrid_mode, need_fwd_152_scales=False, need_bwd_143_scales=False, is_gaudi2=False
+):
     if scales is None:
         return None, None
-    elif hybrid_mode and _is_gaudi2():
+    elif hybrid_mode and is_gaudi2:
         fwd_scales = []
         bwd_scales = []
         for scale in scales:
@@ -135,6 +137,8 @@ def mixture_of_experts_fwd_fp8_wrapper(
     is_fused = w1 is None
     _check_weights_correctness(w1, w2, w12, w3, d_scale_w1, d_scale_w2, d_scale_w12, d_scale_w3, is_fused, experts_num)
 
+    is_gaudi2 = _is_gaudi2()
+
     ctx.is_fused = is_fused
     ctx.experts_num = experts_num
     ctx.permuted_weights = permuted_weights
@@ -147,28 +151,35 @@ def mixture_of_experts_fwd_fp8_wrapper(
     ctx.is_first_amax = is_first_amax
     ctx.is_second_amax = is_second_amax
     ctx.router_weights_size = router_weights.size()
+    ctx.is_gaudi2 = is_gaudi2
 
-    w1_fwd, w1_bwd = _split_weights_into_fwd_and_bwd(w1, hybrid_mode, recomp)
-    w2_fwd, w2_bwd = _split_weights_into_fwd_and_bwd(w2, hybrid_mode, recomp)
-    w12_fwd, w12_bwd = _split_weights_into_fwd_and_bwd(w12, hybrid_mode, recomp)
-    w3_fwd, w3_bwd = _split_weights_into_fwd_and_bwd(w3, hybrid_mode, recomp)
+    w1_fwd, w1_bwd = _split_weights_into_fwd_and_bwd(w1, hybrid_mode, recomp, is_gaudi2)
+    w2_fwd, w2_bwd = _split_weights_into_fwd_and_bwd(w2, hybrid_mode, recomp, is_gaudi2)
+    w12_fwd, w12_bwd = _split_weights_into_fwd_and_bwd(w12, hybrid_mode, recomp, is_gaudi2)
+    w3_fwd, w3_bwd = _split_weights_into_fwd_and_bwd(w3, hybrid_mode, recomp, is_gaudi2)
 
     d_scale_hidden_states_fwd, d_scale_hidden_states_bwd = _split_scales_into_fwd_and_bwd(
-        d_scale_hidden_states, hybrid_mode, need_fwd_152_scales=not recomp, need_bwd_143_scales=recomp
+        d_scale_hidden_states,
+        hybrid_mode,
+        need_fwd_152_scales=not recomp,
+        need_bwd_143_scales=recomp,
+        is_gaudi2=is_gaudi2,
     )
     d_scale_intermediate_hidden_states_fwd, d_scale_intermediate_hidden_states_bwd = _split_scales_into_fwd_and_bwd(
-        d_scale_intermediate_hidden_states, hybrid_mode, need_bwd_143_scales=recomp
+        d_scale_intermediate_hidden_states, hybrid_mode, need_bwd_143_scales=recomp, is_gaudi2=is_gaudi2
     )
     d_scale_w1_fwd, d_scale_w1_bwd = _split_scales_into_fwd_and_bwd(
-        d_scale_w1, hybrid_mode, need_fwd_152_scales=not recomp, need_bwd_143_scales=recomp
+        d_scale_w1, hybrid_mode, need_fwd_152_scales=not recomp, need_bwd_143_scales=recomp, is_gaudi2=is_gaudi2
     )
     d_scale_w2_fwd, d_scale_w2_bwd = _split_scales_into_fwd_and_bwd(
-        d_scale_w2, hybrid_mode, need_fwd_152_scales=not recomp, need_bwd_143_scales=recomp
+        d_scale_w2, hybrid_mode, need_fwd_152_scales=not recomp, need_bwd_143_scales=recomp, is_gaudi2=is_gaudi2
     )
     d_scale_w12_fwd, d_scale_w12_bwd = _split_scales_into_fwd_and_bwd(
-        d_scale_w12, hybrid_mode, need_fwd_152_scales=not recomp, need_bwd_143_scales=recomp
+        d_scale_w12, hybrid_mode, need_fwd_152_scales=not recomp, need_bwd_143_scales=recomp, is_gaudi2=is_gaudi2
     )
-    d_scale_w3_fwd, d_scale_w3_bwd = _split_scales_into_fwd_and_bwd(d_scale_w3, hybrid_mode, need_bwd_143_scales=recomp)
+    d_scale_w3_fwd, d_scale_w3_bwd = _split_scales_into_fwd_and_bwd(
+        d_scale_w3, hybrid_mode, need_bwd_143_scales=recomp, is_gaudi2=is_gaudi2
+    )
 
     kwargs = {
         "w3": w3_fwd,
@@ -279,7 +290,7 @@ def mixture_of_experts_bwd_fp8_wrapper(
     args = tuple(saved_tensors[0:current_index])
 
     def _update_kwargs_with_list(list_name, current_index):
-        experts_multiplier = 2 if _is_gaudi2() and ctx.hybrid_mode and ctx.recomp else 1
+        experts_multiplier = 2 if ctx.hybrid_mode and ctx.recomp and ctx.is_gaudi2 else 1
         kwargs[list_name] = saved_tensors[current_index : current_index + experts_num * experts_multiplier]
         return current_index + experts_num * experts_multiplier
 
