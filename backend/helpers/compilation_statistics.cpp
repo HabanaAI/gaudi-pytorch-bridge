@@ -251,7 +251,7 @@ void CompilationStatistics::LogSymbols(
   json json_symbol_map;
   for (auto& pair : symbol_value_map) {
     if (pair.second.get())
-      json_symbol_map[pair.first] = *pair.second.get();
+      json_symbol_map[pair.first] = *pair.second;
   }
   json_file_[GetStep(step)]["symbol values"] = json_symbol_map;
 }

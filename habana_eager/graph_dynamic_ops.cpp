@@ -615,8 +615,6 @@ bool SliceOperatorDS::ReplaceWithDynamicHPUOp(
   int64_t dim = 0, start = 0, end = 0, step = 0;
   GetValueAndScalarIndexFromInput(
       slice_node->inputs().at(1), in_stack, org_stack_index_map, dim, dim_idx);
-  auto dim_expr = GetRangeInfoExprFromInput(
-      slice_node->inputs().at(1), org_stack_index_map, m_range_infos);
   // get start
   GetValueAndScalarIndexFromInput(
       slice_node->inputs().at(2),
@@ -629,8 +627,6 @@ bool SliceOperatorDS::ReplaceWithDynamicHPUOp(
   // get end
   GetValueAndScalarIndexFromInput(
       slice_node->inputs().at(3), in_stack, org_stack_index_map, end, end_idx);
-  auto end_expr = GetRangeInfoExprFromInput(
-      slice_node->inputs().at(3), org_stack_index_map, m_range_infos);
   // get step
   GetValueAndScalarIndexFromInput(
       slice_node->inputs().at(4),
@@ -980,8 +976,6 @@ bool SliceScatterOperatorDS::ReplaceWithDynamicHPUOp(
   int64_t dim_value = 0;
   GetValueAndScalarIndexFromInput(
       dim, org_stack, org_stack_index_map, dim_value, dim_idx);
-  auto dim_expr =
-      GetRangeInfoExprFromInput(step, org_stack_index_map, m_range_infos);
   PT_EAGER_DEBUG("ST dim data:", dim_value);
 
   // Handle negative dimension

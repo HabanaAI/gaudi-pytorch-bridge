@@ -39,17 +39,17 @@ class LayoutFormatWithDepthDims {
 inline std::string DebugString(const LayoutFormat& l) {
   switch (l) {
     case LayoutFormat::NHWC:
-      return std::string("NHWC");
+      return {"NHWC"};
     case LayoutFormat::NCHW:
-      return std::string("NCHW");
+      return {"NCHW"};
     case LayoutFormat::HWCK:
-      return std::string("HWCK");
+      return {"HWCK"};
     case LayoutFormat::ANY:
-      return std::string("ANY");
+      return {"ANY"};
     default:
-      return std::string("kINVALID");
+      return {"kINVALID"};
   }
-  return std::string();
+  return {};
 }
 
 inline std::ostream& operator<<(std::ostream& O, const LayoutFormat& l) {

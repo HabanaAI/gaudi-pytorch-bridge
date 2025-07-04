@@ -46,7 +46,7 @@ class tensor;
 // should extract the tensor to somewhere instead of just getting a reference.
 // When the variant goes out of scope, the tensor would get destroyed.
 template <>
-inline tensor& get_value(synapse_error_v<tensor>& variant) = delete;
+tensor& get_value(synapse_error_v<tensor>& variant) = delete;
 
 template <typename T>
 inline const T& get_value(const synapse_error_v<T>& variant) {

@@ -1910,7 +1910,7 @@ std::string device::get_device_capability() {
     PT_SYNHELPER_FATAL(
         Logger::formatStatusMsg(status), "synDriverGetVersion failed.");
   }
-  return std::string(pDriverVersion);
+  return {pDriverVersion};
 }
 
 std::string device::get_device_properties(unsigned id) {

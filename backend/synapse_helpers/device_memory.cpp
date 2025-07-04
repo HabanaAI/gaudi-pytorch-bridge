@@ -1008,14 +1008,14 @@ device_ptr_lock device_memory::lock_addresses(
       }
     }
     update_on_defragment_ = false;
-    return device_ptr_lock(absl::make_unique<defragment::Lock>(
-        threads_in_defragmenter_critical_section_, std::move(out)));
+    return {absl::make_unique<defragment::Lock>(
+        threads_in_defragmenter_critical_section_, std::move(out))};
   } else {
     for (const auto address : addresses) {
       out.emplace_back(address);
     }
-    return device_ptr_lock(absl::make_unique<defragment::Lock>(
-        threads_in_defragmenter_critical_section_, std::move(out)));
+    return {absl::make_unique<defragment::Lock>(
+        threads_in_defragmenter_critical_section_, std::move(out))};
   }
 }
 

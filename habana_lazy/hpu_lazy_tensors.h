@@ -437,14 +437,14 @@ class HbLazyTensor {
 
   int64_t getTensorUniqueId() const {
     if (mp_data.get()) {
-      return mp_data.get()->unique_id;
+      return mp_data->unique_id;
     } else
       return -1;
   }
 
   int64_t getTensorRunningId() const {
     if (mp_data.get()) {
-      return mp_data.get()->running_cntr;
+      return mp_data->running_cntr;
     } else
       return -1;
   }

@@ -43,7 +43,7 @@ enum class SynapseLayoutFormat {
   AWHDN = 19,
   WCN = 20,
   LCN = 21,
-  INVALID
+  INVALID = 22,
 };
 
 // Memory permutation represents how tensor layout is set in memory

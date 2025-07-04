@@ -273,7 +273,7 @@ HbLazyTensor GetOrCreateHbLazyTensor(
     const c10::Device& device) {
   PT_LAZY_TRACE;
   if (!tensor.defined()) {
-    return HbLazyTensor(device);
+    return {device};
   }
   auto p_hb_tensor = TryGetHbLazyTensor(tensor);
   HbLazyTensor hl_tensor;
@@ -325,7 +325,7 @@ HbLazyTensor GetOrCreateHbLazyTensor(
     auto hb_tensor = TryGetHbLazyTensor(tensor.value());
     return hb_tensor ? *hb_tensor : HbLazyTensor::Create(*tensor, device);
   } else {
-    return HbLazyTensor();
+    return {};
   }
 }
 
@@ -338,11 +338,11 @@ bool IsHbLazyTensor(const at::Tensor& tensor) {
 }
 
 ir::Value GetIrValueForNone() {
-  return ir::Value(std::make_shared<ir::ScalarConstant>());
+  return {std::make_shared<ir::ScalarConstant>()};
 }
 
 ir::Value GetIrValueForScalar(const c10::Scalar& scalar) {
-  return ir::Value(std::make_shared<ir::ScalarConstant>(scalar));
+  return {std::make_shared<ir::ScalarConstant>(scalar)};
 }
 
 at::Tensor CreateHbLazyTensor(

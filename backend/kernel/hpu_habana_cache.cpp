@@ -583,7 +583,7 @@ void RecipeValueSpec::update_tensor_shape(
   }
   tinfo->set_shape(shape);
   std::vector<int64_t> strides(shape.size(), 1);
-  if (shape.size() > 0) {
+  if (!shape.empty()) {
     for (uint64_t i = shape.size() - 1; i > 0; i--) {
       strides[i - 1] *= shape[i] * strides[i];
     }
@@ -710,7 +710,7 @@ void RecipeValueSpec::update_patching_table(
         auto new_sizes = tidx_to_tensor_map.at(tensor_idx).sizes().vec();
 
         std::vector<int64_t> strides(new_sizes.size(), 1);
-        if (new_sizes.size() > 0) {
+        if (!new_sizes.empty()) {
           for (uint64_t i = new_sizes.size() - 1; i > 0; i--) {
             strides[i - 1] *= new_sizes[i] * strides[i];
           }

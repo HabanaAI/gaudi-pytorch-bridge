@@ -29,8 +29,7 @@
 
 class PtTensorInfo;
 
-typedef void (
-    *getDMAInputTensorCBType)(const PtTensorInfo& ti, at::Tensor& dma_tensor);
+using getDMAInputTensorCBType = void (*)(const PtTensorInfo& ti, at::Tensor& dma_tensor);
 
 enum class DMAInputGeneratorType { INVALID, SEEDTENSOR, MAX };
 

@@ -80,7 +80,7 @@ mem_handle mem_handle::reinterpret_from_pointer(device_ptr ptr) {
   uint64_t offset = inside_val & ((1ULL << offset_bits) - 1);
   id = create_memhandle_from_bucket_index_and_handle_index(type, id);
 
-  return mem_handle(id, offset);
+  return {id, offset};
 }
 namespace {
 struct mem_handle_runtime_check {

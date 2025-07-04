@@ -5706,7 +5706,7 @@ at::Tensor roi_align_fwd_hpu_lazy(
     // Cast temp tensor to orig_out tensor data type
     cast_op_ptr = std::make_shared<LazyOp<Tensor>>(LazyOp<Tensor>{
         "hpu::cast", {rois, c10::ScalarType::Float}, {rois.sizes().vec()}});
-    rois_f32 = cast_op_ptr.get()->get_result();
+    rois_f32 = cast_op_ptr->get_result();
   }
   LazyOp<at::Tensor> k(
       "hpu::roi_align_fwd",

@@ -339,7 +339,7 @@ bool HabanaLaunchOpPT::nodeOutputPersistencePerValue(
     }
     is_persistent = true;
   } else {
-    is_persistent = persistence_marker_pass_data_ptr_.get()
+    is_persistent = persistence_marker_pass_data_ptr_
         ? persistence_marker_pass_data_ptr_->IsPersistentNode(value_out)
         : false;
     if (is_persistent) {
@@ -356,7 +356,7 @@ bool HabanaLaunchOpPT::nodeOutputPersistencePerValue(
 }
 
 bool HabanaLaunchOpPT::IsValueExternal(torch::jit::Value* value) {
-  return persistence_marker_pass_data_ptr_.get()
+  return persistence_marker_pass_data_ptr_
       ? persistence_marker_pass_data_ptr_->IsExternalNode(value)
       : false;
 }
@@ -930,7 +930,7 @@ int64_t HabanaLaunchOpPT::ProcessSynapseOutputs(
 
     // Validate external flag was set correctly
     const auto& value = nodes.at(tensor_idx);
-    bool required_external = persistence_marker_pass_data_ptr_.get()
+    bool required_external = persistence_marker_pass_data_ptr_
         ? persistence_marker_pass_data_ptr_->IsExternalNode(value)
         : false;
     if (required_external) {
@@ -1046,7 +1046,7 @@ void HabanaLaunchOpPT::ProcessShapeTensorsCS(
   }
 
   for (auto& kernel : output.GetKernelOutputs()) {
-    ProcessShapeTensorsCS(*kernel.get(), intermediate_shape_tensor_cs);
+    ProcessShapeTensorsCS(*kernel, intermediate_shape_tensor_cs);
   }
 }
 
@@ -5111,7 +5111,7 @@ void HabanaLaunchOpPT::run(
   idx += 1;
   if (enable_caching_ || IS_BRIDGE_DEBUG_ENABLED) {
     if (maybe_static_recipe_ &&
-        ((cached_rarg_psh.get() == nullptr) ||
+        ((cached_rarg_psh == nullptr) ||
          (cached_rarg_psh->graphWithPermuteHashCode() != graph_perm_hash_))) {
       cur_rargpsh_ = std::make_shared<RecipeArgumentSpec>(
           false,

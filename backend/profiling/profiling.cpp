@@ -37,7 +37,7 @@ std::string getThreadName() {
     return "UnnamedThread";
   } else {
     name[kMaxThreadName] = '\0';
-    return std::string(name.data());
+    return {name.data()};
   }
 }
 

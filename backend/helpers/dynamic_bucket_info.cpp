@@ -1371,11 +1371,9 @@ void DynamicBucketInfo::CalculateLocalHistoricMax(
       int64_t current_dim_val = shapes.at(tensor_idx).dim_size(dim_idx);
       // Check if input recieved is lower than already stored,
       // If yes replace the input stored with recieved
-      if (local_max_history_tensor_shapes_.at(tensor_idx).at(dim_idx) <
-          current_dim_val) {
-        local_max_history_tensor_shapes_.at(tensor_idx).at(dim_idx) =
-            current_dim_val;
-      }
+      local_max_history_tensor_shapes_.at(tensor_idx).at(dim_idx) = std::max(
+          local_max_history_tensor_shapes_.at(tensor_idx).at(dim_idx),
+          current_dim_val);
     }
   }
 }

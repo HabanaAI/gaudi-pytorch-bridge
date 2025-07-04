@@ -760,7 +760,7 @@ inline c10::Device GetDeviceOrCurrent(const std::string& device_str) {
     return habana::HPUDeviceContext::aten_device();
   }
 
-  return c10::Device(device_str);
+  return {device_str};
 }
 } // namespace
 
@@ -1235,7 +1235,7 @@ void CorrectInputOrder(
     const std::vector<uint64_t>& input_map) {
   std::vector<ir::Value>& input_values_in_orig_order =
       lazyFrontEndInfo->get_input_values();
-  assert(input_map.size());
+  assert(!input_map.empty());
   std::vector<ir::Value> input_values_in_post_order{};
   input_values_in_post_order.reserve(input_map.size());
   for (auto idx : input_map) {

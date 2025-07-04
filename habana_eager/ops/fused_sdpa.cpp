@@ -170,11 +170,10 @@ class FusedSDPAAutogradHPU
     auto softmax_mode = "None";
     auto seq_padding_type = "left";
     double scale_;
-    if (!scale.has_value())
-      scale_ =
-          (query.sizes().size() > 0) ? (1. / sqrt(query.sizes().back())) : 1.;
-    else
+    if (scale.has_value())
       scale_ = scale.value();
+    else
+      scale_ = !query.sizes().empty() ? (1. / sqrt(query.sizes().back())) : 1.;
     auto valid_seq_len = std::optional<at::Tensor>();
     ctx->saved_data["dropout_p"] = dropout_p;
     ctx->saved_data["scale"] = scale_;

@@ -115,7 +115,7 @@ class SubAllocator {
   }
 
   void pool_destroy() const {
-    return this->strategy_->pool_destroy();
+    this->strategy_->pool_destroy();
   }
 
   void* pool_alloc_chunk(uint64_t size, bool is_workspace) const {
@@ -135,7 +135,7 @@ class SubAllocator {
 
   void pool_free_chunk(void* p) const {
     towl::emitDeviceMemoryDeallocated(p, true /*is_physical*/);
-    return this->strategy_->pool_free_chunk(p);
+    this->strategy_->pool_free_chunk(p);
   }
 
   void* extend_high_memory_allocation(uint64_t size, size_t current_ws_size)
@@ -181,7 +181,7 @@ class SubAllocator {
   }
 
   void print_pool_stats() const {
-    return this->strategy_->print_pool_stats();
+    this->strategy_->print_pool_stats();
   }
 
   bool is_memory_available(

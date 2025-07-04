@@ -94,7 +94,7 @@ void GraphHashBuilder::prepareInputs(
     const std::vector<uint64_t>& input_map,
     std::vector<ir::Value>& inputs) {
   PT_LAZY_TRACE;
-  assert(input_map.size());
+  assert(!input_map.empty());
   inputs.reserve(input_map.size());
   for (auto idx : input_map) {
     PT_LAZY_DEBUG(

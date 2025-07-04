@@ -116,7 +116,7 @@ void NormOperator::SetPTOutputs(torch::jit::Stack& inputs) {
       "Input arg2 expected to be Scalar for Norm Operator");
 
   auto self = inputs[0].toTensor();
-  auto shape = NormOperator::compute_output_shape(self, {}, 0);
+  auto shape = NormOperator::compute_output_shape(self, {}, false);
   auto output = at::empty(shape, self.options(), std::nullopt);
   HabanaOperator::SetPTOutput(output);
 }

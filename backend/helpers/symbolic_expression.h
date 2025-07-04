@@ -25,14 +25,14 @@
 
 namespace habana {
 
-typedef double exprtk_T;
+using exprtk_T = double;
 
-typedef exprtk::symbol_table<exprtk_T> symbol_table_t;
-typedef exprtk::expression<exprtk_T> expression_t;
-typedef exprtk::parser<exprtk_T> parser_t;
+using symbol_table_t = exprtk::symbol_table<exprtk_T>;
+using expression_t = exprtk::expression<exprtk_T>;
+using parser_t = exprtk::parser<exprtk_T>;
 
-typedef std::unordered_map<std::string, std::shared_ptr<exprtk_T>>
-    SymbolValueMap;
+using SymbolValueMap =
+    std::unordered_map<std::string, std::shared_ptr<exprtk_T>>;
 
 class SymExpression {
   std::string m_expr_str;

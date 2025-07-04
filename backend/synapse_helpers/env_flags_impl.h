@@ -150,7 +150,7 @@ struct has_min_max_methods {
   using value_type = decltype(E::default_value);
   using value_type_decay = typename std::decay_t<value_type>;
   using base_class = std::numeric_limits<value_type_decay>;
-  static constexpr bool value = std::is_base_of<base_class, E>::value;
+  static constexpr bool value = std::is_base_of_v<base_class, E>;
 };
 
 template <class E>
