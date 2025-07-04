@@ -29,7 +29,7 @@ steps:
     - name: compare version.txt between pytorch-fork and pytorch-next
       cmd: cd ${BUILD_DIR} && make compare-pt-versions RELEASE_VERSION=${RELEASE_VERSION} RELEASE_BUILD_ID=${RELEASE_BUILD_ID} SRC_DIR=${SOURCE_DIR} WORK_DIR=${WORKSPACE} BUILD_OS=${BUILD_OS}
     - name: prepare pytorch repo
-      cmd: rm -rf ${SOURCE_DIR}/pytorch-fork && mv ${SOURCE_DIR}/pytorch-next ${SOURCE_DIR}/pytorch-fork
+      cmd: rm -rf ${SOURCE_DIR}/pytorch-fork && cp -R ${SOURCE_DIR}/pytorch-next ${SOURCE_DIR}/pytorch-fork
     - name: install build dependencies
       cmd: cd ${BUILD_DIR} && make init-sw-deps RELEASE_VERSION=${RELEASE_VERSION} RELEASE_BUILD_ID=${RELEASE_BUILD_ID} SRC_DIR=${SOURCE_DIR} WORK_DIR=${WORKSPACE} BUILD_OS=${BUILD_OS}
     - name: init Python
