@@ -42,15 +42,7 @@ std::string getThreadName() {
 }
 
 int64_t getOffset(TraceSourceVariant variant) {
-  switch (variant) {
-    case TraceSourceVariant::SYNAPSE_PROFILER:
-      return 0;
-    case TraceSourceVariant::BRIDGE_LOGS:
-      return 0;
-    case TraceSourceVariant::MEMORY_LOGS:
-      return 30000;
-  }
-  return 0;
+  return (variant == TraceSourceVariant::MEMORY_LOGS) ? 30000 : 0;
 }
 
 Profiler::Profiler(TraceSink& sink) : trace_sink_{sink} {}

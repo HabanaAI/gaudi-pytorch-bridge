@@ -109,14 +109,14 @@ SharedMetaDataVector FillCumSumProdSharedMeta(
   at::ScalarType dtype =
       stack.at(2).isNone() ? input.scalar_type() : stack.at(2).toScalarType();
 
-  if (habana_helpers::is_downcast_to_int_needed(dtype))
+  if (habana_helpers::is_downcast_to_int_needed(dtype) ||
+      dtype == at::ScalarType::Bool ||
+      dtype == at::ScalarType::Char ||
+      dtype == at::ScalarType::Byte) {
     dtype = at::ScalarType::Int;
-  else if (dtype == at::ScalarType::Double)
+  } else if (dtype == at::ScalarType::Double) {
     dtype = at::ScalarType::Float;
-  else if (
-      dtype == at::ScalarType::Bool || dtype == at::ScalarType::Char ||
-      dtype == at::ScalarType::Byte)
-    dtype = at::ScalarType::Int;
+  }
 
   SharedMetaData meta{guid};
   meta.inputs_data = {{input.dim(), dtype}};

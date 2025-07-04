@@ -30,7 +30,6 @@ Checks: '*,
  readability-*,
 
  -bugprone-assignment-in-if-condition,
- -bugprone-branch-clone,
  -bugprone-casting-through-void,
  -bugprone-crtp-constructor-accessibility,
  -bugprone-easily-swappable-parameters,

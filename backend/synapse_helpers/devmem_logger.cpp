@@ -653,11 +653,8 @@ void deviceMallocData::record_tensor_info(
     grads.emplace_back(std::make_tuple(start, end, name));
   } else if (is_optim_state) {
     optim_states.emplace_back(std::make_tuple(start, end, name));
-  } else if (is_graph_input) {
+  } else if (is_graph_input || is_graph_output) {
     // Not adding via this.. graph_input.emplace_back(std::make_tuple(start,
-    // end, name));
-  } else if (is_graph_output) {
-    // Not adding via this.. graph_output.emplace_back(std::make_tuple(start,
     // end, name));
   }
 }

@@ -170,9 +170,7 @@ Value* tryConvertToType(
     } else if (*value->type() == *BoolType::get()) {
       if (concrete_float) {
         value = graph.insert(aten::Float, {value}, {}, loc);
-      } else if (concrete_int) {
-        value = graph.insert(aten::Int, {value}, {}, loc);
-      } else if (concrete_number) {
+      } else if (concrete_int || concrete_number) {
         value = graph.insert(aten::Int, {value}, {}, loc);
       }
     }
