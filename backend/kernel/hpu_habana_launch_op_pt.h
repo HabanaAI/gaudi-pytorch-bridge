@@ -15,6 +15,7 @@
 #pragma once
 
 #include <c10/util/Backtrace.h>
+#include "backend/cache/permute_cache.h"
 #include "backend/helpers/dynamic_bucket_info.h"
 #include "backend/helpers/dynamic_bucket_info_utils.h"
 #include "backend/helpers/dynamic_graph_utils.h"
@@ -99,9 +100,9 @@ class PermutationInfoSaver {
       synapse_helpers::layouts::MemoryPermutation permutation) = 0;
   virtual ~PermutationInfoSaver() = default;
 };
-class PermutationSetAndSave final : public PermutationInfoSaver {
+class EagerPermutationSetAndSave final : public PermutationInfoSaver {
  public:
-  PermutationSetAndSave(
+  EagerPermutationSetAndSave(
       std::shared_ptr<habana::OptimizedJITGraphAndMetaData> jit_graph,
       bool is_dynamic_recipe = false)
       : jit_graph_(jit_graph), is_dynamic_recipe_(is_dynamic_recipe) {};
@@ -112,7 +113,7 @@ class PermutationSetAndSave final : public PermutationInfoSaver {
     habana_helpers::set_tensor_memory_permutations(tensor, permutation);
     permutation_info_.push_back({index, permutation});
   }
-  ~PermutationSetAndSave() {
+  ~EagerPermutationSetAndSave() {
     jit_graph_->store_permutation_info(
         std::move(permutation_info_), is_dynamic_recipe_);
   }
@@ -121,6 +122,74 @@ class PermutationSetAndSave final : public PermutationInfoSaver {
   OptimizedJITGraphAndMetaData::PermutationInfo permutation_info_;
   std::shared_ptr<OptimizedJITGraphAndMetaData> jit_graph_;
   bool is_dynamic_recipe_ = false;
+};
+
+class CompileStaticPermutationSetAndSave final : public PermutationInfoSaver {
+ public:
+  CompileStaticPermutationSetAndSave(
+      std::shared_ptr<habana::OptimizedJITGraphAndMetaData> optimized_jit_graph)
+      : optimized_jit_graph_(optimized_jit_graph){};
+
+  ~CompileStaticPermutationSetAndSave() {
+    if (this->permutation_info_.empty())
+      return;
+
+    PermuteCache::CachePermuteForGraph(
+        *(this->optimized_jit_graph_), this->permutation_info_);
+  }
+
+  void add_permutation(
+      const at::Tensor& tensor,
+      uint64_t index,
+      synapse_helpers::layouts::MemoryPermutation permutation) override {
+    habana_helpers::set_tensor_memory_permutations(tensor, permutation);
+    this->permutation_info_.push_back({index, permutation});
+  }
+
+ private:
+  OptimizedJITGraphAndMetaData::PermutationInfo permutation_info_;
+  std::shared_ptr<OptimizedJITGraphAndMetaData> optimized_jit_graph_;
+};
+
+class CompileStaticPermutationCacheVerifier final
+    : public PermutationInfoSaver {
+ public:
+  CompileStaticPermutationCacheVerifier(
+      std::shared_ptr<habana::OptimizedJITGraphAndMetaData> optimized_jit_graph)
+      : optimized_jit_graph_(optimized_jit_graph) {
+    auto cached_permute =
+        PermuteCache::GetCachedPermute(*(this->optimized_jit_graph_));
+
+    HABANA_ASSERT(
+        cached_permute.has_value(),
+        "Using Permutation Cache verifier for the graph which permutations have not been cached.");
+    HABANA_ASSERT(
+        !cached_permute.value().empty(),
+        "Cached permutations should not be empty");
+
+    this->permutation_info_ = cached_permute.value();
+  };
+
+  void add_permutation(
+      const at::Tensor&,
+      uint64_t index,
+      synapse_helpers::layouts::MemoryPermutation permutation) override {
+    auto iterator = std::find_if(
+        this->permutation_info_.begin(),
+        this->permutation_info_.end(),
+        [&index, &permutation](
+            const OptimizedJITGraphAndMetaData::PermutationWithOutputPosition&
+                p) {
+          return p.output_index == index && p.permutation == permutation;
+        });
+    HABANA_ASSERT(
+        iterator != this->permutation_info_.end(),
+        "Calculated permutation doesn't match cached permutation");
+  }
+
+ private:
+  OptimizedJITGraphAndMetaData::PermutationInfo permutation_info_;
+  std::shared_ptr<OptimizedJITGraphAndMetaData> optimized_jit_graph_;
 };
 
 class PermutationIgnore final : public PermutationInfoSaver {
@@ -240,6 +309,10 @@ class HabanaLaunchOpPT {
       RecipeValueSpec& rvs,
       const std::shared_ptr<synapse_helpers::graph::recipe_handle>& recipe);
   void ApplyOutputPermutationsFromCache(bool is_dynamic_recipe = false);
+  void ApplyOutputPermutations(
+      const std::vector<
+          OptimizedJITGraphAndMetaData::PermutationWithOutputPosition>&
+          permutations);
   void StoreCompiledInformation(std::shared_ptr<RecipeValueSpec>& rvs);
   void ExecuteSynapse();
   void ExecuteSynapseGraph();

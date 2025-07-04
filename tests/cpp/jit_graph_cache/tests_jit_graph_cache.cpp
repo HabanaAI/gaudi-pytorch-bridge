@@ -87,12 +87,14 @@ TEST(JitGraphCacheTest, HashIgnoresIrComments) {
 
   std::string op_strs1;
   size_t hash1 = 0;
+  size_t shapeless_hash1 = 0;
   habana::ComputeGraphHashCode(
       g_no_comments,
       id,
       input_refs,
       op_strs1,
       hash1,
+      shapeless_hash1,
       unique_graph_cntr,
       node_bcast_details,
       dynamic_graph,
@@ -100,15 +102,18 @@ TEST(JitGraphCacheTest, HashIgnoresIrComments) {
 
   std::string op_strs2;
   size_t hash2 = 0;
+  size_t shapeless_hash2 = 0;
   habana::ComputeGraphHashCode(
       g_with_comments,
       id,
       input_refs,
       op_strs2,
       hash2,
+      shapeless_hash2,
       unique_graph_cntr,
       node_bcast_details,
       dynamic_graph,
       new_base_sizes);
   ASSERT_EQ(hash1, hash2);
+  ASSERT_EQ(shapeless_hash1, shapeless_hash2);
 }

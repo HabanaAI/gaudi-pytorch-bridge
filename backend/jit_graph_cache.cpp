@@ -59,6 +59,7 @@ void ComputeGraphHashCode(
     at::ArrayRef<torch::jit::IValue> input_refs,
     std::string& op_strs,
     size_t& graphHashCode,
+    size_t& shapelessWithDimsHash,
     uint64_t unique_graph_cntr,
     std::vector<bool> node_bcast_details,
     bool dynamic_graph,
@@ -118,6 +119,7 @@ void ComputeGraphHashCode(
     node_idx_map.emplace(node, idx);
     idx++;
   }
+
   graphHashCode = str_hash(op_strs);
 
   size_t connection_hash{0};
@@ -125,6 +127,7 @@ void ComputeGraphHashCode(
   for (size_t i = 0; i < irgraph->inputs().size(); ++i) {
     auto value_in = irgraph->inputs().at(i);
     size_t input_connection_hash = i;
+
     for (auto& use : value_in->uses()) {
       auto node = use.user;
       HABANA_ASSERT(node);
@@ -133,7 +136,7 @@ void ComputeGraphHashCode(
     }
     connection_hash = at::hash_combine(connection_hash, input_connection_hash);
   }
-  // Adding output hash
+  //  Adding output hash
   for (size_t i = 0; i < irgraph->outputs().size(); ++i) {
     auto value_out = irgraph->outputs().at(i);
     size_t output_connection_hash = i;
@@ -166,24 +169,26 @@ void ComputeGraphHashCode(
     }
   }
   connection_hash = at::hash_combine(connection_hash, node_connection_hash);
-  graphHashCode = at::hash_combine(graphHashCode, connection_hash);
+  shapelessWithDimsHash = at::hash_combine(graphHashCode, connection_hash);
 
   // Handle the dims also
-  size_t typedims_hash{0};
+  size_t types_hash{0};
+  size_t dims_hash{0};
   size_t const_input_hash{0};
   bool is_eager_graph =
-      (frontend_type == habana_helpers::HabanaFrontendTypes::EAGER) ? true
-                                                                    : false;
+      frontend_type == habana_helpers::HabanaFrontendTypes::EAGER;
+
   for (auto& input : input_refs) {
     if (input.isTensor()) {
       auto pt_tensor = input.toTensor();
-      typedims_hash = at::hash_combine(
-          typedims_hash, static_cast<size_t>(habana::mod_exp(pt_tensor.dim())));
+      dims_hash =
+          at::hash_combine(dims_hash, static_cast<size_t>(habana::mod_exp(pt_tensor.dim())));
       auto pt_type = pt_tensor.scalar_type();
       int64_t pt_type_int{
           static_cast<std::underlying_type_t<c10::ScalarType>>(pt_type)};
-      typedims_hash = at::hash_combine(
-          typedims_hash, static_cast<size_t>(habana::mod_exp(pt_type_int)));
+      types_hash =
+          at::hash_combine(types_hash, static_cast<size_t>(habana::mod_exp(pt_type_int)));
+
       if (habana::is_tensor_const_with_valid_const_id(pt_tensor)) {
         // To support HQT which add each scale as a different tensor for each
         // layer
@@ -214,9 +219,11 @@ void ComputeGraphHashCode(
     basedims_hash = at::hash_combine(
         basedims_hash, static_cast<uint64_t>(habana::mod_exp(dim)));
   }
+
   size_t sym_hash = habana::ComputeSymSizeHashCode(input_refs);
+  shapelessWithDimsHash = at::hash_combine(shapelessWithDimsHash, dims_hash);
+  graphHashCode = at::hash_combine(shapelessWithDimsHash, types_hash);
   graphHashCode = at::hash_combine(graphHashCode, sym_hash);
-  graphHashCode = at::hash_combine(graphHashCode, typedims_hash);
   graphHashCode = at::hash_combine(graphHashCode, basedims_hash);
   graphHashCode = at::hash_combine(graphHashCode, unique_graph_cntr);
 
@@ -372,6 +379,7 @@ OptimizedJITGraphAndMetaData::OptimizedJITGraphAndMetaData(
       frontend_type(f_type),
       m_is_reusable(is_reusable) {
   // Compute the graph hash
+
   ComputeGraphHashCode(
       JitGraphToLowering, input_refs, id, m_input_new_base_sizes);
 }
@@ -382,6 +390,7 @@ void OptimizedJITGraphAndMetaData::ComputeGraphHashCode(
     const std::string& id,
     const std::map<int64_t, std::vector<int64_t>> m_input_new_base_sizes) {
   set_cached_graph_key(0);
+  this->set_shapeless_with_dims_hash(0);
   set_cached_opstrs(std::string());
   habana::ComputeGraphHashCode(
       JitGraphToLowering,
@@ -389,12 +398,14 @@ void OptimizedJITGraphAndMetaData::ComputeGraphHashCode(
       input_refs,
       opstrs,
       graphKey,
+      this->shapelessGraphWithDimsHash,
       unique_graph_cntr,
       node_bcast_details,
       dynamic_graph,
       m_input_new_base_sizes,
       frontend_type,
-      m_is_reusable);
+      m_is_reusable
+      );
 }
 
 std::string& OptimizedJITGraphAndMetaData::GetOpName() {

@@ -29,6 +29,7 @@ add_habana_library(
   habana_operator.cpp
   scalar_cache.cpp
   random.cpp
+  cache/permute_cache.cpp
   kernel/constant_information.cpp
   kernel/control_edges_processing.cpp
   kernel/ds_graph_recompile.cpp

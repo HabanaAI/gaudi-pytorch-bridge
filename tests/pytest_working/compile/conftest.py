@@ -18,9 +18,15 @@
 import os
 
 import pytest
+from habana_frameworks.torch.utils.debug import flush_permute_cache
 
 
 @pytest.fixture(autouse=True, scope="package")
 def setup_teardown_env():
     if int(os.environ.get("PT_HPU_LAZY_MODE", 0)) == 1:
         pytest.skip("This test requires PT_HPU_LAZY_MODE=0")
+
+
+@pytest.fixture(scope="module", autouse=True)
+def setup_permute_cache():
+    flush_permute_cache()

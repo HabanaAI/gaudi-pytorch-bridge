@@ -29,6 +29,7 @@
 #include <sstream>
 #include <unordered_map>
 #include "backend/backend_meta.h"
+#include "backend/cache/permute_cache.h"
 #include "backend/habana_device/HPUAllocator.h"
 #include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/habana_device/tensor_builder.h"
@@ -5514,21 +5515,48 @@ void HabanaLaunchOpPT::run(
   if (enable_pipeline_) {
     PT_LAZY_EAGER_DEBUG(
         "[LAZY EAGER MT] Enqueue new task to the Compile and Execute Thread");
-    bool is_permute_data_cached = jit_graph_and_meta_data_->is_permute_set();
-    if (is_permute_data_cached) {
-      ApplyOutputPermutationsFromCache();
-      permutation_saver_ = std::make_unique<PermutationIgnore>();
-    } else {
-      permutation_saver_ =
-          std::make_unique<PermutationSetAndSave>(jit_graph_and_meta_data_);
+
+    /*
+      For now there is a need to handle differently cached permutes in eager and
+      compile. In eager permutes are saved in OptimizedJITGraphAndMetaData
+      members while in static compile we save them in PermuteCache.
+
+      Big distinction is that in eager there are separate permutation info
+      members for static and dynamic graphs.
+    */
+    bool is_permute_data_cached = false;
+    if (execution_mode_ == habana_helpers::HabanaFrontendTypes::COMPILE) {
+      auto cached_permutations =
+          PermuteCache::GetCachedPermute(*(this->jit_graph_and_meta_data_));
+      if (cached_permutations.has_value()) {
+        ApplyOutputPermutations(cached_permutations.value());
+        this->permutation_saver_ =
+            std::make_unique<CompileStaticPermutationCacheVerifier>(
+                jit_graph_and_meta_data_);
+        is_permute_data_cached = true;
+      } else {
+        this->permutation_saver_ =
+            std::make_unique<CompileStaticPermutationSetAndSave>(
+                jit_graph_and_meta_data_);
+      }
+    } else if (execution_mode_ == habana_helpers::HabanaFrontendTypes::EAGER) {
+      is_permute_data_cached = jit_graph_and_meta_data_->is_permute_set();
+      if (is_permute_data_cached) {
+        ApplyOutputPermutations(jit_graph_and_meta_data_->get_permute(
+            false)); // Not a dynamic path -> get static permute
+        permutation_saver_ =
+            std::make_unique<PermutationIgnore>();
+      } else {
+        permutation_saver_ =
+            std::make_unique<EagerPermutationSetAndSave>(
+                jit_graph_and_meta_data_);
+      }
     }
 
     bool permute_calculation_is_needed = !is_permute_data_cached &&
         GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_OUTPUT_PERMUTE);
 
     if (permute_calculation_is_needed) {
-      // TODO may be we don't need sync with compile thread
-      pipeline_execution.compile_sync();
       CompileSynapseGraphAndPatchTable();
       pipeline_execution.execute(
           nullptr, [](habana::HabanaLaunchOpPT& launch_op) {
@@ -6181,7 +6209,7 @@ void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
       ApplyOutputPermutationsFromCache(is_dynamic_recipe);
       permutation_saver_ = std::make_unique<PermutationIgnore>();
     } else {
-      permutation_saver_ = std::make_unique<PermutationSetAndSave>(
+      permutation_saver_ = std::make_unique<EagerPermutationSetAndSave>(
           jit_graph_and_meta_data_, is_dynamic_recipe);
     }
     PT_DYNAMIC_SHAPE_DEBUG("Cache miss pipeline flow");

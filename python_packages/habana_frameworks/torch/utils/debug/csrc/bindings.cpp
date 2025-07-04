@@ -17,6 +17,7 @@
 #include <torch/extension.h>
 #include <cstdint>
 #include <map>
+#include "backend/cache/permute_cache.h"
 #include "backend/habana_device/HPUAllocator.h"
 #include "backend/habana_device/HPUGuardImpl.h"
 #include "backend/helpers/dynamic_bucket_info.h"
@@ -266,4 +267,9 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("dump_state_and_terminate", [](const char* msg, uint64_t flags) {
     synDumpStateAndTerminate(msg, flags);
   });
+  m.def(
+      "get_permute_cache_size", []() { return habana::PermuteCache::Size(); });
+  m.def(
+      "is_permute_cache_empty", []() { return habana::PermuteCache::Empty(); });
+  m.def("flush_permute_cache", []() { return habana::PermuteCache::Flush(); });
 }

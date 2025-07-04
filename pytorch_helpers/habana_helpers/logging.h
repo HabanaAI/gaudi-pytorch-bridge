@@ -74,6 +74,7 @@ enum class LoggerType {
   PT_CONST_SECTION,
   PT_PYTHON,
   PT_TOWL,
+  PT_CACHE,
   LOG_MAX // Don't use it
 };
 } // namespace HlLogger
@@ -132,6 +133,7 @@ inline std::string DebugString(const HlLogger::LoggerType& mod) {
       {HlLogger::LoggerType::PT_CONST_SECTION, "PT_CONST_SECTION"},
       {HlLogger::LoggerType::PT_PYTHON, "PT_PYTHON"},
       {HlLogger::LoggerType::PT_TOWL, "PT_TOWL"},
+      {HlLogger::LoggerType::PT_CACHE, "PT_CACHE"},
       // {HlLogger::LoggerType::LOG_MAX, "LOG_MAX"},
   };
   if (auto result = names.find(mod); result != names.end())
@@ -332,6 +334,7 @@ inline void nop(__attribute__((unused)) const Args&... args){};
 #define PT_LAZY_EAGER_FATAL(...) PT_MOD_FATAL(PT_LAZY_EAGER, __VA_ARGS__)
 #define PT_EAGER_FATAL(...) PT_MOD_FATAL(PT_EAGER, __VA_ARGS__)
 #define PT_CONST_SECTION_FATAL(...) PT_MOD_FATAL(PT_CONST_SECTION, __VA_ARGS__)
+#define PT_CACHE_FATAL(...) PT_MOD_FATAL(PT_CACHE, __VA_ARGS__)
 
 /************************WARNING MACROS************************/
 #define PT_MOD_WARN(MOD, ...) \
@@ -357,6 +360,7 @@ inline void nop(__attribute__((unused)) const Args&... args){};
   PT_MOD_WARN_WITHOUT_LINE_FILE(PT_DYNAMIC_SHAPE, __VA_ARGS__)
 #define PT_LAZY_EAGER_WARN(...) \
   PT_MOD_WARN_WITHOUT_LINE_FILE(PT_LAZY_EAGER, __VA_ARGS__)
+#define PT_CACHE_WARN(...) PT_MOD_WARN(PT_CACHE, __VA_ARGS__)
 
 /************************TRACE MACROS************************************/
 #define PT_MOD_BEGIN(MOD) PT_MOD_SCOPE(MOD, __PRETTY_FUNCTION__, __FUNCTION__)
@@ -421,6 +425,7 @@ inline void nop(__attribute__((unused)) const Args&... args){};
   PT_MOD_TRACE(PT_DEVMEM, __PRETTY_FUNCTION__, __FUNCTION__)
 #define PT_LAZY_EAGER_TRACE \
   PT_MOD_TRACE(PT_LAZY_EAGER, __PRETTY_FUNCTION__, __FUNCTION__)
+#define PT_CACHE_TRACE PT_MOD_TRACE(PT_CACHE, __PRETTY_FUNCTION__, __FUNCTION__)
 
 /************************DEBUG MACROS************************************/
 #define IS_MOD_DEBUG_ENABLED(MOD) \
@@ -459,6 +464,7 @@ inline void nop(__attribute__((unused)) const Args&... args){};
 #define PT_SYNHELPER_DEBUG(...) PT_MOD_DEBUG(PT_SYNHELPER, __VA_ARGS__)
 #define PT_TEST_DEBUG(...) PT_MOD_DEBUG(PT_TEST, __VA_ARGS__)
 #define PT_VIEWTABLE_DEBUG(...) PT_MOD_DEBUG(PT_VIEWTABLE, __VA_ARGS__)
+#define PT_CACHE_DEBUG(...) PT_MOD_DEBUG(PT_CACHE, __VA_ARGS__)
 
 #define PT_MOD_INFO(MOD, ...) HLLOG_INFO(MOD, FORMAT_AND_MSG(__VA_ARGS__));
 

@@ -5,7 +5,7 @@
 !.devops
 !.gitignore
 !.github
-*cache*/
+*pycache*/
 data/
 *.log
 *.so

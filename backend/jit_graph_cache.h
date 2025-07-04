@@ -38,7 +38,8 @@ void ComputeGraphHashCode(
     const std::string& id,
     at::ArrayRef<torch::jit::IValue> input_refs,
     std::string& op_strs,
-    size_t& graphHashCode,
+    size_t& graphHashCode, /**[in,out]*/
+    size_t& shapelessWithDimsHash, /**[in,out]*/
     uint64_t unique_graph_cntr = 0,
     std::vector<bool> node_bcast_details = {},
     bool dynamic_graph = false,
@@ -230,7 +231,15 @@ struct OptimizedJITGraphAndMetaData {
     opstrs = op_strs;
   }
 
-  size_t get_cached_graph_key() {
+  size_t get_shapeless_with_dims_hash() const {
+    return this->shapelessGraphWithDimsHash;
+  }
+
+  void set_shapeless_with_dims_hash(size_t hash) {
+    this->shapelessGraphWithDimsHash = hash;
+  }
+
+  size_t get_cached_graph_key() const {
     return graphKey;
   }
 
@@ -492,6 +501,7 @@ struct OptimizedJITGraphAndMetaData {
   std::shared_ptr<torch::jit::Graph> jit_graph_to_lowering = nullptr;
   std::string opstrs = std::string();
   size_t graphKey = 0;
+  size_t shapelessGraphWithDimsHash{0};
   bool dbg = false;
   size_t graph_index = 0;
   uint64_t unique_graph_cntr = 0;

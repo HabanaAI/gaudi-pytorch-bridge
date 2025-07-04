@@ -106,6 +106,21 @@ void habana::HabanaLaunchOpPT::ClearStatics(bool is_shape_inference) {
   }
 }
 
+void habana::HabanaLaunchOpPT::ApplyOutputPermutations(
+    const std::vector<
+        OptimizedJITGraphAndMetaData::PermutationWithOutputPosition>&
+        permutations) {
+  for (auto& perm : permutations) {
+    auto iterator =
+        value_to_ivalue_.find(jit_ir_graph_->outputs().at(perm.output_index));
+    HABANA_ASSERT(iterator != value_to_ivalue_.end());
+    auto& pt_tensor = iterator->second;
+    HABANA_ASSERT(pt_tensor->isTensor());
+    habana_helpers::set_tensor_memory_permutations(
+        pt_tensor->toTensor(), perm.permutation);
+  }
+}
+
 void habana::HabanaLaunchOpPT::ApplyOutputPermutationsFromCache(
     bool is_dynamic_recipe) {
   for (auto& el : jit_graph_and_meta_data_->get_permute(is_dynamic_recipe)) {

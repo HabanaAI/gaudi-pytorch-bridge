@@ -20,6 +20,7 @@
 #include <sys/syscall.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include "logging.h"
 
 // -------------- HL LOG ----------------
 namespace HlLogger {
@@ -70,7 +71,7 @@ static void createModuleLoggersOnDemand(LoggerType) {
        LoggerType::PT_EXEC_THREAD, LoggerType::PT_EAGER,
        LoggerType::PT_CUSTOM,      LoggerType::PT_RECIPE_STATS,
        LoggerType::PT_HPUGRAPH,    LoggerType::PT_CONST_SECTION,
-       LoggerType::PT_PYTHON},
+       LoggerType::PT_PYTHON,      LoggerType::PT_CACHE},
       logging_params);
 
   // PT_TRACE logger category is a trick to support generic method
@@ -128,6 +129,7 @@ HLLOG_DEFINE_MODULE_LOGGER(
     PT_CONST_SECTION,
     PT_PYTHON,
     PT_TOWL,
+    PT_CACHE,
     LOG_MAX)
 // -------------- HL LOG ----------------
 
