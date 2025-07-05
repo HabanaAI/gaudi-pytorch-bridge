@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2024 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,17 +34,9 @@
 #include <mutex>
 #include <string>
 
-#include <algorithm>
-#include <climits>
-#include <filesystem>
-#include <functional>
-#include <iostream>
 #include <limits>
-#include <regex>
-#include <set>
-#include <sstream>
 #include <type_traits>
-#include <unordered_set>
+#include <utility>
 
 // Macros are necessary for creating string from symbol
 // And we need both, string for reading environment variable
@@ -87,28 +79,6 @@
 #define PARSE_ENV_FLAG_NEW(e, v)            \
   (env_flags::new_style::parse_env_by_type< \
       decltype(env_flags::new_style::e::actual_value)>(#e, v))
-
-#define PP_NARG(...) PP_NARG_(__VA_ARGS__, PP_RSEQ_N())
-#define PP_NARG_(...) PP_ARG_N(__VA_ARGS__)
-#define PP_ARG_N(_1, _2, _3, _4, _5, _6, _7, N, ...) N
-#define PP_RSEQ_N() 7, 6, 5, 4, 3, 2, 1, 0
-
-#define COUNT_ARGS(...) PP_NARG(__VA_ARGS__)
-
-#define ENV_STRUCT_DEFINITION_SELECTOR(count) ENV_STRUCT_DEFINITION_##count
-#define ENV_STRUCT_DEFINITION_DISPATCHER(count) \
-  ENV_STRUCT_DEFINITION_SELECTOR(count)
-
-#define ENV_STRUCT_DEFINITION(...) \
-  ENV_STRUCT_DEFINITION_DISPATCHER(COUNT_ARGS(__VA_ARGS__))(__VA_ARGS__)
-
-#define ENV_STRING_STRUCT_DEFINITION_SELECTOR(count) \
-  ENV_STRING_STRUCT_DEFINITION_##count
-#define ENV_STRING_STRUCT_DEFINITION_DISPATCHER(count) \
-  ENV_STRING_STRUCT_DEFINITION_SELECTOR(count)
-
-#define ENV_STRING_STRUCT_DEFINITION(...) \
-  ENV_STRING_STRUCT_DEFINITION_DISPATCHER(COUNT_ARGS(__VA_ARGS__))(__VA_ARGS__)
 
 // ****************************************************************************
 
@@ -203,70 +173,13 @@ bool is_defined(const char* name) {
 
 namespace new_style {
 
-// Constraint types
-constexpr const char* ENUM_CONSTRAINT_TYPE = "enum";
-constexpr const char* RANGE_CONSTRAINT_TYPE = "range";
-constexpr const char* FILEPATH_CONSTRAINT_TYPE = "filepath";
-constexpr const char* LIST_CONSTRAINT_TYPE = "list";
-constexpr const char* CUSTOM_CONSTRAINT_TYPE = "custom";
-
-// Flag statuses
-constexpr const char* FLAG_STATUS_DEPRECATED = "deprecated";
-constexpr const char* FLAG_STATUS_OBSOLETE = "obsolete";
-
-// Regular expression pattern to match potentially insecure shell characters.
-const std::string insecure_pattern_str = R"([`$&;|<>\\])";
-const std::regex insecure_pattern(insecure_pattern_str);
-// Regular expression pattern to match potentially unsafe characters in input
-// strings
-const std::string unsafe_pattern_str = R"([\s"'\\<>|&;$%*?\[\]\{\}^~`])";
-const std::regex unsafe_pattern(unsafe_pattern_str);
-
-constexpr const char* CONSTRAINTS_EMPTY = "";
-constexpr const char* CONSTRAINTS_TRUE = "true";
-constexpr const char* CONSTRAINTS_FALSE = "false";
-constexpr const char* CONSTRAINTS_CREATE_TRUE = "create=true";
-constexpr char CONSTRAINTS_SPLIT_COMMA = ',';
-constexpr char CONSTRAINTS_SPLIT_PIPE = '|';
-constexpr char CONSTRAINTS_SPLIT_EQUAL = '=';
-constexpr char CONSTRAINTS_SPLIT_AND = '&';
-
 // Struct defination for string env variables
-#define ENV_STRING_STRUCT_DEFINITION_5(                          \
-    NAME, DEFAULT_VAL, FLAG_STATUS, CONSTRAINS_TYPE, CONSTRAINS) \
-  ENV_STRING_STRUCT_DEFINITION_FULL(                             \
-      NAME, DEFAULT_VAL, FLAG_STATUS, CONSTRAINS_TYPE, CONSTRAINS)
-
-#define ENV_STRING_STRUCT_DEFINITION_3(NAME, DEFAULT_VAL, FLAG_STATUS) \
-  ENV_STRING_STRUCT_DEFINITION_FULL(                                   \
-      NAME, DEFAULT_VAL, FLAG_STATUS, nullptr, nullptr)
-
-#define ENV_STRING_STRUCT_DEFINITION_WITH_CUSTOM(                           \
-    NAME, DEFAULT_VAL, FLAG_STATUS, CONSTRAINS_TYPE, CHECK_FUNC)            \
-  struct NAME {                                                             \
-    static bool is_cached;                                                  \
-    static bool is_defined;                                                 \
-    static constexpr const char* constrains_type = CONSTRAINS_TYPE;         \
-    static std::string actual_value;                                        \
-    static constexpr const char* default_value = DEFAULT_VAL;               \
-    static constexpr const char* flag_status = FLAG_STATUS;                 \
-    static constexpr const char* constrains = nullptr;                      \
-    static constexpr bool (*check_func)(const std::string&, std::string&) = \
-        CHECK_FUNC;                                                         \
-  }
-
-#define ENV_STRING_STRUCT_DEFINITION_FULL(                                  \
-    NAME, DEFAULT_VAL, FLAG_STATUS, CONSTRAINS_TYPE, CONSTRAINS)            \
-  struct NAME {                                                             \
-    static bool is_cached;                                                  \
-    static bool is_defined;                                                 \
-    static constexpr const char* constrains_type = CONSTRAINS_TYPE;         \
-    static std::string actual_value;                                        \
-    static constexpr const char* default_value = DEFAULT_VAL;               \
-    static constexpr const char* flag_status = FLAG_STATUS;                 \
-    static constexpr const char* constrains = CONSTRAINS;                   \
-    static constexpr bool (*check_func)(const std::string&, std::string&) = \
-        nullptr;                                                            \
+#define ENV_STRING_STRUCT_DEFINITION(NAME, DEFAULT_VAL)       \
+  struct NAME {                                               \
+    static bool is_cached;                                    \
+    static bool is_defined;                                   \
+    static std::string actual_value;                          \
+    static constexpr const char* default_value = DEFAULT_VAL; \
   }
 
 #define ENV_STRING_STRUCT_STATIC_DEFINITION(NAME) \
@@ -274,99 +187,19 @@ constexpr char CONSTRAINTS_SPLIT_AND = '&';
   bool NAME::is_defined{false};                   \
   std::string NAME::actual_value{};
 
-#define ENV_STRUCT_DEFINITION_4(NAME, TYPE, DEFAULT_VAL, FLAG_STATUS) \
-  ENV_STRUCT_DEFINITION_FULL(                                         \
-      NAME, TYPE, DEFAULT_VAL, FLAG_STATUS, nullptr, nullptr)
-
-#define ENV_STRUCT_DEFINITION_6(                                       \
-    NAME, TYPE, DEFAULT_VAL, FLAG_STATUS, CONSTRAINS_TYPE, CONSTRAINS) \
-  ENV_STRUCT_DEFINITION_FULL(                                          \
-      NAME, TYPE, DEFAULT_VAL, FLAG_STATUS, CONSTRAINS_TYPE, CONSTRAINS)
-
-#define ENV_STRUCT_DEFINITION_WITH_CUSTOM(                                  \
-    NAME, TYPE, DEFAULT_VAL, FLAG_STATUS, CONSTRAINS_TYPE, CHECK_FUNC)      \
-  struct NAME : public std::numeric_limits<TYPE> {                          \
-    static bool is_cached;                                                  \
-    static bool is_defined;                                                 \
-    static TYPE actual_value;                                               \
-    static constexpr const char* flag_type = #TYPE;                         \
-    static constexpr TYPE default_value = DEFAULT_VAL;                      \
-    static constexpr const char* constrains_type = CONSTRAINSTYPE;          \
-    static constexpr const char* flag_status = FLAGSTATUS;                  \
-    static constexpr const char* constrains = nullptr;                      \
-    static constexpr bool (*check_func)(const std::string&, std::string&) = \
-        CHECK_FUNC;                                                         \
-  }
-
 // Struct defination for non-string env variables with numeric limits
-#define ENV_STRUCT_DEFINITION_FULL(                                         \
-    NAME, TYPE, DEFAULT_VAL, FLAG_STATUS, CONSTRAINS_TYPE, CONSTRAINS)      \
-  struct NAME : public std::numeric_limits<TYPE> {                          \
-    static bool is_cached;                                                  \
-    static bool is_defined;                                                 \
-    static TYPE actual_value;                                               \
-    static constexpr const char* flag_type = #TYPE;                         \
-    static constexpr TYPE default_value = DEFAULT_VAL;                      \
-    static constexpr const char* constrains_type = CONSTRAINS_TYPE;         \
-    static constexpr const char* flag_status = FLAG_STATUS;                 \
-    static constexpr const char* constrains = CONSTRAINS;                   \
-    static constexpr bool (*check_func)(const std::string&, std::string&) = \
-        nullptr;                                                            \
+#define ENV_STRUCT_DEFINITION(NAME, TYPE, DEFAULT_VAL) \
+  struct NAME : public std::numeric_limits<TYPE> {     \
+    static bool is_cached;                             \
+    static bool is_defined;                            \
+    static TYPE actual_value;                          \
+    static constexpr TYPE default_value = DEFAULT_VAL; \
   }
 
 #define ENV_STRUCT_STATIC_DEFINITION(NAME, TYPE) \
   bool NAME::is_cached{false};                   \
   bool NAME::is_defined{false};                  \
   TYPE NAME::actual_value{};
-
-template <typename T>
-std::string to_string_flexible(const T& value) {
-  std::ostringstream oss;
-  oss << value;
-  return oss.str();
-}
-
-bool check_recipe_cache_config(
-    const std::string& config,
-    std::string& error_msg);
-
-/**
- * @brief Validates a constraint against a specified type and value.
- *
- * This function checks whether the given value satisfies the constraints
- * defined for a specific type and name. It is useful for ensuring that
- * input values conform to expected rules or formats.
- *
- * @param name The name of the constraint to validate.
- * @param type The type associated with the constraint.
- * @param value The value to be validated against the constraint.
- * @param constrains A string representing the constraints to validate against.
- * @return true if the value satisfies the constraints; false otherwise.
- */
-template <typename T>
-void validate_constraint_with_type(
-    const char* name,
-    const char* type,
-    const T& value,
-    const char* constrains);
-
-/**
- * Validates a constraint based on a custom validation function.
- *
- * @param name The name of the constraint to validate.
- * @param value The value of the constraint to validate.
- * @param validator A custom validation function that takes the constraint name
- *                  and value as input and returns a boolean indicating whether
- *                  the validation succeeded. The function may also modify the
- *                  value through its second parameter.
- * @return True if the validation succeeds, false otherwise.
- */
-void validate_constraint_custom(
-    const char* name,
-    const std::string& value,
-    std::function<bool(const std::string&, std::string&)> validator);
-
-void check_flag_status(const char* name, const char* flag_status);
 
 // Method for string env variables
 const char* getenv_by_type_new(
@@ -431,34 +264,20 @@ template <class E>
 typename std::
     enable_if_t<!has_min_max_methods<E>::value, decltype(E::default_value)>
     getenv_E_new(const char* name, const bool& skip_cache) {
-  check_flag_status(name, E::flag_status);
-  auto result = getenv_by_type_new(
+  return getenv_by_type_new(
       name,
       skip_cache,
       E::is_cached,
       E::is_defined,
       E::actual_value,
       E::default_value);
-  if (result && result[0] != '\0') {
-    std::string constrains_type =
-        E::constrains_type ? E::constrains_type : CONSTRAINTS_EMPTY;
-    if (!constrains_type.empty() && constrains_type == CUSTOM_CONSTRAINT_TYPE) {
-      auto value_str = to_string_flexible(result);
-      validate_constraint_custom(name, value_str, E::check_func);
-    } else {
-      validate_constraint_with_type(
-          name, E::constrains_type, result, E::constrains);
-    }
-  }
-  return result;
 }
 
 template <class E>
 typename std::
     enable_if_t<has_min_max_methods<E>::value, decltype(E::default_value)>
     getenv_E_new(const char* name, const bool& skip_cache) {
-  check_flag_status(name, E::flag_status);
-  auto result = getenv_by_type_new(
+  return getenv_by_type_new(
       name,
       skip_cache,
       E::is_cached,
@@ -467,17 +286,7 @@ typename std::
       E::default_value,
       E::min(),
       E::max());
-
-  validate_constraint_with_type(
-      name, E::constrains_type, result, E::constrains);
-  return result;
 }
-
-template <class E>
-void setenv_E_new(
-    const char* name,
-    const decltype(E::default_value) new_val,
-    int overwrite);
 
 template <class E>
 void setenv_E_new(

@@ -193,51 +193,23 @@ def generate_env(dictionary):
         cpp_definition_line = ""
         py_comment = ""
 
-        flag_type = str(dictionary[flag].get("type", "string"))
-        flag_default = value_to_str(dictionary[flag]["default"])
-        flag_flagstatus = dictionary[flag].get("flagstatus", "active")
-        flag_constraints = dictionary[flag].get("constraints", None)
         if "doc" in dictionary[flag]:
             cpp_comment, py_comment = create_comment(dictionary[flag]["doc"])
 
-        if flag_type == "string":
-            if flag_constraints:
-                constraint_type = flag_constraints.get("type")
-                constraint_value = flag_constraints.get("value")
-                if constraint_type == "custom":
-                    cpp_line += (
-                        f"ENV_STRING_STRUCT_DEFINITION_WITH_CUSTOM("
-                        f'{flag}, "{flag_default}", "{flag_flagstatus}", '
-                        f'"{constraint_type}", {constraint_value});'
-                    )
-                else:
-                    cpp_line += (
-                        f"ENV_STRING_STRUCT_DEFINITION("
-                        f'{flag}, "{flag_default}", "{flag_flagstatus}", '
-                        f'"{constraint_type}", "{constraint_value}");'
-                    )
-            else:
-                cpp_line += f'ENV_STRING_STRUCT_DEFINITION({flag}, "{flag_default}", "{flag_flagstatus}");'
-            cpp_definition_line += f"ENV_STRING_STRUCT_STATIC_DEFINITION({flag});"
+        if "type" not in dictionary[flag]:
+            cpp_line += "ENV_STRING_STRUCT_DEFINITION(" + flag + ', "' + str(dictionary[flag]["default"]) + '");'
+            cpp_definition_line += "ENV_STRING_STRUCT_STATIC_DEFINITION(" + flag + ");"
         else:
-            if flag_constraints:
-                constraint_type = flag_constraints.get("type")
-                constraint_value = flag_constraints.get("value")
-                if constraint_type == "custom":
-                    cpp_line += (
-                        f"ENV_STRUCT_DEFINITION_WITH_CUSTOM("
-                        f'{flag}, {flag_type}, {flag_default}, "{flag_flagstatus}", '
-                        f'"{constraint_type}", {constraint_value});'
-                    )
-                else:
-                    cpp_line += (
-                        f"ENV_STRUCT_DEFINITION("
-                        f'{flag}, {flag_type}, {flag_default}, "{flag_flagstatus}", '
-                        f'"{constraint_type}", "{constraint_value}");'
-                    )
-            else:
-                cpp_line += f'ENV_STRUCT_DEFINITION({flag}, {flag_type}, {flag_default}, "{flag_flagstatus}");'
-            cpp_definition_line += "ENV_STRUCT_STATIC_DEFINITION(" + flag + " ," + flag_type + ");"
+            cpp_line += (
+                "ENV_STRUCT_DEFINITION("
+                + flag
+                + ", "
+                + str(dictionary[flag]["type"])
+                + ", "
+                + value_to_str(dictionary[flag]["default"])
+                + ");"
+            )
+            cpp_definition_line += "ENV_STRUCT_STATIC_DEFINITION(" + flag + ", " + str(dictionary[flag]["type"]) + ");"
 
         cpp_binding_line, python_binding_line = generate_bindings(dictionary, flag)
 
