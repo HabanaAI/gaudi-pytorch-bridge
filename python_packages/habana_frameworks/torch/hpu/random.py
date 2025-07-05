@@ -123,7 +123,15 @@ def combine_seed_offset(seed_tensor, offset_tensor, gen):
     offset = int.from_bytes(offset_tensor.tolist(), byteorder="little")
 
     # this is to create new seed_tensor based on offset based LFSR on 64 bits
-    final_seed = Offset_LFSR64(64, seed, [2, 19, 37, 53], offset).next_number()
+    # which is functionally corrrect but expensive operation to use this run with
+    # ```
+    # final_seed = Offset_LFSR64(64, seed, [2, 19, 37, 53], offset).next_number()
+    # ```
+    # Here we are creating a lightweight function to compute final_Seed which is
+    # not functially as correct as LFSR based.
+    final_seed = (
+        seed ^ (offset + 0x3FF6A09E667F3BCD + (seed << 6) + (seed >> 2))
+    ) & 0xFFFFFFFFFFFFFFFF  # Ensure it fits in 64 bits
 
     # craete new state with the final_seed value
     gen.manual_seed(final_seed)
