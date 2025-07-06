@@ -98,6 +98,7 @@ def sdpa_fwd_wrapper(
     seq_padding_type="left",
     return_dropout_mask=False,
     return_attn_probs=False,
+    window_size=(-1, -1),
 ):
     requires_backward = q.requires_grad or k.requires_grad or v.requires_grad
 
@@ -181,6 +182,7 @@ def sdpa_fwd_wrapper(
             softmax_mode,
             valid_seq_len,
             seq_padding_type,
+            window_size,
         )
         if gqa:
             out = gqa_output_reshape(out)
@@ -307,6 +309,7 @@ class FusedSDPA(torch.autograd.Function):
         seq_padding_type="left",
         return_dropout_mask=False,
         return_attn_probs=False,
+        window_size=(-1, -1),
     ):
         return sdpa_fwd_wrapper(
             ctx,
@@ -323,6 +326,7 @@ class FusedSDPA(torch.autograd.Function):
             seq_padding_type=seq_padding_type,
             return_dropout_mask=return_dropout_mask,
             return_attn_probs=return_attn_probs,
+            window_size=window_size,
         )
 
     @staticmethod

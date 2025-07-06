@@ -454,11 +454,12 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_fwd(
     const bool requires_backward,
     std::string_view softmax_mode,
     const std::optional<at::Tensor>& valid_seq_len,
-    std::string_view seq_padding_type) {
+    std::string_view seq_padding_type,
+    c10::SymIntArrayRef window_size) {
   PT_EAGER_TRACE;
   PT_OP_INFO(
       "sdpa_recomp_fwd :",
-      DUMP_11ARGS(
+      DUMP_12ARGS(
           q,
           k,
           v,
@@ -469,7 +470,8 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_fwd(
           requires_backward,
           softmax_mode,
           valid_seq_len,
-          seq_padding_type));
+          seq_padding_type,
+          window_size));
 
   if (p > 0.0) {
     int seed = habana::get_seed_hpu(std::nullopt);
@@ -491,7 +493,8 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_fwd(
              requires_backward,
              softmax_mode,
              valid_seq_len,
-             seq_padding_type},
+             seq_padding_type,
+             window_size},
             habana::SDPARecompFwdOutputShape};
     hpu_op.set_scalar_types(
         {q.scalar_type(),
@@ -515,7 +518,8 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_fwd(
              requires_backward,
              softmax_mode,
              valid_seq_len,
-             seq_padding_type},
+             seq_padding_type,
+             window_size},
             habana::SDPARecompFwdOutputShape};
     auto linvType = c10::ScalarType::Float;
 
@@ -751,11 +755,12 @@ fp8_sdpa_recomp_fwd_common(
     const bool is_amax_o,
     const std::optional<at::Tensor>& valid_seq_len,
     std::string_view seq_padding_type,
-    c10::ScalarType fwdOutType) {
+    c10::ScalarType fwdOutType,
+    SymIntArrayRef window_size) {
   PT_EAGER_TRACE;
   PT_OP_INFO(
       "fp8_sdpa_recomp_fwd :",
-      DUMP_19ARGS(
+      DUMP_20ARGS(
           q,
           k,
           v,
@@ -774,7 +779,8 @@ fp8_sdpa_recomp_fwd_common(
           is_amax_s,
           is_amax_o,
           valid_seq_len,
-          seq_padding_type));
+          seq_padding_type,
+          window_size));
 
   auto linvType = c10::ScalarType::Float;
 
@@ -824,7 +830,8 @@ fp8_sdpa_recomp_fwd_common(
              is_amax_s,
              is_amax_o,
              valid_seq_len,
-             seq_padding_type},
+             seq_padding_type,
+             window_size},
             habana::Fp8SDPARecompFwdOutputShape};
     hpu_op.set_scalar_types(
         {fwdOutType,
@@ -863,7 +870,8 @@ fp8_sdpa_recomp_fwd_common(
              is_amax_s,
              is_amax_o,
              valid_seq_len,
-             seq_padding_type},
+             seq_padding_type,
+             window_size},
             habana::Fp8SDPARecompFwdOutputShape};
     hpu_op.set_scalar_types(
         {fwdOutType,
@@ -903,7 +911,8 @@ fp8_sdpa_recomp_fwd(
     const bool is_amax_s,
     const bool is_amax_o,
     const std::optional<at::Tensor>& valid_seq_len,
-    std::string_view seq_padding_type) {
+    std::string_view seq_padding_type,
+    SymIntArrayRef window_size) {
   PT_EAGER_TRACE;
   auto fwdOutType = q.scalar_type();
 
@@ -930,7 +939,8 @@ fp8_sdpa_recomp_fwd(
       is_amax_o,
       valid_seq_len,
       seq_padding_type,
-      fwdOutType);
+      fwdOutType,
+      window_size);
 }
 
 std::tuple<
@@ -959,7 +969,8 @@ fp8_sdpa_recomp_scalar_fwd(
     const bool is_amax_s,
     const bool is_amax_o,
     const std::optional<at::Tensor>& valid_seq_len,
-    std::string_view seq_padding_type) {
+    std::string_view seq_padding_type,
+    SymIntArrayRef window_size) {
   PT_EAGER_TRACE;
   auto fwdOutType = q.scalar_type();
   if (q.scalar_type() == at::ScalarType::Float8_e4m3fn && (q_scale_o == 0.))
@@ -985,7 +996,8 @@ fp8_sdpa_recomp_scalar_fwd(
       is_amax_o,
       valid_seq_len,
       seq_padding_type,
-      fwdOutType);
+      fwdOutType,
+      window_size);
 }
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> fp8_sdpa_recomp_bwd(
@@ -1490,14 +1502,14 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "strided_view_orig_ds_h2d(Tensor self, Tensor size, Tensor stride) -> (Tensor)");
   m.def(
-      "hpu::sdpa_recomp_fwd(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode, Tensor? valid_seq_len, str seq_padding_type) -> (Tensor, Tensor, Tensor, Tensor)");
+      "hpu::sdpa_recomp_fwd(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode, Tensor? valid_seq_len, str seq_padding_type, SymInt[] window_size=[-1, -1]) -> (Tensor, Tensor, Tensor, Tensor)");
   m.def(
-      "hpu::sdpa_recomp_fwd_dropout(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode, Tensor? valid_seq_len, str seq_padding_type) -> (Tensor, Tensor, Tensor, Tensor)");
+      "hpu::sdpa_recomp_fwd_dropout(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode, Tensor? valid_seq_len, str seq_padding_type, SymInt[] window_size=[-1, -1]) -> (Tensor, Tensor, Tensor, Tensor)");
   // for torch.compile to insert seed
   m.def(
-      "hpu::sdpa_recomp_fwd_non_dropout(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_modem, Tensor? valid_seq_len, str seq_padding_type) -> (Tensor, Tensor, Tensor, Tensor)");
+      "hpu::sdpa_recomp_fwd_non_dropout(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_modem, Tensor? valid_seq_len, str seq_padding_type, SymInt[] window_size=[-1, -1]) -> (Tensor, Tensor, Tensor, Tensor)");
   m.def(
-      "hpu::sdpa_recomp_fwd_dropout_seed(Tensor seed, Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode, Tensor? valid_seq_len, str seq_padding_type) -> (Tensor, Tensor, Tensor, Tensor)");
+      "hpu::sdpa_recomp_fwd_dropout_seed(Tensor seed, Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode, Tensor? valid_seq_len, str seq_padding_type, SymInt[] window_size=[-1, -1]) -> (Tensor, Tensor, Tensor, Tensor)");
   m.def(
       "hpu::sdpa_fwd(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, str softmax_mode, Tensor? valid_seq_len, str seq_padding_type) -> (Tensor, Tensor, Tensor)");
   m.def(
@@ -1515,21 +1527,21 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::fp8_sdpa_fwd_dropout_seed(Tensor seed, Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, str softmax_mode, Tensor? d_scale_q, Tensor? d_scale_k, Tensor? d_scale_v, Tensor? q_scale_s, Tensor? q_scale_o, Tensor? d_scale_s, bool is_amax_s, Tensor? valid_seq_len, str seq_padding_type) -> (Tensor, Tensor, Tensor, Tensor)");
   m.def(
-      "hpu::fp8_sdpa_recomp_fwd(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode, Tensor? d_scale_q, Tensor? d_scale_k, Tensor? d_scale_v, Tensor? q_scale_s, Tensor? q_scale_o, Tensor? d_scale_s, bool is_amax_s, bool is_amax_0, Tensor? valid_seq_len, str seq_padding_type ) -> (Tensor, Tensor, Tensor, Tensor, Tensor, Tensor)");
+      "hpu::fp8_sdpa_recomp_fwd(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode, Tensor? d_scale_q, Tensor? d_scale_k, Tensor? d_scale_v, Tensor? q_scale_s, Tensor? q_scale_o, Tensor? d_scale_s, bool is_amax_s, bool is_amax_0, Tensor? valid_seq_len, str seq_padding_type, SymInt[] window_size=[-1, -1]) -> (Tensor, Tensor, Tensor, Tensor, Tensor, Tensor)");
   m.def(
-      "hpu::fp8_sdpa_recomp_fwd_non_dropout(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode, Tensor? d_scale_q, Tensor? d_scale_k, Tensor? d_scale_v, Tensor? q_scale_s, Tensor? q_scale_o, Tensor? d_scale_s, bool is_amax_s, bool is_amax_0, Tensor? valid_seq_len, str seq_padding_type ) -> (Tensor, Tensor, Tensor, Tensor, Tensor, Tensor)");
+      "hpu::fp8_sdpa_recomp_fwd_non_dropout(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode, Tensor? d_scale_q, Tensor? d_scale_k, Tensor? d_scale_v, Tensor? q_scale_s, Tensor? q_scale_o, Tensor? d_scale_s, bool is_amax_s, bool is_amax_0, Tensor? valid_seq_len, str seq_padding_type, SymInt[] window_size=[-1, -1]) -> (Tensor, Tensor, Tensor, Tensor, Tensor, Tensor)");
   m.def(
-      "hpu::fp8_sdpa_recomp_fwd_dropout(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode, Tensor? d_scale_q, Tensor? d_scale_k, Tensor? d_scale_v, Tensor? q_scale_s, Tensor? q_scale_o, Tensor? d_scale_s, bool is_amax_s, bool is_amax_0, Tensor? valid_seq_len, str seq_padding_type ) -> (Tensor, Tensor, Tensor, Tensor, Tensor, Tensor)");
+      "hpu::fp8_sdpa_recomp_fwd_dropout(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode, Tensor? d_scale_q, Tensor? d_scale_k, Tensor? d_scale_v, Tensor? q_scale_s, Tensor? q_scale_o, Tensor? d_scale_s, bool is_amax_s, bool is_amax_0, Tensor? valid_seq_len, str seq_padding_type, SymInt[] window_size=[-1, -1]) -> (Tensor, Tensor, Tensor, Tensor, Tensor, Tensor)");
   m.def(
-      "hpu::fp8_sdpa_recomp_fwd_dropout_seed(Tensor seed, Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode, Tensor? d_scale_q, Tensor? d_scale_k, Tensor? d_scale_v, Tensor? q_scale_s, Tensor? q_scale_o, Tensor? d_scale_s, bool is_amax_s, bool is_amax_o, Tensor? valid_seq_len, str seq_padding_type ) -> (Tensor, Tensor, Tensor, Tensor, Tensor, Tensor)");
+      "hpu::fp8_sdpa_recomp_fwd_dropout_seed(Tensor seed, Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode, Tensor? d_scale_q, Tensor? d_scale_k, Tensor? d_scale_v, Tensor? q_scale_s, Tensor? q_scale_o, Tensor? d_scale_s, bool is_amax_s, bool is_amax_o, Tensor? valid_seq_len, str seq_padding_type, SymInt[] window_size=[-1, -1]) -> (Tensor, Tensor, Tensor, Tensor, Tensor, Tensor)");
   m.def(
-      "hpu::fp8_sdpa_recomp_fwd.scalar(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode, float d_scale_q, float d_scale_k, float d_scale_v, float q_scale_s, float q_scale_o, float d_scale_s, bool is_amax_s, bool is_amax_0, Tensor? valid_seq_len, str seq_padding_type ) -> (Tensor, Tensor, Tensor, Tensor, Tensor, Tensor)");
+      "hpu::fp8_sdpa_recomp_fwd.scalar(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode, float d_scale_q, float d_scale_k, float d_scale_v, float q_scale_s, float q_scale_o, float d_scale_s, bool is_amax_s, bool is_amax_0, Tensor? valid_seq_len, str seq_padding_type, SymInt[] window_size=[-1, -1]) -> (Tensor, Tensor, Tensor, Tensor, Tensor, Tensor)");
   m.def(
-      "hpu::fp8_sdpa_recomp_fwd_non_dropout.scalar(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode, float d_scale_q, float d_scale_k, float d_scale_v, float q_scale_s, float q_scale_o, float d_scale_s, bool is_amax_s, bool is_amax_0,  Tensor? valid_seq_len, str seq_padding_type ) -> (Tensor, Tensor, Tensor, Tensor, Tensor, Tensor)");
+      "hpu::fp8_sdpa_recomp_fwd_non_dropout.scalar(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode, float d_scale_q, float d_scale_k, float d_scale_v, float q_scale_s, float q_scale_o, float d_scale_s, bool is_amax_s, bool is_amax_0,  Tensor? valid_seq_len, str seq_padding_type, SymInt[] window_size=[-1, -1]) -> (Tensor, Tensor, Tensor, Tensor, Tensor, Tensor)");
   m.def(
-      "hpu::fp8_sdpa_recomp_fwd_dropout.scalar(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode, float d_scale_q, float d_scale_k, float d_scale_v, float q_scale_s, float q_scale_o, float d_scale_s, bool is_amax_s, bool is_amax_0,  Tensor? valid_seq_len, str seq_padding_type ) -> (Tensor, Tensor, Tensor, Tensor, Tensor, Tensor)");
+      "hpu::fp8_sdpa_recomp_fwd_dropout.scalar(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode, float d_scale_q, float d_scale_k, float d_scale_v, float q_scale_s, float q_scale_o, float d_scale_s, bool is_amax_s, bool is_amax_0,  Tensor? valid_seq_len, str seq_padding_type, SymInt[] window_size=[-1, -1]) -> (Tensor, Tensor, Tensor, Tensor, Tensor, Tensor)");
   m.def(
-      "hpu::fp8_sdpa_recomp_fwd_dropout_seed.scalar(Tensor seed, Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode, float d_scale_q, float d_scale_k, float d_scale_v, float q_scale_s, float q_scale_o, float d_scale_s, bool is_amax_s, bool is_amax_o,  Tensor? valid_seq_len, str seq_padding_type ) -> (Tensor, Tensor, Tensor, Tensor, Tensor, Tensor)");
+      "hpu::fp8_sdpa_recomp_fwd_dropout_seed.scalar(Tensor seed, Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode, float d_scale_q, float d_scale_k, float d_scale_v, float q_scale_s, float q_scale_o, float d_scale_s, bool is_amax_s, bool is_amax_o,  Tensor? valid_seq_len, str seq_padding_type, SymInt[] window_size=[-1, -1]) -> (Tensor, Tensor, Tensor, Tensor, Tensor, Tensor)");
 
   m.def(
       "hpu::fp8_sdpa_recomp_bwd(Tensor grad, Tensor q, Tensor k, Tensor v, Tensor? attention_mask, Tensor m, Tensor linv, Tensor ? seed, bool is_causal, float p, float scale, str softmax_mode, Tensor? d_scale_q, Tensor? d_scale_k, Tensor? d_scale_v, Tensor? d_scale_s, Tensor? d_scale_do, Tensor? d_scale_ds, Tensor? q_scale_s, Tensor? q_scale_ds, bool is_amax_ds, Tensor fwd_out) -> (Tensor, Tensor, Tensor, Tensor)");

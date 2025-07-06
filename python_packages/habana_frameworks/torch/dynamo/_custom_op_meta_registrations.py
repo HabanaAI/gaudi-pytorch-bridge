@@ -597,21 +597,54 @@ def meta_sdpa_recomp_fwd_helper(q, k, v, requires_backward, softmax_mode):
 
 @register_meta([torch.ops.hpu.sdpa_recomp_fwd.default])
 def meta_sdpa_recomp_fwd(
-    q, k, v, attn_mask, dropout_p, is_causal, scale, requires_backward, softmax_mode, valid_seq_len, seq_padding_type
+    q,
+    k,
+    v,
+    attn_mask,
+    dropout_p,
+    is_causal,
+    scale,
+    requires_backward,
+    softmax_mode,
+    valid_seq_len,
+    seq_padding_type,
+    window_size=(-1, -1),
 ):
     return meta_sdpa_recomp_fwd_helper(q, k, v, requires_backward, softmax_mode)
 
 
 @register_meta([torch.ops.hpu.sdpa_recomp_fwd_dropout.default])
 def meta_sdpa_recomp_fwd_dropout(
-    q, k, v, attn_mask, dropout_p, is_causal, scale, requires_backward, softmax_mode, valid_seq_len, seq_padding_type
+    q,
+    k,
+    v,
+    attn_mask,
+    dropout_p,
+    is_causal,
+    scale,
+    requires_backward,
+    softmax_mode,
+    valid_seq_len,
+    seq_padding_type,
+    window_size=(-1, -1),
 ):
     return meta_sdpa_recomp_fwd_helper(q, k, v, requires_backward, softmax_mode)
 
 
 @register_meta([torch.ops.hpu.sdpa_recomp_fwd_non_dropout.default])
 def meta_sdpa_recomp_fwd_non_dropout(
-    q, k, v, attn_mask, dropout_p, is_causal, scale, requires_backward, softmax_mode, valid_seq_len, seq_padding_type
+    q,
+    k,
+    v,
+    attn_mask,
+    dropout_p,
+    is_causal,
+    scale,
+    requires_backward,
+    softmax_mode,
+    valid_seq_len,
+    seq_padding_type,
+    window_size=(-1, -1),
 ):
     return meta_sdpa_recomp_fwd_helper(q, k, v, requires_backward, softmax_mode)
 
@@ -630,6 +663,7 @@ def meta_sdpa_recomp_fwd_dropout_seed(
     softmax_mode,
     valid_seq_len,
     seq_padding_type,
+    window_size=(-1, -1),
 ):
     return meta_sdpa_recomp_fwd_helper(q, k, v, requires_backward, softmax_mode)
 
@@ -897,6 +931,7 @@ def meta_fp8_sdpa_recomp_fwd(
     is_amax_o,
     valid_seq_len,
     seq_padding_type,
+    window_size=(-1, -1),
 ):
     return meta_fp8_sdpa_recomp_fwd_helper(q, k, v, q_scale_o, softmax_mode, requires_backward)
 
@@ -922,6 +957,7 @@ def meta_fp8_sdpa_recomp_fwd_dropout(
     is_amax_o,
     valid_seq_len,
     seq_padding_type,
+    window_size=(-1, -1),
 ):
     return meta_fp8_sdpa_recomp_fwd_helper(q, k, v, q_scale_o, softmax_mode, requires_backward)
 
@@ -947,6 +983,7 @@ def meta_fp8_sdpa_recomp_fwd_non_dropout(
     is_amax_o,
     valid_seq_len,
     seq_padding_type,
+    window_size=(-1, -1),
 ):
     return meta_fp8_sdpa_recomp_fwd_helper(q, k, v, q_scale_o, softmax_mode, requires_backward)
 
@@ -973,6 +1010,7 @@ def meta_fp8_sdpa_recomp_fwd_dropout_seed(
     is_amax_o,
     valid_seq_len,
     seq_padding_type,
+    window_size=(-1, -1),
 ):
     return meta_fp8_sdpa_recomp_fwd_helper(q, k, v, q_scale_o, softmax_mode, requires_backward)
 

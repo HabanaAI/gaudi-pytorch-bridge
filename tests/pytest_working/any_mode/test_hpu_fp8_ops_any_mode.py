@@ -1588,6 +1588,7 @@ def test_sdpa_h2d():
                 False,
                 None,
                 "left",
+                (-1, -1),
             )[0].cpu()
             results.append(res)
 

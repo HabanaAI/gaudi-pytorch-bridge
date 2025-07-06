@@ -108,6 +108,7 @@ def fp8_sdpa_fwd_wrapper(
     seq_padding_type="left",
     recompute=None,
     requires_grad=None,
+    window_size=(-1, -1),
 ):
     requires_backward = (
         q.requires_grad or k.requires_grad or v.requires_grad if requires_grad is None else requires_grad
@@ -168,6 +169,7 @@ def fp8_sdpa_fwd_wrapper(
             is_amax_o,
             valid_seq_len,
             seq_padding_type,
+            window_size,
         )
 
         if gqa:
@@ -331,6 +333,7 @@ class Fp8FusedSDPA(torch.autograd.Function):
         seq_padding_type="left",
         recompute=None,
         requires_grad=None,
+        window_size=(-1, -1),
     ):
         return fp8_sdpa_fwd_wrapper(
             ctx,
@@ -354,6 +357,7 @@ class Fp8FusedSDPA(torch.autograd.Function):
             seq_padding_type=seq_padding_type,
             recompute=recompute,
             requires_grad=requires_grad,
+            window_size=window_size,
         )
 
     @staticmethod
@@ -382,6 +386,7 @@ def dump_api_params(
     seq_padding_type="left",
     recompute=None,
     requires_grad=None,
+    window_size=(-1, -1),
 ):
     def print_t_info(name, t, is_scale=False):
         if t is not None:
@@ -416,6 +421,7 @@ def dump_api_params(
     print("recmpute : ", recompute)
     print("requires_grad : ", requires_grad)
     print("=" * 90)
+    print(f"window size wl: {window_size[0]} wr: {window_size[1]}")
 
 
 def fp8_fused_sdpa(
@@ -439,6 +445,7 @@ def fp8_fused_sdpa(
     seq_padding_type="left",
     recompute=None,
     requires_grad=None,
+    window_size=(-1, -1),
 ):
     dump_api_params(
         q,
@@ -461,6 +468,7 @@ def fp8_fused_sdpa(
         seq_padding_type,
         recompute,
         requires_grad,
+        window_size,
     )
     outputs = Fp8FusedSDPA.apply(
         q,
@@ -483,6 +491,7 @@ def fp8_fused_sdpa(
         seq_padding_type,
         recompute,
         requires_grad,
+        window_size,
     )
 
     return outputs

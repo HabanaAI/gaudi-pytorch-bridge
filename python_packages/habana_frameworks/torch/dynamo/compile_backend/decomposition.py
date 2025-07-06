@@ -590,6 +590,7 @@ def sdpa_recomp_fwd(
     fast_softmax_mode,
     valid_seq_len,
     seq_padding_type,
+    window_size=(-1, -1),
 ):
     op = torch.ops.hpu.sdpa_recomp_fwd_dropout if dropout_p > 0.0 else torch.ops.hpu.sdpa_recomp_fwd_non_dropout
     return op(
@@ -604,6 +605,7 @@ def sdpa_recomp_fwd(
         fast_softmax_mode,
         valid_seq_len,
         seq_padding_type,
+        window_size,
     )
 
 
@@ -698,6 +700,7 @@ def fp8_sdpa_recomp_fwd(
     is_amax_o,
     valid_seq_len,
     seq_padding_type,
+    window_size=(-1, -1),
 ):
     op = torch.ops.hpu.fp8_sdpa_recomp_fwd_dropout if dropout_p > 0.0 else torch.ops.hpu.fp8_sdpa_recomp_fwd_non_dropout
     return op(
@@ -720,6 +723,7 @@ def fp8_sdpa_recomp_fwd(
         is_amax_o,
         valid_seq_len,
         seq_padding_type,
+        window_size,
     )
 
 
