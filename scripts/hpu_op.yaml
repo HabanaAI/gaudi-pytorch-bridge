@@ -8946,7 +8946,7 @@ mixture_of_experts_recomp_fwd.fused_weights:
   autograd: true
 
 mixture_of_experts_fwd.fp8_fused:
-  custom_op_schema: "hpu::mixture_of_experts_fwd.fp8_fused(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, *, Tensor[] d_scale_hidden_states, Tensor[] d_scale_intermediate_hidden_states, Tensor[] d_scale_w12, Tensor[] d_scale_w3, bool permuted_weights=False, str activation='silu', int experts_min=0, int experts_max=8, bool scaled_swiglu=False, bool hybrid_mode=False, bool is_first_amax=False, bool is_second_amax=False) -> Tensor[]"
+  custom_op_schema: "hpu::mixture_of_experts_fwd.fp8_fused(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, *, Tensor[] d_scale_hidden_states, Tensor[] d_scale_intermediate_hidden_states, Tensor[] d_scale_w12, Tensor[] d_scale_w3, bool permuted_weights=False, str activation='silu', int experts_min=0, int experts_max=8, bool scaled_swiglu=False, bool hybrid_mode=False, bool is_first_amax=False, bool is_second_amax=False, int chunk_size=0, int total_experts=0) -> Tensor[]"
   custom_fill_params: FillMixtureOfExpertsFwdFp8Params
   op_backend: MixtureOfExpertsFwdFp8
   guid: moe_v2_fwd
@@ -8958,7 +8958,7 @@ mixture_of_experts_fwd.fp8_fused:
   skip_slrg: true
 
 mixture_of_experts_bwd.fp8_fused:
-  custom_op_schema: "hpu::mixture_of_experts_bwd.fp8_fused(Tensor grad_tokens_in, Tensor chunks_input, Tensor token_to_chunk, Tensor token_in_chunk, Tensor chunks_routing_table, Tensor chunks_routing_weights, Tensor gemm12_out, Tensor activation_out, Tensor mult_out, Tensor mlp_out, Tensor[] w12, Tensor[] w3, *, Tensor[] d_scale_hidden_states, Tensor[] d_scale_intermediate_hidden_states, Tensor[] d_scale_w12, Tensor[] d_scale_w3, Tensor[] d_scale_first_gemm_grad, Tensor[] d_scale_second_gemm_grad, bool permuted_weights=False, str activation='silu', int experts_min=0, int experts_max=8, int[] router_weights_size=[], bool scaled_swiglu=False, bool hybrid_mode=False, bool is_first_amax=False, bool is_second_amax=False) -> Tensor[]"
+  custom_op_schema: "hpu::mixture_of_experts_bwd.fp8_fused(Tensor grad_tokens_in, Tensor chunks_input, Tensor token_to_chunk, Tensor token_in_chunk, Tensor chunks_routing_table, Tensor chunks_routing_weights, Tensor gemm12_out, Tensor activation_out, Tensor mult_out, Tensor mlp_out, Tensor[] w12, Tensor[] w3, *, Tensor[] d_scale_hidden_states, Tensor[] d_scale_intermediate_hidden_states, Tensor[] d_scale_w12, Tensor[] d_scale_w3, Tensor[] d_scale_first_gemm_grad, Tensor[] d_scale_second_gemm_grad, bool permuted_weights=False, str activation='silu', int experts_min=0, int experts_max=8, int[] router_weights_size=[], bool scaled_swiglu=False, bool hybrid_mode=False, bool is_first_amax=False, bool is_second_amax=False, int chunk_size=0, int total_experts=0) -> Tensor[]"
   custom_fill_params: FillMixtureOfExpertsBwdFp8Params
   op_backend: MixtureOfExpertsBwdFp8
   guid: moe_v2_bwd
@@ -8970,7 +8970,7 @@ mixture_of_experts_bwd.fp8_fused:
   skip_slrg: true
 
 mixture_of_experts_recomp_fwd.fp8_fused:
-  custom_op_schema: "hpu::mixture_of_experts_recomp_fwd.fp8_fused(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, *, Tensor[] d_scale_hidden_states, Tensor[] d_scale_intermediate_hidden_states, Tensor[] d_scale_w12, Tensor[] d_scale_w3, bool permuted_weights=False, str activation='silu', int experts_min=0, int experts_max=8, bool scaled_swiglu=False, bool hybrid_mode=False, bool is_first_amax=False, bool is_second_amax=False) -> Tensor[]"
+  custom_op_schema: "hpu::mixture_of_experts_recomp_fwd.fp8_fused(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, *, Tensor[] d_scale_hidden_states, Tensor[] d_scale_intermediate_hidden_states, Tensor[] d_scale_w12, Tensor[] d_scale_w3, bool permuted_weights=False, str activation='silu', int experts_min=0, int experts_max=8, bool scaled_swiglu=False, bool hybrid_mode=False, bool is_first_amax=False, bool is_second_amax=False, int chunk_size=0, int total_experts=0) -> Tensor[]"
   custom_fill_params: FillMixtureOfExpertsFwdFp8Params
   op_backend: MixtureOfExpertsRecompFwdFp8
   guid: moe_fwd
@@ -8982,7 +8982,7 @@ mixture_of_experts_recomp_fwd.fp8_fused:
   skip_slrg: true
 
 mixture_of_experts_recomp_bwd.fp8_fused:
-  custom_op_schema: "hpu::mixture_of_experts_recomp_bwd.fp8_fused(Tensor grad_tokens_in, Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, *, Tensor[] d_scale_hidden_states, Tensor[] d_scale_intermediate_hidden_states, Tensor[] d_scale_w12, Tensor[] d_scale_w3, Tensor[] d_scale_first_gemm_grad, Tensor[] d_scale_second_gemm_grad, bool permuted_weights=False, str activation='silu', int experts_min=0, int experts_max=8, bool scaled_swiglu=False, bool hybrid_mode=False, bool is_first_amax=False, bool is_second_amax=False) -> Tensor[]"
+  custom_op_schema: "hpu::mixture_of_experts_recomp_bwd.fp8_fused(Tensor grad_tokens_in, Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, *, Tensor[] d_scale_hidden_states, Tensor[] d_scale_intermediate_hidden_states, Tensor[] d_scale_w12, Tensor[] d_scale_w3, Tensor[] d_scale_first_gemm_grad, Tensor[] d_scale_second_gemm_grad, bool permuted_weights=False, str activation='silu', int experts_min=0, int experts_max=8, bool scaled_swiglu=False, bool hybrid_mode=False, bool is_first_amax=False, bool is_second_amax=False, int chunk_size=0, int total_experts=0) -> Tensor[]"
   custom_fill_params: FillMixtureOfExpertsBwdFp8Params
   op_backend: MixtureOfExpertsRecompBwdFp8
   guid: moe_recomp_v2_bwd
@@ -8994,7 +8994,7 @@ mixture_of_experts_recomp_bwd.fp8_fused:
   skip_slrg: true
 
 mixture_of_experts_fwd.fp8:
-  custom_op_schema: "hpu::mixture_of_experts_fwd.fp8(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, *, Tensor[] d_scale_hidden_states, Tensor[] d_scale_intermediate_hidden_states, Tensor[] d_scale_w1, Tensor[] d_scale_w2, Tensor[] d_scale_w3, bool permuted_weights=False, str activation='silu', int experts_min=0, int experts_max=8, bool scaled_swiglu=False, bool hybrid_mode=False, bool is_first_amax=False, bool is_second_amax=False) -> Tensor[]"
+  custom_op_schema: "hpu::mixture_of_experts_fwd.fp8(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, *, Tensor[] d_scale_hidden_states, Tensor[] d_scale_intermediate_hidden_states, Tensor[] d_scale_w1, Tensor[] d_scale_w2, Tensor[] d_scale_w3, bool permuted_weights=False, str activation='silu', int experts_min=0, int experts_max=8, bool scaled_swiglu=False, bool hybrid_mode=False, bool is_first_amax=False, bool is_second_amax=False, int chunk_size=0, int total_experts=0) -> Tensor[]"
   custom_fill_params: FillMixtureOfExpertsFwdFp8Params
   op_backend: MixtureOfExpertsFwdFp8
   guid: moe_v2_fwd
@@ -9006,7 +9006,7 @@ mixture_of_experts_fwd.fp8:
   skip_slrg: true
 
 mixture_of_experts_bwd.fp8:
-  custom_op_schema: "hpu::mixture_of_experts_bwd.fp8(Tensor grad_tokens_in, Tensor chunks_input, Tensor token_to_chunk, Tensor token_in_chunk, Tensor chunks_routing_table, Tensor chunks_routing_weights, Tensor gemm1_out, Tensor gemm2_out, Tensor activation_out, Tensor mult_out, Tensor mlp_out, Tensor[] w1, Tensor[] w2, Tensor[] w3, *, Tensor[] d_scale_hidden_states, Tensor[] d_scale_intermediate_hidden_states, Tensor[] d_scale_w1, Tensor[] d_scale_w2, Tensor[] d_scale_w3, Tensor[] d_scale_mult_grad, Tensor[] d_scale_activation_grad, Tensor[] d_scale_second_gemm_grad, bool permuted_weights=False, str activation='silu', int experts_min=0, int experts_max=8, int[] router_weights_size=[], bool scaled_swiglu=False, bool hybrid_mode=False, bool is_first_amax=False, bool is_second_amax=False) -> Tensor[]"
+  custom_op_schema: "hpu::mixture_of_experts_bwd.fp8(Tensor grad_tokens_in, Tensor chunks_input, Tensor token_to_chunk, Tensor token_in_chunk, Tensor chunks_routing_table, Tensor chunks_routing_weights, Tensor gemm1_out, Tensor gemm2_out, Tensor activation_out, Tensor mult_out, Tensor mlp_out, Tensor[] w1, Tensor[] w2, Tensor[] w3, *, Tensor[] d_scale_hidden_states, Tensor[] d_scale_intermediate_hidden_states, Tensor[] d_scale_w1, Tensor[] d_scale_w2, Tensor[] d_scale_w3, Tensor[] d_scale_mult_grad, Tensor[] d_scale_activation_grad, Tensor[] d_scale_second_gemm_grad, bool permuted_weights=False, str activation='silu', int experts_min=0, int experts_max=8, int[] router_weights_size=[], bool scaled_swiglu=False, bool hybrid_mode=False, bool is_first_amax=False, bool is_second_amax=False, int chunk_size=0, int total_experts=0) -> Tensor[]"
   custom_fill_params: FillMixtureOfExpertsBwdFp8Params
   op_backend: MixtureOfExpertsBwdFp8
   guid: moe_v2_bwd
@@ -9018,7 +9018,7 @@ mixture_of_experts_bwd.fp8:
   skip_slrg: true
 
 mixture_of_experts_recomp_fwd.fp8:
-  custom_op_schema: "hpu::mixture_of_experts_recomp_fwd.fp8(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, *, Tensor[] d_scale_hidden_states, Tensor[] d_scale_intermediate_hidden_states, Tensor[] d_scale_w1, Tensor[] d_scale_w2, Tensor[] d_scale_w3, bool permuted_weights=False, str activation='silu', int experts_min=0, int experts_max=8, bool scaled_swiglu=False, bool hybrid_mode=False, bool is_first_amax=False, bool is_second_amax=False) -> Tensor[]"
+  custom_op_schema: "hpu::mixture_of_experts_recomp_fwd.fp8(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, *, Tensor[] d_scale_hidden_states, Tensor[] d_scale_intermediate_hidden_states, Tensor[] d_scale_w1, Tensor[] d_scale_w2, Tensor[] d_scale_w3, bool permuted_weights=False, str activation='silu', int experts_min=0, int experts_max=8, bool scaled_swiglu=False, bool hybrid_mode=False, bool is_first_amax=False, bool is_second_amax=False, int chunk_size=0, int total_experts=0) -> Tensor[]"
   custom_fill_params: FillMixtureOfExpertsFwdFp8Params
   op_backend: MixtureOfExpertsRecompFwdFp8
   guid: moe_fwd
@@ -9030,7 +9030,7 @@ mixture_of_experts_recomp_fwd.fp8:
   skip_slrg: true
 
 mixture_of_experts_recomp_bwd.fp8:
-  custom_op_schema: "hpu::mixture_of_experts_recomp_bwd.fp8(Tensor grad_tokens_in, Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, *, Tensor[] d_scale_hidden_states, Tensor[] d_scale_intermediate_hidden_states, Tensor[] d_scale_w1, Tensor[] d_scale_w2, Tensor[] d_scale_w3, Tensor[] d_scale_mult_grad, Tensor[] d_scale_activation_grad, Tensor[] d_scale_second_gemm_grad, bool permuted_weights=False, str activation='silu', int experts_min=0, int experts_max=8, bool scaled_swiglu=False, bool hybrid_mode=False, bool is_first_amax=False, bool is_second_amax=False) -> Tensor[]"
+  custom_op_schema: "hpu::mixture_of_experts_recomp_bwd.fp8(Tensor grad_tokens_in, Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, *, Tensor[] d_scale_hidden_states, Tensor[] d_scale_intermediate_hidden_states, Tensor[] d_scale_w1, Tensor[] d_scale_w2, Tensor[] d_scale_w3, Tensor[] d_scale_mult_grad, Tensor[] d_scale_activation_grad, Tensor[] d_scale_second_gemm_grad, bool permuted_weights=False, str activation='silu', int experts_min=0, int experts_max=8, bool scaled_swiglu=False, bool hybrid_mode=False, bool is_first_amax=False, bool is_second_amax=False, int chunk_size=0, int total_experts=0) -> Tensor[]"
   custom_fill_params: FillMixtureOfExpertsBwdFp8Params
   op_backend: MixtureOfExpertsRecompBwdFp8
   guid: moe_recomp_v2_bwd

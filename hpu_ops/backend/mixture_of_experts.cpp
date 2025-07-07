@@ -200,7 +200,7 @@ std::vector<std::vector<int64_t>> MixtureOfExpertsFwdFp8Shapes(
   const size_t permuted_weights_idx = fused_weights ? 9 : 11;
   const bool permuted = stack.at(permuted_weights_idx).toBool();
   const auto& weights_shape = stack.at(3).toTensorList().get(0).sizes();
-  const int64_t chunk_size = 0;
+  const int64_t chunk_size = stack.at(stack.size() - 1).toInt();
 
   return MixtureOfExpertsFwdSizes(
       stack_tensor(stack, 0).sizes(),
@@ -217,8 +217,8 @@ std::vector<std::vector<int64_t>> MixtureOfExpertsRecompFwdFp8Shapes(
       static_cast<int64_t>(stack.at(3).toTensorList().size());
   const size_t stack_size = stack.size();
 
-  const bool is_first_amax = stack.at(stack_size - 2).toBool();
-  const bool is_second_amax = stack.at(stack_size - 1).toBool();
+  const bool is_first_amax = stack.at(stack_size - 4).toBool();
+  const bool is_second_amax = stack.at(stack_size - 3).toBool();
 
   std::vector<std::vector<int64_t>> output_shapes = {
       stack.at(0).toTensor().sizes().vec()};
@@ -319,7 +319,7 @@ OutputMetaDataVector MixtureOfExpertsFwdFp8Meta(const at::Stack& stack) {
   const at::ScalarType self_type = stack_tensor(stack, 0).scalar_type();
   const bool is_fused = !stack.at(9).isTensorList();
   const size_t stack_size = stack.size();
-  const bool hybrid_mode = stack.at(stack_size - 3).toBool();
+  const bool hybrid_mode = stack.at(stack_size - 5).toBool();
 
   const bool is_gaudi2 =
       habana::HPUDeviceContext::get_device().type() == synDeviceGaudi2;
@@ -330,8 +330,8 @@ OutputMetaDataVector MixtureOfExpertsFwdFp8Meta(const at::Stack& stack) {
     weight_type = at::ScalarType::Float8_e5m2;
   }
 
-  const bool is_first_amax = stack.at(stack_size - 2).toBool();
-  const bool is_second_amax = stack.at(stack_size - 1).toBool();
+  const bool is_first_amax = stack.at(stack_size - 4).toBool();
+  const bool is_second_amax = stack.at(stack_size - 3).toBool();
   const size_t amax_outputs = is_first_amax + is_second_amax;
   const int64_t num_experts = stack.at(3).toTensorList().size();
   std::vector<std::vector<int64_t>> output_shapes =
@@ -449,16 +449,16 @@ OutputMetaDataVector MixtureOfExpertsBwdMeta(const at::Stack& stack) {
 OutputMetaDataVector MixtureOfExpertsBwdFp8Meta(const at::Stack& stack) {
   const auto& grad = stack_tensor(stack, 0);
   const size_t stack_size = stack.size();
-  const bool is_first_amax = stack.at(stack_size - 2).toBool();
-  const bool is_second_amax = stack.at(stack_size - 1).toBool();
-  const bool is_recompute = stack.size() < 24;
+  const bool is_first_amax = stack.at(stack_size - 4).toBool();
+  const bool is_second_amax = stack.at(stack_size - 3).toBool();
+  const bool is_recompute = stack.size() < 26;
   const bool is_fused = is_recompute ? !stack.at(12).isTensorList()
                                      : !stack.at(18).isTensorList();
   const size_t amax_outputs = is_first_amax * (2 - is_fused) + is_second_amax;
   const size_t first_weights_index = is_recompute ? 4 : is_fused ? 10 : 11;
   size_t num_experts = stack.at(first_weights_index).toTensorList().size();
 
-  const bool hybrid_mode = stack.at(stack_size - 3).toBool();
+  const bool hybrid_mode = stack.at(stack_size - 5).toBool();
   const bool is_gaudi2 =
       habana::HPUDeviceContext::get_device().type() == synDeviceGaudi2;
 
@@ -803,10 +803,10 @@ FillParamsT FillMixtureOfExpertsFwdFp8Params(const at::Stack& stack) {
   const size_t permuted_weights_idx = fused_weights ? 9 : 11;
 
   const size_t stack_size = stack.size();
-  const bool measurement_mode = stack.at(stack_size - 1).toBool();
-  const bool first_gemm_measurement_mode = stack.at(stack_size - 2).toBool();
-  const bool hybdrid_mode = stack.at(stack_size - 3).toBool();
-  const bool scaled_swiglu = stack.at(stack_size - 4).toBool();
+  const bool measurement_mode = stack.at(stack_size - 3).toBool();
+  const bool first_gemm_measurement_mode = stack.at(stack_size - 4).toBool();
+  const bool hybdrid_mode = stack.at(stack_size - 5).toBool();
+  const bool scaled_swiglu = stack.at(stack_size - 6).toBool();
 
   MixtureOfExpertsConfig cfg = {
       permuted_weights_idx,
@@ -817,8 +817,8 @@ FillParamsT FillMixtureOfExpertsFwdFp8Params(const at::Stack& stack) {
       first_gemm_measurement_mode,
       hybdrid_mode,
       scaled_swiglu,
-      0,
-      0};
+      static_cast<unsigned int>(stack.at(stack_size - 2).toInt()),
+      static_cast<unsigned int>(stack.at(stack_size - 1).toInt())};
   return FillMixtureOfExpertsParams(stack, cfg);
 }
 
@@ -846,14 +846,14 @@ FillParamsT FillMixtureOfExpertsBwdFp8Params(const at::Stack& stack) {
   MixtureOfExpertsConfig cfg = {
       permuted_weights_idx,
       fused_weights,
-      stack.at(stack_size - 1).toBool(),
-      false,
-      false,
-      stack.at(stack_size - 2).toBool(),
       stack.at(stack_size - 3).toBool(),
+      false,
+      false,
       stack.at(stack_size - 4).toBool(),
-      0,
-      0};
+      stack.at(stack_size - 5).toBool(),
+      stack.at(stack_size - 6).toBool(),
+      static_cast<unsigned int>(stack.at(stack_size - 2).toInt()),
+      static_cast<unsigned int>(stack.at(stack_size - 1).toInt())};
 
   return FillMixtureOfExpertsParams(stack, cfg);
 }

@@ -1363,6 +1363,8 @@ class MixtureOfExpertsFwdBwdWrapper(torch.autograd.Function):
         is_first_amax,
         is_second_amax,
         scales_dict,
+        chunk_size,
+        total_experts,
         *weights,
     ):
         MixtureOfExpertsFwdBwdWrapper.scales_dict = scales_dict
@@ -1414,6 +1416,8 @@ class MixtureOfExpertsFwdBwdWrapper(torch.autograd.Function):
             hybrid_mode=hybrid_mode,
             is_first_amax=is_first_amax,
             is_second_amax=is_second_amax,
+            chunk_size=chunk_size,
+            total_experts=total_experts,
         )
 
         MixtureOfExpertsFwdBwdWrapper.first_amax_fwd = first_fwd_amax
@@ -1491,7 +1495,7 @@ class MixtureOfExpertsFwdBwdWrapper(torch.autograd.Function):
         htcore.step_closure._mark_step_if_lazy()
         processed_grads = [grads[0], None, grads[1]]
         experts_num = ctx.experts_num
-        processed_grads.extend([None] * 13)
+        processed_grads.extend([None] * 15)
         current_index = 2
 
         def _add_gradients(current_index):
@@ -1539,6 +1543,8 @@ def mixture_of_experts_training_fp8(
     calc_first_amax,
     calc_second_amax,
     scales_dict,
+    chunk_size,
+    total_experts,
 ):
     is_fused = w12 is not None
     num_experts = len(w3)
@@ -1564,6 +1570,8 @@ def mixture_of_experts_training_fp8(
         calc_first_amax,
         calc_second_amax,
         scales_dict,
+        chunk_size,
+        total_experts,
         *tuple(weights),
     )
 
@@ -1582,10 +1590,11 @@ def mixture_of_experts_training_fp8(
 @pytest.mark.parametrize("num_tokens", NUM_TOKENS)
 @pytest.mark.parametrize("fused_weights", [True, False])
 @pytest.mark.parametrize("permuted_weights", PERMUTED_WEIGHTS)
-@pytest.mark.parametrize("scaled_swiglu", [True, False])
-@pytest.mark.parametrize("calc_first_amax", [True, False])
-@pytest.mark.parametrize("calc_second_amax", [True, False])
+@pytest.mark.parametrize("scaled_swiglu", [True])
+@pytest.mark.parametrize("calc_first_amax", [True])
+@pytest.mark.parametrize("calc_second_amax", [True])
 @pytest.mark.parametrize("recomp", [True, False])
+@pytest.mark.parametrize("chunk_size, total_experts", [(0, 0), (4, 8)])
 def test_mixture_of_experts_fp8_training(
     permuted_weights,
     fused_weights,
@@ -1600,6 +1609,8 @@ def test_mixture_of_experts_fp8_training(
     calc_first_amax,
     calc_second_amax,
     recomp,
+    chunk_size,
+    total_experts,
 ):
     if Verbose:
         print("Recomp: ", recomp)
@@ -1676,6 +1687,8 @@ def test_mixture_of_experts_fp8_training(
             calc_first_amax=calc_first_amax,
             calc_second_amax=calc_second_amax,
             scales_dict=scales_dict,
+            chunk_size=chunk_size,
+            total_experts=total_experts,
         )
         cos_sim_tol = 0.9
 

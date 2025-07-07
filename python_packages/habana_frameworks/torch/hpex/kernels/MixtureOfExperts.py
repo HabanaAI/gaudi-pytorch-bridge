@@ -131,6 +131,8 @@ def mixture_of_experts_fwd_fp8_wrapper(
     hybrid_mode: bool = False,
     is_first_amax: bool = False,
     is_second_amax: bool = False,
+    chunk_size: int = 0,
+    total_experts: int = 0,
 ) -> torch.Tensor:
     assert w3 is not None, "w3 should not be None"
     experts_num = len(w3[0]) if isinstance(w3, tuple) else len(w3)
@@ -152,6 +154,8 @@ def mixture_of_experts_fwd_fp8_wrapper(
     ctx.is_second_amax = is_second_amax
     ctx.router_weights_size = router_weights.size()
     ctx.is_gaudi2 = is_gaudi2
+    ctx.chunk_size = chunk_size
+    ctx.total_experts = total_experts
 
     w1_fwd, w1_bwd = _split_weights_into_fwd_and_bwd(w1, hybrid_mode, recomp, is_gaudi2)
     w2_fwd, w2_bwd = _split_weights_into_fwd_and_bwd(w2, hybrid_mode, recomp, is_gaudi2)
@@ -194,6 +198,8 @@ def mixture_of_experts_fwd_fp8_wrapper(
         "hybrid_mode": hybrid_mode,
         "is_first_amax": is_first_amax,
         "is_second_amax": is_second_amax,
+        "chunk_size": chunk_size,
+        "total_experts": total_experts,
     }
 
     if is_fused:
@@ -275,6 +281,8 @@ def mixture_of_experts_bwd_fp8_wrapper(
         "is_first_amax": is_first_amax,
         "is_second_amax": is_second_amax,
         "d_scale_second_gemm_grad": d_scale_second_gemm_grad,
+        "chunk_size": ctx.chunk_size,
+        "total_experts": ctx.total_experts,
     }
     if is_fused:
         kwargs["d_scale_first_gemm_grad"] = d_scale_first_gemm_grad

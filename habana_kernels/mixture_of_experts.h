@@ -63,7 +63,9 @@ std::vector<at::Tensor> mixture_of_experts_fwd_fp8_fused_weights_lazy(
     const bool scaled_swiglu,
     const bool hybrid_mode,
     const bool is_first_amax,
-    const bool is_second_amax);
+    const bool is_second_amax,
+    const int64_t chunk_size = 0,
+    const int64_t total_experts = 0);
 
 std::vector<at::Tensor> mixture_of_experts_recomp_fwd_fp8_fused_weights_lazy(
     const at::Tensor& hidden_states,
@@ -82,7 +84,9 @@ std::vector<at::Tensor> mixture_of_experts_recomp_fwd_fp8_fused_weights_lazy(
     const bool scaled_swiglu,
     const bool hybrid_mode,
     const bool is_first_amax,
-    const bool is_second_amax);
+    const bool is_second_amax,
+    const int64_t chunk_size = 0,
+    const int64_t total_experts = 0);
 
 std::vector<at::Tensor> mixture_of_experts_bwd_fp8_fused_weights_lazy(
     const at::Tensor& grad_tokens_in,
@@ -111,7 +115,9 @@ std::vector<at::Tensor> mixture_of_experts_bwd_fp8_fused_weights_lazy(
     const bool scaled_swiglu,
     const bool hybrid_mode,
     const bool is_first_amax,
-    const bool is_second_amax);
+    const bool is_second_amax,
+    const int64_t chunk_size = 0,
+    const int64_t total_experts = 0);
 
 std::vector<at::Tensor> mixture_of_experts_recomp_bwd_fp8_fused_weights_lazy(
     const at::Tensor& grad_out,
@@ -133,7 +139,9 @@ std::vector<at::Tensor> mixture_of_experts_recomp_bwd_fp8_fused_weights_lazy(
     const bool scaled_swiglu,
     const bool hybrid_mode,
     const bool is_first_amax,
-    const bool is_second_amax);
+    const bool is_second_amax,
+    const int64_t chunk_size = 0,
+    const int64_t total_experts = 0);
 
 std::vector<at::Tensor> mixture_of_experts_fwd_fp8_lazy(
     const at::Tensor& hidden_states,
@@ -154,7 +162,9 @@ std::vector<at::Tensor> mixture_of_experts_fwd_fp8_lazy(
     const bool scaled_swiglu,
     const bool hybrid_mode,
     const bool is_first_amax,
-    const bool is_second_amax);
+    const bool is_second_amax,
+    const int64_t chunk_size = 0,
+    const int64_t total_experts = 0);
 
 std::vector<at::Tensor> mixture_of_experts_recomp_fwd_fp8_lazy(
     const at::Tensor& hidden_states,
@@ -175,7 +185,9 @@ std::vector<at::Tensor> mixture_of_experts_recomp_fwd_fp8_lazy(
     const bool scaled_swiglu,
     const bool hybrid_mode,
     const bool is_first_amax,
-    const bool is_second_amax);
+    const bool is_second_amax,
+    const int64_t chunk_size = 0,
+    const int64_t total_experts = 0);
 
 std::vector<at::Tensor> mixture_of_experts_bwd_fp8_lazy(
     const at::Tensor& grad_tokens_in,
@@ -208,7 +220,9 @@ std::vector<at::Tensor> mixture_of_experts_bwd_fp8_lazy(
     const bool scaled_swiglu,
     const bool hybrid_mode,
     const bool is_first_amax,
-    const bool is_second_amax);
+    const bool is_second_amax,
+    const int64_t chunk_size = 0,
+    const int64_t total_experts = 0);
 
 std::vector<at::Tensor> mixture_of_experts_recomp_bwd_fp8_lazy(
     const at::Tensor& grad_out,
@@ -233,6 +247,8 @@ std::vector<at::Tensor> mixture_of_experts_recomp_bwd_fp8_lazy(
     const bool scaled_swiglu,
     const bool hybrid_mode,
     const bool is_first_amax,
-    const bool is_second_amax);
+    const bool is_second_amax,
+    const int64_t chunk_size = 0,
+    const int64_t total_experts = 0);
 
 } // namespace habana_lazy

@@ -697,11 +697,13 @@ std::vector<at::Tensor> mixture_of_experts_fwd_fp8_fused_weights_lazy(
     const bool scaled_swiglu,
     const bool hybrid_mode,
     const bool is_first_amax,
-    const bool is_second_amax) {
+    const bool is_second_amax,
+    const int64_t chunk_size,
+    const int64_t total_experts) {
   PT_LAZY_TRACE;
   PT_OP_INFO(
       "mixture_of_experts_fwd.fp8_fused_weights :",
-      DUMP_17ARGS(
+      DUMP_19ARGS(
           hidden_states,
           expert_routing_table,
           router_weights,
@@ -718,7 +720,9 @@ std::vector<at::Tensor> mixture_of_experts_fwd_fp8_fused_weights_lazy(
           scaled_swiglu,
           hybrid_mode,
           is_first_amax,
-          is_second_amax));
+          is_second_amax,
+          chunk_size,
+          total_experts));
 
   exec::OptPassCfg::GetInstance()->BkupAndDisableAndAllOptPass();
 
@@ -740,7 +744,9 @@ std::vector<at::Tensor> mixture_of_experts_fwd_fp8_fused_weights_lazy(
        scaled_swiglu,
        hybrid_mode,
        is_first_amax,
-       is_second_amax},
+       is_second_amax,
+       chunk_size,
+       total_experts},
       MixtureOfExpertsFwdFp8Shapes,
       0};
 
@@ -767,11 +773,13 @@ std::vector<at::Tensor> mixture_of_experts_recomp_fwd_fp8_fused_weights_lazy(
     const bool scaled_swiglu,
     const bool hybrid_mode,
     const bool is_first_amax,
-    const bool is_second_amax) {
+    const bool is_second_amax,
+    const int64_t chunk_size,
+    const int64_t total_experts) {
   PT_LAZY_TRACE;
   PT_OP_INFO(
       "mixture_of_experts_recomp_fwd.fp8_fused_weights :",
-      DUMP_17ARGS(
+      DUMP_19ARGS(
           hidden_states,
           expert_routing_table,
           router_weights,
@@ -788,7 +796,9 @@ std::vector<at::Tensor> mixture_of_experts_recomp_fwd_fp8_fused_weights_lazy(
           scaled_swiglu,
           hybrid_mode,
           is_first_amax,
-          is_second_amax));
+          is_second_amax,
+          chunk_size,
+          total_experts));
   exec::OptPassCfg::GetInstance()->BkupAndDisableAndAllOptPass();
 
   LazyOp<std::vector<at::Tensor>> op{
@@ -809,7 +819,9 @@ std::vector<at::Tensor> mixture_of_experts_recomp_fwd_fp8_fused_weights_lazy(
        scaled_swiglu,
        hybrid_mode,
        is_first_amax,
-       is_second_amax},
+       is_second_amax,
+       chunk_size,
+       total_experts},
       MixtureOfExpertsRecompFwdFp8Shapes,
       0};
 
@@ -846,11 +858,13 @@ std::vector<at::Tensor> mixture_of_experts_bwd_fp8_fused_weights_lazy(
     const bool scaled_swiglu,
     const bool hybrid_mode,
     const bool is_first_amax,
-    const bool is_second_amax) {
+    const bool is_second_amax,
+    const int64_t chunk_size,
+    const int64_t total_experts) {
   PT_LAZY_TRACE;
   PT_OP_INFO(
       "mixture_of_experts_bwd.fp8_fused_weights :",
-      DUMP_27ARGS(
+      DUMP_29ARGS(
           grad_tokens_in,
           chunks_input,
           token_to_chunk,
@@ -877,7 +891,9 @@ std::vector<at::Tensor> mixture_of_experts_bwd_fp8_fused_weights_lazy(
           scaled_swiglu,
           hybrid_mode,
           is_first_amax,
-          is_second_amax));
+          is_second_amax,
+          chunk_size,
+          total_experts));
 
   exec::OptPassCfg::GetInstance()->BkupAndDisableAndAllOptPass();
 
@@ -915,7 +931,9 @@ std::vector<at::Tensor> mixture_of_experts_bwd_fp8_fused_weights_lazy(
        scaled_swiglu,
        hybrid_mode,
        is_first_amax,
-       is_second_amax},
+       is_second_amax,
+       chunk_size,
+       total_experts},
       out_shapes,
       0};
 
@@ -945,11 +963,13 @@ std::vector<at::Tensor> mixture_of_experts_recomp_bwd_fp8_fused_weights_lazy(
     const bool scaled_swiglu,
     const bool hybrid_mode,
     const bool is_first_amax,
-    const bool is_second_amax) {
+    const bool is_second_amax,
+    const int64_t chunk_size,
+    const int64_t total_experts) {
   PT_LAZY_TRACE;
   PT_OP_INFO(
       "mixture_of_experts_recomp_recomp_bwd.fp8_fused_weights :",
-      DUMP_20ARGS(
+      DUMP_22ARGS(
           grad_tokens_in,
           hidden_states,
           expert_routing_table,
@@ -969,7 +989,9 @@ std::vector<at::Tensor> mixture_of_experts_recomp_bwd_fp8_fused_weights_lazy(
           scaled_swiglu,
           hybrid_mode,
           is_first_amax,
-          is_second_amax));
+          is_second_amax,
+          chunk_size,
+          total_experts));
   exec::OptPassCfg::GetInstance()->BkupAndDisableAndAllOptPass();
 
   std::vector<std::vector<int64_t>> out_shapes = get_bwd_output_shapes(
@@ -999,7 +1021,9 @@ std::vector<at::Tensor> mixture_of_experts_recomp_bwd_fp8_fused_weights_lazy(
        scaled_swiglu,
        hybrid_mode,
        is_first_amax,
-       is_second_amax},
+       is_second_amax,
+       chunk_size,
+       total_experts},
       out_shapes,
       0};
 
@@ -1028,11 +1052,13 @@ std::vector<at::Tensor> mixture_of_experts_fwd_fp8_lazy(
     const bool scaled_swiglu,
     const bool hybrid_mode,
     const bool is_first_amax,
-    const bool is_second_amax) {
+    const bool is_second_amax,
+    const int64_t chunk_size,
+    const int64_t total_experts) {
   PT_LAZY_TRACE;
   PT_OP_INFO(
       "mixture_of_experts_fwd.fp8: ",
-      DUMP_19ARGS(
+      DUMP_21ARGS(
           hidden_states,
           expert_routing_table,
           router_weights,
@@ -1051,7 +1077,9 @@ std::vector<at::Tensor> mixture_of_experts_fwd_fp8_lazy(
           scaled_swiglu,
           hybrid_mode,
           is_first_amax,
-          is_second_amax));
+          is_second_amax,
+          chunk_size,
+          total_experts));
   exec::OptPassCfg::GetInstance()->BkupAndDisableAndAllOptPass();
 
   LazyOp<std::vector<at::Tensor>> op{
@@ -1074,7 +1102,9 @@ std::vector<at::Tensor> mixture_of_experts_fwd_fp8_lazy(
        scaled_swiglu,
        hybrid_mode,
        is_first_amax,
-       is_second_amax},
+       is_second_amax,
+       chunk_size,
+       total_experts},
       MixtureOfExpertsFwdFp8Shapes,
       0};
 
@@ -1103,11 +1133,13 @@ std::vector<at::Tensor> mixture_of_experts_recomp_fwd_fp8_lazy(
     const bool scaled_swiglu,
     const bool hybrid_mode,
     const bool is_first_amax,
-    const bool is_second_amax) {
+    const bool is_second_amax,
+    const int64_t chunk_size,
+    const int64_t total_experts) {
   PT_LAZY_TRACE;
   PT_OP_INFO(
       "mixture_of_experts_recomp_fwd.fp8: ",
-      DUMP_19ARGS(
+      DUMP_21ARGS(
           hidden_states,
           expert_routing_table,
           router_weights,
@@ -1126,7 +1158,9 @@ std::vector<at::Tensor> mixture_of_experts_recomp_fwd_fp8_lazy(
           scaled_swiglu,
           hybrid_mode,
           is_first_amax,
-          is_second_amax));
+          is_second_amax,
+          chunk_size,
+          total_experts));
   exec::OptPassCfg::GetInstance()->BkupAndDisableAndAllOptPass();
 
   LazyOp<std::vector<at::Tensor>> op{
@@ -1149,7 +1183,9 @@ std::vector<at::Tensor> mixture_of_experts_recomp_fwd_fp8_lazy(
        scaled_swiglu,
        hybrid_mode,
        is_first_amax,
-       is_second_amax},
+       is_second_amax,
+       chunk_size,
+       total_experts},
       MixtureOfExpertsRecompFwdFp8Shapes,
       0};
 
@@ -1190,11 +1226,13 @@ std::vector<at::Tensor> mixture_of_experts_bwd_fp8_lazy(
     const bool scaled_swiglu,
     const bool hybrid_mode,
     const bool is_first_amax,
-    const bool is_second_amax) {
+    const bool is_second_amax,
+    const int64_t chunk_size,
+    const int64_t total_experts) {
   PT_LAZY_TRACE;
   PT_OP_INFO(
       "mixture_of_experts_bwd.fp8: ",
-      DUMP_31ARGS(
+      DUMP_33ARGS(
           grad_tokens_in,
           chunks_input,
           token_to_chunk,
@@ -1225,7 +1263,9 @@ std::vector<at::Tensor> mixture_of_experts_bwd_fp8_lazy(
           scaled_swiglu,
           hybrid_mode,
           is_first_amax,
-          is_second_amax));
+          is_second_amax,
+          chunk_size,
+          total_experts));
   exec::OptPassCfg::GetInstance()->BkupAndDisableAndAllOptPass();
 
   std::vector<std::vector<int64_t>> out_shapes = get_bwd_output_shapes(
@@ -1266,7 +1306,9 @@ std::vector<at::Tensor> mixture_of_experts_bwd_fp8_lazy(
        scaled_swiglu,
        hybrid_mode,
        is_first_amax,
-       is_second_amax},
+       is_second_amax,
+       chunk_size,
+       total_experts},
       out_shapes,
       0};
 
@@ -1299,11 +1341,13 @@ std::vector<at::Tensor> mixture_of_experts_recomp_bwd_fp8_lazy(
     const bool scaled_swiglu,
     const bool hybrid_mode,
     const bool is_first_amax,
-    const bool is_second_amax) {
+    const bool is_second_amax,
+    const int64_t chunk_size,
+    const int64_t total_experts) {
   PT_LAZY_TRACE;
   PT_OP_INFO(
       "mixture_of_experts_recomp_bwd.fp8 :",
-      DUMP_23ARGS(
+      DUMP_25ARGS(
           grad_tokens_in,
           hidden_states,
           expert_routing_table,
@@ -1326,7 +1370,9 @@ std::vector<at::Tensor> mixture_of_experts_recomp_bwd_fp8_lazy(
           scaled_swiglu,
           hybrid_mode,
           is_first_amax,
-          is_second_amax));
+          is_second_amax,
+          chunk_size,
+          total_experts));
   exec::OptPassCfg::GetInstance()->BkupAndDisableAndAllOptPass();
 
   std::vector<std::vector<int64_t>> out_shapes = get_bwd_output_shapes(
@@ -1359,7 +1405,9 @@ std::vector<at::Tensor> mixture_of_experts_recomp_bwd_fp8_lazy(
        scaled_swiglu,
        hybrid_mode,
        is_first_amax,
-       is_second_amax},
+       is_second_amax,
+       chunk_size,
+       total_experts},
       out_shapes,
       0};
 
