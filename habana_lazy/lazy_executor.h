@@ -320,6 +320,14 @@ class HbExecutionContext {
     return m_user_input_positions;
   }
 
+  std::unordered_map<void*, int64_t> getCpuDataPtrToH2dTidMap() const noexcept {
+    return m_cpuDataPtrToH2Dtid;
+  }
+
+  void setCpuDataPtrToH2dTidMap(void* dataPtr, int64_t unique_id) {
+    m_cpuDataPtrToH2Dtid[dataPtr] = unique_id;
+  }
+
   std::unordered_set<size_t> getUserInputMatchIndices() const noexcept {
     return m_user_input_match_index;
   }
@@ -383,6 +391,7 @@ class HbExecutionContext {
     m_hblazy_tensors.clear();
     m_user_input_positions.clear();
     m_user_input_match_index.clear();
+    m_cpuDataPtrToH2Dtid.clear();
     m_graph_rarg_psh = nullptr;
   }
 
@@ -454,6 +463,7 @@ class HbExecutionContext {
   std::vector<habana_lazy::HbLazyTensor> m_hblazy_tensors;
   std::unordered_map<size_t, size_t> m_user_input_positions;
   std::unordered_set<size_t> m_user_input_match_index;
+  std::unordered_map<void*, int64_t> m_cpuDataPtrToH2Dtid;
   bool m_capturing_graph{false};
   bool m_dry_run{false};
   at::hpu::HPUGraph* m_captured_hpu_graph{nullptr};

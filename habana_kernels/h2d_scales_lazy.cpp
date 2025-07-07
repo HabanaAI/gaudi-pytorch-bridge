@@ -185,7 +185,15 @@ std::optional<at::Tensor> maybe_convert_tensor_to_h2d(
         op_name,
         " was converted to H2D tensor with value=",
         tensor->item().toDouble());
-    return create_h2d_scale(tensor.value());
+    auto t = create_h2d_scale(tensor.value());
+    if (habana_lazy::get_device_lazy_execution_context()->getCapturing()) {
+      habana_lazy::get_device_lazy_execution_context()
+          ->setCpuDataPtrToH2dTidMap(
+              tensor.value().data_ptr(),
+              habana_lazy::GetHbLazyTensor(t, false, false)
+                  .getTensorUniqueId());
+    }
+    return t;
   }
   PT_BRIDGE_WARN(
       "H2D scales flow is enabled, but op ",

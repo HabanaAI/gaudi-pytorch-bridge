@@ -48,7 +48,7 @@ struct SingleHPUGraph {
         capture_stream_{capture_stream} {}
 
   ~SingleHPUGraph();
-  void replay(bool async = false);
+  void replay(std::vector<at::Tensor>& inputs, bool async = false);
   void replayV2(
       std::vector<at::Tensor>& static_inputs,
       std::vector<at::Tensor>& inputs,
@@ -124,7 +124,7 @@ struct HPUGraph {
 
   void capture_begin(bool dry_run = false);
   void capture_end();
-  void replay(bool async = false);
+  void replay(std::vector<at::Tensor>& inputs, bool async = false);
   void mark_step();
   void clear_inputs();
   void replayV2(

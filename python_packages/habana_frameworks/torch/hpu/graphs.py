@@ -69,8 +69,24 @@ class HPUGraph:
     def replay(self, asynchronous=False):
         r"""
         Replays the HPU work captured by this graph.
+
+        Arguments:
+            asynchronous (bool): If True, replay will be done asynchronously, main thread returns immediately after queing replay.
+            Defaults to False.
         """
-        _hpu_C.replay(self.hpu_graph, asynchronous)
+        _hpu_C.replay(self.hpu_graph, [], asynchronous)
+
+    def replay_with_inputs(self, tlistI: list[torch.Tensor] = [], asynchronous=False):
+        r"""
+        Replays the HPU work captured by this graph.
+
+        Arguments:
+            list[torch.Tensor]: List of input tensors for the graph replay
+
+            asynchronous (bool): If True, replay will be done asynchronously, main thread returns immediately after queing replay.
+            Defaults to False.
+        """
+        _hpu_C.replay(self.hpu_graph, tlistI, asynchronous)
 
     def replayV2(
         self,
@@ -590,6 +606,16 @@ def extract_tensors(data):
     return tensors
 
 
+def is_any_cpu_float_bfloat_0d_tensors(tensors):
+    return any(
+        isinstance(t, torch.Tensor)
+        and t.device.type == "cpu"
+        and t.dtype in (torch.float, torch.bfloat16)
+        and t.dim() == 0
+        for t in tensors
+    )
+
+
 def get_tensor_info(tensor):
     """
     Returns a dictionary with shape, dtype, and device information for a PyTorch tensor.
@@ -667,7 +693,8 @@ def wrapped_hpugraph_forward(
             graph = htorch.hpu.HPUGraph()
             graph.capture_begin(dry_run=dry_run)
             input_tensor_list = get_user_input_tensor_list(inputs, ())
-            if disable_tensor_cache:
+            have_h2d_tensor = is_any_cpu_float_bfloat_0d_tensors(input_tensor_list)
+            if disable_tensor_cache or have_h2d_tensor:
                 graph.mark_user_inputs(input_tensor_list)
             outputs = orig_fwd(*args, **kwargs)
             graph.capture_end()
@@ -678,7 +705,10 @@ def wrapped_hpugraph_forward(
                 graph_inputs = inputs
                 tinfo_list = None
                 if dry_run:
-                    graph.replay(asynchronous)
+                    if have_h2d_tensor:
+                        graph.replay_with_inputs(input_tensor_list, asynchronous)
+                    else:
+                        graph.replay(asynchronous)
             else:
                 tlist = extract_tensors(outputs)
                 tinfo_list = [get_tensor_info(t) for t in tlist]
@@ -708,13 +738,17 @@ def wrapped_hpugraph_forward(
 
     CachedParams.cache_hits[h] = CachedParams.cache_hits.get(h, 0) + 1
     # use replayv1 here
+    input_tensor_list = get_user_input_tensor_list(inputs, ())
+    have_h2d_tensor = is_any_cpu_float_bfloat_0d_tensors(input_tensor_list)
     if not disable_tensor_cache:
         # Copy the user inputs
         copy_to(cached.graph_inputs, inputs)
-        cached.graph.replay(cached.asynchronous)
+        if have_h2d_tensor:
+            cached.graph.replay_with_inputs(input_tensor_list, asynchronous)
+        else:
+            cached.graph.replay(asynchronous)
     else:
         matched_input_index = cached.graph.get_user_input_match_indices()
-        input_tensor_list = get_user_input_tensor_list(inputs, ())
         saved_inputs = []
         for i in range(len(input_tensor_list)):
             if i not in matched_input_index:

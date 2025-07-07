@@ -14,6 +14,8 @@
  */
 #include "HPUGraph.h"
 #include "backend/habana_device/hpu_cached_devices.h"
+#include "habana_helpers/h2d_scales.h"
+#include "habana_kernels/h2d_scales_lazy.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_lazy/lazy_executor.h"
@@ -184,7 +186,7 @@ void HPUGraph::clear_inputs() {
   }
 }
 
-void HPUGraph::replay(bool async) {
+void HPUGraph::replay(std::vector<at::Tensor>& inputs, bool async) {
   PT_LAZY_TRACE;
   std::lock_guard<std::recursive_mutex> lock(mutex_);
   PT_HPUGRAPH_DEBUG("Replay Async = ", async)
@@ -201,7 +203,7 @@ void HPUGraph::replay(bool async) {
     habana_lazy::HbLazyTensor::StepMarker({});
   }
   for (size_t i = 0; i < captured_graphs.size(); i++) {
-    captured_graphs[i]->replay(async);
+    captured_graphs[i]->replay(inputs, async);
   }
 }
 
@@ -231,7 +233,7 @@ void HPUGraph::replayV2(
   captured_graphs[0]->replayV2(static_inputs, inputs, async);
 
   for (size_t i = 1; i < captured_graphs.size(); i++) {
-    captured_graphs[i]->replay(async);
+    captured_graphs[i]->replay(inputs, async);
   }
 }
 
@@ -561,7 +563,14 @@ void SingleHPUGraph::replayGraph(
   }*/
 }
 
-void SingleHPUGraph::replay(bool async) {
+void SingleHPUGraph::replay(std::vector<at::Tensor>& inputs, bool async) {
+  if (habana_helpers::is_h2d_scales_enabled() &&
+      std::any_of(inputs.begin(), inputs.end(), [](const auto& t) {
+        return t.is_cpu();
+      })) {
+    return replayV3(inputs, async);
+  }
+
   if (graph_) {
     replayGraph(input_vals_, async);
   }
@@ -576,7 +585,13 @@ void SingleHPUGraph::replayV3(std::vector<at::Tensor>& inputs, bool async) {
     for (size_t i = 0; i < num_inputs; ++i) {
       if (user_input_indices_.count(i) > 0) {
         auto t = inputs[user_input_indices_[i]];
-        auto hbl = habana_lazy::GetHbLazyTensor(t);
+        auto maybe_h2dt = habana_lazy::maybe_convert_tensor_to_h2d(
+            t,
+            (habana_helpers::is_h2d_scales_enabled() && t.is_cpu()),
+            "HPUGraph");
+        auto new_t = (maybe_h2dt.has_value()) ? maybe_h2dt.value() : t;
+
+        auto hbl = habana_lazy::GetHbLazyTensor(new_t);
         if (!hbl.getDataPtr()->tensor_data) {
           auto& stride_params_opt = hbl.getDataPtr()->stride_params;
           if (stride_params_opt.has_value()) {

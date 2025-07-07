@@ -15,6 +15,7 @@
 #include "lazy_executor.h"
 #include "backend/habana_device/hpu_cached_devices.h"
 #include "habana_helpers/python_utils.h"
+#include "habana_kernels/h2d_scales_lazy.h"
 
 namespace habana_lazy {
 
@@ -134,36 +135,44 @@ void HbExecutionContext::saveInputsAndOutputs(
   m_user_input_match_index.clear();
   m_input_vals.clear();
   size_t idx = 0;
-  std::copy_if(
-      inputVals.begin(),
-      inputVals.end(),
-      std::back_inserter(m_input_vals),
-      [this, &idx](habana_lazy::ir::Value input_ir_v_) {
-        size_t input_tensor_idx = 0;
-        auto input_ir_v_uid = input_ir_v_.m_data_ptr.lock()->unique_id;
-        for (auto& m_marked_user_input_t : m_marked_user_inputs) {
-          auto marked_input_hbl =
-              habana_lazy::GetHbLazyTensor(m_marked_user_input_t, false, false);
-          if (input_ir_v_uid == marked_input_hbl.getTensorUniqueId()) {
-            m_user_input_positions[idx] = input_tensor_idx;
-            m_user_input_match_index.insert(input_tensor_idx);
-            break;
-          }
-          ++input_tensor_idx;
+  for (const auto& input_val : inputVals) {
+    const int64_t input_uid = input_val.m_data_ptr.lock()->unique_id;
+    bool matched = false;
+    size_t tensor_idx = 0;
+
+    for (const auto& user_input : m_marked_user_inputs) {
+      if (user_input.device().is_cpu()) {
+        auto it = m_cpuDataPtrToH2Dtid.find(user_input.data_ptr());
+        if (it != m_cpuDataPtrToH2Dtid.end() && it->second == input_uid) {
+          matched = true;
         }
-        ++idx;
-        return true;
-      });
+      } else {
+        auto hbl_tensor =
+            habana_lazy::GetHbLazyTensor(user_input, false, false);
+        if (hbl_tensor.getTensorUniqueId() == input_uid) {
+          matched = true;
+        }
+      }
 
+      if (matched) {
+        m_user_input_positions[idx] = tensor_idx;
+        m_user_input_match_index.insert(tensor_idx);
+        break;
+      }
+      ++tensor_idx;
+    }
+
+    m_input_vals.emplace_back(input_val);
+    ++idx;
+  }
+
+  m_cpuDataPtrToH2Dtid.clear();
   // Only hold on to the input val if this isn't a user given input
-  for (auto& k : m_user_input_positions) {
-    inputVals[k.first] = habana_lazy::ir::Value();
+  for (const auto& [input_idx, _] : m_user_input_positions) {
+    inputVals[input_idx] = habana_lazy::ir::Value();
   }
 
-  m_output_vals.clear();
-  for (auto& val : outputVals) {
-    m_output_vals.emplace_back(val);
-  }
+  m_output_vals = std::move(outputVals);
 
   m_hblazy_tensors.clear();
   for (auto& i : indices) {

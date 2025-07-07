@@ -284,6 +284,13 @@ at::Tensor& recv_hpu_lazy_(
   EAGER_NOT_SUPPORTED;
 }
 
+std::optional<at::Tensor> maybe_convert_tensor_to_h2d(
+    [[maybe_unused]] const std::optional<at::Tensor>& tensor,
+    [[maybe_unused]] const bool enabled,
+    [[maybe_unused]] const std::string_view op_name) {
+  EAGER_NOT_SUPPORTED;
+}
+
 } // namespace habana_lazy
 
 void optimizer_adagrad_hpu_wrap(

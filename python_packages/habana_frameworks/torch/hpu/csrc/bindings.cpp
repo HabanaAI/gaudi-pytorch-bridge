@@ -294,9 +294,11 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     return graph.get_user_input_match_indices();
   });
   m.def("capture_end", [](at::hpu::HPUGraph& graph) { graph.capture_end(); });
-  m.def("replay", [](at::hpu::HPUGraph& graph, bool async = false) {
-    graph.replay(async);
-  });
+  m.def(
+      "replay",
+      [](at::hpu::HPUGraph& graph,
+         std::vector<at::Tensor> inputs = {},
+         bool async = false) { graph.replay(inputs, async); });
   m.def(
       "replayV2",
       [](at::hpu::HPUGraph& graph,
