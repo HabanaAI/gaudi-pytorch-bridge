@@ -1727,7 +1727,6 @@ class ManylinuxRunner:
         command = (
             f"docker run --rm {options} {memory_limit} {self.image_name} {os.environ['PYTORCH_MODULES_ROOT_PATH']}/.devops/build.py "
             + " ".join(args)
-            + "--cmake-flag -DMANYLINUX=ON"  # TODO: build_with_shim
         )
         log.debug(f"Running command: {command}")
         sp.check_call(command, shell=True)  # noqa S602
