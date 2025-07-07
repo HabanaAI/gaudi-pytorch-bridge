@@ -28,7 +28,7 @@ void ExecuteSynapseTaskWrapper(
   LOP::ScopeEvent scope_event(
       "EagerExecuteTask()",
       launch_op.get_jit_graph_and_meta_data()->GetOpName(),
-      (int32_t)LOP::PipelineStageID::PIPELINE_STAGE_EXECUTE_ID,
+      LOP::PipelineStageID::PIPELINE_STAGE_EXECUTE_ID,
       launch_op.get_graph_key(),
       launch_op.get_jit_graph_cache_hit_count(),
       HPUDeviceContext::execute_thread().get_active_task_count(),

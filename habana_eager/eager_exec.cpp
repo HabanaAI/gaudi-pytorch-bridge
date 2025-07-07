@@ -512,7 +512,7 @@ void EagerExec::launch() {
       false,
       "EagerLoweringTask()",
       graph_and_meta->GetOpName(),
-      (int32_t)LOP::PipelineStageID::PIPELINE_STAGE_LOWERING_ID,
+      LOP::PipelineStageID::PIPELINE_STAGE_LOWERING_ID,
       lowering_queue_length,
       key,
       jit_cache_hit_count_for_event);
@@ -560,8 +560,9 @@ std::shared_ptr<torch::jit::Graph> EagerExec::create_eager_graph(
           // tensor inputs
           [&node_inputs, &graph](const at::Tensor& tensor) {
             auto t = graph->addInput(tensor.toString());
-            t->setType(c10::TensorType::createContiguous(
-                tensor.scalar_type(), tensor.device(), tensor.sizes()));
+            t->setType(
+                c10::TensorType::createContiguous(
+                    tensor.scalar_type(), tensor.device(), tensor.sizes()));
             node_inputs.push_back(t);
           },
           // list tensors input
@@ -571,8 +572,9 @@ std::shared_ptr<torch::jit::Graph> EagerExec::create_eager_graph(
             for (const auto& item : list) {
               auto& tensor = item.toTensor();
               auto* t = graph->addInput(tensor.toString());
-              t->setType(c10::TensorType::createContiguous(
-                  tensor.scalar_type(), tensor.device(), tensor.sizes()));
+              t->setType(
+                  c10::TensorType::createContiguous(
+                      tensor.scalar_type(), tensor.device(), tensor.sizes()));
               list_inp_args.push_back(t);
             }
             auto jit_node = graph->create(
@@ -923,12 +925,13 @@ torch::jit::Stack EagerExec::prepare_input_stack(
   stack.reserve(inputs.size());
   traversing_ivalues<ProcessList::asTensor>(
       inputs,
-      overloaded{// metadata
-                 [](const torch::jit::IValue&) {},
-                 // scalars
-                 [&stack](const at::Scalar& s) { stack.push_back(s); },
-                 // tensors
-                 [&stack](const at::Tensor& t) { stack.push_back(t); }});
+      overloaded{
+          // metadata
+          [](const torch::jit::IValue&) {},
+          // scalars
+          [&stack](const at::Scalar& s) { stack.push_back(s); },
+          // tensors
+          [&stack](const at::Tensor& t) { stack.push_back(t); }});
 
   return stack;
 }

@@ -22,21 +22,15 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
-#include <iostream>
-#include <list>
-#include <map>
-#include <mutex>
-#include <queue>
 #include <stack>
 #include <string>
-#include <string_view>
 #include <thread>
 #include <tuple>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+#include "backend/synapse_helpers/env_flags.h" // IWYU: pragma: keep
 
-#include "backend/synapse_helpers/env_flags.h"
 #include "profiler.h"
 
 // RING_SIZE HAVE TO BE POWER OF 2 - due to algorithm used later.
@@ -131,7 +125,8 @@ uint64_t calculate_adaptive_cutoff(
     return max_time;
   }
   std::sort(event_times.begin(), event_times.end());
-  auto cutoff_index = static_cast<uint64_t>(event_times.size() * percentile);
+  auto cutoff_index = static_cast<uint64_t>(
+      static_cast<double>(event_times.size()) * percentile);
   return event_times[cutoff_index];
 }
 
@@ -153,8 +148,9 @@ void create_buckets(
       std::max(equidistant_range / NUM_EQUIDISTANT_BUCKETS, (uint64_t)1);
 
   exponential_range = max_time - adaptive_cutoff;
-  exponential_base =
-      (exponential_range > 0) ? std::pow(2, NUM_EXPONENTIAL_BUCKETS) : 1;
+  exponential_base = (exponential_range > 0)
+      ? (1ULL << NUM_EXPONENTIAL_BUCKETS) // 2^NUM_EXPONENTIAL_BUCKETS
+      : 1;
 
   for (const auto& event : events) {
     if (event.jit_cache_hit_count > jit_cache_hit_count_threshold &&
@@ -220,7 +216,7 @@ void print_histogram(
   fprintf(metrics_file, "        Time Range (ns)\tFrequency\n");
   fprintf(metrics_file, "        ------------------------------------------\n");
 
-  for (int i = 0; i < NUM_EQUIDISTANT_BUCKETS;
+  for (size_t i = 0; i < NUM_EQUIDISTANT_BUCKETS;
        ++i) { // print equidistant buckets
     uint64_t bucket_min = min_time + i * equidistant_bucket_size;
     uint64_t bucket_max = (i == NUM_EQUIDISTANT_BUCKETS - 1)
@@ -234,11 +230,14 @@ void print_histogram(
         buckets[i]);
   }
   uint64_t prev_max = adaptive_cutoff;
-  for (int i = 0; i < NUM_EXPONENTIAL_BUCKETS; ++i) {
+  for (size_t i = 0; i < NUM_EXPONENTIAL_BUCKETS; ++i) {
     uint64_t bucket_min = prev_max + 1;
     uint64_t bucket_max = (i == NUM_EXPONENTIAL_BUCKETS - 1)
         ? max_time
-        : (bucket_min + (1 << i) * exponential_range / exponential_base - 1);
+        : (bucket_min +
+           (static_cast<uint64_t>(1) << i) * exponential_range /
+               exponential_base -
+           1);
     fprintf(
         metrics_file,
         "        [%lu, %lu]\t%lu\n",
@@ -288,7 +287,7 @@ void print_device_queue_histogram(
 }
 
 bool all_stages_empty(
-    const std::unordered_map<int, std::unordered_map<std::string, uint64_t>>&
+    const std::unordered_map<size_t, std::unordered_map<std::string, uint64_t>>&
         stage_counter) {
   return std::all_of(
       stage_counter.begin(), stage_counter.end(), [](const auto& pair) {
@@ -306,33 +305,35 @@ void ProfilerEngine::flush() {
   }
 
   this->enabled = false;
-  std::unordered_map<int, std::unordered_map<std::string, uint64_t>>
+  std::unordered_map<size_t, std::unordered_map<std::string, uint64_t>>
       stage_total_time;
-  std::unordered_map<int, std::unordered_map<std::string, uint64_t>>
+  std::unordered_map<size_t, std::unordered_map<std::string, uint64_t>>
       stage_counter;
-  std::unordered_map<int, std::unordered_map<std::string, uint64_t>>
+  std::unordered_map<size_t, std::unordered_map<std::string, uint64_t>>
       pipeline_queue_length;
   uint64_t max_default_value = std::numeric_limits<uint64_t>::max();
   uint64_t min_default_value = std::numeric_limits<uint64_t>::min();
-  std::unordered_map<int, std::unordered_map<std::string, uint64_t>> min_time;
-  std::unordered_map<int, std::unordered_map<std::string, uint64_t>> max_time;
-  std::unordered_map<int, std::unordered_map<std::string, uint64_t>>
+  std::unordered_map<size_t, std::unordered_map<std::string, uint64_t>>
+      min_time;
+  std::unordered_map<size_t, std::unordered_map<std::string, uint64_t>>
+      max_time;
+  std::unordered_map<size_t, std::unordered_map<std::string, uint64_t>>
       min_queue_len;
-  std::unordered_map<int, std::unordered_map<std::string, uint64_t>>
+  std::unordered_map<size_t, std::unordered_map<std::string, uint64_t>>
       max_queue_len;
-  std::unordered_map<int, std::unordered_map<std::string, uint64_t>>
+  std::unordered_map<size_t, std::unordered_map<std::string, uint64_t>>
       stage_mean_time;
-  std::unordered_map<int, std::unordered_map<std::string, uint64_t>>
+  std::unordered_map<size_t, std::unordered_map<std::string, uint64_t>>
       mean_queue_length;
-  std::unordered_map<int, std::unordered_map<std::string, uint64_t>>
+  std::unordered_map<size_t, std::unordered_map<std::string, uint64_t>>
       stage_time_variance;
-  std::unordered_map<int, std::unordered_map<std::string, uint64_t>>
+  std::unordered_map<size_t, std::unordered_map<std::string, uint64_t>>
       stage_time_std;
-  std::unordered_map<int, std::unordered_map<std::string, int64_t>>
+  std::unordered_map<size_t, std::unordered_map<std::string, int64_t>>
       stage_queue_length_variance;
-  std::unordered_map<int, std::unordered_map<std::string, int64_t>>
+  std::unordered_map<size_t, std::unordered_map<std::string, int64_t>>
       stage_queue_length_std;
-  int64_t current_index[NUM_OF_PIPELINE_STAGES] = STAGE_INITIALIZER;
+  uint64_t current_index[NUM_OF_PIPELINE_STAGES] = STAGE_INITIALIZER;
   uint64_t device_total_queue_length = 0;
   uint64_t min_device_queue_len = 0;
   uint64_t max_device_queue_len = 0;
@@ -378,48 +379,51 @@ void ProfilerEngine::flush() {
   fprintf(timing_data_file, "  },\n");
   // Find first event, timewise.
   uint64_t tsc_base = std::numeric_limits<uint64_t>::max();
-  for (int pipeline_stage = 0; pipeline_stage < NUM_OF_PIPELINE_STAGES - 1;
+  for (size_t pipeline_stage = 0; pipeline_stage < NUM_OF_PIPELINE_STAGES - 1;
        pipeline_stage++) {
     current_index[pipeline_stage] =
         this->events_counter[pipeline_stage].load(std::memory_order_acquire);
   }
-  for (int pipeline_stage = 0; pipeline_stage < NUM_OF_PIPELINE_STAGES - 1;
+  for (size_t pipeline_stage = 0; pipeline_stage < NUM_OF_PIPELINE_STAGES - 1;
        pipeline_stage++) {
     this->events_counter[pipeline_stage].load(std::memory_order_acquire);
-    for (int i = 0; i < current_index[pipeline_stage]; ++i) {
+    for (size_t i = 0; i < current_index[pipeline_stage]; ++i) {
       auto& event = this->events_table[pipeline_stage][i];
       tsc_base = std::min(tsc_base, event.timestamp);
     }
   }
   std::unordered_map<
-      int,
+      size_t,
       std::unordered_map<
           std::string,
           std::unordered_map<std::string, std::pair<uint64_t, uint32_t>>>>
       stage_op_aggregate;
   std::unordered_map<std::string, std::unordered_set<std::string>> error_events;
-  std::
-      unordered_map<int, std::unordered_map<std::string, std::vector<uint64_t>>>
-          stage_times;
-  std::
-      unordered_map<int, std::unordered_map<std::string, std::vector<uint64_t>>>
-          queue_lengths;
-  std::unordered_map<int, std::vector<uint64_t>> device_queue_lengths;
   std::unordered_map<
-      int,
+      uint64_t,
+      std::unordered_map<std::string, std::vector<uint64_t>>>
+      stage_times;
+  std::unordered_map<
+      size_t,
+      std::unordered_map<std::string, std::vector<uint64_t>>>
+      queue_lengths;
+  std::unordered_map<size_t, std::vector<uint64_t>> device_queue_lengths;
+  std::unordered_map<
+      size_t,
       std::unordered_map<std::string, std::pair<uint64_t, uint32_t>>>
       stage_op_aggregate_pipeline_level;
   std::unordered_map<
-      int,
-      std::vector<std::tuple<std::string, uint64_t, uint64_t, uint32_t>>>
+      size_t,
+      std::vector<std::tuple<std::string, uint64_t, uint64_t, uint64_t>>>
       stage_single_events;
-  std::
-      unordered_map<int, std::unordered_map<std::string, std::vector<uint64_t>>>
-          stage_op_histograms;
-  for (int pipeline_stage = 0; pipeline_stage < NUM_OF_PIPELINE_STAGES - 1;
+  std::unordered_map<
+      size_t,
+      std::unordered_map<std::string, std::vector<uint64_t>>>
+      stage_op_histograms;
+  for (size_t pipeline_stage = 0; pipeline_stage < NUM_OF_PIPELINE_STAGES - 1;
        pipeline_stage++) {
     if (current_index[pipeline_stage] > 0) {
-      for (int i = 0; i < current_index[pipeline_stage]; ++i) {
+      for (size_t i = 0; i < current_index[pipeline_stage]; ++i) {
         auto& event = this->events_table[pipeline_stage][i];
         auto tsc_diff = event.timestamp - tsc_base;
         auto time_ns = static_cast<uint64_t>(
@@ -429,7 +433,8 @@ void ProfilerEngine::flush() {
           event_stack[pipeline_stage].push(event);
         } else {
           if ((pipeline_stage ==
-               static_cast<int>(
+
+               static_cast<size_t>(
                    LOP::PipelineStageID::PIPELINE_STAGE_MAIN_ID)) ||
               (event.jit_cache_hit_count > jit_cache_hit_count_threshold)) {
             if (!event_stack[pipeline_stage].empty()) {
@@ -509,11 +514,11 @@ void ProfilerEngine::flush() {
                 pipeline_queue_length[pipeline_stage][event.name] +=
                     queue_length;
                 if (pipeline_stage ==
-                    static_cast<int>(
+                    static_cast<size_t>(
                         LOP::PipelineStageID::
                             PIPELINE_STAGE_EXECUTE_ID)) { // Collect samples
-                                                          // only at execute
-                                                          // stage
+                  // only at execute
+                  // stage
                   auto device_queue_length = event.device_queue_length;
                   device_queue_lengths[pipeline_stage].push_back(
                       device_queue_length);
@@ -554,20 +559,24 @@ void ProfilerEngine::flush() {
               queue_lengths[pipeline_stage][event_name];
           for (uint64_t saved_stage_time : saved_stage_times) {
             int64_t time_diff =
-                saved_stage_time - stage_mean_time[pipeline_stage][event_name];
+                static_cast<int64_t>(saved_stage_time) -
+                static_cast<int64_t>(
+                    stage_mean_time[pipeline_stage][event_name]);
             stage_time_variance[pipeline_stage][event_name] +=
-                time_diff * time_diff;
+                static_cast<uint64_t>(time_diff * time_diff);
           }
           for (uint64_t saved_queue_length : saved_queue_lengths) {
-            int64_t queue_length_diff = saved_queue_length -
-                mean_queue_length[pipeline_stage][event_name];
+            int64_t queue_length_diff =
+                static_cast<int64_t>(saved_queue_length) -
+                static_cast<int64_t>(
+                    mean_queue_length[pipeline_stage][event_name]);
             stage_queue_length_variance[pipeline_stage][event_name] +=
-                queue_length_diff * queue_length_diff;
+                static_cast<uint64_t>(queue_length_diff * queue_length_diff);
           }
 
           stage_time_variance[pipeline_stage][event_name] /= (count - 1);
           stage_time_std[pipeline_stage][event_name] =
-              static_cast<int64_t>(sqrt(static_cast<double>(
+              static_cast<uint64_t>(sqrt(static_cast<double>(
                   stage_time_variance[pipeline_stage][event_name])));
           stage_queue_length_variance[pipeline_stage][event_name] /=
               (count - 1);
@@ -587,14 +596,15 @@ void ProfilerEngine::flush() {
               device_queue_lengths[pipeline_stage];
           for (uint64_t saved_device_queue_length :
                saved_device_queue_lengths) {
-            int64_t device_queue_length_diff =
-                saved_device_queue_length - mean_device_queue_length;
+            const int64_t device_queue_length_diff =
+                static_cast<int64_t>(saved_device_queue_length) -
+                static_cast<int64_t>(mean_device_queue_length);
             device_queue_length_variance +=
                 device_queue_length_diff * device_queue_length_diff;
           }
 
-          device_queue_length_variance =
-              device_queue_length_variance / (total_events_execute_stage - 1);
+          device_queue_length_variance = device_queue_length_variance /
+              (static_cast<int64_t>(total_events_execute_stage) - 1);
           device_queue_length_std = static_cast<int64_t>(
               sqrt(static_cast<double>(device_queue_length_variance)));
         }
@@ -614,10 +624,10 @@ void ProfilerEngine::flush() {
     // If any meaningful event gets captured then only further de-dup ops cal
     // will happen
     std::unordered_map<
-        int,
+        size_t,
         std::unordered_map<std::string, std::vector<OpGroup>>>
         sorted_ops_by_stage;
-    for (int pipeline_stage = 0; pipeline_stage < NUM_OF_PIPELINE_STAGES - 1;
+    for (size_t pipeline_stage = 0; pipeline_stage < NUM_OF_PIPELINE_STAGES - 1;
          pipeline_stage++) {
       if (current_index[pipeline_stage] == 0)
         continue;
@@ -626,7 +636,8 @@ void ProfilerEngine::flush() {
            stage_op_aggregate[pipeline_stage]) {
         std::vector<OpGroup> aggregated_ops;
         for (const auto& [op_name, stats] : ops_map) {
-          aggregated_ops.emplace_back(op_name, stats.first, stats.second);
+          aggregated_ops.emplace_back(
+              op_name, stats.first, static_cast<uint32_t>(stats.second));
         }
 
         std::sort(
@@ -643,7 +654,7 @@ void ProfilerEngine::flush() {
 
     // Dumping into timing-data file
     timing_data_file = fopen(timing_data_file_path.c_str(), "a");
-    for (int pipeline_stage = 0; pipeline_stage < NUM_OF_PIPELINE_STAGES - 1;
+    for (size_t pipeline_stage = 0; pipeline_stage < NUM_OF_PIPELINE_STAGES - 1;
          pipeline_stage++) {
       if (current_index[pipeline_stage] == 0)
         continue;
@@ -698,7 +709,9 @@ void ProfilerEngine::flush() {
           std::min<size_t>(NUM_TIMING_DATA_CNTS, single_events.size());
       std::partial_sort(
           single_events.begin(),
-          single_events.begin() + report_count,
+          single_events.begin() +
+              static_cast<decltype(single_events.begin())::difference_type>(
+                  report_count),
           single_events.end(),
           [](const auto& a, const auto& b) {
             return std::get<1>(a) > std::get<1>(b);
@@ -710,7 +723,7 @@ void ProfilerEngine::flush() {
             "      {\"op_name\": \"%s\", \"time_ns\": %lu, \"tid\": %u, \"start_ns\": %lu}",
             std::get<0>(event).c_str(),
             std::get<1>(event),
-            std::get<3>(event),
+            static_cast<unsigned int>(std::get<3>(event)),
             std::get<2>(event));
         if (i != report_count - 1)
           fprintf(timing_data_file, ",");
@@ -769,14 +782,14 @@ void ProfilerEngine::flush() {
 
     // Metrics are getting dumped to metric jSON file
     uint64_t total_events_metrics = 0;
-    for (int i = 0; i < NUM_OF_PIPELINE_STAGES - 1; ++i) {
+    for (size_t i = 0; i < NUM_OF_PIPELINE_STAGES - 1; ++i) {
       total_events_metrics +=
           this->events_counter[i].load(std::memory_order_acquire);
     }
     fprintf(
         metrics_file, " Total number of events = %lu \n", total_events_metrics);
     std::string stage_name;
-    for (int pipeline_stage = 0; pipeline_stage < NUM_OF_PIPELINE_STAGES - 1;
+    for (size_t pipeline_stage = 0; pipeline_stage < NUM_OF_PIPELINE_STAGES - 1;
          pipeline_stage++) {
       if (!stage_counter[pipeline_stage].empty()) {
         if (pipeline_stage ==
@@ -835,7 +848,7 @@ void ProfilerEngine::flush() {
                   min_queue_len[pipeline_stage][event_name]);
               fprintf(
                   metrics_file,
-                  "     standard deviation queue length = %lu \n",
+                  "     standard deviation queue length = %ld \n",
                   stage_queue_length_std[pipeline_stage][event_name]);
             }
             fprintf(metrics_file, "     Top 5 ops with highest time: \n");
@@ -906,9 +919,10 @@ void ProfilerEngine::flush() {
       auto time_base_ns = static_cast<uint64_t>(
           static_cast<double>(tsc_base) / this->ticks_per_ns_ratio);
       auto pid = getpid();
-      for (int pipeline_stage = 0; pipeline_stage < NUM_OF_PIPELINE_STAGES - 1;
+      for (size_t pipeline_stage = 0;
+           pipeline_stage < NUM_OF_PIPELINE_STAGES - 1;
            pipeline_stage++) {
-        for (int i = 0; i < current_index[pipeline_stage]; ++i) {
+        for (size_t i = 0; i < current_index[pipeline_stage]; ++i) {
           auto& event = this->events_table[pipeline_stage][i];
           auto tsc_diff = event.timestamp - tsc_base;
           auto time_ns = static_cast<uint64_t>(
@@ -1057,7 +1071,7 @@ void emit_event_fast(
     bool is_begin,
     const char* name,
     std::string_view op_name,
-    int32_t pipe_stage_id,
+    PipelineStageID pipe_stage_id,
     uint64_t queue_length,
     uint64_t jit_key,
     uint64_t jit_cache_hit_count,
@@ -1081,28 +1095,31 @@ void emit_event_fast(
   // also does not check whether event buffer is correct (so it's less
   // reliable). It does not support log levels.
   std::lock_guard<std::mutex> lock(
-      profiler_engine_instance.events_mutex[pipe_stage_id]);
-  int64_t current_index =
-      profiler_engine_instance.events_counter[pipe_stage_id].load(
-          std::memory_order_acquire);
+      profiler_engine_instance
+          .events_mutex[static_cast<size_t>(pipe_stage_id)]);
+  uint64_t current_index =
+      profiler_engine_instance
+          .events_counter[static_cast<size_t>(pipe_stage_id)]
+          .load(std::memory_order_acquire);
   if (current_index < GET_ENV_FLAG_NEW(PT_HPU_EVENT_TABLE_SIZE)) {
     uint64_t tsc = _rdtsc();
 
     Event& new_event =
-        profiler_engine_instance.events_table[pipe_stage_id][current_index];
+        profiler_engine_instance
+            .events_table[static_cast<size_t>(pipe_stage_id)][current_index];
     new_event.timestamp = tsc;
     new_event.name = name;
     new_event.op_name = op_name;
-    new_event.thread_id = pthread_self();
+    new_event.thread_id = static_cast<uint64_t>(pthread_self());
     new_event.is_begin = is_begin;
-    new_event.pipeline_stage_id = pipe_stage_id;
+    new_event.pipeline_stage_id = static_cast<int32_t>(pipe_stage_id);
     new_event.pipeline_queue_length = queue_length;
     new_event.jit_cache_key = jit_key;
     new_event.jit_cache_hit_count = jit_cache_hit_count;
     new_event.device_queue_length = device_queue_length;
 
-    profiler_engine_instance.events_counter[pipe_stage_id].fetch_add(
-        1, std::memory_order_release);
+    profiler_engine_instance.events_counter[static_cast<size_t>(pipe_stage_id)]
+        .fetch_add(1, std::memory_order_release);
   }
 }
 }; // namespace LOP

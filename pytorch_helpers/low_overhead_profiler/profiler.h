@@ -21,6 +21,7 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include "backend/synapse_helpers/env_flags.h" // IWYU: pragma: keep
 
 #define LOP_TRACE_NAMED(x, l) LOP::ScopedProfiler tracer(x, l);
 #define LOP_TRACE_NAMED_FAST(x) LOP::FastScopedProfiler tracer(x);
@@ -32,13 +33,13 @@
 
 namespace LOP {
 
-enum class PipelineStageID {
+enum class PipelineStageID : uint64_t {
   PIPELINE_STAGE_MAIN_ID = 0,
   PIPELINE_STAGE_LOWERING_ID = 1,
   PIPELINE_STAGE_COMPILE_ID = 2,
   PIPELINE_STAGE_EXECUTE_ID = 3,
   PIPELINE_STAGE_BACKGROUND_ID = 4,
-  PIPELINE_STAGE_DEFAULT_ID = -1
+  PIPELINE_STAGE_DEFAULT_ID = std::numeric_limits<uint64_t>::max(),
 };
 
 struct Event {
@@ -92,7 +93,7 @@ void emit_event_fast(
     bool is_begin,
     const char* name,
     std::string_view op_name,
-    int32_t pipe_stage_id = -1,
+    PipelineStageID pipe_stage_id = PipelineStageID::PIPELINE_STAGE_DEFAULT_ID,
     uint64_t queue_length = 0,
     uint64_t jit_key = 0,
     uint64_t jit_cache_hit_count = 0,
@@ -103,7 +104,7 @@ class ScopeEventImpl {
   ScopeEventImpl(
       const char* event_name,
       const std::string& op_name,
-      int32_t pipeline_stage_id,
+      PipelineStageID pipeline_stage_id,
       uint64_t jit_key,
       uint64_t jit_cache_hit_count,
       uint64_t queue_length,
@@ -136,7 +137,7 @@ class ScopeEventImpl {
  private:
   const char* event_name_;
   const std::string op_name_;
-  int32_t pipeline_stage_id_;
+  PipelineStageID pipeline_stage_id_;
   uint64_t jit_key_;
   uint64_t jit_cache_hit_count_;
   uint64_t queue_length_;
@@ -148,7 +149,7 @@ class ScopeEvent {
   ScopeEvent(
       const char* event_name,
       const std::string& op_name,
-      int32_t pipeline_stage_id,
+      PipelineStageID pipeline_stage_id,
       uint64_t jit_key,
       uint64_t jit_cache_hit_count,
       uint64_t queue_length,

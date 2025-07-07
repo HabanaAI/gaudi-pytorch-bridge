@@ -149,7 +149,7 @@ void LoweringTask(
       true,
       "PipelineQueueWaitTime",
       jit_graph_and_meta_data->GetOpName(),
-      (int32_t)LOP::PipelineStageID::PIPELINE_STAGE_LOWERING_ID,
+      LOP::PipelineStageID::PIPELINE_STAGE_LOWERING_ID,
       HPUDeviceContext::lowering_thread().get_active_task_count());
 
   auto jit_cache_hit_count_for_event =
@@ -171,7 +171,7 @@ void LoweringTask(
       false,
       "PipelineQueueWaitTime",
       jit_graph_and_meta_data->GetOpName(),
-      (int32_t)LOP::PipelineStageID::PIPELINE_STAGE_LOWERING_ID,
+      LOP::PipelineStageID::PIPELINE_STAGE_LOWERING_ID,
       HPUDeviceContext::lowering_thread().get_active_task_count(),
       jit_key,
       jit_cache_hit_count_for_event);
@@ -1671,8 +1671,9 @@ void HabanaLaunchOpPT::handlePrimConstantNode(
       intermediate_index_++;
 
       auto tensor = ivptrsh_updated->toTensor();
-      meta_syn_tensors_.push_back(habana_helpers::create_tensor(
-          tensor, *syn_graph_ptr_, true, false, tensor.scalar_type()));
+      meta_syn_tensors_.push_back(
+          habana_helpers::create_tensor(
+              tensor, *syn_graph_ptr_, true, false, tensor.scalar_type()));
       SharedSynTensorOrRefListPtr tensorList =
           std::make_shared<SynTensorOrRefList>();
       tensorList->emplace_back(sh::tensor_or_ref(meta_syn_tensors_.back()));

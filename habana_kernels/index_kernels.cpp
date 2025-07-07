@@ -65,12 +65,12 @@ int ArangeOperator::GetOutputSize(Scalar start_, Scalar end_, Scalar step_) {
   HABANA_ASSERT(!((start > end) && (step > 0)), "step must be negative.");
   HABANA_ASSERT(!((start < end) && (step < 0)), "step must be positive.");
 
-  float max, min, abs_del;
+  double max, min, abs_del;
   int depth;
   max = start > end ? start : end;
   min = start > end ? end : start;
   abs_del = std::abs(step);
-  depth = std::ceil((max - min) / abs_del);
+  depth = static_cast<int>(std::ceil((max - min) / abs_del));
   return depth;
 }
 
@@ -417,7 +417,7 @@ void ScatterAddOperator::AllocateAndAddSynapseNode(
       // sort only if index.sizes()[dim] > 1
       // TODO: this check can have issues in dynamic shapes scenario.
       // Remove this check once SW-124506 is addressed.
-      if (index.sizes()[dim] != 1) {
+      if (index.sizes()[static_cast<size_t>(dim)] != 1) {
         auto topkOp =
             make_operator<TopkOperator>(this->p_context_->device_id_, "topk");
         int64_t topk_dim = dim;
@@ -426,7 +426,7 @@ void ScatterAddOperator::AllocateAndAddSynapseNode(
         topkOp->SetSynapseInput(p_context_->syn_inputs_[1]);
         std::vector<c10::IValue> topk_stack{
             IValue(index),
-            IValue(index.sizes()[dim]),
+            IValue(index.sizes()[static_cast<size_t>(dim)]),
             IValue(topk_dim),
             IValue(largest),
             IValue(sorted)};
@@ -774,8 +774,9 @@ void IndexPutOperator::AllocateAndAddSynapseNodeBoolIndices(
   stack.clear();
 
   // Calculate the dimensionality of updates for broadcasting
-  auto rank_inp = self.ndimension();
-  auto rank_idx = non_zero_op->GetOutputs()[0].sizes().vec()[1];
+  auto rank_inp = static_cast<size_t>(self.ndimension());
+  auto rank_idx =
+      static_cast<size_t>(non_zero_op->GetOutputs()[0].sizes().vec()[1]);
   std::vector<int64_t> value_upd_dim;
 
   if (accumulate ||
@@ -785,15 +786,15 @@ void IndexPutOperator::AllocateAndAddSynapseNodeBoolIndices(
     if (indices[0].dim() != self.dim() &&
         values.dim() != (1 + (self.dim() - indices[0].dim()))) {
       value_upd_dim.push_back(non_zero_op->GetOutputs()[0].sizes().vec()[0]);
-      for (int i = rank_idx; i < rank_inp; i++)
+      for (auto i = rank_idx; i < rank_inp; i++)
         value_upd_dim.push_back(self.sizes().vec()[i]);
     } else {
-      for (int i = 0; i < values.dim(); i++)
+      for (size_t i = 0; i < static_cast<size_t>(values.dim()); i++)
         value_upd_dim.push_back(values.sizes().vec()[i]);
     }
   } else { // We are assuming uses passes value shapes correctly for scatter
     value_upd_dim.push_back(non_zero_op->GetOutputs()[0].sizes().vec()[0]);
-    for (int i = rank_idx; i < rank_inp; i++)
+    for (auto i = rank_idx; i < rank_inp; i++)
       value_upd_dim.push_back(self.sizes().vec()[i]);
   }
 
@@ -1009,7 +1010,7 @@ void IndexPutOperator::AllocateAndAddSynapseNodeNonBoolIndices(
     auto self_shape = self.sizes().vec();
     std::vector<int> const_factor_v;
     for (size_t i = 0; i < indices.size(); i++)
-      const_factor_v.push_back(self_shape[i]);
+      const_factor_v.push_back(static_cast<int>(self_shape[i]));
 
     std::vector<Tensor> cat_input_neg_ind;
     auto neg_to_pos_const_constructor_op =
@@ -1070,8 +1071,8 @@ void IndexPutOperator::AllocateAndAddSynapseNodeNonBoolIndices(
   stack.clear();
 
   // Calculate the dimensionality of updates for broadcasting
-  auto rank_inp = self.ndimension();
-  auto rank_idx = concatenated_indices.sizes().vec()[1];
+  auto rank_inp = static_cast<size_t>(self.ndimension());
+  auto rank_idx = static_cast<size_t>(concatenated_indices.sizes().vec()[1]);
   std::vector<int64_t> value_upd_dim{concatenated_indices.sizes().vec()[0]};
 
   if (((int)indices.size() == self.dim()) && (values.numel() > 1)) {
@@ -1079,7 +1080,7 @@ void IndexPutOperator::AllocateAndAddSynapseNodeNonBoolIndices(
     value_upd_dim = values.sizes().vec();
   }
 
-  for (int i = rank_idx; i < rank_inp; i++)
+  for (auto i = rank_idx; i < rank_inp; i++)
     value_upd_dim.push_back(self.sizes().vec()[i]);
   auto values_scalar_type = values.scalar_type();
   // value_upd_dim is the final shape we want for values tensor to match
@@ -1128,7 +1129,7 @@ void IndexPutOperator::AllocateAndAddSynapseNodeNonBoolIndices(
       auto indicesShape = concatenated_indices.sizes().vec();
       auto selfShape = self.sizes().vec();
       size_t indicesRank = indicesShape.size();
-      size_t indicesFcd = indicesShape[indicesRank - 1];
+      auto indicesFcd = static_cast<size_t>(indicesShape[indicesRank - 1]);
       int64_t totalIndices = 1;
       int64_t totalScatters = 1;
 
@@ -1166,13 +1167,16 @@ void IndexPutOperator::AllocateAndAddSynapseNodeNonBoolIndices(
   } else {
     // Convert indices to values (ravelling indices) for sorting
     std::vector<int64_t> indices_shape;
-    for (int i = 0; i < concatenated_indices.sizes().vec()[1]; i++)
-      indices_shape.push_back(self.sizes().vec()[i]);
+    for (size_t i = 0;
+         i < static_cast<size_t>(concatenated_indices.sizes().vec()[1]);
+         i++)
+      indices_shape.push_back(static_cast<int64_t>(self.sizes().vec()[i]));
 
     // Compute multiplication factor for each dimension
     std::vector<int> mul_factor_v{1};
     for (size_t i = 0; i < indices_shape.size() - 1; i++)
-      mul_factor_v.push_back(mul_factor_v[i] * indices_shape[i]);
+      mul_factor_v.push_back(
+          static_cast<int>(mul_factor_v[i] * indices_shape[i]));
 
     // auto mul_factor = torch::from_blob(
     //     mul_factor_v.data(), {1, int64_t(mul_factor_v.size())}, torch::kInt);
@@ -1507,17 +1511,17 @@ void IndexPutOperator::AllocateAndAddSynapseNode(
 bool ScatterNdONNXOperator::isInputValid(Stack& inputs) {
   auto inpSize = inputs[0].toTensor().sizes().vec();
   auto indxSize = inputs[1].toTensor().sizes().vec();
-  int indxRank = indxSize.size();
-  int indxFCD = indxSize[indxRank - 1];
+  auto indxRank = indxSize.size();
+  auto indxFCD = static_cast<size_t>(indxSize[indxRank - 1]);
   int64_t totalIndices = 1;
   int64_t totalScatters = 1;
 
-  for (int i = 0; i < indxRank - 1; i++) {
-    totalIndices *= std::max(indxSize[i], 1L);
+  for (size_t i = 0; i < indxRank - 1; i++) {
+    totalIndices *= std::max(static_cast<int64_t>(indxSize[i]), 1L);
   }
 
-  for (int i = 0; i < indxFCD; i++) {
-    totalScatters *= std::max(inpSize[i], 1L);
+  for (size_t i = 0; i < indxFCD; i++) {
+    totalScatters *= std::max(static_cast<int64_t>(inpSize[i]), 1L);
   }
 
   if (totalIndices > totalScatters) {
@@ -1686,8 +1690,8 @@ void ScatterNdOperator::AllocateAndAddSynapseNode(
     indices_shape = max;
   }
   // Dims reversed between PT and synapse
-  for (int i = indices_shape.size() - 1, j = 0; i >= 0; --i, ++j) {
-    params.origIndicesShape[j] = indices_shape[i];
+  for (size_t i = indices_shape.size(), j = 0; i > 0; --i, ++j) {
+    params.origIndicesShape[j] = static_cast<int>(indices_shape[i - 1]);
   }
 
   graph.add_node(
@@ -1791,12 +1795,13 @@ std::vector<std::vector<int64_t>> SliceOperator::compute_output_shape(
     int64_t& end_val,
     int64_t& step) {
   // reuse the logic in at::native::slice
-  int64_t ndim = self_size.size();
+  auto ndim = static_cast<int64_t>(self_size.size());
   if (ndim == 0) {
     TORCH_CHECK_INDEX(false, "slice() cannot be applied to a 0-dim tensor.");
   }
   dim = at::maybe_wrap_dim(dim, ndim);
   std::vector<int64_t> sizes(self_size.begin(), self_size.end());
+  auto dim_idx = static_cast<size_t>(dim);
 
   // TODO: support negative strides
   HABANA_ASSERT(step > 0, "slice step must be positive");
@@ -1806,24 +1811,24 @@ std::vector<std::vector<int64_t>> SliceOperator::compute_output_shape(
     start_val = 0;
   }
   if (start_val < 0) {
-    start_val += sizes[dim];
+    start_val += sizes[dim_idx];
   }
   if (end_val < 0) {
-    end_val += sizes[dim];
+    end_val += sizes[dim_idx];
   }
   if (start_val < 0) {
     start_val = 0;
-  } else if (start_val >= sizes[dim]) {
-    start_val = sizes[dim];
+  } else if (start_val >= sizes[dim_idx]) {
+    start_val = sizes[dim_idx];
   }
   if (end_val < start_val) {
     end_val = start_val;
-  } else if (end_val >= sizes[dim]) {
-    end_val = sizes[dim];
+  } else if (end_val >= sizes[dim_idx]) {
+    end_val = sizes[dim_idx];
   }
 
   auto len = end_val - start_val;
-  sizes[dim] = (len + step - 1) / step; // round-up
+  sizes[dim_idx] = (len + step - 1) / step; // round-up
 
   return {sizes};
 }
@@ -1841,6 +1846,7 @@ std::vector<int64_t> SliceOperator::compute_output_shape(
   }
   dim = at::maybe_wrap_dim(dim, ndim);
   std::vector<int64_t> sizes(self.sizes().begin(), self.sizes().end());
+  auto dim_idx = static_cast<size_t>(dim);
 
   // TODO: support negative strides
   HABANA_ASSERT(step > 0, "slice step must be positive");
@@ -1850,24 +1856,24 @@ std::vector<int64_t> SliceOperator::compute_output_shape(
     start_val = 0;
   }
   if (start_val < 0) {
-    start_val += sizes[dim];
+    start_val += sizes[dim_idx];
   }
   if (end_val < 0) {
-    end_val += sizes[dim];
+    end_val += sizes[dim_idx];
   }
   if (start_val < 0) {
     start_val = 0;
-  } else if (start_val >= sizes[dim]) {
-    start_val = sizes[dim];
+  } else if (start_val >= sizes[dim_idx]) {
+    start_val = sizes[dim_idx];
   }
   if (end_val < start_val) {
     end_val = start_val;
-  } else if (end_val >= sizes[dim]) {
-    end_val = sizes[dim];
+  } else if (end_val >= sizes[dim_idx]) {
+    end_val = sizes[dim_idx];
   }
 
   auto len = end_val - start_val;
-  sizes[dim] = (len + step - 1) / step; // round-up
+  sizes[dim_idx] = (len + step - 1) / step; // round-up
 
   return sizes;
 }
@@ -2008,7 +2014,7 @@ std::vector<int64_t> SliceOperator::GetH2DTensorData(
   std::vector<int64_t> params;
   auto* h2d_data = static_cast<uint64_t*>(host_ptr);
   for (size_t i = 0; i < h2d_data_size; i++) {
-    params.push_back(*h2d_data++);
+    params.push_back(static_cast<int64_t>(*h2d_data++));
   }
 
   return params;
@@ -2234,14 +2240,16 @@ void SliceOperator::AllocateAndAddSynapseNode(
     std::fill_n(params.ends, HABANA_DIM_MAX, 0);
     std::fill_n(params.steps, HABANA_DIM_MAX, 1);
     // slice triggered only on 1 dim, therefore use only index 0
-    params.axes[0] = get_dim_in_tpc_order(dim, self.dim());
-    params.starts[0] = start;
-    params.ends[0] = end;
-    params.steps[0] = step;
+    params.axes[0] =
+        static_cast<unsigned int>(get_dim_in_tpc_order(dim, self.dim()));
+    params.starts[0] = static_cast<TSize>(start);
+    params.ends[0] = static_cast<TSize>(end);
+    params.steps[0] = static_cast<TSize>(step);
 
     bool needs_params_handling = false;
     if (graph.is_dynamic_graph() && (!graph.is_dry_run()) &&
-        end > self.sizes().vec()[dim]) {
+        end > static_cast<int64_t>(
+                  self.sizes().vec()[static_cast<size_t>(dim)])) {
       needs_params_handling = true;
     }
 
@@ -2250,7 +2258,7 @@ void SliceOperator::AllocateAndAddSynapseNode(
       auto tensor_id = syn_input_tensor.id();
       std::vector<int64_t> min, max;
       std::tie(min, max) = habana::ShapeInference::GetMinMaxShape(tensor_id);
-      params.ends[0] = max[dim];
+      params.ends[0] = static_cast<TSize>(max[static_cast<size_t>(dim)]);
     }
 
     AddNodeToSynapseGraph(graph, &params, sizeof(params));
@@ -2649,7 +2657,7 @@ void Unique_Operator::AllocateAndAddSynapseNode(
   }
 
   auto self = inputs[0].toTensor();
-  int elements = self.numel();
+  auto elements = static_cast<int>(self.numel());
   auto output_shape = DimVector{elements};
   auto valid_shape = DimVector{1};
 
@@ -2746,8 +2754,10 @@ void UniqueDimOperator::AllocateAndAddSynapseNode(
   auto output_shape = DimVector(self.sizes());
   auto valid_shape =
       DimVector{1}; // As valid tensor will be a 1D tensor with single value
-  auto inverse_tensor_shape = DimVector{self.sizes().at(dim)};
-  auto counts_tensor_shape = DimVector{self.sizes().at(dim)};
+  auto inverse_tensor_shape =
+      DimVector{self.sizes().at(static_cast<size_t>(dim))};
+  auto counts_tensor_shape =
+      DimVector{self.sizes().at(static_cast<size_t>(dim))};
 
   // create output and valid shape tensors which are compulsory
   auto output_feature_map = habana::createPTTensor(
@@ -2782,7 +2792,7 @@ void UniqueDimOperator::AllocateAndAddSynapseNode(
   ns_UniqueKernel::Params params;
   params.returnInverse = 1; // When set to 1 will return Inverse
   params.returnCounts = 1; // When set to 1 will return Counts
-  params.dim = self.dim() - dim - 1;
+  params.dim = static_cast<int>(self.dim() - dim - 1);
 
   AllocateSynapseOutput(graph, output_feature_map, output_metadata.at(0));
   synDataType synType = syn_type_int32;
@@ -2810,7 +2820,7 @@ void UniqueDimOperator::AllocateAndAddSynapseNode(
 
 void UniqueOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   auto self = inputs[0].toTensor();
-  int elements = self.numel();
+  auto elements = static_cast<int>(self.numel());
   auto output_shape = DimVector{elements};
   auto valid_shape = DimVector{1};
   auto inverse_tensor_shape = DimVector{elements};
@@ -2864,7 +2874,7 @@ void UniqueOperator::AllocateAndAddSynapseNode(
   bool sorted = inputs[1].toBool();
 
   auto self = inputs[0].toTensor();
-  int elements = self.numel();
+  auto elements = static_cast<int>(self.numel());
   auto output_shape = DimVector{elements};
   auto valid_shape = DimVector{1};
   auto inverse_tensor_shape = DimVector{elements};
@@ -2932,7 +2942,7 @@ void UniqueOperator::AllocateAndAddSynapseNode(
 InferOutputMetaRetType UniqueOperator::InferOutputMeta(
     torch::jit::Stack& inputs) {
   auto self = inputs[0].toTensor();
-  int elements = self.numel();
+  auto elements = static_cast<int>(self.numel());
   std::vector<int64_t> output_shape{elements};
   std::vector<int64_t> valid_shape{1};
   std::vector<int64_t> inverse_tensor_shape{elements};
@@ -2975,12 +2985,12 @@ std::vector<int64_t> SqueezeOperator::compute_output_shape(
   if (dim < HABANA_DIM_MAX) {
     if (dims == 0 || (dims == 1 && self.numel() == 1)) {
       out_shape = {};
-    } else if (dims == 1 || self.sizes()[dim] != 1) {
+    } else if (dims == 1 || self.sizes()[static_cast<size_t>(dim)] != 1) {
       out_shape = self.sizes().vec();
     } else {
       for (const auto d : c10::irange(dims)) {
-        if (d != dim || self.sizes()[dim] != 1) {
-          out_shape.push_back(self.sizes()[d]);
+        if (d != dim || self.sizes()[static_cast<size_t>(dim)] != 1) {
+          out_shape.push_back(self.sizes()[static_cast<size_t>(d)]);
         }
       }
     }

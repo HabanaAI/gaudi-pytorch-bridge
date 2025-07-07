@@ -56,8 +56,8 @@
 // GCC is dumb and always chooses operator* over operator bool,
 // no matter how user tries to override this. But this triggers
 // Wconversion with no other option than suppress.
-#define SUPPRESS_WCONVERSION_P
-  _Pragma("GCC diagnostic ignored \"-Wconversion\"")              \
+#define SUPPRESS_WCONVERSION_P                                    \
+  _Pragma("GCC diagnostic ignored \"-Wconversion\"")
 
 #define SUPPRESS_WCONVERSION(...)                                 \
   SUPPRESS_W_TEMPLATE(                                            \

@@ -65,9 +65,10 @@ class EagerOpBase {
     m_output_meta_fn = std::move(output_meta_fn);
   }
 
-  void SetSTMetaFn(std::function<bool(
-                       habana_helpers::IShapeList& inputs,
-                       habana_helpers::IShapeList& outputs)> fn) {
+  void SetSTMetaFn(
+      std::function<bool(
+          habana_helpers::IShapeList& inputs,
+          habana_helpers::IShapeList& outputs)> fn) {
     m_st_meta_fn = std::move(fn);
   }
 
@@ -150,7 +151,7 @@ class EagerOp : public EagerOpBase {
     LOP::ScopeEvent main_stage_scope_event(
         "EagerMainStage()",
         m_symbol.toQualString(),
-        static_cast<int32_t>(LOP::PipelineStageID::PIPELINE_STAGE_MAIN_ID),
+        LOP::PipelineStageID::PIPELINE_STAGE_MAIN_ID,
         0,
         0,
         0,
@@ -207,7 +208,7 @@ class EagerOp : public EagerOpBase {
     LOP::ScopeEvent main_stage_scope_event(
         "EagerMainStage()",
         m_symbol.toQualString(),
-        static_cast<int32_t>(LOP::PipelineStageID::PIPELINE_STAGE_MAIN_ID),
+        LOP::PipelineStageID::PIPELINE_STAGE_MAIN_ID,
         0,
         0,
         0,
@@ -252,7 +253,7 @@ class EagerOp : public EagerOpBase {
     LOP::ScopeEvent main_stage_scope_event(
         "EagerMainStage()",
         m_symbol.toQualString(),
-        static_cast<int32_t>(LOP::PipelineStageID::PIPELINE_STAGE_MAIN_ID),
+        LOP::PipelineStageID::PIPELINE_STAGE_MAIN_ID,
         0,
         0,
         0,
@@ -312,7 +313,7 @@ class EagerOp : public EagerOpBase {
     LOP::ScopeEvent main_stage_scope_event(
         "EagerMainStage()",
         m_symbol.toQualString(),
-        static_cast<int32_t>(LOP::PipelineStageID::PIPELINE_STAGE_MAIN_ID),
+        LOP::PipelineStageID::PIPELINE_STAGE_MAIN_ID,
         0,
         0,
         0,
@@ -335,7 +336,7 @@ class EagerOp : public EagerOpBase {
     LOP::ScopeEvent main_stage_scope_event(
         "EagerMainStage()",
         m_symbol.toQualString(),
-        static_cast<int32_t>(LOP::PipelineStageID::PIPELINE_STAGE_MAIN_ID),
+        LOP::PipelineStageID::PIPELINE_STAGE_MAIN_ID,
         0,
         0,
         0,
@@ -370,7 +371,7 @@ class EagerOp : public EagerOpBase {
     LOP::ScopeEvent main_stage_scope_event(
         "EagerMainStage()",
         m_symbol.toQualString(),
-        static_cast<int32_t>(LOP::PipelineStageID::PIPELINE_STAGE_MAIN_ID),
+        LOP::PipelineStageID::PIPELINE_STAGE_MAIN_ID,
         0,
         0,
         0,
@@ -390,8 +391,9 @@ class EagerOp : public EagerOpBase {
               tensor.device().type() == at::kHPU,
               "Got a non-HPU tensor, expecting an HPU tensor");
 
-          out_spec.emplace_back(OutputSpec{
-              tensor.scalar_type(), tensor.device(), tensor.sizes().vec()});
+          out_spec.emplace_back(
+              OutputSpec{
+                  tensor.scalar_type(), tensor.device(), tensor.sizes().vec()});
         }
       } while (customIt.has_more_items());
     }
@@ -404,7 +406,7 @@ class EagerOp : public EagerOpBase {
     LOP::ScopeEvent main_stage_scope_event(
         "EagerMainStage()",
         m_symbol.toQualString(),
-        static_cast<int32_t>(LOP::PipelineStageID::PIPELINE_STAGE_MAIN_ID),
+        LOP::PipelineStageID::PIPELINE_STAGE_MAIN_ID,
         0,
         0,
         0,
@@ -418,7 +420,7 @@ class EagerOp : public EagerOpBase {
     LOP::ScopeEvent main_stage_scope_event(
         "EagerMainStage()",
         m_symbol.toQualString(),
-        static_cast<int32_t>(LOP::PipelineStageID::PIPELINE_STAGE_MAIN_ID),
+        LOP::PipelineStageID::PIPELINE_STAGE_MAIN_ID,
         0,
         0,
         0,
@@ -433,7 +435,7 @@ class EagerOp : public EagerOpBase {
     LOP::ScopeEvent main_stage_scope_event(
         "EagerMainStage()",
         m_symbol.toQualString(),
-        static_cast<int32_t>(LOP::PipelineStageID::PIPELINE_STAGE_MAIN_ID),
+        LOP::PipelineStageID::PIPELINE_STAGE_MAIN_ID,
         0,
         0,
         0,
@@ -449,7 +451,7 @@ class EagerOp : public EagerOpBase {
     LOP::ScopeEvent main_stage_scope_event(
         "EagerMainStage()",
         m_symbol.toQualString(),
-        static_cast<int32_t>(LOP::PipelineStageID::PIPELINE_STAGE_MAIN_ID),
+        LOP::PipelineStageID::PIPELINE_STAGE_MAIN_ID,
         0,
         0,
         0,
@@ -472,7 +474,7 @@ class EagerOp : public EagerOpBase {
     LOP::ScopeEvent main_stage_scope_event(
         "EagerMainStage()",
         m_symbol.toQualString(),
-        static_cast<int32_t>(LOP::PipelineStageID::PIPELINE_STAGE_MAIN_ID),
+        LOP::PipelineStageID::PIPELINE_STAGE_MAIN_ID,
         0,
         0,
         0,
@@ -489,7 +491,7 @@ class EagerOp : public EagerOpBase {
     LOP::ScopeEvent main_stage_scope_event(
         "EagerMainStage()",
         m_symbol.toQualString(),
-        static_cast<int32_t>(LOP::PipelineStageID::PIPELINE_STAGE_MAIN_ID),
+        LOP::PipelineStageID::PIPELINE_STAGE_MAIN_ID,
         0,
         0,
         0,
@@ -524,7 +526,7 @@ class EagerOp : public EagerOpBase {
     LOP::ScopeEvent main_stage_scope_event(
         "EagerMainStage()",
         m_symbol.toQualString(),
-        static_cast<int32_t>(LOP::PipelineStageID::PIPELINE_STAGE_MAIN_ID),
+        LOP::PipelineStageID::PIPELINE_STAGE_MAIN_ID,
         0,
         0,
         0,
@@ -549,7 +551,7 @@ class EagerOp : public EagerOpBase {
     LOP::ScopeEvent main_stage_scope_event(
         "EagerMainStage()",
         m_symbol.toQualString(),
-        static_cast<int32_t>(LOP::PipelineStageID::PIPELINE_STAGE_MAIN_ID),
+        LOP::PipelineStageID::PIPELINE_STAGE_MAIN_ID,
         0,
         0,
         0,
@@ -585,7 +587,7 @@ class EagerOp : public EagerOpBase {
     LOP::ScopeEvent main_stage_scope_event(
         "EagerMainStage()",
         m_symbol.toQualString(),
-        static_cast<int32_t>(LOP::PipelineStageID::PIPELINE_STAGE_MAIN_ID),
+        LOP::PipelineStageID::PIPELINE_STAGE_MAIN_ID,
         0,
         0,
         0,
@@ -645,7 +647,7 @@ class EagerOp : public EagerOpBase {
     LOP::ScopeEvent main_stage_scope_event(
         "EagerMainStage()",
         m_symbol.toQualString(),
-        static_cast<int32_t>(LOP::PipelineStageID::PIPELINE_STAGE_MAIN_ID),
+        LOP::PipelineStageID::PIPELINE_STAGE_MAIN_ID,
         0,
         0,
         0,
@@ -658,10 +660,11 @@ class EagerOp : public EagerOpBase {
 
       results.reserve(meta.size());
       for (const auto& output_meta : meta) {
-        results.emplace_back(at::empty(
-            output_meta.shape,
-            options.dtype(output_meta.dtype),
-            output_meta.mem_format));
+        results.emplace_back(
+            at::empty(
+                output_meta.shape,
+                options.dtype(output_meta.dtype),
+                output_meta.mem_format));
       }
       return results;
     }
@@ -678,16 +681,18 @@ class EagerOp : public EagerOpBase {
     if (m_scalar_types.empty()) {
       auto dtype = get_inputs().at(m_out_index).toTensor().scalar_type();
       for (const auto& out_shape : m_out_shapes) {
-        results.emplace_back(at::empty(
-            out_shape, options.dtype(dtype), at::MemoryFormat::Contiguous));
+        results.emplace_back(
+            at::empty(
+                out_shape, options.dtype(dtype), at::MemoryFormat::Contiguous));
       }
     } else {
       HABANA_ASSERT(m_scalar_types.size() == results_size);
       for (size_t i = 0; i < results_size; ++i) {
-        results.emplace_back(at::empty(
-            m_out_shapes[i],
-            options.dtype(m_scalar_types[i]),
-            at::MemoryFormat::Contiguous));
+        results.emplace_back(
+            at::empty(
+                m_out_shapes[i],
+                options.dtype(m_scalar_types[i]),
+                at::MemoryFormat::Contiguous));
       }
     }
     return results;

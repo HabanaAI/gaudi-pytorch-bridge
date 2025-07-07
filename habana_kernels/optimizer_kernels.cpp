@@ -286,7 +286,8 @@ void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
 
     auto mul_wt = make_operator<habana::MulOperator>(device_id, scalar_type);
     mul_wt->SetSynapseInput(div_wt->GetSynOutputs()[0]);
-    mul_wt->SetSynapseInput(p_context_->syn_inputs_[4 * static_cast<size_t>(num_params)]);
+    mul_wt->SetSynapseInput(
+        p_context_->syn_inputs_[4 * static_cast<size_t>(num_params)]);
     stack.emplace_back(IValue(div_wt->GetOutputs()[0]));
     stack.emplace_back(IValue(neg_step_size));
     mul_wt->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
@@ -368,9 +369,9 @@ void OptimizerAdagradOperator::AllocateAndAddSynapseNode(
   //           << weights.sizes() << std::endl;
 
   ns_OptimizerAdagrad::Params params;
-  params.wd = inputs[5].toDouble();
-  params.lrd = inputs[6].toDouble();
-  params.eps = inputs[7].toDouble();
+  params.wd = static_cast<float>(inputs[5].toDouble());
+  params.lrd = static_cast<float>(inputs[6].toDouble());
+  params.eps = static_cast<float>(inputs[7].toDouble());
 
   // execute in-place for weights & variance
   p_context_->syn_outputs_.emplace_back(
@@ -418,7 +419,7 @@ void OptimizerFusedAdagradOperator::AllocateAndAddSynapseNode(
   auto num_params = static_cast<unsigned int>(gradients.size());
 
   torch::jit::Stack stack;
-  size_t device_id = gradients.get(0).device().index();
+  auto device_id = static_cast<size_t>(gradients.get(0).device().index());
   auto scalar_type = gradients.get(0).scalar_type();
 
   for (unsigned int i = 0; i < num_params; i++) {
@@ -426,7 +427,8 @@ void OptimizerFusedAdagradOperator::AllocateAndAddSynapseNode(
     op->SetSynapseInput(p_context_->syn_inputs_[i]);
     op->SetSynapseInput(p_context_->syn_inputs_[num_params + i]);
     op->SetSynapseInput(p_context_->syn_inputs_[2 * num_params + i]);
-    op->SetSynapseInput(p_context_->syn_inputs_[3 * static_cast<size_t>(num_params)]);
+    op->SetSynapseInput(
+        p_context_->syn_inputs_[3 * static_cast<size_t>(num_params)]);
     op->SetSynapseInput(p_context_->syn_inputs_[3 * num_params + 1]);
 
     stack.emplace_back(IValue(gradients.get(i)));
@@ -475,9 +477,9 @@ void OptimizerSGDOperator::AllocateAndAddSynapseNode(
   auto lr = inputs[2].toTensor();
 
   ns_OptimizerSGD::Params params;
-  params.wd = inputs[3].toDouble();
-  params.mom = inputs[4].toDouble();
-  params.damp = inputs[5].toDouble();
+  params.wd = static_cast<float>(inputs[3].toDouble());
+  params.mom = static_cast<float>(inputs[4].toDouble());
+  params.damp = static_cast<float>(inputs[5].toDouble());
   params.nesterov = inputs[6].toBool();
 
   // execute in-place for weights
@@ -518,14 +520,15 @@ void OptimizerFusedSGDOperator::AllocateAndAddSynapseNode(
   auto num_params = static_cast<unsigned int>(gradients.size());
 
   torch::jit::Stack stack;
-  size_t device_id = gradients.get(0).device().index();
+  auto device_id = static_cast<size_t>(gradients.get(0).device().index());
 
   for (unsigned int i = 0; i < num_params; i++) {
     auto op =
         make_operator<OptimizerSGDOperator>(device_id, at::ScalarType::Float);
     op->SetSynapseInput(p_context_->syn_inputs_[i]);
     op->SetSynapseInput(p_context_->syn_inputs_[num_params + i]);
-    op->SetSynapseInput(p_context_->syn_inputs_[2 * static_cast<size_t>(num_params)]);
+    op->SetSynapseInput(
+        p_context_->syn_inputs_[2 * static_cast<size_t>(num_params)]);
 
     stack.emplace_back(IValue(gradients.get(i)));
     stack.emplace_back(IValue(weights.get(i)));
@@ -590,7 +593,8 @@ void OptimizerFusedEMAOperator::AllocateAndAddSynapseNode(
     auto mul_in_exp =
         make_operator<habana::MulOperator>(device_id, scalar_type);
     mul_in_exp->SetSynapseInput(p_context_->syn_inputs_[num_params + i]);
-    mul_in_exp->SetSynapseInput(p_context_->syn_inputs_[2 * static_cast<size_t>(num_params)]);
+    mul_in_exp->SetSynapseInput(
+        p_context_->syn_inputs_[2 * static_cast<size_t>(num_params)]);
     stack.emplace_back(IValue(updated_ema.get(i)));
     stack.emplace_back(IValue(decay));
     mul_in_exp->AllocateAndAddSynapseNode(
@@ -598,7 +602,8 @@ void OptimizerFusedEMAOperator::AllocateAndAddSynapseNode(
     stack.clear();
 
     auto sub_exp = make_operator<habana::SubOperator>(device_id, scalar_type);
-    sub_exp->SetSynapseInput(p_context_->syn_inputs_[2 * static_cast<size_t>(num_params)]);
+    sub_exp->SetSynapseInput(
+        p_context_->syn_inputs_[2 * static_cast<size_t>(num_params)]);
     stack.emplace_back(IValue(1.0));
     stack.emplace_back(IValue(decay));
     stack.emplace_back(IValue(1.0));
@@ -696,11 +701,11 @@ void OptimizerSGDMomentumOperator::AllocateAndAddSynapseNode(
   auto mom = inputs[5].toTensor();
 
   ns_OptimizerSGD::Params params;
-  params.wd = inputs[6].toDouble();
+  params.wd = static_cast<float>(inputs[6].toDouble());
   // we use mom tensor instead. setting to some non zero as a hack. Need fix
   // from tpc glue
   params.mom = (float)0.1;
-  params.damp = inputs[7].toDouble();
+  params.damp = static_cast<float>(inputs[7].toDouble());
   params.nesterov = inputs[8].toBool();
 
   // execute in-place for weights & momentum
@@ -753,7 +758,7 @@ void OptimizerFusedSGDMomentumOperator::AllocateAndAddSynapseNode(
   auto num_params = static_cast<unsigned int>(gradients.size());
 
   torch::jit::Stack stack;
-  size_t device_id = gradients.get(0).device().index();
+  auto device_id = static_cast<size_t>(gradients.get(0).device().index());
 
   for (unsigned int i = 0; i < num_params; i++) {
     auto op = make_operator<OptimizerSGDMomentumOperator>(
@@ -761,7 +766,8 @@ void OptimizerFusedSGDMomentumOperator::AllocateAndAddSynapseNode(
     op->SetSynapseInput(p_context_->syn_inputs_[i]);
     op->SetSynapseInput(p_context_->syn_inputs_[num_params + i]);
     op->SetSynapseInput(p_context_->syn_inputs_[2 * num_params + i]);
-    op->SetSynapseInput(p_context_->syn_inputs_[3 * static_cast<size_t>(num_params)]);
+    op->SetSynapseInput(
+        p_context_->syn_inputs_[3 * static_cast<size_t>(num_params)]);
     op->SetSynapseInput(p_context_->syn_inputs_[3 * num_params + 1]);
     op->SetSynapseInput(
         p_context_->syn_inputs_[3 * num_params + 2]); // mom tensor
@@ -804,7 +810,7 @@ class OptimizerFusedLarsOperatorLazy : public OpBackend {
             {},
             {},
             false) {
-    this->CreateSynContext(device_id);
+    this->CreateSynContext(static_cast<synDeviceId>(device_id));
     SetOutputMetaFn(OptimizerFusedLarsMeta);
   }
   static OutputMetaDataVector OptimizerFusedLarsMeta(const at::Stack&);

@@ -30,7 +30,7 @@ void CompileSynapseTaskWrapper(
   LOP::ScopeEvent scope_event(
       "EagerCompileTask()",
       launch_op.get_jit_graph_and_meta_data()->GetOpName(),
-      (int32_t)LOP::PipelineStageID::PIPELINE_STAGE_COMPILE_ID,
+      LOP::PipelineStageID::PIPELINE_STAGE_COMPILE_ID,
       launch_op.get_graph_key(),
       launch_op.get_jit_graph_cache_hit_count(),
       HPUDeviceContext::compile_thread_pool().get_active_task_count(),
