@@ -51,7 +51,7 @@ OutputMetaDataVector GatherMeta(const at::Stack& stack) {
       shape = index.sizes().vec();
     } else {
       // for index_select and other index ops
-      shape[dim] = index.numel();
+      shape[static_cast<size_t>(dim)] = index.numel();
     }
   }
   OutputMetaData meta;
@@ -76,8 +76,8 @@ SharedMetaDataVector GatherSharedMeta(
 
 FillParamsT FillGatherParams(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
-  int dim_ = stack.at(1).toInt();
-  auto dim = get_dim_in_tpc_order(dim_, self.dim());
+  const auto dim_ = stack.at(1).toInt();
+  const auto dim = static_cast<int>(get_dim_in_tpc_order(dim_, self.dim()));
   at::Tensor indices = stack.at(2).toTensor();
   if (self.dim() != indices.dim()) {
     PARAMS_STUB(ns_GatherKernel::Params);

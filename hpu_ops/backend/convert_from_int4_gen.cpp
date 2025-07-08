@@ -97,16 +97,17 @@ bool is_equal_except_one_and_divisible(
     const at::IntArrayRef& b) {
   if (a.size() != b.size())
     return false;
-  int diff_idx = -1;
+  size_t diff_idx = std::numeric_limits<size_t>::max();
   for (size_t i = 0; i < a.size(); ++i) {
     if (a[i] != b[i]) {
-      if (diff_idx != -1)
+      if (diff_idx != std::numeric_limits<size_t>::max())
         return false; // More than one dim differs
       diff_idx = i;
     }
   }
-  if (diff_idx == -1)
+  if (diff_idx == std::numeric_limits<size_t>::max()) {
     return false; // All dims equal, must differ in one
+  }
   return a[diff_idx] % b[diff_idx] == 0;
 }
 

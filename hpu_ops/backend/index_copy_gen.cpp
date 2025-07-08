@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 #include "generated/backend/index_copy.h"
+#include "habana_helpers/logging.h"
 
 namespace habana {
 
@@ -42,8 +43,10 @@ OutputMetaDataVector IndexCopyMeta(const at::Stack& stack) {
 
 FillParamsT FillIndexCopyParams(const at::Stack& stack) {
   const auto dim = stack[1].toInt();
+  HABANA_ASSERT(
+      dim <= std::numeric_limits<int>::max(), "Invalid dimension value: ", dim);
   PARAMS_STUB(ns_IndexCopy::Params);
-  params->axis = dim;
+  params->axis = static_cast<int>(dim);
   return paramsT;
 }
 

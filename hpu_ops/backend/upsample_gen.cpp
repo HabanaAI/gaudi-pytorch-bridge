@@ -236,7 +236,7 @@ OutputMetaDataVector UpsampleLinear1DFwdMeta(const at::Stack& stack) {
         self.sizes()[0], self.sizes()[1], out_size.toIntVector().at(0)};
   } else if (!scale.isNone() && !scale.isScalar()) {
     double scale_factor = scale.toDoubleVector().at(0);
-    auto width = self.sizes()[2];
+    auto width = static_cast<double>(self.sizes()[2]);
     meta.shape = {
         self.sizes()[0],
         self.sizes()[1],
@@ -270,7 +270,7 @@ OutputMetaDataVector UpsampleNearest1DFwdMeta(const at::Stack& stack) {
         self.sizes()[0], self.sizes()[1], out_size.toIntVector().at(0)};
   } else if (!scale.isNone()) {
     double scale_factor = scale.toDoubleVector().at(0);
-    auto width = self.sizes()[2];
+    auto width = static_cast<double>(self.sizes()[2]);
     meta.shape = {
         self.sizes()[0],
         self.sizes()[1],
@@ -309,8 +309,10 @@ std::vector<int64_t> UpsampleBilinear2DFwdOutputShapeSynapseLayout(
     out_shape = {
         self.sizes()[INPUT_N_IDX],
         self.sizes()[INPUT_C_IDX],
-        static_cast<int64_t>(self.sizes()[INPUT_H_IDX] * scale_h),
-        static_cast<int64_t>(self.sizes()[INPUT_W_IDX] * scale_w)};
+        static_cast<int64_t>(
+            static_cast<double>(self.sizes()[INPUT_H_IDX]) * scale_h),
+        static_cast<int64_t>(
+            static_cast<double>(self.sizes()[INPUT_W_IDX]) * scale_w)};
   }
   return out_shape;
 }
@@ -362,8 +364,10 @@ std::vector<int64_t> UpsampleNearest2DFwdOutputShapeSynapseLayout(
     out_shape = {
         self.sizes()[INPUT_N_IDX],
         self.sizes()[INPUT_C_IDX],
-        static_cast<int64_t>(self.sizes()[INPUT_H_IDX] * scale_h),
-        static_cast<int64_t>(self.sizes()[INPUT_W_IDX] * scale_w)};
+        static_cast<int64_t>(
+            static_cast<double>(self.sizes()[INPUT_H_IDX]) * scale_h),
+        static_cast<int64_t>(
+            static_cast<double>(self.sizes()[INPUT_W_IDX]) * scale_w)};
   }
   return out_shape;
 }
@@ -385,8 +389,10 @@ std::vector<int64_t> UpsampleNearestExact2DFwdOutputShapeSynapseLayout(
     out_shape = {
         self_sizes.at(INPUT_N_IDX),
         self_sizes.at(INPUT_C_IDX),
-        static_cast<int64_t>(self_sizes.at(INPUT_H_IDX) * scale_h),
-        static_cast<int64_t>(self_sizes.at(INPUT_W_IDX) * scale_w)};
+        static_cast<int64_t>(
+            static_cast<double>(self_sizes.at(INPUT_H_IDX)) * scale_h),
+        static_cast<int64_t>(
+            static_cast<double>(self_sizes.at(INPUT_W_IDX)) * scale_w)};
   }
   return out_shape;
 }
@@ -410,9 +416,12 @@ std::vector<int64_t> UpsampleNearestExact3DFwdOutputShapeSynapseLayout(
     out_shape = {
         self_sizes.at(INPUT_N_IDX),
         self_sizes.at(INPUT_C_IDX),
-        static_cast<int64_t>(self_sizes.at(INPUT_C_IDX) * scale_d),
-        static_cast<int64_t>(self_sizes.at(INPUT_H_IDX) * scale_h),
-        static_cast<int64_t>(self_sizes.at(INPUT_W_IDX) * scale_w)};
+        static_cast<int64_t>(
+            static_cast<double>(self_sizes.at(INPUT_C_IDX)) * scale_d),
+        static_cast<int64_t>(
+            static_cast<double>(self_sizes.at(INPUT_H_IDX)) * scale_h),
+        static_cast<int64_t>(
+            static_cast<double>(self_sizes.at(INPUT_W_IDX)) * scale_w)};
   }
   return out_shape;
 }
@@ -516,8 +525,10 @@ std::vector<int64_t> UpsampleBicubic2DFwdOutputShapeSynapseLayout(
     out_shape = {
         self.sizes()[INPUT_N_IDX],
         self.sizes()[INPUT_C_IDX],
-        static_cast<int64_t>(self.sizes()[INPUT_H_IDX] * scale_h),
-        static_cast<int64_t>(self.sizes()[INPUT_W_IDX] * scale_w)};
+        static_cast<int64_t>(
+            static_cast<double>(self.sizes()[INPUT_H_IDX]) * scale_h),
+        static_cast<int64_t>(
+            static_cast<double>(self.sizes()[INPUT_W_IDX]) * scale_w)};
   }
   return out_shape;
 }
@@ -539,8 +550,10 @@ std::vector<int64_t> UpsampleBicubic2DFwdOutputShapeSynapseLayoutAA(
     out_shape = {
         self.sizes()[INPUT_N_IDX],
         self.sizes()[INPUT_C_IDX],
-        static_cast<int64_t>(self.sizes()[INPUT_H_IDX] * scale_h),
-        static_cast<int64_t>(self.sizes()[INPUT_W_IDX] * scale_w)};
+        static_cast<int64_t>(
+            static_cast<double>(self.sizes()[INPUT_H_IDX]) * scale_h),
+        static_cast<int64_t>(
+            static_cast<double>(self.sizes()[INPUT_W_IDX]) * scale_w)};
   }
   return out_shape;
 }
@@ -629,9 +642,9 @@ OutputMetaDataVector UpsampleTrilinear3DFwdMeta(const at::Stack& stack) {
     meta.shape = {
         self.sizes()[0],
         self.sizes()[1],
-        static_cast<int64_t>(self.sizes()[2] * scale_d),
-        static_cast<int64_t>(self.sizes()[3] * scale_h),
-        static_cast<int64_t>(self.sizes()[4] * scale_w)};
+        static_cast<int64_t>(static_cast<double>(self.sizes()[2]) * scale_d),
+        static_cast<int64_t>(static_cast<double>(self.sizes()[3]) * scale_h),
+        static_cast<int64_t>(static_cast<double>(self.sizes()[4]) * scale_w)};
   }
   CHECK_INPUT_OUTPUT_DEPTH_HEIGHT_WIDTH(
       self.sizes()[2],
@@ -665,9 +678,9 @@ OutputMetaDataVector UpsampleNearest3DFwdMeta(const at::Stack& stack) {
     meta.shape = {
         self.sizes()[0],
         self.sizes()[1],
-        static_cast<int64_t>(self.sizes()[2] * scale_d),
-        static_cast<int64_t>(self.sizes()[3] * scale_h),
-        static_cast<int64_t>(self.sizes()[4] * scale_w)};
+        static_cast<int64_t>(static_cast<double>(self.sizes()[2]) * scale_d),
+        static_cast<int64_t>(static_cast<double>(self.sizes()[3]) * scale_h),
+        static_cast<int64_t>(static_cast<double>(self.sizes()[4]) * scale_w)};
   }
   CHECK_INPUT_OUTPUT_DEPTH_HEIGHT_WIDTH(
       self.sizes()[2],
@@ -716,7 +729,7 @@ SharedMetaDataVector UpsampleCommmonSharedLayer(
     const bool isForward) {
   const auto& self = stack_tensor(stack, 0);
   const auto& outSize = stack.at(1);
-  const auto& scales = stack.at(scalesIndex);
+  const auto& scales = stack.at(static_cast<size_t>(scalesIndex));
   const bool modifyInputWithOutputWidth =
       isForward && !alignCorners && (!outSize.isNone() && !scales.isNone());
 
@@ -789,7 +802,7 @@ SharedMetaDataVector UpssampleTrilinear3DSharedMeta(
 
 // Custom FillParams function
 FillParamsT FillResizeParams(
-    const int shape_in_dim,
+    const int64_t shape_in_dim,
     enum modes upsample_mode,
     c10::IValue out_size,
     c10::IValue scales,
@@ -834,15 +847,16 @@ FillParamsT FillResizeParams(
   }
   if (!out_size.isNone()) {
     params->useScales = false;
+    const auto out_size_vec = out_size.toIntVector();
     if (shape_in_dim == 3) { // 1D variant
-      params->size1 = out_size.toIntVector().at(0);
+      params->size1 = static_cast<int>(out_size_vec.at(0));
     } else if (shape_in_dim == 4) { // 2D variant
-      params->size1 = out_size.toIntVector().at(1);
-      params->size2 = out_size.toIntVector().at(0);
-    } else if (shape_in_dim == 5) { // 3D variant
-      params->size1 = out_size.toIntVector().at(2);
-      params->size2 = out_size.toIntVector().at(1);
-      params->size3 = out_size.toIntVector().at(0);
+      params->size1 = static_cast<int>(out_size_vec.at(1));
+      params->size2 = static_cast<int>(out_size_vec.at(0));
+    } else if (shape_in_dim == 5) { //  3D variant
+      params->size1 = static_cast<int>(out_size_vec.at(2));
+      params->size2 = static_cast<int>(out_size_vec.at(1));
+      params->size3 = static_cast<int>(out_size_vec.at(0));
     }
     if (align_corner) {
       return paramsT;
@@ -850,9 +864,9 @@ FillParamsT FillResizeParams(
   }
   if (!scales.isNone()) {
     params->useScales = true;
-    params->scaleDim1 = scale_w;
-    params->scaleDim2 = scale_h;
-    params->scaleDim3 = scale_d;
+    params->scaleDim1 = static_cast<float>(scale_w);
+    params->scaleDim2 = static_cast<float>(scale_h);
+    params->scaleDim3 = static_cast<float>(scale_d);
   }
   return paramsT;
 }
@@ -1221,13 +1235,14 @@ static std::vector<synapse_helpers::tensor> Slice(
     const at::IntArrayRef outshape,
     const at::ScalarType& dtype,
     std::optional<int> final_index = std::nullopt) {
-  auto output_size = outshape.size();
+  auto output_size = static_cast<int64_t>(outshape.size());
 
   synSliceParamsV2 slice_params{};
   for (int64_t i = output_size - 1; i >= 0; --i) {
-    slice_params.axes[i] = i;
+    slice_params.axes[i] = static_cast<unsigned int>(i);
     slice_params.starts[i] = 0;
-    slice_params.ends[i] = outshape[(output_size - i - 1)];
+    slice_params.ends[i] =
+        static_cast<TSize>(outshape[static_cast<size_t>(output_size - i - 1)]);
     slice_params.steps[i] = 1;
   }
 
@@ -1279,15 +1294,17 @@ synapse_helpers::tensor UpsampleCommonFuncSynapseLayout(
       isForward && !align_corners && (!out_size.isNone() && !scales.isNone());
   std::vector<int64_t> shape_out_resize;
   if (modifyInputWithOutputWidth) {
-    shape_out_resize.reserve(shape_in_dim);
-    unsigned scaled_dims = (shape_in_dim > 2) ? shape_in_dim - 2 : 0;
+    shape_out_resize.reserve(static_cast<size_t>(shape_in_dim));
+    auto scaled_dims =
+        static_cast<unsigned>(shape_in_dim > 2 ? shape_in_dim - 2 : 0);
 
     for (unsigned d = 0; d < shape_in_dim - scaled_dims; ++d)
       shape_out_resize.push_back(meta.shape[d]);
 
     for (unsigned d = 0; d < scaled_dims; ++d)
       shape_out_resize.push_back(static_cast<int64_t>(
-          shape_in[2 + d] * scale_dhw[d + 3 - scaled_dims]));
+          static_cast<double>(shape_in[2 + d]) *
+          scale_dhw[d + 3 - scaled_dims]));
 
     p_shape_out_resize = &shape_out_resize;
   }

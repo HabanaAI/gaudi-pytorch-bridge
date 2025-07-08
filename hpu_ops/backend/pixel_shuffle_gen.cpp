@@ -36,7 +36,12 @@ OutputMetaDataVector PixelShuffleMeta(const at::Stack& stack) {
 FillParamsT FillPixelShuffleParams(const at::Stack& stack) {
   const auto upscaleFactor = stack.at(1).toInt();
   PARAMS_STUB(ns_PixelShuffleKernel::Params);
-  params->upscale_factor = upscaleFactor;
+  HABANA_ASSERT(
+      upscaleFactor > 0 &&
+          upscaleFactor <= std::numeric_limits<unsigned int>::max(),
+      "Invalid upscale factor: ",
+      upscaleFactor);
+  params->upscale_factor = static_cast<unsigned int>(upscaleFactor);
   return paramsT;
 }
 

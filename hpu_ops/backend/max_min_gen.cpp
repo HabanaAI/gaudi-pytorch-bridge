@@ -13,7 +13,6 @@
  * limitations under the License.
  */
 
-#include "backend/helpers/create_tensor.h"
 #include "generated/backend/max.h"
 #include "generated/backend/min.h"
 #include "hpu_ops/backend/reduction_template.h"
@@ -133,7 +132,7 @@ FillParamsT FillMinMaxDimParams(const at::Stack& stack) {
   dim = (dim >= 0) ? static_cast<int>(stack.at(0).toTensor().dim()) - 1 - dim
                    : -(dim + 1);
 
-  params->reductionDimension = dim;
+  params->reductionDimension = static_cast<unsigned int>(dim);
   return paramsT;
 }
 

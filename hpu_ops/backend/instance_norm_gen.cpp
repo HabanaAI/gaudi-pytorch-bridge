@@ -110,7 +110,7 @@ void InstanceNorm::AddNode(
   // Note: TPC kernel doesnt support running mean and variance computation. we
   // just pass random momentum value as a place holder
   struct ns_InstanceNormTrainingKernel::Params params{
-      0.9, static_cast<float>(eps)};
+      0.9F, static_cast<float>(eps)};
   auto instanceNorm = BuildOp(
       graph,
       guid_,

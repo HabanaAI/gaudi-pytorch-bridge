@@ -13,7 +13,6 @@
  * limitations under the License.
  */
 #include "generated/backend/median.h"
-#include "hpu_ops/topk_util.h"
 
 namespace habana {
 constexpr size_t index_of_self = 0;
@@ -23,9 +22,9 @@ constexpr size_t index_of_keepdim = 2;
 FillParamsT FillMediandimParams(const at::Stack& stack) {
   PARAMS_STUB(ns_MediandimKernel::Params);
 
-  params->reduction_dim = stack[index_of_reduction_axis].toInt();
+  params->reduction_dim =
+      static_cast<int>(stack[index_of_reduction_axis].toInt());
   params->keep_dim = stack[index_of_keepdim].toBool();
-  ;
 
   return paramsT;
 }
@@ -64,7 +63,7 @@ sizes_vec MediandimOutputShape(const at::Stack& stack) {
   }
 
   if (keepdim)
-    outshape[reduction_axis] = 1;
+    outshape[static_cast<size_t>(reduction_axis)] = 1;
   else {
     auto itr = outshape.begin() + reduction_axis;
     outshape.erase(itr);

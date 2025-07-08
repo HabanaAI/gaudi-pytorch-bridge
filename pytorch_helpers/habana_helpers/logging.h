@@ -272,7 +272,7 @@ inline const char* CheckMsgImpl(const char*, const char* args) {
     const std::string& msg);
 
 template <class... Args>
-inline void nop(__attribute__((unused)) const Args&... args){};
+inline void nop(__attribute__((unused)) const Args&... args) {};
 } // namespace Logger
 
 #define HABANA_CHECK_MSG(cond, ...) \
@@ -381,7 +381,8 @@ inline void nop(__attribute__((unused)) const Args&... args){};
 // following macro is a non-asserting version of PT_KERNEL_BEGIN
 #define PT_OTHER_OPS_BEGIN PT_MOD_BEGIN(PT_KERNEL)
 #define PT_BRIDGE_BEGIN PT_MOD_BEGIN(PT_BRIDGE)
-#define PT_BRIDGE_LAMBDA_BEGIN(LAMBDA_NAME) PT_MOD_SCOPE(PT_BRIDGE, __PRETTY_FUNCTION__, LAMBDA_NAME)
+#define PT_BRIDGE_LAMBDA_BEGIN(LAMBDA_NAME) \
+  PT_MOD_SCOPE(PT_BRIDGE, __PRETTY_FUNCTION__, LAMBDA_NAME)
 #define PT_SYNHELPER_BEGIN PT_MOD_BEGIN(PT_SYNHELPER)
 #define PT_DISTRIBUTED_BEGIN PT_MOD_BEGIN(PT_DISTRIBUTED)
 
@@ -604,4 +605,13 @@ inline std::string to_hexstring(std::uint64_t x) {
 inline std::string to_hexstring(const void* x) {
   return to_hexstring((std::uint64_t)x);
 }
+
+template <typename TTarget, typename TIn>
+void check_range(size_t start, size_t end, TIn& arr) {
+  for (auto i = start; i <= end; ++i) {
+    HABANA_ASSERT(
+        arr[i] >= std::numeric_limits<TTarget>::min() &&
+        arr[i] <= std::numeric_limits<TTarget>::max());
+  }
+};
 } // namespace

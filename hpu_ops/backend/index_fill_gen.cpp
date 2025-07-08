@@ -21,8 +21,10 @@ FillParamsT FillIndexFillParams(const at::Stack& stack) {
       at::maybe_wrap_dim(stack.at(1).toInt(), stack.at(0).toTensor().dim());
   bool is_value_scalar = stack.at(3).isScalar();
 
+  HABANA_ASSERT(
+      dim <= std::numeric_limits<int>::max(), "Invalid dimension value: ", dim);
   PARAMS_STUB(ns_IndexFill::Params);
-  params->dim = dim;
+  params->dim = static_cast<int>(dim);
   params->isValueScalar = is_value_scalar;
   if (is_value_scalar) {
     const auto selDtype = stack_tensor(stack, 0).scalar_type();

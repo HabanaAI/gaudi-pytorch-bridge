@@ -13,8 +13,7 @@
  * limitations under the License.
  */
 
-#include "backend/helpers/create_tensor.h"
-#include "backend/helpers/tensor_utils.h"
+#include <limits>
 #include "generated/backend/nll_loss2d_backward.h"
 #include "generated/backend/nll_loss2d_forward.h"
 #include "generated/backend/nll_loss_backward.h"
@@ -27,7 +26,7 @@ OutputMetaDataVector NllLossFwdMeta(const at::Stack& stack) {
   const torch::Tensor& target = stack_tensor(stack, 1);
   int64_t reduction = stack.at(3).toInt();
   OutputMetaDataVector meta(2);
-  for (int i = 0; i < 2; ++i) {
+  for (size_t i = 0; i < 2; ++i) {
     meta.at(i).dtype = self.scalar_type();
     meta.at(i).shape = {};
   }
@@ -70,7 +69,12 @@ static FillParamsT FillNllLossParams(int64_t reduction, int64_t ignore_index) {
     default:
       HABANA_ASSERT(false, "Unsupported reduction in nll_loss: ", reduction);
   }
-  params->ignoreIndexValue = ignore_index;
+
+  HABANA_ASSERT(
+      ignore_index <= std::numeric_limits<int>::max(),
+      "Invalid ignore_index value: ",
+      ignore_index);
+  params->ignoreIndexValue = static_cast<int>(ignore_index);
   return paramsT;
 }
 

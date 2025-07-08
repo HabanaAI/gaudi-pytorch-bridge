@@ -25,8 +25,6 @@ OutputMetaDataVector CatMeta(const at::Stack& stack) {
   for (auto& input : tensors_)
     CONVERT_0D_TO_1D(input);
 
-  auto dim = stack[1].toInt();
-
   HABANA_ASSERT(!tensors_.empty(), "Empty tensors list!");
   const at::Tensor& first_tensor = tensors_[0];
   auto tensors = at::filter(tensors_, [](const at::Tensor& tensor) {
@@ -42,16 +40,20 @@ OutputMetaDataVector CatMeta(const at::Stack& stack) {
 
   std::vector<int64_t> out_size;
   if (!tensors.empty()) {
+    auto dim = stack[1].toInt();
     const at::Tensor& first_valid_tensor = tensors[0];
-    dim = at::maybe_wrap_dim(dim, first_valid_tensor.dim());
+    const auto dim_wrapped =
+        static_cast<size_t>(at::maybe_wrap_dim(dim, first_valid_tensor.dim()));
 
     out_size = first_valid_tensor.sizes().vec();
-    out_size[dim] = 0;
+    out_size[dim_wrapped] = 0;
     for (const at::Tensor& tensor : tensors) {
-      out_size[dim] += tensor.sizes()[dim];
+      out_size[dim_wrapped] += tensor.sizes()[dim_wrapped];
     }
     if (!ref_out_size.empty()) {
-      HABANA_ASSERT(out_size[dim] == ref_out_size[dim], "Cat output mismatch");
+      HABANA_ASSERT(
+          out_size[dim_wrapped] == ref_out_size[dim_wrapped],
+          "Cat output mismatch");
     }
   } else {
     out_size.push_back(0);
@@ -161,7 +163,8 @@ void CatHabanaOperator::AddNode(
   }
 
   synConcatenateParams concat_params{};
-  concat_params.axis = first_valid_tensor_dim - dim - 1;
+  concat_params.axis =
+      static_cast<unsigned int>(first_valid_tensor_dim - dim - 1);
 
   CreateShapeTensorInput(
       graph, out_tensor_type, cal_out_size, cat_input_synTensor);

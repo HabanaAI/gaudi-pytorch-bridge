@@ -179,6 +179,8 @@ void ForeachLerp::AddNode(
   const bool isWeightTensorList = stack.at(2).isTensorList();
   const size_t size = self.size();
 
+  HABANA_ASSERT(
+      size <= std::numeric_limits<int>::max(), "Too large size: ", size);
   for (size_t i = 0; i < size; ++i) {
     SUPPRESS_WDANGLING_REFERENCE(const at::IValue& weight = isWeightTensorList
                                      ? stack.at(2).toList()[i]
@@ -190,7 +192,13 @@ void ForeachLerp::AddNode(
     std::vector<at::IValue> pt_inputs{self[i], tensor1[i], weight};
 
     syn_out(i) = CommonLerp(
-        this, graph, syn_inputs, pt_inputs, meta[i], i, isWeightTensorList);
+        this,
+        graph,
+        syn_inputs,
+        pt_inputs,
+        meta[i],
+        static_cast<int>(i),
+        isWeightTensorList);
   }
 }
 } // namespace habana

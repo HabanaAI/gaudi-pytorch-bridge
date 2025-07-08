@@ -75,7 +75,11 @@ void CtcLossBackward::AddNode(
   bool zero_infinity = stack.at(8).toBool();
 
   ns_CTCLoss::Params params;
-  params.blankIndex = blank_index;
+  HABANA_ASSERT(
+      blank_index >= std::numeric_limits<int>::min() &&
+          blank_index <= std::numeric_limits<int>::max(),
+      "Blank index must be in the range of int.");
+  params.blankIndex = static_cast<int>(blank_index);
   params.reductionMode = LossMode_t::LOSS_REDUCTION_MODE_NONE;
   params.zeroInfinity = zero_infinity;
 

@@ -147,10 +147,11 @@ void Matmul::AddNode(sh::graph& graph, const at::Stack& stack) {
          sizeof(gemm_params)});
 
     if (self_dim == 1) {
-      syn_out(0) = ReshapeHelper(graph, output[0].get(), meta.shape, self_dtype, 0);
+      syn_out(0) =
+          ReshapeHelper(graph, output[0].get(), meta.shape, self_dtype, 0);
     } else {
       synTransposeParamsNDims params;
-      params.tensorDim = gemm_output_shape.size();
+      params.tensorDim = static_cast<unsigned int>(gemm_output_shape.size());
       for (int i = 0; i < HABANA_DIM_MAX; i++) {
         params.permutation[i] = static_cast<TransposePermutationDim>(i);
       }
@@ -169,10 +170,12 @@ void Matmul::AddNode(sh::graph& graph, const at::Stack& stack) {
       (self_dim == 4 && other_dim == 3) || (self_dim == 3 && other_dim == 4)) {
     int64_t n = self.size(-2);
     int64_t m1 = self.size(-1);
-    at::IntArrayRef batch_tensor1(self.sizes().data(), self_dim - 2);
+    at::IntArrayRef batch_tensor1(
+        self.sizes().data(), static_cast<size_t>(self_dim - 2));
     int64_t m2 = other.size(-2);
     int64_t p = other.size(-1);
-    at::IntArrayRef batch_tensor2(other.sizes().data(), other_dim - 2);
+    at::IntArrayRef batch_tensor2(
+        other.sizes().data(), static_cast<size_t>(other_dim - 2));
 
     std::vector<int64_t> expand_batch_portion =
         at::infer_size(batch_tensor1, batch_tensor2);

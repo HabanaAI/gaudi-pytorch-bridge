@@ -12,6 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <limits>
 #include "generated/backend/cast_to_fp8_hybrid.h"
 
 namespace habana {
@@ -60,7 +61,10 @@ SharedMetaDataVector CastToFp8HybridSharedMeta(
     const at::Stack& stack,
     habana_helpers::HabanaExecutionMode) {
   const at::Tensor& input = stack.at(0).toTensor();
-  const int inputDim = input.dim();
+  HABANA_ASSERT(
+      input.dim() <= std::numeric_limits<int>::max(),
+      "Input tensor dimension exceeds maximum allowed value.");
+  const auto inputDim = static_cast<int>(input.dim());
   const bool isAmax = stack.at(4).toBool();
 
   const bool is152Scale = stack.at(1).isTensor();

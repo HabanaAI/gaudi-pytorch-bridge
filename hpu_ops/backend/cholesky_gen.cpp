@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 
+#include <limits>
 #include "generated/backend/cholesky_inverse.h"
 #include "generated/backend/linalg_cholesky_ex.h"
 #include "habana_helpers/logging.h"
@@ -24,9 +25,8 @@ namespace habana {
 OutputMetaDataVector CholeskyMeta(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 0);
   std::vector<int64_t> selfShape = self.sizes().vec();
-  const size_t selfRank = self.dim();
-  std::vector<int64_t> infoShape(
-      std::max<int64_t>(0, static_cast<int64_t>(selfShape.size()) - 2));
+  const auto selfRank = static_cast<size_t>(self.dim());
+  std::vector<int64_t> infoShape(std::max<uint64_t>(2, selfShape.size()) - 2);
 
   for (size_t i = 0; i < infoShape.size(); ++i) {
     infoShape[i] = selfShape[i];
@@ -87,7 +87,11 @@ synapse_helpers::tensor performTranspose(
     const at::ScalarType selfDtype,
     std::optional<int> i = std::nullopt) {
   synTransposeParams transposeParams{};
-  transposeParams.tensorDim = selfShape.size();
+  HABANA_ASSERT(
+      selfShape.size() <= std::numeric_limits<unsigned int>::max(),
+      "Cholesky: Input tensor rank exceeds the maximum supported "
+      "rank for transpose operation.");
+  transposeParams.tensorDim = static_cast<unsigned int>(selfShape.size());
   for (size_t i = 0; i < selfShape.size(); ++i) {
     transposeParams.permutation[i] = static_cast<TransposePermutationDim>(i);
   }

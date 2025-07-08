@@ -19,7 +19,11 @@ namespace habana {
 
 FillParamsT FillInd2ptrParams(const at::Stack& stack) {
   PARAMS_STUB(ns_Ind2ptr::Params);
-  params->size = stack.at(1).toInt();
+  HABANA_ASSERT(
+      stack.at(1).toInt() <= std::numeric_limits<int>::max(),
+      "Invalid size value: ",
+      stack.at(1).toInt());
+  params->size = static_cast<int>(stack.at(1).toInt());
 
   return paramsT;
 }

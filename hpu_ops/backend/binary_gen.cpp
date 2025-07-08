@@ -528,7 +528,7 @@ void BinaryWithAlpha::AddNode(
   std::string guid{guid_};
 
   if (GetExecutionMode() == habana_helpers::HabanaFrontendTypes::EAGER) {
-    if ((isAlphaIntegralType ? alpha.i : alpha.f) == 1) {
+    if (isAlphaIntegralType ? (alpha.i == 1) : (alpha.f == 1.0F)) {
       std::string opName;
       switch (mode) {
         case BINARY_WITH_ALPHA_MODE_ADD:

@@ -65,4 +65,14 @@
   __VA_ARGS__                                                     \
   )
 
+// GCC warns on nonnull copy in std::vector, which seems to be wrong.
+#define SUPPRESS_WNONNULL_P                                       \
+  _Pragma("GCC diagnostic ignored \"-Wnonnull\"")
+
+#define SUPPRESS_WNONNULL(...)                                    \
+  SUPPRESS_W_TEMPLATE(                                            \
+  SUPPRESS_WNONNULL_P                                             \
+  __VA_ARGS__                                                     \
+  )
+
 // clang-format on

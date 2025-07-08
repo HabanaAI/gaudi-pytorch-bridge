@@ -12,7 +12,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+#include "common/warning_suppress.h"
+SUPPRESS_W_PREFIX
+SUPPRESS_WNONNULL_P
 #include <gtest/gtest.h>
+SUPPRESS_W_SUFFIX
 #include <tests/cpp/habana_lazy_test_infra.h>
 #include <torch/csrc/jit/testing/file_check.h>
 #include <torch/torch.h>

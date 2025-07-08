@@ -21,7 +21,7 @@ FillParamsT IndexReduceFillParams(const at::Stack& stack) {
   PARAMS_STUB(ns_IndexReduce::Params);
   params->axis = stack.at(1).toScalar().toInt();
   if (params->axis < 0) {
-    params->axis += stack.at(0).toTensor().dim();
+    params->axis += static_cast<int>(stack.at(0).toTensor().dim());
   }
 
   const auto mode = stack.at(4).toStringView();

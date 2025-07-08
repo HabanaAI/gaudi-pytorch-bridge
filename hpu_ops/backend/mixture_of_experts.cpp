@@ -15,7 +15,6 @@
 
 #include "generated/backend/mixture_of_experts.h"
 #include "backend/habana_device/HPUGuardImpl.h"
-#include "backend/habana_device/hpu_cached_devices.h"
 #include "generated/backend/mixture_of_experts_bwd.h"
 #include "generated/backend/mixture_of_experts_fwd.h"
 #include "generated/backend/mixture_of_experts_recomp_bwd.h"
@@ -333,7 +332,8 @@ OutputMetaDataVector MixtureOfExpertsFwdFp8Meta(const at::Stack& stack) {
   const bool is_first_amax = stack.at(stack_size - 4).toBool();
   const bool is_second_amax = stack.at(stack_size - 3).toBool();
   const size_t amax_outputs = is_first_amax + is_second_amax;
-  const int64_t num_experts = stack.at(3).toTensorList().size();
+  const int64_t num_experts =
+      static_cast<int64_t>(stack.at(3).toTensorList().size());
   std::vector<std::vector<int64_t>> output_shapes =
       MixtureOfExpertsFwdFp8Shapes(stack);
   std::vector<at::ScalarType> dtypes = {
@@ -357,7 +357,7 @@ OutputMetaDataVector MixtureOfExpertsFwdFp8Meta(const at::Stack& stack) {
   }
 
   for (size_t i = 0; i < amax_outputs; ++i) {
-    meta[output_number + i].shape = {static_cast<int64_t>(num_experts)};
+    meta[output_number + i].shape = {num_experts};
     meta[output_number + i].dtype = torch::kFloat32;
   }
 
@@ -516,12 +516,11 @@ SharedMetaDataVector MixtureOfExpertsSharedMetaCommon(
   const at::Tensor& router_weights = stack_tensor(stack, 2);
 
   std::vector<std::vector<at::Tensor>> weightsLists = isFusedWeights
-      ? (std::vector<std::vector<
-             at::Tensor>>){stack.at(3).toTensorVector(), stack.at(4).toTensorVector()}
-      : (std::vector<std::vector<at::Tensor>>){
-            stack.at(3).toTensorVector(),
-            stack.at(4).toTensorVector(),
-            stack.at(5).toTensorVector()};
+      ? (std::vector<std::vector<at::Tensor>>){stack.at(3).toTensorVector(),
+                                               stack.at(4).toTensorVector()}
+      : (std::vector<std::vector<at::Tensor>>){stack.at(3).toTensorVector(),
+                                               stack.at(4).toTensorVector(),
+                                               stack.at(5).toTensorVector()};
 
   const SharedMetaTensor weightSharedMetaTensor =
       getWeightSharedMetaTensor(weightsLists);
@@ -636,12 +635,11 @@ SharedMetaDataVector MixtureOfExpertsBwdSharedMeta(
   const bool isFusedWeights = stack.at(10).isTensorList();
 
   std::vector<std::vector<at::Tensor>> weightsLists = isFusedWeights
-      ? (std::vector<std::vector<
-             at::Tensor>>){stack.at(10).toTensorVector(), stack.at(11).toTensorVector()}
-      : (std::vector<std::vector<at::Tensor>>){
-            stack.at(11).toTensorVector(),
-            stack.at(12).toTensorVector(),
-            stack.at(13).toTensorVector()};
+      ? (std::vector<std::vector<at::Tensor>>){stack.at(10).toTensorVector(),
+                                               stack.at(11).toTensorVector()}
+      : (std::vector<std::vector<at::Tensor>>){stack.at(11).toTensorVector(),
+                                               stack.at(12).toTensorVector(),
+                                               stack.at(13).toTensorVector()};
   const SharedMetaTensor weightSharedMetaTensor =
       getWeightSharedMetaTensor(weightsLists);
 
@@ -691,12 +689,11 @@ SharedMetaDataVector MixtureOfExpertsRecompBwdSharedMeta(
   const bool isFusedWeights = !stack.at(6).isTensorList();
 
   std::vector<std::vector<at::Tensor>> weightsLists = isFusedWeights
-      ? (std::vector<std::vector<
-             at::Tensor>>){stack.at(4).toTensorVector(), stack.at(5).toTensorVector()}
-      : (std::vector<std::vector<at::Tensor>>){
-            stack.at(4).toTensorVector(),
-            stack.at(5).toTensorVector(),
-            stack.at(6).toTensorVector()};
+      ? (std::vector<std::vector<at::Tensor>>){stack.at(4).toTensorVector(),
+                                               stack.at(5).toTensorVector()}
+      : (std::vector<std::vector<at::Tensor>>){stack.at(4).toTensorVector(),
+                                               stack.at(5).toTensorVector(),
+                                               stack.at(6).toTensorVector()};
   const SharedMetaTensor weightSharedMetaTensor =
       getWeightSharedMetaTensor(weightsLists);
 
@@ -750,10 +747,10 @@ FillParamsT FillMixtureOfExpertsParams(
   PARAMS_STUB(ns_MoeKernel::ParamsV4);
 
   params->experts.activation = activationIterator->second;
-  params->router.experts_min =
-      stack.at(cfg.permuted_weights_idx + 2).toScalar().toInt();
-  params->router.experts_max =
-      stack.at(cfg.permuted_weights_idx + 3).toScalar().toInt();
+  params->router.experts_min = static_cast<unsigned int>(
+      stack.at(cfg.permuted_weights_idx + 2).toScalar().toInt());
+  params->router.experts_max = static_cast<unsigned int>(
+      stack.at(cfg.permuted_weights_idx + 3).toScalar().toInt());
   params->flags = permuted_weights ? MoeFlags_t::MOE_FLAGS_PERMUTED_WEIGHTS : 0;
   params->flags |= (cfg.fused_gemm ? MoeFlags_t::MOE_FLAGS_FUSED_GEMM : 0);
   params->flags |= (cfg.measurement_mode ? MoeFlags_t::MOE_FLAGS_CALC_AMAX : 0);
@@ -761,7 +758,8 @@ FillParamsT FillMixtureOfExpertsParams(
       (cfg.dynamic_scale ? MoeFlags_t::MOE_FLAGS_DYNAMIC_SCALE : 0);
   if (cfg.blockwise_quantization) {
     params->flags |= MoeFlags_t::MOE_FLAGS_BLOCKWISE_WEIGHT_QUANTIZATION;
-    params->block_size = stack.at(cfg.permuted_weights_idx - 1).toInt();
+    params->block_size = static_cast<unsigned int>(
+        stack.at(cfg.permuted_weights_idx - 1).toInt());
   }
 
   params->flags |=
@@ -872,7 +870,7 @@ using namespace std::literals;
 void MixtureOfExperts::AddNode(sh::graph& graph, const at::Stack& stack) {
   const bool fused_weights = !stack.at(5).isTensorList();
   auto num_experts = stack.at(3).toTensorList().size();
-  auto weights_per_expert = fused_weights ? 2 : 3;
+  size_t weights_per_expert = fused_weights ? 2 : 3;
   size_t permuted_weights_idx = fused_weights ? 5 : 6;
   const size_t stack_size = stack.size();
   const bool measurement_mode = GetSynOutputs().size() == 2;
@@ -943,7 +941,7 @@ void HandleScaleScalar(
 
 void MixtureOfExpertsFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
   const bool fused_weights = stack.size() == 15;
-  const auto weights_and_scales_per_expert = fused_weights ? 5 : 7;
+  const size_t weights_and_scales_per_expert = fused_weights ? 5 : 7;
   const size_t permuted_weights_idx = fused_weights ? 9 : 11;
   const at::ScalarType hidden_states_dtype =
       stack.at(0).toTensor().scalar_type();
@@ -988,7 +986,7 @@ void MixtureOfExpertsFp8Scalars::AddNode(
   auto hidden_states = stack.at(0).toTensor();
   const bool fused_weights = !stack.at(5).isTensorList();
   auto num_experts = stack.at(3).toTensorList().size();
-  auto weights_per_expert = fused_weights ? 2 : 3;
+  size_t weights_per_expert = fused_weights ? 2 : 3;
   size_t permuted_weights_idx = fused_weights ? 9 : 11;
   const size_t stack_size = stack.size();
 
@@ -1043,7 +1041,7 @@ void MixtureOfExpertsFp8Dynamic::AddNode(
     sh::graph& graph,
     const at::Stack& stack) {
   const bool fused_weights = stack.size() == 14;
-  const auto weights_and_scales_per_expert = fused_weights ? 4 : 6;
+  const size_t weights_and_scales_per_expert = fused_weights ? 4 : 6;
   const size_t permuted_weights_idx = fused_weights ? 8 : 10;
   auto hidden_states = stack.at(0).toTensor();
   auto numExperts = stack.at(3).toTensorList().size();
@@ -1087,7 +1085,7 @@ void MixtureOfExpertsFp8ScalarsDynamic::AddNode(
   auto hidden_states = stack.at(0).toTensor();
   const bool fused_weights = !stack.at(5).isTensorList();
   auto num_experts = stack.at(3).toTensorList().size();
-  auto weights_per_expert = fused_weights ? 2 : 3;
+  size_t weights_per_expert = fused_weights ? 2 : 3;
   size_t permuted_weights_idx = fused_weights ? 8 : 10;
   const size_t stack_size = stack.size();
 
@@ -1141,7 +1139,8 @@ void MixtureOfExpertsFp8BlockwiseQuantization::AddNode(
   auto hidden_states = stack.at(0).toTensor();
   auto num_experts = stack.at(3).toTensorList().size();
   const bool fused_weights = stack.size() == 14;
-  auto weights_and_scales_per_expert = (fused_weights ? 2 : 3) * 2;
+  auto weights_and_scales_per_expert =
+      static_cast<size_t>(fused_weights ? 2 : 3) * 2;
   size_t permuted_weights_idx = fused_weights ? 8 : 10;
   const size_t stack_size = stack.size();
 

@@ -13,7 +13,6 @@
  * limitations under the License.
  */
 
-#include "habana_helpers/logging.h"
 #include "hpu_ops/hpu_op_helper.h"
 #include "hpu_ops/instance_norm_backward.h"
 
@@ -99,7 +98,7 @@ void InstanceNormBackward::AddNode(
   // Note: TPC kernel doesnt support running mean and variance computation. we
   // just pass random momentum value as a place holder
   struct ns_InstanceNormTrainingKernel::Params params{
-      0.9, static_cast<float>(1e-5)};
+      0.9F, static_cast<float>(1e-5)};
   auto InstanceNormBackward = BuildOp(
       graph,
       guid_,

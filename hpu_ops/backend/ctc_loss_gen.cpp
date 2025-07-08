@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 
+#include <limits>
 #include "generated/backend/_ctc_loss.h"
 
 namespace habana {
@@ -104,7 +105,11 @@ void CtcLoss::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   }
 
   ns_CTCLoss::Params params;
-  params.blankIndex = blank_index;
+  HABANA_ASSERT(
+      blank_index >= std::numeric_limits<int>::min() &&
+          blank_index <= std::numeric_limits<int>::max(),
+      "Blank index must be in the range of int.");
+  params.blankIndex = static_cast<int>(blank_index);
   params.reductionMode = reduction_mode;
   params.zeroInfinity = zero_infinity;
 

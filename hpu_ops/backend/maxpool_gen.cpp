@@ -13,6 +13,8 @@
  * limitations under the License.
  */
 
+#include <cstdint>
+#include "backend/habana_operator.h"
 #include "backend/helpers/create_tensor.h"
 #include "backend/helpers/tensor_utils.h"
 #include "generated/backend/max_pool2d_with_indices.h"
@@ -21,6 +23,7 @@
 #include "generated/backend/max_pool3d_with_indices_backward.h"
 #include "hpu_ops/backend/pool_helpers.h"
 #include "hpu_ops/shared_meta_common.h"
+#include "pytorch_helpers/habana_helpers/logging.h"
 
 namespace habana {
 
@@ -29,19 +32,16 @@ enum MaxpoolVariant {
   MAXPOOL3D = 3,
 };
 
-static int OutputShapeComputation(
-    int input_shape,
-    int kernel,
-    int stride,
-    int padding,
-    int dilation,
+static int64_t OutputShapeComputation(
+    int64_t input_shape,
+    int64_t kernel,
+    int64_t stride,
+    int64_t padding,
+    int64_t dilation,
     bool ceilMode) {
-  auto output = static_cast<float>(
-                    input_shape + 2 * padding - dilation * (kernel - 1) - 1) /
-          stride +
-      1;
-  return ceilMode ? static_cast<int>(std::ceil(output))
-                  : static_cast<int>(std::floor(output));
+  auto output =
+      std::div(input_shape + 2 * padding - dilation * (kernel - 1) - 1, stride);
+  return ceilMode && output.rem ? output.quot + 2 : output.quot + 1;
 }
 
 OutputMetaDataVector MaxPool2DMeta(const at::Stack& stack) {
@@ -79,10 +79,10 @@ OutputMetaDataVector MaxPool2DMeta(const at::Stack& stack) {
   std::vector<int64_t> input_shape = self.sizes().vec();
   std::vector<int64_t> output_shape = self.sizes().vec();
 
-  int n = kernel.size();
+  auto n = kernel.size();
   // updating the width & height dimension
-  int output_shape_index = output_shape.size() - n;
-  for (int i = 0; i < n; i++) {
+  auto output_shape_index = output_shape.size() - n;
+  for (size_t i = 0; i < n; i++) {
     output_shape.at(output_shape_index) = OutputShapeComputation(
         input_shape.at(output_shape_index),
         kernel[i],
@@ -96,10 +96,11 @@ OutputMetaDataVector MaxPool2DMeta(const at::Stack& stack) {
   // ensure that the last pooling starts inside the image
   // needed to avoid problems in ceil mode
   if (ceil_mode) {
-    for (int i = 0; i < n; i++) {
-      if ((output_shape.rbegin()[i] - 1) * stride[n - i - 1] >=
-          input_shape.rbegin()[i] + padding[n - i - 1])
-        --output_shape.rbegin()[i];
+    for (size_t i = 0; i < n; i++) {
+      const auto i_d = static_cast<int64_t>(i);
+      if ((output_shape.rbegin()[i_d] - 1) * stride[n - i - 1] >=
+          input_shape.rbegin()[i_d] + padding[n - i - 1])
+        --output_shape.rbegin()[i_d];
     }
   }
 
@@ -175,10 +176,10 @@ sizes_vec MaxPool3DIndicesOutputShape(const at::Stack& stack) {
   std::vector<int64_t> input_shape = self.sizes().vec();
   std::vector<int64_t> output_shape = self.sizes().vec();
 
-  int n = kernel.size();
-  int output_shape_index = output_shape.size() - n;
+  auto n = kernel.size();
+  auto output_shape_index = output_shape.size() - n;
   // updating the width, height, & depth dimension
-  for (int i = 0; i < n; i++) {
+  for (size_t i = 0; i < n; i++) {
     output_shape.at(output_shape_index) = OutputShapeComputation(
         input_shape.at(output_shape_index),
         kernel[i],
@@ -192,8 +193,8 @@ sizes_vec MaxPool3DIndicesOutputShape(const at::Stack& stack) {
   // ensure that the last pooling starts inside the image
   // needed to avoid problems in ceil mode
   if (ceil_mode) {
-    int index_ceil_mode = output_shape.size() - n;
-    for (int i = 0; i < n; i++) {
+    auto index_ceil_mode = output_shape.size() - n;
+    for (size_t i = 0; i < n; i++) {
       if ((output_shape.at(index_ceil_mode) - 1) * stride[i] >=
           input_shape.at(index_ceil_mode) + padding[i])
         --output_shape.at(index_ceil_mode);
@@ -249,21 +250,25 @@ static FillParamsT FillSpatialReduction3DParams(
     std::vector<int64_t>& dilation,
     bool ceil_mode) {
   PARAMS_STUB(ns_SpatialReduction3D::Params);
-  params->pad_w_begin = padding[2];
-  params->pad_w_end = padding[2];
-  params->pad_h_begin = padding[1];
-  params->pad_h_end = padding[1];
-  params->pad_d_begin = padding[0];
-  params->pad_d_end = padding[0];
-  params->kernel_w = kernel[2];
-  params->kernel_h = kernel[1];
-  params->kernel_d = kernel[0];
-  params->stride_w = stride[2];
-  params->stride_h = stride[1];
-  params->stride_d = stride[0];
-  params->dilation_w = dilation[2];
-  params->dilation_h = dilation[1];
-  params->dilation_d = dilation[0];
+  check_range<int>(0, 2, padding);
+  params->pad_w_begin = static_cast<int>(padding[2]);
+  params->pad_w_end = static_cast<int>(padding[2]);
+  params->pad_h_begin = static_cast<int>(padding[1]);
+  params->pad_h_end = static_cast<int>(padding[1]);
+  params->pad_d_begin = static_cast<int>(padding[0]);
+  params->pad_d_end = static_cast<int>(padding[0]);
+  check_range<int>(0, 2, kernel);
+  params->kernel_w = static_cast<int>(kernel[2]);
+  params->kernel_h = static_cast<int>(kernel[1]);
+  params->kernel_d = static_cast<int>(kernel[0]);
+  check_range<int>(0, 2, stride);
+  params->stride_w = static_cast<int>(stride[2]);
+  params->stride_h = static_cast<int>(stride[1]);
+  params->stride_d = static_cast<int>(stride[0]);
+  check_range<int>(0, 2, dilation);
+  params->dilation_w = static_cast<int>(dilation[2]);
+  params->dilation_h = static_cast<int>(dilation[1]);
+  params->dilation_d = static_cast<int>(dilation[0]);
   if (ceil_mode)
     params->pooling_convention =
         EPoolingConvention::POOLING_CONVENTION_FULL_PYTORCH;
@@ -311,16 +316,20 @@ static FillParamsT FillSpatialReduction2DParams(
     std::vector<int64_t>& dilation,
     bool ceil_mode) {
   PARAMS_STUB(ns_SpatialReduction::Params);
-  params->pad_w_begin = padding[1];
-  params->pad_w_end = padding[1];
-  params->pad_h_begin = padding[0];
-  params->pad_h_end = padding[0];
-  params->kernel_w = kernel[1];
-  params->kernel_h = kernel[0];
-  params->stride_w = stride[1];
-  params->stride_h = stride[0];
-  params->dilation_w = dilation[1];
-  params->dilation_h = dilation[0];
+  check_range<int>(0, 1, padding);
+  params->pad_w_begin = static_cast<int>(padding[1]);
+  params->pad_w_end = static_cast<int>(padding[1]);
+  params->pad_h_begin = static_cast<int>(padding[0]);
+  params->pad_h_end = static_cast<int>(padding[0]);
+  check_range<int>(0, 1, kernel);
+  params->kernel_w = static_cast<int>(kernel[1]);
+  params->kernel_h = static_cast<int>(kernel[0]);
+  check_range<int>(0, 1, stride);
+  params->stride_w = static_cast<int>(stride[1]);
+  params->stride_h = static_cast<int>(stride[0]);
+  check_range<int>(0, 1, dilation);
+  params->dilation_w = static_cast<int>(dilation[1]);
+  params->dilation_h = static_cast<int>(dilation[0]);
   if (ceil_mode)
     params->pooling_convention =
         EPoolingConvention::POOLING_CONVENTION_FULL_PYTORCH;
@@ -498,7 +507,7 @@ void MaxPool2DWithIndicesBwd::AddNode(
         {synapse_helpers::layouts::SynapseLayoutFormat::WHN});
   }
 
-  auto maxpool2d_gradout = BuildOp(
+  auto maxpool2d_grad_out = BuildOp(
       graph,
       GetGuid(),
       {syn_in(0), syn_in(1), syn_in(2)},
@@ -506,6 +515,6 @@ void MaxPool2DWithIndicesBwd::AddNode(
       params.ptr(),
       params.size());
 
-  syn_out(0) = std::move(maxpool2d_gradout.at(0));
+  syn_out(0) = std::move(maxpool2d_grad_out.at(0));
 }
 } // namespace habana

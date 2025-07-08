@@ -17,7 +17,8 @@
 namespace habana {
 
 static std::vector<int64_t> get_dims_from_stack(const at::Stack& stack) {
-  auto tensor_rank = stack_tensor(stack, 0).sizes().size();
+  auto tensor_rank =
+      static_cast<int64_t>(stack_tensor(stack, 0).sizes().size());
 
   std::vector<int64_t> dims;
   if (stack[1].isIntList()) {
@@ -42,7 +43,7 @@ FillParamsT FillCountNonzeroParams(const at::Stack& stack) {
   if (dims.empty()) {
     params->dims = (1 << stack_tensor(stack, 0).sizes().size()) - 1;
   } else {
-    for (int dim : dims) {
+    for (auto dim : dims) {
       params->dims |= (1 << dim);
     }
   }

@@ -12,6 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <cstddef>
 #include "generated/backend/linear.h"
 #include "hpu_ops/hpu_op_helper.h"
 #include "hpu_ops/linear.h"
@@ -25,18 +26,19 @@ OutputMetaDataVector LinearMeta(const at::Stack& stack) {
   OutputMetaData meta;
   meta.dtype = input.scalar_type();
   meta.shape = input.sizes().vec();
-  meta.shape[input.dim() - 1] = weight.sizes().vec()[0];
+  meta.shape[static_cast<size_t>(input.dim() - 1)] = weight.sizes().vec()[0];
   // Condition check to detect input with incompatible shapes
   // Number of dimensions in matrix 1 can vary
-  int mat1_dim0 = 1, dim_i = 0;
+  long mat1_dim0 = 1, dim_i = 0;
   for (; dim_i < input.dim() - 1; ++dim_i)
-    mat1_dim0 *= input.sizes().vec()[dim_i];
+    mat1_dim0 *= input.sizes().vec()[static_cast<size_t>(dim_i)];
   HABANA_ASSERT(
-      input.sizes().vec()[input.dim() - 1] == weight.sizes().vec()[1],
+      input.sizes().vec()[static_cast<size_t>(input.dim() - 1)] ==
+          weight.sizes().vec()[1],
       "matrix 1 and matrix 2 shapes cannot be multiplied (",
       mat1_dim0,
       "x",
-      input.sizes().vec()[input.dim() - 1],
+      input.sizes().vec()[static_cast<size_t>(input.dim() - 1)],
       " and ",
       weight.sizes().vec()[1],
       "x",

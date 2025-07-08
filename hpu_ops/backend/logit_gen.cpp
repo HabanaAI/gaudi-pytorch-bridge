@@ -15,13 +15,13 @@
 #include "generated/backend/logit.h"
 
 namespace habana {
-FillParamsT FillLogitParams(const at::Stack& stack, int64_t index) {
+FillParamsT FillLogitParams(const at::Stack& stack, const size_t index) {
   // check if eps=None
   if (stack.at(index).isNone())
     return {};
 
   PARAMS_STUB(ns_LogitKernel::Params);
-  params->epsilon = stack.at(index).toDouble();
+  params->epsilon = static_cast<float>(stack.at(index).toDouble());
 
   return paramsT;
 }
