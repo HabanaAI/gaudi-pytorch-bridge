@@ -33,6 +33,7 @@ set(CMAKE_CXX_STANDARD 17)
 
 option(SANITIZER "build sanitizer configuration" OFF)
 cmake_dependent_option(THREAD_SANITIZER "build thread sanitizer configuration" OFF "NOT SANITIZER" OFF)
+option(MANYLINUX "build for manylinux configuration, synapse shim will be used" ON)
 option(UPSTREAM_COMPILE "build for pytorch-fork upstream branch" OFF)
 
 if(NOT DEFINED ENV{_FORTIFY_SOURCE})
@@ -41,6 +42,14 @@ endif()
 
 if(NOT DEFINED ENV{_GLIBCXX_ASSERTIONS})
   set(ENV{_GLIBCXX_ASSERTIONS} 1)
+endif()
+
+if(MANYLINUX)
+  message(STATUS "Building with shim layer")
+  set(PYTORCH_SYNAPSE_UTILS_LIB pytorch_synapse_utils_shim)
+else()
+  message(STATUS "Building without shim layer")
+  set(PYTORCH_SYNAPSE_UTILS_LIB SynapseUtils)
 endif()
 
 if(UPSTREAM_COMPILE)

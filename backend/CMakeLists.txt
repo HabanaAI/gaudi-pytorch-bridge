@@ -100,7 +100,7 @@ target_link_libraries(
           nlohmann_json::nlohmann_json
           absl::strings
           absl::str_format
-          pytorch_synapse_utils_shim
+          ${PYTORCH_SYNAPSE_UTILS_LIB}
           -lstdc++fs
           npu::hllogger)
 
@@ -119,7 +119,11 @@ set_target_properties(
              CXX_STANDARD_REQUIRED ON
              CXX_EXTENSIONS OFF)
 
-target_link_libraries(habana_pytorch_backend PUBLIC pytorch_synapse_shim)
+if(MANYLINUX)
+  target_link_libraries(habana_pytorch_backend PUBLIC pytorch_synapse_shim)
+else()
+  target_link_libraries(habana_pytorch_backend PUBLIC Synapse)
+endif()
 
 separate_debug_symbols(habana_pytorch_backend)
 install(TARGETS habana_pytorch_backend LIBRARY DESTINATION habana_torch_plugin/lib)

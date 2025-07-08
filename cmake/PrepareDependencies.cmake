@@ -53,16 +53,7 @@ FetchContent_Declare(
   GIT_SHALLOW TRUE
   SOURCE_DIR ${FETCHCONTENT_BASE_DIR}/magic_enum-0.9.7 SYSTEM EXCLUDE_FROM_ALL)
 
-FetchContent_Declare(
-  devscripts
-  URL https://snapshot.debian.org/archive/debian/20250412T205410Z/pool/main/d/devscripts/devscripts_2.25.9.tar.xz
-      SYSTEM EXCLUDE_FROM_ALL)
-
-add_executable(hardening-check IMPORTED)
-
-FetchContent_MakeAvailable(devscripts exprtk xxhash fmt nlohmann_json magic_enum)
-
-set_target_properties(hardening-check PROPERTIES IMPORTED_LOCATION ${devscripts_SOURCE_DIR}/scripts/hardening-check.pl)
+FetchContent_MakeAvailable(exprtk xxhash fmt nlohmann_json magic_enum)
 
 add_library(hllogger SHARED IMPORTED)
 set_target_properties(hllogger PROPERTIES IMPORTED_LOCATION "$ENV{BUILD_ROOT_LATEST}/libhl_logger.so")
@@ -70,8 +61,15 @@ target_link_libraries(hllogger INTERFACE magic_enum::magic_enum fmt::fmt-header-
 target_include_directories(hllogger INTERFACE "$ENV{SWTOOLS_SDK_ROOT}/hl_logger/include" "${FETCHCONTENT_BASE_DIR}")
 add_library(npu::hllogger ALIAS hllogger)
 
-add_library(Synapse INTERFACE IMPORTED)
-add_library(SynapseUtils INTERFACE IMPORTED)
+if(MANYLINUX)
+  add_library(Synapse INTERFACE IMPORTED)
+  add_library(SynapseUtils INTERFACE IMPORTED)
+else()
+  add_library(Synapse SHARED IMPORTED)
+  set_target_properties(Synapse PROPERTIES IMPORTED_LOCATION "$ENV{BUILD_ROOT_LATEST}/libSynapse.so")
+  add_library(SynapseUtils SHARED IMPORTED)
+  set_target_properties(SynapseUtils PROPERTIES IMPORTED_LOCATION "$ENV{BUILD_ROOT_LATEST}/libsynapse_utils.so")
+endif()
 
 add_library(hcl INTERFACE IMPORTED)
 set_target_properties(hcl PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "$ENV{HCL_INCLUDE_DIR}")

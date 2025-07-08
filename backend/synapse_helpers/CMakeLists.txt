@@ -84,7 +84,11 @@ set_target_properties(
              CXX_EXTENSIONS OFF)
 target_compile_definitions(pytorch_synapse_helpers PUBLIC GENERIC_HELPERS)
 
-target_link_libraries(pytorch_synapse_helpers PUBLIC pytorch_synapse_shim)
+if(MANYLINUX)
+  target_link_libraries(pytorch_synapse_helpers PUBLIC pytorch_synapse_shim)
+else()
+  target_link_libraries(pytorch_synapse_helpers PUBLIC Synapse)
+endif()
 
 separate_debug_symbols(pytorch_synapse_helpers)
 export(
