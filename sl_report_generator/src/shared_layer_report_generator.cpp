@@ -24,6 +24,7 @@ void SharedLayerReportGenerator::register_exceptions() {
   register_abs__exception();
   register_bmm_exception();
   register_bmm_out_exception();
+  register_cast_to_fp8_just_in_time_exception();
   register_channel_shuffle_exception();
   register_clamp_exception();
   register_ctc_loss_custom_exception();
@@ -123,6 +124,24 @@ void SharedLayerReportGenerator::register_bmm_out_exception() {
 
   register_op(
       {/* op_name */ "bmm", /* overload */ "out", /* op_namespace */ "torch"},
+      custom_executors.back().get());
+}
+
+void SharedLayerReportGenerator::register_cast_to_fp8_just_in_time_exception() {
+  custom_stack_generators.push_back(std::make_unique<SchemaStackGenerator>(
+      /* schema */
+      "Tensor input, int[2] block_shape, ScalarType? out_dtype=None, ScalarType? scale_dtype=None",
+      /* op_name */ "cast_to_fp8_just_in_time",
+      /* op_name_and_overload_name */ "",
+      /* ranks*/ std::vector<int64_t>{2}));
+  custom_executors.push_back(std::make_unique<GenericSharedLayerExecutor<>>(
+      custom_stack_generators.back().get(),
+      &habana::validator_cast_to_fp8_just_in_time));
+
+  register_op(
+      {/* op_name */ "cast_to_fp8_just_in_time",
+       /* overload */ "",
+       /* op_namespace */ "torch.hpu"},
       custom_executors.back().get());
 }
 

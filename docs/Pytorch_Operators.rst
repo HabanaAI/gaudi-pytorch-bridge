@@ -869,7 +869,7 @@ relu\_                                   Yes      Yes      Yes     No        No 
 remainder                                Yes      Yes      Yes     No        Yes      Yes       Yes       Yes      Yes    torch.Tensor
 remainder\_                              Yes      Yes      Yes     No        Yes      Yes       Yes       Yes      Yes    torch.Tensor
 repeat                                   Yes      Yes      Yes     Yes       Yes      Yes       No        Yes      Yes    torch.Tensor
-repeat_interleave                        Yes      Yes      Yes     No        Yes      Yes       No        Yes      Yes    torch.Tensor
+repeat_interleave                        No       No       No      No        Yes      Yes       No        No       No     torch.Tensor
 reshape                                  Yes      Yes      Yes     Yes       Yes      Yes       Yes       Yes      Yes    torch.Tensor
 resize\_                                 Yes      Yes      Yes     Yes       Yes      Yes       Yes       Yes      Yes    torch.Tensor
 resolve_conj                             Yes      Yes      No      No        No       No        No        No       No     torch.Tensor

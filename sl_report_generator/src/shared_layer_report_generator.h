@@ -61,6 +61,7 @@ class SharedLayerReportGenerator : public ISharedLayerReportGenerator {
   void register_abs__exception();
   void register_bmm_exception();
   void register_bmm_out_exception();
+  void register_cast_to_fp8_just_in_time_exception();
   void register_channel_shuffle_exception();
   void register_clamp_exception();
   void register_ctc_loss_custom_exception();

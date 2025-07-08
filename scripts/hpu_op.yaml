@@ -8407,6 +8407,7 @@ cast_to_fp8_just_in_time:
   custom_fill_params: CastToFp8JustInTimeParams
   op_validator: check-node-with-shared-layer
   namespaces: [torch.hpu]
+  skip_slrg: true # TORCH_CHECK inside output_meta
 
 cast_to_fp8_hybrid:
   custom_op_schema: "hpu::cast_to_fp8_hybrid(Tensor input, Tensor? scale_152=None, Tensor? scale_143=None, bool stochastic_rounding=False, bool is_amax=False) -> (Tensor, Tensor, Tensor)"

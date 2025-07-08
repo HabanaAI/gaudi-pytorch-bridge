@@ -18,6 +18,7 @@
 #include "generated/lazy/_upsample_bilinear2d_aa.h"
 #include "generated/lazy/abs.h"
 #include "generated/lazy/bmm.h"
+#include "generated/lazy/cast_to_fp8_just_in_time.h"
 #include "generated/lazy/channel_shuffle.h"
 #include "generated/lazy/clamp.h"
 #include "generated/lazy/ctc_loss_custom.h"
