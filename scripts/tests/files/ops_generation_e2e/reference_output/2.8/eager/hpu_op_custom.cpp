@@ -11,8 +11,8 @@
 #include "softmax_fp8.h"
 
 
-using habana_helpers::DTypeHelper;
-using synapse_helpers::graph;
+using habana_helpers::DTypeHelper; // NOLINT(misc-unused-using-decls)
+using synapse_helpers::graph; // NOLINT(misc-unused-using-decls)
 using torch::jit::Stack;
 
 
@@ -69,9 +69,9 @@ static const auto& kr_gen__custom = KernelRegistry()
 ;
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {
-  m.impl("softmax_fp8", static_cast<at::Tensor (*)(const at::Tensor &, int64_t, const ::std::optional<at::Tensor> &, const ::std::optional<at::Tensor> &, const ::std::optional<at::Tensor> &, const ::std::optional<at::Tensor> &)>(&habana::softmax_fp8));
-  m.impl("exp_fast_math", static_cast<at::Tensor (*)(const at::Tensor &)>(&habana::exp_fast_math));
-  m.impl("cast_to_fp8_v2", static_cast<::std::tuple<at::Tensor,at::Tensor> (*)(const at::Tensor &, const ::std::optional<at::Tensor> &, bool, bool, at::ScalarType, at::OptionalIntArrayRef)>(&habana::cast_to_fp8_v2));
+  m.impl("softmax_fp8", habana::softmax_fp8);
+  m.impl("exp_fast_math", habana::exp_fast_math);
+  m.impl("cast_to_fp8_v2", habana::cast_to_fp8_v2);
 
 }
 

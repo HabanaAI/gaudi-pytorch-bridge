@@ -9,7 +9,7 @@
 namespace habana {
 
 
-at::Tensor & prod_out(const at::Tensor & self, int64_t dim, bool keepdim, ::std::optional<at::ScalarType> dtype, at::Tensor & out);
+at::Tensor & prod_int_out(const at::Tensor & self, int64_t dim, bool keepdim, ::std::optional<at::ScalarType> dtype, at::Tensor & out);
 
 }  // namespace habana
 

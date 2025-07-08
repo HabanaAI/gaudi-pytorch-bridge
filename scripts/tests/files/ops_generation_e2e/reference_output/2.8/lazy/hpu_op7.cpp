@@ -8,20 +8,39 @@
 #include "habana_kernels/lazy_kernels.h"
 #include "habana_lazy/hpu_stage_submission.h"
 using habana_lazy::LazyOp;
-using habana_lazy::GraphHashBuilder;
 
-#include "bitwise_left_shift.h"
+#include "eq.h"
 #include "isfinite.h"
 
 
-using habana_helpers::DTypeHelper;
-using synapse_helpers::graph;
+using habana_helpers::DTypeHelper; // NOLINT(misc-unused-using-decls)
+using synapse_helpers::graph; // NOLINT(misc-unused-using-decls)
 using torch::jit::Stack;
 
 
 namespace habana {
 
+CheckNodeWithSharedLayerValidator validator_eq_Tensor_out("eq.Tensor_out", "equal_fwd", {-1}, {}, CompareMeta, {0, 1}, false, false, false, true);
 
+
+at::Tensor & eq_Tensor_out(const at::Tensor & self, const at::Tensor & other, at::Tensor & out) {
+  PT_LAZY_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO("eq_out: ", DUMP_3ARGS(self, other, out));
+
+  [[maybe_unused]] bool require_h2d = false;
+  [[maybe_unused]] bool require_st = false;
+
+  auto compute_type = DTypeHelper::get_compute_dtype({self, other}, out, DTypeHelper::DtypePromoteVariant::kPromoteToCommon, false/*safe_cast*/);
+  static_cast<void>(compute_type);
+
+  VAL_FALLBACK_IF_UNSUPPORTED_DTYPE2(eq, Tensor_out, false, self, other, out)
+
+  LazyOp<at::Tensor &> hpu_op{"aten::eq", {self, other, out}};
+  hpu_op.set_scalar_types({compute_type});
+  hpu_op.SetOutputMetaFn(CompareMeta);
+  RUN_INPLACE_MAYBE_WITH_ACC_THREAD(eq_out, hpu_op, out);
+}
 
 at::Tensor isfinite(const at::Tensor & self) {
   PT_LAZY_OP_TRACE;
@@ -38,21 +57,6 @@ at::Tensor isfinite(const at::Tensor & self) {
   RUN_MAYBE_WITH_ACC_THREAD(isfinite, hpu_op);
 }
 
-at::Tensor bitwise_left_shift(const at::Tensor & self, const at::Scalar & other) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO("bitwise_left_shift: ", DUMP_2ARGS(self, other));
-
-  [[maybe_unused]] bool require_h2d = false;
-  [[maybe_unused]] bool require_st = false;
-
-  HPU_SUPPORTED_DTYPES(({at::kInt, at::kChar, at::kByte, at::kShort, at::kBool}))
-  FALLBACK_IF_UNSUPPORTED_DTYPE2(self, bitwise_left_shift, Tensor_Scalar, self, other)
-
-  LazyOp<at::Tensor> hpu_op{"aten::bitwise_left_shift", {self, other}};
-  RUN_MAYBE_WITH_ACC_THREAD(bitwise_left_shift, hpu_op);
-}
-
 
 
 
@@ -61,8 +65,8 @@ static const auto& kr_gen_7 = KernelRegistry()
 ;
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {
-  m.impl("isfinite", static_cast<at::Tensor (*)(const at::Tensor &)>(&habana::isfinite));
-  m.impl("bitwise_left_shift.Tensor_Scalar", static_cast<at::Tensor (*)(const at::Tensor &, const at::Scalar &)>(&habana::bitwise_left_shift));
+  m.impl("eq.Tensor_out", habana::eq_Tensor_out);
+  m.impl("isfinite", habana::isfinite);
 
 }
 

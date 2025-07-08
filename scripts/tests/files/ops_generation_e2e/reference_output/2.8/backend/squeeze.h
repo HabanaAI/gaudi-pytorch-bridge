@@ -10,7 +10,7 @@ namespace habana {
 HPU_OP_BACKEND(SqueezeDims)
 
 
-at::Tensor squeeze(const at::Tensor & self, at::IntArrayRef dim);
+at::Tensor squeeze_dims(const at::Tensor & self, at::IntArrayRef dim);
 OUTMETA_DECL(SqueezeDimsMeta);
 
 }  // namespace habana

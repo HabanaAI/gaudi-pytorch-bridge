@@ -3,8 +3,8 @@
 
 namespace habana {
 TORCH_LIBRARY_IMPL(aten, AutogradHPU, m) {
-  m.impl("matmul", static_cast<at::Tensor (*)(const at::Tensor &, const at::Tensor &)>(&hpu_wrap::matmul));
-  m.impl("dropout", static_cast<at::Tensor (*)(const at::Tensor &, double, bool)>(&hpu_wrap::dropout));
+  m.impl("matmul", hpu_wrap::matmul);
+  m.impl("dropout", hpu_wrap::dropout);
 
 }
 

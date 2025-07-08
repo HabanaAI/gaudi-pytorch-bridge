@@ -10,8 +10,10 @@ namespace habana {
 
 
 struct CheckNodeWithSharedLayerValidator;
-at::Tensor exp_fast_math(const at::Tensor & self);
-extern CheckNodeWithSharedLayerValidator validator_exp_fast_math;
+at::Tensor ind2ptr(at::Tensor ind, int64_t M);
+OUTMETA_DECL(Ind2ptrMeta);
+extern CheckNodeWithSharedLayerValidator validator_ind2ptr;
+FILL_PARAMS_DECL(FillInd2ptrParams);
 
 }  // namespace habana
 

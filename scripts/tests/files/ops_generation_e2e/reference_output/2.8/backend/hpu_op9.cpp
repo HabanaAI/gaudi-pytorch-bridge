@@ -2,13 +2,15 @@
 
 #include "hpu_ops/op_validator.h"
 #include "_deform_conv2d_backward.h"
+#include "convolution_backward_overrideable.h"
+#include "ind2ptr.h"
 #include "linear_backward.h"
 #include "native_group_norm.h"
 #include "quantize_per_channel.h"
 
 
-using habana_helpers::DTypeHelper;
-using synapse_helpers::graph;
+using habana_helpers::DTypeHelper; // NOLINT(misc-unused-using-decls)
+using synapse_helpers::graph; // NOLINT(misc-unused-using-decls)
 using torch::jit::Stack;
 
 
@@ -17,6 +19,13 @@ namespace habana {
 
 
 
+
+struct Genconvolution_backward_overrideable : ConvolutionBackwardOverrideable {
+  Genconvolution_backward_overrideable(int device_id, c10::ScalarType scalar_type) :
+      ConvolutionBackwardOverrideable(device_id, "None", scalar_type, {0, 0, 0}, {}, {}, false) {
+        SetOutputMetaFn(ConvolutionOverrideableMetaBwd);
+  }
+};
 
 struct Gennative_group_norm : OpBackend {
   Gennative_group_norm(int device_id, c10::ScalarType scalar_type) :
@@ -50,13 +59,23 @@ struct Gen_deform_conv2d_backward : DeformConv2dBackward {
   }
 };
 
+struct Genind2ptr : OpBackend {
+  Genind2ptr(int device_id, c10::ScalarType scalar_type) :
+      OpBackend(device_id, "ind2ptr", scalar_type, {0}, {}, {}, false) {
+        SetOutputMetaFn(Ind2ptrMeta);
+        SetFillParams(FillInd2ptrParams);
+  }
+};
+
 
 
 static const auto& kr_gen_9 = KernelRegistry()
+.REGISTER_HPU_BACKEND("aten::convolution_backward_overrideable", Genconvolution_backward_overrideable)
 .REGISTER_HPU_BACKEND("aten::native_group_norm", Gennative_group_norm)
 .REGISTER_HPU_BACKEND("aten::linear_backward", Genlinear_backward)
 .REGISTER_HPU_BACKEND("quantized_decomposed::quantize_per_channel", Genquantize_per_channel)
 .REGISTER_HPU_BACKEND("torchvision::_deform_conv2d_backward", Gen_deform_conv2d_backward)
+.REGISTER_HPU_BACKEND("torch_sparse::ind2ptr", Genind2ptr)
 ;
 
 

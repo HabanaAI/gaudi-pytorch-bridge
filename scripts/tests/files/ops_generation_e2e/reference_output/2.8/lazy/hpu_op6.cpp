@@ -8,22 +8,22 @@
 #include "habana_kernels/lazy_kernels.h"
 #include "habana_lazy/hpu_stage_submission.h"
 using habana_lazy::LazyOp;
-using habana_lazy::GraphHashBuilder;
 
 #include "eq.h"
 #include "squeeze.h"
 
 
-using habana_helpers::DTypeHelper;
-using synapse_helpers::graph;
+using habana_helpers::DTypeHelper; // NOLINT(misc-unused-using-decls)
+using synapse_helpers::graph; // NOLINT(misc-unused-using-decls)
 using torch::jit::Stack;
 
 
 namespace habana {
 
+CheckNodeWithSharedLayerValidator validator_eq_Scalar_out("eq.Scalar_out", "equal_fwd", {-1}, {1}, CompareMeta, {0, 1}, false, false, false, true);
 
 
-at::Tensor squeeze(const at::Tensor & self, at::IntArrayRef dim) {
+at::Tensor squeeze_dims(const at::Tensor & self, at::IntArrayRef dim) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO("squeeze: ", DUMP_2ARGS(self, dim));
@@ -37,7 +37,7 @@ at::Tensor squeeze(const at::Tensor & self, at::IntArrayRef dim) {
   return habana_lazy::squeeze_dims_hpu_lazy(self, dim);
 }
 
-at::Tensor & eq_out(const at::Tensor & self, const at::Scalar & other, at::Tensor & out) {
+at::Tensor & eq_Scalar_out(const at::Tensor & self, const at::Scalar & other, at::Tensor & out) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO("eq_out: ", DUMP_3ARGS(self, other, out));
@@ -48,8 +48,7 @@ at::Tensor & eq_out(const at::Tensor & self, const at::Scalar & other, at::Tenso
   auto compute_type = DTypeHelper::get_compute_dtype({self, other}, out, DTypeHelper::DtypePromoteVariant::kPromoteToCommon, false/*safe_cast*/);
   static_cast<void>(compute_type);
 
-  HPU_SUPPORTED_DTYPES(({at::kBFloat16, at::kFloat, at::kHalf, at::kInt, at::kChar, at::kByte, at::kLong, at::kShort, at::kDouble, at::kBool}))
-  FALLBACK_IF_UNSUPPORTED_DTYPE2(compute_type, eq, Scalar_out, self, other, out)
+  VAL_FALLBACK_IF_UNSUPPORTED_DTYPE2(eq, Scalar_out, false, self, other, out)
 
   LazyOp<at::Tensor &> hpu_op{"aten::eq", {self, other, out}};
   hpu_op.set_scalar_types({compute_type});
@@ -65,8 +64,8 @@ static const auto& kr_gen_6 = KernelRegistry()
 ;
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {
-  m.impl("squeeze.dims", static_cast<at::Tensor (*)(const at::Tensor &, at::IntArrayRef)>(&habana::squeeze));
-  m.impl("eq.Scalar_out", static_cast<at::Tensor & (*)(const at::Tensor &, const at::Scalar &, at::Tensor &)>(&habana::eq_out));
+  m.impl("squeeze.dims", habana::squeeze_dims);
+  m.impl("eq.Scalar_out", habana::eq_Scalar_out);
 
 }
 

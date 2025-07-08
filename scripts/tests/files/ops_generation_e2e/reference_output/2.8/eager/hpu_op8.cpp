@@ -9,16 +9,17 @@
 #include "eq.h"
 
 
-using habana_helpers::DTypeHelper;
-using synapse_helpers::graph;
+using habana_helpers::DTypeHelper; // NOLINT(misc-unused-using-decls)
+using synapse_helpers::graph; // NOLINT(misc-unused-using-decls)
 using torch::jit::Stack;
 
 
 namespace habana {
 
+static CheckNodeWithSharedLayerValidator validator_eq_Scalar_out("eq.Scalar_out", "equal_fwd", {-1}, {1}, CompareMeta, {0, 1}, false, false, false, true);
 
 
-at::Tensor & eq_out(const at::Tensor & self, const at::Scalar & other, at::Tensor & out) {
+at::Tensor & eq_Scalar_out(const at::Tensor & self, const at::Scalar & other, at::Tensor & out) {
   PT_EAGER_TRACE;
   PT_OP_INFO("eq_out: ", DUMP_3ARGS(self, other, out));
 
@@ -28,8 +29,7 @@ at::Tensor & eq_out(const at::Tensor & self, const at::Scalar & other, at::Tenso
   auto compute_type = DTypeHelper::get_compute_dtype({self, other}, out, DTypeHelper::DtypePromoteVariant::kPromoteToCommon, false/*safe_cast*/);
   static_cast<void>(compute_type);
 
-  HPU_SUPPORTED_DTYPES(({at::kBFloat16, at::kFloat, at::kHalf, at::kInt, at::kChar, at::kByte, at::kLong, at::kShort, at::kDouble, at::kBool}))
-  FALLBACK_IF_UNSUPPORTED_DTYPE2(compute_type, eq, Scalar_out, self, other, out)
+  VAL_FALLBACK_IF_UNSUPPORTED_DTYPE2(eq, Scalar_out, true, self, other, out)
 
   eager::EagerOp<at::Tensor &> hpu_op{"aten::eq", {self, other, out}};
   hpu_op.set_scalar_types({compute_type});
@@ -46,7 +46,7 @@ static const auto& kr_gen_8 = KernelRegistry()
 ;
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {
-  m.impl("eq.Scalar_out", static_cast<at::Tensor & (*)(const at::Tensor &, const at::Scalar &, at::Tensor &)>(&habana::eq_out));
+  m.impl("eq.Scalar_out", habana::eq_Scalar_out);
 
 }
 

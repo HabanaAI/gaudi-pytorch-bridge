@@ -17,5 +17,9 @@
 #include "generated/lazy/addbmm.h"
 #include "generated/lazy/bucketize.h"
 #include "generated/lazy/elu.h"
+#include "generated/lazy/eq.h"
+#include "generated/lazy/eq.h"
 #include "generated/lazy/_foreach_log10.h"
+#include "generated/lazy/exp_fast_math.h"
+#include "generated/lazy/ind2ptr.h"
 

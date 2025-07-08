@@ -2,14 +2,16 @@
 
 #pragma once
 #include <ATen/Tensor.h>
-#include <ATen/core/function_schema.h>
-#include "habana_kernels/lazy_kernels.h"
+
+#include "habana_eager/ops/eager_op.h"
 #include "hpu_ops/hpu_op_helper.h"
 
 namespace habana {
 
 
-void _foreach_add__Scalar(at::TensorList self, const at::Scalar & scalar);
+at::Tensor ind2ptr(at::Tensor ind, int64_t M);
+OUTMETA_DECL(Ind2ptrMeta);
+FILL_PARAMS_DECL(FillInd2ptrParams);
 
 }  // namespace habana
 

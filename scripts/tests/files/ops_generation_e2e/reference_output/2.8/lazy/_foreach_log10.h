@@ -9,7 +9,7 @@
 namespace habana {
 
 
-class CheckNodeWithSharedLayerValidator;
+struct CheckNodeWithSharedLayerValidator;
 SHARED_LAYER_META_DECL(UnaryForeachLog10SharedMeta);
 extern CheckNodeWithSharedLayerValidator validator__foreach_log10_;
 

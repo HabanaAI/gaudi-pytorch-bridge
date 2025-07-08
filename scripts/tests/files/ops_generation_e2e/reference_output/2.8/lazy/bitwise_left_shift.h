@@ -9,7 +9,7 @@
 namespace habana {
 
 
-at::Tensor bitwise_left_shift(const at::Tensor & self, const at::Scalar & other);
+at::Tensor bitwise_left_shift_Tensor_Scalar(const at::Tensor & self, const at::Scalar & other);
 FILL_PARAMS_DECL(FillLeftShiftParams);
 
 }  // namespace habana
