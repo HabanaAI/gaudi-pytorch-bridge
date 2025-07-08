@@ -186,7 +186,7 @@ void ProcessGroupEagerHCCL::shutdown(std::optional<std::string> reason) {
   PT_DISTRIBUTED_DEBUG(
       "Launching ProcessGroupEagerHCCL abort asynchrounously.");
 
-  std::future<bool> fut = std::async(
+  std::ignore = std::async(
       std::launch::async, [this, &reason]() { return this->abort(reason); });
 
   PT_DISTRIBUTED_DEBUG("ProcessGroupEagerHCCL aborts successfully.");

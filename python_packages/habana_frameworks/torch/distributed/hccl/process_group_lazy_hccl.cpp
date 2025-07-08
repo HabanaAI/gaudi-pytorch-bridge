@@ -351,7 +351,7 @@ void ProcessGroupLazyHCCL::shutdown(std::optional<std::string> reason) {
   // lauch abort asynchrounously and wait for it to complete or timeout
   PT_DISTRIBUTED_DEBUG("Launching ProcessGroupLazyHCCL abort asynchrounously.");
 
-  std::future<bool> fut = std::async(
+  std::ignore = std::async(
       std::launch::async, [this, &reason]() { return this->abort(reason); });
 
   PT_DISTRIBUTED_DEBUG("ProcessGroupLazyHCCL aborts successfully.");

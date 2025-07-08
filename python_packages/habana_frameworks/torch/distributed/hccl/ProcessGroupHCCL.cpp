@@ -197,7 +197,7 @@ void ProcessGroupHCCL::shutdown(std::optional<std::string> reason) {
   // lauch abort asynchrounously and wait for it to complete or timeout
   PT_DISTRIBUTED_DEBUG("Launching ProcessGroupHCCL abort asynchrounously.");
 
-  std::future<bool> fut = std::async(
+  std::ignore = std::async(
       std::launch::async, [this, &reason]() { return this->abort(reason); });
 
   PT_DISTRIBUTED_DEBUG("ProcessGroupHCCL aborts successfully.");
@@ -455,7 +455,6 @@ void ProcessGroupHCCL::groupStart() {
   initComms();
 
   auto pr = std::make_shared<std::promise<bool>>();
-  std::future<bool> fut = pr->get_future();
   auto func = [pr = pr]() mutable {
     hcclResult_t hccl_result = hcclSuccess;
     hccl_result = hcclGroupStart();
@@ -475,7 +474,6 @@ void ProcessGroupHCCL::groupStart() {
 void ProcessGroupHCCL::groupEnd() {
   auto pr = std::make_shared<std::promise<bool>>();
 
-  std::future<bool> fut = pr->get_future();
   auto func = [pr = pr]() mutable {
     hcclResult_t hccl_result = hcclSuccess;
     hccl_result = hcclGroupEnd();
