@@ -5933,7 +5933,7 @@ put:
 
 random_:
   custom_fill_params: FillRandomParams
-  guid: random_uniform_fwd
+  guid: random_uniform_pt_fwd
   inplace_ids: [0]
   op_frontend: GeneratorToSeed
   op_backend: RandomSeedTensorInputIntegers
@@ -5943,7 +5943,7 @@ random_:
 
 random_.from:
   custom_fill_params: FillRandomFromParams
-  guid: random_uniform_fwd
+  guid: random_uniform_pt_fwd
   inplace_ids: [0]
   op_frontend: GeneratorToSeed
   op_backend: RandomSeedTensorInputIntegers
@@ -5953,7 +5953,7 @@ random_.from:
 
 random_.to:
   custom_fill_params: FillRandomToParams
-  guid: random_uniform_fwd
+  guid: random_uniform_pt_fwd
   inplace_ids: [0]
   op_frontend: GeneratorToSeed
   op_backend: RandomSeedTensorInputIntegers

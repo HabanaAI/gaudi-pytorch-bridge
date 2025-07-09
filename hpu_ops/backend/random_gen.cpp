@@ -489,7 +489,8 @@ SharedMetaDataVector RandomSeedTensorInputIntegersSharedMeta(
       dtype == c10::ScalarType::Char || dtype == c10::ScalarType::Bool;
   auto computeDtype = convertToI16 ? c10::ScalarType::Short : dtype;
 
-  SharedMetaData randomSharedMeta{"random_uniform_fwd"};
+  SharedMetaData randomSharedMeta{"random_uniform_pt_fwd"};
+  randomSharedMeta.inputs_data.push_back({self.dim(), computeDtype});
   randomSharedMeta.inputs_data.push_back(seedSharedTensor);
   randomSharedMeta.outputs_data.emplace_back(self.dim(), computeDtype);
   if (!convertToI16 && c10::isFloatingType(dtype)) {
@@ -620,10 +621,7 @@ void RandomSeedTensorInputIntegers::AddNode(
     const at::Stack& stack) {
   auto outshape = stack_tensor(stack, 0).sizes();
   auto dtype = ScalarType();
-  std::vector<synTensor> inputs;
 
-  inputs.push_back(syn_in(1)); // insert seed tensor
-  CreateShapeTensorInput(graph, dtype, outshape, inputs);
   auto rand_params = FillParams(stack);
 
   std::string post_op_guid;
@@ -644,7 +642,7 @@ void RandomSeedTensorInputIntegers::AddNode(
   auto rand = BuildOp(
       graph,
       GetGuid(),
-      std::move(inputs),
+      {syn_in(0), syn_in(1)},
       {out_attr},
       rand_params.ptr(),
       rand_params.size());
