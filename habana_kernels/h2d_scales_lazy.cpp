@@ -122,10 +122,12 @@ bool create_h2d_scale_tensors() {
                                     const double scale_value,
                                     void* scale_ptr,
                                     const at::ScalarType dtype) {
-    h2d_scales_map.emplace(ScalarValueTypePair{scale_value, dtype}, ScalesIdxPair{
-        {create_h2d_scale_tensor(
-            scale_ptr, dtype, &alloc_pointer, &h2d_pointer)},
-        0});
+    h2d_scales_map.emplace(
+        ScalarValueTypePair{scale_value, dtype},
+        ScalesIdxPair{
+            {create_h2d_scale_tensor(
+                scale_ptr, dtype, &alloc_pointer, &h2d_pointer)},
+            0});
   };
 
   for (const auto bias : biases) {

@@ -154,10 +154,11 @@ void debug_log_internal_tensor(
     const at::Tensor& tensor,
     const std::string_view format_string,
     Args... args) {
-  PT_BRIDGE_DEBUG(fmt::format(
-      format_string,
-      habana_helpers::detail::InternalFormatter<Args>::format(
-          tensor, args)...));
+  PT_BRIDGE_DEBUG(
+      fmt::format(
+          format_string,
+          habana_helpers::detail::InternalFormatter<Args>::format(
+              tensor, args)...));
 }
 } // namespace habana_helpers
 

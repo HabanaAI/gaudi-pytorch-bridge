@@ -128,7 +128,7 @@ class CompileStaticPermutationSetAndSave final : public PermutationInfoSaver {
  public:
   CompileStaticPermutationSetAndSave(
       std::shared_ptr<habana::OptimizedJITGraphAndMetaData> optimized_jit_graph)
-      : optimized_jit_graph_(optimized_jit_graph){};
+      : optimized_jit_graph_(optimized_jit_graph) {};
 
   ~CompileStaticPermutationSetAndSave() {
     if (this->permutation_info_.empty())

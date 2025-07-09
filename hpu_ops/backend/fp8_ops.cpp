@@ -63,12 +63,13 @@ void HandleScaleTensor(
     const c10::IValue& scale_shape_ival) {
   if (scale.numel() > 1 and not scale_shape_ival.isNone() and
       scale.sizes().vec() != scale_shape_ival.toIntVector()) {
-    maybe_reshaped_scale.emplace_back(OpBackend::BuildReshape(
-        op,
-        graph,
-        syn_scale,
-        scale_shape_ival.toIntVector(),
-        scale.scalar_type()));
+    maybe_reshaped_scale.emplace_back(
+        OpBackend::BuildReshape(
+            op,
+            graph,
+            syn_scale,
+            scale_shape_ival.toIntVector(),
+            scale.scalar_type()));
     syn_inputs.push_back(maybe_reshaped_scale.back().get());
   } else {
     syn_inputs.push_back(syn_scale);

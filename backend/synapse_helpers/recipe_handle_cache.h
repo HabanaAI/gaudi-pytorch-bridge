@@ -35,7 +35,7 @@ class recipe;
 
 class NumberLimit {
  public:
-  NumberLimit(uint64_t max_number) : number_limit_(max_number){};
+  NumberLimit(uint64_t max_number) : number_limit_(max_number) {};
   bool IsEvictNeeded() {
     return used_ > number_limit_;
   }

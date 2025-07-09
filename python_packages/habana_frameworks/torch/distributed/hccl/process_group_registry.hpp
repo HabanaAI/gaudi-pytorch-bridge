@@ -55,9 +55,12 @@ class ProcessGroupHCCLRegistry {
     try {
       cleanup();
     } catch (const std::exception& e) {
-      PT_BRIDGE_WARN("Exception in destructor ProcessGroupHCCLRegistry. Message: ", e.what());
+      PT_BRIDGE_WARN(
+          "Exception in destructor ProcessGroupHCCLRegistry. Message: ",
+          e.what());
     } catch (...) {
-      PT_BRIDGE_WARN("Unknown exception in destructor ProcessGroupHCCLRegistry");
+      PT_BRIDGE_WARN(
+          "Unknown exception in destructor ProcessGroupHCCLRegistry");
     }
   }
 

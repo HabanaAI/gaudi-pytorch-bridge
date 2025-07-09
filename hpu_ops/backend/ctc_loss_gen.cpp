@@ -127,17 +127,19 @@ void CtcLoss::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
     auto input_lengths = stack.at(2).toIntList().vec();
     auto target_lengths = stack.at(3).toIntList().vec();
 
-    inputs_tensor.push_back(AllocateConstantSynapseTensor<int64_t>(
-        graph,
-        p_context_->device_id_,
-        input_lengths,
-        at::OptionalIntArrayRef{}));
+    inputs_tensor.push_back(
+        AllocateConstantSynapseTensor<int64_t>(
+            graph,
+            p_context_->device_id_,
+            input_lengths,
+            at::OptionalIntArrayRef{}));
     inputs.push_back(inputs_tensor.back().get());
-    inputs_tensor.push_back(AllocateConstantSynapseTensor<int64_t>(
-        graph,
-        p_context_->device_id_,
-        target_lengths,
-        at::OptionalIntArrayRef{}));
+    inputs_tensor.push_back(
+        AllocateConstantSynapseTensor<int64_t>(
+            graph,
+            p_context_->device_id_,
+            target_lengths,
+            at::OptionalIntArrayRef{}));
     inputs.push_back(inputs_tensor.back().get());
   }
 

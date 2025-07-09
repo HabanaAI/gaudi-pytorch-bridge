@@ -81,7 +81,7 @@ class deviceMallocData final {
 
   class Lockedfstream {
    public:
-    Lockedfstream(std::ofstream& fs, std::mutex& mut) : fs_(fs), gl_(mut){};
+    Lockedfstream(std::ofstream& fs, std::mutex& mut) : fs_(fs), gl_(mut) {};
     ~Lockedfstream() {
       fs_.flush();
     };

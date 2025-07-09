@@ -763,8 +763,9 @@ void HlExec::Create(
     auto t = mp_g_->addInput(inp.ToString());
     HABANA_ASSERT(!inp.m_data_ptr.expired());
     std::shared_ptr<Data> d = inp.m_data_ptr.lock();
-    t->setType(c10::TensorType::createContiguous(
-        *(d->logical_element_type), d->device, d->sizes));
+    t->setType(
+        c10::TensorType::createContiguous(
+            *(d->logical_element_type), d->device, d->sizes));
     t->setDebugName(inp.ToString());
     ir_map[ir::Output(inp)] = t;
   }
@@ -855,8 +856,9 @@ void HlExec::Create(
           node->is_output_tensor_list()) {
         auto* list_node = dynamic_cast<ir::ListConstruct*>(node.get());
         if (list_node && list_node->isOptional()) {
-          jit_node->output()->setType(torch::jit::ListType::create(
-              torch::jit::OptionalType::ofTensor()));
+          jit_node->output()->setType(
+              torch::jit::ListType::create(
+                  torch::jit::OptionalType::ofTensor()));
         } else {
           jit_node->output()->setType(torch::jit::ListType::ofTensors());
         }
@@ -866,10 +868,11 @@ void HlExec::Create(
               c10::TypeKind::TensorType) {
             auto irout_val = node->GetOutput(idx);
             auto jit_value_out = jit_node->output(idx);
-            jit_value_out->setType(c10::TensorType::createContiguous(
-                *(irout_val.get_scalar_type()),
-                *(irout_val.get_device()),
-                *(irout_val.get_sizes())));
+            jit_value_out->setType(
+                c10::TensorType::createContiguous(
+                    *(irout_val.get_scalar_type()),
+                    *(irout_val.get_device()),
+                    *(irout_val.get_sizes())));
             jit_value_out->setDebugName(irout_val.ToString());
           }
         }

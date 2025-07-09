@@ -42,12 +42,13 @@ static synapse_helpers::tensor createForeachPowNode(
     }
 
     auto outshape = at::infer_size(self.sizes(), other.sizes());
-    return std::move(OpBackend::BuildNode(
-        op,
-        graph,
-        {get_guid_with_precision("pow_fwd"sv, result_type),
-         syn_inputs,
-         {{outshape, result_type, out_index}}})[0]);
+    return std::move(
+        OpBackend::BuildNode(
+            op,
+            graph,
+            {get_guid_with_precision("pow_fwd"sv, result_type),
+             syn_inputs,
+             {{outshape, result_type, out_index}}})[0]);
   } else if (pt_inputs[0].isTensor() && pt_inputs[1].isScalar()) {
     const at::Tensor& self = pt_inputs[0].toTensor();
     const at::Scalar& other = pt_inputs[1].toScalar();
@@ -60,14 +61,15 @@ static synapse_helpers::tensor createForeachPowNode(
     ns_Power::Params params{};
     params.exp_val = other.toDouble();
 
-    return std::move(OpBackend::BuildNode(
-        op,
-        graph,
-        {get_guid_with_precision("pow_fwd"sv, result_type),
-         syn_inputs,
-         {{self.sizes().vec(), result_type, out_index}},
-         &params,
-         sizeof(params)})[0]);
+    return std::move(
+        OpBackend::BuildNode(
+            op,
+            graph,
+            {get_guid_with_precision("pow_fwd"sv, result_type),
+             syn_inputs,
+             {{self.sizes().vec(), result_type, out_index}},
+             &params,
+             sizeof(params)})[0]);
   } else {
     const at::Scalar& self = pt_inputs[0].toScalar();
     const at::Tensor& other = pt_inputs[1].toTensor();
@@ -78,12 +80,13 @@ static synapse_helpers::tensor createForeachPowNode(
     }
 
     auto syn_self = OpBackend::BuildConstant(op, graph, self, result_type);
-    return std::move(OpBackend::BuildNode(
-        op,
-        graph,
-        {get_guid_with_precision("pow_fwd"sv, result_type),
-         {syn_self.get(), syn_inputs[0]},
-         {{other.sizes().vec(), result_type, out_index}}})[0]);
+    return std::move(
+        OpBackend::BuildNode(
+            op,
+            graph,
+            {get_guid_with_precision("pow_fwd"sv, result_type),
+             {syn_self.get(), syn_inputs[0]},
+             {{other.sizes().vec(), result_type, out_index}}})[0]);
   }
 }
 

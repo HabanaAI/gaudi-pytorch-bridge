@@ -287,7 +287,8 @@ bool PermuteTensors::shouldPermutePreCastedWeight(const torch::Tensor& weight) {
       std::shared_ptr<Data> d1 = ir_weight_value.m_data_ptr.lock();
       if (ir_weight_value.IsHpuInputNode() && d1->tensor_data.has_value()) {
         // Checking if orginal weight already permuted
-        auto hb_weight_impl = habana_lazy::GetHbInternalTensorImpl(d1->tensor_data.value());
+        auto hb_weight_impl =
+            habana_lazy::GetHbInternalTensorImpl(d1->tensor_data.value());
         auto required_permute = weight.dim() == 4
             ? synapse_helpers::layouts::weight_rsck_in_memory
             : synapse_helpers::layouts::weight_qrsck_in_memory;

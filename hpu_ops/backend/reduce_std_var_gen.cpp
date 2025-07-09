@@ -278,14 +278,17 @@ std::vector<synapse_helpers::tensor> StdVarCommonFunc(
               output_attr[1].dtype,
               (i == dimsVec.size() - 1) ? c10::make_optional<int>(1)
                                         : std::nullopt};
-          intermediate_syn_helpers.emplace_back(std::move(OpBackend::BuildNode(
-              op,
-              graph,
-              {get_guid_with_precision("squeeze"sv, output_attr[1].dtype),
-               {intermediate_syn_helpers.back().get()},
-               {out_attr},
-               &params,
-               sizeof(params)})[0]));
+          intermediate_syn_helpers.emplace_back(
+              std::move(
+                  OpBackend::BuildNode(
+                      op,
+                      graph,
+                      {get_guid_with_precision(
+                           "squeeze"sv, output_attr[1].dtype),
+                       {intermediate_syn_helpers.back().get()},
+                       {out_attr},
+                       &params,
+                       sizeof(params)})[0]));
         }
         outputs.emplace_back(std::move(intermediate_syn_helpers.back()));
       }

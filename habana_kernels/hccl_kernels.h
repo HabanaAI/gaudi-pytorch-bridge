@@ -30,7 +30,7 @@ class CollectiveOperator : public habana::HabanaOperator {
       c10::ScalarType scalar_type)
       : HabanaOperator(guid),
         device_id_(device_id),
-        scalar_type_(scalar_type){};
+        scalar_type_(scalar_type) {};
   virtual void RunCollective(
       const std::vector<PtTensorInfoShared>& inputs,
       std::vector<at::Tensor>& pt_inputs,

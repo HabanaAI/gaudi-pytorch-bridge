@@ -5545,12 +5545,10 @@ void HabanaLaunchOpPT::run(
       if (is_permute_data_cached) {
         ApplyOutputPermutations(jit_graph_and_meta_data_->get_permute(
             false)); // Not a dynamic path -> get static permute
-        permutation_saver_ =
-            std::make_unique<PermutationIgnore>();
+        permutation_saver_ = std::make_unique<PermutationIgnore>();
       } else {
-        permutation_saver_ =
-            std::make_unique<EagerPermutationSetAndSave>(
-                jit_graph_and_meta_data_);
+        permutation_saver_ = std::make_unique<EagerPermutationSetAndSave>(
+            jit_graph_and_meta_data_);
       }
     }
 

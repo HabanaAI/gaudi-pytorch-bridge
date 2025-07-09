@@ -22,7 +22,8 @@ TEST_F(HpuOpTest, roll) {
   GenerateInputs(1, {{dim0, dim1}});
 
   std::srand((unsigned int)-1);
-  std::array<int64_t, 2> shift = {static_cast<int64_t>(-1 * std::rand()), std::rand()};
+  std::array<int64_t, 2> shift = {
+      static_cast<int64_t>(-1 * std::rand()), std::rand()};
   std::array<int64_t, 2> axis = {0, 1};
 
   auto expected = torch::roll(GetCpuInput(0), shift, axis);
@@ -52,11 +53,7 @@ TEST_F(HpuOpTest, roll_5d) {
   std::srand((unsigned int)-1);
   const auto shift_arg = -1 * std::rand();
   std::array<int64_t, 5> shift = {
-      shift_arg,
-      std::rand(),
-      std::rand(),
-      shift_arg,
-      std::rand()};
+      shift_arg, std::rand(), std::rand(), shift_arg, std::rand()};
   std::array<int64_t, 5> axis = {2, 1, 0, 4, 3};
 
   auto expected = torch::roll(GetCpuInput(0), shift, axis);
@@ -70,7 +67,8 @@ TEST_F(HpuOpTest, roll_bf16) {
   GenerateInputs(1, {{dim0, dim1}}, {torch::kBFloat16});
 
   std::srand((unsigned int)-1);
-  std::array<int64_t, 2> shift = {static_cast<int64_t>(-1 * std::rand()), std::rand()};
+  std::array<int64_t, 2> shift = {
+      static_cast<int64_t>(-1 * std::rand()), std::rand()};
   std::array<int64_t, 2> axis = {0, 1};
 
   auto expected = torch::roll(GetCpuInput(0), shift, axis);
@@ -84,7 +82,8 @@ TEST_F(HpuOpTest, roll_u8) {
   GenerateInputs(1, {{dim0, dim1}}, {torch::kUInt8});
 
   std::srand((unsigned int)-1);
-  std::array<int64_t, 2> shift = {static_cast<int64_t>(-1 * std::rand()), std::rand()};
+  std::array<int64_t, 2> shift = {
+      static_cast<int64_t>(-1 * std::rand()), std::rand()};
   std::array<int64_t, 2> axis = {0, 1};
 
   auto expected = torch::roll(GetCpuInput(0), shift, axis);

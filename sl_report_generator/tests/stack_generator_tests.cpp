@@ -403,9 +403,7 @@ TEST_SUITE("Schema Stack Generator tests") {
     }
 
     stack_gen = std::make_unique<slrg::SchemaStackGenerator>(
-        "",
-        "dummy",
-        op_overload_name);
+        "", "dummy", op_overload_name);
 
     CHECK(stack_gen->getOpAndOverloadName() == expected_name);
   }

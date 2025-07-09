@@ -35,7 +35,11 @@ LibSynapseLoader::LibSynapseLoader() {
   synapse_lib_handle_ = dlopen("libSynapse.so", RTLD_LOCAL | RTLD_NOW);
   CHECK_NULL_MSG(synapse_lib_handle_, dlerror());
   link_map* l_map = nullptr;
-  CHECK_TRUE_DL(dlinfo(synapse_lib_handle_, RTLD_DI_LINKMAP, reinterpret_cast<void*>(&l_map)) == 0);
+  CHECK_TRUE_DL(
+      dlinfo(
+          synapse_lib_handle_,
+          RTLD_DI_LINKMAP,
+          reinterpret_cast<void*>(&l_map)) == 0);
   synapse_lib_path_ = l_map->l_name;
 }
 

@@ -66,7 +66,7 @@ static const uint64_t INVALID_CONST_SECTION_DATA = 0xFFFFFFFFFFFFFFFF;
 #define GET_TENSOR_INFO(idx, type) ((idx) | (uint64_t)(type) << 56)
 
 #define TENSOR_INFO_TO_TYPE(info) ((synTensorType)((info) >> 56))
-#define TENSOR_INFO_TO_INDEX(info) ((info)&0xFFFFFFFFFFFFFF)
+#define TENSOR_INFO_TO_INDEX(info) ((info) & 0xFFFFFFFFFFFFFF)
 #define IS_TENSOR_INVALID(val) ((val) == TENSOR_INVALID_ID)
 
 static const int DMA_MEMCPY_PARALLEL_LEVEL = 4;

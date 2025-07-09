@@ -240,14 +240,16 @@ ProcessGroupEagerHCCL::WorkEager::WorkEager(
     : outputs_(outputs),
       comm_(comm),
       workStartTime_(std::chrono::steady_clock::now()),
-      future_(c10::make_intrusive<at::ivalue::Future>(
-          c10::ListType::create(c10::TensorType::get()))) {
+      future_(
+          c10::make_intrusive<at::ivalue::Future>(
+              c10::ListType::create(c10::TensorType::get()))) {
   future_->markCompleted(at::IValue(outputs));
 }
 
 ProcessGroupEagerHCCL::WorkEager::WorkEager()
-    : future_(c10::make_intrusive<at::ivalue::Future>(
-          c10::ListType::create(c10::TensorType::get()))) {
+    : future_(
+          c10::make_intrusive<at::ivalue::Future>(
+              c10::ListType::create(c10::TensorType::get()))) {
   future_->markCompleted();
 }
 
@@ -297,8 +299,8 @@ void Synchronize_Execute_Task(
   }
 }
 
-bool ProcessGroupEagerHCCL::WorkEager::wait(std::chrono::milliseconds timeout
-                                            [[maybe_unused]]) {
+bool ProcessGroupEagerHCCL::WorkEager::wait(
+    std::chrono::milliseconds timeout [[maybe_unused]]) {
   if (is_coalescing_fn_()) {
     PT_DISTRIBUTED_DEBUG(
         "WorkEager::wait | Skip, because work is within group, wait have no effect as operation won't start before groupEnd will be called.");
@@ -623,7 +625,7 @@ void ProcessGroupEagerHCCL::groupStart() {
   auto _groupStart = [this]() {
     initComms();
     HABANA_ASSERT(
-      hcclSuccess == hcclGroupStart(), "hcclGroupStart call returned error");
+        hcclSuccess == hcclGroupStart(), "hcclGroupStart call returned error");
     group_submit_events_tasks_queue_.clear();
   };
 
@@ -642,7 +644,7 @@ void ProcessGroupEagerHCCL::groupStart() {
 void ProcessGroupEagerHCCL::groupEnd() {
   auto _groupEnd = [this]() {
     HABANA_ASSERT(
-      hcclSuccess == hcclGroupEnd(), "hcclGroupEnd call returned error");
+        hcclSuccess == hcclGroupEnd(), "hcclGroupEnd call returned error");
     PT_DISTRIBUTED_DEBUG(
         "Calling postponed ",
         group_submit_events_tasks_queue_.size(),
@@ -762,16 +764,18 @@ void ProcessGroupEagerHCCL::permutedSendTensorsToDense(
   tensors_backend.reserve(tensors.size());
   for (const auto& tensor : tensors) {
     // Allocate memory for cloned tensors
-    clone_tensors.push_back(at::empty_like(
-        tensor,
-        tensor.options().device(tensor.device()),
-        c10::MemoryFormat::Contiguous));
+    clone_tensors.push_back(
+        at::empty_like(
+            tensor,
+            tensor.options().device(tensor.device()),
+            c10::MemoryFormat::Contiguous));
 
     // Get backend tensors
-    tensors_backend.push_back(std::make_pair(
-        habana::eager::HbEagerTensorPool::get_backend_tensor(tensor),
-        habana::eager::HbEagerTensorPool::get_backend_tensor(
-            clone_tensors.back())));
+    tensors_backend.push_back(
+        std::make_pair(
+            habana::eager::HbEagerTensorPool::get_backend_tensor(tensor),
+            habana::eager::HbEagerTensorPool::get_backend_tensor(
+                clone_tensors.back())));
 
     // Set tensor pipeline metadata
     auto tensor_hb_tmeta{
@@ -897,8 +901,9 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, module) {
   intrusive_ptr_class_<::c10d::ProcessGroupEagerHCCL> processGroupHccl(
       module, "ProcessGroupHCCL", backend);
 
-  processGroupHccl.def(py::init(
-      &c10d::ProcessGroupHCCLRegistry<c10d::ProcessGroupEagerHCCL>::create));
+  processGroupHccl.def(
+      py::init(&c10d::ProcessGroupHCCLRegistry<
+               c10d::ProcessGroupEagerHCCL>::create));
 
   processGroupHccl.def(
       "_shutdown",

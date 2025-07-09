@@ -72,9 +72,9 @@ class CompilationStatisticsNoOp : public CompilationStatistics {
       std::string,
       const habana_helpers::TensorShape&,
       const std::string&,
-      uint64_t) override{};
+      uint64_t) override {};
   void LogShapes(std::shared_ptr<torch::jit::Graph>, InpTensorShapes&, uint64_t)
-      override{};
+      override {};
   void LogCompilation(
       const std::string&,
       std::shared_ptr<torch::jit::Graph>,
@@ -84,35 +84,35 @@ class CompilationStatisticsNoOp : public CompilationStatistics {
       uint64_t,
       const std::string&,
       CompilationPass,
-      uint64_t) override{};
+      uint64_t) override {};
   void LogUsedBucket(
       int,
       std::shared_ptr<torch::jit::Graph>,
       ResultShapes,
       bool,
-      uint64_t) override{};
+      uint64_t) override {};
   virtual void LogFallback(
       std::string,
       DynamicDimsPolicy,
       std::string,
-      uint64_t) override{};
-  void LogSelectedRecipe(uint64_t, uint64_t) override{};
+      uint64_t) override {};
+  void LogSelectedRecipe(uint64_t, uint64_t) override {};
   void LogRecipeMemory(synapse_helpers::graph::recipe_handle&, uint64_t)
-      override{};
-  void LogLaunchBase(uint64_t, uint64_t) override{};
-  void LogLaunch(uint64_t, uint64_t) override{};
-  void LogLaunchPerf(uint64_t, uint64_t, uint64_t) override{};
+      override {};
+  void LogLaunchBase(uint64_t, uint64_t) override {};
+  void LogLaunch(uint64_t, uint64_t) override {};
+  void LogLaunchPerf(uint64_t, uint64_t, uint64_t) override {};
   void LogRefineCompilation(
       ResultShapes,
       std::shared_ptr<torch::jit::Graph>,
       uint64_t,
       uint64_t,
       const std::string&,
-      uint64_t) override{};
+      uint64_t) override {};
   uint64_t GetCurrentStep() override {
     return 0;
   };
-  void DumpAndNextStep() override{};
+  void DumpAndNextStep() override {};
 };
 
 std::unique_ptr<CompilationStatistics> CompilationStatistics::Create(

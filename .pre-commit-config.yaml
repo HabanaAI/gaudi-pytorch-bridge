@@ -13,11 +13,12 @@ repos:
     hooks:
       - id: cmake-format
         additional_dependencies: ["pyyaml"]
-  - repo: https://github.com/aostrowski/pre-commit-mirror-git-clang-format
-    rev: v16.0.6
+  - repo: https://github.com/pre-commit/mirrors-clang-format
+    rev: v20.1.7
     hooks:
-      - id: git-clang-format
-        exclude: ^(scripts/tests/files/|.devops/patches/)
+      - id: clang-format
+        files: \.(cpp|hpp|cc|c|h)$
+        exclude: ^scripts/
   - repo: https://github.com/PyCQA/flake8
     rev: 7.2.0
     hooks:

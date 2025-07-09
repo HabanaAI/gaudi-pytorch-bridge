@@ -576,13 +576,16 @@ void ProfilerEngine::flush() {
 
           stage_time_variance[pipeline_stage][event_name] /= (count - 1);
           stage_time_std[pipeline_stage][event_name] =
-              static_cast<uint64_t>(sqrt(static_cast<double>(
-                  stage_time_variance[pipeline_stage][event_name])));
+              static_cast<uint64_t>(sqrt(
+                  static_cast<double>(
+                      stage_time_variance[pipeline_stage][event_name])));
           stage_queue_length_variance[pipeline_stage][event_name] /=
               (count - 1);
           stage_queue_length_std[pipeline_stage][event_name] =
-              static_cast<int64_t>(sqrt(static_cast<double>(
-                  stage_queue_length_variance[pipeline_stage][event_name])));
+              static_cast<int64_t>(sqrt(
+                  static_cast<double>(
+                      stage_queue_length_variance[pipeline_stage]
+                                                 [event_name])));
         }
       }
 

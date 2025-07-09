@@ -55,8 +55,7 @@ uint64_t MultiThreadPolicy::GetNumThreads() {
 }
 
 template <
-    template <typename>
-    typename Queue,
+    template <typename> typename Queue,
     typename Task,
     typename ThreadPolicy>
 ThreadPoolBase<Queue, Task, ThreadPolicy>::ThreadPoolBase(
@@ -67,8 +66,7 @@ ThreadPoolBase<Queue, Task, ThreadPolicy>::ThreadPoolBase(
 }
 
 template <
-    template <typename>
-    typename Queue,
+    template <typename> typename Queue,
     typename Task,
     typename ThreadPolicy>
 void ThreadPoolBase<Queue, Task, ThreadPolicy>::Init(
@@ -85,8 +83,7 @@ void ThreadPoolBase<Queue, Task, ThreadPolicy>::Init(
 }
 
 template <
-    template <typename>
-    typename Queue,
+    template <typename> typename Queue,
     typename Task,
     typename ThreadPolicy>
 ThreadPoolBase<Queue, Task, ThreadPolicy>::~ThreadPoolBase() {
@@ -105,8 +102,7 @@ ThreadPoolBase<Queue, Task, ThreadPolicy>::~ThreadPoolBase() {
 }
 
 template <
-    template <typename>
-    typename Queue,
+    template <typename> typename Queue,
     typename Task,
     typename ThreadPolicy>
 void ThreadPoolBase<Queue, Task, ThreadPolicy>::executePendingTask(
@@ -129,8 +125,7 @@ void ThreadPoolBase<Queue, Task, ThreadPolicy>::executePendingTask(
 }
 
 template <
-    template <typename>
-    typename Queue,
+    template <typename> typename Queue,
     typename Task,
     typename ThreadPolicy>
 void ThreadPoolBase<Queue, Task, ThreadPolicy>::RethrowIfException() {
@@ -142,8 +137,7 @@ void ThreadPoolBase<Queue, Task, ThreadPolicy>::RethrowIfException() {
 }
 
 template <
-    template <typename>
-    typename Queue,
+    template <typename> typename Queue,
     typename Task,
     typename ThreadPolicy>
 std::string ThreadPoolBase<Queue, Task, ThreadPolicy>::ToString() const {
@@ -152,8 +146,7 @@ std::string ThreadPoolBase<Queue, Task, ThreadPolicy>::ToString() const {
 }
 
 template <
-    template <typename>
-    typename Queue,
+    template <typename> typename Queue,
     typename Task,
     typename ThreadPolicy>
 uint64_t ThreadPoolBase<Queue, Task, ThreadPolicy>::get_active_task_count()

@@ -394,8 +394,9 @@ void ProcessGroupLazyHCCL::destroy() {
 
 ProcessGroupLazyHCCL::WorkLazy::WorkLazy(const std::vector<at::Tensor>& outputs)
     : outputs_(outputs),
-      future_(c10::make_intrusive<at::ivalue::Future>(
-          c10::ListType::create(c10::TensorType::get()))) {
+      future_(
+          c10::make_intrusive<at::ivalue::Future>(
+              c10::ListType::create(c10::TensorType::get()))) {
   future_->markCompleted(at::IValue(outputs_));
 }
 
@@ -409,8 +410,8 @@ bool ProcessGroupLazyHCCL::WorkLazy::isSuccess() const {
   return true;
 }
 
-bool ProcessGroupLazyHCCL::WorkLazy::wait(std::chrono::milliseconds timeout
-                                          [[maybe_unused]]) {
+bool ProcessGroupLazyHCCL::WorkLazy::wait(
+    std::chrono::milliseconds timeout [[maybe_unused]]) {
   PT_IRGRAPH_DEBUG("step marker due to ProcessGroupLazyHCCL::WorkLazy::wait");
   habana_lazy::HbLazyTensor::StepMarker({}, nullptr, {}, true);
   return true;
@@ -1308,8 +1309,9 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, module) {
   intrusive_ptr_class_<::c10d::ProcessGroupLazyHCCL> processGroupHccl(
       module, "ProcessGroupHCCL", backend);
 
-  processGroupHccl.def(py::init(
-      &c10d::ProcessGroupHCCLRegistry<c10d::ProcessGroupLazyHCCL>::create));
+  processGroupHccl.def(
+      py::init(
+          &c10d::ProcessGroupHCCLRegistry<c10d::ProcessGroupLazyHCCL>::create));
 
   processGroupHccl.def(
       "_shutdown",

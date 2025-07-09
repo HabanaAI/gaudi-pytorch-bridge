@@ -382,8 +382,9 @@ synapse_helpers::tensor& habana::HabanaOperator::AllocateSynapseInput(
 
       p_context_->syn_inputs_.emplace_back(std::move(syn_tensor_input));
     } else {
-      p_context_->syn_inputs_.emplace_back(habana_helpers::create_tensor(
-          input, graph, is_persistent, false, std::nullopt, idx, idx));
+      p_context_->syn_inputs_.emplace_back(
+          habana_helpers::create_tensor(
+              input, graph, is_persistent, false, std::nullopt, idx, idx));
     }
   } else {
     p_context_->syn_inputs_.emplace_back(
@@ -454,25 +455,27 @@ void habana::HabanaOperator::AllocateSynapseOutput(
   if (is_shape_tensor == false) {
     if (guid_.find("cast_packed_nf4_from") != std::string::npos &&
         output.scalar_type() == c10::ScalarType::Byte) {
-      p_context_->syn_outputs_.emplace_back(habana_helpers::create_tensor(
-          output,
-          graph,
-          output_metadata.persistent,
-          output_metadata.external,
-          syn_type_packed_nf4,
-          output_metadata.name,
-          output_metadata.module_name + '.' +
-              std::to_string(p_context_->syn_outputs_.size())));
+      p_context_->syn_outputs_.emplace_back(
+          habana_helpers::create_tensor(
+              output,
+              graph,
+              output_metadata.persistent,
+              output_metadata.external,
+              syn_type_packed_nf4,
+              output_metadata.name,
+              output_metadata.module_name + '.' +
+                  std::to_string(p_context_->syn_outputs_.size())));
     } else {
-      p_context_->syn_outputs_.emplace_back(habana_helpers::create_tensor(
-          output,
-          graph,
-          output_metadata.persistent,
-          output_metadata.external,
-          std::nullopt,
-          output_metadata.name,
-          output_metadata.module_name + '.' +
-              std::to_string(p_context_->syn_outputs_.size())));
+      p_context_->syn_outputs_.emplace_back(
+          habana_helpers::create_tensor(
+              output,
+              graph,
+              output_metadata.persistent,
+              output_metadata.external,
+              std::nullopt,
+              output_metadata.name,
+              output_metadata.module_name + '.' +
+                  std::to_string(p_context_->syn_outputs_.size())));
     }
   } else {
     p_context_->syn_outputs_.emplace_back(
@@ -495,14 +498,15 @@ void habana::HabanaOperator::AllocateSynapseOutput(
     bool is_shape_tensor) {
   std::vector<int64_t> min_shape, max_shape;
   if (is_shape_tensor == false) {
-    p_context_->syn_outputs_.emplace_back(habana_helpers::create_tensor(
-        output,
-        graph,
-        output_metadata.persistent,
-        output_metadata.external,
-        synType,
-        output_metadata.name,
-        output_metadata.module_name));
+    p_context_->syn_outputs_.emplace_back(
+        habana_helpers::create_tensor(
+            output,
+            graph,
+            output_metadata.persistent,
+            output_metadata.external,
+            synType,
+            output_metadata.name,
+            output_metadata.module_name));
   } else {
     p_context_->syn_outputs_.emplace_back(
         habana_helpers::create_shape_tensor_backend(

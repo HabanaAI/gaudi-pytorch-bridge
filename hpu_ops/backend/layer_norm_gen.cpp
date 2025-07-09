@@ -80,23 +80,26 @@ static synTensor CreateLayerNormBiasWeightTensor(
     if (habana_helpers::DataTypeToCastType(
             weightOrBiasOpt->pt_t.scalar_type()) !=
         habana_helpers::DataTypeToCastType(c10::kFloat)) {
-      storage.push_back(OpBackend::BuildCast(
-          op,
-          graph,
-          synWeightOrBias,
-          weightOrBiasOpt->pt_t.sizes(),
-          weightOrBiasOpt->pt_t.scalar_type(),
-          c10::kFloat));
+      storage.push_back(
+          OpBackend::BuildCast(
+              op,
+              graph,
+              synWeightOrBias,
+              weightOrBiasOpt->pt_t.sizes(),
+              weightOrBiasOpt->pt_t.scalar_type(),
+              c10::kFloat));
       synWeightOrBias = storage.back().get();
     }
 
     weightOrBias_shape = {weightOrBiasOpt->pt_t.numel()};
-    storage.push_back(OpBackend::BuildReshape(
-        op, graph, synWeightOrBias, weightOrBias_shape, c10::kFloat));
+    storage.push_back(
+        OpBackend::BuildReshape(
+            op, graph, synWeightOrBias, weightOrBias_shape, c10::kFloat));
   } else {
     weightOrBias_shape = constant_shape;
-    storage.push_back(OpBackend::BuildConstant(
-        op, graph, constant_value, c10::kFloat, weightOrBias_shape));
+    storage.push_back(
+        OpBackend::BuildConstant(
+            op, graph, constant_value, c10::kFloat, weightOrBias_shape));
   }
   return storage.back().get();
 }

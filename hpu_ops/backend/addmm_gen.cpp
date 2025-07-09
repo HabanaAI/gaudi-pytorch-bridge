@@ -221,8 +221,9 @@ static std::vector<synapse_helpers::tensor> AddMMCommon(
   const float alpha_val = stack.at(4).toScalar().toFloat();
 
   if (alpha_val == 0.0 && beta_val == 0.0) {
-    addmm_out.emplace_back(OpBackend::BuildConstant(
-        op, graph, 0.0, op->ScalarType(), output_shape, 0));
+    addmm_out.emplace_back(
+        OpBackend::BuildConstant(
+            op, graph, 0.0, op->ScalarType(), output_shape, 0));
   } else if (alpha_val == 0.0 && beta_val != 0.0) {
     addmm_out = ComputeBetaSide(
         op, graph, {input_tensor.at(0)}, output_shape, beta_val, 0);

@@ -174,8 +174,8 @@ class AccThreadPoolFast final : public AccThreadPoolBase {
     bool intra_task_ = false;
     std::function<void()> fun_ = []() {};
     AccTaskInternal(std::function<void()>&& fun, bool intra_task = false)
-        : intra_task_(intra_task), fun_(std::move(fun)){};
-    AccTaskInternal(){};
+        : intra_task_(intra_task), fun_(std::move(fun)) {};
+    AccTaskInternal() {};
   };
 
   bool inThreadPool() const;

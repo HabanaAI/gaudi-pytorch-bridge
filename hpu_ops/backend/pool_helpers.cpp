@@ -59,13 +59,14 @@ std::vector<int64_t> compute_pool_kernel_output_shape(
 
   const size_t dims = is_3d ? 3 : 2;
   for (size_t i = 0; i < dims; i++) {
-    outshape.push_back(at::native::pooling_output_shape<int64_t>(
-        input.size(i + 2 - offset),
-        filters[i],
-        pads[i],
-        strides[i],
-        dilations[i],
-        ceil_mode));
+    outshape.push_back(
+        at::native::pooling_output_shape<int64_t>(
+            input.size(i + 2 - offset),
+            filters[i],
+            pads[i],
+            strides[i],
+            dilations[i],
+            ceil_mode));
   }
 
   return outshape;

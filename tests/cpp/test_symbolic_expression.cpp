@@ -17,15 +17,15 @@
 #include "backend/helpers/symbolic_expression.h"
 
 TEST(TestSymExpression, SizeExpression_tokenizer) {
-    constexpr auto simple_expr = "s35 + s35*((-1) + s44";
-    constexpr auto advance_expr = "max(25, s35 + s35*((-1) + s44)), 1024";
+  constexpr auto simple_expr = "s35 + s35*((-1) + s44";
+  constexpr auto advance_expr = "max(25, s35 + s35*((-1) + s44)), 1024";
 
-    auto one_token = habana::SizeExpression::tokenizer(simple_expr);
-    ASSERT_EQ(simple_expr, one_token.at(0));
+  auto one_token = habana::SizeExpression::tokenizer(simple_expr);
+  ASSERT_EQ(simple_expr, one_token.at(0));
 
-    constexpr auto expected_first_token{"max(25, s35 + s35*((-1) + s44))"};
-    constexpr auto expected_second_token{" 1024"};
-    auto two_tokens = habana::SizeExpression::tokenizer(advance_expr);
-    ASSERT_EQ(expected_first_token, two_tokens.at(0));
-    ASSERT_EQ(expected_second_token, two_tokens.at(1));
+  constexpr auto expected_first_token{"max(25, s35 + s35*((-1) + s44))"};
+  constexpr auto expected_second_token{" 1024"};
+  auto two_tokens = habana::SizeExpression::tokenizer(advance_expr);
+  ASSERT_EQ(expected_first_token, two_tokens.at(0));
+  ASSERT_EQ(expected_second_token, two_tokens.at(1));
 }

@@ -69,7 +69,7 @@ struct Flow {
 
 class TraceSink {
  public:
-  virtual ~TraceSink(){};
+  virtual ~TraceSink() {};
   virtual void addActivity(
       const Activity& activity,
       const std::optional<RecipeInfo>& recipeInfo,
@@ -125,7 +125,7 @@ class TraceSink {
 
 class TraceSource {
  public:
-  virtual ~TraceSource(){};
+  virtual ~TraceSource() {};
   virtual void start(TraceSink& output) = 0;
   virtual void stop() = 0;
   virtual void extract(TraceSink& output) = 0;

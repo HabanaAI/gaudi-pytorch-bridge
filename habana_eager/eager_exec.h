@@ -32,10 +32,10 @@ class OutputSpecsOrTensors {
  public:
   OutputSpecsOrTensors(std::initializer_list<OutputSpec>&& list)
       : m_outputs(std::vector<OutputSpec>(list.begin(), list.end())) {}
-  OutputSpecsOrTensors(std::vector<OutputSpec> specs) : m_outputs(specs){};
+  OutputSpecsOrTensors(std::vector<OutputSpec> specs) : m_outputs(specs) {};
   OutputSpecsOrTensors(std::initializer_list<at::Tensor>&& list)
       : m_outputs(std::vector<at::Tensor>(list.begin(), list.end())) {}
-  OutputSpecsOrTensors(std::vector<at::Tensor> tensors) : m_outputs(tensors){};
+  OutputSpecsOrTensors(std::vector<at::Tensor> tensors) : m_outputs(tensors) {};
   size_t size();
   c10::TensorTypePtr get_tensor_type(size_t indx);
   std::optional<std::vector<at::Tensor>> get_tensors();

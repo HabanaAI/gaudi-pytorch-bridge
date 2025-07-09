@@ -74,30 +74,31 @@ void scheduleAccTaskTuple(T&& lazy_op, TupleType& tuple) {
   for_each_in_tuple(
       tuple, [&tensors](const auto& result) { tensors.push_back(result); });
   HABANA_ASSERT(tensors.size() <= 6, "Only tuples up to 6 are supported");
-  habana_lazy::AccThread::Get().run(
-      [op = std::move(lazy_op), tensors = std::move(tensors)]() mutable {
-        PT_LAZY_TRACE_WITH_NAME(op.symbol().toUnqualString());
-        if (tensors.size() == 2) {
-          op.call(std::tie(tensors[0], tensors[1]));
-        } else if (tensors.size() == 3) {
-          op.call(std::tie(tensors[0], tensors[1], tensors[2]));
-        } else if (tensors.size() == 4) {
-          op.call(std::tie(tensors[0], tensors[1], tensors[2], tensors[3]));
-        } else if (tensors.size() == 5) {
-          op.call(std::tie(
-              tensors[0], tensors[1], tensors[2], tensors[3], tensors[4]));
-        } else if (tensors.size() == 6) {
-          op.call(std::tie(
+  habana_lazy::AccThread::Get().run([op = std::move(lazy_op),
+                                     tensors = std::move(tensors)]() mutable {
+    PT_LAZY_TRACE_WITH_NAME(op.symbol().toUnqualString());
+    if (tensors.size() == 2) {
+      op.call(std::tie(tensors[0], tensors[1]));
+    } else if (tensors.size() == 3) {
+      op.call(std::tie(tensors[0], tensors[1], tensors[2]));
+    } else if (tensors.size() == 4) {
+      op.call(std::tie(tensors[0], tensors[1], tensors[2], tensors[3]));
+    } else if (tensors.size() == 5) {
+      op.call(
+          std::tie(tensors[0], tensors[1], tensors[2], tensors[3], tensors[4]));
+    } else if (tensors.size() == 6) {
+      op.call(
+          std::tie(
               tensors[0],
               tensors[1],
               tensors[2],
               tensors[3],
               tensors[4],
               tensors[5]));
-        }
-        habana_lazy::AccThread::Get().PushCleanupTask(
-            [op = std::move(op), tensors = std::move(tensors)]() {});
-      });
+    }
+    habana_lazy::AccThread::Get().PushCleanupTask(
+        [op = std::move(op), tensors = std::move(tensors)]() {});
+  });
 }
 
 inline at::Tensor& stack_tensor(at::Stack& stack, int index) {
@@ -513,15 +514,16 @@ auto get_or_create_tensor(
   return out;
 // NOLINTEND(bugprone-macro-parentheses)
 
-#define RUN_TENSOR_LIST_INPLACE_MAYBE_WITH_ACC_THREAD(op, lazy_op, result)         \
-  if (habana_lazy::AccThread::Get().CanUseAccThread()) {                           \
-    PT_LAZY_PARALLEL_ACC_DEBUG("Running ", #op, " in accumulation thread");        \
-    std::vector<at::Tensor> tensors_copy;                                          \
-    std::copy((result).begin(), (result).end(), std::back_inserter(tensors_copy)); \
-    scheduleAccTask(std::move(lazy_op), std::move(tensors_copy));                  \
-    MAYBE_FLUSH_OP();                                                              \
-    return;                                                                        \
-  }                                                                                \
+#define RUN_TENSOR_LIST_INPLACE_MAYBE_WITH_ACC_THREAD(op, lazy_op, result)   \
+  if (habana_lazy::AccThread::Get().CanUseAccThread()) {                     \
+    PT_LAZY_PARALLEL_ACC_DEBUG("Running ", #op, " in accumulation thread");  \
+    std::vector<at::Tensor> tensors_copy;                                    \
+    std::copy(                                                               \
+        (result).begin(), (result).end(), std::back_inserter(tensors_copy)); \
+    scheduleAccTask(std::move(lazy_op), std::move(tensors_copy));            \
+    MAYBE_FLUSH_OP();                                                        \
+    return;                                                                  \
+  }                                                                          \
   return (lazy_op).call(result);
 
 #define FALLBACK_CHECK(fn, args...) bool fn(args...)

@@ -666,8 +666,9 @@ void OptimizerSGDMomentumOperator::AllocateAndAddSynapseNode(
         "OptimizerSGDMomentumOperator lowering gradient HbInternal address: ",
         habana_lazy::GetHbInternalTensorImpl(gradients),
         " permute: ",
-        VecToString(habana_lazy::GetHbInternalTensorImpl(gradients)
-                        ->GetMemoryPermutation()));
+        VecToString(
+            habana_lazy::GetHbInternalTensorImpl(gradients)
+                ->GetMemoryPermutation()));
   } else {
     PT_BRIDGE_DEBUG(
         "OptimizerSGDMomentumOperator lowering - gradients HbInternal address is null!")
@@ -678,8 +679,9 @@ void OptimizerSGDMomentumOperator::AllocateAndAddSynapseNode(
         "OptimizerSGDMomentumOperator lowering weight HbInternal address: ",
         habana_lazy::GetHbInternalTensorImpl(weights),
         " permute: ",
-        VecToString(habana_lazy::GetHbInternalTensorImpl(weights)
-                        ->GetMemoryPermutation()));
+        VecToString(
+            habana_lazy::GetHbInternalTensorImpl(weights)
+                ->GetMemoryPermutation()));
   } else {
     PT_BRIDGE_DEBUG(
         "OptimizerSGDMomentumOperator lowering - weights HbInternal address is null!")
@@ -690,8 +692,9 @@ void OptimizerSGDMomentumOperator::AllocateAndAddSynapseNode(
         "OptimizerSGDMomentumOperator lowering momentum HbInternal address: ",
         habana_lazy::GetHbInternalTensorImpl(momentum),
         " permute: ",
-        VecToString(habana_lazy::GetHbInternalTensorImpl(momentum)
-                        ->GetMemoryPermutation()));
+        VecToString(
+            habana_lazy::GetHbInternalTensorImpl(momentum)
+                ->GetMemoryPermutation()));
   } else {
     PT_BRIDGE_DEBUG(
         "OptimizerSGDMomentumOperator lowering - momentum HbInternal address is null!")

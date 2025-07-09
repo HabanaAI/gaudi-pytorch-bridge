@@ -287,8 +287,7 @@ synapse_helpers::tensor NormalTensorHelper(
     }
   } else if (normal_variant == NORMAL_FT) {
     // insert addOp if necessary
-    auto mean =
-        static_cast<float>(stack.at(MEAN_INDEX + idx_shift).toDouble());
+    auto mean = static_cast<float>(stack.at(MEAN_INDEX + idx_shift).toDouble());
     if (mean != 0.0) {
       auto mulOp = OpBackend::BuildNode(
           op,
@@ -684,9 +683,8 @@ HabanaNormal::HabanaNormal(int device_id, c10::ScalarType scalar_type)
 void HabanaNormal::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  auto normal_variant =
-      (NormalVariant)(stack.at(MEAN_INDEX + 1).isTensor() +
-                      stack.at(STD_INDEX + 1).isTensor() * 2);
+  auto normal_variant = (NormalVariant)(stack.at(MEAN_INDEX + 1).isTensor() +
+                                        stack.at(STD_INDEX + 1).isTensor() * 2);
   synTensor syn_seed_t = syn_in(0);
 
   if (normal_variant == NORMAL_FF) {

@@ -148,11 +148,12 @@ RecipeArgumentSpec::RecipeArgumentSpec(
     : cas(false, input_refs),
       opstrs(op_strs),
       graph_hash_code(graphKey),
-      hash_code(at::hash_combine(
+      hash_code(
           at::hash_combine(
-              graph_hash_code,
-              habana::ComputeSymSizeHashCode(input_refs)),
-          habana::ComputePermutationHashCode(input_refs))),
+              at::hash_combine(
+                  graph_hash_code,
+                  habana::ComputeSymSizeHashCode(input_refs)),
+              habana::ComputePermutationHashCode(input_refs))),
       graph_with_permute_hash_code(hash_code) {}
 
 RecipeArgumentSpec::RecipeArgumentSpec(
@@ -165,15 +166,16 @@ RecipeArgumentSpec::RecipeArgumentSpec(
       graph_hash_code(graphKey),
       token_(token),
       offset_hash_code(ComputeOffsetHashCode(input_refs)),
-      hash_code(at::hash_combine(
+      hash_code(
           at::hash_combine(
               at::hash_combine(
                   at::hash_combine(
-                      at::hash_combine(0, graph_hash_code),
-                      token_),
-                  offset_hash_code),
-              habana::ComputeSymSizeHashCode(input_refs)),
-          habana::ComputePermutationHashCode(input_refs))),
+                      at::hash_combine(
+                          at::hash_combine(0, graph_hash_code),
+                          token_),
+                      offset_hash_code),
+                  habana::ComputeSymSizeHashCode(input_refs)),
+              habana::ComputePermutationHashCode(input_refs))),
       dynamic_hash_code(hash_code) {}
 
 RecipeArgumentSpec::RecipeArgumentSpec(
@@ -185,9 +187,10 @@ RecipeArgumentSpec::RecipeArgumentSpec(
     : cas(false, input_refs),
       opstrs(op_strs),
       graph_hash_code(graphKey),
-      hash_code(at::hash_combine(
-          at::hash_combine(graph_hash_code, graph_sym_hash),
-          graph_perm_hash)),
+      hash_code(
+          at::hash_combine(
+              at::hash_combine(graph_hash_code, graph_sym_hash),
+              graph_perm_hash)),
       graph_with_permute_hash_code(hash_code) {}
 
 RecipeArgumentSpec::RecipeArgumentSpec(
@@ -202,15 +205,16 @@ RecipeArgumentSpec::RecipeArgumentSpec(
       graph_hash_code(graphKey),
       token_(token),
       offset_hash_code(ComputeOffsetHashCode(input_refs)),
-      hash_code(at::hash_combine(
+      hash_code(
           at::hash_combine(
               at::hash_combine(
                   at::hash_combine(
-                      at::hash_combine(0, graph_hash_code),
-                      token_),
-                  offset_hash_code),
-              graph_sym_hash),
-          graph_perm_hash)),
+                      at::hash_combine(
+                          at::hash_combine(0, graph_hash_code),
+                          token_),
+                      offset_hash_code),
+                  graph_sym_hash),
+              graph_perm_hash)),
       dynamic_hash_code(hash_code) {}
 
 RecipeArgumentSpec::RecipeArgumentSpec(
@@ -808,7 +812,7 @@ void RecipeValueSpec::update_patching_table(
       ridx++;
     } else if (input.isTensorList()) {
       SUPPRESS_WDANGLING_REFERENCE(
-        for (const at::Tensor& t : input.toTensorList())) {
+          for (const at::Tensor& t : input.toTensorList())) {
         auto tmeta{habana::get_tensor_extra_meta(t)};
         if (tmeta->has_valid_const_id()) {
           auto impl{t.unsafeGetTensorImpl()};
@@ -1429,12 +1433,13 @@ void RecipeValueSpec::patch_launch_info(
     switch (ti.tensor_type()) {
       case SHAPE_TENSOR: {
         const auto& tsv = ti.syn_shape();
-        syn_launch_info_vec.emplace_back(synLaunchTensorInfo{
-            ti.get_syn_namec_str(),
-            0,
-            ti.tensor_type(),
-            {tsv[0], tsv[1], tsv[2], tsv[3], tsv[4]},
-            tensor_ids_[tensor_idx++]});
+        syn_launch_info_vec.emplace_back(
+            synLaunchTensorInfo{
+                ti.get_syn_namec_str(),
+                0,
+                ti.tensor_type(),
+                {tsv[0], tsv[1], tsv[2], tsv[3], tsv[4]},
+                tensor_ids_[tensor_idx++]});
         break;
       }
       case HOST_TO_DEVICE_TENSOR: {
@@ -1445,12 +1450,20 @@ void RecipeValueSpec::patch_launch_info(
               ti.get_buffer(), ti.get_syn_name(), ti.get_size());
         }
         const auto& tsv = ti.syn_shape();
-        syn_launch_info_vec.emplace_back(synLaunchTensorInfo{
-            ti.get_syn_namec_str(),
-            ti.get_host_ptr(),
-            ti.tensor_type(),
-            {tsv[0], tsv[1], tsv[2], tsv[3], tsv[4], tsv[5], tsv[6], tsv[7]},
-            tensor_ids_[tensor_idx++]});
+        syn_launch_info_vec.emplace_back(
+            synLaunchTensorInfo{
+                ti.get_syn_namec_str(),
+                ti.get_host_ptr(),
+                ti.tensor_type(),
+                {tsv[0],
+                 tsv[1],
+                 tsv[2],
+                 tsv[3],
+                 tsv[4],
+                 tsv[5],
+                 tsv[6],
+                 tsv[7]},
+                tensor_ids_[tensor_idx++]});
         break;
       }
       case DATA_TENSOR:
@@ -1459,22 +1472,31 @@ void RecipeValueSpec::patch_launch_info(
           external_tensor_info_indexes.push_back(tensor_idx);
         }
         const auto& tsv = ti.syn_shape();
-        syn_launch_info_vec.emplace_back(synLaunchTensorInfo{
-            ti.get_syn_namec_str(),
-            ti.get_buffer_syn(),
-            ti.tensor_type(),
-            {tsv[0], tsv[1], tsv[2], tsv[3], tsv[4], tsv[5], tsv[6], tsv[7]},
-            tensor_ids_[tensor_idx++]});
+        syn_launch_info_vec.emplace_back(
+            synLaunchTensorInfo{
+                ti.get_syn_namec_str(),
+                ti.get_buffer_syn(),
+                ti.tensor_type(),
+                {tsv[0],
+                 tsv[1],
+                 tsv[2],
+                 tsv[3],
+                 tsv[4],
+                 tsv[5],
+                 tsv[6],
+                 tsv[7]},
+                tensor_ids_[tensor_idx++]});
         break;
       }
       case DEVICE_SHAPE_TENSOR: {
         const auto& tsv = ti.syn_shape();
-        syn_launch_info_vec.emplace_back(synLaunchTensorInfo{
-            ti.get_syn_namec_str(),
-            ti.get_buffer_syn(),
-            ti.tensor_type(),
-            {tsv[0], tsv[1], tsv[2], tsv[3], tsv[4]},
-            tensor_ids_[tensor_idx++]});
+        syn_launch_info_vec.emplace_back(
+            synLaunchTensorInfo{
+                ti.get_syn_namec_str(),
+                ti.get_buffer_syn(),
+                ti.tensor_type(),
+                {tsv[0], tsv[1], tsv[2], tsv[3], tsv[4]},
+                tensor_ids_[tensor_idx++]});
         break;
       }
       case TENSOR_TYPE_MAX:
@@ -1610,8 +1632,9 @@ void RecipeLauncher::Launch(
       if (input.isTensor()) {
         at::Tensor tensor = input.toTensor();
         ptRefs.push_back(std::move(tensor));
-        inDevPtr.push_back(reinterpret_cast<synapse_helpers::device_ptr>(
-            input.toTensor().storage().data_ptr().get()));
+        inDevPtr.push_back(
+            reinterpret_cast<synapse_helpers::device_ptr>(
+                input.toTensor().storage().data_ptr().get()));
       }
     }
     if (!dma_inputs.empty()) {
@@ -1643,8 +1666,9 @@ void RecipeLauncher::Launch(
     for (auto& output : aten_outputs) {
       if (output && output->isTensor()) {
         at::Tensor tensor = output->toTensor();
-        outDevPtr.push_back(reinterpret_cast<synapse_helpers::device_ptr>(
-            tensor.storage().data_ptr().get()));
+        outDevPtr.push_back(
+            reinterpret_cast<synapse_helpers::device_ptr>(
+                tensor.storage().data_ptr().get()));
         outPtRefs.push_back(std::move(tensor));
       }
     }

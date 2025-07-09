@@ -237,10 +237,11 @@ HbLazyTensor::HbLazyTensor(
     ir::Value&& ir_value,
     const at::Device& device,
     std::optional<at::ScalarType> logical_element_type)
-    : mp_data(std::make_shared<Data>(
-          std::move(ir_value),
-          device,
-          logical_element_type)) {
+    : mp_data(
+          std::make_shared<Data>(
+              std::move(ir_value),
+              device,
+              logical_element_type)) {
   // TODO : TryLimitGraphSize();
 }
 
@@ -687,7 +688,8 @@ at::Tensor HbLazyTensor::EvaluateTensorData(bool sync_acc_thread) {
   }
 
   ValidateTensorData();
-  HABANA_ASSERT(data()->tensor_data.has_value(), "Optional tensor data has no value");
+  HABANA_ASSERT(
+      data()->tensor_data.has_value(), "Optional tensor data has no value");
   return *data()->tensor_data;
 }
 
@@ -850,19 +852,25 @@ std::string DumpGraph(std::shared_ptr<torch::jit::Graph> jit_graph) {
   return str;
 }
 
-std::vector<ir::NodePtr> GetNodePtrRoots(std::vector<HbLazyTensor>* tensors, std::vector<int>& indices) {
+std::vector<ir::NodePtr> GetNodePtrRoots(
+    std::vector<HbLazyTensor>* tensors,
+    std::vector<int>& indices) {
   std::vector<ir::NodePtr> p_roots;
   p_roots.reserve(indices.size());
   for (auto index : indices) {
-      auto ir_value = tensors->at(index).CurrentIrValue();
-      if (ir_value) {
-          p_roots.push_back(ir_value.mp_node);
-        }
+    auto ir_value = tensors->at(index).CurrentIrValue();
+    if (ir_value) {
+      p_roots.push_back(ir_value.mp_node);
     }
+  }
   return p_roots;
 }
 
-void ValidateSyncInputTensors(std::vector<HbLazyTensor>* tensors, std::vector<int>& indices, habana_lazy::ir::ValueList& inputs, habana_lazy::ir::NodePtrList* ptr_post_order = nullptr) {
+void ValidateSyncInputTensors(
+    std::vector<HbLazyTensor>* tensors,
+    std::vector<int>& indices,
+    habana_lazy::ir::ValueList& inputs,
+    habana_lazy::ir::NodePtrList* ptr_post_order = nullptr) {
   for (const auto& in : inputs) {
     std::shared_ptr<Data> d = in.m_data_ptr.lock();
     if (d == nullptr) {
@@ -1111,7 +1119,11 @@ void LaunchSyncTensorsGraph(
   } else {
     try {
       if (launch_info.has_queued) {
-        ValidateSyncInputTensors(tensors, launch_info.indices, launch_info.po_data.inputs, &launch_info.po_data.post_order);
+        ValidateSyncInputTensors(
+            tensors,
+            launch_info.indices,
+            launch_info.po_data.inputs,
+            &launch_info.po_data.post_order);
         launch_info.stack = PrepareInputStack(
             tensors,
             launch_info.indices,

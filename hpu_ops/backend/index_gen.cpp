@@ -582,7 +582,8 @@ void IndexHabanaOperator::AddNode(
       } else {
         index_numel = permuted_self_shape[i];
       }
-      if ((index_all_elems[i] && explicit_index_above) || (!index_all_elems[i] && (index_numel < broadcast_to_size_numel))) {
+      if ((index_all_elems[i] && explicit_index_above) ||
+          (!index_all_elems[i] && (index_numel < broadcast_to_size_numel))) {
         repeats_needed[i] *= broadcast_to_size_numel;
       }
     }

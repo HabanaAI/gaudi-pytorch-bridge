@@ -83,7 +83,7 @@ union OpParams {
   StridedOpTransposeParams transpose_param;
   StridedOpSqueezeParams squeeze_param;
   StridedOpExpandParams expand_param;
-  OpParams(){};
+  OpParams() {};
 };
 
 struct StrideParams {
@@ -137,7 +137,8 @@ struct Data {
         ir_value(std::move(ir_value)),
         device(c10::Device(c10::DeviceType::HPU, 0)),
         logical_element_type(logical_element_type),
-        original_element_type(logical_element_type.value_or(at::ScalarType::Float)),
+        original_element_type(
+            logical_element_type.value_or(at::ScalarType::Float)),
         unique_id(GetNextTensorId()) {
     static_cast<void>(device);
   }

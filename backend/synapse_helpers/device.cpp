@@ -611,9 +611,8 @@ void device::cleanup() {
 
   flush_stream_events();
 
-  if (is_hcl_same_addr_enabled_ &&
-     (std::getenv("HLS_MODULE_ID") != nullptr) &&
-     preallocated_reduction_buffer_.has_value()) {
+  if (is_hcl_same_addr_enabled_ && (std::getenv("HLS_MODULE_ID") != nullptr) &&
+      preallocated_reduction_buffer_.has_value()) {
     device_ptr prealloc_addr = preallocated_reduction_buffer_->get();
     device_memory_.free((void*)prealloc_addr);
   }

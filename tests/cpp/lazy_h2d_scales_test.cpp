@@ -20,9 +20,7 @@
 
 using namespace habana_lazy;
 
-using ScalesMapRecord = std::pair<
-    ScalarValueTypePair,
-    ScalesIdxPair>;
+using ScalesMapRecord = std::pair<ScalarValueTypePair, ScalesIdxPair>;
 
 class LazyH2dScalesTest : public habana_lazy_test::LazyTest {
  protected:
@@ -86,7 +84,8 @@ class LazyH2dScalesTest : public habana_lazy_test::LazyTest {
         << "Preallocated scales vector for each scale value should initially contain 1 element.";
     if (was_scale_used) {
       EXPECT_EQ(scale_idx, std::numeric_limits<decltype(scale_idx)>::max())
-          << "Preallocated scale idx for used scale should be equal to " << std::numeric_limits<decltype(scale_idx)>::max() << ".";
+          << "Preallocated scale idx for used scale should be equal to "
+          << std::numeric_limits<decltype(scale_idx)>::max() << ".";
     } else {
       EXPECT_EQ(scale_idx, 0)
           << "Preallocated scale idx should be initially equal to 0.";
@@ -242,7 +241,8 @@ TEST_F(LazyH2dScalesTest, H2dScalesMapWithHwScale) {
       {hw_cpu_scale.item().toDouble(), hw_cpu_scale.scalar_type()});
   const auto& used_scale_tensor_vec_after_mark =
       used_scale_record_after_mark.scales;
-  const auto used_scale_idx_after_mark = used_scale_record_after_mark.current_idx;
+  const auto used_scale_idx_after_mark =
+      used_scale_record_after_mark.current_idx;
   EXPECT_EQ(used_scale_tensor_vec_after_mark.size(), 2)
       << "Preallocated scales vector for scale value used twice should contain 2 elements.";
   EXPECT_EQ(used_scale_idx_after_mark, 1)

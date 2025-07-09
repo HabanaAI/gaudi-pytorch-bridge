@@ -843,15 +843,17 @@ std::vector<sh::tensor> OpBackend::BuildNode(
           std::move(op->get_syn_output_at(*attr.final_result_index).ref()));
     } else if (attr.inplace_out_ptr) {
       if (std::holds_alternative<sh::tensor*>(*attr.inplace_out_ptr)) {
-        outputs.emplace_back(habana_helpers::duplicate_tensor_in_memory_section(
-            *(std::get<sh::tensor*>(*attr.inplace_out_ptr)),
-            graph,
-            /* is_external */ false));
+        outputs.emplace_back(
+            habana_helpers::duplicate_tensor_in_memory_section(
+                *(std::get<sh::tensor*>(*attr.inplace_out_ptr)),
+                graph,
+                /* is_external */ false));
       } else {
-        outputs.emplace_back(habana_helpers::duplicate_tensor_in_memory_section(
-            op->SynInput(std::get<int>(*attr.inplace_out_ptr)),
-            graph,
-            /* is_external */ false));
+        outputs.emplace_back(
+            habana_helpers::duplicate_tensor_in_memory_section(
+                op->SynInput(std::get<int>(*attr.inplace_out_ptr)),
+                graph,
+                /* is_external */ false));
       }
     } else {
       bool is_persistent = false;
@@ -1159,14 +1161,15 @@ sh::tensor OpBackend::BuildCopy(
     ns_Copy::Params params;
     params.isOutputBool = dest_type == at::ScalarType::Bool;
     using namespace std::literals;
-    return std::move(OpBackend::BuildNode(
-        op,
-        graph,
-        {get_guid_with_precision("copy_fwd"sv, dest_type),
-         inputs,
-         {{meta[0].shape, meta[0].dtype, result_index}},
-         &params,
-         sizeof(params)})[0]);
+    return std::move(
+        OpBackend::BuildNode(
+            op,
+            graph,
+            {get_guid_with_precision("copy_fwd"sv, dest_type),
+             inputs,
+             {{meta[0].shape, meta[0].dtype, result_index}},
+             &params,
+             sizeof(params)})[0]);
   }
 
   if ((src_type_cast_type == dest_type_cast_type) &&

@@ -116,12 +116,13 @@ class CastOperator : public CastOutOperator {
 class ConstantOperator : public habana::HabanaOperator {
  public:
   ConstantOperator(int device_id, c10::ScalarType scalarType)
-      : habana::HabanaOperator(habana::get_guid_with_precision(
-            [] {
-              using namespace std::literals;
-              return "constant"sv;
-            }(),
-            scalarType)) {
+      : habana::HabanaOperator(
+            habana::get_guid_with_precision(
+                [] {
+                  using namespace std::literals;
+                  return "constant"sv;
+                }(),
+                scalarType)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.output_layout.assign({habana::LayoutFormat::ANY});
   }

@@ -54,8 +54,9 @@ at::Tensor AtenFromHbLazyTensor(
       scalarTypeToTypeMeta(HbLazy_tensor.dtype()).itemsize(),
       size,
       lazy_storage);
-  at::Tensor tensor = at::Tensor(c10::make_intrusive<HbLazyTensorImpl>(
-      std::move(HbLazy_tensor), std::move(lazy_storage)));
+  at::Tensor tensor = at::Tensor(
+      c10::make_intrusive<HbLazyTensorImpl>(
+          std::move(HbLazy_tensor), std::move(lazy_storage)));
   InitSizesAndStrides(tensor, tensor_type, size, stride, mem_format);
   habana::set_tensor_const(tensor, is_tensor_const, const_tensor_id);
   return tensor;
@@ -76,8 +77,9 @@ at::Tensor AtenFromHbLazyTensor(
       scalarTypeToTypeMeta(HbLazy_tensor.dtype()).itemsize(),
       size,
       lazy_storage);
-  at::Tensor tensor = at::Tensor(c10::make_intrusive<HbLazyTensorImpl>(
-      HbLazy_tensor, std::move(lazy_storage)));
+  at::Tensor tensor = at::Tensor(
+      c10::make_intrusive<HbLazyTensorImpl>(
+          HbLazy_tensor, std::move(lazy_storage)));
   InitSizesAndStrides(tensor, tensor_type, size, stride, mem_format);
   habana::set_tensor_const(tensor, is_tensor_const, const_tensor_id);
   return tensor;
@@ -95,8 +97,9 @@ at::Tensor AtenFromHbLazyTensor(
   HABANA_ASSERT(HbLazy_tensor.is_null() == false);
   auto is_tensor_const = HbLazy_tensor.IsConstTensor();
   auto const_tensor_id = HbLazy_tensor.GetConstTensorId();
-  at::Tensor tensor = at::Tensor(c10::make_intrusive<HbLazyTensorImpl>(
-      std::move(HbLazy_tensor), storage, key_set));
+  at::Tensor tensor = at::Tensor(
+      c10::make_intrusive<HbLazyTensorImpl>(
+          std::move(HbLazy_tensor), storage, key_set));
   InitSizesAndStrides(tensor, tensor_type, size, stride, mem_format);
   habana::set_tensor_const(tensor, is_tensor_const, const_tensor_id);
   return tensor;

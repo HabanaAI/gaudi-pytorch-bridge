@@ -15,8 +15,8 @@
 
 #include <gtest/gtest.h>
 #include <cstring>
-#include "utils/rerun_failures.h"
 #include "habana_helpers/logging.h"
+#include "utils/rerun_failures.h"
 
 int main(int argc, char* argv[]) {
   bool reruns = false;

@@ -110,9 +110,9 @@ class HandlesMap {
     size_t size_ = 0;
     hpuStream_t stream_ = 0;
     PtrSize() = default;
-    PtrSize(size_t size, hpuStream_t stream) : size_(size), stream_(stream){};
+    PtrSize(size_t size, hpuStream_t stream) : size_(size), stream_(stream) {};
     PtrSize(void* ptr, size_t size, hpuStream_t stream)
-        : ptr_(ptr), size_(size), stream_(stream){};
+        : ptr_(ptr), size_(size), stream_(stream) {};
   };
 
   HandlesMap();

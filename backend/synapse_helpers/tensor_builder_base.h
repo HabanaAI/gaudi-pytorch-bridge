@@ -194,8 +194,9 @@ class tensor_builder_base {
 
   ConcreteBuilder& with_rank_at_least(unsigned required_rank) {
     const auto previous_rank = shape_.rank().value;
-    shape_.set_rank(tensor::shape_t::dimension_count_t{
-        std::max(required_rank, previous_rank)});
+    shape_.set_rank(
+        tensor::shape_t::dimension_count_t{
+            std::max(required_rank, previous_rank)});
 
     for (auto i = previous_rank; i < shape_.rank().value; i++) {
       shape_.set_dim(i, 1);

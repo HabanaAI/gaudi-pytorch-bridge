@@ -125,14 +125,15 @@ void Matmul::AddNode(sh::graph& graph, const at::Stack& stack) {
       }
       std::swap(params.permutation[0], params.permutation[1]);
       std::swap(expanded_sizes[0], expanded_sizes[1]);
-      expanded_tensor.emplace_back(std::move(BuildNode(
-          this,
-          graph,
-          {"transpose",
-           {syn_in(0)},
-           {{expanded_sizes, self_dtype}},
-           &params,
-           sizeof(params)})[0]));
+      expanded_tensor.emplace_back(
+          std::move(BuildNode(
+              this,
+              graph,
+              {"transpose",
+               {syn_in(0)},
+               {{expanded_sizes, self_dtype}},
+               &params,
+               sizeof(params)})[0]));
     }
 
     synGEMMParams gemm_params{true, false};
@@ -192,12 +193,13 @@ void Matmul::AddNode(sh::graph& graph, const at::Stack& stack) {
     auto broadcast_other =
         BroadcastHelper(graph, syn_in(1), other_expand_size, self_dtype);
 
-    syn_out(0) = std::move(OpBackend::BuildNode(
-        this,
-        graph,
-        {"batch_gemm",
-         {broadcast_self.get(), broadcast_other.get()},
-         {{gemm_output_shape, meta.dtype, 0}}})[0]);
+    syn_out(0) = std::move(
+        OpBackend::BuildNode(
+            this,
+            graph,
+            {"batch_gemm",
+             {broadcast_self.get(), broadcast_other.get()},
+             {{gemm_output_shape, meta.dtype, 0}}})[0]);
   } else if (reshape_3d_2d && (self_dim == 3) && (other_dim == 2)) {
     auto self_sizes = self.sizes().vec();
     auto other_sizes = other.sizes().vec();
@@ -218,12 +220,13 @@ void Matmul::AddNode(sh::graph& graph, const at::Stack& stack) {
         ReshapeHelper(graph, output[0].get(), meta.shape, self_dtype, 0);
   } else if (
       (self_dim >= 1 && other_dim >= 1) && (self_dim >= 3 || other_dim >= 3)) {
-    syn_out(0) = std::move(OpBackend::BuildNode(
-        this,
-        graph,
-        {"batch_gemm",
-         {syn_in(0), syn_in(1)},
-         {{meta.shape, meta.dtype, 0}}})[0]);
+    syn_out(0) = std::move(
+        OpBackend::BuildNode(
+            this,
+            graph,
+            {"batch_gemm",
+             {syn_in(0), syn_in(1)},
+             {{meta.shape, meta.dtype, 0}}})[0]);
   } else {
     HABANA_ASSERT(false, "Not supported matmul configuration.");
   }

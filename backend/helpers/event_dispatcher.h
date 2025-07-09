@@ -73,7 +73,7 @@ class EventDispatcher {
     GRAPH_COMPILE,
     MARK_STEP,
     PROCESS_EXIT,
-    CTX_FINISH_BEFORE, /** This event emitted just before DeviceContext finished */
+    CTX_FINISH_BEFORE, // This event emitted just before DeviceContext finished
     DEVICE_ACQUIRED,
     CUSTOM_EVENT,
     MEMORY_DEFRAGMENTATION,

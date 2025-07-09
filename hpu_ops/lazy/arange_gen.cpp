@@ -95,13 +95,13 @@ ArangeFE<at::Tensor&>::ArangeFE(
         habana_lazy::GetOrCreateHbLazyTensor(result_shape, c10::kHPU);
     if (hl_result_shape.CurrentTensorAttached().has_value()) {
       auto hl_result_shape_internal =
-        hl_result_shape.CurrentTensorAttached().value();
+          hl_result_shape.CurrentTensorAttached().value();
 
-        auto stImpl =
-            habana_lazy::GetHbInternalTensorImpl(hl_result_shape_internal);
-        if (stImpl) {
-          stImpl->setH2DFrontEndShapeTensor();
-        }
+      auto stImpl =
+          habana_lazy::GetHbInternalTensorImpl(hl_result_shape_internal);
+      if (stImpl) {
+        stImpl->setH2DFrontEndShapeTensor();
+      }
     }
     set_inputs({start, end, step, params_shape, result_shape, inputs[3]});
   } else {

@@ -612,7 +612,8 @@ bool SharedLayerGuidValidator::fillGuidParamInfo(
 
 template <typename T>
 bool SharedLayerGuidValidator::fillParam(
-    T & params, SharedLayer::DeviceId deviceId) {
+    T& params,
+    SharedLayer::DeviceId deviceId) {
   params.apiVersion = 1;
   params.deviceId = deviceId;
 

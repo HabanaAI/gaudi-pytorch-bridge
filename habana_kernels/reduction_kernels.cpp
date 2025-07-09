@@ -435,24 +435,26 @@ ReduceOperator::CreateReductionGraph(
     }
 
     c10::IntArrayRef shape(pyt_shape.data(), pyt_shape.size());
-    syn_helper_intermediate.emplace_back(habana_helpers::create_tensor(
-        shape,
-        pyt_stride,
-        graph,
-        false,
-        false,
-        pyt_tensor.device().index(),
-        dtype));
+    syn_helper_intermediate.emplace_back(
+        habana_helpers::create_tensor(
+            shape,
+            pyt_stride,
+            graph,
+            false,
+            false,
+            pyt_tensor.device().index(),
+            dtype));
     if (num_tpc_outputs != 1) {
       // create second tensor for index
-      syn_helper_intermediate.emplace_back(habana_helpers::create_tensor(
-          shape,
-          pyt_stride,
-          graph,
-          false,
-          false,
-          pyt_tensor.device().index(),
-          c10::ScalarType::Int));
+      syn_helper_intermediate.emplace_back(
+          habana_helpers::create_tensor(
+              shape,
+              pyt_stride,
+              graph,
+              false,
+              false,
+              pyt_tensor.device().index(),
+              c10::ScalarType::Int));
     }
   }
   // add syn_output tensor
@@ -460,14 +462,15 @@ ReduceOperator::CreateReductionGraph(
   syn_helper_intermediate.emplace_back(synOutput);
   if (keepdim && num_tpc_outputs != 1) {
     // create second tensor for index
-    syn_helper_intermediate.emplace_back(habana_helpers::create_tensor(
-        output.sizes(),
-        output.strides(),
-        graph,
-        false,
-        false,
-        pyt_tensor.device().index(),
-        c10::ScalarType::Int));
+    syn_helper_intermediate.emplace_back(
+        habana_helpers::create_tensor(
+            output.sizes(),
+            output.strides(),
+            graph,
+            false,
+            false,
+            pyt_tensor.device().index(),
+            c10::ScalarType::Int));
   }
   /*
   i=0, o=1,2

@@ -286,7 +286,7 @@ class OutputMetaData {
   std::optional<at::Tensor> allocated_tensor{};
   bool undefined{false};
 
-  OutputMetaData(const torch::jit::Value& value) : name(value.debugName()){};
+  OutputMetaData(const torch::jit::Value& value) : name(value.debugName()) {};
   OutputMetaData(
       at::ScalarType dtype,
       std::vector<int64_t> shape,

@@ -18,9 +18,9 @@
 #include <torch/csrc/api/include/torch/version.h>
 
 #define IS_PYTORCH_AT_LEAST(MAJOR, MINOR) \
-  (TORCH_VERSION_MAJOR > (MAJOR) ||         \
+  (TORCH_VERSION_MAJOR > (MAJOR) ||       \
    (TORCH_VERSION_MAJOR == (MAJOR) && TORCH_VERSION_MINOR >= (MINOR)))
 
 #define IS_PYTORCH_OLDER_THAN(MAJOR, MINOR) \
-  (TORCH_VERSION_MAJOR < (MAJOR) ||           \
+  (TORCH_VERSION_MAJOR < (MAJOR) ||         \
    (TORCH_VERSION_MAJOR == (MAJOR) && TORCH_VERSION_MINOR < (MINOR)))

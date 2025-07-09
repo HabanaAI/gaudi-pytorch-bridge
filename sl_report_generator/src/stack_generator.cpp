@@ -483,11 +483,12 @@ std::vector<c10::IValue> StackGenerator::handle_inputs(
       throw std::invalid_argument(error_message.str());
     }
     case InputType::STORAGE: {
-      values.push_back(at::Storage(
-          at::Storage::use_byte_size_t(),
-          0,
-          c10::GetAllocator(at::kCPU),
-          true));
+      values.push_back(
+          at::Storage(
+              at::Storage::use_byte_size_t(),
+              0,
+              c10::GetAllocator(at::kCPU),
+              true));
       break;
     }
     default: {

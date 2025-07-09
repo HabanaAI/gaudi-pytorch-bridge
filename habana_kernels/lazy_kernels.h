@@ -1086,16 +1086,18 @@ class LazyOp {
     if (m_scalar_types.empty()) {
       auto dtype = get_inputs().at(m_out_index).toTensor().scalar_type();
       for (const auto& out_shape : m_out_shapes) {
-        results.emplace_back(at::empty(
-            out_shape, options.dtype(dtype), at::MemoryFormat::Contiguous));
+        results.emplace_back(
+            at::empty(
+                out_shape, options.dtype(dtype), at::MemoryFormat::Contiguous));
       }
     } else {
       HABANA_ASSERT(m_scalar_types.size() == results_size);
       for (size_t i = 0; i < results_size; ++i) {
-        results.emplace_back(at::empty(
-            m_out_shapes[i],
-            options.dtype(m_scalar_types[i]),
-            at::MemoryFormat::Contiguous));
+        results.emplace_back(
+            at::empty(
+                m_out_shapes[i],
+                options.dtype(m_scalar_types[i]),
+                at::MemoryFormat::Contiguous));
       }
     }
     return results;
@@ -1127,9 +1129,10 @@ class LazyOp {
     return m_scalar_types;
   }
 
-  void SetSTMetaFn(std::function<bool(
-                       habana_helpers::IShapeList& inputs,
-                       habana_helpers::IShapeList& outputs)> fn) {
+  void SetSTMetaFn(
+      std::function<bool(
+          habana_helpers::IShapeList& inputs,
+          habana_helpers::IShapeList& outputs)> fn) {
     static_cast<void>(fn);
   }
 

@@ -458,8 +458,9 @@ struct _dispatch_fallback<
                     cast_input,
                     cast_arg(arg_changed, at::ScalarType::Float, args)...)};
         if (arg_changed) {
-          t.copy_(at::autocast::cached_cast(
-              t.scalar_type(), new_tensor, at::DeviceType::HPU));
+          t.copy_(
+              at::autocast::cached_cast(
+                  t.scalar_type(), new_tensor, at::DeviceType::HPU));
         } else {
           t.copy_(new_tensor);
         }

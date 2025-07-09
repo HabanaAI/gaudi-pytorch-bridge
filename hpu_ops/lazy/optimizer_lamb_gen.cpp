@@ -29,8 +29,8 @@ HPU_OP_FRONTEND_CREATE_RESULT_ONLY(
     LazyOptimizerLambNorm,
     at::Tensor) {
   const auto& inputs = habana_lazy::LazyOp<at::Tensor>::get_inputs();
-  SUPPRESS_WDANGLING_REFERENCE(const auto& t =
-                                   inputs.at(0).toTensorList().get(0);)
+  SUPPRESS_WDANGLING_REFERENCE(
+      const auto& t = inputs.at(0).toTensorList().get(0);)
   return habana_lazy::empty_hpu_lazy(
       {1}, t.options(), t.suggest_memory_format(), false);
 }

@@ -98,7 +98,7 @@ bool CompareTensors(
 template <class U>
 const TensorAndView& AccessTensorForCompareFewTensors(
     const U& v,
-    std::vector<TensorAndView> U::*pmTensorAndViewVec,
+    std::vector<TensorAndView> U::* pmTensorAndViewVec,
     int idInVec) {
   return (v.*pmTensorAndViewVec)[idInVec];
 }
@@ -168,7 +168,7 @@ void PushBackHpuAndCpuTensors(
     torch::Tensor src,
     T& hpu,
     T& cpu,
-    std::vector<TensorAndView> T::*pmTensorAndViewVec,
+    std::vector<TensorAndView> T::* pmTensorAndViewVec,
     bool onHpuMakeView) {
   if (onHpuMakeView) {
     auto src_flat = src.flatten();

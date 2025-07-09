@@ -46,9 +46,8 @@ struct HashFn {
 
 class EqualFn {
  public:
-  bool operator()(
-      const ScalarValueTypePair& a,
-      const ScalarValueTypePair& b) const {
+  bool operator()(const ScalarValueTypePair& a, const ScalarValueTypePair& b)
+      const {
     return a.value == b.value && a.dtype == b.dtype;
   }
 };
@@ -60,11 +59,8 @@ struct ScalesIdxPair {
   // Max value of size_t is special value here, meaning nothing left in cache.
   size_t current_idx{std::numeric_limits<size_t>::max()};
 };
-using ScalarToScalesMap = std::unordered_map<
-    ScalarValueTypePair,
-    ScalesIdxPair,
-    HashFn,
-    EqualFn>;
+using ScalarToScalesMap =
+    std::unordered_map<ScalarValueTypePair, ScalesIdxPair, HashFn, EqualFn>;
 
 class SingleTonExecThreadPool {
  public:
@@ -401,11 +397,7 @@ class HbExecutionContext {
   // cleanly
   std::vector<at::Tensor> m_retained_tensor_list;
 
-  std::unordered_map<
-      ScalarValueTypePair,
-      at::Tensor,
-      HashFn,
-      EqualFn>
+  std::unordered_map<ScalarValueTypePair, at::Tensor, HashFn, EqualFn>
       scalar_to_tensor_map;
 
   std::vector<std::pair<at::Tensor, at::Tensor>> copy_scalar_to_hpu_tensor_list;

@@ -94,8 +94,7 @@ class FuseCollectiveViewPass : public JITGraphPass<FuseCollectiveViewPassData> {
   std::shared_ptr<torch::jit::Graph> cloned_graph_;
 
   void RunFuseOpsPasses(const std::shared_ptr<torch::jit::Graph> graph);
-  void RunFuseOps(torch::jit::Node* collective_node,
-      int index);
+  void RunFuseOps(torch::jit::Node* collective_node, int index);
   bool RunFuseOps(
       torch::jit::graph_node_list graph_nodes,
       bool is_check_mode = false);
@@ -116,8 +115,10 @@ class FuseCollectiveViewPass : public JITGraphPass<FuseCollectiveViewPassData> {
   void PrepareJITStack(CValuePtrToIValuePtrMap& value_to_ivalue);
   void RestoreJITStack(CValuePtrToIValuePtrMap& value_to_ivalue);
   bool CanFuse(CValPtr value, int64_t dim = 0, int64_t step = 1);
-  bool IsGraphInputOutput(torch::jit::Value* value, bool is_graph_output=false);
-  bool CanFuse(torch::jit::Node* node, bool is_node_output=false);
+  bool IsGraphInputOutput(
+      torch::jit::Value* value,
+      bool is_graph_output = false);
+  bool CanFuse(torch::jit::Node* node, bool is_node_output = false);
   bool NeedCheck(std::shared_ptr<torch::jit::Graph> graph);
   void GetExternalParams(
       CValPtr value,

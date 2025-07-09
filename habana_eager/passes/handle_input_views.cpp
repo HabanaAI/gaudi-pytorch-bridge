@@ -182,15 +182,19 @@ struct HandleInputViewsPass {
         {value_in, value_sizes, value_strides, value_offset},
         1);
 
-    jit_node->output(0)->setType(c10::TensorType::createContiguous(
-        input_tensor.scalar_type(), input_tensor.device(), p.getViewSizes()));
+    jit_node->output(0)->setType(
+        c10::TensorType::createContiguous(
+            input_tensor.scalar_type(),
+            input_tensor.device(),
+            p.getViewSizes()));
 
     base_sizes_to_set = habana::get_base_tensor_size(input_tensor);
 
-    jit_node->input(0)->setType(c10::TensorType::createContiguous(
-        input_tensor.scalar_type(),
-        input_tensor.device(),
-        input_tensor.sizes()));
+    jit_node->input(0)->setType(
+        c10::TensorType::createContiguous(
+            input_tensor.scalar_type(),
+            input_tensor.device(),
+            input_tensor.sizes()));
 
     m_graph->insertNode(jit_node);
 
@@ -223,18 +227,23 @@ struct HandleInputViewsPass {
         {value_in, value_out, value_strides, value_offset},
         1);
 
-    jit_node->input(0)->setType(c10::TensorType::createContiguous(
-        input_tensor.scalar_type(),
-        input_tensor.device(),
-        {p.getTotalElements()}));
+    jit_node->input(0)->setType(
+        c10::TensorType::createContiguous(
+            input_tensor.scalar_type(),
+            input_tensor.device(),
+            {p.getTotalElements()}));
 
-    jit_node->input(1)->setType(c10::TensorType::createContiguous(
-        input_tensor.scalar_type(), input_tensor.device(), p.getViewSizes()));
+    jit_node->input(1)->setType(
+        c10::TensorType::createContiguous(
+            input_tensor.scalar_type(),
+            input_tensor.device(),
+            p.getViewSizes()));
 
-    jit_node->output(0)->setType(c10::TensorType::createContiguous(
-        input_tensor.scalar_type(),
-        input_tensor.device(),
-        {p.getTotalElements()}));
+    jit_node->output(0)->setType(
+        c10::TensorType::createContiguous(
+            input_tensor.scalar_type(),
+            input_tensor.device(),
+            {p.getTotalElements()}));
 
     m_graph->insertNode(jit_node);
 

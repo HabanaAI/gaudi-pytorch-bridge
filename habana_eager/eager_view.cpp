@@ -113,11 +113,13 @@ JitNode* insert_strided_view_node(
       op_strided_view,
       {jitval_in, value_sizes, value_strides, value_offset},
       1);
-  jit_node->output(0)->setType(c10::TensorType::createContiguous(
-      input.scalar_type(), input.device(), p.getViewSizes()));
+  jit_node->output(0)->setType(
+      c10::TensorType::createContiguous(
+          input.scalar_type(), input.device(), p.getViewSizes()));
   auto sizes = habana::get_base_tensor_size(input);
-  jit_node->input(0)->setType(c10::TensorType::createContiguous(
-      input.scalar_type(), input.device(), sizes));
+  jit_node->input(0)->setType(
+      c10::TensorType::createContiguous(
+          input.scalar_type(), input.device(), sizes));
   PT_EAGER_DEBUG(
       "update graph view input's sizes: ",
       input.sizes(),
@@ -219,18 +221,21 @@ JitNode* insert_strided_insert_node(
        value_offset},
       1);
 
-  jit_node->input(0)->setType(c10::TensorType::createContiguous(
-      input_tensor.scalar_type(),
-      input_tensor.device(),
-      {p.getTotalElements()}));
+  jit_node->input(0)->setType(
+      c10::TensorType::createContiguous(
+          input_tensor.scalar_type(),
+          input_tensor.device(),
+          {p.getTotalElements()}));
 
-  jit_node->input(1)->setType(c10::TensorType::createContiguous(
-      input_tensor.scalar_type(), input_tensor.device(), p.getViewSizes()));
+  jit_node->input(1)->setType(
+      c10::TensorType::createContiguous(
+          input_tensor.scalar_type(), input_tensor.device(), p.getViewSizes()));
 
-  jit_node->output(0)->setType(c10::TensorType::createContiguous(
-      input_tensor.scalar_type(),
-      input_tensor.device(),
-      {p.getTotalElements()}));
+  jit_node->output(0)->setType(
+      c10::TensorType::createContiguous(
+          input_tensor.scalar_type(),
+          input_tensor.device(),
+          {p.getTotalElements()}));
 
   set_deterministic(jit_node);
   graph.insertNode(jit_node);
@@ -262,16 +267,19 @@ JitNode* replace_copy_with_strided_insert(
   inputs.push_back(value_strides);
   inputs.push_back(value_offset);
 
-  jit_node->input(0)->setType(c10::TensorType::createContiguous(
-      input_tensor.scalar_type(),
-      input_tensor.device(),
-      habana::get_base_tensor_size(input_tensor)));
+  jit_node->input(0)->setType(
+      c10::TensorType::createContiguous(
+          input_tensor.scalar_type(),
+          input_tensor.device(),
+          habana::get_base_tensor_size(input_tensor)));
 
-  jit_node->input(1)->setType(c10::TensorType::createContiguous(
-      input_tensor.scalar_type(), input_tensor.device(), p.getViewSizes()));
+  jit_node->input(1)->setType(
+      c10::TensorType::createContiguous(
+          input_tensor.scalar_type(), input_tensor.device(), p.getViewSizes()));
   auto new_output_size = habana::get_base_tensor_size(input_tensor);
-  jit_node->output(0)->setType(c10::TensorType::createContiguous(
-      input_tensor.scalar_type(), input_tensor.device(), new_output_size));
+  jit_node->output(0)->setType(
+      c10::TensorType::createContiguous(
+          input_tensor.scalar_type(), input_tensor.device(), new_output_size));
   eager_op_meta_data.new_strided_insert_output_shape_ = new_output_size;
   set_deterministic(jit_node);
   graph.insertNode(jit_node);
@@ -448,7 +456,7 @@ void set_as_strided_meta(JitNode* node) {
 void set_deterministic(JitNode* node) {
   node->i_(
       torch::jit::attr::deterministic,
-          at::globalContext().deterministicAlgorithms());
+      at::globalContext().deterministicAlgorithms());
   PT_EAGER_DEBUG(
       "Deterministic val during Jit Node creation: ",
       node->i(torch::jit::attr::deterministic));

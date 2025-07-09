@@ -214,9 +214,10 @@ class OpBackend : public HabanaOperator {
     m_shared_layer_meta_fn = std::move(fn);
   }
 
-  void SetSTMetaFn(std::function<bool(
-                       habana_helpers::IShapeList& inputs,
-                       habana_helpers::IShapeList& outputs)> fn) {
+  void SetSTMetaFn(
+      std::function<bool(
+          habana_helpers::IShapeList& inputs,
+          habana_helpers::IShapeList& outputs)> fn) {
     m_st_meta_fn = std::move(fn);
   }
 

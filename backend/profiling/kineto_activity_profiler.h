@@ -70,10 +70,12 @@ class GenericTraceActivitySink : public TraceSink {
 
   std::string getDeviceDetails();
 
-  void addDeviceDetails(const std::unordered_map<std::string, std::string>&
-                            device_properties) override;
-  void addDeviceDetails(const std::unordered_map<std::string, int64_t>&
-                            device_properties) override;
+  void addDeviceDetails(
+      const std::unordered_map<std::string, std::string>& device_properties)
+      override;
+  void addDeviceDetails(
+      const std::unordered_map<std::string, int64_t>& device_properties)
+      override;
 
   std::unique_ptr<libkineto::GenericTraceActivity> constructFlow(
       const std::string& name,

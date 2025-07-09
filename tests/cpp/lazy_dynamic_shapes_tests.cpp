@@ -268,8 +268,8 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeTest3) {
     torch::Tensor weight_tensor = torch::add(bias1, bias2);
     torch::Tensor h_weight_tensor = torch::add(h_bias1, h_bias2);
     // out_conv = Conv3x3(Data, weight)
-    torch::Tensor in_tensor =
-        torch::randn(static_cast<int64_t>(N * C * H * W), torch::requires_grad(false));
+    torch::Tensor in_tensor = torch::randn(
+        static_cast<int64_t>(N * C * H * W), torch::requires_grad(false));
     torch::Tensor h_in_tensor = in_tensor.to(torch::kHPU);
     torch::Tensor h_weight_tensor_hwck = h_weight_tensor;
     torch::Tensor h_out_conv = torch::conv2d(

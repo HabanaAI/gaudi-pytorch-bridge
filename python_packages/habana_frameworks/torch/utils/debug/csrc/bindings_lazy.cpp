@@ -23,8 +23,9 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       habana_lazy::AccThread::Get().SyncAccThreadPool();
     } catch (const c10::Error& e) {
       PT_BRIDGE_WARN(
-        "Exception has been thrown from habana_lazy::AccThread::Get().SyncAccThreadPool()"
-        "Error message: ", e.what());
+          "Exception has been thrown from habana_lazy::AccThread::Get().SyncAccThreadPool()"
+          "Error message: ",
+          e.what());
     }
     habana::HabanaLaunchOpUtils::cleanUp();
   });

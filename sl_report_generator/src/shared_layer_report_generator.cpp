@@ -71,11 +71,13 @@ void SharedLayerReportGenerator::register_exceptions() {
 }
 
 void SharedLayerReportGenerator::register__adaptive_avg_pool2d_exception() {
-  custom_stack_generators.push_back(std::make_unique<SchemaStackGenerator>(
-      "Tensor self, SymInt[2] output_size", "_adaptive_avg_pool2d"));
-  custom_executors.push_back(std::make_unique<CustomSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(),
-      &habana::validator__adaptive_avg_pool2d));
+  custom_stack_generators.push_back(
+      std::make_unique<SchemaStackGenerator>(
+          "Tensor self, SymInt[2] output_size", "_adaptive_avg_pool2d"));
+  custom_executors.push_back(
+      std::make_unique<CustomSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(),
+          &habana::validator__adaptive_avg_pool2d));
 
   register_op(
       {/* op_name */ "_adaptive_avg_pool2d",
@@ -87,8 +89,9 @@ void SharedLayerReportGenerator::register__adaptive_avg_pool2d_exception() {
 void SharedLayerReportGenerator::register_abs__exception() {
   custom_stack_generators.push_back(
       std::make_unique<SchemaStackGenerator>("Tensor self", "abs_"));
-  custom_executors.push_back(std::make_unique<GenericSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(), &habana::validator_abs_));
+  custom_executors.push_back(
+      std::make_unique<GenericSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(), &habana::validator_abs_));
 
   register_op(
       {/* op_name */ "abs_",
@@ -98,10 +101,12 @@ void SharedLayerReportGenerator::register_abs__exception() {
 }
 
 void SharedLayerReportGenerator::register_bmm_exception() {
-  custom_stack_generators.push_back(std::make_unique<SchemaStackGenerator>(
-      "Tensor self, Tensor mat2", "bmm", "", std::vector<std::int64_t>{3}));
-  custom_executors.push_back(std::make_unique<GenericSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(), &habana::validator_bmm));
+  custom_stack_generators.push_back(
+      std::make_unique<SchemaStackGenerator>(
+          "Tensor self, Tensor mat2", "bmm", "", std::vector<std::int64_t>{3}));
+  custom_executors.push_back(
+      std::make_unique<GenericSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(), &habana::validator_bmm));
 
   register_op(
       {/* op_name */ "bmm", /* overload */ "", /* op_namespace */ "torch"},
@@ -114,13 +119,15 @@ void SharedLayerReportGenerator::register_bmm_exception() {
 }
 
 void SharedLayerReportGenerator::register_bmm_out_exception() {
-  custom_stack_generators.push_back(std::make_unique<SchemaStackGenerator>(
-      "Tensor self, Tensor mat2, Tensor out",
-      "bmm",
-      "bmm.out",
-      std::vector<std::int64_t>{3}));
-  custom_executors.push_back(std::make_unique<GenericSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(), &habana::validator_bmm_out));
+  custom_stack_generators.push_back(
+      std::make_unique<SchemaStackGenerator>(
+          "Tensor self, Tensor mat2, Tensor out",
+          "bmm",
+          "bmm.out",
+          std::vector<std::int64_t>{3}));
+  custom_executors.push_back(
+      std::make_unique<GenericSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(), &habana::validator_bmm_out));
 
   register_op(
       {/* op_name */ "bmm", /* overload */ "out", /* op_namespace */ "torch"},
@@ -128,15 +135,17 @@ void SharedLayerReportGenerator::register_bmm_out_exception() {
 }
 
 void SharedLayerReportGenerator::register_cast_to_fp8_just_in_time_exception() {
-  custom_stack_generators.push_back(std::make_unique<SchemaStackGenerator>(
-      /* schema */
-      "Tensor input, int[2] block_shape, ScalarType? out_dtype=None, ScalarType? scale_dtype=None",
-      /* op_name */ "cast_to_fp8_just_in_time",
-      /* op_name_and_overload_name */ "",
-      /* ranks*/ std::vector<int64_t>{2}));
-  custom_executors.push_back(std::make_unique<GenericSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(),
-      &habana::validator_cast_to_fp8_just_in_time));
+  custom_stack_generators.push_back(
+      std::make_unique<SchemaStackGenerator>(
+          /* schema */
+          "Tensor input, int[2] block_shape, ScalarType? out_dtype=None, ScalarType? scale_dtype=None",
+          /* op_name */ "cast_to_fp8_just_in_time",
+          /* op_name_and_overload_name */ "",
+          /* ranks*/ std::vector<int64_t>{2}));
+  custom_executors.push_back(
+      std::make_unique<GenericSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(),
+          &habana::validator_cast_to_fp8_just_in_time));
 
   register_op(
       {/* op_name */ "cast_to_fp8_just_in_time",
@@ -146,14 +155,16 @@ void SharedLayerReportGenerator::register_cast_to_fp8_just_in_time_exception() {
 }
 
 void SharedLayerReportGenerator::register_channel_shuffle_exception() {
-  custom_stack_generators.push_back(std::make_unique<SchemaStackGenerator>(
-      "Tensor self, SymInt groups",
-      "channel_shuffle",
-      "",
-      std::vector<std::int64_t>{3}));
-  custom_executors.push_back(std::make_unique<GenericSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(),
-      &habana::validator_channel_shuffle));
+  custom_stack_generators.push_back(
+      std::make_unique<SchemaStackGenerator>(
+          "Tensor self, SymInt groups",
+          "channel_shuffle",
+          "",
+          std::vector<std::int64_t>{3}));
+  custom_executors.push_back(
+      std::make_unique<GenericSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(),
+          &habana::validator_channel_shuffle));
 
   register_op(
       {/* op_name */ "channel_shuffle",
@@ -175,50 +186,48 @@ void SharedLayerReportGenerator::register_channel_shuffle_exception() {
 void SharedLayerReportGenerator::register_clamp_exception() {
   custom_stack_generators.push_back(
       std::make_unique<StackGenerator>(StackGenerator(
-          {InputDescriptor{
-               /* name */ "self",
-               /* type */ InputType::PT_TENSOR,
-               /* is_optional */ false,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ std::nullopt,
-               /* ranks */ std::nullopt,
-               /* match_rank */ true,
-               /* dtypes */ std::nullopt,
-               /* match_precision_type */ true,
-               /* values */ std::nullopt,
-               /* is_array */ false,
-               /* array_length */ std::nullopt},
-           InputDescriptor{
-               /* name */ "min",
-               /* type */ InputType::PT_TENSOR,
-               /* is_optional */ true,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ false,
-               /* ranks */ std::vector<int64_t>{1},
-               /* match_rank */ false,
-               /* dtypes */ std::nullopt,
-               /* match_precision_type */ true,
-               /* values */ std::nullopt,
-               /* is_array */ false,
-               /* array_length */ std::nullopt},
-           InputDescriptor{
-               /* name */ "max",
-               /* type */ InputType::PT_TENSOR,
-               /* is_optional */ true,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ true,
-               /* ranks */ std::vector<int64_t>{1},
-               /* match_rank */ false,
-               /* dtypes */ std::nullopt,
-               /* match_precision_type */ true,
-               /* values */ std::nullopt,
-               /* is_array */ false,
-               /* array_length */ std::nullopt}},
+          {InputDescriptor{/* name */ "self",
+                           /* type */ InputType::PT_TENSOR,
+                           /* is_optional */ false,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ std::nullopt,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ true,
+                           /* dtypes */ std::nullopt,
+                           /* match_precision_type */ true,
+                           /* values */ std::nullopt,
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt},
+           InputDescriptor{/* name */ "min",
+                           /* type */ InputType::PT_TENSOR,
+                           /* is_optional */ true,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ false,
+                           /* ranks */ std::vector<int64_t>{1},
+                           /* match_rank */ false,
+                           /* dtypes */ std::nullopt,
+                           /* match_precision_type */ true,
+                           /* values */ std::nullopt,
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt},
+           InputDescriptor{/* name */ "max",
+                           /* type */ InputType::PT_TENSOR,
+                           /* is_optional */ true,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ true,
+                           /* ranks */ std::vector<int64_t>{1},
+                           /* match_rank */ false,
+                           /* dtypes */ std::nullopt,
+                           /* match_precision_type */ true,
+                           /* values */ std::nullopt,
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt}},
           /* blacklisted_precision_types */ {},
           /* whitelisted_precision_types */ {},
           "clamp")));
-  custom_executors.push_back(std::make_unique<GenericSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(), &habana::validator_clamp));
+  custom_executors.push_back(
+      std::make_unique<GenericSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(), &habana::validator_clamp));
 
   register_op(
       {/* op_name */ "clamp", /* overload */ "", /* op_namespace */ "torch"},
@@ -231,107 +240,107 @@ void SharedLayerReportGenerator::register_clamp_exception() {
 }
 
 void SharedLayerReportGenerator::register_ctc_loss_custom_exception() {
-  custom_stack_generators.push_back(std::make_unique<
-                                    StackGenerator>(StackGenerator(
-      {
-          InputDescriptor{
-              /* name */ "log_probs",
-              /* type */ InputType::PT_TENSOR,
-              /* is_optional */ false,
-              /* allow_only_none */ std::nullopt,
-              /* allow_none */ std::nullopt,
-              /* ranks */ std::nullopt,
-              /* match_rank */ true,
-              /* dtypes */ std::nullopt,
-              /* match_precision_type */ true,
-              /* values */ std::nullopt,
-              /* is_array */ false,
-              /* array_length */ std::nullopt},
-          InputDescriptor{
-              /* name */ "targets",
-              /* type */ InputType::PT_TENSOR,
-              /* is_optional */ false,
-              /* allow_only_none */ std::nullopt,
-              /* allow_none */ std::nullopt,
-              /* ranks */ std::nullopt,
-              /* match_rank */ true,
-              /* dtypes */ std::vector<c10::ScalarType>{c10::ScalarType::Int},
-              /* match_precision_type */ false,
-              /* values */ std::nullopt,
-              /* is_array */ false,
-              /* array_length */ std::nullopt},
-          InputDescriptor{
-              /* name */ "input_lengths",
-              /* type */ InputType::PT_TENSOR,
-              /* is_optional */ false,
-              /* allow_only_none */ std::nullopt,
-              /* allow_none */ std::nullopt,
-              /* ranks */ std::nullopt,
-              /* match_rank */ true,
-              /* dtypes */ std::vector<c10::ScalarType>{c10::ScalarType::Int},
-              /* match_precision_type */ false,
-              /* values */ std::nullopt,
-              /* is_array */ false,
-              /* array_length */ std::nullopt},
-          InputDescriptor{
-              /* name */ "target_lengths",
-              /* type */ InputType::PT_TENSOR,
-              /* is_optional */ false,
-              /* allow_only_none */ std::nullopt,
-              /* allow_none */ std::nullopt,
-              /* ranks */ std::nullopt,
-              /* match_rank */ true,
-              /* dtypes */ std::vector<c10::ScalarType>{c10::ScalarType::Int},
-              /* match_precision_type */ false,
-              /* values */ std::nullopt,
-              /* is_array */ false,
-              /* array_length */ std::nullopt},
-          InputDescriptor{
-              /* name */ "blank",
-              /* type */ InputType::NATIVE_INT,
-              /* is_optional */ false,
-              /* allow_only_none */ std::nullopt,
-              /* allow_none */ std::nullopt,
-              /* ranks */ std::nullopt,
-              /* match_rank */ std::nullopt,
-              /* dtypes */ std::nullopt,
-              /* match_precision_type */ std::nullopt,
-              /* values */ std::vector<std::any>{0},
-              /* is_array */ false,
-              /* array_length */ std::nullopt},
-          InputDescriptor{
-              /* name */ "reduction",
-              /* type */ InputType::NATIVE_INT,
-              /* is_optional */ false,
-              /* allow_only_none */ std::nullopt,
-              /* allow_none */ std::nullopt,
-              /* ranks */ std::nullopt,
-              /* match_rank */ std::nullopt,
-              /* dtypes */ std::nullopt,
-              /* match_precision_type */ std::nullopt,
-              /* values */ std::vector<std::any>{0},
-              /* is_array */ false,
-              /* array_length */ std::nullopt},
-          InputDescriptor{
-              /* name */ "zero_infinity",
-              /* type */ InputType::NATIVE_BOOL,
-              /* is_optional */ false,
-              /* allow_only_none */ std::nullopt,
-              /* allow_none */ std::nullopt,
-              /* ranks */ std::nullopt,
-              /* match_rank */ std::nullopt,
-              /* dtypes */ std::nullopt,
-              /* match_precision_type */ std::nullopt,
-              /* values */ std::vector<std::any>{false},
-              /* is_array */ false,
-              /* array_length */ std::nullopt},
-      },
-      /* blacklisted_precision_types */ {},
-      /* whitelisted_precision_types */ {},
-      "ctc_loss_custom")));
-  custom_executors.push_back(std::make_unique<CustomSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(),
-      &habana::validator_ctc_loss_custom));
+  custom_stack_generators.push_back(
+      std::make_unique<StackGenerator>(StackGenerator(
+          {
+              InputDescriptor{/* name */ "log_probs",
+                              /* type */ InputType::PT_TENSOR,
+                              /* is_optional */ false,
+                              /* allow_only_none */ std::nullopt,
+                              /* allow_none */ std::nullopt,
+                              /* ranks */ std::nullopt,
+                              /* match_rank */ true,
+                              /* dtypes */ std::nullopt,
+                              /* match_precision_type */ true,
+                              /* values */ std::nullopt,
+                              /* is_array */ false,
+                              /* array_length */ std::nullopt},
+              InputDescriptor{
+                  /* name */ "targets",
+                  /* type */ InputType::PT_TENSOR,
+                  /* is_optional */ false,
+                  /* allow_only_none */ std::nullopt,
+                  /* allow_none */ std::nullopt,
+                  /* ranks */ std::nullopt,
+                  /* match_rank */ true,
+                  /* dtypes */
+                  std::vector<c10::ScalarType>{c10::ScalarType::Int},
+                  /* match_precision_type */ false,
+                  /* values */ std::nullopt,
+                  /* is_array */ false,
+                  /* array_length */ std::nullopt},
+              InputDescriptor{
+                  /* name */ "input_lengths",
+                  /* type */ InputType::PT_TENSOR,
+                  /* is_optional */ false,
+                  /* allow_only_none */ std::nullopt,
+                  /* allow_none */ std::nullopt,
+                  /* ranks */ std::nullopt,
+                  /* match_rank */ true,
+                  /* dtypes */
+                  std::vector<c10::ScalarType>{c10::ScalarType::Int},
+                  /* match_precision_type */ false,
+                  /* values */ std::nullopt,
+                  /* is_array */ false,
+                  /* array_length */ std::nullopt},
+              InputDescriptor{
+                  /* name */ "target_lengths",
+                  /* type */ InputType::PT_TENSOR,
+                  /* is_optional */ false,
+                  /* allow_only_none */ std::nullopt,
+                  /* allow_none */ std::nullopt,
+                  /* ranks */ std::nullopt,
+                  /* match_rank */ true,
+                  /* dtypes */
+                  std::vector<c10::ScalarType>{c10::ScalarType::Int},
+                  /* match_precision_type */ false,
+                  /* values */ std::nullopt,
+                  /* is_array */ false,
+                  /* array_length */ std::nullopt},
+              InputDescriptor{/* name */ "blank",
+                              /* type */ InputType::NATIVE_INT,
+                              /* is_optional */ false,
+                              /* allow_only_none */ std::nullopt,
+                              /* allow_none */ std::nullopt,
+                              /* ranks */ std::nullopt,
+                              /* match_rank */ std::nullopt,
+                              /* dtypes */ std::nullopt,
+                              /* match_precision_type */ std::nullopt,
+                              /* values */ std::vector<std::any>{0},
+                              /* is_array */ false,
+                              /* array_length */ std::nullopt},
+              InputDescriptor{/* name */ "reduction",
+                              /* type */ InputType::NATIVE_INT,
+                              /* is_optional */ false,
+                              /* allow_only_none */ std::nullopt,
+                              /* allow_none */ std::nullopt,
+                              /* ranks */ std::nullopt,
+                              /* match_rank */ std::nullopt,
+                              /* dtypes */ std::nullopt,
+                              /* match_precision_type */ std::nullopt,
+                              /* values */ std::vector<std::any>{0},
+                              /* is_array */ false,
+                              /* array_length */ std::nullopt},
+              InputDescriptor{/* name */ "zero_infinity",
+                              /* type */ InputType::NATIVE_BOOL,
+                              /* is_optional */ false,
+                              /* allow_only_none */ std::nullopt,
+                              /* allow_none */ std::nullopt,
+                              /* ranks */ std::nullopt,
+                              /* match_rank */ std::nullopt,
+                              /* dtypes */ std::nullopt,
+                              /* match_precision_type */ std::nullopt,
+                              /* values */ std::vector<std::any>{false},
+                              /* is_array */ false,
+                              /* array_length */ std::nullopt},
+          },
+          /* blacklisted_precision_types */ {},
+          /* whitelisted_precision_types */ {},
+          "ctc_loss_custom")));
+  custom_executors.push_back(
+      std::make_unique<CustomSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(),
+          &habana::validator_ctc_loss_custom));
 
   register_op(
       {/* op_name */ "ctc_loss_custom",
@@ -341,146 +350,143 @@ void SharedLayerReportGenerator::register_ctc_loss_custom_exception() {
 }
 
 void SharedLayerReportGenerator::register_ctc_loss_custom_backward_exception() {
-  custom_stack_generators.push_back(std::make_unique<
-                                    StackGenerator>(StackGenerator(
-      {
-          InputDescriptor{
-              /* name */ "grad",
-              /* type */ InputType::PT_TENSOR,
-              /* is_optional */ false,
-              /* allow_only_none */ std::nullopt,
-              /* allow_none */ std::nullopt,
-              /* ranks */ std::nullopt,
-              /* match_rank */ true,
-              /* dtypes */ std::nullopt,
-              /* match_precision_type */ true,
-              /* values */ std::nullopt,
-              /* is_array */ false,
-              /* array_length */ std::nullopt},
-          InputDescriptor{
-              /* name */ "log_probs",
-              /* type */ InputType::PT_TENSOR,
-              /* is_optional */ false,
-              /* allow_only_none */ std::nullopt,
-              /* allow_none */ std::nullopt,
-              /* ranks */ std::nullopt,
-              /* match_rank */ true,
-              /* dtypes */ std::nullopt,
-              /* match_precision_type */ true,
-              /* values */ std::nullopt,
-              /* is_array */ false,
-              /* array_length */ std::nullopt},
-          InputDescriptor{
-              /* name */ "targets",
-              /* type */ InputType::PT_TENSOR,
-              /* is_optional */ false,
-              /* allow_only_none */ std::nullopt,
-              /* allow_none */ std::nullopt,
-              /* ranks */ std::nullopt,
-              /* match_rank */ true,
-              /* dtypes */ std::vector<c10::ScalarType>{c10::ScalarType::Int},
-              /* match_precision_type */ false,
-              /* values */ std::nullopt,
-              /* is_array */ false,
-              /* array_length */ std::nullopt},
-          InputDescriptor{
-              /* name */ "input_lengths",
-              /* type */ InputType::PT_TENSOR,
-              /* is_optional */ false,
-              /* allow_only_none */ std::nullopt,
-              /* allow_none */ std::nullopt,
-              /* ranks */ std::nullopt,
-              /* match_rank */ true,
-              /* dtypes */ std::vector<c10::ScalarType>{c10::ScalarType::Int},
-              /* match_precision_type */ false,
-              /* values */ std::nullopt,
-              /* is_array */ false,
-              /* array_length */ std::nullopt},
-          InputDescriptor{
-              /* name */ "target_lengths",
-              /* type */ InputType::PT_TENSOR,
-              /* is_optional */ false,
-              /* allow_only_none */ std::nullopt,
-              /* allow_none */ std::nullopt,
-              /* ranks */ std::nullopt,
-              /* match_rank */ true,
-              /* dtypes */ std::vector<c10::ScalarType>{c10::ScalarType::Int},
-              /* match_precision_type */ false,
-              /* values */ std::nullopt,
-              /* is_array */ false,
-              /* array_length */ std::nullopt},
-          InputDescriptor{
-              /* name */ "neg_log_likelihood",
-              /* type */ InputType::PT_TENSOR,
-              /* is_optional */ false,
-              /* allow_only_none */ std::nullopt,
-              /* allow_none */ std::nullopt,
-              /* ranks */ std::nullopt,
-              /* match_rank */ true,
-              /* dtypes */ std::nullopt,
-              /* match_precision_type */ true,
-              /* values */ std::nullopt,
-              /* is_array */ false,
-              /* array_length */ std::nullopt},
-          InputDescriptor{
-              /* name */ "log_alpha",
-              /* type */ InputType::PT_TENSOR,
-              /* is_optional */ false,
-              /* allow_only_none */ std::nullopt,
-              /* allow_none */ std::nullopt,
-              /* ranks */ std::nullopt,
-              /* match_rank */ true,
-              /* dtypes */ std::nullopt,
-              /* match_precision_type */ true,
-              /* values */ std::nullopt,
-              /* is_array */ false,
-              /* array_length */ std::nullopt},
-          InputDescriptor{
-              /* name */ "blank",
-              /* type */ InputType::NATIVE_INT,
-              /* is_optional */ false,
-              /* allow_only_none */ std::nullopt,
-              /* allow_none */ std::nullopt,
-              /* ranks */ std::nullopt,
-              /* match_rank */ std::nullopt,
-              /* dtypes */ std::nullopt,
-              /* match_precision_type */ std::nullopt,
-              /* values */ std::vector<std::any>{0},
-              /* is_array */ false,
-              /* array_length */ std::nullopt},
-          InputDescriptor{
-              /* name */ "reduction",
-              /* type */ InputType::NATIVE_INT,
-              /* is_optional */ false,
-              /* allow_only_none */ std::nullopt,
-              /* allow_none */ std::nullopt,
-              /* ranks */ std::nullopt,
-              /* match_rank */ std::nullopt,
-              /* dtypes */ std::nullopt,
-              /* match_precision_type */ std::nullopt,
-              /* values */ std::vector<std::any>{0},
-              /* is_array */ false,
-              /* array_length */ std::nullopt},
-          InputDescriptor{
-              /* name */ "zero_infinity",
-              /* type */ InputType::NATIVE_BOOL,
-              /* is_optional */ false,
-              /* allow_only_none */ std::nullopt,
-              /* allow_none */ std::nullopt,
-              /* ranks */ std::nullopt,
-              /* match_rank */ std::nullopt,
-              /* dtypes */ std::nullopt,
-              /* match_precision_type */ std::nullopt,
-              /* values */ std::vector<std::any>{false},
-              /* is_array */ false,
-              /* array_length */ std::nullopt},
-      },
-      /* blacklisted_precision_types */ {},
-      /* whitelisted_precision_types */ {},
-      "ctc_loss_custom_backward")));
-  custom_executors.push_back(std::make_unique<CustomSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(),
-      &habana::validator_ctc_loss_custom_backward));
+  custom_stack_generators.push_back(
+      std::make_unique<StackGenerator>(StackGenerator(
+          {
+              InputDescriptor{/* name */ "grad",
+                              /* type */ InputType::PT_TENSOR,
+                              /* is_optional */ false,
+                              /* allow_only_none */ std::nullopt,
+                              /* allow_none */ std::nullopt,
+                              /* ranks */ std::nullopt,
+                              /* match_rank */ true,
+                              /* dtypes */ std::nullopt,
+                              /* match_precision_type */ true,
+                              /* values */ std::nullopt,
+                              /* is_array */ false,
+                              /* array_length */ std::nullopt},
+              InputDescriptor{/* name */ "log_probs",
+                              /* type */ InputType::PT_TENSOR,
+                              /* is_optional */ false,
+                              /* allow_only_none */ std::nullopt,
+                              /* allow_none */ std::nullopt,
+                              /* ranks */ std::nullopt,
+                              /* match_rank */ true,
+                              /* dtypes */ std::nullopt,
+                              /* match_precision_type */ true,
+                              /* values */ std::nullopt,
+                              /* is_array */ false,
+                              /* array_length */ std::nullopt},
+              InputDescriptor{
+                  /* name */ "targets",
+                  /* type */ InputType::PT_TENSOR,
+                  /* is_optional */ false,
+                  /* allow_only_none */ std::nullopt,
+                  /* allow_none */ std::nullopt,
+                  /* ranks */ std::nullopt,
+                  /* match_rank */ true,
+                  /* dtypes */
+                  std::vector<c10::ScalarType>{c10::ScalarType::Int},
+                  /* match_precision_type */ false,
+                  /* values */ std::nullopt,
+                  /* is_array */ false,
+                  /* array_length */ std::nullopt},
+              InputDescriptor{
+                  /* name */ "input_lengths",
+                  /* type */ InputType::PT_TENSOR,
+                  /* is_optional */ false,
+                  /* allow_only_none */ std::nullopt,
+                  /* allow_none */ std::nullopt,
+                  /* ranks */ std::nullopt,
+                  /* match_rank */ true,
+                  /* dtypes */
+                  std::vector<c10::ScalarType>{c10::ScalarType::Int},
+                  /* match_precision_type */ false,
+                  /* values */ std::nullopt,
+                  /* is_array */ false,
+                  /* array_length */ std::nullopt},
+              InputDescriptor{
+                  /* name */ "target_lengths",
+                  /* type */ InputType::PT_TENSOR,
+                  /* is_optional */ false,
+                  /* allow_only_none */ std::nullopt,
+                  /* allow_none */ std::nullopt,
+                  /* ranks */ std::nullopt,
+                  /* match_rank */ true,
+                  /* dtypes */
+                  std::vector<c10::ScalarType>{c10::ScalarType::Int},
+                  /* match_precision_type */ false,
+                  /* values */ std::nullopt,
+                  /* is_array */ false,
+                  /* array_length */ std::nullopt},
+              InputDescriptor{/* name */ "neg_log_likelihood",
+                              /* type */ InputType::PT_TENSOR,
+                              /* is_optional */ false,
+                              /* allow_only_none */ std::nullopt,
+                              /* allow_none */ std::nullopt,
+                              /* ranks */ std::nullopt,
+                              /* match_rank */ true,
+                              /* dtypes */ std::nullopt,
+                              /* match_precision_type */ true,
+                              /* values */ std::nullopt,
+                              /* is_array */ false,
+                              /* array_length */ std::nullopt},
+              InputDescriptor{/* name */ "log_alpha",
+                              /* type */ InputType::PT_TENSOR,
+                              /* is_optional */ false,
+                              /* allow_only_none */ std::nullopt,
+                              /* allow_none */ std::nullopt,
+                              /* ranks */ std::nullopt,
+                              /* match_rank */ true,
+                              /* dtypes */ std::nullopt,
+                              /* match_precision_type */ true,
+                              /* values */ std::nullopt,
+                              /* is_array */ false,
+                              /* array_length */ std::nullopt},
+              InputDescriptor{/* name */ "blank",
+                              /* type */ InputType::NATIVE_INT,
+                              /* is_optional */ false,
+                              /* allow_only_none */ std::nullopt,
+                              /* allow_none */ std::nullopt,
+                              /* ranks */ std::nullopt,
+                              /* match_rank */ std::nullopt,
+                              /* dtypes */ std::nullopt,
+                              /* match_precision_type */ std::nullopt,
+                              /* values */ std::vector<std::any>{0},
+                              /* is_array */ false,
+                              /* array_length */ std::nullopt},
+              InputDescriptor{/* name */ "reduction",
+                              /* type */ InputType::NATIVE_INT,
+                              /* is_optional */ false,
+                              /* allow_only_none */ std::nullopt,
+                              /* allow_none */ std::nullopt,
+                              /* ranks */ std::nullopt,
+                              /* match_rank */ std::nullopt,
+                              /* dtypes */ std::nullopt,
+                              /* match_precision_type */ std::nullopt,
+                              /* values */ std::vector<std::any>{0},
+                              /* is_array */ false,
+                              /* array_length */ std::nullopt},
+              InputDescriptor{/* name */ "zero_infinity",
+                              /* type */ InputType::NATIVE_BOOL,
+                              /* is_optional */ false,
+                              /* allow_only_none */ std::nullopt,
+                              /* allow_none */ std::nullopt,
+                              /* ranks */ std::nullopt,
+                              /* match_rank */ std::nullopt,
+                              /* dtypes */ std::nullopt,
+                              /* match_precision_type */ std::nullopt,
+                              /* values */ std::vector<std::any>{false},
+                              /* is_array */ false,
+                              /* array_length */ std::nullopt},
+          },
+          /* blacklisted_precision_types */ {},
+          /* whitelisted_precision_types */ {},
+          "ctc_loss_custom_backward")));
+  custom_executors.push_back(
+      std::make_unique<CustomSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(),
+          &habana::validator_ctc_loss_custom_backward));
 
   register_op(
       {/* op_name */ "ctc_loss_custom_backward",
@@ -490,95 +496,92 @@ void SharedLayerReportGenerator::register_ctc_loss_custom_backward_exception() {
 }
 
 void SharedLayerReportGenerator::register_ctc_loss_exception() {
-  custom_stack_generators.push_back(std::make_unique<
-                                    StackGenerator>(StackGenerator(
-      {
-          InputDescriptor{
-              /* name */ "log_probs",
-              /* type */ InputType::PT_TENSOR,
-              /* is_optional */ false,
-              /* allow_only_none */ std::nullopt,
-              /* allow_none */ std::nullopt,
-              /* ranks */ std::nullopt,
-              /* match_rank */ true,
-              /* dtypes */ std::nullopt,
-              /* match_precision_type */ true,
-              /* values */ std::nullopt,
-              /* is_array */ false,
-              /* array_length */ std::nullopt},
-          InputDescriptor{
-              /* name */ "targets",
-              /* type */ InputType::PT_TENSOR,
-              /* is_optional */ false,
-              /* allow_only_none */ std::nullopt,
-              /* allow_none */ std::nullopt,
-              /* ranks */ std::nullopt,
-              /* match_rank */ true,
-              /* dtypes */ std::vector<c10::ScalarType>{c10::ScalarType::Int},
-              /* match_precision_type */ false,
-              /* values */ std::nullopt,
-              /* is_array */ false,
-              /* array_length */ std::nullopt},
-          InputDescriptor{
-              /* name */ "input_lengths",
-              /* type */ InputType::NATIVE_INT,
-              /* is_optional */ false,
-              /* allow_only_none */ std::nullopt,
-              /* allow_none */ std::nullopt,
-              /* ranks */ std::nullopt,
-              /* match_rank */ std::nullopt,
-              /* dtypes */ std::nullopt,
-              /* match_precision_type */ std::nullopt,
-              /* values */ std::vector<std::any>{1},
-              /* is_array */ true,
-              /* array_length */ 1},
-          InputDescriptor{
-              /* name */ "target_lengths",
-              /* type */ InputType::NATIVE_INT,
-              /* is_optional */ false,
-              /* allow_only_none */ std::nullopt,
-              /* allow_none */ std::nullopt,
-              /* ranks */ std::nullopt,
-              /* match_rank */ std::nullopt,
-              /* dtypes */ std::nullopt,
-              /* match_precision_type */ std::nullopt,
-              /* values */ std::vector<std::any>{1},
-              /* is_array */ true,
-              /* array_length */ 1},
-          InputDescriptor{
-              /* name */ "blank",
-              /* type */ InputType::NATIVE_INT,
-              /* is_optional */ false,
-              /* allow_only_none */ std::nullopt,
-              /* allow_none */ std::nullopt,
-              /* ranks */ std::nullopt,
-              /* match_rank */ std::nullopt,
-              /* dtypes */ std::nullopt,
-              /* match_precision_type */ std::nullopt,
-              /* values */ std::vector<std::any>{0},
-              /* is_array */ false,
-              /* array_length */ std::nullopt},
-          InputDescriptor{
-              /* name */ "zero_infinity",
-              /* type */ InputType::NATIVE_BOOL,
-              /* is_optional */ false,
-              /* allow_only_none */ std::nullopt,
-              /* allow_none */ std::nullopt,
-              /* ranks */ std::nullopt,
-              /* match_rank */ std::nullopt,
-              /* dtypes */ std::nullopt,
-              /* match_precision_type */ std::nullopt,
-              /* values */ std::vector<std::any>{false},
-              /* is_array */ false,
-              /* array_length */ std::nullopt},
-      },
-      /* blacklisted_precision_types */ {},
-      /* whitelisted_precision_types */ {},
-      "_ctc_loss",
-      "",
-      {2})));
-  custom_executors.push_back(std::make_unique<CustomSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(), &habana::validator__ctc_loss));
+  custom_stack_generators.push_back(
+      std::make_unique<StackGenerator>(StackGenerator(
+          {
+              InputDescriptor{/* name */ "log_probs",
+                              /* type */ InputType::PT_TENSOR,
+                              /* is_optional */ false,
+                              /* allow_only_none */ std::nullopt,
+                              /* allow_none */ std::nullopt,
+                              /* ranks */ std::nullopt,
+                              /* match_rank */ true,
+                              /* dtypes */ std::nullopt,
+                              /* match_precision_type */ true,
+                              /* values */ std::nullopt,
+                              /* is_array */ false,
+                              /* array_length */ std::nullopt},
+              InputDescriptor{
+                  /* name */ "targets",
+                  /* type */ InputType::PT_TENSOR,
+                  /* is_optional */ false,
+                  /* allow_only_none */ std::nullopt,
+                  /* allow_none */ std::nullopt,
+                  /* ranks */ std::nullopt,
+                  /* match_rank */ true,
+                  /* dtypes */
+                  std::vector<c10::ScalarType>{c10::ScalarType::Int},
+                  /* match_precision_type */ false,
+                  /* values */ std::nullopt,
+                  /* is_array */ false,
+                  /* array_length */ std::nullopt},
+              InputDescriptor{/* name */ "input_lengths",
+                              /* type */ InputType::NATIVE_INT,
+                              /* is_optional */ false,
+                              /* allow_only_none */ std::nullopt,
+                              /* allow_none */ std::nullopt,
+                              /* ranks */ std::nullopt,
+                              /* match_rank */ std::nullopt,
+                              /* dtypes */ std::nullopt,
+                              /* match_precision_type */ std::nullopt,
+                              /* values */ std::vector<std::any>{1},
+                              /* is_array */ true,
+                              /* array_length */ 1},
+              InputDescriptor{/* name */ "target_lengths",
+                              /* type */ InputType::NATIVE_INT,
+                              /* is_optional */ false,
+                              /* allow_only_none */ std::nullopt,
+                              /* allow_none */ std::nullopt,
+                              /* ranks */ std::nullopt,
+                              /* match_rank */ std::nullopt,
+                              /* dtypes */ std::nullopt,
+                              /* match_precision_type */ std::nullopt,
+                              /* values */ std::vector<std::any>{1},
+                              /* is_array */ true,
+                              /* array_length */ 1},
+              InputDescriptor{/* name */ "blank",
+                              /* type */ InputType::NATIVE_INT,
+                              /* is_optional */ false,
+                              /* allow_only_none */ std::nullopt,
+                              /* allow_none */ std::nullopt,
+                              /* ranks */ std::nullopt,
+                              /* match_rank */ std::nullopt,
+                              /* dtypes */ std::nullopt,
+                              /* match_precision_type */ std::nullopt,
+                              /* values */ std::vector<std::any>{0},
+                              /* is_array */ false,
+                              /* array_length */ std::nullopt},
+              InputDescriptor{/* name */ "zero_infinity",
+                              /* type */ InputType::NATIVE_BOOL,
+                              /* is_optional */ false,
+                              /* allow_only_none */ std::nullopt,
+                              /* allow_none */ std::nullopt,
+                              /* ranks */ std::nullopt,
+                              /* match_rank */ std::nullopt,
+                              /* dtypes */ std::nullopt,
+                              /* match_precision_type */ std::nullopt,
+                              /* values */ std::vector<std::any>{false},
+                              /* is_array */ false,
+                              /* array_length */ std::nullopt},
+          },
+          /* blacklisted_precision_types */ {},
+          /* whitelisted_precision_types */ {},
+          "_ctc_loss",
+          "",
+          {2})));
+  custom_executors.push_back(
+      std::make_unique<CustomSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(), &habana::validator__ctc_loss));
 
   register_op(
       {/* op_name */ "_ctc_loss",
@@ -591,19 +594,18 @@ void SharedLayerReportGenerator::register_ctc_loss_tensor_exception() {
   custom_stack_generators.push_back(
       std::make_unique<StackGenerator>(StackGenerator(
           {
-              InputDescriptor{
-                  /* name */ "log_probs",
-                  /* type */ InputType::PT_TENSOR,
-                  /* is_optional */ false,
-                  /* allow_only_none */ std::nullopt,
-                  /* allow_none */ std::nullopt,
-                  /* ranks */ std::nullopt,
-                  /* match_rank */ true,
-                  /* dtypes */ std::nullopt,
-                  /* match_precision_type */ true,
-                  /* values */ std::nullopt,
-                  /* is_array */ false,
-                  /* array_length */ std::nullopt},
+              InputDescriptor{/* name */ "log_probs",
+                              /* type */ InputType::PT_TENSOR,
+                              /* is_optional */ false,
+                              /* allow_only_none */ std::nullopt,
+                              /* allow_none */ std::nullopt,
+                              /* ranks */ std::nullopt,
+                              /* match_rank */ true,
+                              /* dtypes */ std::nullopt,
+                              /* match_precision_type */ true,
+                              /* values */ std::nullopt,
+                              /* is_array */ false,
+                              /* array_length */ std::nullopt},
               InputDescriptor{
                   /* name */ "targets",
                   /* type */ InputType::PT_TENSOR,
@@ -646,41 +648,40 @@ void SharedLayerReportGenerator::register_ctc_loss_tensor_exception() {
                   /* values */ std::nullopt,
                   /* is_array */ false,
                   /* array_length */ std::nullopt},
-              InputDescriptor{
-                  /* name */ "blank",
-                  /* type */ InputType::NATIVE_INT,
-                  /* is_optional */ false,
-                  /* allow_only_none */ std::nullopt,
-                  /* allow_none */ std::nullopt,
-                  /* ranks */ std::nullopt,
-                  /* match_rank */ std::nullopt,
-                  /* dtypes */ std::nullopt,
-                  /* match_precision_type */ std::nullopt,
-                  /* values */ std::vector<std::any>{0},
-                  /* is_array */ false,
-                  /* array_length */ std::nullopt},
-              InputDescriptor{
-                  /* name */ "zero_infinity",
-                  /* type */ InputType::NATIVE_BOOL,
-                  /* is_optional */ false,
-                  /* allow_only_none */ std::nullopt,
-                  /* allow_none */ std::nullopt,
-                  /* ranks */ std::nullopt,
-                  /* match_rank */ std::nullopt,
-                  /* dtypes */ std::nullopt,
-                  /* match_precision_type */ std::nullopt,
-                  /* values */ std::vector<std::any>{false},
-                  /* is_array */ false,
-                  /* array_length */ std::nullopt},
+              InputDescriptor{/* name */ "blank",
+                              /* type */ InputType::NATIVE_INT,
+                              /* is_optional */ false,
+                              /* allow_only_none */ std::nullopt,
+                              /* allow_none */ std::nullopt,
+                              /* ranks */ std::nullopt,
+                              /* match_rank */ std::nullopt,
+                              /* dtypes */ std::nullopt,
+                              /* match_precision_type */ std::nullopt,
+                              /* values */ std::vector<std::any>{0},
+                              /* is_array */ false,
+                              /* array_length */ std::nullopt},
+              InputDescriptor{/* name */ "zero_infinity",
+                              /* type */ InputType::NATIVE_BOOL,
+                              /* is_optional */ false,
+                              /* allow_only_none */ std::nullopt,
+                              /* allow_none */ std::nullopt,
+                              /* ranks */ std::nullopt,
+                              /* match_rank */ std::nullopt,
+                              /* dtypes */ std::nullopt,
+                              /* match_precision_type */ std::nullopt,
+                              /* values */ std::vector<std::any>{false},
+                              /* is_array */ false,
+                              /* array_length */ std::nullopt},
           },
           /* blacklisted_precision_types */ {},
           /* whitelisted_precision_types */ {},
           "_ctc_loss",
           "_ctc_loss.Tensor",
           {2})));
-  custom_executors.push_back(std::make_unique<CustomSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(),
-      &habana::validator__ctc_loss_Tensor));
+  custom_executors.push_back(
+      std::make_unique<CustomSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(),
+          &habana::validator__ctc_loss_Tensor));
 
   register_op(
       {/* op_name */ "_ctc_loss",
@@ -690,11 +691,14 @@ void SharedLayerReportGenerator::register_ctc_loss_tensor_exception() {
 }
 
 void SharedLayerReportGenerator::register_index_reduce__exception() {
-  custom_stack_generators.push_back(std::make_unique<SchemaStackGenerator>(
-      "Tensor self, int dim, Tensor index, Tensor source, str reduce, bool include_self",
-      "index_reduce_"));
-  custom_executors.push_back(std::make_unique<GenericSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(), &habana::validator_index_reduce));
+  custom_stack_generators.push_back(
+      std::make_unique<SchemaStackGenerator>(
+          "Tensor self, int dim, Tensor index, Tensor source, str reduce, bool include_self",
+          "index_reduce_"));
+  custom_executors.push_back(
+      std::make_unique<GenericSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(),
+          &habana::validator_index_reduce));
 
   register_op(
       {/* op_name */ "index_reduce_",
@@ -704,16 +708,18 @@ void SharedLayerReportGenerator::register_index_reduce__exception() {
 }
 
 void SharedLayerReportGenerator::register_in_place_interleave_exception() {
-  custom_stack_generators.push_back(std::make_unique<SchemaStackGenerator>(
-      /* schema */ "Tensor self",
-      /* op_name */ "in_place_interleave",
-      /* op_name_and_overload_name */ "",
-      /* ranks */ std::vector<std::int64_t>{4},
-      /* default_array_length */ 1,
-      /* dim_size */ 4));
-  custom_executors.push_back(std::make_unique<GenericSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(),
-      &habana::validator_in_place_interleave_));
+  custom_stack_generators.push_back(
+      std::make_unique<SchemaStackGenerator>(
+          /* schema */ "Tensor self",
+          /* op_name */ "in_place_interleave",
+          /* op_name_and_overload_name */ "",
+          /* ranks */ std::vector<std::int64_t>{4},
+          /* default_array_length */ 1,
+          /* dim_size */ 4));
+  custom_executors.push_back(
+      std::make_unique<GenericSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(),
+          &habana::validator_in_place_interleave_));
 
   register_op(
       {/* op_name */ "in_place_interleave",
@@ -725,67 +731,65 @@ void SharedLayerReportGenerator::register_in_place_interleave_exception() {
 void SharedLayerReportGenerator::register_kv_reorder_exception() {
   custom_stack_generators.push_back(
       std::make_unique<StackGenerator>(StackGenerator(
-          {InputDescriptor{
-               /* name */ "self",
-               /* type */ InputType::PT_TENSOR,
-               /* is_optional */ false,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ std::nullopt,
-               /* ranks */ std::nullopt,
-               /* match_rank */ true,
-               /* dtypes */ std::nullopt,
-               /* match_precision_type */ true,
-               /* values */ std::nullopt,
-               /* is_array */ false,
-               /* array_length */ std::nullopt},
-           InputDescriptor{
-               /* name */ "start",
-               /* type */ InputType::PT_TENSOR,
-               /* is_optional */ false,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ std::nullopt,
-               /* ranks */ std::nullopt,
-               /* match_rank */ true,
-               /* dtypes */
-               std::vector<c10::ScalarType>{at::ScalarType::Int},
-               /* match_precision_type */ false,
-               /* values */ std::nullopt,
-               /* is_array */ false,
-               /* array_length */ std::nullopt},
-           InputDescriptor{
-               /* name */ "end",
-               /* type */ InputType::PT_TENSOR,
-               /* is_optional */ false,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ std::nullopt,
-               /* ranks */ std::nullopt,
-               /* match_rank */ true,
-               /* dtypes */
-               std::vector<c10::ScalarType>{at::ScalarType::Int},
-               /* match_precision_type */ false,
-               /* values */ std::nullopt,
-               /* is_array */ false,
-               /* array_length */ std::nullopt},
-           InputDescriptor{
-               /* name */ "beam_idx",
-               /* type */ InputType::PT_TENSOR,
-               /* is_optional */ false,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ std::nullopt,
-               /* ranks */ std::nullopt,
-               /* match_rank */ true,
-               /* dtypes */
-               std::vector<c10::ScalarType>{at::ScalarType::Byte},
-               /* match_precision_type */ false,
-               /* values */ std::nullopt,
-               /* is_array */ false,
-               /* array_length */ std::nullopt}},
+          {InputDescriptor{/* name */ "self",
+                           /* type */ InputType::PT_TENSOR,
+                           /* is_optional */ false,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ std::nullopt,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ true,
+                           /* dtypes */ std::nullopt,
+                           /* match_precision_type */ true,
+                           /* values */ std::nullopt,
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt},
+           InputDescriptor{/* name */ "start",
+                           /* type */ InputType::PT_TENSOR,
+                           /* is_optional */ false,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ std::nullopt,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ true,
+                           /* dtypes */
+                           std::vector<c10::ScalarType>{at::ScalarType::Int},
+                           /* match_precision_type */ false,
+                           /* values */ std::nullopt,
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt},
+           InputDescriptor{/* name */ "end",
+                           /* type */ InputType::PT_TENSOR,
+                           /* is_optional */ false,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ std::nullopt,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ true,
+                           /* dtypes */
+                           std::vector<c10::ScalarType>{at::ScalarType::Int},
+                           /* match_precision_type */ false,
+                           /* values */ std::nullopt,
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt},
+           InputDescriptor{/* name */ "beam_idx",
+                           /* type */ InputType::PT_TENSOR,
+                           /* is_optional */ false,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ std::nullopt,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ true,
+                           /* dtypes */
+                           std::vector<c10::ScalarType>{at::ScalarType::Byte},
+                           /* match_precision_type */ false,
+                           /* values */ std::nullopt,
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt}},
           /* blacklisted_precision_types */ {},
           /* whitelisted_precision_types */ {},
           "kv_reorder")));
 
-  custom_executors.push_back(std::make_unique<CustomSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(), &habana::validator_kv_reorder_));
+  custom_executors.push_back(
+      std::make_unique<CustomSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(),
+          &habana::validator_kv_reorder_));
 
   register_op(
       {/* op_name */ "kv_reorder",
@@ -795,13 +799,15 @@ void SharedLayerReportGenerator::register_kv_reorder_exception() {
 }
 
 void SharedLayerReportGenerator::register_linear_exception() {
-  custom_stack_generators.push_back(std::make_unique<SchemaStackGenerator>(
-      "Tensor input, Tensor weight, Tensor? bias",
-      "linear",
-      "",
-      std::vector<std::int64_t>{2}));
-  custom_executors.push_back(std::make_unique<GenericSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(), &habana::validator_linear));
+  custom_stack_generators.push_back(
+      std::make_unique<SchemaStackGenerator>(
+          "Tensor input, Tensor weight, Tensor? bias",
+          "linear",
+          "",
+          std::vector<std::int64_t>{2}));
+  custom_executors.push_back(
+      std::make_unique<GenericSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(), &habana::validator_linear));
 
   register_op(
       {/* op_name */ "Linear",
@@ -816,15 +822,17 @@ void SharedLayerReportGenerator::register_linear_exception() {
 }
 
 void SharedLayerReportGenerator::register_fused_clip_norm_exception() {
-  custom_stack_generators.push_back(std::make_unique<SchemaStackGenerator>(
-      /* schema */ "Tensor[] grad, Tensor max_norm, float norm_type",
-      /* op_name */ "fused_clip_norm",
-      /* op_name_and_overload_name */ "",
-      /* ranks*/ std::vector<int64_t>{1},
-      /* default_array_length */ 2));
-  custom_executors.push_back(std::make_unique<CustomSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(),
-      &habana::validator_fused_clip_norm));
+  custom_stack_generators.push_back(
+      std::make_unique<SchemaStackGenerator>(
+          /* schema */ "Tensor[] grad, Tensor max_norm, float norm_type",
+          /* op_name */ "fused_clip_norm",
+          /* op_name_and_overload_name */ "",
+          /* ranks*/ std::vector<int64_t>{1},
+          /* default_array_length */ 2));
+  custom_executors.push_back(
+      std::make_unique<CustomSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(),
+          &habana::validator_fused_clip_norm));
 
   register_op(
       {/* op_name */ "fused_clip_norm",
@@ -834,12 +842,14 @@ void SharedLayerReportGenerator::register_fused_clip_norm_exception() {
 }
 
 void SharedLayerReportGenerator::register_grid_sample_exception() {
-  custom_stack_generators.push_back(std::make_unique<SchemaStackGenerator>(
-      "Tensor input, Tensor grid, int interpolation_mode, int padding_mode, bool align_corners",
-      "grid_sample"));
-  custom_executors.push_back(std::make_unique<GenericSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(),
-      &habana::validator_grid_sampler_2d));
+  custom_stack_generators.push_back(
+      std::make_unique<SchemaStackGenerator>(
+          "Tensor input, Tensor grid, int interpolation_mode, int padding_mode, bool align_corners",
+          "grid_sample"));
+  custom_executors.push_back(
+      std::make_unique<GenericSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(),
+          &habana::validator_grid_sampler_2d));
 
   register_op(
       {/* op_name */ "grid_sample",
@@ -847,9 +857,10 @@ void SharedLayerReportGenerator::register_grid_sample_exception() {
        /* op_namespace */ "torch.nn.functional"},
       custom_executors.back().get());
 
-  custom_executors.push_back(std::make_unique<GenericSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(),
-      &habana::validator_grid_sampler_3d));
+  custom_executors.push_back(
+      std::make_unique<GenericSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(),
+          &habana::validator_grid_sampler_3d));
 
   register_op(
       {/* op_name */ "grid_sample",
@@ -859,13 +870,15 @@ void SharedLayerReportGenerator::register_grid_sample_exception() {
 }
 
 void SharedLayerReportGenerator::register_im2col_exception() {
-  custom_stack_generators.push_back(std::make_unique<SchemaStackGenerator>(
-      "Tensor self, int[2] kernel_size, int[2] dilation, int[2] padding, int[2] stride",
-      "im2col",
-      "im2col",
-      std::vector<std::int64_t>{4}));
-  custom_executors.push_back(std::make_unique<GenericSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(), &habana::validator_im2col));
+  custom_stack_generators.push_back(
+      std::make_unique<SchemaStackGenerator>(
+          "Tensor self, int[2] kernel_size, int[2] dilation, int[2] padding, int[2] stride",
+          "im2col",
+          "im2col",
+          std::vector<std::int64_t>{4}));
+  custom_executors.push_back(
+      std::make_unique<GenericSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(), &habana::validator_im2col));
 
   register_op(
       {/* op_name */ "im2col",
@@ -875,13 +888,15 @@ void SharedLayerReportGenerator::register_im2col_exception() {
 }
 
 void SharedLayerReportGenerator::register_im2col_out_exception() {
-  custom_stack_generators.push_back(std::make_unique<SchemaStackGenerator>(
-      "Tensor self, int[2] kernel_size, int[2] dilation, int[2] padding, int[2] stride, Tensor out",
-      "im2col",
-      "im2col.out",
-      std::vector<std::int64_t>{4}));
-  custom_executors.push_back(std::make_unique<GenericSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(), &habana::validator_im2col_out));
+  custom_stack_generators.push_back(
+      std::make_unique<SchemaStackGenerator>(
+          "Tensor self, int[2] kernel_size, int[2] dilation, int[2] padding, int[2] stride, Tensor out",
+          "im2col",
+          "im2col.out",
+          std::vector<std::int64_t>{4}));
+  custom_executors.push_back(
+      std::make_unique<GenericSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(), &habana::validator_im2col_out));
 
   register_op(
       {/* op_name */ "im2col",
@@ -894,54 +909,52 @@ void SharedLayerReportGenerator::register_masked_fill_exception() {
   /* SCALAR */
   custom_stack_generators.push_back(
       std::make_unique<StackGenerator>(StackGenerator(
-          {InputDescriptor{
-               /* name */ "self",
-               /* type */ InputType::PT_TENSOR,
-               /* is_optional */ false,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ std::nullopt,
-               /* ranks */ std::nullopt,
-               /* match_rank */ true,
-               /* dtypes */ std::nullopt,
-               /* match_precision_type */ true,
-               /* values */ std::nullopt,
-               /* is_array */ false,
-               /* array_length */ std::nullopt},
-           InputDescriptor{
-               /* name */ "mask",
-               /* type */ InputType::PT_TENSOR,
-               /* is_optional */ false,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ std::nullopt,
-               /* ranks */ std::nullopt,
-               /* match_rank */ true,
-               /* dtypes */
-               std::vector<c10::ScalarType>{c10::ScalarType::Char},
-               /* match_precision_type */ false,
-               /* values */ std::nullopt,
-               /* is_array */ false,
-               /* array_length */ std::nullopt},
-           InputDescriptor{
-               /* name */ "value",
-               /* type */ InputType::PT_SCALAR,
-               /* is_optional */ false,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ std::nullopt,
-               /* ranks */ std::nullopt,
-               /* match_rank */ std::nullopt,
-               /* dtypes */ std::nullopt,
-               /* match_precision_type */ std::nullopt,
-               /* values */ std::vector<std::any>{1},
-               /* is_array */ false,
-               /* array_length */ std::nullopt}},
+          {InputDescriptor{/* name */ "self",
+                           /* type */ InputType::PT_TENSOR,
+                           /* is_optional */ false,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ std::nullopt,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ true,
+                           /* dtypes */ std::nullopt,
+                           /* match_precision_type */ true,
+                           /* values */ std::nullopt,
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt},
+           InputDescriptor{/* name */ "mask",
+                           /* type */ InputType::PT_TENSOR,
+                           /* is_optional */ false,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ std::nullopt,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ true,
+                           /* dtypes */
+                           std::vector<c10::ScalarType>{c10::ScalarType::Char},
+                           /* match_precision_type */ false,
+                           /* values */ std::nullopt,
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt},
+           InputDescriptor{/* name */ "value",
+                           /* type */ InputType::PT_SCALAR,
+                           /* is_optional */ false,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ std::nullopt,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ std::nullopt,
+                           /* dtypes */ std::nullopt,
+                           /* match_precision_type */ std::nullopt,
+                           /* values */ std::vector<std::any>{1},
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt}},
           /* blacklisted_precision_types */ {},
           /* whitelisted_precision_types */ {},
           "masked_fill",
           "masked_fill.Scalar")));
 
-  custom_executors.push_back(std::make_unique<CustomSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(),
-      &habana::validator_masked_fill_Scalar));
+  custom_executors.push_back(
+      std::make_unique<CustomSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(),
+          &habana::validator_masked_fill_Scalar));
 
   register_op(
       {/* op_name */ "masked_fill",
@@ -954,9 +967,10 @@ void SharedLayerReportGenerator::register_masked_fill_exception() {
        /* op_namespace */ "torch.Tensor"},
       custom_executors.back().get());
 
-  custom_executors.push_back(std::make_unique<CustomSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(),
-      &habana::validator_masked_fill__Scalar));
+  custom_executors.push_back(
+      std::make_unique<CustomSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(),
+          &habana::validator_masked_fill__Scalar));
 
   register_op(
       {/* op_name */ "masked_fill_",
@@ -967,54 +981,52 @@ void SharedLayerReportGenerator::register_masked_fill_exception() {
   /* TENSOR */
   custom_stack_generators.push_back(
       std::make_unique<StackGenerator>(StackGenerator(
-          {InputDescriptor{
-               /* name */ "self",
-               /* type */ InputType::PT_TENSOR,
-               /* is_optional */ false,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ std::nullopt,
-               /* ranks */ std::nullopt,
-               /* match_rank */ true,
-               /* dtypes */ std::nullopt,
-               /* match_precision_type */ true,
-               /* values */ std::nullopt,
-               /* is_array */ false,
-               /* array_length */ std::nullopt},
-           InputDescriptor{
-               /* name */ "mask",
-               /* type */ InputType::PT_TENSOR,
-               /* is_optional */ false,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ std::nullopt,
-               /* ranks */ std::nullopt,
-               /* match_rank */ true,
-               /* dtypes */
-               std::vector<c10::ScalarType>{c10::ScalarType::Char},
-               /* match_precision_type */ false,
-               /* values */ std::nullopt,
-               /* is_array */ false,
-               /* array_length */ std::nullopt},
-           InputDescriptor{
-               /* name */ "value",
-               /* type */ InputType::PT_TENSOR,
-               /* is_optional */ false,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ std::nullopt,
-               /* ranks */ std::nullopt,
-               /* match_rank */ true,
-               /* dtypes */ std::nullopt,
-               /* match_precision_type */ true,
-               /* values */ std::nullopt,
-               /* is_array */ false,
-               /* array_length */ std::nullopt}},
+          {InputDescriptor{/* name */ "self",
+                           /* type */ InputType::PT_TENSOR,
+                           /* is_optional */ false,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ std::nullopt,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ true,
+                           /* dtypes */ std::nullopt,
+                           /* match_precision_type */ true,
+                           /* values */ std::nullopt,
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt},
+           InputDescriptor{/* name */ "mask",
+                           /* type */ InputType::PT_TENSOR,
+                           /* is_optional */ false,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ std::nullopt,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ true,
+                           /* dtypes */
+                           std::vector<c10::ScalarType>{c10::ScalarType::Char},
+                           /* match_precision_type */ false,
+                           /* values */ std::nullopt,
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt},
+           InputDescriptor{/* name */ "value",
+                           /* type */ InputType::PT_TENSOR,
+                           /* is_optional */ false,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ std::nullopt,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ true,
+                           /* dtypes */ std::nullopt,
+                           /* match_precision_type */ true,
+                           /* values */ std::nullopt,
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt}},
           /* blacklisted_precision_types */ {},
           /* whitelisted_precision_types */ {},
           "masked_fill",
           "masked_fill.Tensor")));
 
-  custom_executors.push_back(std::make_unique<CustomSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(),
-      &habana::validator_masked_fill_Tensor));
+  custom_executors.push_back(
+      std::make_unique<CustomSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(),
+          &habana::validator_masked_fill_Tensor));
 
   register_op(
       {/* op_name */ "masked_fill",
@@ -1027,9 +1039,10 @@ void SharedLayerReportGenerator::register_masked_fill_exception() {
        /* op_namespace */ "torch.Tensor"},
       custom_executors.back().get());
 
-  custom_executors.push_back(std::make_unique<CustomSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(),
-      &habana::validator_masked_fill__Tensor));
+  custom_executors.push_back(
+      std::make_unique<CustomSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(),
+          &habana::validator_masked_fill__Tensor));
 
   register_op(
       {/* op_name */ "masked_fill_",
@@ -1041,19 +1054,18 @@ void SharedLayerReportGenerator::register_masked_fill_exception() {
 void SharedLayerReportGenerator::register_masked_scatter_exception() {
   custom_stack_generators.push_back(
       std::make_unique<StackGenerator>(StackGenerator(
-          {InputDescriptor{
-               /* name */ "self",
-               /* type */ InputType::PT_TENSOR,
-               /* is_optional */ false,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ std::nullopt,
-               /* ranks */ std::nullopt,
-               /* match_rank */ true,
-               /* dtypes */ std::nullopt,
-               /* match_precision_type */ true,
-               /* values */ std::nullopt,
-               /* is_array */ false,
-               /* array_length */ std::nullopt},
+          {InputDescriptor{/* name */ "self",
+                           /* type */ InputType::PT_TENSOR,
+                           /* is_optional */ false,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ std::nullopt,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ true,
+                           /* dtypes */ std::nullopt,
+                           /* match_precision_type */ true,
+                           /* values */ std::nullopt,
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt},
            InputDescriptor{
                /* name */ "mask",
                /* type */ InputType::PT_TENSOR,
@@ -1067,24 +1079,25 @@ void SharedLayerReportGenerator::register_masked_scatter_exception() {
                /* values */ std::nullopt,
                /* is_array */ false,
                /* array_length */ std::nullopt},
-           InputDescriptor{
-               /* name */ "source",
-               /* type */ InputType::PT_TENSOR,
-               /* is_optional */ false,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ std::nullopt,
-               /* ranks */ std::nullopt,
-               /* match_rank */ true,
-               /* dtypes */ std::nullopt,
-               /* match_precision_type */ true,
-               /* values */ std::nullopt,
-               /* is_array */ false,
-               /* array_length */ std::nullopt}},
+           InputDescriptor{/* name */ "source",
+                           /* type */ InputType::PT_TENSOR,
+                           /* is_optional */ false,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ std::nullopt,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ true,
+                           /* dtypes */ std::nullopt,
+                           /* match_precision_type */ true,
+                           /* values */ std::nullopt,
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt}},
           /* blacklisted_precision_types */ {},
           /* whitelisted_precision_types */ {},
           "masked_scatter")));
-  custom_executors.push_back(std::make_unique<GenericSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(), &habana::validator_masked_scatter));
+  custom_executors.push_back(
+      std::make_unique<GenericSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(),
+          &habana::validator_masked_scatter));
 
   register_op(
       {/* op_name */ "masked_scatter",
@@ -1097,9 +1110,10 @@ void SharedLayerReportGenerator::register_masked_scatter_exception() {
        /* op_namespace */ "torch.Tensor"},
       custom_executors.back().get());
 
-  custom_executors.push_back(std::make_unique<GenericSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(),
-      &habana::validator_masked_scatter_));
+  custom_executors.push_back(
+      std::make_unique<GenericSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(),
+          &habana::validator_masked_scatter_));
 
   register_op(
       {/* op_name */ "masked_scatter_",
@@ -1109,12 +1123,14 @@ void SharedLayerReportGenerator::register_masked_scatter_exception() {
 }
 
 void SharedLayerReportGenerator::register_max_pool2d_exception() {
-  custom_stack_generators.push_back(std::make_unique<SchemaStackGenerator>(
-      "Tensor self, int[2] kernel_size, int[2] stride=[], int[2] padding, int[2] dilation, bool ceil_mode",
-      "max_pool2d"));
-  custom_executors.push_back(std::make_unique<CustomSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(),
-      &habana::validator_max_pool2d_with_indices));
+  custom_stack_generators.push_back(
+      std::make_unique<SchemaStackGenerator>(
+          "Tensor self, int[2] kernel_size, int[2] stride=[], int[2] padding, int[2] dilation, bool ceil_mode",
+          "max_pool2d"));
+  custom_executors.push_back(
+      std::make_unique<CustomSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(),
+          &habana::validator_max_pool2d_with_indices));
 
   register_op(
       {/* op_name */ "max_pool2d",
@@ -1134,12 +1150,14 @@ void SharedLayerReportGenerator::register_max_pool2d_exception() {
 }
 
 void SharedLayerReportGenerator::register_max_pool3d_exception() {
-  custom_stack_generators.push_back(std::make_unique<SchemaStackGenerator>(
-      "Tensor self, int[3] kernel_size, int[3] stride=[], int[3] padding, int[3] dilation, bool ceil_mode",
-      "max_pool3d"));
-  custom_executors.push_back(std::make_unique<CustomSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(),
-      &habana::validator_max_pool3d_with_indices));
+  custom_stack_generators.push_back(
+      std::make_unique<SchemaStackGenerator>(
+          "Tensor self, int[3] kernel_size, int[3] stride=[], int[3] padding, int[3] dilation, bool ceil_mode",
+          "max_pool3d"));
+  custom_executors.push_back(
+      std::make_unique<CustomSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(),
+          &habana::validator_max_pool3d_with_indices));
 
   register_op(
       {/* op_name */ "max_pool3d",
@@ -1159,10 +1177,12 @@ void SharedLayerReportGenerator::register_max_pool3d_exception() {
 }
 
 void SharedLayerReportGenerator::register_mm_exception() {
-  custom_stack_generators.push_back(std::make_unique<SchemaStackGenerator>(
-      "Tensor self, Tensor mat2", "mm", "", std::vector<std::int64_t>{2}));
-  custom_executors.push_back(std::make_unique<GenericSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(), &habana::validator_mm));
+  custom_stack_generators.push_back(
+      std::make_unique<SchemaStackGenerator>(
+          "Tensor self, Tensor mat2", "mm", "", std::vector<std::int64_t>{2}));
+  custom_executors.push_back(
+      std::make_unique<GenericSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(), &habana::validator_mm));
 
   register_op(
       {/* op_name */ "mm", /* overload */ "", /* op_namespace */ "torch"},
@@ -1175,13 +1195,15 @@ void SharedLayerReportGenerator::register_mm_exception() {
 }
 
 void SharedLayerReportGenerator::register_mm_out_exception() {
-  custom_stack_generators.push_back(std::make_unique<SchemaStackGenerator>(
-      "Tensor self, Tensor mat2, Tensor out",
-      "mm",
-      "mm.out",
-      std::vector<std::int64_t>{2}));
-  custom_executors.push_back(std::make_unique<GenericSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(), &habana::validator_mm_out));
+  custom_stack_generators.push_back(
+      std::make_unique<SchemaStackGenerator>(
+          "Tensor self, Tensor mat2, Tensor out",
+          "mm",
+          "mm.out",
+          std::vector<std::int64_t>{2}));
+  custom_executors.push_back(
+      std::make_unique<GenericSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(), &habana::validator_mm_out));
 
   register_op(
       {/* op_name */ "mm", /* overload */ "out", /* op_namespace */ "torch"},
@@ -1191,92 +1213,87 @@ void SharedLayerReportGenerator::register_mm_out_exception() {
 void SharedLayerReportGenerator::register_multi_margin_loss_exception() {
   custom_stack_generators.push_back(
       std::make_unique<StackGenerator>(StackGenerator(
-          {InputDescriptor{
-               /* name */ "self",
-               /* type */ InputType::PT_TENSOR,
-               /* is_optional */ false,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ std::nullopt,
-               /* ranks */ std::nullopt,
-               /* match_rank */ true,
-               /* dtypes */ std::nullopt,
-               /* match_precision_type */ true,
-               /* values */ std::nullopt,
-               /* is_array */ false,
-               /* array_length */ std::nullopt},
-           InputDescriptor{
-               /* name */ "target",
-               /* type */ InputType::PT_TENSOR,
-               /* is_optional */ false,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ std::nullopt,
-               /* ranks */ std::nullopt,
-               /* match_rank */ true,
-               /* dtypes */
-               std::vector<c10::ScalarType>{
-                   c10::ScalarType::Int, c10::ScalarType::Long},
-               /* match_precision_type */ false,
-               /* values */ std::nullopt,
-               /* is_array */ false,
-               /* array_length */ std::nullopt},
-           InputDescriptor{
-               /* name */ "p",
-               /* type */ InputType::PT_SCALAR,
-               /* is_optional */ false,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ std::nullopt,
-               /* ranks */ std::nullopt,
-               /* match_rank */ std::nullopt,
-               /* dtypes */ std::nullopt,
-               /* match_precision_type */ std::nullopt,
-               /* values */ std::vector<std::any>{1},
-               /* is_array */ false,
-               /* array_length */ std::nullopt},
-           InputDescriptor{
-               /* name */ "margin",
-               /* type */ InputType::PT_SCALAR,
-               /* is_optional */ false,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ std::nullopt,
-               /* ranks */ std::nullopt,
-               /* match_rank */ std::nullopt,
-               /* dtypes */ std::nullopt,
-               /* match_precision_type */ std::nullopt,
-               /* values */ std::vector<std::any>{1},
-               /* is_array */ false,
-               /* array_length */ std::nullopt},
-           InputDescriptor{
-               /* name */ "weight",
-               /* type */ InputType::PT_TENSOR,
-               /* is_optional */ true,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ true,
-               /* ranks */ std::nullopt,
-               /* match_rank */ true,
-               /* dtypes */ std::nullopt,
-               /* match_precision_type */ true,
-               /* values */ std::nullopt,
-               /* is_array */ false,
-               /* array_length */ std::nullopt},
-           InputDescriptor{
-               /* name */ "reduction",
-               /* type */ InputType::NATIVE_INT,
-               /* is_optional */ false,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ std::nullopt,
-               /* ranks */ std::nullopt,
-               /* match_rank */ std::nullopt,
-               /* dtypes */ std::nullopt,
-               /* match_precision_type */ std::nullopt,
-               /* values */ std::vector<std::any>{1},
-               /* is_array */ false,
-               /* array_length */ std::nullopt}},
+          {InputDescriptor{/* name */ "self",
+                           /* type */ InputType::PT_TENSOR,
+                           /* is_optional */ false,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ std::nullopt,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ true,
+                           /* dtypes */ std::nullopt,
+                           /* match_precision_type */ true,
+                           /* values */ std::nullopt,
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt},
+           InputDescriptor{/* name */ "target",
+                           /* type */ InputType::PT_TENSOR,
+                           /* is_optional */ false,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ std::nullopt,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ true,
+                           /* dtypes */
+                           std::vector<c10::ScalarType>{
+                               c10::ScalarType::Int, c10::ScalarType::Long},
+                           /* match_precision_type */ false,
+                           /* values */ std::nullopt,
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt},
+           InputDescriptor{/* name */ "p",
+                           /* type */ InputType::PT_SCALAR,
+                           /* is_optional */ false,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ std::nullopt,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ std::nullopt,
+                           /* dtypes */ std::nullopt,
+                           /* match_precision_type */ std::nullopt,
+                           /* values */ std::vector<std::any>{1},
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt},
+           InputDescriptor{/* name */ "margin",
+                           /* type */ InputType::PT_SCALAR,
+                           /* is_optional */ false,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ std::nullopt,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ std::nullopt,
+                           /* dtypes */ std::nullopt,
+                           /* match_precision_type */ std::nullopt,
+                           /* values */ std::vector<std::any>{1},
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt},
+           InputDescriptor{/* name */ "weight",
+                           /* type */ InputType::PT_TENSOR,
+                           /* is_optional */ true,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ true,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ true,
+                           /* dtypes */ std::nullopt,
+                           /* match_precision_type */ true,
+                           /* values */ std::nullopt,
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt},
+           InputDescriptor{/* name */ "reduction",
+                           /* type */ InputType::NATIVE_INT,
+                           /* is_optional */ false,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ std::nullopt,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ std::nullopt,
+                           /* dtypes */ std::nullopt,
+                           /* match_precision_type */ std::nullopt,
+                           /* values */ std::vector<std::any>{1},
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt}},
           /* blacklisted_precision_types */ {},
           /* whitelisted_precision_types */ {},
           "multi_margin_loss")));
-  custom_executors.push_back(std::make_unique<GenericSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(),
-      &habana::validator_multi_margin_loss));
+  custom_executors.push_back(
+      std::make_unique<GenericSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(),
+          &habana::validator_multi_margin_loss));
 
   register_op(
       {/* op_name */ "MultiMarginLoss",
@@ -1293,106 +1310,100 @@ void SharedLayerReportGenerator::register_multi_margin_loss_exception() {
 void SharedLayerReportGenerator::register_multi_margin_loss_out_exception() {
   custom_stack_generators.push_back(
       std::make_unique<StackGenerator>(StackGenerator(
-          {InputDescriptor{
-               /* name */ "self",
-               /* type */ InputType::PT_TENSOR,
-               /* is_optional */ false,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ std::nullopt,
-               /* ranks */ std::nullopt,
-               /* match_rank */ true,
-               /* dtypes */ std::nullopt,
-               /* match_precision_type */ true,
-               /* values */ std::nullopt,
-               /* is_array */ false,
-               /* array_length */ std::nullopt},
-           InputDescriptor{
-               /* name */ "target",
-               /* type */ InputType::PT_TENSOR,
-               /* is_optional */ false,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ std::nullopt,
-               /* ranks */ std::nullopt,
-               /* match_rank */ true,
-               /* dtypes */
-               std::vector<c10::ScalarType>{
-                   c10::ScalarType::Int, c10::ScalarType::Long},
-               /* match_precision_type */ false,
-               /* values */ std::nullopt,
-               /* is_array */ false,
-               /* array_length */ std::nullopt},
-           InputDescriptor{
-               /* name */ "p",
-               /* type */ InputType::PT_SCALAR,
-               /* is_optional */ false,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ std::nullopt,
-               /* ranks */ std::nullopt,
-               /* match_rank */ std::nullopt,
-               /* dtypes */ std::nullopt,
-               /* match_precision_type */ std::nullopt,
-               /* values */ std::vector<std::any>{1},
-               /* is_array */ false,
-               /* array_length */ std::nullopt},
-           InputDescriptor{
-               /* name */ "margin",
-               /* type */ InputType::PT_SCALAR,
-               /* is_optional */ false,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ std::nullopt,
-               /* ranks */ std::nullopt,
-               /* match_rank */ std::nullopt,
-               /* dtypes */ std::nullopt,
-               /* match_precision_type */ std::nullopt,
-               /* values */ std::vector<std::any>{1},
-               /* is_array */ false,
-               /* array_length */ std::nullopt},
-           InputDescriptor{
-               /* name */ "weight",
-               /* type */ InputType::PT_TENSOR,
-               /* is_optional */ true,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ true,
-               /* ranks */ std::nullopt,
-               /* match_rank */ true,
-               /* dtypes */ std::nullopt,
-               /* match_precision_type */ true,
-               /* values */ std::nullopt,
-               /* is_array */ false,
-               /* array_length */ std::nullopt},
-           InputDescriptor{
-               /* name */ "reduction",
-               /* type */ InputType::NATIVE_INT,
-               /* is_optional */ false,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ std::nullopt,
-               /* ranks */ std::nullopt,
-               /* match_rank */ std::nullopt,
-               /* dtypes */ std::nullopt,
-               /* match_precision_type */ std::nullopt,
-               /* values */ std::vector<std::any>{1},
-               /* is_array */ false,
-               /* array_length */ std::nullopt},
-           InputDescriptor{
-               /* name */ "out",
-               /* type */ InputType::PT_TENSOR,
-               /* is_optional */ false,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ std::nullopt,
-               /* ranks */ std::nullopt,
-               /* match_rank */ true,
-               /* dtypes */ std::nullopt,
-               /* match_precision_type */ true,
-               /* values */ std::nullopt,
-               /* is_array */ false,
-               /* array_length */ std::nullopt}},
+          {InputDescriptor{/* name */ "self",
+                           /* type */ InputType::PT_TENSOR,
+                           /* is_optional */ false,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ std::nullopt,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ true,
+                           /* dtypes */ std::nullopt,
+                           /* match_precision_type */ true,
+                           /* values */ std::nullopt,
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt},
+           InputDescriptor{/* name */ "target",
+                           /* type */ InputType::PT_TENSOR,
+                           /* is_optional */ false,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ std::nullopt,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ true,
+                           /* dtypes */
+                           std::vector<c10::ScalarType>{
+                               c10::ScalarType::Int, c10::ScalarType::Long},
+                           /* match_precision_type */ false,
+                           /* values */ std::nullopt,
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt},
+           InputDescriptor{/* name */ "p",
+                           /* type */ InputType::PT_SCALAR,
+                           /* is_optional */ false,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ std::nullopt,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ std::nullopt,
+                           /* dtypes */ std::nullopt,
+                           /* match_precision_type */ std::nullopt,
+                           /* values */ std::vector<std::any>{1},
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt},
+           InputDescriptor{/* name */ "margin",
+                           /* type */ InputType::PT_SCALAR,
+                           /* is_optional */ false,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ std::nullopt,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ std::nullopt,
+                           /* dtypes */ std::nullopt,
+                           /* match_precision_type */ std::nullopt,
+                           /* values */ std::vector<std::any>{1},
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt},
+           InputDescriptor{/* name */ "weight",
+                           /* type */ InputType::PT_TENSOR,
+                           /* is_optional */ true,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ true,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ true,
+                           /* dtypes */ std::nullopt,
+                           /* match_precision_type */ true,
+                           /* values */ std::nullopt,
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt},
+           InputDescriptor{/* name */ "reduction",
+                           /* type */ InputType::NATIVE_INT,
+                           /* is_optional */ false,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ std::nullopt,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ std::nullopt,
+                           /* dtypes */ std::nullopt,
+                           /* match_precision_type */ std::nullopt,
+                           /* values */ std::vector<std::any>{1},
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt},
+           InputDescriptor{/* name */ "out",
+                           /* type */ InputType::PT_TENSOR,
+                           /* is_optional */ false,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ std::nullopt,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ true,
+                           /* dtypes */ std::nullopt,
+                           /* match_precision_type */ true,
+                           /* values */ std::nullopt,
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt}},
           /* blacklisted_precision_types */ {},
           /* whitelisted_precision_types */ {},
           "multi_margin_loss",
           "multi_margin_loss.out")));
-  custom_executors.push_back(std::make_unique<GenericSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(),
-      &habana::validator_multi_margin_loss_out));
+  custom_executors.push_back(
+      std::make_unique<GenericSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(),
+          &habana::validator_multi_margin_loss_out));
 
   register_op(
       {/* op_name */ "multi_margin_loss",
@@ -1404,53 +1415,51 @@ void SharedLayerReportGenerator::register_multi_margin_loss_out_exception() {
 void SharedLayerReportGenerator::register_multilabel_margin_loss_exception() {
   custom_stack_generators.push_back(
       std::make_unique<StackGenerator>(StackGenerator(
-          {InputDescriptor{
-               /* name */ "self",
-               /* type */ InputType::PT_TENSOR,
-               /* is_optional */ false,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ std::nullopt,
-               /* ranks */ std::nullopt,
-               /* match_rank */ true,
-               /* dtypes */ std::nullopt,
-               /* match_precision_type */ true,
-               /* values */ std::nullopt,
-               /* is_array */ false,
-               /* array_length */ std::nullopt},
-           InputDescriptor{
-               /* name */ "target",
-               /* type */ InputType::PT_TENSOR,
-               /* is_optional */ false,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ std::nullopt,
-               /* ranks */ std::nullopt,
-               /* match_rank */ true,
-               /* dtypes */
-               std::vector<c10::ScalarType>{
-                   c10::ScalarType::Int, c10::ScalarType::Long},
-               /* match_precision_type */ false,
-               /* values */ std::nullopt,
-               /* is_array */ false,
-               /* array_length */ std::nullopt},
-           InputDescriptor{
-               /* name */ "reduction",
-               /* type */ InputType::NATIVE_INT,
-               /* is_optional */ false,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ std::nullopt,
-               /* ranks */ std::nullopt,
-               /* match_rank */ std::nullopt,
-               /* dtypes */ std::nullopt,
-               /* match_precision_type */ std::nullopt,
-               /* values */ std::vector<std::any>{1},
-               /* is_array */ false,
-               /* array_length */ std::nullopt}},
+          {InputDescriptor{/* name */ "self",
+                           /* type */ InputType::PT_TENSOR,
+                           /* is_optional */ false,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ std::nullopt,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ true,
+                           /* dtypes */ std::nullopt,
+                           /* match_precision_type */ true,
+                           /* values */ std::nullopt,
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt},
+           InputDescriptor{/* name */ "target",
+                           /* type */ InputType::PT_TENSOR,
+                           /* is_optional */ false,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ std::nullopt,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ true,
+                           /* dtypes */
+                           std::vector<c10::ScalarType>{
+                               c10::ScalarType::Int, c10::ScalarType::Long},
+                           /* match_precision_type */ false,
+                           /* values */ std::nullopt,
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt},
+           InputDescriptor{/* name */ "reduction",
+                           /* type */ InputType::NATIVE_INT,
+                           /* is_optional */ false,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ std::nullopt,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ std::nullopt,
+                           /* dtypes */ std::nullopt,
+                           /* match_precision_type */ std::nullopt,
+                           /* values */ std::vector<std::any>{1},
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt}},
           /* blacklisted_precision_types */ {},
           /* whitelisted_precision_types */ {},
           "multilabel_margin_loss")));
-  custom_executors.push_back(std::make_unique<GenericSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(),
-      &habana::validator_multilabel_margin_loss_forward));
+  custom_executors.push_back(
+      std::make_unique<GenericSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(),
+          &habana::validator_multilabel_margin_loss_forward));
 
   register_op(
       {/* op_name */ "MultiLabelMarginLoss",
@@ -1467,19 +1476,18 @@ void SharedLayerReportGenerator::register_multilabel_margin_loss_exception() {
 void SharedLayerReportGenerator::register_nll_loss_forward_exception() {
   custom_stack_generators.push_back(
       std::make_unique<StackGenerator>(StackGenerator(
-          {InputDescriptor{
-               /* name */ "self",
-               /* type */ InputType::PT_TENSOR,
-               /* is_optional */ false,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ std::nullopt,
-               /* ranks */ std::nullopt,
-               /* match_rank */ true,
-               /* dtypes */ std::nullopt,
-               /* match_precision_type */ true,
-               /* values */ std::nullopt,
-               /* is_array */ false,
-               /* array_length */ std::nullopt},
+          {InputDescriptor{/* name */ "self",
+                           /* type */ InputType::PT_TENSOR,
+                           /* is_optional */ false,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ std::nullopt,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ true,
+                           /* dtypes */ std::nullopt,
+                           /* match_precision_type */ true,
+                           /* values */ std::nullopt,
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt},
            InputDescriptor{
                /* name */ "target",
                /* type */ InputType::PT_TENSOR,
@@ -1493,32 +1501,30 @@ void SharedLayerReportGenerator::register_nll_loss_forward_exception() {
                /* values */ std::nullopt,
                /* is_array */ false,
                /* array_length */ std::nullopt},
-           InputDescriptor{
-               /* name */ "weight",
-               /* type */ InputType::PT_TENSOR,
-               /* is_optional */ true,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ true,
-               /* ranks */ std::vector<int64_t>{1},
-               /* match_rank */ false,
-               /* dtypes */ std::nullopt,
-               /* match_precision_type */ true,
-               /* values */ std::nullopt,
-               /* is_array */ false,
-               /* array_length */ std::nullopt},
-           InputDescriptor{
-               /* name */ "reduction",
-               /* type */ InputType::NATIVE_INT,
-               /* is_optional */ false,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ std::nullopt,
-               /* ranks */ std::nullopt,
-               /* match_rank */ std::nullopt,
-               /* dtypes */ std::nullopt,
-               /* match_precision_type */ std::nullopt,
-               /* values */ std::vector<std::any>{1},
-               /* is_array */ false,
-               /* array_length */ std::nullopt},
+           InputDescriptor{/* name */ "weight",
+                           /* type */ InputType::PT_TENSOR,
+                           /* is_optional */ true,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ true,
+                           /* ranks */ std::vector<int64_t>{1},
+                           /* match_rank */ false,
+                           /* dtypes */ std::nullopt,
+                           /* match_precision_type */ true,
+                           /* values */ std::nullopt,
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt},
+           InputDescriptor{/* name */ "reduction",
+                           /* type */ InputType::NATIVE_INT,
+                           /* is_optional */ false,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ std::nullopt,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ std::nullopt,
+                           /* dtypes */ std::nullopt,
+                           /* match_precision_type */ std::nullopt,
+                           /* values */ std::vector<std::any>{1},
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt},
            InputDescriptor{
                /* name */ "ignore_index",
                /* type */ InputType::SYM_INT,
@@ -1537,9 +1543,10 @@ void SharedLayerReportGenerator::register_nll_loss_forward_exception() {
           "nll_loss_forward",
           "",
           {2})));
-  custom_executors.push_back(std::make_unique<GenericSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(),
-      &habana::validator_nll_loss_forward));
+  custom_executors.push_back(
+      std::make_unique<GenericSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(),
+          &habana::validator_nll_loss_forward));
 
   register_op(
       {/* op_name */ "NLLLoss",
@@ -1552,9 +1559,10 @@ void SharedLayerReportGenerator::register_nll_loss_forward_exception() {
        /* op_namespace */ "torch.nn.functional"},
       custom_executors.back().get());
 
-  custom_executors.push_back(std::make_unique<CustomSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(),
-      &habana::validator_nll_loss2d_forward));
+  custom_executors.push_back(
+      std::make_unique<CustomSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(),
+          &habana::validator_nll_loss2d_forward));
 
   register_op(
       {/* op_name */ "NLLLoss",
@@ -1571,19 +1579,18 @@ void SharedLayerReportGenerator::register_nll_loss_forward_exception() {
 void SharedLayerReportGenerator::register_nll_loss_forward_output_exception() {
   custom_stack_generators.push_back(
       std::make_unique<StackGenerator>(StackGenerator(
-          {InputDescriptor{
-               /* name */ "self",
-               /* type */ InputType::PT_TENSOR,
-               /* is_optional */ false,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ std::nullopt,
-               /* ranks */ std::nullopt,
-               /* match_rank */ true,
-               /* dtypes */ std::nullopt,
-               /* match_precision_type */ true,
-               /* values */ std::nullopt,
-               /* is_array */ false,
-               /* array_length */ std::nullopt},
+          {InputDescriptor{/* name */ "self",
+                           /* type */ InputType::PT_TENSOR,
+                           /* is_optional */ false,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ std::nullopt,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ true,
+                           /* dtypes */ std::nullopt,
+                           /* match_precision_type */ true,
+                           /* values */ std::nullopt,
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt},
            InputDescriptor{
                /* name */ "target",
                /* type */ InputType::PT_TENSOR,
@@ -1597,32 +1604,30 @@ void SharedLayerReportGenerator::register_nll_loss_forward_output_exception() {
                /* values */ std::nullopt,
                /* is_array */ false,
                /* array_length */ std::nullopt},
-           InputDescriptor{
-               /* name */ "weight",
-               /* type */ InputType::PT_TENSOR,
-               /* is_optional */ true,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ true,
-               /* ranks */ std::vector<int64_t>{1},
-               /* match_rank */ false,
-               /* dtypes */ std::nullopt,
-               /* match_precision_type */ true,
-               /* values */ std::nullopt,
-               /* is_array */ false,
-               /* array_length */ std::nullopt},
-           InputDescriptor{
-               /* name */ "reduction",
-               /* type */ InputType::NATIVE_INT,
-               /* is_optional */ false,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ std::nullopt,
-               /* ranks */ std::nullopt,
-               /* match_rank */ std::nullopt,
-               /* dtypes */ std::nullopt,
-               /* match_precision_type */ std::nullopt,
-               /* values */ std::vector<std::any>{1},
-               /* is_array */ false,
-               /* array_length */ std::nullopt},
+           InputDescriptor{/* name */ "weight",
+                           /* type */ InputType::PT_TENSOR,
+                           /* is_optional */ true,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ true,
+                           /* ranks */ std::vector<int64_t>{1},
+                           /* match_rank */ false,
+                           /* dtypes */ std::nullopt,
+                           /* match_precision_type */ true,
+                           /* values */ std::nullopt,
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt},
+           InputDescriptor{/* name */ "reduction",
+                           /* type */ InputType::NATIVE_INT,
+                           /* is_optional */ false,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ std::nullopt,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ std::nullopt,
+                           /* dtypes */ std::nullopt,
+                           /* match_precision_type */ std::nullopt,
+                           /* values */ std::vector<std::any>{1},
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt},
            InputDescriptor{
                /* name */ "ignore_index",
                /* type */ InputType::SYM_INT,
@@ -1636,41 +1641,40 @@ void SharedLayerReportGenerator::register_nll_loss_forward_output_exception() {
                /* values */ std::vector<std::any>{c10::SymInt(-100)},
                /* is_array */ false,
                /* array_length */ std::nullopt},
-           InputDescriptor{
-               /* name */ "output",
-               /* type */ InputType::PT_TENSOR,
-               /* is_optional */ false,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ std::nullopt,
-               /* ranks */ std::nullopt,
-               /* match_rank */ true,
-               /* dtypes */ std::nullopt,
-               /* match_precision_type */ true,
-               /* values */ std::nullopt,
-               /* is_array */ false,
-               /* array_length */ std::nullopt},
-           InputDescriptor{
-               /* name */ "total_weight",
-               /* type */ InputType::PT_TENSOR,
-               /* is_optional */ false,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ std::nullopt,
-               /* ranks */ std::vector<int64_t>{1},
-               /* match_rank */ false,
-               /* dtypes */ std::nullopt,
-               /* match_precision_type */ true,
-               /* values */ std::nullopt,
-               /* is_array */ false,
-               /* array_length */ std::nullopt}},
+           InputDescriptor{/* name */ "output",
+                           /* type */ InputType::PT_TENSOR,
+                           /* is_optional */ false,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ std::nullopt,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ true,
+                           /* dtypes */ std::nullopt,
+                           /* match_precision_type */ true,
+                           /* values */ std::nullopt,
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt},
+           InputDescriptor{/* name */ "total_weight",
+                           /* type */ InputType::PT_TENSOR,
+                           /* is_optional */ false,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ std::nullopt,
+                           /* ranks */ std::vector<int64_t>{1},
+                           /* match_rank */ false,
+                           /* dtypes */ std::nullopt,
+                           /* match_precision_type */ true,
+                           /* values */ std::nullopt,
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt}},
           /* blacklisted_precision_types */ {},
           /* whitelisted_precision_types */ {},
           "nll_loss_forward",
           "nll_loss_forward.output",
           std::vector<std::int64_t>{2})));
 
-  custom_executors.push_back(std::make_unique<GenericSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(),
-      &habana::validator_nll_loss_forward_output));
+  custom_executors.push_back(
+      std::make_unique<GenericSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(),
+          &habana::validator_nll_loss_forward_output));
 
   register_op(
       {/* op_name */ "nll_loss",
@@ -1678,9 +1682,10 @@ void SharedLayerReportGenerator::register_nll_loss_forward_output_exception() {
        /* op_namespace */ "torch.nn.functional"},
       custom_executors.back().get());
 
-  custom_executors.push_back(std::make_unique<CustomSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(),
-      &habana::validator_nll_loss2d_forward_output));
+  custom_executors.push_back(
+      std::make_unique<CustomSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(),
+          &habana::validator_nll_loss2d_forward_output));
 
   register_op(
       {/* op_name */ "nll_loss",
@@ -1693,53 +1698,51 @@ void SharedLayerReportGenerator::
     register_optimizer_resource_apply_momentum_exception() {
   custom_stack_generators.push_back(
       std::make_unique<StackGenerator>(StackGenerator(
-          {InputDescriptor{
-               /* name */ "params_momentum_buf_list",
-               /* type */ InputType::PT_TENSOR,
-               /* is_optional */ false,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ std::nullopt,
-               /* ranks */ std::nullopt,
-               /* match_rank */ true,
-               /* dtypes */ std::nullopt,
-               /* match_precision_type */ true,
-               /* values */ std::nullopt,
-               /* is_array */ true,
-               /* array_length */ 2},
-           InputDescriptor{
-               /* name */ "dp_list",
-               /* type */ InputType::PT_TENSOR,
-               /* is_optional */ false,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ std::nullopt,
-               /* ranks */ std::nullopt,
-               /* match_rank */ true,
-               /* dtypes */ std::nullopt,
-               /* match_precision_type */ true,
-               /* values */ std::nullopt,
-               /* is_array */ true,
-               /* array_length */ 1},
-           InputDescriptor{
-               /* name */ "momentum",
-               /* type */ InputType::NATIVE_FLOAT,
-               /* is_optional */ false,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ std::nullopt,
-               /* ranks */ std::nullopt,
-               /* match_rank */ std::nullopt,
-               /* dtypes */ std::nullopt,
-               /* match_precision_type */ std::nullopt,
-               /* values */ std::vector<std::any>{1.0F},
-               /* is_array */ false,
-               /* array_length */ std::nullopt}},
+          {InputDescriptor{/* name */ "params_momentum_buf_list",
+                           /* type */ InputType::PT_TENSOR,
+                           /* is_optional */ false,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ std::nullopt,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ true,
+                           /* dtypes */ std::nullopt,
+                           /* match_precision_type */ true,
+                           /* values */ std::nullopt,
+                           /* is_array */ true,
+                           /* array_length */ 2},
+           InputDescriptor{/* name */ "dp_list",
+                           /* type */ InputType::PT_TENSOR,
+                           /* is_optional */ false,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ std::nullopt,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ true,
+                           /* dtypes */ std::nullopt,
+                           /* match_precision_type */ true,
+                           /* values */ std::nullopt,
+                           /* is_array */ true,
+                           /* array_length */ 1},
+           InputDescriptor{/* name */ "momentum",
+                           /* type */ InputType::NATIVE_FLOAT,
+                           /* is_optional */ false,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ std::nullopt,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ std::nullopt,
+                           /* dtypes */ std::nullopt,
+                           /* match_precision_type */ std::nullopt,
+                           /* values */ std::vector<std::any>{1.0F},
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt}},
           /* blacklisted_precision_types */ {},
           /* whitelisted_precision_types */ {},
           "optimizer_resource_apply_momentum",
           "optimizer_resource_apply_momentum")));
 
-  custom_executors.push_back(std::make_unique<CustomSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(),
-      &habana::validator_optimizer_resource_apply_momentum));
+  custom_executors.push_back(
+      std::make_unique<CustomSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(),
+          &habana::validator_optimizer_resource_apply_momentum));
 
   register_op(
       {/* op_name */ "optimizer_resource_apply_momentum",
@@ -1750,14 +1753,16 @@ void SharedLayerReportGenerator::
 
 void SharedLayerReportGenerator::register_reflection_pad_exception() {
   /* REFLECTION_PAD_1D */
-  custom_stack_generators.push_back(std::make_unique<SchemaStackGenerator>(
-      "Tensor self, SymInt[2] padding",
-      "reflection_pad1d",
-      "",
-      std::vector<std::int64_t>{3}));
-  custom_executors.push_back(std::make_unique<GenericSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(),
-      &habana::validator_reflection_pad1d));
+  custom_stack_generators.push_back(
+      std::make_unique<SchemaStackGenerator>(
+          "Tensor self, SymInt[2] padding",
+          "reflection_pad1d",
+          "",
+          std::vector<std::int64_t>{3}));
+  custom_executors.push_back(
+      std::make_unique<GenericSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(),
+          &habana::validator_reflection_pad1d));
 
   register_op(
       {/* op_name */ "ReflectionPad1d",
@@ -1766,14 +1771,16 @@ void SharedLayerReportGenerator::register_reflection_pad_exception() {
       custom_executors.back().get());
 
   /* REFLECTION_PAD_2D */
-  custom_stack_generators.push_back(std::make_unique<SchemaStackGenerator>(
-      "Tensor self, SymInt[4] padding",
-      "reflection_pad2d",
-      "",
-      std::vector<std::int64_t>{4}));
-  custom_executors.push_back(std::make_unique<GenericSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(),
-      &habana::validator_reflection_pad2d));
+  custom_stack_generators.push_back(
+      std::make_unique<SchemaStackGenerator>(
+          "Tensor self, SymInt[4] padding",
+          "reflection_pad2d",
+          "",
+          std::vector<std::int64_t>{4}));
+  custom_executors.push_back(
+      std::make_unique<GenericSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(),
+          &habana::validator_reflection_pad2d));
 
   register_op(
       {/* op_name */ "ReflectionPad2d",
@@ -1782,14 +1789,16 @@ void SharedLayerReportGenerator::register_reflection_pad_exception() {
       custom_executors.back().get());
 
   /* REFLECTION_PAD_3D */
-  custom_stack_generators.push_back(std::make_unique<SchemaStackGenerator>(
-      "Tensor self, SymInt[6] padding",
-      "reflection_pad3d",
-      "",
-      std::vector<std::int64_t>{5}));
-  custom_executors.push_back(std::make_unique<GenericSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(),
-      &habana::validator_reflection_pad3d));
+  custom_stack_generators.push_back(
+      std::make_unique<SchemaStackGenerator>(
+          "Tensor self, SymInt[6] padding",
+          "reflection_pad3d",
+          "",
+          std::vector<std::int64_t>{5}));
+  custom_executors.push_back(
+      std::make_unique<GenericSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(),
+          &habana::validator_reflection_pad3d));
 
   register_op(
       {/* op_name */ "ReflectionPad3d",
@@ -1800,14 +1809,16 @@ void SharedLayerReportGenerator::register_reflection_pad_exception() {
 
 void SharedLayerReportGenerator::register_replication_pad_exception() {
   /* REPLICATION_PAD_1D */
-  custom_stack_generators.push_back(std::make_unique<SchemaStackGenerator>(
-      "Tensor self, SymInt[2] padding",
-      "replication_pad1d",
-      "",
-      std::vector<std::int64_t>{3}));
-  custom_executors.push_back(std::make_unique<GenericSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(),
-      &habana::validator_replication_pad1d));
+  custom_stack_generators.push_back(
+      std::make_unique<SchemaStackGenerator>(
+          "Tensor self, SymInt[2] padding",
+          "replication_pad1d",
+          "",
+          std::vector<std::int64_t>{3}));
+  custom_executors.push_back(
+      std::make_unique<GenericSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(),
+          &habana::validator_replication_pad1d));
 
   register_op(
       {/* op_name */ "ReplicationPad1d",
@@ -1816,14 +1827,16 @@ void SharedLayerReportGenerator::register_replication_pad_exception() {
       custom_executors.back().get());
 
   /* REPLICATION_PAD_2D */
-  custom_stack_generators.push_back(std::make_unique<SchemaStackGenerator>(
-      "Tensor self, SymInt[4] padding",
-      "replication_pad2d",
-      "",
-      std::vector<std::int64_t>{4}));
-  custom_executors.push_back(std::make_unique<GenericSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(),
-      &habana::validator_replication_pad2d));
+  custom_stack_generators.push_back(
+      std::make_unique<SchemaStackGenerator>(
+          "Tensor self, SymInt[4] padding",
+          "replication_pad2d",
+          "",
+          std::vector<std::int64_t>{4}));
+  custom_executors.push_back(
+      std::make_unique<GenericSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(),
+          &habana::validator_replication_pad2d));
 
   register_op(
       {/* op_name */ "ReplicationPad2d",
@@ -1832,14 +1845,16 @@ void SharedLayerReportGenerator::register_replication_pad_exception() {
       custom_executors.back().get());
 
   /* REPLICATION_PAD_3D */
-  custom_stack_generators.push_back(std::make_unique<SchemaStackGenerator>(
-      "Tensor self, SymInt[6] padding",
-      "replication_pad3d",
-      "",
-      std::vector<std::int64_t>{5}));
-  custom_executors.push_back(std::make_unique<GenericSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(),
-      &habana::validator_replication_pad3d));
+  custom_stack_generators.push_back(
+      std::make_unique<SchemaStackGenerator>(
+          "Tensor self, SymInt[6] padding",
+          "replication_pad3d",
+          "",
+          std::vector<std::int64_t>{5}));
+  custom_executors.push_back(
+      std::make_unique<GenericSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(),
+          &habana::validator_replication_pad3d));
 
   register_op(
       {/* op_name */ "ReplicationPad3d",
@@ -1851,45 +1866,42 @@ void SharedLayerReportGenerator::register_replication_pad_exception() {
 void SharedLayerReportGenerator::register_rotary_pos_embedding_exception() {
   custom_stack_generators.push_back(
       std::make_unique<StackGenerator>(StackGenerator(
-          {InputDescriptor{
-               /* name */ "input",
-               /* type */ InputType::PT_TENSOR,
-               /* is_optional */ false,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ std::nullopt,
-               /* ranks */ std::nullopt,
-               /* match_rank */ true,
-               /* dtypes */ std::nullopt,
-               /* match_precision_type */ true,
-               /* values */ std::nullopt,
-               /* is_array */ false,
-               /* array_length */ std::nullopt},
-           InputDescriptor{
-               /* name */ "sin",
-               /* type */ InputType::PT_TENSOR,
-               /* is_optional */ false,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ std::nullopt,
-               /* ranks */ std::nullopt,
-               /* match_rank */ true,
-               /* dtypes */ std::nullopt,
-               /* match_precision_type */ true,
-               /* values */ std::nullopt,
-               /* is_array */ false,
-               /* array_length */ std::nullopt},
-           InputDescriptor{
-               /* name */ "cos",
-               /* type */ InputType::PT_TENSOR,
-               /* is_optional */ false,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ std::nullopt,
-               /* ranks */ std::nullopt,
-               /* match_rank */ true,
-               /* dtypes */ std::nullopt,
-               /* match_precision_type */ true,
-               /* values */ std::nullopt,
-               /* is_array */ false,
-               /* array_length */ std::nullopt},
+          {InputDescriptor{/* name */ "input",
+                           /* type */ InputType::PT_TENSOR,
+                           /* is_optional */ false,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ std::nullopt,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ true,
+                           /* dtypes */ std::nullopt,
+                           /* match_precision_type */ true,
+                           /* values */ std::nullopt,
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt},
+           InputDescriptor{/* name */ "sin",
+                           /* type */ InputType::PT_TENSOR,
+                           /* is_optional */ false,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ std::nullopt,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ true,
+                           /* dtypes */ std::nullopt,
+                           /* match_precision_type */ true,
+                           /* values */ std::nullopt,
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt},
+           InputDescriptor{/* name */ "cos",
+                           /* type */ InputType::PT_TENSOR,
+                           /* is_optional */ false,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ std::nullopt,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ true,
+                           /* dtypes */ std::nullopt,
+                           /* match_precision_type */ true,
+                           /* values */ std::nullopt,
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt},
            InputDescriptor{
                /* name */ "position_ids",
                /* type */ InputType::PT_TENSOR,
@@ -1903,39 +1915,38 @@ void SharedLayerReportGenerator::register_rotary_pos_embedding_exception() {
                /* values */ std::nullopt,
                /* is_array */ false,
                /* array_length */ std::nullopt},
-           InputDescriptor{
-               /* name */ "offset",
-               /* type */ InputType::NATIVE_INT,
-               /* is_optional */ false,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ std::nullopt,
-               /* ranks */ std::nullopt,
-               /* match_rank */ std::nullopt,
-               /* dtypes */ std::nullopt,
-               /* match_precision_type */ std::nullopt,
-               /* values */ std::vector<std::any>{0},
-               /* is_array */ false,
-               /* array_length */ std::nullopt},
-           InputDescriptor{
-               /* name */ "mode",
-               /* type */ InputType::NATIVE_INT,
-               /* is_optional */ false,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ std::nullopt,
-               /* ranks */ std::nullopt,
-               /* match_rank */ std::nullopt,
-               /* dtypes */ std::nullopt,
-               /* match_precision_type */ std::nullopt,
-               /* values */ std::vector<std::any>{0},
-               /* is_array */ false,
-               /* array_length */ std::nullopt}},
+           InputDescriptor{/* name */ "offset",
+                           /* type */ InputType::NATIVE_INT,
+                           /* is_optional */ false,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ std::nullopt,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ std::nullopt,
+                           /* dtypes */ std::nullopt,
+                           /* match_precision_type */ std::nullopt,
+                           /* values */ std::vector<std::any>{0},
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt},
+           InputDescriptor{/* name */ "mode",
+                           /* type */ InputType::NATIVE_INT,
+                           /* is_optional */ false,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ std::nullopt,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ std::nullopt,
+                           /* dtypes */ std::nullopt,
+                           /* match_precision_type */ std::nullopt,
+                           /* values */ std::vector<std::any>{0},
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt}},
           /* blacklisted_precision_types */ {},
           /* whitelisted_precision_types */ {},
           "rotary_pos_embedding")));
 
-  custom_executors.push_back(std::make_unique<CustomSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(),
-      &habana::validator_rotary_pos_embedding));
+  custom_executors.push_back(
+      std::make_unique<CustomSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(),
+          &habana::validator_rotary_pos_embedding));
 
   register_op(
       {/* op_name */ "rotary_pos_embedding",
@@ -1943,9 +1954,10 @@ void SharedLayerReportGenerator::register_rotary_pos_embedding_exception() {
        /* op_namespace */ "torch.hpu"},
       custom_executors.back().get());
 
-  custom_executors.push_back(std::make_unique<CustomSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(),
-      &habana::validator_rotary_pos_embedding_backward));
+  custom_executors.push_back(
+      std::make_unique<CustomSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(),
+          &habana::validator_rotary_pos_embedding_backward));
 
   register_op(
       {/* op_name */ "rotary_pos_embedding_backward",
@@ -1956,14 +1968,16 @@ void SharedLayerReportGenerator::register_rotary_pos_embedding_exception() {
 
 void SharedLayerReportGenerator::
     register_scaled_triangular_softmax_retain_exception() {
-  custom_stack_generators.push_back(std::make_unique<SchemaStackGenerator>(
-      "Tensor self, float inv_scale_attn",
-      "scaled_triangular_softmax_retain",
-      "",
-      std::vector<std::int64_t>{3}));
-  custom_executors.push_back(std::make_unique<GenericSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(),
-      &habana::validator_scaled_triangular_softmax_retain));
+  custom_stack_generators.push_back(
+      std::make_unique<SchemaStackGenerator>(
+          "Tensor self, float inv_scale_attn",
+          "scaled_triangular_softmax_retain",
+          "",
+          std::vector<std::int64_t>{3}));
+  custom_executors.push_back(
+      std::make_unique<GenericSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(),
+          &habana::validator_scaled_triangular_softmax_retain));
 
   register_op(
       {/* op_name */ "scaled_triangular_softmax_retain",
@@ -1973,10 +1987,13 @@ void SharedLayerReportGenerator::
 }
 
 void SharedLayerReportGenerator::register_scatter_add__exception() {
-  custom_stack_generators.push_back(std::make_unique<SchemaStackGenerator>(
-      "Tensor self, int dim, Tensor index, Tensor src", "scatter_add_"));
-  custom_executors.push_back(std::make_unique<GenericSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(), &habana::validator_scatter_add));
+  custom_stack_generators.push_back(
+      std::make_unique<SchemaStackGenerator>(
+          "Tensor self, int dim, Tensor index, Tensor src", "scatter_add_"));
+  custom_executors.push_back(
+      std::make_unique<GenericSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(),
+          &habana::validator_scatter_add));
 
   register_op(
       {/* op_name */ "scatter_add_",
@@ -1989,66 +2006,64 @@ void SharedLayerReportGenerator::register_scatter_exception() {
   /* SRC */
   custom_stack_generators.push_back(
       std::make_unique<StackGenerator>(StackGenerator(
-          {InputDescriptor{
-               /* name */ "self",
-               /* type */ InputType::PT_TENSOR,
-               /* is_optional */ false,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ std::nullopt,
-               /* ranks */ std::nullopt,
-               /* match_rank */ true,
-               /* dtypes */ std::nullopt,
-               /* match_precision_type */ true,
-               /* values */ std::nullopt,
-               /* is_array */ false,
-               /* array_length */ std::nullopt},
-           InputDescriptor{
-               /* name */ "dim",
-               /* type */ InputType::NATIVE_INT,
-               /* is_optional */ false,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ std::nullopt,
-               /* ranks */ std::nullopt,
-               /* match_rank */ std::nullopt,
-               /* dtypes */ std::nullopt,
-               /* match_precision_type */ std::nullopt,
-               /* values */ std::vector<std::any>{1},
-               /* is_array */ false,
-               /* array_length */ std::nullopt},
-           InputDescriptor{
-               /* name */ "index",
-               /* type */ InputType::PT_TENSOR,
-               /* is_optional */ false,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ std::nullopt,
-               /* ranks */ std::nullopt,
-               /* match_rank */ true,
-               /* dtypes */
-               std::vector<c10::ScalarType>{c10::ScalarType::Int},
-               /* match_precision_type */ false,
-               /* values */ std::nullopt,
-               /* is_array */ false,
-               /* array_length */ std::nullopt},
-           InputDescriptor{
-               /* name */ "src",
-               /* type */ InputType::PT_TENSOR,
-               /* is_optional */ false,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ std::nullopt,
-               /* ranks */ std::nullopt,
-               /* match_rank */ true,
-               /* dtypes */ std::nullopt,
-               /* match_precision_type */ true,
-               /* values */ std::nullopt,
-               /* is_array */ false,
-               /* array_length */ std::nullopt}},
+          {InputDescriptor{/* name */ "self",
+                           /* type */ InputType::PT_TENSOR,
+                           /* is_optional */ false,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ std::nullopt,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ true,
+                           /* dtypes */ std::nullopt,
+                           /* match_precision_type */ true,
+                           /* values */ std::nullopt,
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt},
+           InputDescriptor{/* name */ "dim",
+                           /* type */ InputType::NATIVE_INT,
+                           /* is_optional */ false,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ std::nullopt,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ std::nullopt,
+                           /* dtypes */ std::nullopt,
+                           /* match_precision_type */ std::nullopt,
+                           /* values */ std::vector<std::any>{1},
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt},
+           InputDescriptor{/* name */ "index",
+                           /* type */ InputType::PT_TENSOR,
+                           /* is_optional */ false,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ std::nullopt,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ true,
+                           /* dtypes */
+                           std::vector<c10::ScalarType>{c10::ScalarType::Int},
+                           /* match_precision_type */ false,
+                           /* values */ std::nullopt,
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt},
+           InputDescriptor{/* name */ "src",
+                           /* type */ InputType::PT_TENSOR,
+                           /* is_optional */ false,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ std::nullopt,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ true,
+                           /* dtypes */ std::nullopt,
+                           /* match_precision_type */ true,
+                           /* values */ std::nullopt,
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt}},
           /* blacklisted_precision_types */ {},
           /* whitelisted_precision_types */ {},
           "scatter",
           "scatter.src",
           {3})));
-  custom_executors.push_back(std::make_unique<CustomSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(), &habana::validator_scatter_src));
+  custom_executors.push_back(
+      std::make_unique<CustomSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(),
+          &habana::validator_scatter_src));
 
   register_op(
       {/* op_name */ "scatter",
@@ -2061,8 +2076,10 @@ void SharedLayerReportGenerator::register_scatter_exception() {
        /* op_namespace */ "torch.Tensor"},
       custom_executors.back().get());
 
-  custom_executors.push_back(std::make_unique<CustomSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(), &habana::validator_scatter__src));
+  custom_executors.push_back(
+      std::make_unique<CustomSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(),
+          &habana::validator_scatter__src));
 
   register_op(
       {/* op_name */ "scatter_",
@@ -2073,66 +2090,64 @@ void SharedLayerReportGenerator::register_scatter_exception() {
   /* VALUE */
   custom_stack_generators.push_back(
       std::make_unique<StackGenerator>(StackGenerator(
-          {InputDescriptor{
-               /* name */ "self",
-               /* type */ InputType::PT_TENSOR,
-               /* is_optional */ false,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ std::nullopt,
-               /* ranks */ std::nullopt,
-               /* match_rank */ true,
-               /* dtypes */ std::nullopt,
-               /* match_precision_type */ true,
-               /* values */ std::nullopt,
-               /* is_array */ false,
-               /* array_length */ std::nullopt},
-           InputDescriptor{
-               /* name */ "dim",
-               /* type */ InputType::NATIVE_INT,
-               /* is_optional */ false,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ std::nullopt,
-               /* ranks */ std::nullopt,
-               /* match_rank */ std::nullopt,
-               /* dtypes */ std::nullopt,
-               /* match_precision_type */ std::nullopt,
-               /* values */ std::vector<std::any>{1},
-               /* is_array */ false,
-               /* array_length */ std::nullopt},
-           InputDescriptor{
-               /* name */ "index",
-               /* type */ InputType::PT_TENSOR,
-               /* is_optional */ false,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ std::nullopt,
-               /* ranks */ std::nullopt,
-               /* match_rank */ true,
-               /* dtypes */
-               std::vector<c10::ScalarType>{c10::ScalarType::Int},
-               /* match_precision_type */ false,
-               /* values */ std::nullopt,
-               /* is_array */ false,
-               /* array_length */ std::nullopt},
-           InputDescriptor{
-               /* name */ "value",
-               /* type */ InputType::PT_SCALAR,
-               /* is_optional */ false,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ std::nullopt,
-               /* ranks */ std::nullopt,
-               /* match_rank */ std::nullopt,
-               /* dtypes */ std::nullopt,
-               /* match_precision_type */ std::nullopt,
-               /* values */ std::vector<std::any>{1},
-               /* is_array */ false,
-               /* array_length */ std::nullopt}},
+          {InputDescriptor{/* name */ "self",
+                           /* type */ InputType::PT_TENSOR,
+                           /* is_optional */ false,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ std::nullopt,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ true,
+                           /* dtypes */ std::nullopt,
+                           /* match_precision_type */ true,
+                           /* values */ std::nullopt,
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt},
+           InputDescriptor{/* name */ "dim",
+                           /* type */ InputType::NATIVE_INT,
+                           /* is_optional */ false,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ std::nullopt,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ std::nullopt,
+                           /* dtypes */ std::nullopt,
+                           /* match_precision_type */ std::nullopt,
+                           /* values */ std::vector<std::any>{1},
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt},
+           InputDescriptor{/* name */ "index",
+                           /* type */ InputType::PT_TENSOR,
+                           /* is_optional */ false,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ std::nullopt,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ true,
+                           /* dtypes */
+                           std::vector<c10::ScalarType>{c10::ScalarType::Int},
+                           /* match_precision_type */ false,
+                           /* values */ std::nullopt,
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt},
+           InputDescriptor{/* name */ "value",
+                           /* type */ InputType::PT_SCALAR,
+                           /* is_optional */ false,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ std::nullopt,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ std::nullopt,
+                           /* dtypes */ std::nullopt,
+                           /* match_precision_type */ std::nullopt,
+                           /* values */ std::vector<std::any>{1},
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt}},
           /* blacklisted_precision_types */ {},
           /* whitelisted_precision_types */ {},
           "scatter",
           "scatter.value",
           {3})));
-  custom_executors.push_back(std::make_unique<CustomSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(), &habana::validator_scatter_value));
+  custom_executors.push_back(
+      std::make_unique<CustomSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(),
+          &habana::validator_scatter_value));
 
   register_op(
       {/* op_name */ "scatter",
@@ -2144,8 +2159,10 @@ void SharedLayerReportGenerator::register_scatter_exception() {
        /* overload */ "value",
        /* op_namespace */ "torch.Tensor"},
       custom_executors.back().get());
-  custom_executors.push_back(std::make_unique<CustomSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(), &habana::validator_scatter__value));
+  custom_executors.push_back(
+      std::make_unique<CustomSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(),
+          &habana::validator_scatter__value));
 
   register_op(
       {/* op_name */ "scatter_",
@@ -2158,80 +2175,76 @@ void SharedLayerReportGenerator::register_scatter_out_exception() {
   /* SRC */
   custom_stack_generators.push_back(
       std::make_unique<StackGenerator>(StackGenerator(
-          {InputDescriptor{
-               /* name */ "self",
-               /* type */ InputType::PT_TENSOR,
-               /* is_optional */ false,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ std::nullopt,
-               /* ranks */ std::nullopt,
-               /* match_rank */ true,
-               /* dtypes */ std::nullopt,
-               /* match_precision_type */ true,
-               /* values */ std::nullopt,
-               /* is_array */ false,
-               /* array_length */ std::nullopt},
-           InputDescriptor{
-               /* name */ "dim",
-               /* type */ InputType::NATIVE_INT,
-               /* is_optional */ false,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ std::nullopt,
-               /* ranks */ std::nullopt,
-               /* match_rank */ std::nullopt,
-               /* dtypes */ std::nullopt,
-               /* match_precision_type */ std::nullopt,
-               /* values */ std::vector<std::any>{1},
-               /* is_array */ false,
-               /* array_length */ std::nullopt},
-           InputDescriptor{
-               /* name */ "index",
-               /* type */ InputType::PT_TENSOR,
-               /* is_optional */ false,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ std::nullopt,
-               /* ranks */ std::nullopt,
-               /* match_rank */ true,
-               /* dtypes */
-               std::vector<c10::ScalarType>{c10::ScalarType::Int},
-               /* match_precision_type */ false,
-               /* values */ std::nullopt,
-               /* is_array */ false,
-               /* array_length */ std::nullopt},
-           InputDescriptor{
-               /* name */ "src",
-               /* type */ InputType::PT_TENSOR,
-               /* is_optional */ false,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ std::nullopt,
-               /* ranks */ std::nullopt,
-               /* match_rank */ true,
-               /* dtypes */ std::nullopt,
-               /* match_precision_type */ true,
-               /* values */ std::nullopt,
-               /* is_array */ false,
-               /* array_length */ std::nullopt},
-           InputDescriptor{
-               /* name */ "out",
-               /* type */ InputType::PT_TENSOR,
-               /* is_optional */ false,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ std::nullopt,
-               /* ranks */ std::nullopt,
-               /* match_rank */ true,
-               /* dtypes */ std::nullopt,
-               /* match_precision_type */ true,
-               /* values */ std::nullopt,
-               /* is_array */ false,
-               /* array_length */ std::nullopt}},
+          {InputDescriptor{/* name */ "self",
+                           /* type */ InputType::PT_TENSOR,
+                           /* is_optional */ false,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ std::nullopt,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ true,
+                           /* dtypes */ std::nullopt,
+                           /* match_precision_type */ true,
+                           /* values */ std::nullopt,
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt},
+           InputDescriptor{/* name */ "dim",
+                           /* type */ InputType::NATIVE_INT,
+                           /* is_optional */ false,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ std::nullopt,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ std::nullopt,
+                           /* dtypes */ std::nullopt,
+                           /* match_precision_type */ std::nullopt,
+                           /* values */ std::vector<std::any>{1},
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt},
+           InputDescriptor{/* name */ "index",
+                           /* type */ InputType::PT_TENSOR,
+                           /* is_optional */ false,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ std::nullopt,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ true,
+                           /* dtypes */
+                           std::vector<c10::ScalarType>{c10::ScalarType::Int},
+                           /* match_precision_type */ false,
+                           /* values */ std::nullopt,
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt},
+           InputDescriptor{/* name */ "src",
+                           /* type */ InputType::PT_TENSOR,
+                           /* is_optional */ false,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ std::nullopt,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ true,
+                           /* dtypes */ std::nullopt,
+                           /* match_precision_type */ true,
+                           /* values */ std::nullopt,
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt},
+           InputDescriptor{/* name */ "out",
+                           /* type */ InputType::PT_TENSOR,
+                           /* is_optional */ false,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ std::nullopt,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ true,
+                           /* dtypes */ std::nullopt,
+                           /* match_precision_type */ true,
+                           /* values */ std::nullopt,
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt}},
           /* blacklisted_precision_types */ {},
           /* whitelisted_precision_types */ {},
           "scatter",
           "scatter.src_out",
           {3})));
-  custom_executors.push_back(std::make_unique<CustomSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(),
-      &habana::validator_scatter_src_out));
+  custom_executors.push_back(
+      std::make_unique<CustomSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(),
+          &habana::validator_scatter_src_out));
 
   register_op(
       {/* op_name */ "scatter",
@@ -2242,80 +2255,76 @@ void SharedLayerReportGenerator::register_scatter_out_exception() {
   /* VALUE */
   custom_stack_generators.push_back(
       std::make_unique<StackGenerator>(StackGenerator(
-          {InputDescriptor{
-               /* name */ "self",
-               /* type */ InputType::PT_TENSOR,
-               /* is_optional */ false,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ std::nullopt,
-               /* ranks */ std::nullopt,
-               /* match_rank */ true,
-               /* dtypes */ std::nullopt,
-               /* match_precision_type */ true,
-               /* values */ std::nullopt,
-               /* is_array */ false,
-               /* array_length */ std::nullopt},
-           InputDescriptor{
-               /* name */ "dim",
-               /* type */ InputType::NATIVE_INT,
-               /* is_optional */ false,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ std::nullopt,
-               /* ranks */ std::nullopt,
-               /* match_rank */ std::nullopt,
-               /* dtypes */ std::nullopt,
-               /* match_precision_type */ std::nullopt,
-               /* values */ std::vector<std::any>{1},
-               /* is_array */ false,
-               /* array_length */ std::nullopt},
-           InputDescriptor{
-               /* name */ "index",
-               /* type */ InputType::PT_TENSOR,
-               /* is_optional */ false,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ std::nullopt,
-               /* ranks */ std::nullopt,
-               /* match_rank */ true,
-               /* dtypes */
-               std::vector<c10::ScalarType>{c10::ScalarType::Int},
-               /* match_precision_type */ false,
-               /* values */ std::nullopt,
-               /* is_array */ false,
-               /* array_length */ std::nullopt},
-           InputDescriptor{
-               /* name */ "value",
-               /* type */ InputType::PT_SCALAR,
-               /* is_optional */ false,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ std::nullopt,
-               /* ranks */ std::nullopt,
-               /* match_rank */ std::nullopt,
-               /* dtypes */ std::nullopt,
-               /* match_precision_type */ std::nullopt,
-               /* values */ std::vector<std::any>{1},
-               /* is_array */ false,
-               /* array_length */ std::nullopt},
-           InputDescriptor{
-               /* name */ "out",
-               /* type */ InputType::PT_TENSOR,
-               /* is_optional */ false,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ std::nullopt,
-               /* ranks */ std::nullopt,
-               /* match_rank */ true,
-               /* dtypes */ std::nullopt,
-               /* match_precision_type */ true,
-               /* values */ std::nullopt,
-               /* is_array */ false,
-               /* array_length */ std::nullopt}},
+          {InputDescriptor{/* name */ "self",
+                           /* type */ InputType::PT_TENSOR,
+                           /* is_optional */ false,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ std::nullopt,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ true,
+                           /* dtypes */ std::nullopt,
+                           /* match_precision_type */ true,
+                           /* values */ std::nullopt,
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt},
+           InputDescriptor{/* name */ "dim",
+                           /* type */ InputType::NATIVE_INT,
+                           /* is_optional */ false,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ std::nullopt,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ std::nullopt,
+                           /* dtypes */ std::nullopt,
+                           /* match_precision_type */ std::nullopt,
+                           /* values */ std::vector<std::any>{1},
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt},
+           InputDescriptor{/* name */ "index",
+                           /* type */ InputType::PT_TENSOR,
+                           /* is_optional */ false,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ std::nullopt,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ true,
+                           /* dtypes */
+                           std::vector<c10::ScalarType>{c10::ScalarType::Int},
+                           /* match_precision_type */ false,
+                           /* values */ std::nullopt,
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt},
+           InputDescriptor{/* name */ "value",
+                           /* type */ InputType::PT_SCALAR,
+                           /* is_optional */ false,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ std::nullopt,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ std::nullopt,
+                           /* dtypes */ std::nullopt,
+                           /* match_precision_type */ std::nullopt,
+                           /* values */ std::vector<std::any>{1},
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt},
+           InputDescriptor{/* name */ "out",
+                           /* type */ InputType::PT_TENSOR,
+                           /* is_optional */ false,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ std::nullopt,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ true,
+                           /* dtypes */ std::nullopt,
+                           /* match_precision_type */ true,
+                           /* values */ std::nullopt,
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt}},
           /* blacklisted_precision_types */ {},
           /* whitelisted_precision_types */ {},
           "scatter",
           "scatter.value_out",
           {3})));
-  custom_executors.push_back(std::make_unique<CustomSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(),
-      &habana::validator_scatter_value_out));
+  custom_executors.push_back(
+      std::make_unique<CustomSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(),
+          &habana::validator_scatter_value_out));
 
   register_op(
       {/* op_name */ "scatter",
@@ -2326,14 +2335,16 @@ void SharedLayerReportGenerator::register_scatter_out_exception() {
 
 void SharedLayerReportGenerator::register_searchsorted_exception() {
   /* TENSOR */
-  custom_stack_generators.push_back(std::make_unique<SchemaStackGenerator>(
-      "Tensor sorted_sequence, Tensor self, bool out_int32, bool right, str? side, Tensor? sorter",
-      "searchsorted",
-      "searchsorted.Tensor",
-      std::vector<std::int64_t>{2}));
-  custom_executors.push_back(std::make_unique<GenericSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(),
-      &habana::validator_searchsorted_Tensor));
+  custom_stack_generators.push_back(
+      std::make_unique<SchemaStackGenerator>(
+          "Tensor sorted_sequence, Tensor self, bool out_int32, bool right, str? side, Tensor? sorter",
+          "searchsorted",
+          "searchsorted.Tensor",
+          std::vector<std::int64_t>{2}));
+  custom_executors.push_back(
+      std::make_unique<GenericSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(),
+          &habana::validator_searchsorted_Tensor));
 
   register_op(
       {/* op_name */ "searchsorted",
@@ -2342,14 +2353,16 @@ void SharedLayerReportGenerator::register_searchsorted_exception() {
       custom_executors.back().get());
 
   /* TENSOR_OUT */
-  custom_stack_generators.push_back(std::make_unique<SchemaStackGenerator>(
-      "Tensor sorted_sequence, Tensor self, bool out_int32, bool right, str? side, Tensor? sorter, Tensor out",
-      "searchsorted",
-      "searchsorted.Tensor_out",
-      std::vector<std::int64_t>{2}));
-  custom_executors.push_back(std::make_unique<GenericSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(),
-      &habana::validator_searchsorted_Tensor_out));
+  custom_stack_generators.push_back(
+      std::make_unique<SchemaStackGenerator>(
+          "Tensor sorted_sequence, Tensor self, bool out_int32, bool right, str? side, Tensor? sorter, Tensor out",
+          "searchsorted",
+          "searchsorted.Tensor_out",
+          std::vector<std::int64_t>{2}));
+  custom_executors.push_back(
+      std::make_unique<GenericSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(),
+          &habana::validator_searchsorted_Tensor_out));
 
   register_op(
       {/* op_name */ "searchsorted",
@@ -2358,13 +2371,15 @@ void SharedLayerReportGenerator::register_searchsorted_exception() {
       custom_executors.back().get());
 
   /* SCALAR */
-  custom_stack_generators.push_back(std::make_unique<SchemaStackGenerator>(
-      "Tensor sorted_sequence, Scalar self, bool out_int32, bool right, str? side, Tensor? sorter",
-      "searchsorted",
-      "searchsorted.Scalar"));
-  custom_executors.push_back(std::make_unique<GenericSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(),
-      &habana::validator_searchsorted_Scalar));
+  custom_stack_generators.push_back(
+      std::make_unique<SchemaStackGenerator>(
+          "Tensor sorted_sequence, Scalar self, bool out_int32, bool right, str? side, Tensor? sorter",
+          "searchsorted",
+          "searchsorted.Scalar"));
+  custom_executors.push_back(
+      std::make_unique<GenericSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(),
+          &habana::validator_searchsorted_Scalar));
 
   register_op(
       {/* op_name */ "searchsorted",
@@ -2373,13 +2388,15 @@ void SharedLayerReportGenerator::register_searchsorted_exception() {
       custom_executors.back().get());
 
   /* SCALAR_OUT */
-  custom_stack_generators.push_back(std::make_unique<SchemaStackGenerator>(
-      "Tensor sorted_sequence, Scalar self, bool out_int32, bool right, str? side, Tensor? sorter, Tensor out",
-      "searchsorted",
-      "searchsorted.Scalar_out"));
-  custom_executors.push_back(std::make_unique<GenericSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(),
-      &habana::validator_searchsorted_Scalar_out));
+  custom_stack_generators.push_back(
+      std::make_unique<SchemaStackGenerator>(
+          "Tensor sorted_sequence, Scalar self, bool out_int32, bool right, str? side, Tensor? sorter, Tensor out",
+          "searchsorted",
+          "searchsorted.Scalar_out"));
+  custom_executors.push_back(
+      std::make_unique<GenericSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(),
+          &habana::validator_searchsorted_Scalar_out));
 
   register_op(
       {/* op_name */ "searchsorted",
@@ -2389,13 +2406,16 @@ void SharedLayerReportGenerator::register_searchsorted_exception() {
 }
 
 void SharedLayerReportGenerator::register_max_unpool2d_exception() {
-  custom_stack_generators.push_back(std::make_unique<SchemaStackGenerator>(
-      "Tensor self, Tensor indices, SymInt[2] output_size",
-      "max_unpool2d",
-      "max_unpool2d",
-      std::vector<std::int64_t>{4}));
-  custom_executors.push_back(std::make_unique<GenericSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(), &habana::validator_max_unpool2d));
+  custom_stack_generators.push_back(
+      std::make_unique<SchemaStackGenerator>(
+          "Tensor self, Tensor indices, SymInt[2] output_size",
+          "max_unpool2d",
+          "max_unpool2d",
+          std::vector<std::int64_t>{4}));
+  custom_executors.push_back(
+      std::make_unique<GenericSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(),
+          &habana::validator_max_unpool2d));
 
   register_op(
       {/* op_name */ "MaxUnpool2d",
@@ -2410,14 +2430,16 @@ void SharedLayerReportGenerator::register_max_unpool2d_exception() {
 }
 
 void SharedLayerReportGenerator::register_max_unpool2d_out_exception() {
-  custom_stack_generators.push_back(std::make_unique<SchemaStackGenerator>(
-      "Tensor self, Tensor indices, SymInt[2] output_size, Tensor out",
-      "max_unpool2d",
-      "max_unpool2d.out",
-      std::vector<std::int64_t>{4}));
-  custom_executors.push_back(std::make_unique<GenericSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(),
-      &habana::validator_max_unpool2d_out));
+  custom_stack_generators.push_back(
+      std::make_unique<SchemaStackGenerator>(
+          "Tensor self, Tensor indices, SymInt[2] output_size, Tensor out",
+          "max_unpool2d",
+          "max_unpool2d.out",
+          std::vector<std::int64_t>{4}));
+  custom_executors.push_back(
+      std::make_unique<GenericSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(),
+          &habana::validator_max_unpool2d_out));
 
   register_op(
       {/* op_name */ "max_unpool2d",
@@ -2427,13 +2449,16 @@ void SharedLayerReportGenerator::register_max_unpool2d_out_exception() {
 }
 
 void SharedLayerReportGenerator::register_max_unpool3d_exception() {
-  custom_stack_generators.push_back(std::make_unique<SchemaStackGenerator>(
-      "Tensor self, Tensor indices, SymInt[3] output_size, int[3] stride, int[3] padding",
-      "max_unpool3d",
-      "max_unpool3d",
-      std::vector<std::int64_t>{5}));
-  custom_executors.push_back(std::make_unique<GenericSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(), &habana::validator_max_unpool3d));
+  custom_stack_generators.push_back(
+      std::make_unique<SchemaStackGenerator>(
+          "Tensor self, Tensor indices, SymInt[3] output_size, int[3] stride, int[3] padding",
+          "max_unpool3d",
+          "max_unpool3d",
+          std::vector<std::int64_t>{5}));
+  custom_executors.push_back(
+      std::make_unique<GenericSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(),
+          &habana::validator_max_unpool3d));
 
   register_op(
       {/* op_name */ "MaxUnpool3d",
@@ -2448,14 +2473,16 @@ void SharedLayerReportGenerator::register_max_unpool3d_exception() {
 }
 
 void SharedLayerReportGenerator::register_max_unpool3d_out_exception() {
-  custom_stack_generators.push_back(std::make_unique<SchemaStackGenerator>(
-      "Tensor self, Tensor indices, SymInt[3] output_size, int[3] stride, int[3] padding, Tensor out",
-      "max_unpool3d",
-      "max_unpool3d.out",
-      std::vector<std::int64_t>{5}));
-  custom_executors.push_back(std::make_unique<GenericSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(),
-      &habana::validator_max_unpool3d_out));
+  custom_stack_generators.push_back(
+      std::make_unique<SchemaStackGenerator>(
+          "Tensor self, Tensor indices, SymInt[3] output_size, int[3] stride, int[3] padding, Tensor out",
+          "max_unpool3d",
+          "max_unpool3d.out",
+          std::vector<std::int64_t>{5}));
+  custom_executors.push_back(
+      std::make_unique<GenericSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(),
+          &habana::validator_max_unpool3d_out));
 
   register_op(
       {/* op_name */ "max_unpool3d",
@@ -2466,14 +2493,16 @@ void SharedLayerReportGenerator::register_max_unpool3d_out_exception() {
 
 void SharedLayerReportGenerator::register_upsample_exception() {
   /* BILINEAR */
-  custom_stack_generators.push_back(std::make_unique<SchemaStackGenerator>(
-      "Tensor self, SymInt[2] output_size, bool align_corners, float? scales_h, float? scales_w",
-      "upsample_bilinear2d",
-      "",
-      std::vector<std::int64_t>{4}));
-  custom_executors.push_back(std::make_unique<GenericSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(),
-      &habana::validator_upsample_bilinear2d));
+  custom_stack_generators.push_back(
+      std::make_unique<SchemaStackGenerator>(
+          "Tensor self, SymInt[2] output_size, bool align_corners, float? scales_h, float? scales_w",
+          "upsample_bilinear2d",
+          "",
+          std::vector<std::int64_t>{4}));
+  custom_executors.push_back(
+      std::make_unique<GenericSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(),
+          &habana::validator_upsample_bilinear2d));
 
   register_op(
       {/* op_name */ "Upsample",
@@ -2485,9 +2514,10 @@ void SharedLayerReportGenerator::register_upsample_exception() {
        /* overload */ "",
        /* op_namespace */ "torch.nn.functional"},
       custom_executors.back().get());
-  custom_executors.push_back(std::make_unique<GenericSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(),
-      &habana::validator__upsample_bilinear2d_aa));
+  custom_executors.push_back(
+      std::make_unique<GenericSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(),
+          &habana::validator__upsample_bilinear2d_aa));
 
   register_op(
       {/* op_name */ "upsample_bilinear",
@@ -2496,14 +2526,16 @@ void SharedLayerReportGenerator::register_upsample_exception() {
       custom_executors.back().get());
 
   /* BICUBIC */
-  custom_stack_generators.push_back(std::make_unique<SchemaStackGenerator>(
-      "Tensor self, SymInt[2] output_size, bool align_corners, float? scales_h, float? scales_w",
-      "upsample_bicubic2d",
-      "",
-      std::vector<std::int64_t>{4}));
-  custom_executors.push_back(std::make_unique<GenericSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(),
-      &habana::validator_upsample_bilinear2d));
+  custom_stack_generators.push_back(
+      std::make_unique<SchemaStackGenerator>(
+          "Tensor self, SymInt[2] output_size, bool align_corners, float? scales_h, float? scales_w",
+          "upsample_bicubic2d",
+          "",
+          std::vector<std::int64_t>{4}));
+  custom_executors.push_back(
+      std::make_unique<GenericSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(),
+          &habana::validator_upsample_bilinear2d));
 
   register_op(
       {/* op_name */ "Upsample",
@@ -2519,23 +2551,26 @@ void SharedLayerReportGenerator::register_upsample_exception() {
 
 void SharedLayerReportGenerator::register_upsample_out_exception() {
   /* BILINEAR */
-  custom_stack_generators.push_back(std::make_unique<SchemaStackGenerator>(
-      "Tensor self, SymInt[2] output_size, bool align_corners, float? scales_h, float? scales_w, Tensor out",
-      "upsample_bilinear2d",
-      "upsample_bilinear2d.out",
-      std::vector<std::int64_t>{4}));
-  custom_executors.push_back(std::make_unique<GenericSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(),
-      &habana::validator_upsample_bilinear2d_out));
+  custom_stack_generators.push_back(
+      std::make_unique<SchemaStackGenerator>(
+          "Tensor self, SymInt[2] output_size, bool align_corners, float? scales_h, float? scales_w, Tensor out",
+          "upsample_bilinear2d",
+          "upsample_bilinear2d.out",
+          std::vector<std::int64_t>{4}));
+  custom_executors.push_back(
+      std::make_unique<GenericSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(),
+          &habana::validator_upsample_bilinear2d_out));
 
   register_op(
       {/* op_name */ "upsample",
        /* overload */ "out",
        /* op_namespace */ "torch.nn.functional"},
       custom_executors.back().get());
-  custom_executors.push_back(std::make_unique<GenericSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(),
-      &habana::validator__upsample_bilinear2d_aa_out));
+  custom_executors.push_back(
+      std::make_unique<GenericSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(),
+          &habana::validator__upsample_bilinear2d_aa_out));
 
   register_op(
       {/* op_name */ "upsample_bilinear",
@@ -2544,14 +2579,16 @@ void SharedLayerReportGenerator::register_upsample_out_exception() {
       custom_executors.back().get());
 
   /* BICUBIC */
-  custom_stack_generators.push_back(std::make_unique<SchemaStackGenerator>(
-      "Tensor self, SymInt[2] output_size, bool align_corners, float? scales_h, float? scales_w, Tensor out",
-      "upsample_bicubic2d",
-      "upsample_bicubic2d.out",
-      std::vector<std::int64_t>{4}));
-  custom_executors.push_back(std::make_unique<GenericSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(),
-      &habana::validator_upsample_bilinear2d_out));
+  custom_stack_generators.push_back(
+      std::make_unique<SchemaStackGenerator>(
+          "Tensor self, SymInt[2] output_size, bool align_corners, float? scales_h, float? scales_w, Tensor out",
+          "upsample_bicubic2d",
+          "upsample_bicubic2d.out",
+          std::vector<std::int64_t>{4}));
+  custom_executors.push_back(
+      std::make_unique<GenericSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(),
+          &habana::validator_upsample_bilinear2d_out));
 
   register_op(
       {/* op_name */ "upsample",
@@ -2563,53 +2600,51 @@ void SharedLayerReportGenerator::register_upsample_out_exception() {
 void SharedLayerReportGenerator::register_where_exception() {
   custom_stack_generators.push_back(
       std::make_unique<StackGenerator>(StackGenerator(
-          {InputDescriptor{
-               /* name */ "condition",
-               /* type */ InputType::PT_TENSOR,
-               /* is_optional */ false,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ std::nullopt,
-               /* ranks */ std::nullopt,
-               /* match_rank */ true,
-               /* dtypes */
-               std::vector<c10::ScalarType>{
-                   c10::ScalarType::Float, c10::ScalarType::Char},
-               /* match_precision_type */ false,
-               /* values */ std::nullopt,
-               /* is_array */ false,
-               /* array_length */ std::nullopt},
-           InputDescriptor{
-               /* name */ "self",
-               /* type */ InputType::PT_TENSOR,
-               /* is_optional */ false,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ std::nullopt,
-               /* ranks */ std::nullopt,
-               /* match_rank */ true,
-               /* dtypes */ std::nullopt,
-               /* match_precision_type */ true,
-               /* values */ std::nullopt,
-               /* is_array */ false,
-               /* array_length */ std::nullopt},
-           InputDescriptor{
-               /* name */ "other",
-               /* type */ InputType::PT_TENSOR,
-               /* is_optional */ false,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ std::nullopt,
-               /* ranks */ std::nullopt,
-               /* match_rank */ true,
-               /* dtypes */ std::nullopt,
-               /* match_precision_type */ true,
-               /* values */ std::nullopt,
-               /* is_array */ false,
-               /* array_length */ std::nullopt}},
+          {InputDescriptor{/* name */ "condition",
+                           /* type */ InputType::PT_TENSOR,
+                           /* is_optional */ false,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ std::nullopt,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ true,
+                           /* dtypes */
+                           std::vector<c10::ScalarType>{
+                               c10::ScalarType::Float, c10::ScalarType::Char},
+                           /* match_precision_type */ false,
+                           /* values */ std::nullopt,
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt},
+           InputDescriptor{/* name */ "self",
+                           /* type */ InputType::PT_TENSOR,
+                           /* is_optional */ false,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ std::nullopt,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ true,
+                           /* dtypes */ std::nullopt,
+                           /* match_precision_type */ true,
+                           /* values */ std::nullopt,
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt},
+           InputDescriptor{/* name */ "other",
+                           /* type */ InputType::PT_TENSOR,
+                           /* is_optional */ false,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ std::nullopt,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ true,
+                           /* dtypes */ std::nullopt,
+                           /* match_precision_type */ true,
+                           /* values */ std::nullopt,
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt}},
           /* blacklisted_precision_types */ {},
           /* whitelisted_precision_types */ {},
           "where",
           "where.self")));
-  custom_executors.push_back(std::make_unique<CustomSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(), &habana::validator_where_self));
+  custom_executors.push_back(
+      std::make_unique<CustomSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(), &habana::validator_where_self));
 
   register_op(
       {/* op_name */ "where",
@@ -2626,66 +2661,64 @@ void SharedLayerReportGenerator::register_where_exception() {
 void SharedLayerReportGenerator::register_where_out_exception() {
   custom_stack_generators.push_back(
       std::make_unique<StackGenerator>(StackGenerator(
-          {InputDescriptor{
-               /* name */ "condition",
-               /* type */ InputType::PT_TENSOR,
-               /* is_optional */ false,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ std::nullopt,
-               /* ranks */ std::nullopt,
-               /* match_rank */ true,
-               /* dtypes */
-               std::vector<c10::ScalarType>{
-                   c10::ScalarType::Float, c10::ScalarType::Char},
-               /* match_precision_type */ false,
-               /* values */ std::nullopt,
-               /* is_array */ false,
-               /* array_length */ std::nullopt},
-           InputDescriptor{
-               /* name */ "self",
-               /* type */ InputType::PT_TENSOR,
-               /* is_optional */ false,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ std::nullopt,
-               /* ranks */ std::nullopt,
-               /* match_rank */ true,
-               /* dtypes */ std::nullopt,
-               /* match_precision_type */ true,
-               /* values */ std::nullopt,
-               /* is_array */ false,
-               /* array_length */ std::nullopt},
-           InputDescriptor{
-               /* name */ "other",
-               /* type */ InputType::PT_TENSOR,
-               /* is_optional */ false,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ std::nullopt,
-               /* ranks */ std::nullopt,
-               /* match_rank */ true,
-               /* dtypes */ std::nullopt,
-               /* match_precision_type */ true,
-               /* values */ std::nullopt,
-               /* is_array */ false,
-               /* array_length */ std::nullopt},
-           InputDescriptor{
-               /* name */ "out",
-               /* type */ InputType::PT_TENSOR,
-               /* is_optional */ false,
-               /* allow_only_none */ std::nullopt,
-               /* allow_none */ std::nullopt,
-               /* ranks */ std::nullopt,
-               /* match_rank */ true,
-               /* dtypes */ std::nullopt,
-               /* match_precision_type */ true,
-               /* values */ std::nullopt,
-               /* is_array */ false,
-               /* array_length */ std::nullopt}},
+          {InputDescriptor{/* name */ "condition",
+                           /* type */ InputType::PT_TENSOR,
+                           /* is_optional */ false,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ std::nullopt,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ true,
+                           /* dtypes */
+                           std::vector<c10::ScalarType>{
+                               c10::ScalarType::Float, c10::ScalarType::Char},
+                           /* match_precision_type */ false,
+                           /* values */ std::nullopt,
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt},
+           InputDescriptor{/* name */ "self",
+                           /* type */ InputType::PT_TENSOR,
+                           /* is_optional */ false,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ std::nullopt,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ true,
+                           /* dtypes */ std::nullopt,
+                           /* match_precision_type */ true,
+                           /* values */ std::nullopt,
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt},
+           InputDescriptor{/* name */ "other",
+                           /* type */ InputType::PT_TENSOR,
+                           /* is_optional */ false,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ std::nullopt,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ true,
+                           /* dtypes */ std::nullopt,
+                           /* match_precision_type */ true,
+                           /* values */ std::nullopt,
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt},
+           InputDescriptor{/* name */ "out",
+                           /* type */ InputType::PT_TENSOR,
+                           /* is_optional */ false,
+                           /* allow_only_none */ std::nullopt,
+                           /* allow_none */ std::nullopt,
+                           /* ranks */ std::nullopt,
+                           /* match_rank */ true,
+                           /* dtypes */ std::nullopt,
+                           /* match_precision_type */ true,
+                           /* values */ std::nullopt,
+                           /* is_array */ false,
+                           /* array_length */ std::nullopt}},
           /* blacklisted_precision_types */ {},
           /* whitelisted_precision_types */ {},
           "where",
           "where.self_out")));
-  custom_executors.push_back(std::make_unique<CustomSharedLayerExecutor<>>(
-      custom_stack_generators.back().get(), &habana::validator_where_self_out));
+  custom_executors.push_back(
+      std::make_unique<CustomSharedLayerExecutor<>>(
+          custom_stack_generators.back().get(),
+          &habana::validator_where_self_out));
 
   register_op(
       {/* op_name */ "where",
@@ -2695,186 +2728,210 @@ void SharedLayerReportGenerator::register_where_out_exception() {
 }
 
 void SharedLayerReportGenerator::register_static_exceptions() {
-  custom_executors.push_back(std::make_unique<StaticSharedLayerExecutor<>>(
-      std::vector<c10::ScalarType>{
-          c10::ScalarType::Float,
-          c10::ScalarType::BFloat16,
-          c10::ScalarType::Half}));
+  custom_executors.push_back(
+      std::make_unique<StaticSharedLayerExecutor<>>(
+          std::vector<c10::ScalarType>{
+              c10::ScalarType::Float,
+              c10::ScalarType::BFloat16,
+              c10::ScalarType::Half}));
   auto fpExceptFp8Executor = custom_executors.back().get();
 
-  custom_executors.push_back(std::make_unique<StaticSharedLayerExecutor<>>(
-      std::vector<c10::ScalarType>{
-          c10::ScalarType::Float,
-          c10::ScalarType::BFloat16,
-          c10::ScalarType::Float8_e4m3fn,
-          c10::ScalarType::Float8_e5m2}));
+  custom_executors.push_back(
+      std::make_unique<StaticSharedLayerExecutor<>>(
+          std::vector<c10::ScalarType>{
+              c10::ScalarType::Float,
+              c10::ScalarType::BFloat16,
+              c10::ScalarType::Float8_e4m3fn,
+              c10::ScalarType::Float8_e5m2}));
   auto fpExceptFp16Executor = custom_executors.back().get();
 
-  custom_executors.push_back(std::make_unique<StaticSharedLayerExecutor<>>(
-      std::vector<c10::ScalarType>{c10::ScalarType::Float}));
+  custom_executors.push_back(
+      std::make_unique<StaticSharedLayerExecutor<>>(
+          std::vector<c10::ScalarType>{c10::ScalarType::Float}));
   auto fp32Executor = custom_executors.back().get();
 
-  custom_executors.push_back(std::make_unique<StaticSharedLayerExecutor<>>(
-      std::vector<c10::ScalarType>{
-          c10::ScalarType::Float, c10::ScalarType::BFloat16}));
+  custom_executors.push_back(
+      std::make_unique<StaticSharedLayerExecutor<>>(
+          std::vector<c10::ScalarType>{
+              c10::ScalarType::Float, c10::ScalarType::BFloat16}));
   auto fp32Bf16Executor = custom_executors.back().get();
 
-  custom_executors.push_back(std::make_unique<StaticSharedLayerExecutor<>>(
-      std::vector<c10::ScalarType>{
-          c10::ScalarType::Float,
-          c10::ScalarType::BFloat16,
-          c10::ScalarType::Int}));
+  custom_executors.push_back(
+      std::make_unique<StaticSharedLayerExecutor<>>(
+          std::vector<c10::ScalarType>{
+              c10::ScalarType::Float,
+              c10::ScalarType::BFloat16,
+              c10::ScalarType::Int}));
   auto fp32Bf16I32Executor = custom_executors.back().get();
 
-  custom_executors.push_back(std::make_unique<StaticSharedLayerExecutor<>>(
-      std::vector<c10::ScalarType>{
-          c10::ScalarType::Float, c10::ScalarType::Int}));
+  custom_executors.push_back(
+      std::make_unique<StaticSharedLayerExecutor<>>(
+          std::vector<c10::ScalarType>{
+              c10::ScalarType::Float, c10::ScalarType::Int}));
   auto fp32I32Executor = custom_executors.back().get();
 
-  custom_executors.push_back(std::make_unique<StaticSharedLayerExecutor<>>(
-      std::vector<c10::ScalarType>{
-          c10::ScalarType::Float,
-          c10::ScalarType::BFloat16,
-          c10::ScalarType::Int,
-          c10::ScalarType::Bool}));
+  custom_executors.push_back(
+      std::make_unique<StaticSharedLayerExecutor<>>(
+          std::vector<c10::ScalarType>{
+              c10::ScalarType::Float,
+              c10::ScalarType::BFloat16,
+              c10::ScalarType::Int,
+              c10::ScalarType::Bool}));
   auto fp32Bf16I32BoolExecutor = custom_executors.back().get();
 
-  custom_executors.push_back(std::make_unique<StaticSharedLayerExecutor<>>(
-      std::vector<c10::ScalarType>{
-          c10::ScalarType::Float,
-          c10::ScalarType::BFloat16,
-          c10::ScalarType::Int,
-          c10::ScalarType::Char,
-          c10::ScalarType::Bool}));
+  custom_executors.push_back(
+      std::make_unique<StaticSharedLayerExecutor<>>(
+          std::vector<c10::ScalarType>{
+              c10::ScalarType::Float,
+              c10::ScalarType::BFloat16,
+              c10::ScalarType::Int,
+              c10::ScalarType::Char,
+              c10::ScalarType::Bool}));
   auto fp32Bf16I32I8BoolExecutor = custom_executors.back().get();
 
-  custom_executors.push_back(std::make_unique<StaticSharedLayerExecutor<>>(
-      std::vector<c10::ScalarType>{
-          c10::ScalarType::Float,
-          c10::ScalarType::BFloat16,
-          c10::ScalarType::Int,
-          c10::ScalarType::Char}));
+  custom_executors.push_back(
+      std::make_unique<StaticSharedLayerExecutor<>>(
+          std::vector<c10::ScalarType>{
+              c10::ScalarType::Float,
+              c10::ScalarType::BFloat16,
+              c10::ScalarType::Int,
+              c10::ScalarType::Char}));
   auto fp32Bf16I32I8Executor = custom_executors.back().get();
 
-  custom_executors.push_back(std::make_unique<StaticSharedLayerExecutor<>>(
-      std::vector<c10::ScalarType>{
-          c10::ScalarType::Float,
-          c10::ScalarType::BFloat16,
-          c10::ScalarType::Float8_e4m3fn,
-          c10::ScalarType::Float8_e5m2,
-          c10::ScalarType::Int,
-          c10::ScalarType::Short}));
+  custom_executors.push_back(
+      std::make_unique<StaticSharedLayerExecutor<>>(
+          std::vector<c10::ScalarType>{
+              c10::ScalarType::Float,
+              c10::ScalarType::BFloat16,
+              c10::ScalarType::Float8_e4m3fn,
+              c10::ScalarType::Float8_e5m2,
+              c10::ScalarType::Int,
+              c10::ScalarType::Short}));
   auto i32I16AndFpExceptFp16Executor = custom_executors.back().get();
 
-  custom_executors.push_back(std::make_unique<StaticSharedLayerExecutor<>>(
-      std::vector<c10::ScalarType>{
-          c10::ScalarType::Float,
-          c10::ScalarType::BFloat16,
-          c10::ScalarType::Half,
-          c10::ScalarType::Int}));
+  custom_executors.push_back(
+      std::make_unique<StaticSharedLayerExecutor<>>(
+          std::vector<c10::ScalarType>{
+              c10::ScalarType::Float,
+              c10::ScalarType::BFloat16,
+              c10::ScalarType::Half,
+              c10::ScalarType::Int}));
   auto i32AndFpExceptFp8Executor = custom_executors.back().get();
 
-  custom_executors.push_back(std::make_unique<StaticSharedLayerExecutor<>>(
-      std::vector<c10::ScalarType>{
-          c10::ScalarType::Float,
-          c10::ScalarType::BFloat16,
-          c10::ScalarType::Int,
-          c10::ScalarType::Short}));
+  custom_executors.push_back(
+      std::make_unique<StaticSharedLayerExecutor<>>(
+          std::vector<c10::ScalarType>{
+              c10::ScalarType::Float,
+              c10::ScalarType::BFloat16,
+              c10::ScalarType::Int,
+              c10::ScalarType::Short}));
   auto i32I16AndF32BF16Executor = custom_executors.back().get();
 
-  custom_executors.push_back(std::make_unique<StaticSharedLayerExecutor<>>(
-      std::vector<c10::ScalarType>{
-          c10::ScalarType::Float,
-          c10::ScalarType::BFloat16,
-          c10::ScalarType::Half,
-          c10::ScalarType::Float8_e4m3fn,
-          c10::ScalarType::Float8_e5m2,
-          c10::ScalarType::Long,
-          c10::ScalarType::Int,
-          c10::ScalarType::Short,
-          c10::ScalarType::Char,
-          c10::ScalarType::Bool}));
+  custom_executors.push_back(
+      std::make_unique<StaticSharedLayerExecutor<>>(
+          std::vector<c10::ScalarType>{
+              c10::ScalarType::Float,
+              c10::ScalarType::BFloat16,
+              c10::ScalarType::Half,
+              c10::ScalarType::Float8_e4m3fn,
+              c10::ScalarType::Float8_e5m2,
+              c10::ScalarType::Long,
+              c10::ScalarType::Int,
+              c10::ScalarType::Short,
+              c10::ScalarType::Char,
+              c10::ScalarType::Bool}));
   auto allExecutor = custom_executors.back().get();
 
-  custom_executors.push_back(std::make_unique<StaticSharedLayerExecutor<>>(
-      std::vector<c10::ScalarType>{
-          c10::ScalarType::Float,
-          c10::ScalarType::BFloat16,
-          c10::ScalarType::Half,
-          c10::ScalarType::Float8_e4m3fn,
-          c10::ScalarType::Float8_e5m2,
-          c10::ScalarType::Int,
-          c10::ScalarType::Short,
-          c10::ScalarType::Char,
-          c10::ScalarType::Bool}));
+  custom_executors.push_back(
+      std::make_unique<StaticSharedLayerExecutor<>>(
+          std::vector<c10::ScalarType>{
+              c10::ScalarType::Float,
+              c10::ScalarType::BFloat16,
+              c10::ScalarType::Half,
+              c10::ScalarType::Float8_e4m3fn,
+              c10::ScalarType::Float8_e5m2,
+              c10::ScalarType::Int,
+              c10::ScalarType::Short,
+              c10::ScalarType::Char,
+              c10::ScalarType::Bool}));
   auto allExceptLongExecutor = custom_executors.back().get();
 
-  custom_executors.push_back(std::make_unique<StaticSharedLayerExecutor<>>(
-      std::vector<c10::ScalarType>{
-          c10::ScalarType::Float,
-          c10::ScalarType::BFloat16,
-          c10::ScalarType::Half,
-          c10::ScalarType::Float8_e4m3fn,
-          c10::ScalarType::Float8_e5m2,
-          c10::ScalarType::Long,
-          c10::ScalarType::Int,
-          c10::ScalarType::Short}));
+  custom_executors.push_back(
+      std::make_unique<StaticSharedLayerExecutor<>>(
+          std::vector<c10::ScalarType>{
+              c10::ScalarType::Float,
+              c10::ScalarType::BFloat16,
+              c10::ScalarType::Half,
+              c10::ScalarType::Float8_e4m3fn,
+              c10::ScalarType::Float8_e5m2,
+              c10::ScalarType::Long,
+              c10::ScalarType::Int,
+              c10::ScalarType::Short}));
   auto allExceptI8AndBoolExecutor = custom_executors.back().get();
 
-  custom_executors.push_back(std::make_unique<StaticSharedLayerExecutor<>>(
-      std::vector<c10::ScalarType>{
-          c10::ScalarType::Float,
-          c10::ScalarType::BFloat16,
-          c10::ScalarType::Half,
-          c10::ScalarType::Long,
-          c10::ScalarType::Int,
-          c10::ScalarType::Char,
-          c10::ScalarType::Bool}));
+  custom_executors.push_back(
+      std::make_unique<StaticSharedLayerExecutor<>>(
+          std::vector<c10::ScalarType>{
+              c10::ScalarType::Float,
+              c10::ScalarType::BFloat16,
+              c10::ScalarType::Half,
+              c10::ScalarType::Long,
+              c10::ScalarType::Int,
+              c10::ScalarType::Char,
+              c10::ScalarType::Bool}));
   auto allExceptFp8I16Executor = custom_executors.back().get();
 
-  custom_executors.push_back(std::make_unique<StaticSharedLayerExecutor<>>(
-      std::vector<c10::ScalarType>{
-          c10::ScalarType::Long, c10::ScalarType::Int}));
+  custom_executors.push_back(
+      std::make_unique<StaticSharedLayerExecutor<>>(
+          std::vector<c10::ScalarType>{
+              c10::ScalarType::Long, c10::ScalarType::Int}));
   auto i64I32Executor = custom_executors.back().get();
 
-  custom_executors.push_back(std::make_unique<StaticSharedLayerExecutor<>>(
-      std::vector<c10::ScalarType>{
-          c10::ScalarType::Int, c10::ScalarType::Char, c10::ScalarType::Bool}));
+  custom_executors.push_back(
+      std::make_unique<StaticSharedLayerExecutor<>>(
+          std::vector<c10::ScalarType>{
+              c10::ScalarType::Int,
+              c10::ScalarType::Char,
+              c10::ScalarType::Bool}));
   auto i32I8BoolExecutor = custom_executors.back().get();
 
-  custom_executors.push_back(std::make_unique<StaticSharedLayerExecutor<>>(
-      std::vector<c10::ScalarType>{
-          c10::ScalarType::Long,
-          c10::ScalarType::Int,
-          c10::ScalarType::Short,
-          c10::ScalarType::Char}));
+  custom_executors.push_back(
+      std::make_unique<StaticSharedLayerExecutor<>>(
+          std::vector<c10::ScalarType>{
+              c10::ScalarType::Long,
+              c10::ScalarType::Int,
+              c10::ScalarType::Short,
+              c10::ScalarType::Char}));
   auto allIntegersExecutor = custom_executors.back().get();
 
-  custom_executors.push_back(std::make_unique<StaticSharedLayerExecutor<>>(
-      std::vector<c10::ScalarType>{
-          c10::ScalarType::Float,
-          c10::ScalarType::BFloat16,
-          c10::ScalarType::Float8_e4m3fn,
-          c10::ScalarType::Float8_e5m2,
-          c10::ScalarType::Int,
-          c10::ScalarType::Short,
-          c10::ScalarType::Char,
-          c10::ScalarType::Bool}));
+  custom_executors.push_back(
+      std::make_unique<StaticSharedLayerExecutor<>>(
+          std::vector<c10::ScalarType>{
+              c10::ScalarType::Float,
+              c10::ScalarType::BFloat16,
+              c10::ScalarType::Float8_e4m3fn,
+              c10::ScalarType::Float8_e5m2,
+              c10::ScalarType::Int,
+              c10::ScalarType::Short,
+              c10::ScalarType::Char,
+              c10::ScalarType::Bool}));
   auto allExceptFp16I64Executor = custom_executors.back().get();
 
-  custom_executors.push_back(std::make_unique<StaticSharedLayerExecutor<>>(
-      std::vector<c10::ScalarType>{
-          c10::ScalarType::Float,
-          c10::ScalarType::BFloat16,
-          c10::ScalarType::Float8_e4m3fn,
-          c10::ScalarType::Float8_e5m2,
-          c10::ScalarType::Int,
-          c10::ScalarType::Char,
-          c10::ScalarType::Bool}));
+  custom_executors.push_back(
+      std::make_unique<StaticSharedLayerExecutor<>>(
+          std::vector<c10::ScalarType>{
+              c10::ScalarType::Float,
+              c10::ScalarType::BFloat16,
+              c10::ScalarType::Float8_e4m3fn,
+              c10::ScalarType::Float8_e5m2,
+              c10::ScalarType::Int,
+              c10::ScalarType::Char,
+              c10::ScalarType::Bool}));
   auto allExceptFp16I64I16Executor = custom_executors.back().get();
 
-  custom_executors.push_back(std::make_unique<StaticSharedLayerExecutor<>>(
-      Report(/* fp4 */ false, /* int4 */ true)));
+  custom_executors.push_back(
+      std::make_unique<StaticSharedLayerExecutor<>>(
+          Report(/* fp4 */ false, /* int4 */ true)));
   auto i4Executor = custom_executors.back().get();
 
   /* __AND__ */

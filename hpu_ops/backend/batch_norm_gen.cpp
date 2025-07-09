@@ -364,28 +364,32 @@ std::vector<sh::tensor> handle_batch_norm_training_fwd(
       NodeAttr::NodeOutputAttr{
           out_shapes[SAVED_ISTD_IDX], c10::ScalarType::Float, 2}};
   if (is_functional) {
-    output_attrs.emplace_back(NodeAttr::NodeOutputAttr{
-        out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, 3});
-    output_attrs.emplace_back(NodeAttr::NodeOutputAttr{
-        out_shapes[SAVED_ISTD_IDX], c10::ScalarType::Float, 4});
+    output_attrs.emplace_back(
+        NodeAttr::NodeOutputAttr{
+            out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, 3});
+    output_attrs.emplace_back(
+        NodeAttr::NodeOutputAttr{
+            out_shapes[SAVED_ISTD_IDX], c10::ScalarType::Float, 4});
   } else {
     if (has_inplace_running_mean) {
-      output_attrs.emplace_back(NodeAttr::NodeOutputAttr{
-          out_shapes[SAVED_MEAN_IDX],
-          c10::ScalarType::Float,
-          std::nullopt,
-          DATA_TENSOR,
-          syn_type_na,
-          running_mean_storage_or_idx});
+      output_attrs.emplace_back(
+          NodeAttr::NodeOutputAttr{
+              out_shapes[SAVED_MEAN_IDX],
+              c10::ScalarType::Float,
+              std::nullopt,
+              DATA_TENSOR,
+              syn_type_na,
+              running_mean_storage_or_idx});
     }
     if (has_inplace_running_var) {
-      output_attrs.emplace_back(NodeAttr::NodeOutputAttr{
-          out_shapes[SAVED_ISTD_IDX],
-          c10::ScalarType::Float,
-          std::nullopt,
-          DATA_TENSOR,
-          syn_type_na,
-          running_var_storage_or_idx});
+      output_attrs.emplace_back(
+          NodeAttr::NodeOutputAttr{
+              out_shapes[SAVED_ISTD_IDX],
+              c10::ScalarType::Float,
+              std::nullopt,
+              DATA_TENSOR,
+              syn_type_na,
+              running_var_storage_or_idx});
     }
   }
 
@@ -425,16 +429,18 @@ std::vector<sh::tensor> handle_batch_norm_training_fwd(
          params.size()});
   }
   if (has_inplace_running_mean) {
-    op.GetSynImplicitOutputs().emplace_back(PtInputIdxAndSynHelpTensor{
-        3,
-        std::move(bn_out[3]),
-        static_cast<size_t>(std::get<int>(running_mean_storage_or_idx))});
+    op.GetSynImplicitOutputs().emplace_back(
+        PtInputIdxAndSynHelpTensor{
+            3,
+            std::move(bn_out[3]),
+            static_cast<size_t>(std::get<int>(running_mean_storage_or_idx))});
   }
   if (has_inplace_running_var) {
-    op.GetSynImplicitOutputs().emplace_back(PtInputIdxAndSynHelpTensor{
-        4,
-        std::move(bn_out[4]),
-        static_cast<size_t>(std::get<int>(running_var_storage_or_idx))});
+    op.GetSynImplicitOutputs().emplace_back(
+        PtInputIdxAndSynHelpTensor{
+            4,
+            std::move(bn_out[4]),
+            static_cast<size_t>(std::get<int>(running_var_storage_or_idx))});
   }
 
   return bn_out;
@@ -491,53 +497,61 @@ std::vector<sh::tensor> handle_batch_norm_inference_fwd(
   running_var = cast_if_necessary_or_default(
       &op, graph, running_var_opt, running_var, runningVarStorageOpt);
 
-  bn_out.emplace_back(std::move(
-      OpBackend::BuildNode(
-          &op,
-          graph,
-          {get_guid_with_precision("batch_norm_inf_reshape"sv, op.ScalarType()),
-           {input.syn_t, bias, weight, running_mean, running_var},
-           {{out_shapes[INPUT_IDX], op.ScalarType(), std::optional<int>(0)}},
-           params.ptr(),
-           params.size()})
-          .at(0)));
+  bn_out.emplace_back(
+      std::move(
+          OpBackend::BuildNode(
+              &op,
+              graph,
+              {get_guid_with_precision(
+                   "batch_norm_inf_reshape"sv, op.ScalarType()),
+               {input.syn_t, bias, weight, running_mean, running_var},
+               {{out_shapes[INPUT_IDX],
+                 op.ScalarType(),
+                 std::optional<int>(0)}},
+               params.ptr(),
+               params.size()})
+              .at(0)));
 
   bn_out.emplace_back(
-      std::move(OpBackend::BuildNode(
-                    &op,
-                    graph,
-                    {"identity",
-                     {running_mean},
-                     {{out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, 1}}})
-                    .at(0)));
+      std::move(
+          OpBackend::BuildNode(
+              &op,
+              graph,
+              {"identity",
+               {running_mean},
+               {{out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, 1}}})
+              .at(0)));
 
   bn_out.emplace_back(
-      std::move(OpBackend::BuildNode(
-                    &op,
-                    graph,
-                    {"identity",
-                     {running_var},
-                     {{out_shapes[SAVED_ISTD_IDX], c10::ScalarType::Float, 2}}})
-                    .at(0)));
+      std::move(
+          OpBackend::BuildNode(
+              &op,
+              graph,
+              {"identity",
+               {running_var},
+               {{out_shapes[SAVED_ISTD_IDX], c10::ScalarType::Float, 2}}})
+              .at(0)));
 
   if (is_batch_norm_functional(op)) {
-    bn_out.emplace_back(std::move(
-        OpBackend::BuildNode(
-            &op,
-            graph,
-            {"identity",
-             {running_mean},
-             {{out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, 3}}})
-            .at(0)));
+    bn_out.emplace_back(
+        std::move(
+            OpBackend::BuildNode(
+                &op,
+                graph,
+                {"identity",
+                 {running_mean},
+                 {{out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, 3}}})
+                .at(0)));
 
-    bn_out.emplace_back(std::move(
-        OpBackend::BuildNode(
-            &op,
-            graph,
-            {"identity",
-             {running_var},
-             {{out_shapes[SAVED_ISTD_IDX], c10::ScalarType::Float, 4}}})
-            .at(0)));
+    bn_out.emplace_back(
+        std::move(
+            OpBackend::BuildNode(
+                &op,
+                graph,
+                {"identity",
+                 {running_var},
+                 {{out_shapes[SAVED_ISTD_IDX], c10::ScalarType::Float, 4}}})
+                .at(0)));
   }
 
   return bn_out;

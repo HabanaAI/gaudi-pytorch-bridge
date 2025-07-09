@@ -35,8 +35,11 @@ namespace habana_helpers {
 // Should be replaced by C++23 std::move_only_function
 class move_only_function_void {
  public:
-  template <typename F,
-    std::enable_if_t<!std::is_same_v<move_only_function_void, std::decay_t<F>>, bool> = true>
+  template <
+      typename F,
+      std::enable_if_t<
+          !std::is_same_v<move_only_function_void, std::decay_t<F>>,
+          bool> = true>
   move_only_function_void(F&& f)
       : func_wrapper_(
             std::make_unique<Wrapper<std::decay_t<F>>>(std::forward<F>(f))) {}
@@ -111,8 +114,7 @@ struct MultiThreadPolicy {
 };
 
 template <
-    template <typename>
-    typename Queue,
+    template <typename> typename Queue,
     typename Task,
     typename ThreadPolicy>
 class ThreadPoolBase {
@@ -194,8 +196,7 @@ class ThreadPoolBase {
 };
 
 template <
-    template <typename>
-    typename Queue,
+    template <typename> typename Queue,
     typename Task,
     typename ThreadPolicy>
 template <
@@ -214,8 +215,7 @@ ThreadPoolBase<Queue, Task, ThreadPolicy>::ThreadPoolBase(
 }
 
 template <
-    template <typename>
-    typename Queue,
+    template <typename> typename Queue,
     typename Task,
     typename ThreadPolicy>
 template <
@@ -228,8 +228,7 @@ void ThreadPoolBase<Queue, Task, ThreadPolicy>::enqueue(T&& task) {
 }
 
 template <
-    template <typename>
-    typename Queue,
+    template <typename> typename Queue,
     typename Task,
     typename ThreadPolicy>
 template <
@@ -248,8 +247,7 @@ void ThreadPoolBase<Queue, Task, ThreadPolicy>::enqueue(F&& f, Args&&... args) {
 };
 
 template <
-    template <typename>
-    typename Queue,
+    template <typename> typename Queue,
     typename Task,
     typename ThreadPolicy>
 template <
@@ -273,8 +271,7 @@ std::future<void> ThreadPoolBase<Queue, Task, ThreadPolicy>::enqueue(
 };
 
 template <
-    template <typename>
-    typename Queue,
+    template <typename> typename Queue,
     typename Task,
     typename ThreadPolicy>
 template <

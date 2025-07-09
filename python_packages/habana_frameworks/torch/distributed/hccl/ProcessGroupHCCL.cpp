@@ -249,8 +249,9 @@ ProcessGroupHCCL::WorkHCCL::WorkHCCL(
       hccl_comms_(hccl_comms),
       deviceCtxts_(deviceCtxts),
       workStartTime_(std::chrono::steady_clock::now()),
-      future_(c10::make_intrusive<at::ivalue::Future>(
-          c10::ListType::create(c10::TensorType::get()))) {
+      future_(
+          c10::make_intrusive<at::ivalue::Future>(
+              c10::ListType::create(c10::TensorType::get()))) {
   future_->markCompleted(at::IValue(outputs_));
 }
 
@@ -270,8 +271,8 @@ bool ProcessGroupHCCL::WorkHCCL::isSuccess() const {
 }
 
 // Same as calling synchronize().
-bool ProcessGroupHCCL::WorkHCCL::wait(std::chrono::milliseconds timeout
-                                      [[maybe_unused]]) {
+bool ProcessGroupHCCL::WorkHCCL::wait(
+    std::chrono::milliseconds timeout [[maybe_unused]]) {
   synchronize();
   // Always return true, because abort API is not implemented.
   return true;
@@ -656,8 +657,8 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::collective(
   return work;
 }
 
-c10::intrusive_ptr<Work> ProcessGroupHCCL::barrier(const BarrierOptions& opts
-                                                   [[maybe_unused]]) {
+c10::intrusive_ptr<Work> ProcessGroupHCCL::barrier(
+    const BarrierOptions& opts [[maybe_unused]]) {
   PT_DISTRIBUTED_BEGIN;
   habana_lazy::NoAccThread no_acc_thread;
   std::vector<int> devices;
@@ -782,8 +783,9 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, module) {
   intrusive_ptr_class_<::c10d::ProcessGroupHCCL> processGroupHccl(
       module, "ProcessGroupHCCL", backend);
 
-  processGroupHccl.def(py::init(
-      &c10d::ProcessGroupHCCLRegistry<c10d::ProcessGroupHCCL>::create));
+  processGroupHccl.def(
+      py::init(
+          &c10d::ProcessGroupHCCLRegistry<c10d::ProcessGroupHCCL>::create));
 
   processGroupHccl.def(
       "_shutdown",

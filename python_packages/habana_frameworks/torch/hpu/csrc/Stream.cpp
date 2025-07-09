@@ -97,7 +97,8 @@ static PyObject* THP_HPU_Stream_pynew(
 
   auto* self = (THP_HPU_Stream*)ptr.get();
   self->stream_id = static_cast<int64_t>(stream.id());
-  self->device_index = static_cast<int64_t>(static_cast<unsigned char>(stream.device_index()));
+  self->device_index =
+      static_cast<int64_t>(static_cast<unsigned char>(stream.device_index()));
   self->device_type = static_cast<int64_t>(stream.device_type());
   new (&self->hpu_stream) c10::hpu::HPUStream(stream);
 

@@ -771,8 +771,9 @@ torch::jit::Stack GraphExec::LaunchRecipe(
       m_graph_and_meta->get_cached_graph_key(), graph_symint_hash);
   auto graph_perm_hash = habana::ComputePermutationHashCode(input_refs);
   m_graph_and_meta->set_graph_perm_hash(graph_perm_hash);
-  m_graph_and_meta->set_shapeless_with_dims_hash(at::hash_combine(
-      m_graph_and_meta->get_shapeless_with_dims_hash(), graph_perm_hash));
+  m_graph_and_meta->set_shapeless_with_dims_hash(
+      at::hash_combine(
+          m_graph_and_meta->get_shapeless_with_dims_hash(), graph_perm_hash));
   graph_key_with_perm = at::hash_combine(graph_key_with_perm, graph_perm_hash);
   m_graph_and_meta->set_graph_key_with_perm(graph_key_with_perm);
 

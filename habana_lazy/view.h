@@ -30,7 +30,7 @@ class LazyView {
     at_tensor_ = at_tensor;
     ir_value_ = std::move(ir_val);
   };
-  LazyView(){};
+  LazyView() {};
   at::Tensor& getAtTensor() {
     return at_tensor_;
   };

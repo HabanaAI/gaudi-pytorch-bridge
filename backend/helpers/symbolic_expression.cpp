@@ -86,12 +86,13 @@ void SymExpression::dump_symbol_table() {
   }
 }
 
-std::vector<std::string> SizeExpression::tokenizer(const std::string& expression) {
+std::vector<std::string> SizeExpression::tokenizer(
+    const std::string& expression) {
   std::vector<std::string> result;
   std::string token;
   auto paren_depth = 0;
 
-  for (const char c: expression) {
+  for (const char c : expression) {
     if (c == ',' && paren_depth == 0) {
       result.push_back(token);
       token.clear();

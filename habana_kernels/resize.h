@@ -59,10 +59,11 @@ inline void THStorage_resizeBytes(
       self->resizable(), "Trying to resize storage that is not resizable");
 
   if (size_bytes == 0) {
-    self->set_data_ptr(at::DataPtr(
-        nullptr,
-        at::Device(
-            at::DeviceType::HPU, static_cast<at::DeviceIndex>(device_id))));
+    self->set_data_ptr(
+        at::DataPtr(
+            nullptr,
+            at::Device(
+                at::DeviceType::HPU, static_cast<at::DeviceIndex>(device_id))));
     self->set_nbytes(0);
   } else {
     if (is_tensor_pipelined) {

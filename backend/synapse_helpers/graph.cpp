@@ -449,8 +449,7 @@ graph::~graph() {
 template <
     typename T,
     typename Alloc,
-    template <typename, typename>
-    class V,
+    template <typename, typename> class V,
     typename std::enable_if_t<std::negation<typename std::is_same<
         std::string,
         typename V<T, Alloc>::value>::value>::type>>

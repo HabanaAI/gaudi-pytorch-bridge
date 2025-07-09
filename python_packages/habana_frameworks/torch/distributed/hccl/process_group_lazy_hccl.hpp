@@ -149,8 +149,9 @@ class TORCH_API ProcessGroupLazyHCCL : public Backend {
   c10::intrusive_ptr<Work> barrier(
       const BarrierOptions& opts = BarrierOptions()) override;
 
-  void setSequenceNumberForGroup() override{
-      /* HCCL just starts sequence numbers at 0. */};
+  void setSequenceNumberForGroup() override {
+    /* HCCL just starts sequence numbers at 0. */
+  };
 
   uint64_t getSequenceNumberForGroup() override {
     return seq_;

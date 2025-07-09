@@ -85,7 +85,7 @@ class StaticSharedLayerExecutor final
       : SharedLayerExecutor<Validator_t>(supported_types) {}
   virtual ~StaticSharedLayerExecutor() = default;
 
-  void validate() override{};
+  void validate() override {};
 
  protected:
   bool checkNodeWithSharedLayer(const at::Stack&) const override {

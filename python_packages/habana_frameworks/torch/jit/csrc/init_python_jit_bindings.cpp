@@ -813,37 +813,38 @@ void defineRealTypeClasses(pybind11::module& m) {
       .def(py::init([](TypePtr type, const std::string& symbol_or_expr) {
         return TypeWrapper(type, symbol_or_expr);
       }))
-      .def(py::init([](const at::Tensor& tensor,
-                       const py::list& py_shape,
-                       const py::list& py_strides) {
-        auto process_list = [](const py::list& py_list) {
-          std::vector<DimVariants> cpp_list;
-          cpp_list.reserve(py_list.size());
-          for (const auto& item : py_list) {
-            if (py::isinstance<py::str>(item)) {
-              const auto str_value = item.cast<std::string>();
-              cpp_list.push_back(str_value);
-            } else if (py::isinstance<py::int_>(item)) {
-              const auto int_value = item.cast<int64_t>();
-              cpp_list.push_back(int_value);
-            } else {
-              HABANA_ASSERT(
-                  0, "Shape or strides contain incorrect dimension info.");
-            }
-          }
-          return cpp_list;
-        };
+      .def(
+          py::init([](const at::Tensor& tensor,
+                      const py::list& py_shape,
+                      const py::list& py_strides) {
+            auto process_list = [](const py::list& py_list) {
+              std::vector<DimVariants> cpp_list;
+              cpp_list.reserve(py_list.size());
+              for (const auto& item : py_list) {
+                if (py::isinstance<py::str>(item)) {
+                  const auto str_value = item.cast<std::string>();
+                  cpp_list.push_back(str_value);
+                } else if (py::isinstance<py::int_>(item)) {
+                  const auto int_value = item.cast<int64_t>();
+                  cpp_list.push_back(int_value);
+                } else {
+                  HABANA_ASSERT(
+                      0, "Shape or strides contain incorrect dimension info.");
+                }
+              }
+              return cpp_list;
+            };
 
-        const SymbolicShape symbolic_shape = process_list(py_shape);
-        const SymbolicStrides symbolic_strides = process_list(py_strides);
+            const SymbolicShape symbolic_shape = process_list(py_shape);
+            const SymbolicStrides symbolic_strides = process_list(py_strides);
 
-        return TypeWrapper::createTensorTypeWrapper(
-            tensor.scalar_type(),
-            symbolic_shape,
-            symbolic_strides,
-            tensor.device(),
-            tensor.requires_grad());
-      }));
+            return TypeWrapper::createTensorTypeWrapper(
+                tensor.scalar_type(),
+                symbolic_shape,
+                symbolic_strides,
+                tensor.device(),
+                tensor.requires_grad());
+          }));
 
   py::class_<NoneType, Type, NoneTypePtr>(m, "NoneType", py::module_local())
       .def_static("get", &NoneType::get);
@@ -898,8 +899,9 @@ void defineRealTypeClasses(pybind11::module& m) {
 
   py::class_<OptionalType, Type, OptionalTypePtr>(
       m, "OptionalType", py::module_local())
-      .def(py::init(
-          [](TypePtr a) { return OptionalType::create(std::move(a)); }))
+      .def(py::init([](TypePtr a) {
+        return OptionalType::create(std::move(a));
+      }))
       .def_static("ofTensor", &OptionalType::ofTensor)
       .def("getElementType", &OptionalType::getElementType);
 
@@ -916,11 +918,12 @@ void defineRealTypeClasses(pybind11::module& m) {
       .def(py::init([](std::vector<TypePtr> types) {
         return TupleType::create(std::move(types));
       }))
-      .def(py::init([](const std::string& name,
-                       const std::vector<std::string>& fields,
-                       const std::vector<TypePtr>& types) {
-        return TupleType::createNamed(name, fields, types);
-      }))
+      .def(
+          py::init([](const std::string& name,
+                      const std::vector<std::string>& fields,
+                      const std::vector<TypePtr>& types) {
+            return TupleType::createNamed(name, fields, types);
+          }))
       .def("elements", [](TupleType& self) {
         std::vector<TypePtr> types;
         for (const auto& type : self.elements()) {

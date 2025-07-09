@@ -307,8 +307,9 @@ bool ArangeOperatorDS::ReplaceWithDynamicHPUOp(
         iv_h2d_tensor, scalar_indexes, {}, {}, m_dmeta);
     auto v_h2d_tensor = graph->addInput(arange_h2d_name);
     dtensor_indexes.push_back(stack_index);
-    m_range_infos->emplace_back(habana_helpers::RangeInfo(
-        {}, {}, GetExprFromString(h2d_expr), "INVALID", -2));
+    m_range_infos->emplace_back(
+        habana_helpers::RangeInfo(
+            {}, {}, GetExprFromString(h2d_expr), "INVALID", -2));
 
     // Use actual reshape sizes and avoid sizes with dims "-1"
     auto out_tensors = getOutputTensers(aten_arange_node, value_ivalue_map);
@@ -470,8 +471,9 @@ bool ConstantPad2dOperatorDS::ReplaceWithDynamicHPUOp(
 
   int64_t stack_index_ht = CreateH2DAndInsertToDSStack<int32_t>(
       pad_ht_vec, scalar_indexes_ht, HostDataType::UINT32_T, m_dmeta);
-  m_range_infos->emplace_back(habana_helpers::RangeInfo(
-      {}, {}, GetExprFromString(pad_ht_vec_expr), "INVALID", -2));
+  m_range_infos->emplace_back(
+      habana_helpers::RangeInfo(
+          {}, {}, GetExprFromString(pad_ht_vec_expr), "INVALID", -2));
   auto v_h2d_tensor = graph->addInput(padop_h2d_name);
 
   auto scalar_val = aten_pad_node->inputs().at(2);
@@ -762,8 +764,9 @@ bool AsStridedOperatorDS::ReplaceWithDynamicHPUOp(
       iv_st_strides_tensor, scalar_indexes, tensor_indexes, {}, m_dmeta);
   auto v_st_strides_tensor = graph->addInput(as_strided_stride_st_name);
   dtensor_indexes.push_back(stack_index_strides);
-  m_range_infos->emplace_back(habana_helpers::RangeInfo(
-      {}, {}, GetExprFromString(h2d_expr), "INVALID", -2));
+  m_range_infos->emplace_back(
+      habana_helpers::RangeInfo(
+          {}, {}, GetExprFromString(h2d_expr), "INVALID", -2));
 
   // Due to InputView handling case the self tensor size is set to base tensor
   // in LaunchRecipe and it is set contiguous, Now since this base tensor goes
@@ -823,8 +826,9 @@ bool AsStridedOperatorDS::ReplaceWithDynamicHPUOp(
         GetDynamicTensorName(as_strided_offset->debugName(), SHAPE_TENSOR);
     auto v_st_offset_tensor = graph->addInput(as_strided_offset_st_name);
     dtensor_indexes.push_back(stack_index_offset);
-    m_range_infos->emplace_back(habana_helpers::RangeInfo(
-        {}, {}, GetExprFromString({expr_offset}), "INVALID", -1));
+    m_range_infos->emplace_back(
+        habana_helpers::RangeInfo(
+            {}, {}, GetExprFromString({expr_offset}), "INVALID", -1));
     // Create hpu::as_strided_view node and insert to the graph
     CreateAndInsertDynamicNodeToGraph(
         graph,
@@ -1056,8 +1060,9 @@ bool AsStridedScatterOperatorDS::ReplaceWithDynamicHPUOp(
       iv_st_strides_tensor, scalar_indexes, {}, {}, m_dmeta);
   auto v_st_strides_tensor = graph->addInput(as_strided_scatter_stride_st_name);
   dtensor_indexes.push_back(stack_index_strides);
-  m_range_infos->emplace_back(habana_helpers::RangeInfo(
-      {}, {}, GetExprFromString(h2d_expr), "INVALID", -2));
+  m_range_infos->emplace_back(
+      habana_helpers::RangeInfo(
+          {}, {}, GetExprFromString(h2d_expr), "INVALID", -2));
 
   // There are two paths: StridedRatio path or normal path
   // Path 1: Normal path / Non-StridedRatio path
@@ -1113,8 +1118,9 @@ bool AsStridedScatterOperatorDS::ReplaceWithDynamicHPUOp(
     auto v_st_offset_tensor =
         graph->addInput(as_strided_scatter_offset_st_name);
     dtensor_indexes.push_back(stack_index_offset);
-    m_range_infos->emplace_back(habana_helpers::RangeInfo(
-        {}, {}, GetExprFromString({expr_offset}), "INVALID", -1));
+    m_range_infos->emplace_back(
+        habana_helpers::RangeInfo(
+            {}, {}, GetExprFromString({expr_offset}), "INVALID", -1));
 
     // Create hpu::as_strided_scatter node and insert to the graph
     // This has offset parameter
@@ -1275,8 +1281,9 @@ bool StridedInsertOperatorDS::ReplaceWithDynamicHPUOp(
       iv_st_strides_tensor, scalar_indexes, {}, {}, m_dmeta);
   auto v_st_strides_tensor = graph->addInput(strided_insert_stride_st_name);
   dtensor_indexes.push_back(stack_index_strides);
-  m_range_infos->emplace_back(habana_helpers::RangeInfo(
-      {}, {}, GetExprFromString(h2d_expr), "INVALID", -2));
+  m_range_infos->emplace_back(
+      habana_helpers::RangeInfo(
+          {}, {}, GetExprFromString(h2d_expr), "INVALID", -2));
 
   if (IsStridedRatioUndefined(self_strides, values_strides)) {
     auto tmeta{get_tensor_extra_meta(h2d_tensor_strides)};
@@ -1318,8 +1325,9 @@ bool StridedInsertOperatorDS::ReplaceWithDynamicHPUOp(
         GetDynamicTensorName(strided_insert_offset->debugName(), SHAPE_TENSOR);
     auto v_st_offset_tensor = graph->addInput(strided_insert_offset_st_name);
     dtensor_indexes.push_back(stack_index_offset);
-    m_range_infos->emplace_back(habana_helpers::RangeInfo(
-        {}, {}, GetExprFromString({expr_offset}), "INVALID", -1));
+    m_range_infos->emplace_back(
+        habana_helpers::RangeInfo(
+            {}, {}, GetExprFromString({expr_offset}), "INVALID", -1));
     // Create hpu::as_strided_view node and insert to the graph
     CreateAndInsertDynamicNodeToGraph(
         graph,
@@ -1465,8 +1473,9 @@ bool RandpermGeneratorOperatorDS::ReplaceWithDynamicHPUOp(
   int64_t stack_index = CreateH2DAndInsertToDSStack<int32_t>(
       h2d_values, scalar_indexes, HostDataType::INT32_T, m_dmeta);
   auto v_h2d_tensor = graph->addInput(arange_h2d_name);
-  m_range_infos->emplace_back(habana_helpers::RangeInfo(
-      {}, {}, GetExprFromString(h2d_expr), "INVALID", -2));
+  m_range_infos->emplace_back(
+      habana_helpers::RangeInfo(
+          {}, {}, GetExprFromString(h2d_expr), "INVALID", -2));
 
   // Step3: Register patching function and tensor lists
   std::vector<int64_t> dtensor_indexes{stack_index};

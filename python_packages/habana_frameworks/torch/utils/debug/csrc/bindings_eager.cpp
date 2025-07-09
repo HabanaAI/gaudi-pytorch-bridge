@@ -23,8 +23,9 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       habana::eager::JoinPendingPipelineThreads();
     } catch (const c10::Error& e) {
       PT_BRIDGE_WARN(
-        "Exception has been thrown from habana::eager::JoinPendingPipelineThreads()"
-        "Error message: ", e.what());
+          "Exception has been thrown from habana::eager::JoinPendingPipelineThreads()"
+          "Error message: ",
+          e.what());
     }
     habana::HabanaLaunchOpUtils::cleanUp();
   });

@@ -48,14 +48,15 @@ TEST_F(DebugUtilsTest, DISABLED_GraphTextDump1) {
   auto out_string = IrGraphDumpUtil::ToText(a);
 
   EXPECT_EQ(
-      out_string.find("IR {\n"
-                      "  %0 = prim::constant(), value=1.\n"
-                      "  %1 = hpu::input()\n"
-                      "  %2 = hpu::input()\n"
-                      "  %3 = aten::add(%2, %1, %0)\n"
-                      "  %4 = aten::relu(%3)\n"
-                      "  %5 = aten::relu(%4), ROOT=0\n"
-                      "}"),
+      out_string.find(
+          "IR {\n"
+          "  %0 = prim::constant(), value=1.\n"
+          "  %1 = hpu::input()\n"
+          "  %2 = hpu::input()\n"
+          "  %3 = aten::add(%2, %1, %0)\n"
+          "  %4 = aten::relu(%3)\n"
+          "  %5 = aten::relu(%4), ROOT=0\n"
+          "}"),
       0);
 }
 
@@ -73,19 +74,20 @@ TEST_F(DebugUtilsTest, GraphDotDump1) {
   std::vector<ir::NodePtr> a{ir_value.mp_node};
   auto out_string = IrGraphDumpUtil::ToDot(a);
   EXPECT_EQ(
-      out_string.find("digraph G {\n"
-                      "  node0 [label=\"prim::constant\\n\\nvalue=1.\"]\n"
-                      "  node1 [label=\"hpu::input\\n\"]\n"
-                      "  node2 [label=\"hpu::input\\n\"]\n"
-                      "  node3 [label=\"hpu::add\\n\"]\n"
-                      "  node4 [label=\"aten::relu\\n\"]\n"
-                      "  node5 [label=\"aten::relu\\n\\nROOT=0\"]\n"
-                      "  node4 -> node5\n"
-                      "  node3 -> node4\n"
-                      "  node2 -> node3 [label=\"i=0\"]\n"
-                      "  node1 -> node3 [label=\"i=1\"]\n"
-                      "  node0 -> node3 [label=\"i=2\"]\n"
-                      "}"),
+      out_string.find(
+          "digraph G {\n"
+          "  node0 [label=\"prim::constant\\n\\nvalue=1.\"]\n"
+          "  node1 [label=\"hpu::input\\n\"]\n"
+          "  node2 [label=\"hpu::input\\n\"]\n"
+          "  node3 [label=\"hpu::add\\n\"]\n"
+          "  node4 [label=\"aten::relu\\n\"]\n"
+          "  node5 [label=\"aten::relu\\n\\nROOT=0\"]\n"
+          "  node4 -> node5\n"
+          "  node3 -> node4\n"
+          "  node2 -> node3 [label=\"i=0\"]\n"
+          "  node1 -> node3 [label=\"i=1\"]\n"
+          "  node0 -> node3 [label=\"i=2\"]\n"
+          "}"),
       0);
 }
 

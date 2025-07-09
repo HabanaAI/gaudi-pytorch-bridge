@@ -355,8 +355,7 @@ void IdentityOperator::AllocateAndAddSynapseNode(
   auto allocated_tensor = output_metadata.at(0).allocated_tensor;
   if (inputs.size() == 2) {
     output = inputs[1].toTensor();
-  } else if (
-      !graph.is_dry_run() && allocated_tensor.has_value()) {
+  } else if (!graph.is_dry_run() && allocated_tensor.has_value()) {
     output = allocated_tensor.value();
   } else {
     output = habana::createPTTensor(self, output_metadata.at(0).persistent);
@@ -720,7 +719,7 @@ void SliceInsertOperator::UpdateMaxPassSliceInputs(
         if (!min.empty() && (min[i] != max[i]) && old_start == 0) {
           auto curr_val = max[i] /
               habana_helpers::DynamicBucketInfo::default_max_multiplier_;
-            start[i] = std::max(start[i], curr_val);
+          start[i] = std::max(start[i], curr_val);
         }
       }
     }

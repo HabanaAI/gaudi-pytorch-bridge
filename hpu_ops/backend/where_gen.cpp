@@ -121,7 +121,8 @@ FALLBACK_CHECK(
     case torch::kUInt8:
     case torch::kInt16:
     case torch::kInt8:
-    case torch::kInt64: // When Int64 isn't supported kInt64 is actually of type Int32
+    case torch::kInt64:
+      // When Int64 isn't supported kInt64 is actually of type Int32
       return true;
     case torch::kHalf: {
       return synapse_helpers::device_supports_fp16(

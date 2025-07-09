@@ -125,8 +125,9 @@ static auto BuildBinary(
       if (result_cast_type == habana_helpers::DataTypeToCastType(dtypes[i])) {
         continue;
       }
-      cast.push_back(OpBackend::BuildCast(
-          op, graph, inputs[i], sizes[i], dtypes[i], result_type));
+      cast.push_back(
+          OpBackend::BuildCast(
+              op, graph, inputs[i], sizes[i], dtypes[i], result_type));
       inputs[i] = cast.back().get();
     }
   }

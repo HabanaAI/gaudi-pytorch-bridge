@@ -163,9 +163,7 @@ void RepeatOperatorHT::AllocateAndAddSynapseNode(
   auto allocated_tensor = output_metadata.at(0).allocated_tensor;
   if (!graph.is_dry_run() && allocated_tensor.has_value()) {
     AllocateSynapseOutput(
-        graph,
-        allocated_tensor.value(),
-        output_metadata.at(0));
+        graph, allocated_tensor.value(), output_metadata.at(0));
   } else {
     auto output = habana::createPTTensor(
         input,
@@ -211,9 +209,7 @@ void RepeatOperator::AllocateAndAddSynapseNode(
   auto allocated_tensor = output_metadata.at(0).allocated_tensor;
   if (!graph.is_dry_run() && allocated_tensor.has_value()) {
     AllocateSynapseOutput(
-        graph,
-        allocated_tensor.value(),
-        output_metadata.at(0));
+        graph, allocated_tensor.value(), output_metadata.at(0));
   } else {
     auto output = habana::createPTTensor(
         input,

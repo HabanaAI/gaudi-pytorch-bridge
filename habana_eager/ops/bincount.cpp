@@ -71,7 +71,9 @@ at::Tensor bincount_eager(
   if (self.numel() == 0) {
     auto output =
 #if IS_PYTORCH_AT_LEAST(2, 8)
-        at::zeros({minlength.expect_int()}, self.options().dtype(c10::ScalarType::Long));
+        at::zeros(
+            {minlength.expect_int()},
+            self.options().dtype(c10::ScalarType::Long));
 #else
         at::zeros({minlength}, self.options().dtype(c10::ScalarType::Long));
 #endif
@@ -81,10 +83,12 @@ at::Tensor bincount_eager(
   // .item() internally triggers a mark_step
   const auto self_dtype = self.scalar_type();
   auto maybe_casted_self = self;
-  if (self_dtype == c10::ScalarType::Short || self_dtype == c10::ScalarType::Char)
+  if (self_dtype == c10::ScalarType::Short ||
+      self_dtype == c10::ScalarType::Char)
     maybe_casted_self = self.to(c10::ScalarType::Int);
 
-  auto max_in_input = static_cast<int64_t>(at::max(maybe_casted_self).item<int64_t>());
+  auto max_in_input =
+      static_cast<int64_t>(at::max(maybe_casted_self).item<int64_t>());
 #if IS_PYTORCH_AT_LEAST(2, 8)
   auto length = std::max(max_in_input + 1, minlength.expect_int());
 #else

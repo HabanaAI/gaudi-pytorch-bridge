@@ -26,14 +26,16 @@
 #include "hpu_ops/autocast_helpers.h"
 
 TEST(TestCustomAutocast, EmptyPath) {
-  const std::unordered_set<std::string> default_list = {"test_op_1", "test_op_2"};
+  const std::unordered_set<std::string> default_list = {
+      "test_op_1", "test_op_2"};
 
   const auto list = at::autocast::load_ops_list("", default_list);
   ASSERT_EQ(default_list, list);
 }
 
 TEST(TestCustomAutocast, NotExistingFile) {
-  const std::unordered_set<std::string> default_list = {"test_op_1", "test_op_2"};
+  const std::unordered_set<std::string> default_list = {
+      "test_op_1", "test_op_2"};
 
   testing::internal::CaptureStderr();
   const auto list =
@@ -47,7 +49,8 @@ TEST(TestCustomAutocast, NotExistingFile) {
 }
 
 TEST(TestCustomAutocast, PathToDirectory) {
-  const std::unordered_set<std::string> default_list = {"test_op_1", "test_op_2"};
+  const std::unordered_set<std::string> default_list = {
+      "test_op_1", "test_op_2"};
 
   testing::internal::CaptureStderr();
   const auto list = at::autocast::load_ops_list("/home", default_list);
@@ -60,7 +63,8 @@ TEST(TestCustomAutocast, PathToDirectory) {
 }
 
 TEST(TestCustomAutocast, UnsafeLocation) {
-  const std::unordered_set<std::string> default_list = {"test_op_1", "test_op_2"};
+  const std::unordered_set<std::string> default_list = {
+      "test_op_1", "test_op_2"};
 
   testing::internal::CaptureStderr();
   const auto list = at::autocast::load_ops_list("/bin/bash", default_list);

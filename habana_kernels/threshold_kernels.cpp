@@ -53,11 +53,12 @@ habana::InferOutputMetaRetType habana::ThresholdBackwardOperator::
     InferOutputMeta(torch::jit::Stack& inputs) {
   auto self = inputs[1].toTensor();
   habana::InferOutputMetaRetType out;
-  out.AddOutputTensor(habana::TensorMetaData(
-      self.sizes().vec(),
-      HabanaOperator::CalculateStrides(
-          self.sizes().vec(), self.suggest_memory_format()),
-      self.scalar_type(),
-      self.suggest_memory_format()));
+  out.AddOutputTensor(
+      habana::TensorMetaData(
+          self.sizes().vec(),
+          HabanaOperator::CalculateStrides(
+              self.sizes().vec(), self.suggest_memory_format()),
+          self.scalar_type(),
+          self.suggest_memory_format()));
   return out;
 }

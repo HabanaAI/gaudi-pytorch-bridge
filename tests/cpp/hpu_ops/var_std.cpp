@@ -187,15 +187,21 @@ TEST_P(VarStdWithParametrizedDim, var_1dWithDifferentDimSizes) {
 TEST_P(VarStdWithParametrizedDim, var_2dWithDifferentDimSizes) {
   const auto dimSize = GetParam();
   RunDimensionsTest({{dimSize, static_cast<int64_t>(dimSize * 2)}}, {0, -1});
-  RunDimensionsTest({{dimSize, static_cast<int64_t>(dimSize * 2)}}, {0, -1}, true);
+  RunDimensionsTest(
+      {{dimSize, static_cast<int64_t>(dimSize * 2)}}, {0, -1}, true);
   RunDimensionsTest({{dimSize, static_cast<int64_t>(dimSize * 3)}}, {0, 1});
-  RunDimensionsTest({{dimSize, static_cast<int64_t>(dimSize * 3)}}, {0, 1}, true);
+  RunDimensionsTest(
+      {{dimSize, static_cast<int64_t>(dimSize * 3)}}, {0, 1}, true);
 }
 
 TEST_P(VarStdWithParametrizedDim, var_3dWithDifferentDimSizes) {
   const auto dimSize = GetParam();
-  RunDimensionsTest({{dimSize, dimSize, static_cast<int64_t>(dimSize * 2)}}, {-1, 0, 1});
-  RunDimensionsTest({{dimSize, dimSize, static_cast<int64_t>(dimSize * 2)}}, {-1, 0, 1}, true);
+  RunDimensionsTest(
+      {{dimSize, dimSize, static_cast<int64_t>(dimSize * 2)}}, {-1, 0, 1});
+  RunDimensionsTest(
+      {{dimSize, dimSize, static_cast<int64_t>(dimSize * 2)}},
+      {-1, 0, 1},
+      true);
 }
 
 INSTANTIATE_TEST_SUITE_P(

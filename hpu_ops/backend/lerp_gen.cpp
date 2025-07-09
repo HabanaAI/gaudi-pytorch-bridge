@@ -182,9 +182,9 @@ void ForeachLerp::AddNode(
   HABANA_ASSERT(
       size <= std::numeric_limits<int>::max(), "Too large size: ", size);
   for (size_t i = 0; i < size; ++i) {
-    SUPPRESS_WDANGLING_REFERENCE(const at::IValue& weight = isWeightTensorList
-                                     ? stack.at(2).toList()[i]
-                                     : stack.at(2);)
+    SUPPRESS_WDANGLING_REFERENCE(
+        const at::IValue& weight =
+            isWeightTensorList ? stack.at(2).toList()[i] : stack.at(2);)
     std::vector<synTensor> syn_inputs{syn_in(i), syn_in(i + size)};
     if (isWeightTensorList) {
       syn_inputs.push_back(syn_in(i + 2 * size));

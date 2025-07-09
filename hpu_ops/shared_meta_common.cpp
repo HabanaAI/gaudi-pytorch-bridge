@@ -110,8 +110,7 @@ SharedMetaDataVector FillCumSumProdSharedMeta(
       stack.at(2).isNone() ? input.scalar_type() : stack.at(2).toScalarType();
 
   if (habana_helpers::is_downcast_to_int_needed(dtype) ||
-      dtype == at::ScalarType::Bool ||
-      dtype == at::ScalarType::Char ||
+      dtype == at::ScalarType::Bool || dtype == at::ScalarType::Char ||
       dtype == at::ScalarType::Byte) {
     dtype = at::ScalarType::Int;
   } else if (dtype == at::ScalarType::Double) {

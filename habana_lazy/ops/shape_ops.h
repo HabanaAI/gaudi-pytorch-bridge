@@ -222,14 +222,14 @@ struct SliceInsert : public ir::Node {
         auto hl_param_tensor = GetOrCreateHbLazyTensor(host_tensor, c10::kHPU);
 
         if (hl_param_tensor.CurrentTensorAttached().has_value()) {
-          auto host_tmeta{
-            habana::get_tensor_extra_meta(hl_param_tensor.CurrentTensorAttached().value())};
+          auto host_tmeta{habana::get_tensor_extra_meta(
+              hl_param_tensor.CurrentTensorAttached().value())};
           host_tmeta->set_host_data(
-            host_params.data(),
-            host_params.size(),
-            sizeof(uint64_t),
-            habana::HostDataType::UINT64_T);
-        host_tmeta->set_H2D_data_for_bucketing();
+              host_params.data(),
+              host_params.size(),
+              sizeof(uint64_t),
+              habana::HostDataType::UINT64_T);
+          host_tmeta->set_H2D_data_for_bucketing();
         }
 
         AddInput(hl_param_tensor.GetIrValue());

@@ -129,13 +129,12 @@ std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>> allreduce_hpu_(
     bool async_op,
     int64_t timeout) {
   auto tensor_vec = tensors.vec();
-  auto work = process_group->getBackend(c10::DeviceType::HPU)
-                  ->allreduce(
-                      tensor_vec,
-                      AllreduceOptions{
-                          *reduce_op,
-                          std::chrono::milliseconds(timeout),
-                          async_op});
+  auto work =
+      process_group->getBackend(c10::DeviceType::HPU)
+          ->allreduce(
+              tensor_vec,
+              AllreduceOptions{
+                  *reduce_op, std::chrono::milliseconds(timeout), async_op});
   return {std::move(tensor_vec), work};
 }
 #else
@@ -150,8 +149,7 @@ std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>> allreduce_hpu_(
       process_group->getBackend(c10::DeviceType::HPU)
           ->allreduce(
               tensor_vec,
-              AllreduceOptions{
-                  *reduce_op, std::chrono::milliseconds(timeout)});
+              AllreduceOptions{*reduce_op, std::chrono::milliseconds(timeout)});
   return {std::move(tensor_vec), work};
 }
 #endif
@@ -291,9 +289,9 @@ c10::intrusive_ptr<c10d::Work> allgather_into_tensor_coalesced_hpu_(
 }
 #endif
 
-bool supportsCoalescing_([
-    [maybe_unused]] const c10::intrusive_ptr<c10d::ProcessGroup>&
-                             process_group) {
+bool supportsCoalescing_(
+    [[maybe_unused]] const c10::intrusive_ptr<c10d::ProcessGroup>&
+        process_group) {
   return process_group->getBackend(c10::DeviceType::HPU)->supportsCoalescing();
 }
 
@@ -327,9 +325,7 @@ reduce_scatter_hpu_(
               output_tensors_vec,
               const_cast<std::vector<std::vector<at::Tensor>>&>(input_tensors),
               ReduceScatterOptions{
-                  *reduce_op,
-                  std::chrono::milliseconds(timeout),
-                  async_op});
+                  *reduce_op, std::chrono::milliseconds(timeout), async_op});
   return {output_tensors_vec, work};
 }
 #else
@@ -359,14 +355,13 @@ std::tuple<at::Tensor, c10::intrusive_ptr<Work>> _reduce_scatter_base_hpu_(
     const c10::intrusive_ptr<ReduceOp>& reduce_op,
     bool asyncOp,
     int64_t timeout) {
-  auto work = process_group->getBackend(c10::DeviceType::HPU)
-                  ->_reduce_scatter_base(
-                      output_tensor,
-                      input_tensor,
-                      ReduceScatterOptions{
-                          *reduce_op,
-                          std::chrono::milliseconds(timeout),
-                          asyncOp});
+  auto work =
+      process_group->getBackend(c10::DeviceType::HPU)
+          ->_reduce_scatter_base(
+              output_tensor,
+              input_tensor,
+              ReduceScatterOptions{
+                  *reduce_op, std::chrono::milliseconds(timeout), asyncOp});
   return {output_tensor, work};
 }
 
@@ -400,8 +395,7 @@ c10::intrusive_ptr<c10d::Work> reduce_scatter_tensor_coalesced_hpu_(
       ->reduce_scatter_tensor_coalesced(
           output_vec,
           input_vec,
-          ReduceScatterOptions{
-              *reduce_op, std::chrono::milliseconds(timeout)});
+          ReduceScatterOptions{*reduce_op, std::chrono::milliseconds(timeout)});
 }
 #endif
 

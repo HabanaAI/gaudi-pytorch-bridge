@@ -88,9 +88,10 @@ void RecipeCacheLRU::insert(
         key->hashCode(),
         " another recipe already exists in cache");
   } else {
-    list_.push_front(std::pair<
-                     std::shared_ptr<RecipeArgumentSpec>,
-                     std::shared_ptr<RecipeHolder>>(key, val));
+    list_.push_front(
+        std::pair<
+            std::shared_ptr<RecipeArgumentSpec>,
+            std::shared_ptr<RecipeHolder>>(key, val));
     map_.emplace(key, list_.begin());
 
     RecipeValueSpec::total_recipe_ntbytes += val->rl_->ntensorbytes_;

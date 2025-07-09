@@ -160,7 +160,7 @@ class DeviceStatistics {
 
 class RamStatistics {
  public:
-  RamStatistics() : ifs("/proc/self/status"){};
+  RamStatistics() : ifs("/proc/self/status") {};
   static uint64_t extract_num(const string& str) {
     auto it_start =
         find_if(str.begin(), str.end(), [](char a) { return isdigit(a); });
@@ -257,8 +257,9 @@ InitMemMonitor& get_mem_monitor() {
 } // namespace
 
 namespace synapse_helpers::LightweightMemoryMonitor {
-void setDevice(const synapse_helpers::pool_allocator::CoalescedStringentPooling*
-                   allocator_ptr) {
+void setDevice(
+    const synapse_helpers::pool_allocator::CoalescedStringentPooling*
+        allocator_ptr) {
   if (GET_ENV_FLAG_NEW(PT_ENABLE_LIGHTWEIGHT_MEMORY_USAGE_LOGGING))
     get_mem_monitor().setDevice(allocator_ptr);
 }

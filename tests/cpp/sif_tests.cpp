@@ -302,10 +302,12 @@ TEST_F(SifTest, Cat_Reshape_Relu_Conv2DTransposeBias_Test) {
     PT_TEST_DEBUG("PTI_DBG: Iteration Start -- ", i, " ----\n");
     int W = in_sizes[i];
     // 1. Cat Node
-    auto tensor_1 =
-        torch::randn({static_cast<int64_t>(N * C * H * (W / 2))}, torch::requires_grad(false));
-    auto tensor_2 =
-        torch::randn({static_cast<int64_t>(N * C * H * (W / 2))}, torch::requires_grad(false));
+    auto tensor_1 = torch::randn(
+        {static_cast<int64_t>(N * C * H * (W / 2))},
+        torch::requires_grad(false));
+    auto tensor_2 = torch::randn(
+        {static_cast<int64_t>(N * C * H * (W / 2))},
+        torch::requires_grad(false));
     auto cat_tensor = torch::cat({tensor_1, tensor_2}, 0);
 
     auto h_tensor_1 = tensor_1.to(torch::kHPU);

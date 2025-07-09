@@ -658,12 +658,14 @@ void habana::MatMulOperator::AllocateAndAddSynapseNode(
       tout_op->AllocateAndAddSynapseNode(graph, stack, output_metadata);
       stack.clear();
     }
-    p_context_->syn_outputs_.emplace_back(std::move(
-        (dim_tensor1 == 1) ? reshape_out->GetSynOutputs()[0]
-                           : tout_op->GetSynOutputs()[0]));
-    p_context_->pt_outputs_.emplace_back(std::move(
-        (dim_tensor1 == 1) ? reshape_out->GetOutputs()[0]
-                           : tout_op->GetOutputs()[0]));
+    p_context_->syn_outputs_.emplace_back(
+        std::move(
+            (dim_tensor1 == 1) ? reshape_out->GetSynOutputs()[0]
+                               : tout_op->GetSynOutputs()[0]));
+    p_context_->pt_outputs_.emplace_back(
+        std::move(
+            (dim_tensor1 == 1) ? reshape_out->GetOutputs()[0]
+                               : tout_op->GetOutputs()[0]));
   } else if (
       (dim_tensor1 == 4 && dim_tensor2 == 3) ||
       (dim_tensor1 == 3 && dim_tensor2 == 4)) {

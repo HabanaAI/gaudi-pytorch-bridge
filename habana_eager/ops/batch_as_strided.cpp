@@ -43,11 +43,12 @@ std::vector<at::Tensor> batch_as_strided(
   std::vector<at::Tensor> outputs;
   outputs.reserve(inputs_count);
   for (size_t i = 0; i < inputs_count; i++)
-    outputs.push_back(at::as_strided(
-        inputs[i],
-        sizes[i],
-        strides[i],
-        storage_offsets.has_value() ? storage_offsets.value()[i] : 0));
+    outputs.push_back(
+        at::as_strided(
+            inputs[i],
+            sizes[i],
+            strides[i],
+            storage_offsets.has_value() ? storage_offsets.value()[i] : 0));
 
   return outputs;
 }

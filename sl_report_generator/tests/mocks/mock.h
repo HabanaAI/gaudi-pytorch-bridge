@@ -28,7 +28,7 @@ using legal_types = std::variant<bool, std::string, std::vector<at::Stack>>;
 
 class Mock {
  public:
-  Mock(std::string class_name) : class_name(class_name){};
+  Mock(std::string class_name) : class_name(class_name) {};
   virtual ~Mock() = default;
 
   std::uint64_t getFunctionCallCounter(FunctionNameT function_name) {

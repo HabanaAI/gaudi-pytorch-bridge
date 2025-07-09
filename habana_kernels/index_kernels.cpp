@@ -2949,30 +2949,34 @@ InferOutputMetaRetType UniqueOperator::InferOutputMeta(
   std::vector<int64_t> counts_tensor_shape{elements};
 
   InferOutputMetaRetType out;
-  out.AddOutputTensor(habana::TensorMetaData(
-      output_shape,
-      HabanaOperator::CalculateStrides(
-          output_shape, self.suggest_memory_format()),
-      self.scalar_type(),
-      self.suggest_memory_format()));
-  out.AddOutputTensor(habana::TensorMetaData(
-      valid_shape,
-      HabanaOperator::CalculateStrides(
-          valid_shape, self.suggest_memory_format()),
-      c10::ScalarType::Int,
-      self.suggest_memory_format()));
-  out.AddOutputTensor(habana::TensorMetaData(
-      inverse_tensor_shape,
-      HabanaOperator::CalculateStrides(
-          inverse_tensor_shape, self.suggest_memory_format()),
-      c10::ScalarType::Long,
-      self.suggest_memory_format()));
-  out.AddOutputTensor(habana::TensorMetaData(
-      counts_tensor_shape,
-      HabanaOperator::CalculateStrides(
-          counts_tensor_shape, self.suggest_memory_format()),
-      c10::ScalarType::Long,
-      self.suggest_memory_format()));
+  out.AddOutputTensor(
+      habana::TensorMetaData(
+          output_shape,
+          HabanaOperator::CalculateStrides(
+              output_shape, self.suggest_memory_format()),
+          self.scalar_type(),
+          self.suggest_memory_format()));
+  out.AddOutputTensor(
+      habana::TensorMetaData(
+          valid_shape,
+          HabanaOperator::CalculateStrides(
+              valid_shape, self.suggest_memory_format()),
+          c10::ScalarType::Int,
+          self.suggest_memory_format()));
+  out.AddOutputTensor(
+      habana::TensorMetaData(
+          inverse_tensor_shape,
+          HabanaOperator::CalculateStrides(
+              inverse_tensor_shape, self.suggest_memory_format()),
+          c10::ScalarType::Long,
+          self.suggest_memory_format()));
+  out.AddOutputTensor(
+      habana::TensorMetaData(
+          counts_tensor_shape,
+          HabanaOperator::CalculateStrides(
+              counts_tensor_shape, self.suggest_memory_format()),
+          c10::ScalarType::Long,
+          self.suggest_memory_format()));
   return out;
 }
 

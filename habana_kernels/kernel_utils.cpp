@@ -330,8 +330,7 @@ at::Tensor habana_helpers::get_or_create_output_tensor(
     const habana::OutputMetaData& output_metadata,
     const at::Tensor& proxy,
     at::IntArrayRef shape) {
-  if (!graph.is_dry_run() &&
-      output_metadata.allocated_tensor.has_value()) {
+  if (!graph.is_dry_run() && output_metadata.allocated_tensor.has_value()) {
     return output_metadata.allocated_tensor.value();
   } else {
     return habana::createPTTensor(
@@ -392,12 +391,13 @@ habana::InferOutputMetaRetType CastOutOperator::InferOutputMeta(
     torch::jit::Stack& inputs) {
   auto output = inputs[1].toTensor();
   habana::InferOutputMetaRetType out;
-  out.AddDupTensor(habana::TensorMetaData(
-      output.sizes().vec(),
-      HabanaOperator::CalculateStrides(
-          output.sizes(), output.suggest_memory_format()),
-      output.scalar_type(),
-      output.suggest_memory_format()));
+  out.AddDupTensor(
+      habana::TensorMetaData(
+          output.sizes().vec(),
+          HabanaOperator::CalculateStrides(
+              output.sizes(), output.suggest_memory_format()),
+          output.scalar_type(),
+          output.suggest_memory_format()));
   return out;
 }
 

@@ -794,13 +794,14 @@ synTensorGetExternal(const synTensor tensor, bool* isExternal) {
     return syn_api->synTensorGetExternal(tensor, isExternal);
 }
 
-synStatus SYN_API_CALL synTensorSetMinimalLatency(synTensor tensor, bool isMinLatency) {
-    return syn_api->synTensorSetMinimalLatency(tensor, isMinLatency);
+synStatus SYN_API_CALL
+synTensorSetMinimalLatency(synTensor tensor, bool isMinLatency) {
+  return syn_api->synTensorSetMinimalLatency(tensor, isMinLatency);
 }
 
 synStatus SYN_API_CALL
 synTensorGetMinimalLatency(const synTensor tensor, bool* isMinLatency) {
-    return syn_api->synTensorGetMinimalLatency(tensor, isMinLatency);
+  return syn_api->synTensorGetMinimalLatency(tensor, isMinLatency);
 }
 
 synStatus SYN_API_CALL synStatusGetBriefDescription(

@@ -30,8 +30,8 @@ HPU_OP_FRONTEND_CREATE_RESULT_ONLY(
     EagerOptimizerLambNorm,
     at::Tensor) {
   const auto& inputs = get_inputs();
-  SUPPRESS_WDANGLING_REFERENCE(const auto& t =
-                                   inputs.at(0).toTensorList().get(0);)
+  SUPPRESS_WDANGLING_REFERENCE(
+      const auto& t = inputs.at(0).toTensorList().get(0);)
 
   return hpu_wrap::empty(
       {1},

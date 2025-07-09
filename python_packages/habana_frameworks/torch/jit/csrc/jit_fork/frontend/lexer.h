@@ -440,8 +440,7 @@ struct Token {
 
 struct Lexer {
   explicit Lexer(std::shared_ptr<Source> source)
-      : source(std::move(source)),
-        shared(sharedParserData()) {
+      : source(std::move(source)), shared(sharedParserData()) {
     auto first_indent = lexRaw(true);
     indent_stack.push_back(static_cast<int64_t>(first_indent.range.size()));
     lex();

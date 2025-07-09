@@ -181,13 +181,13 @@ void ComputeGraphHashCode(
   for (auto& input : input_refs) {
     if (input.isTensor()) {
       auto pt_tensor = input.toTensor();
-      dims_hash =
-          at::hash_combine(dims_hash, static_cast<size_t>(habana::mod_exp(pt_tensor.dim())));
+      dims_hash = at::hash_combine(
+          dims_hash, static_cast<size_t>(habana::mod_exp(pt_tensor.dim())));
       auto pt_type = pt_tensor.scalar_type();
       int64_t pt_type_int{
           static_cast<std::underlying_type_t<c10::ScalarType>>(pt_type)};
-      types_hash =
-          at::hash_combine(types_hash, static_cast<size_t>(habana::mod_exp(pt_type_int)));
+      types_hash = at::hash_combine(
+          types_hash, static_cast<size_t>(habana::mod_exp(pt_type_int)));
 
       if (habana::is_tensor_const_with_valid_const_id(pt_tensor)) {
         // To support HQT which add each scale as a different tensor for each
@@ -404,8 +404,7 @@ void OptimizedJITGraphAndMetaData::ComputeGraphHashCode(
       dynamic_graph,
       m_input_new_base_sizes,
       frontend_type,
-      m_is_reusable
-      );
+      m_is_reusable);
 }
 
 std::string& OptimizedJITGraphAndMetaData::GetOpName() {

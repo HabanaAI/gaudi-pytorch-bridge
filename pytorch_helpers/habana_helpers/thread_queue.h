@@ -155,7 +155,7 @@ class ThreadQueueLockFree : public Queue<T> {
     for (size_t i = q_head; i != q_tail; ++i)
       (&queue[i & capacityMask].data)->~T();
 
-    delete[](char*) queue;
+    delete[] (char*)queue;
   }
 
   size_t queue_capacity() const {

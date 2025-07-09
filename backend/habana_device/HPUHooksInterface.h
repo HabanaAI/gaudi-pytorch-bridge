@@ -19,7 +19,7 @@
 namespace habana {
 
 struct HPUHooks : public at::HPUHooksInterface {
-  HPUHooks(at::HPUHooksArgs){};
+  HPUHooks(at::HPUHooksArgs) {};
 
   void init() const override;
 

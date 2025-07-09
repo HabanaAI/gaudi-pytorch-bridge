@@ -150,8 +150,7 @@ class MediaProxyHolder {
   static std::once_flag initialize_once_flag_;
 };
 
-std::shared_ptr<std::unique_ptr<MediaProxyHolder>>
-    MediaProxyHolder::instance_;
+std::shared_ptr<std::unique_ptr<MediaProxyHolder>> MediaProxyHolder::instance_;
 std::once_flag MediaProxyHolder::initialize_once_flag_;
 } // namespace
 

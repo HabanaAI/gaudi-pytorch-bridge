@@ -150,10 +150,11 @@ void Rrelu_with_noise::AddNode(
     if (is_functional) {
       syn_out(1) = std::move(noise[0]);
     } else {
-      GetSynImplicitOutputs().emplace_back(PtInputIdxAndSynHelpTensor{
-          1,
-          std::move(noise[0]),
-          static_cast<size_t>(std::get<int>(noise_in_storage_or_idx))});
+      GetSynImplicitOutputs().emplace_back(
+          PtInputIdxAndSynHelpTensor{
+              1,
+              std::move(noise[0]),
+              static_cast<size_t>(std::get<int>(noise_in_storage_or_idx))});
     }
   } else {
     PARAMS_STUB(ns_LeakyReluKernel::Params);

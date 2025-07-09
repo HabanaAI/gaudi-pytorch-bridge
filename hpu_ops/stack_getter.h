@@ -37,10 +37,10 @@ struct VariantWrapper {
   bool IS() const {                      \
     return std::holds_alternative<T>(v); \
   }                                      \
-  T TO()&& {                             \
+  T TO() && {                            \
     return std::get<T>(v);               \
   }                                      \
-  T& TO()& {                             \
+  T& TO() & {                            \
     return std::get<T>(v);               \
   }                                      \
   const T& TO() const& {                 \

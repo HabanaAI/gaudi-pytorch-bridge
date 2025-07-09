@@ -700,10 +700,11 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       .def_readwrite("nodes_ids", &PartitionDTO::nodes_ids);
 
   py::class_<BindedPartitioner>(m, "BindedPartitioner")
-      .def(py::init<
-           py::list&,
-           bool,
-           std::vector<std::string>,
-           std::vector<std::string>>())
+      .def(
+          py::init<
+              py::list&,
+              bool,
+              std::vector<std::string>,
+              std::vector<std::string>>())
       .def("propose_partitions", &BindedPartitioner::propose_partitions);
 }

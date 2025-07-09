@@ -56,7 +56,7 @@ size_t GetDataChecksum(void* data, size_t dataSize);
 
 class SynBuildCache {
  public:
-  template <auto SynBuildCache::*member, typename Func>
+  template <auto SynBuildCache::* member, typename Func>
   auto& get_or_compute_ref(Func&& comp_func, size_t index) {
     static_assert(
         std::is_member_pointer_v<decltype(member)>,
@@ -69,7 +69,7 @@ class SynBuildCache {
     return (this->*member).at(index);
   }
 
-  template <auto SynBuildCache::*member, typename Func>
+  template <auto SynBuildCache::* member, typename Func>
   auto get_or_compute(Func&& comp_func, size_t index) {
     static_assert(
         std::is_member_pointer_v<decltype(member)>,

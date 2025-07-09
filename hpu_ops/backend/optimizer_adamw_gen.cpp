@@ -623,11 +623,12 @@ void OptimizerFusedAdamWOperator::AddNode(
 
     auto weight_modified = weight.syn_t;
     if (has_weight_decay) {
-      storage.push_back(std::move(BuildOp(
-          graph,
-          mul_node,
-          {weight_modified, weight_decay.syn_t},
-          weight_attr)[0]));
+      storage.push_back(
+          std::move(BuildOp(
+              graph,
+              mul_node,
+              {weight_modified, weight_decay.syn_t},
+              weight_attr)[0]));
       weight_modified = storage.back().get();
     }
 

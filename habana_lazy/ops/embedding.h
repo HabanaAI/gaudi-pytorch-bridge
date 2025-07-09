@@ -67,8 +67,9 @@ class Embedding_backward : public ir::Node {
        << m_meta_data.get(
               static_cast<size_t>(EmbeddingBwdParams::PADDING_INDEX))
        << ", scale_grad_by_freq="
-       << m_meta_data.get(static_cast<size_t>(
-              EmbeddingBwdParams::SCALE_GRADE_BY_FREQ_INDEX));
+       << m_meta_data.get(
+              static_cast<size_t>(
+                  EmbeddingBwdParams::SCALE_GRADE_BY_FREQ_INDEX));
     return ss.str();
   }
 };

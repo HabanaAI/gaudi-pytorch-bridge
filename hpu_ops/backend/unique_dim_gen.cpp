@@ -81,5 +81,7 @@ void UniqueDimEager::AddNode(
 }
 } // namespace habana
 
-static const auto& UniqueKernelRegistry = habana::KernelRegistry()
-    .REGISTER_HPU_BACKEND("hpu::unique_dim_eager", habana::UniqueDimEager);
+static const auto& UniqueKernelRegistry =
+    habana::KernelRegistry().REGISTER_HPU_BACKEND(
+        "hpu::unique_dim_eager",
+        habana::UniqueDimEager);

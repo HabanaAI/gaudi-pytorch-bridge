@@ -259,16 +259,18 @@ void HabanaRandint::AddNode(
     // Round down so that the upper limit is not included in the generated seq.
     // The assumption is that the float vaues dont include the upper limit.
     params->round_mode = CAST_ROUND_DOWN;
-    syn_out(0) = std::move(OpBackend::BuildOp(
-        graph,
-        post_op_guid,
-        {rand[0].get()},
-        {{outshape, dtype, 0}},
-        paramsT.ptr(),
-        paramsT.size())[0]);
+    syn_out(0) = std::move(
+        OpBackend::BuildOp(
+            graph,
+            post_op_guid,
+            {rand[0].get()},
+            {{outshape, dtype, 0}},
+            paramsT.ptr(),
+            paramsT.size())[0]);
   } else if (c10::isFloatingType(dtype)) {
-    syn_out(0) = std::move(OpBackend::BuildOp(
-        graph, post_op_guid, {rand[0].get()}, {{outshape, dtype, 0}})[0]);
+    syn_out(0) = std::move(
+        OpBackend::BuildOp(
+            graph, post_op_guid, {rand[0].get()}, {{outshape, dtype, 0}})[0]);
   } else {
     syn_out(0) = std::move(rand[0]);
   }

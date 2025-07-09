@@ -36,9 +36,8 @@ at::Generator createHPUGenerator() {
 } // namespace detail
 
 uint32_t get_seed_hpu(const std::optional<at::Generator>& gen) {
-  auto* generator =
-      at::get_generator_or_default<at::CPUGeneratorImpl>(
-          gen, detail::getDefaultHPUGenerator());
+  auto* generator = at::get_generator_or_default<at::CPUGeneratorImpl>(
+      gen, detail::getDefaultHPUGenerator());
 
   auto context = habana_lazy::get_device_lazy_execution_context();
   if (context->getDryRun()) {

@@ -78,9 +78,10 @@ TEST_F(ComputeShapes, bce) {
   auto hpu_in1 = cpu_in1.to("hpu");
   auto hpu_in2 = cpu_in2.to("hpu");
 
-  EXPECT_TRUE(at::allclose(
-      at::binary_cross_entropy(cpu_in1, cpu_in2),
-      at::binary_cross_entropy(hpu_in1, hpu_in2).cpu()));
+  EXPECT_TRUE(
+      at::allclose(
+          at::binary_cross_entropy(cpu_in1, cpu_in2),
+          at::binary_cross_entropy(hpu_in1, hpu_in2).cpu()));
 }
 
 TEST_F(ComputeShapes, index_cmptopshp) {

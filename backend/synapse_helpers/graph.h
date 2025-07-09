@@ -146,7 +146,7 @@ class graph {
     bool in_execution_phase_{false};
     uint64_t get_recipe_host_mem_size();
 
-    explicit recipe_handle(){};
+    explicit recipe_handle() {};
     ~recipe_handle();
 
     recipe_handle& operator=(const recipe_handle&) = delete;

@@ -112,7 +112,8 @@ at::Tensor fused_norm_hpu_wrap(
     {
       // First and second element in the meta_vec vector should be the same
       OutputMetaData meta;
-      SUPPRESS_WDANGLING_REFERENCE(meta.dtype = static_cast<const at::Tensor&>(grads[0]).scalar_type();)
+      SUPPRESS_WDANGLING_REFERENCE(
+          meta.dtype = static_cast<const at::Tensor&>(grads[0]).scalar_type();)
       meta.shape = {1};
       meta_vec.push_back(meta);
     }

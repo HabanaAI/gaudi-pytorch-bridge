@@ -121,8 +121,9 @@ auto empty_impl(
     const habana::OutputMetaData& md) {
   std::vector<synTensor> inputs;
   op->CreateShapeTensorInput(graph, op->ScalarType(), md.shape, inputs);
-  return std::move(habana::OpBackend::BuildNode(
-      op, graph, {"memset", inputs, {{md.shape, md.dtype, 0}}})[0]);
+  return std::move(
+      habana::OpBackend::BuildNode(
+          op, graph, {"memset", inputs, {{md.shape, md.dtype, 0}}})[0]);
 }
 } // namespace
 

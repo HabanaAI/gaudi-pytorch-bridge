@@ -402,14 +402,17 @@ void OptimizerLambNorm::AddNode(
     ns_Reduction::ParamsV2 params{};
     params.reductionDimensionMask = 0;
     params.keepDim = false;
-    intermediate_reduce.emplace_back(std::move(OpBackend::BuildNode(
-        this,
-        graph,
-        {get_guid_with_precision("reduce_sum_square_multi_dim_fwd"sv, dtype),
-         {gradients[i].syn_t},
-         {{{1}, dtype}},
-         &params,
-         sizeof(params)})[0]));
+    intermediate_reduce.emplace_back(
+        std::move(
+            OpBackend::BuildNode(
+                this,
+                graph,
+                {get_guid_with_precision(
+                     "reduce_sum_square_multi_dim_fwd"sv, dtype),
+                 {gradients[i].syn_t},
+                 {{{1}, dtype}},
+                 &params,
+                 sizeof(params)})[0]));
 
     concat_inputs.emplace_back(intermediate_reduce.back().get());
   }
@@ -818,12 +821,13 @@ void OptimizerLambPhase2::AddNode(
          {{adam_steps[i].pt_t.sizes(), dtype}}});
 
     if (trust_ratio.has_value()) {
-      update = std::move(OpBackend::BuildNode(
-          this,
-          graph,
-          {get_guid_with_precision("mult_fwd"sv, dtype),
-           {mul[0].get(), trust_ratio->get()},
-           {{adam_steps[i].pt_t.sizes(), dtype}}})[0]);
+      update = std::move(
+          OpBackend::BuildNode(
+              this,
+              graph,
+              {get_guid_with_precision("mult_fwd"sv, dtype),
+               {mul[0].get(), trust_ratio->get()},
+               {{adam_steps[i].pt_t.sizes(), dtype}}})[0]);
 
     } else {
       update = std::move(mul[0]);

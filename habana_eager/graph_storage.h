@@ -44,7 +44,7 @@ class GraphStorage {
   void reset_seeds();
 
  private:
-  GraphStorage(){};
+  GraphStorage() {};
   GraphStorage(const GraphStorage&) = delete;
   GraphStorage& operator=(const GraphStorage&) = delete;
   GraphStorage(GraphStorage&&) = delete;

@@ -62,8 +62,8 @@ class ChromeTraceBaseTime {
   }
   int64_t get() {
     // Make all timestamps relative to 3 month intervals.
-    static int64_t base_time =
-        timeSinceEpoch(std::chrono::time_point<std::chrono::system_clock>(
+    static int64_t base_time = timeSinceEpoch(
+        std::chrono::time_point<std::chrono::system_clock>(
             std::chrono::floor<_trimonths>(std::chrono::system_clock::now())));
     return base_time;
   }

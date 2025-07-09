@@ -121,7 +121,8 @@ ir::NodePtr strided_insert_h2d(
   if (hl_stride_st.CurrentTensorAttached().has_value()) {
     hl_stride_internal = hl_stride_st.CurrentTensorAttached().value();
   } else {
-    HABANA_ASSERT(hl_stride_st.CurrentTensorAttached(), "No tensor is attached");
+    HABANA_ASSERT(
+        hl_stride_st.CurrentTensorAttached(), "No tensor is attached");
   }
 
   auto tmeta{get_tensor_extra_meta(hl_stride_internal)};
@@ -594,8 +595,9 @@ Tensor HbLazyTensorViews::HandleViewsD2H(const Tensor& src) {
 
       auto at_internal_tensor = AtenInternalHbTensor(
           c10::Storage(storage_impl->storage()),
-          c10::scalarTypeToTypeMeta(habana_helpers::getInternalDtype(
-              base_internal_tensor.scalar_type())),
+          c10::scalarTypeToTypeMeta(
+              habana_helpers::getInternalDtype(
+                  base_internal_tensor.scalar_type())),
           std::nullopt,
           src.sizes(),
           src.strides(),
@@ -1297,8 +1299,9 @@ void HbLazyTensorViews::HandleViewsPermutedSend(const at::Tensor& src) {
 
       auto at_internal_tensor = AtenInternalHbTensor(
           c10::Storage(storage_impl->storage()),
-          c10::scalarTypeToTypeMeta(habana_helpers::getInternalDtype(
-              base_internal_tensor.scalar_type())),
+          c10::scalarTypeToTypeMeta(
+              habana_helpers::getInternalDtype(
+                  base_internal_tensor.scalar_type())),
           std::nullopt,
           src.sizes(),
           src.strides(),

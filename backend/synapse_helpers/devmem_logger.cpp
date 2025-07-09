@@ -459,8 +459,9 @@ void deviceMallocData::report_fragmentation(bool from_free) {
       out_stream << "WARNING: DRAM size data is probably wrong. "
                     "Last allocation exceeds DRAM size\n";
     } else if (current_head != dram_start_ + dram_size_) {
-      free_list.emplace_back(std::make_pair(
-          current_head, dram_start_ + dram_size_ - current_head));
+      free_list.emplace_back(
+          std::make_pair(
+              current_head, dram_start_ + dram_size_ - current_head));
     }
 
     out_stream << "Free List\n";

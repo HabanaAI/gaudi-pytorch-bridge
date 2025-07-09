@@ -117,14 +117,16 @@ void SqueezeDims::AddNode(sh::graph& graph, const at::Stack& stack) {
       result_idx = c10::make_optional<int>(0);
     }
 
-    intermediate_syn_helpers.emplace_back(std::move(OpBackend::BuildNode(
-        this,
-        graph,
-        {"squeeze",
-         {intermediate_syn_tensors.back()},
-         {{intermediate_shape, dtype, result_idx}},
-         &params,
-         sizeof(params)})[0]));
+    intermediate_syn_helpers.emplace_back(
+        std::move(
+            OpBackend::BuildNode(
+                this,
+                graph,
+                {"squeeze",
+                 {intermediate_syn_tensors.back()},
+                 {{intermediate_shape, dtype, result_idx}},
+                 &params,
+                 sizeof(params)})[0]));
     intermediate_syn_tensors.emplace_back(
         intermediate_syn_helpers.back().get());
   }

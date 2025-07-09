@@ -22,7 +22,8 @@
 
 namespace shim_slu {
 decltype(&::synSharedLayerInit) synSharedLayerInit = nullptr;
-decltype(&::synSharedLayerValidateGuidV2) synSharedLayerValidateGuidV2 = nullptr;
+decltype(&::synSharedLayerValidateGuidV2) synSharedLayerValidateGuidV2 =
+    nullptr;
 decltype(&::synSharedLayerGetGuidNames) synSharedLayerGetGuidNames = nullptr;
 decltype(&::synSharedLayerFinit) synSharedLayerFinit = nullptr;
 decltype(&::synSharedLayerQueryParams) synSharedLayerQueryParams = nullptr;

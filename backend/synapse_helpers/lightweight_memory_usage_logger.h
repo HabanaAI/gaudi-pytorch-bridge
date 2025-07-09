@@ -20,8 +20,9 @@ class CoalescedStringentPooling;
 }
 
 namespace synapse_helpers::LightweightMemoryMonitor {
-void setDevice(const synapse_helpers::pool_allocator::CoalescedStringentPooling*
-                   allocator_ptr);
+void setDevice(
+    const synapse_helpers::pool_allocator::CoalescedStringentPooling*
+        allocator_ptr);
 void resetDevice();
 } // namespace synapse_helpers::LightweightMemoryMonitor
 #define MEMORY_MONITORING_SET_DEVICE(device) \

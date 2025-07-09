@@ -51,8 +51,9 @@ std::vector<at::Tensor> batch_empty(const std::vector<EmptyBatchData>& batch) {
       result.push_back(
           at::detail::empty_generic(el.size, allocator, hpu_ks, dtype, {}));
     } else {
-      result.push_back(at::detail::empty_strided_generic(
-          el.size, el.stride.value(), allocator, hpu_ks, dtype));
+      result.push_back(
+          at::detail::empty_strided_generic(
+              el.size, el.stride.value(), allocator, hpu_ks, dtype));
     }
   }
   return result;
@@ -180,19 +181,21 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     graph_storage.reset_seeds();
   });
   py::class_<EmptyBatchData>(m, "EmptyBatchData")
-      .def(py::init<
-           std::vector<int64_t>,
-           py::object,
-           std::optional<std::vector<int64_t>>>())
+      .def(
+          py::init<
+              std::vector<int64_t>,
+              py::object,
+              std::optional<std::vector<int64_t>>>())
       .def_readwrite("size", &EmptyBatchData::size);
   m.def("batch_empty", &batch_empty, "Create empty tensors");
   py::class_<habana_helpers::RangeInfo>(m, "RangeInfo")
-      .def(py::init<
-           std::vector<int64_t>,
-           std::vector<int64_t>,
-           std::string,
-           std::string,
-           int>())
+      .def(
+          py::init<
+              std::vector<int64_t>,
+              std::vector<int64_t>,
+              std::string,
+              std::string,
+              int>())
       .def_readwrite("min_shape", &habana_helpers::RangeInfo::min_shape)
       .def_readwrite("max_shape", &habana_helpers::RangeInfo::max_shape)
       .def_readwrite("expr", &habana_helpers::RangeInfo::expr)

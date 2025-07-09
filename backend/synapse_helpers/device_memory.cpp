@@ -37,8 +37,7 @@ std::mutex device_memory::defrag_mutex;
 void device_memory::init_hlml_memory() {
 #ifdef PT_HLML_ENABLED
   try {
-    m_hlml_memory_reporter =
-        std::make_shared<HlMlMemoryReporter>(device_.id());
+    m_hlml_memory_reporter = std::make_shared<HlMlMemoryReporter>(device_.id());
 
     auto get_used_memory = [&] {
       MemoryStats stats;

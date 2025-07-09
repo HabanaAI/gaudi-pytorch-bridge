@@ -1302,9 +1302,10 @@ synapse_helpers::tensor UpsampleCommonFuncSynapseLayout(
       shape_out_resize.push_back(meta.shape[d]);
 
     for (unsigned d = 0; d < scaled_dims; ++d)
-      shape_out_resize.push_back(static_cast<int64_t>(
-          static_cast<double>(shape_in[2 + d]) *
-          scale_dhw[d + 3 - scaled_dims]));
+      shape_out_resize.push_back(
+          static_cast<int64_t>(
+              static_cast<double>(shape_in[2 + d]) *
+              scale_dhw[d + 3 - scaled_dims]));
 
     p_shape_out_resize = &shape_out_resize;
   }

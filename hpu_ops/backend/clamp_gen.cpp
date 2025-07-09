@@ -192,12 +192,13 @@ static synapse_helpers::tensor ClampCommon(
     at::ScalarType dtype,
     std::vector<int64_t> shape,
     int out_index) {
-  return std::move(OpBackend::BuildNode(
-      op,
-      graph,
-      {get_guid_with_precision("clamp_pt_fwd"sv, dtype),
-       inputs,
-       {{shape, dtype, out_index}}})[0]);
+  return std::move(
+      OpBackend::BuildNode(
+          op,
+          graph,
+          {get_guid_with_precision("clamp_pt_fwd"sv, dtype),
+           inputs,
+           {{shape, dtype, out_index}}})[0]);
 }
 
 void clamp::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
@@ -208,14 +209,15 @@ void clamp::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto params = FillParams(stack);
   const auto compute_type =
       c10::isIntegralType(meta.dtype, true) ? c10::ScalarType::Int : meta.dtype;
-  syn_out(0) = std::move(OpBackend::BuildNode(
-      this,
-      graph,
-      {get_guid_with_precision("clamp_pt_fwd"sv, compute_type),
-       inputs,
-       {{meta.shape, meta.dtype, 0}},
-       params.ptr(),
-       params.size()})[0]);
+  syn_out(0) = std::move(
+      OpBackend::BuildNode(
+          this,
+          graph,
+          {get_guid_with_precision("clamp_pt_fwd"sv, compute_type),
+           inputs,
+           {{meta.shape, meta.dtype, 0}},
+           params.ptr(),
+           params.size()})[0]);
 }
 
 void clampTensor::AddNode(
