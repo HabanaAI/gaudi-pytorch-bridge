@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 #include "backend/synapse_helpers/device.h"
-#include <absl/types/variant.h>
+#include <absl/types/span.h>
 #include <hl_logger/hllog_core.hpp>
 #include <synapse_api.h>
 #include <algorithm>
@@ -280,7 +280,7 @@ device::device(
     auto prealloc_addr = reinterpret_cast<device_ptr>(v_ptr);
     device_memory_.fix_address(reinterpret_cast<void*>(prealloc_addr));
     HABANA_ASSERT(prealloc_addr != device_nullptr);
-    preallocated_reduction_buffer_ = absl::make_optional<owned_device_ptr>(
+    preallocated_reduction_buffer_ = std::make_optional<owned_device_ptr>(
         prealloc_addr, prealloc_size, *this);
   }
 
@@ -366,10 +366,10 @@ synapse_error_v<device_handle> device::create(
   PT_SYNHELPER_DEBUG("synHPU Init");
 
   auto synapse_session_create_result{synapse_helpers::session::get_or_create()};
-  if (absl::holds_alternative<synapse_helpers::synapse_error>(
+  if (std::holds_alternative<synapse_helpers::synapse_error>(
           synapse_session_create_result)) {
-    auto error = absl::get<synapse_helpers::synapse_error>(
-        synapse_session_create_result);
+    auto error =
+        std::get<synapse_helpers::synapse_error>(synapse_session_create_result);
     return error;
   }
 
@@ -537,10 +537,10 @@ int device::get_count_by_current_type() {
 
 std::shared_ptr<session> device::get_or_create_session() {
   auto synapse_session_create_result{synapse_helpers::session::get_or_create()};
-  if (absl::holds_alternative<synapse_helpers::synapse_error>(
+  if (std::holds_alternative<synapse_helpers::synapse_error>(
           synapse_session_create_result)) {
-    auto error = absl::get<synapse_helpers::synapse_error>(
-        synapse_session_create_result);
+    auto error =
+        std::get<synapse_helpers::synapse_error>(synapse_session_create_result);
     PT_SYNHELPER_WARN("Fail to create session. error: ", error.error);
     return nullptr;
   }
@@ -674,7 +674,7 @@ void device::create_stream(hpuStream_t& hpu_stream, bool high_priority) {
             Logger::formatStatusMsg(status),
             "synDeviceGetNextStreamAffinity failed.");
       }
-      streams_[hpu_stream] = absl::make_unique<stream>(*this);
+      streams_[hpu_stream] = std::make_unique<stream>(*this);
       status = synStreamSetAffinity(id_, *streams_[hpu_stream], availAffinity);
       if (synStatus::synSuccess != status) {
         PT_SYNHELPER_FATAL(
@@ -688,14 +688,14 @@ void device::create_stream(hpuStream_t& hpu_stream, bool high_priority) {
     // stream. Priority is never used otherwise
     if (high_priority &&
         default_streams_.find(NETWORK) == default_streams_.end()) {
-      default_streams_[NETWORK] = absl::make_unique<stream>(*this);
+      default_streams_[NETWORK] = std::make_unique<stream>(*this);
       PT_SYNHELPER_DEBUG(
           "STREAM:: network stream handle", *default_streams_[NETWORK]);
     } else {
       auto compute_stream_count = get_compute_stream_count();
       hpu_stream = ++stream_index_;
       if (stream_index_ < compute_stream_count) {
-        streams_[hpu_stream] = absl::make_unique<stream>(*this);
+        streams_[hpu_stream] = std::make_unique<stream>(*this);
       }
       PT_SYNHELPER_DEBUG(
           "STREAM:: New device stream created with index", stream_index_);
@@ -972,7 +972,7 @@ void device::create_default_stream(
     default_stream_type type,
     uint64_t availAffinity,
     bool is_compute_stream) {
-  default_streams_[type] = absl::make_unique<stream>(*this, is_compute_stream);
+  default_streams_[type] = std::make_unique<stream>(*this, is_compute_stream);
   PT_SYNHELPER_DEBUG(
       "STREAM:: default stream", type, "handle", *default_streams_[type]);
   auto status =

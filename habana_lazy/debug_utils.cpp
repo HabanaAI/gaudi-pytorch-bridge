@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,8 +15,6 @@
 #include <regex>
 #include <sstream>
 #include <unordered_map>
-
-#include "absl/types/optional.h"
 
 #include "aten_lazy_bridge.h"
 #include "debug_utils.h"
@@ -37,14 +35,14 @@ std::string::size_type SkipTagSeparator(
   return node_string.compare(pos, 2, ", ") == 0 ? pos + 2 : pos;
 }
 
-absl::optional<AttrTag> ParseAttrTag(
+std::optional<AttrTag> ParseAttrTag(
     const std::string& node_string,
     std::string::size_type pos) {
   const std::regex tag_regex("^([a-zA-Z0-9_]+)=");
   std::smatch match;
   if (!std::regex_search(
           node_string.begin() + pos, node_string.end(), match, tag_regex)) {
-    return absl::nullopt;
+    return std::nullopt;
   }
 
   std::string::size_type vpos = match[1].second - node_string.begin() + 1;
@@ -104,12 +102,12 @@ std::unordered_map<ir::NodePtr, size_t> GetRootsIds(
   return roots_ids;
 }
 
-absl::optional<size_t> GetRootNodeId(
+std::optional<size_t> GetRootNodeId(
     const ir::NodePtr& node,
     const std::unordered_map<ir::NodePtr, size_t>& roots_ids) {
   auto it = roots_ids.find(node);
   if (it == roots_ids.end()) {
-    return absl::nullopt;
+    return std::nullopt;
   }
   return it->second;
 }

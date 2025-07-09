@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,6 @@
 #include "memlog.h"
 #include <sstream>
 #include <utility>
-#include "absl/types/optional.h"
 #include "aten_lazy_bridge.h"
 #include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/synapse_helpers/env_flags.h"

@@ -17,7 +17,6 @@
 #include <synapse_api.h>
 #include <synapse_common_types.h>
 
-#include <absl/types/variant.h>
 #include <algorithm>
 #include <cstdint>
 #include <iterator>

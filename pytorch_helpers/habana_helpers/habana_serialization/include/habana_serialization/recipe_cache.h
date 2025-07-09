@@ -45,7 +45,7 @@ class RecipeCache {
   // if operation is successful (optional not empty), metadata will be populated
   // synRecipeHandle optional can be set to nullptr, that means, the cache entry
   // only had metadata
-  absl::optional<synRecipeHandle> lookup(
+  std::optional<synRecipeHandle> lookup(
       std::string cache_id,
       std::ostream& metadata);
   // Location of stored recipes
@@ -64,7 +64,7 @@ class RecipeCache {
   // workers, that this process is compiling. In case other is looking for
   // a file and finds 'compiling' file, it will wait (timeout:
   // PT_HPU_RECIPE_CACHE_NFS_TIMEOUT_S) and try to read non compiling file.
-  absl::optional<synRecipeHandle> lockfree_lookup(
+  std::optional<synRecipeHandle> lockfree_lookup(
       std::string cache_id,
       std::ostream& metadata);
   void lockfree_store_task(

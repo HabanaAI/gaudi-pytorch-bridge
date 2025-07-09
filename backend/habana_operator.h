@@ -14,7 +14,6 @@
  */
 #pragma once
 #include <ATen/Tensor.h>
-#include <absl/types/any.h>
 #include <c10/util/ArrayRef.h>
 #include <synapse_api_types.h>
 #include <torch/csrc/jit/ir/ir.h>

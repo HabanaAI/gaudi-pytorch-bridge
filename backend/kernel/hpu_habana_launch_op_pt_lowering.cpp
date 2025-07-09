@@ -1046,15 +1046,15 @@ void habana::HabanaLaunchOpPT::FlattenAndLinkInputTIVs(RecipeValueSpec& rv) {
 
   std::unordered_map<void*, size_t> buff_to_inputtividx_map;
   for (auto& tiv : input_tivs_) {
-    if (absl::holds_alternative<PtTensorInfoShared>(tiv)) {
-      const auto ti = absl::get<PtTensorInfoShared>(tiv);
+    if (std::holds_alternative<PtTensorInfoShared>(tiv)) {
+      const auto ti = std::get<PtTensorInfoShared>(tiv);
       rv.dtensorinfos.push_back(ti);
       if (enable_caching_ || enable_shape_agnostic_caching_) {
         void* buffp = ti->get_buffer_start();
         buff_to_inputtividx_map.emplace(buffp, rv.dtensorinfos.size() - 1);
       }
-    } else if (absl::holds_alternative<std::vector<PtTensorInfoShared>>(tiv)) {
-      for (const auto& ti : absl::get<std::vector<PtTensorInfoShared>>(tiv)) {
+    } else if (std::holds_alternative<std::vector<PtTensorInfoShared>>(tiv)) {
+      for (const auto& ti : std::get<std::vector<PtTensorInfoShared>>(tiv)) {
         rv.dtensorinfos.push_back(ti);
         if (enable_caching_ || enable_shape_agnostic_caching_) {
           void* buffp = ti->get_buffer_start();
@@ -1071,8 +1071,8 @@ void habana::HabanaLaunchOpPT::FlattenAndLinkInputTIVs(RecipeValueSpec& rv) {
   // Link the input tivs with the duplicate
   size_t nduplicates{0};
   for (auto& tiv : duplicate_input_tivs_) {
-    if (absl::holds_alternative<PtTensorInfoShared>(tiv)) {
-      auto ti = absl::get<PtTensorInfoShared>(tiv);
+    if (std::holds_alternative<PtTensorInfoShared>(tiv)) {
+      auto ti = std::get<PtTensorInfoShared>(tiv);
       if (enable_caching_ || enable_shape_agnostic_caching_) {
         void* buffp = ti->get_buffer_start();
         auto it_parent = buff_to_inputtividx_map.find(buffp);
@@ -1305,12 +1305,12 @@ void habana::HabanaLaunchOpPT::OrderOutputTinfos(RecipeValueSpec& rv) {
   std::unordered_map<void*, size_t> buff_to_inputtividx_map;
   size_t in_idx = 0;
   for (auto& tiv : input_tivs_) {
-    if (absl::holds_alternative<PtTensorInfoShared>(tiv)) {
-      const auto ti = absl::get<PtTensorInfoShared>(tiv);
+    if (std::holds_alternative<PtTensorInfoShared>(tiv)) {
+      const auto ti = std::get<PtTensorInfoShared>(tiv);
       void* buffp = ti->get_buffer_start();
       buff_to_inputtividx_map.emplace(buffp, in_idx++);
-    } else if (absl::holds_alternative<std::vector<PtTensorInfoShared>>(tiv)) {
-      for (const auto& ti : absl::get<std::vector<PtTensorInfoShared>>(tiv)) {
+    } else if (std::holds_alternative<std::vector<PtTensorInfoShared>>(tiv)) {
+      for (const auto& ti : std::get<std::vector<PtTensorInfoShared>>(tiv)) {
         void* buffp = ti->get_buffer_start();
         buff_to_inputtividx_map.emplace(buffp, in_idx++);
       }

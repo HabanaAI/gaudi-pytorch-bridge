@@ -14,9 +14,9 @@
  */
 #pragma once
 
-#include <absl/types/optional.h>
-#include <absl/types/variant.h>
 #include <synapse_api.h>
+#include <optional>
+#include <variant>
 
 namespace synapse_helpers {
 
@@ -30,13 +30,13 @@ struct synapse_error {
       "default-initialized synapse_error shouldn't contain an error code");
 };
 
-using synapse_error_o = absl::optional<synapse_error>;
+using synapse_error_o = std::optional<synapse_error>;
 template <typename T>
-using synapse_error_v = absl::variant<T, synapse_error>;
+using synapse_error_v = std::variant<T, synapse_error>;
 
 template <typename T>
 inline T& get_value(synapse_error_v<T>& variant) {
-  return absl::get<T>(variant);
+  return std::get<T>(variant);
 }
 
 class tensor;
@@ -50,33 +50,33 @@ tensor& get_value(synapse_error_v<tensor>& variant) = delete;
 
 template <typename T>
 inline const T& get_value(const synapse_error_v<T>& variant) {
-  return absl::get<T>(variant);
+  return std::get<T>(variant);
 }
 
 template <typename T>
 inline T& get_value(synapse_error_v<std::reference_wrapper<T>>& variant) {
-  return absl::get<std::reference_wrapper<T>>(variant).get();
+  return std::get<std::reference_wrapper<T>>(variant).get();
 }
 
 template <typename T>
 inline T get_value(synapse_error_v<T>&& variant) {
-  return absl::get<T>(std::move(variant));
+  return std::get<T>(std::move(variant));
 }
 
 template <typename T>
 inline T& get_value(synapse_error_v<std::reference_wrapper<T>>&& variant) {
-  return absl::get<std::reference_wrapper<T>>(std::move(variant)).get();
+  return std::get<std::reference_wrapper<T>>(std::move(variant)).get();
 }
 
 template <typename alternative_t>
 inline bool ok(synapse_error_v<alternative_t>& error_variant) {
-  return !absl::holds_alternative<synapse_error>(error_variant) ||
-      absl::get<synapse_error>(error_variant).status == synSuccess;
+  return !std::holds_alternative<synapse_error>(error_variant) ||
+      std::get<synapse_error>(error_variant).status == synSuccess;
 }
 
 template <typename alternative_t>
 inline synapse_error& get_error(synapse_error_v<alternative_t>& error_variant) {
-  return absl::get<synapse_error>(error_variant);
+  return std::get<synapse_error>(error_variant);
 }
 
 inline bool ok(synapse_error_o& error_optional) {
@@ -126,11 +126,11 @@ inline synapse_error& get_error(bool /*success*/) {
     }                                                   \
   } while (false)
 
-#define SYNAPSE_RETURN_IF_ERROR_V(error_variant_for_eval)             \
-  do {                                                                \
-    auto&& error_variant{error_variant_for_eval};                     \
-    if (ABSL_PREDICT_FALSE(                                           \
-            absl::holds_alternative<synapse_error>(error_variant))) { \
-      return absl::get<synapse_error>(error_variant);                 \
-    }                                                                 \
+#define SYNAPSE_RETURN_IF_ERROR_V(error_variant_for_eval)            \
+  do {                                                               \
+    auto&& error_variant{error_variant_for_eval};                    \
+    if (ABSL_PREDICT_FALSE(                                          \
+            std::holds_alternative<synapse_error>(error_variant))) { \
+      return std::get<synapse_error>(error_variant);                 \
+    }                                                                \
   } while (false)

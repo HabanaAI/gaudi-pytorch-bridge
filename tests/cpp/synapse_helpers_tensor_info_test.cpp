@@ -12,7 +12,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <absl/types/variant.h>
 #include <gtest/gtest.h>
 #include <synapse_api_types.h>
 #include <synapse_common_types.h>
@@ -40,7 +39,7 @@ TEST(SynapseHelpersTensorInfoTest, TensorInfoSize) {
   auto build_result = tensor_builder(synDataType::syn_type_bf16)
                           .with_shape(input_shape)
                           .build(synapse_device, h);
-  ASSERT_EQ(absl::holds_alternative<synapse_error>(build_result), false);
+  ASSERT_EQ(std::holds_alternative<synapse_error>(build_result), false);
   auto tensor = get_value(std::move(build_result));
   PtTensorInfo tensor_info = PtTensorInfo(tensor, "ab");
   ASSERT_EQ(tensor_info.get_size(), 2 * shape);
@@ -58,7 +57,7 @@ TEST(SynapseHelpersTensorInfoTest, TensorInfoNumel) {
   auto build_result = tensor_builder(synDataType::syn_type_bf16)
                           .with_shape(input_shape)
                           .build(synapse_device, h);
-  ASSERT_EQ(absl::holds_alternative<synapse_error>(build_result), false);
+  ASSERT_EQ(std::holds_alternative<synapse_error>(build_result), false);
   auto tensor = get_value(std::move(build_result));
   PtTensorInfo tensor_info = PtTensorInfo(tensor, "ab");
   ASSERT_EQ(tensor_info.get_numel(), shape);

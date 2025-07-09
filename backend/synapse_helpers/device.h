@@ -335,7 +335,7 @@ class device final : public device_interface {
       synLaunchTensorInfo* tensor_info,
       event_done_callback done_cb);
 
-  const absl::optional<owned_device_ptr>& reduction_buffer() {
+  const std::optional<owned_device_ptr>& reduction_buffer() {
     return preallocated_reduction_buffer_;
   }
 
@@ -535,7 +535,7 @@ class device final : public device_interface {
   recipe_handle_cache recipe_handle_cache_;
   bool is_caching_enabled_;
   bool is_stream_async_enabled_;
-  absl::optional<owned_device_ptr> preallocated_reduction_buffer_;
+  std::optional<owned_device_ptr> preallocated_reduction_buffer_;
   bool is_hcl_same_addr_enabled_;
 
   const unsigned generic_stream_limit{32};

@@ -14,7 +14,6 @@
  */
 #pragma once
 
-#include <absl/strings/str_format.h>
 #include <synapse_api.h>
 #include <synapse_api_types.h>
 #include <synapse_common_types.h>

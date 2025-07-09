@@ -15,6 +15,7 @@
 #pragma once
 #include <ATen/core/Tensor.h>
 #include <ATen/core/stack.h>
+#include <absl/container/flat_hash_set.h>
 #include <perf_lib_layer_params.h>
 #include "backend/synapse_helpers/device_helpers.h"
 #include "backend/synapse_helpers/env_flags.h"
@@ -306,7 +307,7 @@ auto get_or_create_tensor(
               res_ids,                                                \
               inplace_ids,                                            \
               scalar_ids,                                             \
-              is_outfn) {};                                           \
+              is_outfn){};                                            \
     void AddNode(synapse_helpers::graph&, const at::Stack&) override; \
   };
 

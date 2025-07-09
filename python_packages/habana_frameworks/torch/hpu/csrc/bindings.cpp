@@ -17,6 +17,7 @@
 
 //clang-format off
 #include <ATen/autocast_mode.h>
+#include <absl/strings/str_format.h>
 #include <pybind11/chrono.h>
 #include <synapse_common_types.h>
 #include <torch/extension.h>

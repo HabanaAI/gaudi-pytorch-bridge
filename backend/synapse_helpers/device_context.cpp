@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,9 +13,7 @@
  * limitations under the License.
  */
 #include "device_context.h"
-#include <absl/memory/memory.h>
-#include <absl/types/optional.h>
-#include <absl/types/variant.h>
+#include <absl/types/span.h>
 #include <synapse_common_types.h>
 #include <condition_variable>
 #include <iterator>
@@ -175,7 +173,7 @@ hcclResult_t device_context::lock_address(
     dev_addresses.push_back(
         reinterpret_cast<synapse_helpers::device_ptr>(address));
 
-  locked = absl::make_unique<synapse_helpers::device_ptr_lock>(
+  locked = std::make_unique<synapse_helpers::device_ptr_lock>(
       device_->lock_addresses(
           absl::Span<const synapse_helpers::device_ptr>(dev_addresses)));
 

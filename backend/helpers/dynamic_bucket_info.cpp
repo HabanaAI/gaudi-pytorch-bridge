@@ -545,7 +545,7 @@ size_t DynamicBucketInfo::GetBucketId(
   global_count++;
   auto dims = ExtractDynamicDimsValue(shapes);
 
-  absl::optional<uint64_t> best_bucket{};
+  std::optional<uint64_t> best_bucket{};
   std::set<int64_t> skipped_ranges;
   for (uint i = 0; i < dynamic_dims_helper_.flat_dd_.size(); i++) {
     if (pad_shapes.find(dynamic_dims_helper_.flat_dd_[i].num) !=
@@ -597,7 +597,7 @@ size_t DynamicBucketInfo::GetBucketId(
   return buckets_.size() - 1;
 }
 
-absl::optional<uint64_t> DynamicBucketInfo::CheckForSplitBucket(
+std::optional<uint64_t> DynamicBucketInfo::CheckForSplitBucket(
     std::shared_ptr<habana_helpers::DynamicBucketInfo> dbipsh,
     torch::jit::Stack& stack) {
   PT_DYNAMIC_SHAPE_DEBUG("Checking buckets for refinement");

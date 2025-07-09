@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,7 +12,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <absl/types/variant.h>
 #include <gtest/gtest.h>
 #include <synapse_api_types.h>
 #include <synapse_common_types.h>
@@ -38,7 +37,7 @@ TEST(SynapseHelpersTest, NonDynamicTensorBuilding) {
     auto type = habana_helpers::pytorch_to_synapse_type(c10::ScalarType::Float);
     auto build_result =
         tensor_builder(input_shape, type).build(synapse_device, h);
-    ASSERT_EQ(absl::holds_alternative<synapse_error>(build_result), false);
+    ASSERT_EQ(std::holds_alternative<synapse_error>(build_result), false);
     auto tensor = get_value(std::move(build_result));
     EXPECT_EQ(tensor.num_elements(), 120);
     ASSERT_EQ(tensor.shape(), input_shape);
@@ -63,7 +62,7 @@ TEST(SynapseHelpersTest, NonDynamicTensorWithShape) {
     auto build_result = tensor_builder(synDataType::syn_type_float)
                             .with_shape(input_shape)
                             .build(synapse_device, h);
-    ASSERT_EQ(absl::holds_alternative<synapse_error>(build_result), false);
+    ASSERT_EQ(std::holds_alternative<synapse_error>(build_result), false);
     auto tensor = get_value(std::move(build_result));
     ASSERT_EQ(tensor.num_elements(), 120);
     ASSERT_EQ(tensor.type(), synDataType::syn_type_float);
@@ -86,7 +85,7 @@ TEST(SynapseHelpersTest, NonDynamicTensorWithRank) {
     auto build_result = tensor_builder(input_shape)
                             .with_rank_at_least(5)
                             .build(synapse_device, h);
-    ASSERT_EQ(absl::holds_alternative<synapse_error>(build_result), false);
+    ASSERT_EQ(std::holds_alternative<synapse_error>(build_result), false);
     auto tensor = get_value(std::move(build_result));
     ASSERT_EQ(tensor.num_elements(), 6);
     ASSERT_EQ(tensor.type(), synDataType::syn_type_float);
@@ -112,7 +111,7 @@ TEST(SynapseHelpersTest, DynamicTensorBuilding) {
     auto build_result = tensor_builder(synDataType::syn_type_float)
                             .with_dynamic_shape(dynamic_shape)
                             .build(synapse_device, h);
-    ASSERT_EQ(absl::holds_alternative<synapse_error>(build_result), false);
+    ASSERT_EQ(std::holds_alternative<synapse_error>(build_result), false);
     auto tensor = get_value(std::move(build_result));
     ASSERT_EQ(tensor.num_elements(), 480);
     ASSERT_EQ(tensor.type(), synDataType::syn_type_float);
@@ -148,7 +147,7 @@ TEST(SynapseHelpersTest, DynamicTensorWithRank) {
     auto build_result = tensor_builder(synDataType::syn_type_float)
                             .with_dynamic_shape(dynamic_shape)
                             .build(synapse_device, h);
-    ASSERT_EQ(absl::holds_alternative<synapse_error>(build_result), false);
+    ASSERT_EQ(std::holds_alternative<synapse_error>(build_result), false);
     auto tensor = get_value(std::move(build_result));
     ASSERT_EQ(tensor.num_elements(), 480);
     ASSERT_EQ(tensor.type(), synDataType::syn_type_float);

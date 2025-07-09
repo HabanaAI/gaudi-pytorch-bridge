@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,6 @@
  */
 #pragma once
 
-#include <absl/types/variant.h>
 #include <functional>
 #include <utility>
 
@@ -23,7 +22,7 @@ namespace synapse_helpers {
 template <typename T>
 class value_or_ref {
  public:
-  using underlying_type = absl::variant<T, std::reference_wrapper<T>>;
+  using underlying_type = std::variant<T, std::reference_wrapper<T>>;
 
   value_or_ref(T& input) : value_(std::ref(input)) {}
   value_or_ref(std::reference_wrapper<T> input) : value_(input) {}
@@ -33,10 +32,10 @@ class value_or_ref {
     return ref();
   }
   operator const T&() const {
-    return absl::visit(value_ref_caster{}, value_);
+    return std::visit(value_ref_caster{}, value_);
   }
   T& ref() {
-    return absl::visit(value_ref_caster{}, value_);
+    return std::visit(value_ref_caster{}, value_);
   }
 
  private:

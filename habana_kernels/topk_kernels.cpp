@@ -16,8 +16,6 @@
 #include <perf_lib_layer_params.h>
 #include <torch/script.h>
 
-#include "absl/strings/string_view.h"
-
 #include "backend/create_pt_tensor.h"
 #include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/helpers/tensor_utils.h"

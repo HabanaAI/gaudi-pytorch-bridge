@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@
 #pragma once
 
 #include <ATen/core/TensorBody.h>
-#include <absl/base/thread_annotations.h>
 #include <absl/container/flat_hash_map.h>
 #include <cstddef>
 #include <cstdint>

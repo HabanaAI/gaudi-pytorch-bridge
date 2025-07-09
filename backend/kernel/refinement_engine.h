@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,15 +25,13 @@
 #include <thread>
 #include <vector>
 
-#include "absl/types/optional.h"
-
 namespace habana {
 
 class RefinementEngine {
  private:
   std::atomic_bool m_refineFlag;
   std::mutex m_mutex;
-  std::deque<absl::optional<size_t>> m_readyQueue;
+  std::deque<std::optional<size_t>> m_readyQueue;
   std::deque<torch::jit::Stack> m_stackQueue;
   std::condition_variable m_refineCV;
   std::vector<std::thread> m_threads;

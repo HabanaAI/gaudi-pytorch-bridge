@@ -45,7 +45,7 @@ bool file_exists(std::string const& file) {
 // utility function to retrieve valid recipe&metadata
 // it updates passed stringstream (metadata) and optionally returns
 // synRecipeHandle, if exists
-absl::optional<synRecipeHandle> get_recipe_handle(
+std::optional<synRecipeHandle> get_recipe_handle(
     const std::string& metadata_path,
     std::ostream& metadata,
     const std::string& recipe_path) {
@@ -320,7 +320,7 @@ void RecipeCache::store(
       });
 }
 
-absl::optional<synRecipeHandle> RecipeCache::lookup(
+std::optional<synRecipeHandle> RecipeCache::lookup(
     std::string cache_id,
     std::ostream& metadata) {
   if (!is_cache_valid_)
@@ -335,8 +335,7 @@ absl::optional<synRecipeHandle> RecipeCache::lookup(
   auto recipe_path = recipe_file_path(cache_path_, cache_id);
   auto metadata_path = metadata_file_path(cache_path_, cache_id);
 
-  auto try_lock_and_read = [&,
-                            this](int fd) -> absl::optional<synRecipeHandle> {
+  auto try_lock_and_read = [&, this](int fd) -> std::optional<synRecipeHandle> {
     size_t size;
     bool locked = cf_handler_->fileLock(fd, true, size);
     if (!locked) {
@@ -381,7 +380,7 @@ absl::optional<synRecipeHandle> RecipeCache::lookup(
   return {};
 }
 
-absl::optional<synRecipeHandle> RecipeCache::lockfree_lookup(
+std::optional<synRecipeHandle> RecipeCache::lockfree_lookup(
     std::string cache_id,
     std::ostream& metadata) {
   if (!is_cache_valid_)

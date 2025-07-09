@@ -65,9 +65,7 @@ set_target_properties(pytorch_synapse_helpers PROPERTIES OUTPUT_NAME "pytorch_sy
 target_link_libraries(
   pytorch_synapse_helpers
   PUBLIC absl::strings
-         absl::optional
          absl::flags
-         absl::variant
          absl::hash
          absl::raw_hash_set
          exprtk::exprtk

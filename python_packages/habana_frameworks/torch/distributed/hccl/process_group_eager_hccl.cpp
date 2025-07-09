@@ -15,6 +15,7 @@
 #include "process_group_eager_hccl.hpp"
 #include "habana_eager/ops/eager_op.h"
 
+#include <absl/functional/any_invocable.h>
 #include <c10/core/TensorImpl.h>
 #include <hccl.h>
 #include <hccl_types.h>

@@ -16,13 +16,7 @@
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
 #include <ATen/native/Resize.h>
 #include <ATen/record_function.h>
-#include <absl/container/flat_hash_map.h>
-#include <absl/container/flat_hash_set.h>
-#include <absl/container/inlined_vector.h>
 #include <absl/functional/any_invocable.h>
-#include <absl/hash/hash.h>
-#include <absl/memory/memory.h>
-#include <absl/types/optional.h>
 #include <torch/csrc/jit/ir/constants.h>
 #include <torch/csrc/jit/runtime/interpreter.h>
 #include <algorithm>
@@ -1158,7 +1152,7 @@ void HabanaLaunchOpPT::create_duplicate_syn_tensor(
                     static_cast<synDeviceId>(tensor->device().index())),
                 syn_tensor_input.graph());
 
-    meta_syn_tensors_.push_back(absl::get<sh::tensor>(std::move(variant)));
+    meta_syn_tensors_.push_back(std::get<sh::tensor>(std::move(variant)));
 
     PtTensorInfoShared ti = std::make_shared<PtTensorInfo>(
         value_to_ivalue_[value_in],
@@ -1671,9 +1665,8 @@ void HabanaLaunchOpPT::handlePrimConstantNode(
       intermediate_index_++;
 
       auto tensor = ivptrsh_updated->toTensor();
-      meta_syn_tensors_.push_back(
-          habana_helpers::create_tensor(
-              tensor, *syn_graph_ptr_, true, false, tensor.scalar_type()));
+      meta_syn_tensors_.push_back(habana_helpers::create_tensor(
+          tensor, *syn_graph_ptr_, true, false, tensor.scalar_type()));
       SharedSynTensorOrRefListPtr tensorList =
           std::make_shared<SynTensorOrRefList>();
       tensorList->emplace_back(sh::tensor_or_ref(meta_syn_tensors_.back()));
@@ -6291,7 +6284,7 @@ void HabanaLaunchOpPT::CreateOutputReuseInputSynapseTensor(
                 syn_graph_ptr_->get_graph_handle());
 
     meta_syn_tensors_.push_back(
-        absl::get<synapse_helpers::tensor>(std::move(variant)));
+        std::get<synapse_helpers::tensor>(std::move(variant)));
 
     PtTensorInfoShared ti = std::make_shared<PtTensorInfo>(
         ivpsh,

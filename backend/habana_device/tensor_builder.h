@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,6 @@
  */
 #pragma once
 
-#include <absl/types/optional.h>
 #include <c10/util/ArrayRef.h>
 #include "backend/synapse_helpers/habana_tensor.h"
 #include "backend/synapse_helpers/tensor_builder_base.h"

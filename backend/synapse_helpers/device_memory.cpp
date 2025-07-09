@@ -12,6 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <absl/types/span.h>
 #include <synapse_api.h>
 #include <synapse_common_types.h>
 #include <iterator>
@@ -1007,13 +1008,13 @@ device_ptr_lock device_memory::lock_addresses(
       }
     }
     update_on_defragment_ = false;
-    return {absl::make_unique<defragment::Lock>(
+    return {std::make_unique<defragment::Lock>(
         threads_in_defragmenter_critical_section_, std::move(out))};
   } else {
     for (const auto address : addresses) {
       out.emplace_back(address);
     }
-    return {absl::make_unique<defragment::Lock>(
+    return {std::make_unique<defragment::Lock>(
         threads_in_defragmenter_critical_section_, std::move(out))};
   }
 }

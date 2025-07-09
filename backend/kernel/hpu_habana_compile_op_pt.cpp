@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
  */
 
 #include "backend/kernel/hpu_habana_compile_op_pt.h"
+#include <absl/functional/any_invocable.h>
 #include "backend/helpers/tensor_utils.h"
 #include "backend/kernel/hpu_habana_execute_op_pt.h"
 #include "backend/kernel/hpu_habana_launch_op_pt.h"

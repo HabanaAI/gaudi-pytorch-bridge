@@ -14,8 +14,7 @@
  */
 #include <absl/strings/str_format.h>
 #include <absl/strings/str_join.h>
-#include <absl/types/optional.h>
-#include <absl/types/variant.h>
+#include <absl/types/span.h>
 #include <bits/fs_fwd.h>
 #include <perf_lib_layer_params.h>
 #include <synapse_api.h>
@@ -23,9 +22,7 @@
 #include <mutex>
 #include <ostream>
 #include <string>
-
-#include "absl/container/flat_hash_set.h"
-#include "absl/memory/memory.h"
+#include "absl/container/flat_hash_map.h"
 
 #include "backend/habana_device/HPUDevice.h"
 #include "backend/helpers/event_dispatcher.h"
@@ -618,7 +615,7 @@ std::shared_ptr<graph::recipe_handle> graph::compile() {
 
   TIME_MEASURE_VARS;
   START_TIME_MEASURE;
-  auto recipe_handle{absl::make_unique<graph::recipe_handle>()};
+  auto recipe_handle{std::make_unique<graph::recipe_handle>()};
 
   auto name = get_unique_recipe_name(name_, eager_mode_);
 
@@ -835,7 +832,7 @@ void graph::launch(
       device.get_workspace_size());
 
   {
-    address_lock = absl::make_unique<device_ptr_lock>(
+    address_lock = std::make_unique<device_ptr_lock>(
         device.lock_addresses(absl::Span<const device_ptr>(addresses)));
     auto iter = inputs_and_outputs_info.begin();
     size_t index = 0;

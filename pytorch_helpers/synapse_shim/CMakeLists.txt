@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -31,6 +31,6 @@ target_include_directories(pytorch_synapse_shim PUBLIC ${PROJECT_SOURCE_DIR}/pyt
 target_link_libraries(
   pytorch_synapse_shim
   PUBLIC ${CMAKE_DL_LIBS} Synapse
-  PRIVATE absl::variant absl::raw_hash_set)
+  PRIVATE absl::raw_hash_set)
 
 export(TARGETS pytorch_synapse_shim FILE pytorch_synapse_shimConfig.cmake)

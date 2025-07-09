@@ -13,6 +13,8 @@
  * limitations under the License.
  */
 #include "backend/habana_operator.h"
+#include <absl/container/flat_hash_set.h>
+#include "absl/strings/str_format.h"
 #include "backend/create_pt_tensor.h"
 #include "backend/habana_device/HPUStream.h"
 #include "backend/helpers/create_tensor.h"

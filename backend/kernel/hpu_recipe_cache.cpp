@@ -210,7 +210,7 @@ void RecipeCacheLRU::InitDiskCache() {
   // Set disk_cache_ if recipe cache directory path is defined via
   // PT_HPU_RECIPE_CACHE_CONFIG
   if (!recipe_cache_config_.path().empty()) {
-    disk_cache_ = absl::make_unique<DiskCache>(recipe_cache_config_);
+    disk_cache_ = std::make_unique<DiskCache>(recipe_cache_config_);
   }
 }
 
@@ -263,7 +263,7 @@ void RecipeCacheLRU::Serialize() {
     return;
   }
 
-  disk_cache_ = absl::make_unique<DiskCache>(recipe_cache_config_);
+  disk_cache_ = std::make_unique<DiskCache>(recipe_cache_config_);
 
   for (const auto& ele : list_) {
     auto val = disk_cache_->Find(*(ele.first));
@@ -280,7 +280,7 @@ void RecipeCacheLRU::Deserialize() {
   }
 
   recipe_cache_config_.disable_delete_on_init();
-  disk_cache_ = absl::make_unique<DiskCache>(recipe_cache_config_);
+  disk_cache_ = std::make_unique<DiskCache>(recipe_cache_config_);
 }
 
 size_t RecipeCacheLRU::SynapseRecipeSize() const {

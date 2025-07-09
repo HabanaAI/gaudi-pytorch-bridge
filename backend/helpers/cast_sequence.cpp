@@ -25,7 +25,7 @@ namespace habana_helpers {
 
 namespace {
 
-using CastStage = absl::optional<CastType>;
+using CastStage = std::optional<CastType>;
 
 CastStage get_cast_stage(CastTypes cast_types, synDeviceType syn_device_type) {
   // DON'T EDIT THE FOLLOWING TABLES MANUALLY UNLESS YOU HAVE TO

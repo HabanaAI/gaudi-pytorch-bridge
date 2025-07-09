@@ -22,6 +22,7 @@
 #include <sstream>
 
 #include <absl/strings/str_format.h>
+#include <absl/types/span.h>
 #include "backend/synapse_helpers/device_mem_stats.h"
 #include "backend/synapse_helpers/env_flags.h" // IWYU pragma: keep
 #include "backend/synapse_helpers/util.h"

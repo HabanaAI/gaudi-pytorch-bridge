@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,6 @@
  */
 #pragma once
 #include <ATen/Tensor.h>
-#include <absl/types/optional.h>
 #include <perf_lib_layer_params.h>
 #include <synapse_common_types.h>
 #include <cstdint>

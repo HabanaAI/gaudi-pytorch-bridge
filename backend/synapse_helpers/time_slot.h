@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,6 @@
  */
 #pragma once
 
-#include <absl/types/optional.h>
 #include <synapse_api.h>
 #include <synapse_api_types.h>
 #include <synapse_common_types.h>
@@ -36,7 +35,7 @@ namespace synapse_helpers {
 
 class TimeSlotBase {
  public:
-  virtual absl::optional<uint64_t> getTime() const = 0;
+  virtual std::optional<uint64_t> getTime() const = 0;
   virtual ~TimeSlotBase() = default;
 };
 
@@ -67,12 +66,12 @@ class TimeSlot : public TimeSlotBase {
           Logger::formatStatusMsg(status), "Failed to record end event");
   };
 
-  absl::optional<uint64_t> getTime() const override {
+  std::optional<uint64_t> getTime() const override {
     uint64_t elapseTime{};
     // Time is reported in nanoseconds
     auto status =
         synEventElapsedTime(&elapseTime, event_start_.get(), event_end_.get());
-    return (status == synSuccess) ? elapseTime : absl::optional<uint64_t>{};
+    return (status == synSuccess) ? elapseTime : std::optional<uint64_t>{};
   }
 
  private:

@@ -15,7 +15,6 @@
 
 #include "recipe_cache_config.h"
 
-#include <absl/strings/match.h>
 #include <algorithm>
 #include <array>
 #include <cstdlib>

@@ -30,12 +30,6 @@
 #include "habana_helpers/logging.h"
 #include "habana_kernels/kernel_utils.h"
 
-#include "absl/container/flat_hash_map.h"
-#include "absl/container/flat_hash_set.h"
-#include "absl/container/inlined_vector.h"
-#include "absl/hash/hash.h"
-#include "absl/memory/memory.h"
-#include "absl/types/optional.h"
 #include "backend/habana_device/tensor_builder.h"
 #include "backend/helpers/tensor_info.h"
 #include "backend/jitgraph_utils.h"

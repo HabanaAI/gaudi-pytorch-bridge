@@ -14,7 +14,6 @@
  */
 #pragma once
 #include <absl/container/flat_hash_set.h>
-#include <absl/types/variant.h>
 #include <deque>
 #include <memory>
 #include <mutex>
@@ -159,8 +158,7 @@ class Resource<synStreamHandle> {
 };
 using Stream = Resource<synStreamHandle>;
 
-using AnyResource =
-    absl::variant<Tensor, Section, Recipe, Graph, Event, Stream>;
+using AnyResource = std::variant<Tensor, Section, Recipe, Graph, Event, Stream>;
 
 class SynapseApi : public StubSynapseApi {
  public:
@@ -362,9 +360,9 @@ class SynapseApi : public StubSynapseApi {
     }
     AnyResource& resource{*reinterpret_cast<AnyResource*>(handle)};
     CHECK_TRUE_MSG(
-        absl::holds_alternative<ResourceType>(resource),
+        std::holds_alternative<ResourceType>(resource),
         " NullHw handle " << handle << " has unexpected type");
-    return absl::get<ResourceType>(resource);
+    return std::get<ResourceType>(resource);
   }
 
   template <

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@
 #include <pybind11/pybind11.h>
 #include <torch/extension.h>
 
+#include <absl/functional/any_invocable.h>
 #include <torch/csrc/distributed/c10d/ProcessGroup.hpp>
 #include <torch/csrc/distributed/c10d/Store.hpp>
 #include <torch/csrc/distributed/c10d/Types.hpp>
@@ -88,7 +89,7 @@ class TORCH_API ProcessGroupEagerHCCL : public ProcessGroupHcclBase {
 
   void groupEnd() override;
 
-  void waitForJobCompletion() override {};
+  void waitForJobCompletion() override{};
 
   c10::intrusive_ptr<Work> collective(
       std::vector<at::Tensor>& input,

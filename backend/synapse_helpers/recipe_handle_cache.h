@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,7 +12,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <absl/container/flat_hash_set.h>
 #include <algorithm>
 #include <memory>
 #include <ostream>
@@ -22,7 +21,6 @@
 #include <utility>
 #include <vector>
 #include "absl/container/flat_hash_map.h"
-#include "absl/types/optional.h"
 #include "backend/synapse_helpers/habana_tensor.h"
 #include "backend/synapse_helpers/recipe.h"
 #include "habana_helpers/logging.h"

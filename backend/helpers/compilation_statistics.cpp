@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 #include <sstream>
 #include <utility>
 #include <vector>
+#include "absl/strings/str_format.h"
 #include "backend/kernel/hpu_habana_cache.h"
 #include "backend/synapse_helpers/env_flags.h"
 #include "habana_helpers/habana_serialization/include/habana_serialization/deserializers.h"

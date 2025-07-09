@@ -14,6 +14,8 @@
  */
 
 #pragma once
+#include <absl/container/flat_hash_map.h>
+#include <absl/container/flat_hash_set.h>
 #include <c10/core/Device.h>
 #include "backend/habana_device/HPUStream.h"
 #include "backend/helpers/layout.h"

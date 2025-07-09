@@ -14,6 +14,7 @@
  */
 #include <ATen/InferSize.h>
 #include <ATen/core/TensorBody.h>
+#include <absl/container/fixed_array.h>
 #include <c10/core/ScalarType.h>
 #include <c10/core/SymIntArrayRef.h>
 

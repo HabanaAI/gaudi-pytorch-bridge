@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -92,7 +92,7 @@ void habana::RefinementEngine::Shutdown() {
       m_stackQueue.pop_back();
     }
 
-    m_readyQueue.emplace_back(absl::nullopt);
+    m_readyQueue.emplace_back(std::nullopt);
   }
 
   m_refineCV.notify_all();

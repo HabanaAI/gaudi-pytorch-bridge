@@ -89,12 +89,12 @@ void HPUDeviceContextImpl::CreateDevice() {
   auto device_ptr_or_error = synapse_helpers::device::get_or_create(
       synapse_helpers::device::get_supported_devices());
 
-  if (absl::holds_alternative<synapse_helpers::synapse_error>(
+  if (std::holds_alternative<synapse_helpers::synapse_error>(
           device_ptr_or_error)) {
-    auto error = absl::get<synapse_helpers::synapse_error>(device_ptr_or_error);
+    auto error = std::get<synapse_helpers::synapse_error>(device_ptr_or_error);
     TORCH_HABANA_CHECK(error.status, error.error);
   } else {
-    device_ = absl::get<synapse_helpers::device_handle>(device_ptr_or_error);
+    device_ = std::get<synapse_helpers::device_handle>(device_ptr_or_error);
   }
 }
 

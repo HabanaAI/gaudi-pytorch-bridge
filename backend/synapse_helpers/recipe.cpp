@@ -13,7 +13,6 @@
  * limitations under the License.
  */
 #include "backend/synapse_helpers/recipe.h"
-#include <absl/types/variant.h>
 #include <synapse_api.h>
 #include <synapse_common_types.h>
 #include <cstdint>

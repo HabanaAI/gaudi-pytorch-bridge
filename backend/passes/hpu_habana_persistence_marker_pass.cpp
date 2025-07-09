@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,12 +30,6 @@
 #include "habana_helpers/logging.h"
 #include "habana_kernels/kernel_utils.h"
 
-#include "absl/container/flat_hash_map.h"
-#include "absl/container/flat_hash_set.h"
-#include "absl/container/inlined_vector.h"
-#include "absl/hash/hash.h"
-#include "absl/memory/memory.h"
-#include "absl/types/optional.h"
 #include "backend/habana_device/tensor_builder.h"
 #include "backend/jitgraph_utils.h"
 #include "habana_helpers/misc_utils.h"

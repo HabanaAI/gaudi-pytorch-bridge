@@ -105,7 +105,7 @@ class EagerPermutationSetAndSave final : public PermutationInfoSaver {
   EagerPermutationSetAndSave(
       std::shared_ptr<habana::OptimizedJITGraphAndMetaData> jit_graph,
       bool is_dynamic_recipe = false)
-      : jit_graph_(jit_graph), is_dynamic_recipe_(is_dynamic_recipe) {};
+      : jit_graph_(jit_graph), is_dynamic_recipe_(is_dynamic_recipe){};
   void add_permutation(
       const at::Tensor& tensor,
       uint64_t index,
@@ -546,22 +546,20 @@ class HabanaLaunchOpPT {
       ivalue_to_tensor_info_map_;
 
   void update_syn_launch_info(uint64_t oldAddress, uint64_t newAdress);
-  // TIV : absl::variant<PtTensorInfoShared, std::vector<PtTensorInfoShared>>
+  // TIV : std::variant<PtTensorInfoShared, std::vector<PtTensorInfoShared>>
   // objects TIVs for launcing the recipe
 
   // input_tivs_ and output_tensorinfos_ are used with caching disabled
-  std::vector<
-      absl::variant<PtTensorInfoShared, std::vector<PtTensorInfoShared>>>
+  std::vector<std::variant<PtTensorInfoShared, std::vector<PtTensorInfoShared>>>
       input_tivs_;
   std::vector<PtTensorInfoShared> output_tensorinfos_;
 
   // Following tiv stores are used with caching enabled
   std::unordered_map<
       IValPtrShared,
-      absl::variant<PtTensorInfoShared, std::vector<PtTensorInfoShared>>>
+      std::variant<PtTensorInfoShared, std::vector<PtTensorInfoShared>>>
       input_tiv_map_;
-  std::vector<
-      absl::variant<PtTensorInfoShared, std::vector<PtTensorInfoShared>>>
+  std::vector<std::variant<PtTensorInfoShared, std::vector<PtTensorInfoShared>>>
       duplicate_input_tivs_;
   std::unordered_map<void*, IValPtrShared> buff_to_input_ivpsh_map_;
   std::unordered_map<void*, IValPtrShared> buff_to_intermediate_ivpsh_map_;

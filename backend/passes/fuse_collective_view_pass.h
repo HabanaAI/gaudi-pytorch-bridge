@@ -30,8 +30,6 @@
 #include <unordered_set>
 
 #include <ATen/Tensor.h>
-#include <absl/hash/hash.h>
-#include <absl/types/variant.h>
 
 #include <torch/csrc/jit/ir/ir.h>
 #include <torch/csrc/jit/runtime/argument_spec.h>

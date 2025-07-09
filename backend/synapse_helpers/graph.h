@@ -28,8 +28,6 @@
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
-#include "absl/types/optional.h"
-#include "absl/types/variant.h"
 #include "backend/synapse_helpers/device_types.h"
 #include "backend/synapse_helpers/event.h"
 
@@ -364,7 +362,7 @@ class graph {
   Op2NodeContainerPt op_to_node_container_pt_;
   EdgeContainer control_edges_container_;
   EdgeContainer data_edges_container_;
-  absl::optional<std::string> current_op_name_;
+  std::optional<std::string> current_op_name_;
   DryRun dry_run_{DryRun::Disabled};
   bool dynamic_graph_{false};
   bool enable_optim_output_sif_{false};

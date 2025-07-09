@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -530,7 +530,7 @@ bool MemoryDefragementer::SelectRegionForResourceAllocation(
   }
 
   if (defragmentation_needed) {
-    result = absl::make_unique<Region>(*region);
+    result = std::make_unique<Region>(*region);
   }
   return true;
 }
@@ -592,7 +592,7 @@ bool MemoryDefragementer::SelectRegionForWorkspaceGrow(
   }
 
   // minimize region to move smallest amount of in use memory
-  auto region = absl::make_unique<Region>();
+  auto region = std::make_unique<Region>();
   region->begin_ = memory_blocks.begin();
   region->end_ = memory_blocks.end();
   for (size_t i = memory_blocks.size(); i > 0; --i) {
@@ -676,7 +676,7 @@ bool MemoryDefragementer::SelectRegionForWorkspaceGrowV2(
   auto requested_mem_extension = allocation_size - workspace_size_;
 
   // minimize region to move smallest amount of in use memory
-  auto region = absl::make_unique<Region>();
+  auto region = std::make_unique<Region>();
   region->begin_ = memory_blocks.begin();
   region->end_ = memory_blocks.end();
   for (size_t i = memory_blocks.size(); i > 0; --i) {
