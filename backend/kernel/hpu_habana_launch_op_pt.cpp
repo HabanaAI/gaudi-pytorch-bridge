@@ -1665,8 +1665,9 @@ void HabanaLaunchOpPT::handlePrimConstantNode(
       intermediate_index_++;
 
       auto tensor = ivptrsh_updated->toTensor();
-      meta_syn_tensors_.push_back(habana_helpers::create_tensor(
-          tensor, *syn_graph_ptr_, true, false, tensor.scalar_type()));
+      meta_syn_tensors_.push_back(
+          habana_helpers::create_tensor(
+              tensor, *syn_graph_ptr_, true, false, tensor.scalar_type()));
       SharedSynTensorOrRefListPtr tensorList =
           std::make_shared<SynTensorOrRefList>();
       tensorList->emplace_back(sh::tensor_or_ref(meta_syn_tensors_.back()));

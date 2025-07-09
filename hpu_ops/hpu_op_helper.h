@@ -307,7 +307,7 @@ auto get_or_create_tensor(
               res_ids,                                                \
               inplace_ids,                                            \
               scalar_ids,                                             \
-              is_outfn){};                                            \
+              is_outfn) {};                                           \
     void AddNode(synapse_helpers::graph&, const at::Stack&) override; \
   };
 

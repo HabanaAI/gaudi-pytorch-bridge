@@ -89,7 +89,7 @@ class TORCH_API ProcessGroupEagerHCCL : public ProcessGroupHcclBase {
 
   void groupEnd() override;
 
-  void waitForJobCompletion() override{};
+  void waitForJobCompletion() override {};
 
   c10::intrusive_ptr<Work> collective(
       std::vector<at::Tensor>& input,

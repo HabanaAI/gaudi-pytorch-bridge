@@ -463,7 +463,7 @@ class DynamicBucketInfo {
   DynamicBucketInfo(DynamicDimsPolicy min_policy, DynamicDimsPolicy max_policy)
       : min_policy_(min_policy),
         max_policy_(max_policy),
-        split_policy_(SplitPolicy::DYNAMIC){};
+        split_policy_(SplitPolicy::DYNAMIC) {};
 
   using DimMultipliers =
       std::map<int64_t, std::map<int64_t, std::pair<int64_t, int64_t>>>;
@@ -894,7 +894,7 @@ class DynamicBucketInfo {
     int64_t pos;
     int64_t previous_val;
     DynamicDimsElement(int64_t n, int64_t p, int64_t v)
-        : num(n), pos(p), previous_val(v){};
+        : num(n), pos(p), previous_val(v) {};
     friend inline std::ostream& operator<<(
         std::ostream& O,
         const DynamicDimsElement& d) {

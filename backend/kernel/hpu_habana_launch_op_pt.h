@@ -105,7 +105,7 @@ class EagerPermutationSetAndSave final : public PermutationInfoSaver {
   EagerPermutationSetAndSave(
       std::shared_ptr<habana::OptimizedJITGraphAndMetaData> jit_graph,
       bool is_dynamic_recipe = false)
-      : jit_graph_(jit_graph), is_dynamic_recipe_(is_dynamic_recipe){};
+      : jit_graph_(jit_graph), is_dynamic_recipe_(is_dynamic_recipe) {};
   void add_permutation(
       const at::Tensor& tensor,
       uint64_t index,
