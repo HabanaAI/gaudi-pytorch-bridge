@@ -22,3 +22,7 @@ import torch
 
 def is_pytorch_older_than(version: str) -> bool:
     return Version(Version(torch.__version__).base_version) < Version(version)
+
+
+def is_pytorch_at_least(version: str) -> bool:
+    return Version(Version(torch.__version__).base_version) >= Version(version)

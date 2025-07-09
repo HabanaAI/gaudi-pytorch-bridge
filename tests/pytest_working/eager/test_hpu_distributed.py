@@ -18,7 +18,9 @@
 
 import pytest
 import torch
+import torch.distributed as dist
 import torch.distributed._functional_collectives as funcol
+from habana_frameworks.torch.utils.version_checker import is_pytorch_at_least
 from torch.distributed._tensor import (
     Replicate,
     Shard,
@@ -37,7 +39,7 @@ CPU_BACKEND = "gloo"
 
 
 def check_devices():
-    return torch.cuda.device_count() > 1
+    return torch.accelerator.device_count() > 1
 
 
 def equal_allreduce_forward(device_mesh, X, Y):
@@ -66,10 +68,15 @@ class TestLocalMap(DTensorTestBase):
     def world_size(self):
         return 2
 
+    if is_pytorch_at_least("2.8.0"):
+
+        def destroy_pg(self) -> None:
+            dist.destroy_process_group()
+
     @pytest.mark.skipif(check_devices(), reason="")
     @with_comms
     def test_local_map_out_placements_allreduce(self):
-        if torch.cuda.device_count() < self.world_size:
+        if torch.accelerator.device_count() < self.world_size:
             return
 
         device_mesh = self.build_device_mesh()
