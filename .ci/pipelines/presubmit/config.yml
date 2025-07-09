@@ -167,6 +167,42 @@ orchestratorConfig:
       gitHubOrg: habana-internal
       forbiddenFiles:
       - docs/*
+  - testToLaunch: habana-internal/pytorch_modules/Test_Build_pytorch_modules_u24
+    triggerMap:
+    - repository: pytorch-integration
+      gitHubOrg: habana-internal
+      forbiddenFiles:
+      - docs/*
+  - testToLaunch: habana-internal/pytorch_modules/Test_Build_pytorch_modules_tc3
+    triggerMap:
+    - repository: pytorch-integration
+      gitHubOrg: habana-internal
+      forbiddenFiles:
+      - docs/*
+  - testToLaunch: habana-internal/pytorch_modules/Test_Build_pytorch_modules_rh86
+    triggerMap:
+    - repository: pytorch-integration
+      gitHubOrg: habana-internal
+      forbiddenFiles:
+      - docs/*
+  - testToLaunch: habana-internal/pytorch_modules/Test_Build_pytorch_modules_rh92
+    triggerMap:
+    - repository: pytorch-integration
+      gitHubOrg: habana-internal
+      forbiddenFiles:
+      - docs/*
+  - testToLaunch: habana-internal/pytorch_modules/Test_Build_pytorch_modules_rh94
+    triggerMap:
+    - repository: pytorch-integration
+      gitHubOrg: habana-internal
+      forbiddenFiles:
+      - docs/*
+  - testToLaunch: habana-internal/pytorch_modules/Test_Build_pytorch_modules_su15
+    triggerMap:
+    - repository: pytorch-integration
+      gitHubOrg: habana-internal
+      forbiddenFiles:
+      - docs/*
   triggerMap:
   - repository: pytorch-integration
     gitHubOrg: habana-internal
