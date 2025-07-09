@@ -198,11 +198,6 @@ def register_habana_light_activity_profiler():
                 clean_json(path)
             hpu_profiler._export_logs(path)
 
-        def _parse_kineto_results(self, result: _ProfilerResult):
-            filtered_result = _ProxyProfilerResult(result)
-            # call the original on the filtered result
-            return super()._parse_kineto_results(filtered_result)
-
     class habana_profile_light_wrapper(torch.profiler.profile):
         def __init__(
             self,

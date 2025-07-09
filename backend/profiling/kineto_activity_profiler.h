@@ -165,8 +165,7 @@ class Config {
 
 class HpuActivityProfilerSession : public libkineto::IActivityProfilerSession {
  public:
-  HpuActivityProfilerSession() = default;
-  HpuActivityProfilerSession(int64_t ts_ms, int64_t duration_ms);
+  HpuActivityProfilerSession();
   HpuActivityProfilerSession(const HpuActivityProfilerSession&) = delete;
   HpuActivityProfilerSession& operator=(const HpuActivityProfilerSession&) =
       delete;
@@ -182,6 +181,8 @@ class HpuActivityProfilerSession : public libkineto::IActivityProfilerSession {
   std::unique_ptr<libkineto::CpuTraceBuffer> getTraceBuffer() override;
 
  private:
+  void hideEventIfNeeded(
+      std::unique_ptr<libkineto::GenericTraceActivity>& activity);
   bool isMemoryProfileEnabled();
   std::deque<std::unique_ptr<libkineto::GenericTraceActivity>> activities_;
   std::unique_ptr<GenericTraceActivitySink> sink_;

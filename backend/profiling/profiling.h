@@ -28,7 +28,14 @@ namespace habana::profile {
 
 std::string getThreadName();
 
-enum class ActivityType { KERNEL, RUNTIME, MEMCPY, MEMSET, CPU_INSTANT_EVENT };
+enum class ActivityType {
+  KERNEL,
+  RUNTIME,
+  MEMCPY,
+  MEMSET,
+  CPU_INSTANT_EVENT,
+  HPU_RUNTIME
+};
 enum class TraceSourceVariant : unsigned {
   SYNAPSE_PROFILER = 0,
   BRIDGE_LOGS = 20000,

@@ -341,6 +341,7 @@ std::string JsonFileParser::mapActivityTypeToString(ActivityType type) {
     case ActivityType::KERNEL:
       return "Kernel";
     case ActivityType::RUNTIME:
+    case ActivityType::HPU_RUNTIME:
       return "Runtime";
     case ActivityType::MEMCPY:
       return "Memcpy";

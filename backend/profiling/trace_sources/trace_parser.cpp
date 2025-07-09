@@ -149,7 +149,8 @@ struct EngineDatabase {
     }
     std::string operatorString = operatorName;
     static std::unordered_set<std::string> whitelisted_events = {
-        "DmaTranspose"};
+        "DmaTranspose",
+        "transpose_dma"}; // Whitelisted kernel names for profiling
     return whitelisted_events.find(operatorString) != whitelisted_events.end();
   }
 

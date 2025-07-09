@@ -38,6 +38,26 @@ std::string toHex(uint64_t handle) {
 std::string toString(std::string_view str) {
   return std::string("\"") + std::string(str) + std::string("\"");
 }
+
+bool shouldHideEvent(
+    std::unique_ptr<libkineto::GenericTraceActivity>& activity,
+    int64_t startTime,
+    int64_t endTime) {
+  if (activity->type() != libkineto::ActivityType::PRIVATEUSE1_RUNTIME) {
+    return true;
+  }
+
+  if (static_cast<int64_t>(activity->startTime) < startTime) {
+    return true;
+  }
+
+  if (static_cast<int64_t>(activity->endTime) > endTime) {
+    return true;
+  }
+
+  return false;
+}
+
 } // namespace
 
 namespace habana::profile {
@@ -280,6 +300,8 @@ libkineto::ActivityType GenericTraceActivitySink::mapHabanaTypeToKinetoType(
   switch (type) {
     case ActivityType::KERNEL:
       return libkineto::ActivityType::CONCURRENT_KERNEL;
+    case ActivityType::HPU_RUNTIME:
+      return libkineto::ActivityType::PRIVATEUSE1_RUNTIME;
     case ActivityType::RUNTIME:
       return libkineto::ActivityType::HPU_OP;
     case ActivityType::MEMCPY:
@@ -295,6 +317,13 @@ const std::string& HPUActivityProfiler::name() const {
   return name_;
 }
 
+void HpuActivityProfilerSession::hideEventIfNeeded(
+    std::unique_ptr<libkineto::GenericTraceActivity>& activity) {
+  if (shouldHideEvent(activity, profilerStartTs_, profilerEndTs_)) {
+    activity->addMetadata("hidden", "1");
+  }
+}
+
 const std::set<libkineto::ActivityType>& HPUActivityProfiler::
     availableActivities() const {
   return supported_activities;
@@ -302,17 +331,6 @@ const std::set<libkineto::ActivityType>& HPUActivityProfiler::
 
 std::unique_ptr<libkineto::IActivityProfilerSession> HPUActivityProfiler::
     configure(
-        const std::set<libkineto::ActivityType>& activity_types,
-        const libkineto::Config& config) {
-  auto start_time_ms =
-      libkineto::timeSinceEpoch(std::chrono::high_resolution_clock::now());
-  return configure(start_time_ms, 0, activity_types, config);
-}
-
-std::unique_ptr<libkineto::IActivityProfilerSession> HPUActivityProfiler::
-    configure(
-        int64_t ts_ms,
-        int64_t duration_ms,
         const std::set<libkineto::ActivityType>& activity_types,
         [[maybe_unused]] const libkineto::Config& config) {
   auto env = std::getenv("HABANA_PROFILE");
@@ -326,12 +344,20 @@ std::unique_ptr<libkineto::IActivityProfilerSession> HPUActivityProfiler::
 
   if (hpu_profiling_requested) {
     if (hpu_profiling_available) {
-      auto session =
-          std::make_unique<HpuActivityProfilerSession>(ts_ms, duration_ms);
+      auto session = std::make_unique<HpuActivityProfilerSession>();
       return session;
     }
   }
   return nullptr;
+}
+
+std::unique_ptr<libkineto::IActivityProfilerSession> HPUActivityProfiler::
+    configure(
+        [[maybe_unused]] int64_t ts_ms,
+        [[maybe_unused]] int64_t duration_ms,
+        const std::set<libkineto::ActivityType>& activity_types,
+        const libkineto::Config& config) {
+  return configure(activity_types, config);
 }
 
 Config& Config::getInstance() {
@@ -353,8 +379,10 @@ bool Config::isBridgeProfileEnabled() {
   return isBridgeProfile;
 }
 
-HpuActivityProfilerSession::HpuActivityProfilerSession(int64_t, int64_t) {
+HpuActivityProfilerSession::HpuActivityProfilerSession() {
   status_ = TraceStatus::READY;
+  profilerStartTs_ = 0;
+  profilerEndTs_ = 0;
 }
 
 void HpuActivityProfilerSession::start() {
@@ -391,7 +419,8 @@ void HpuActivityProfilerSession::stop() {
 void HpuActivityProfilerSession::processTrace(ActivityLogger& logger) {
   sink_->processTrace(logger, profilerStartTs_, profilerEndTs_);
 
-  for (const auto& activity : activities_) {
+  for (auto& activity : activities_) {
+    hideEventIfNeeded(activity);
     activity->log(logger);
   }
 }

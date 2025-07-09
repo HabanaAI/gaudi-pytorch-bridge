@@ -111,7 +111,7 @@ struct BridgeLogsSourceImpl : public TraceSource {
     std::lock_guard<std::mutex> lg{m};
     for (const auto& event : events_) {
       output.addActivity(
-          {event.name, {}, ActivityType::RUNTIME, pid, event.tid},
+          {event.name, {}, ActivityType::HPU_RUNTIME, pid, event.tid},
           {},
           event.time,
           event.begin);
