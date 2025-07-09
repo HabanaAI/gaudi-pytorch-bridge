@@ -1,7 +1,10 @@
 # yaml-language-server: $schema=https://artifactory-kfs.habana-labs.com:443/artifactory/devops-generic-dev-local/json-ci-yaml-schemas/test_config.json
 testJobConfig:
   cpp_suite:
-    jobTimeout: '180'
+    jobTimeout: '240'
+    envVars:
+      IS_K8S_VM_NODE: 'true'
+      IS_K8S_VM_NODE_CPU_CI: 'true'
     devices:
       gaudi2:
         hwType:
@@ -10,6 +13,9 @@ testJobConfig:
         hwType:
           sim:
   py_suite_lazy:
+    envVars:
+      IS_K8S_VM_NODE: 'true'
+      IS_K8S_VM_NODE_CPU_CI: 'true'
     devices:
       gaudi2:
         hwType:
@@ -18,6 +24,9 @@ testJobConfig:
         hwType:
           sim:
   py_suite_compile:
+    envVars:
+      IS_K8S_VM_NODE: 'true'
+      IS_K8S_VM_NODE_CPU_CI: 'true'
     devices:
       gaudi2:
         hwType:
@@ -26,6 +35,9 @@ testJobConfig:
         hwType:
           sim:
   py_suite_compile_jit_fork:
+    envVars:
+      IS_K8S_VM_NODE: 'true'
+      IS_K8S_VM_NODE_CPU_CI: 'true'
     devices:
       gaudi2:
         hwType:
@@ -34,6 +46,9 @@ testJobConfig:
         hwType:
           sim:
   py_suite_eager:
+    envVars:
+      IS_K8S_VM_NODE: 'true'
+      IS_K8S_VM_NODE_CPU_CI: 'true'
     devices:
       gaudi2:
         hwType:
@@ -42,7 +57,10 @@ testJobConfig:
         hwType:
           sim:
   cpp_suite_future:
-    jobTimeout: '180'
+    jobTimeout: '240'
+    envVars:
+      IS_K8S_VM_NODE: 'true'
+      IS_K8S_VM_NODE_CPU_CI: 'true'
     devices:
       gaudi2:
         hwType:
@@ -51,6 +69,9 @@ testJobConfig:
         hwType:
           sim:
   py_suite_lazy_future:
+    envVars:
+      IS_K8S_VM_NODE: 'true'
+      IS_K8S_VM_NODE_CPU_CI: 'true'
     devices:
       gaudi2:
         hwType:
@@ -59,6 +80,9 @@ testJobConfig:
         hwType:
           sim:
   py_suite_compile_future:
+    envVars:
+      IS_K8S_VM_NODE: 'true'
+      IS_K8S_VM_NODE_CPU_CI: 'true'
     devices:
       gaudi2:
         hwType:
@@ -67,6 +91,9 @@ testJobConfig:
         hwType:
           sim:
   py_suite_eager_future:
+    envVars:
+      IS_K8S_VM_NODE: 'true'
+      IS_K8S_VM_NODE_CPU_CI: 'true'
     devices:
       gaudi2:
         hwType:
@@ -104,14 +131,22 @@ testJobConfig:
             envVars:
               IS_K8S_CONTAINER_TESTER: 'true'
           sim:
+            envVars:
+              IS_K8S_VM_NODE: 'true'
+              IS_K8S_VM_NODE_CPU_CI: 'true'
   fsdp_uts:
+    envVars:
+      IS_K8S_VM_NODE: 'true'
+      IS_K8S_VM_NODE_CPU_CI: 'true'
     devices:
       gaudi2:
         hwType:
           sim:
             cards: 8
   cd_installation_validation:
-    jobTimeout: '30'
+    envVars:
+      IS_K8S_VM_NODE: 'true'
+      IS_K8S_VM_NODE_CPU_CI: 'true'
     devices:
       cpu:
         hwType:
@@ -120,6 +155,8 @@ testJobConfig:
     dockerImage: artifactory-kfs.habana-labs.com/devops-docker-local/habana-builder-pt:${OS}-${RELEASE_VERSION}
     jobTimeout: '240'
     envVars:
+      IS_K8S_VM_NODE: 'true'
+      IS_K8S_VM_NODE_CPU_CI: 'true'
       DOCKER_BUILD_CACHE_VOLUME: /software/.ci_ccache/${COMPONENT_NAME}/${OS}/
     devices:
       cpu:
