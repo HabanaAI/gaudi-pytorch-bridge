@@ -451,8 +451,7 @@ void EagerExec::launch() {
     auto in = val.toTensor();
     [[maybe_unused]] auto input_smeta{habana::get_storage_extra_meta(in)};
 
-    if (!habana::is_ZST(in) &&
-        (habana::is_view_lowering(in) || !in.is_contiguous())) {
+    if (habana::is_view_lowering(in) || !in.is_contiguous()) {
       // modify the backend tensor of the view as the base
       auto impl = in.unsafeGetTensorImpl();
       impl->set_sizes_contiguous(habana::get_base_tensor_size(in));
