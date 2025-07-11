@@ -352,9 +352,7 @@ class HabanaGraphModule(torch.nn.Module):
             inputs = (None, None) + inputs
 
         out_stack = graph_launch(
-            recipe_id=self._recipe_id,
-            inputs=inputs,
-            outputs=outputs,
+            recipe_id=self._recipe_id, inputs=inputs, outputs=outputs, parent_graph_name=self._name
         )
 
         # insert the inputs into the out stack

@@ -28,7 +28,7 @@ void ExecuteSynapseTaskWrapper(
   uint64_t device_queue_length = device.get_active_recipe_counter().get_count();
   LOP::ScopeEvent scope_event(
       "EagerExecuteTask()",
-      launch_op.get_jit_graph_and_meta_data()->GetOpName(),
+      launch_op.get_jit_graph_and_meta_data()->GetOpOrGraphName(),
       LOP::PipelineStageID::PIPELINE_STAGE_EXECUTE_ID,
       launch_op.get_graph_key(),
       launch_op.get_jit_graph_cache_hit_count(),

@@ -152,7 +152,8 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       "graph_launch",
       [](size_t recipe_id,
          const py::tuple& inputs,
-         std::vector<at::Tensor>& outputs) {
+         std::vector<at::Tensor>& outputs,
+         std::string& parent_graph_name) {
         torch::jit::Stack stack;
         stack.reserve(inputs.size());
         for (auto& obj : inputs) {
@@ -160,7 +161,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
         }
 
         auto& graph_storage{habana::graph::GraphStorage::get()};
-        stack = graph_storage.launch_recipe(recipe_id, stack, outputs);
+        stack = graph_storage.launch_recipe(recipe_id, stack, outputs, parent_graph_name);
 
         if (outputs.empty()) {
           return torch::jit::createPyObjectForStack(std::move(stack));
@@ -175,7 +176,8 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       py::return_value_policy::copy,
       py::arg("recipe_id"),
       py::arg("inputs"),
-      py::arg("outputs"));
+      py::arg("outputs"),
+      py::arg("parent_graph_name"));
   m.def("reset_seeds", []() {
     auto& graph_storage{habana::graph::GraphStorage::get()};
     graph_storage.reset_seeds();

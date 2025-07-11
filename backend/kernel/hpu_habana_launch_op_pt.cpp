@@ -139,10 +139,11 @@ void LoweringTask(
     PT_BRIDGE_FATAL("Error: JIT graph and metadata not available.");
   }
 
+  const auto opname = jit_graph_and_meta_data->GetOpOrGraphName();
   LOP::emit_event_fast(
       true,
       "PipelineQueueWaitTime",
-      jit_graph_and_meta_data->GetOpName(),
+      opname,
       LOP::PipelineStageID::PIPELINE_STAGE_LOWERING_ID,
       HPUDeviceContext::lowering_thread().get_active_task_count());
 
@@ -164,7 +165,7 @@ void LoweringTask(
   LOP::emit_event_fast(
       false,
       "PipelineQueueWaitTime",
-      jit_graph_and_meta_data->GetOpName(),
+      opname,
       LOP::PipelineStageID::PIPELINE_STAGE_LOWERING_ID,
       HPUDeviceContext::lowering_thread().get_active_task_count(),
       jit_key,

@@ -40,7 +40,8 @@ class GraphStorage {
   torch::jit::Stack launch_recipe(
       size_t recipe_id,
       torch::jit::Stack& inputs,
-      std::vector<at::Tensor>& outputs);
+      std::vector<at::Tensor>& outputs,
+      std::string& parent_graph_name);
   void reset_seeds();
 
  private:

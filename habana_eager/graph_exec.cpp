@@ -207,6 +207,14 @@ void GraphExec::LaunchRecipeTask(
     LaunchDynamicShapes launch_shapes,
     InputSymbolMap&& in_symbol_value_map) {
   PT_EAGER_TRACE_WITH_NAME(gexec->m_graph_name);
+  auto lowering_queue_length =
+      HPUDeviceContext::lowering_thread().get_active_task_count();
+  LOP::emit_event_fast(
+      true,
+      "GraphLoweringTask()",
+      gexec->m_graph_and_meta->GetOpOrGraphName(),
+      LOP::PipelineStageID::PIPELINE_STAGE_LOWERING_ID,
+      lowering_queue_length);
   PatchDynamicTensors(launch_shapes);
   gexec->LaunchRecipe(std::move(inputs), outputs, in_symbol_value_map);
 }
@@ -730,6 +738,9 @@ torch::jit::Stack GraphExec::LaunchRecipe(
     InputSymbolMap in_symbol_value_map) {
   // Important - this function is meant to be run on lowering thread.
   PT_EAGER_TRACE;
+  const bool enable_lop_collection =
+      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LOP_METRICS_COLLECTION) ||
+      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LOP_TRACES_COLLECTION);
   if (maybe_outputs.has_value() && !maybe_outputs.value().empty()) {
     std::vector<at::Tensor>& outputs{maybe_outputs.value()};
     std::vector<at::Tensor> reordered_outputs;
@@ -767,6 +778,21 @@ torch::jit::Stack GraphExec::LaunchRecipe(
 
   auto graph_symint_hash = habana::ComputeSymSizeHashCode(input_refs);
   m_graph_and_meta->set_graph_symint_hash(graph_symint_hash);
+  if (enable_lop_collection) {
+    // The cache is maintained only when tracing is enabled, i.e., when
+    // enable_lop_collection is set to true. This cache tracks the count of JIT
+    // cache hits, which is necessary for the flush() function in profiler.cpp.
+    // Statistics related to an event are calculated and processed only if the
+    // hit count exceeds a specific threshold.
+    auto& cache{OptimizedJitGraphCache::GetOptimizedJitCache()};
+    auto graph_key = m_graph_and_meta->get_cached_graph_key();
+    auto graph_and_meta{cache.GetOptimizedJITGraphAndMetaData(graph_key)};
+    if (graph_and_meta) {
+      graph_and_meta->increment_jit_cache_hit_count();
+    } else {
+      cache.Add(graph_key, m_graph_and_meta);
+    }
+  }
   auto graph_key_with_perm = at::hash_combine(
       m_graph_and_meta->get_cached_graph_key(), graph_symint_hash);
   auto graph_perm_hash = habana::ComputePermutationHashCode(input_refs);
@@ -811,6 +837,23 @@ torch::jit::Stack GraphExec::LaunchRecipe(
           std::move(habana_launch_op),
           habana_launch_op->get_input_stack(),
           maybe_outputs);
+      auto opname = m_graph_and_meta->GetOpOrGraphName();
+      LOP::emit_event_fast(
+          false,
+          "GraphLoweringTask()",
+          opname,
+          LOP::PipelineStageID::PIPELINE_STAGE_LOWERING_ID,
+          HPUDeviceContext::lowering_thread().get_active_task_count(),
+          m_graph_and_meta->get_cached_graph_key(),
+          m_graph_and_meta->get_jit_cache_hit_count());
+      LOP::emit_event_fast(
+          false,
+          "LaunchRecipeTask()",
+          opname,
+          LOP::PipelineStageID::PIPELINE_STAGE_LOWERING_ID,
+          HPUDeviceContext::lowering_thread().get_active_task_count(),
+          m_graph_and_meta->get_cached_graph_key(),
+          m_graph_and_meta->get_jit_cache_hit_count());
       return {};
     } else {
       habana::HabanaLaunchOpPT habana_launch_op(m_graph_and_meta);

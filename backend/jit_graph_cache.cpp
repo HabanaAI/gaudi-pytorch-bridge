@@ -411,6 +411,21 @@ std::string& OptimizedJITGraphAndMetaData::GetOpName() {
   return op_name;
 }
 
+std::string OptimizedJITGraphAndMetaData::GetOpOrGraphName() {
+  // In the context of torch.compile, the name can be either a graph name or an
+  // ops name. For eager execution, it will always be an ops name. This method
+  // ensures consistency in graph names when capturing events for profiler.cpp.
+  // In graph_storage.cpp, graph names are formatted like
+  // graph_0009_fused_0_jit. In graph_exec.cpp graph name is formatted like
+  // graph_0009_fused_0_jit_0100000. To maintain uniformity, we consider the
+  // name up to the "_jit" suffix, its only for event capturing.
+  std::string op_or_graph_name = op_name;
+  size_t jitPos = op_name.find("_jit");
+  if (jitPos != std::string::npos)
+      op_or_graph_name = op_name.substr(0, jitPos + 4);
+  return op_or_graph_name;
+}
+
 void OptimizedJITGraphAndMetaData::SetOpName(std::string name) {
   op_name = name;
 }

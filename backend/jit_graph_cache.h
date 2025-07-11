@@ -249,6 +249,8 @@ struct OptimizedJITGraphAndMetaData {
 
   std::string& GetOpName();
 
+  std::string GetOpOrGraphName();
+
   void SetOpName(std::string name);
 
   size_t GetGraphIndex();

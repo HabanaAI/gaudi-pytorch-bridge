@@ -16,7 +16,7 @@
 
 #include "habana_eager/eager_context.h"
 #include "habana_eager/graph_storage.h"
-
+#include "backend/jit_graph_cache.h"
 #include "habana_helpers/logging.h"
 
 namespace habana::graph {
@@ -64,8 +64,26 @@ size_t GraphStorage::add_new_recipe(
 torch::jit::Stack GraphStorage::launch_recipe(
     size_t recipe_id,
     torch::jit::Stack& inputs,
-    std::vector<at::Tensor>& outputs) {
+    std::vector<at::Tensor>& outputs,
+    std::string& parent_graph_name) {
   PT_EAGER_TRACE;
+  auto lowering_queue_length =
+      HPUDeviceContext::lowering_thread().get_active_task_count();
+  // The following code ensures consistency in graph names when capturing events
+  // for profiler.cpp. In graph_exec.cpp, graph names are formatted like
+  // graph_0009_fused_0_jit_0100000.
+  // However, since the recipe id is not available here, we maintain uniformity
+  // by considering the name up to "_jit", resulting in a format like
+  // graph_0009_fused_0_jit.
+  if (parent_graph_name.find("_fx") != std::string::npos)
+    parent_graph_name =
+        parent_graph_name.replace(parent_graph_name.find("fx"), 2, "jit");
+  LOP::emit_event_fast(
+      true,
+      "LaunchRecipeTask()",
+      parent_graph_name,
+      LOP::PipelineStageID::PIPELINE_STAGE_LOWERING_ID,
+      lowering_queue_length);
   PT_EAGER_DEBUG("Launching from recipe_group_id: ", recipe_id);
   HABANA_ASSERT(recipe_id < m_storage_vec.size());
   GraphExecsGroup& gexec = m_storage_vec.at(recipe_id);
