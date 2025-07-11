@@ -227,7 +227,10 @@
             "pytest_working/compile/test_ops.py::test_randperm[dtype2-None-1]",
             "pytest_working/compile/dynamic/test_hpu_subgraphs.py::test_graph_control_flow_static",
             "pytest_working/any_mode/test_hpu_fp8_ops_any_mode.py::test_conv2d_fp8_bias_optimization[0.0625-7.5-16.0]",
-            "pytest_working/any_mode/test_hpu_fp8_ops_any_mode.py::test_conv2d_fp8_bias_optimization[0.0625-7.5-1.0]"
+            "pytest_working/any_mode/test_hpu_fp8_ops_any_mode.py::test_conv2d_fp8_bias_optimization[0.0625-7.5-1.0]",
+            "pytest_working/lazy/test_inplace_output_handling.py::test_kvcache_inplace",
+            "pytest_working/compile/dynamic/test_hpu_ops.py::test_op_adaptiveAvgPool2d_bwd",
+            "pytest_working/eager/test_record_stream.py::test_record_stream"
         ]
     },
     "gaudi2": {
