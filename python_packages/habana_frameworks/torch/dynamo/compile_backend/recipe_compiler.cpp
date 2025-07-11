@@ -161,7 +161,8 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
         }
 
         auto& graph_storage{habana::graph::GraphStorage::get()};
-        stack = graph_storage.launch_recipe(recipe_id, stack, outputs, parent_graph_name);
+        stack = graph_storage.launch_recipe(
+            recipe_id, stack, outputs, parent_graph_name);
 
         if (outputs.empty()) {
           return torch::jit::createPyObjectForStack(std::move(stack));

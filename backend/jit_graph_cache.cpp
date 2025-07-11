@@ -422,7 +422,7 @@ std::string OptimizedJITGraphAndMetaData::GetOpOrGraphName() {
   std::string op_or_graph_name = op_name;
   size_t jitPos = op_name.find("_jit");
   if (jitPos != std::string::npos)
-      op_or_graph_name = op_name.substr(0, jitPos + 4);
+    op_or_graph_name = op_name.substr(0, jitPos + 4);
   return op_or_graph_name;
 }
 
