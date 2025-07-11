@@ -27,6 +27,7 @@
 #include "habana_eager/ops/eager_op.h"
 #include "habana_eager/ops/mixture_of_experts.h"
 #include "habana_helpers/logging.h"
+#include "hpu_ops/common/gather_csr.h"
 #include "hpu_ops/common/mixture_of_experts.h"
 #include "hpu_ops/cpu_fallback.h"
 #include "hpu_ops/fp8_ops.h"
@@ -1733,6 +1734,10 @@ TORCH_LIBRARY_IMPL(hpu, Autograd, m) {
 TORCH_LIBRARY_IMPL(quantization, HPU, m) {
   m.impl("_FloatToBfloat16Quantized", _float_to_bfloat16_hpu);
   m.impl("_Bfloat16QuantizedToFloat", _bfloat16_to_float_hpu);
+}
+
+TORCH_LIBRARY_IMPL(torch_scatter, HPU, m) {
+  m.impl("gather_csr", gather_csr_common);
 }
 
 } // namespace habana::eager

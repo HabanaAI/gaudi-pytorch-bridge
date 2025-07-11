@@ -156,6 +156,7 @@ add_habana_library(
   backend/full_gen.cpp
   backend/fused_clip_norm_gen.cpp
   backend/fused_dropout_gen.cpp
+  backend/gather_csr_gen.cpp
   backend/gather_gen.cpp
   backend/gelu_gen.cpp
   backend/geometric_gen.cpp
@@ -309,6 +310,7 @@ add_habana_library(
   common/batched_matmul_output_shape.cpp
   common/convolution_gen.cpp
   common/fp8_ops.cpp
+  common/gather_csr.cpp
   common/mixture_of_experts.cpp
   common/reduction_template.cpp
   common/replication_pad.cpp

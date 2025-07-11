@@ -20,6 +20,7 @@ import os
 import re
 import sys
 from collections import defaultdict
+from itertools import chain
 from typing import Any
 
 import yaml
@@ -1708,10 +1709,7 @@ def generate(args):
     fgens_native = []
     fgens_hpu_wrap_lazy = []
     fgens_hpu_wrap_eager = []
-    fgens_custom = []
-    fgens_quant = []
-    fgens_torchvision = []
-    fgens_torch_sparse = []
+    fgens_custom_namespaces = {name: [] for name in constants.NAMESPACE_TO_POSTFIX.keys()}
     fgens_autograd = []
 
     check_op_params(yaml_ctx.get_op_data())
@@ -1729,14 +1727,8 @@ def generate(args):
             fndef = fndef_from_schema(ctxop.get_custom_op_schema(), ctxop.get_custom_cpp_sig())
             namespace = re.search(r"^(.*)::", ctxop.get_custom_op_schema()).group(1)
             generated = generate_op(fndef, op_name, ctxop, op_params, ns=namespace)
-            if namespace == "torchvision":
-                fgens_torchvision.append(generated)
-            elif namespace == "torch_sparse":
-                fgens_torch_sparse.append(generated)
-            elif namespace == "quantized_decomposed":
-                fgens_quant.append(generated)
-            else:
-                fgens_custom.append(generated)
+            if namespace in constants.NAMESPACE_TO_POSTFIX.keys():
+                fgens_custom_namespaces[namespace].append(generated)
             if ctxop.is_op_autograd():
                 fgens_autograd.append(generated)
         elif not ctxop.get_only_shared_layer():
@@ -1750,16 +1742,16 @@ def generate(args):
 
     generate_autocast_ops(all_ops_metas, args)
 
-    generate_backend(args, fgens_native + fgens_quant + fgens_torchvision + fgens_torch_sparse)
-    generate_backend(args, fgens_custom, is_custom=True)
-
     op_validator_map = {}
     for mode in ["eager", "lazy"]:
         generate_frontend(args, fgens_native, op_validator_map, mode)
-        generate_frontend(args, fgens_custom, op_validator_map, mode, namespace="hpu")
-        generate_frontend(args, fgens_quant, op_validator_map, mode, namespace="quantized_decomposed")
-        generate_frontend(args, fgens_torchvision, op_validator_map, mode, namespace="torchvision")
-        generate_frontend(args, fgens_torch_sparse, op_validator_map, mode, namespace="torch_sparse")
+        for key, value in fgens_custom_namespaces.items():
+            generate_frontend(args, value, op_validator_map, mode, namespace=key)
+
+    fgens_custom = fgens_custom_namespaces.pop("hpu")
+
+    generate_backend(args, fgens_native + list(chain.from_iterable(fgens_custom_namespaces.values())), is_custom=False)
+    generate_backend(args, fgens_custom, is_custom=True)
 
     generate_slrg_files(args, op_validator_map)
     generate_autograd_ops(args, fgens_autograd)

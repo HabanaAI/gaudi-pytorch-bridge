@@ -28,6 +28,7 @@
 #include "habana_kernels/mixture_of_experts.h"
 #include "habana_kernels/wrap_kernels_declarations.h"
 #include "habana_lazy/hpu_stage_submission.h"
+#include "hpu_ops/common/gather_csr.h"
 #include "hpu_ops/common/mixture_of_experts.h"
 #include "hpu_ops/cpu_fallback.h"
 #include "hpu_ops/op_logger.h"
@@ -2134,6 +2135,10 @@ TORCH_LIBRARY_IMPL(aten, HPU, m) {
   // to have the same implementation as matmul forward in autograd.
   m.impl("matmul", matmul_inference);
   m.impl("_fused_sdp_choice", fused_sdp_choice_hpu);
+}
+
+TORCH_LIBRARY_IMPL(torch_scatter, HPU, m) {
+  m.impl("gather_csr", gather_csr_common);
 }
 
 TORCH_LIBRARY(hccl, m) {
