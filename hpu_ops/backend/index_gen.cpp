@@ -616,7 +616,8 @@ void IndexHabanaOperator::AddNode(
         num_elems = permuted_self_shape[dim];
         auto params = FillArangeParamsInternal(
             0, permuted_self_shape[dim], 1, index_dtype);
-
+        bool is_compile =
+            GetExecutionMode() == habana_helpers::HabanaFrontendTypes::COMPILE;
         index_tensor_to_use.emplace_back(ArangeCommon(
             this,
             graph,
@@ -626,10 +627,10 @@ void IndexHabanaOperator::AddNode(
             index_dtype,
             syn_in(0), // TBD: NOTE: This needs to be changed for DS
             syn_in(1), // TBD: NOTE: This needs to be changed for DS
-            get_guid_with_precision("range"sv, index_dtype),
             outshape,
             params,
-            std::nullopt));
+            std::nullopt,
+            is_compile));
         if ((broadcast_to_size_numel == 1) &&
             (repeat_interleaves_needed[dim] == 1) &&
             (repeats_needed[dim] == 1)) {

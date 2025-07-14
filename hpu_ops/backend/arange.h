@@ -24,11 +24,10 @@ synapse_helpers::tensor ArangeCommon(
     c10::ScalarType out_dtype,
     std::optional<synTensor> syn_in0,
     std::optional<synTensor> syn_in1,
-    std::string guid,
     std::vector<int64_t> outshape,
     const FillParamsT& params,
     std::optional<int> final_result_index,
-    bool is_eager = false);
+    bool is_compile = false);
 
 FillParamsT FillArangeParamsInternal(
     c10::Scalar start,

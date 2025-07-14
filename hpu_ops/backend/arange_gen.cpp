@@ -24,11 +24,12 @@ static bool can_use_dynamic_shapes(
     const c10::Scalar& start,
     const c10::Scalar& end,
     const c10::Scalar& step,
-    const bool is_eager = false) {
+    const bool is_compile = false) {
   // Currently synapse support dynamic shape arange only for int datatypes.
   // For any other output datatype, will fallback to normal flow.
+
   return (
-      (is_eager ? habana_helpers::GetRefineDynamicShapeStatus() : true) &&
+      (is_compile ? true : habana_helpers::GetRefineDynamicShapeStatus()) &&
       habana_helpers::GetArangeHostTensorStatus() &&
       ((start.isIntegral(false) || can_convert(start)) &&
        (end.isIntegral(false) || can_convert(end)) &&
@@ -148,90 +149,52 @@ synapse_helpers::tensor ArangeCommon(
     c10::ScalarType out_dtype,
     std::optional<synTensor> syn_in0,
     std::optional<synTensor> syn_in1,
-    std::string guid,
     std::vector<int64_t> outshape,
     const FillParamsT& params,
     std::optional<int> final_result_index,
-    bool is_eager) {
+    bool is_compile) {
   std::vector<synTensor> inputs = {};
-  if (syn_in0.has_value() &&
-      can_use_dynamic_shapes(start, end, step, is_eager)) {
-    // syn_in0 is defined, syn_in1 is optional
-    // For arange.start_out, both syn_in0 and syn_in1 are defined.
-    // For arange.start_step, only syn_in0 is defined.
+
+  auto internal_out_dtype = habana_helpers::getInternalDtype(out_dtype);
+  const bool is_cast_not_required = c10::isFloatingType(internal_out_dtype) ||
+      internal_out_dtype == c10::ScalarType::Int ||
+      (internal_out_dtype == c10::ScalarType::Long &&
+       common::IsInt64Supported());
+  auto scalar_type = is_cast_not_required ? out_dtype : c10::ScalarType::Int;
+  using namespace std::literals;
+  auto range_guid = get_guid_with_precision("range"sv, scalar_type);
+  NodeAttr::NodeOutputAttr out_attr = {outshape, scalar_type};
+
+  if (is_cast_not_required)
+    out_attr.final_result_index = final_result_index;
+
+  std::vector<synapse_helpers::tensor> arange{};
+  // For arange.start_out, both syn_in0 and syn_in1 are defined.
+  // For arange.start_step, only syn_in0 is defined.
+
+  if (syn_in0.has_value() && !syn_in1.has_value() &&
+      can_use_dynamic_shapes(start, end, step, is_compile)) {
     inputs.emplace_back(syn_in0.value());
+    arange = OpBackend::BuildNode(
+        op, graph, {range_guid, std::move(inputs), {out_attr}});
 
-    auto internal_out_dtype = habana_helpers::getInternalDtype(out_dtype);
-    const bool is_cast_not_required = c10::isFloatingType(internal_out_dtype) ||
-        internal_out_dtype == c10::ScalarType::Int ||
-        (internal_out_dtype == c10::ScalarType::Long &&
-         common::IsInt64Supported());
-    auto scalar_type = is_cast_not_required ? out_dtype : c10::ScalarType::Int;
-    using namespace std::literals;
-    auto range_guid = get_guid_with_precision("range"sv, scalar_type);
-    NodeAttr::NodeOutputAttr out_attr = {outshape, scalar_type};
-
-    if (is_cast_not_required)
-      out_attr.final_result_index = final_result_index;
-
-    std::vector<synapse_helpers::tensor> arange_i32{};
-
-    if (!syn_in1.has_value()) {
-      // arange.start_step
-      // Only syn_in0 is defined
-      arange_i32 = OpBackend::BuildNode(
-          op, graph, {range_guid, std::move(inputs), {out_attr}});
-    } else {
-      // arange.start_out
-      // syn_in1 is defined
-      inputs.emplace_back(syn_in1.value());
-      op->CreateShapeTensorInput(graph, op->ScalarType(), outshape, inputs);
-      arange_i32 = OpBackend::BuildNode(
-          op, graph, {range_guid, {}, {out_attr}, params.ptr(), params.size()});
-    }
-
-    if (is_cast_not_required) {
-      return std::move(arange_i32[0]);
-    } else {
-      auto cast_to_out_type = OpBackend::BuildCast(
-          op,
-          graph,
-          arange_i32.at(0).get(),
-          outshape,
-          c10::ScalarType::Int,
-          out_dtype,
-          final_result_index);
-
-      return cast_to_out_type;
-    }
   } else {
     op->CreateShapeTensorInput(graph, op->ScalarType(), outshape, inputs);
-    auto internal_out_dtype = habana_helpers::getInternalDtype(out_dtype);
-    const bool is_cast_not_required = c10::isFloatingType(internal_out_dtype) ||
-        internal_out_dtype == c10::ScalarType::Int ||
-        (internal_out_dtype == c10::ScalarType::Long &&
-         common::IsInt64Supported());
-    auto scalar_type = is_cast_not_required ? out_dtype : c10::ScalarType::Int;
-    auto range_guid = is_cast_not_required ? guid : "range_i32";
-    NodeAttr::NodeOutputAttr out_attr = {outshape, scalar_type};
-    if (is_cast_not_required)
-      out_attr.final_result_index = final_result_index;
-    auto arange = OpBackend::BuildNode(
+    arange = OpBackend::BuildNode(
         op, graph, {range_guid, {}, {out_attr}, params.ptr(), params.size()});
-
-    if (is_cast_not_required) {
-      return std::move(arange[0]);
-    } else {
-      auto cast_to_out_type = OpBackend::BuildCast(
-          op,
-          graph,
-          arange.at(0).get(),
-          outshape,
-          c10::ScalarType::Int,
-          out_dtype,
-          final_result_index);
-      return cast_to_out_type;
-    }
+  }
+  if (is_cast_not_required) {
+    return std::move(arange[0]);
+  } else {
+    auto cast_to_out_type = OpBackend::BuildCast(
+        op,
+        graph,
+        arange.at(0).get(),
+        outshape,
+        c10::ScalarType::Int,
+        out_dtype,
+        final_result_index);
+    return cast_to_out_type;
   }
 }
 
@@ -278,8 +241,8 @@ OutputMetaDataVector ArangeStartOutMeta(const at::Stack& stack) {
 }
 
 void Arange::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
-  bool is_eager =
-      GetExecutionMode() != habana_helpers::HabanaFrontendTypes::COMPILE;
+  bool is_compile =
+      GetExecutionMode() == habana_helpers::HabanaFrontendTypes::COMPILE;
   const auto meta = ArangeStartOutMeta(stack)[0];
   auto outshape = meta.shape;
   auto out_dtype = meta.dtype;
@@ -302,11 +265,10 @@ void Arange::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
       out_dtype,
       syn_in0,
       syn_in1,
-      guid_,
       outshape,
       params,
       0,
-      is_eager);
+      is_compile);
 }
 
 OutputMetaDataVector ArangeDefaultEndMeta(const at::Stack& stack) {
@@ -622,8 +584,8 @@ void ArangeDefaultStartEnd::AddNode(
 void ArangeDefaultStartEndStep::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  bool is_eager =
-      GetExecutionMode() == habana_helpers::HabanaFrontendTypes::EAGER;
+  bool is_compile =
+      GetExecutionMode() == habana_helpers::HabanaFrontendTypes::COMPILE;
   const auto meta = OutputMeta(stack);
   const auto outshape = meta[0].shape;
   const auto out_dtype = meta[0].dtype;
@@ -638,9 +600,9 @@ void ArangeDefaultStartEndStep::AddNode(
     step = stack.at(2).toScalar();
     syn_out(0) = ArangeDefaultCommon(this, graph, meta, params);
   } else {
+    at::Tensor params_t = stack[0].toTensor();
     if (c10::isFloatingType(internal_out_dtype)) {
       std::vector<float> params_data;
-      at::Tensor params_t = stack[0].toTensor();
       if ((habana::ShapeInference::GetCurrentPass() ==
            habana::ShapeInfo::InferencePass::MIN_SHAPE) ||
           (habana::ShapeInference::GetCurrentPass() ==
@@ -654,7 +616,6 @@ void ArangeDefaultStartEndStep::AddNode(
       step = params_data[2];
     } else {
       std::vector<int32_t> params_data;
-      at::Tensor params_t = stack[0].toTensor();
       if ((habana::ShapeInference::GetCurrentPass() ==
            habana::ShapeInfo::InferencePass::MIN_SHAPE) ||
           (habana::ShapeInference::GetCurrentPass() ==
@@ -684,11 +645,10 @@ void ArangeDefaultStartEndStep::AddNode(
         internal_out_dtype,
         syn_in0,
         syn_in1,
-        update_guid_dtype(guid_, internal_out_dtype),
         outshape,
         params,
         0,
-        is_eager);
+        is_compile);
   }
 }
 

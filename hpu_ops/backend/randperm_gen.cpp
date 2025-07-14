@@ -29,7 +29,8 @@ synapse_helpers::tensor RandPermCommon(
     c10::ScalarType out_dtype,
     std::vector<int64_t> out_shape,
     int n,
-    int final_result_index = 0) {
+    int final_result_index = 0,
+    bool is_compile = false) {
   c10::ScalarType tpc_supported_randperm_dtype =
       ((common::IsInt64Supported() && (out_dtype == c10::ScalarType::Long))
            ? c10::ScalarType::Long
@@ -49,10 +50,10 @@ synapse_helpers::tensor RandPermCommon(
       tpc_supported_randperm_dtype,
       arange_synin,
       std::nullopt,
-      get_guid_with_precision("range"sv, tpc_supported_randperm_dtype),
       out_shape,
       params,
-      std::nullopt);
+      std::nullopt,
+      is_compile);
 
   std::vector<synTensor> inputs;
   inputs.emplace_back(arange_op.get());
@@ -154,6 +155,8 @@ SharedMetaDataVector RandPermSharedMeta(
 void RandPermOp::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
+  bool is_compile =
+      GetExecutionMode() == habana_helpers::HabanaFrontendTypes::COMPILE;
   int n = stack.at(0).toInt();
   const auto meta = RandPermMeta(stack)[0];
   auto out_dtype = meta.dtype;
@@ -167,7 +170,15 @@ void RandPermOp::AddNode(
   }
 
   syn_out(0) = RandPermCommon(
-      this, graph, std::nullopt, seedTensor, out_dtype, out_shape, n);
+      this,
+      graph,
+      std::nullopt,
+      seedTensor,
+      out_dtype,
+      out_shape,
+      n,
+      0,
+      is_compile);
 }
 
 //===----------------------------------------------------------------------===//
@@ -188,6 +199,8 @@ OutputMetaDataVector HabanaRandPermMeta(const at::Stack& stack) {
 void HabanaRandPerm::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
+  bool is_compile =
+      GetExecutionMode() == habana_helpers::HabanaFrontendTypes::COMPILE;
   HABANA_ASSERT(
       stack.at(0).isTensor(),
       "For a custom schema(Randperm) seed tensor should be the",
@@ -197,7 +210,15 @@ void HabanaRandPerm::AddNode(
   auto out_dtype = meta.dtype;
   auto out_shape = meta.shape;
   syn_out(0) = RandPermCommon(
-      this, graph, std::nullopt, syn_in(0), out_dtype, out_shape, n);
+      this,
+      graph,
+      std::nullopt,
+      syn_in(0),
+      out_dtype,
+      out_shape,
+      n,
+      0,
+      is_compile);
 }
 
 HabanaRandPerm::HabanaRandPerm(int device_id, c10::ScalarType scalar_type)
@@ -289,7 +310,7 @@ void HabanaRandPermDS::AddNode(
     EraseSynInput(2);
   }
   syn_out(0) = RandPermCommon(
-      this, graph, syn_in(1), syn_in(0), out_dtype, out_shape, end);
+      this, graph, syn_in(1), syn_in(0), out_dtype, out_shape, end, 0, true);
 }
 
 HabanaRandPermDS::HabanaRandPermDS(int device_id, c10::ScalarType scalar_type)
