@@ -46,6 +46,7 @@ function(set_up_warnings target_name)
   endif()
 
   if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "11.0.0")
+    message(FATAL_ERROR "TODO: remove this if, if promotion pass!")
     # According to https://gcc.gnu.org/bugzilla/show_bug.cgi?id=80635 GCC older than 11 may trigger
     # bugous maybe-uninitialized warning for std::optional destructor. And this was observed on d10
     # build with gcc8.3.0.
@@ -102,13 +103,86 @@ function(set_up_link_options target_name)
   target_link_options(${target_name} PRIVATE -pie)
 endfunction()
 
+function(enforce_hardening target_name)
+  set(fortification_check_disabled
+      habana_dl_app
+      habana_pytorch_backend
+      habana_pytorch_plugin
+      habana_pytorch2_plugin
+      habana_serialization
+      pytorch_synapse_shim
+      _activity_profiler_C
+      _bridge_config_C
+      _core_C
+      _debug_C
+      _debug_eager_C
+      _debug_lazy_C
+      _event_dispatcher_C
+      _experimental_C
+      _git_info_C
+      _hccl_C
+      _hccl_eager_C
+      _hccl_lazy_C
+      _hpex_C
+      _hpu_C
+      _media_pyt_bridge_C
+      _partition_bind_C
+      _recipe_compiler_C
+      _shared_layer_C
+      _torch_jit_C
+      _utilization_metrics_C)
+  if(${target_name} IN_LIST fortification_check_disabled)
+    set(disable_fortify "--nofortify")
+  endif()
+
+  set(stack_protection_check_disabled pytorch_synapse_utils_shim)
+  if(${target_name} IN_LIST stack_protection_check_disabled)
+    set(disable_stack_protection "--nostackprotector")
+  endif()
+
+  set(control_flow_protection_check_disabled
+      habana_dl_app
+      habana_pytorch_backend
+      habana_pytorch_plugin
+      habana_pytorch2_plugin
+      _activity_profiler_C
+      _bridge_config_C
+      _core_C
+      _debug_C
+      _debug_eager_C
+      _debug_lazy_C
+      _event_dispatcher_C
+      _experimental_C
+      _git_info_C
+      _hccl_C
+      _hccl_eager_C
+      _hccl_lazy_C
+      _hpex_C
+      _hpu_C
+      _media_pyt_bridge_C
+      _partition_bind_C
+      _recipe_compiler_C
+      _shared_layer_C
+      _torch_jit_C
+      _utilization_metrics_C)
+  if(${target_name} IN_LIST control_flow_protection_check_disabled)
+    set(disable_control_flow_protection "--nocfprotection")
+  endif()
+
+  set(skip_ARM_related_check --nobranchprotection)
+  add_custom_command(
+    TARGET ${target_name}
+    POST_BUILD
+    COMMAND hardening-check -q ${skip_ARM_related_check} ${disable_fortify} ${disable_stack_protection}
+            ${disable_control_flow_protection} $<TARGET_FILE:${target_name}>)
+endfunction()
+
 function(add_habana_library target_name)
   add_library(${target_name} ${ARGN})
   add_library(npu::${target_name} ALIAS ${target_name})
 
-  find_keyword(INTERFACE IS_INTERFACE ${ARGN})
-
-  if(NOT IS_INTERFACE)
+  find_keyword(INTERFACE is_interface ${ARGN})
+  if(NOT ${is_interface})
     set_up_warnings(${target_name})
     set_up_hardening(${target_name})
     allow_code_coverage_if_requested(${target_name})
@@ -116,6 +190,13 @@ function(add_habana_library target_name)
     set_up_link_options(${target_name})
   endif()
 
+  find_keyword(OBJECT is_object ${ARGN})
+  set(disabled_compilers Clang)
+  if(${CMAKE_CXX_COMPILER_ID} IN_LIST disabled_compilers)
+
+  elseif(NOT ${is_object} AND NOT ${is_interface})
+    enforce_hardening(${target_name})
+  endif()
 endfunction()
 
 function(add_habana_executable target_name)
