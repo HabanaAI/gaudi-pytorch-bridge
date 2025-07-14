@@ -4258,6 +4258,19 @@ lerp_.Tensor:
   namespaces: [torch.Tensor]
   op_validator: LerpSharedMeta
 
+digamma:
+  promote_int_to_float: [self]
+  out_ids: [0]
+  guid: digamma_fwd
+  namespaces: [torch]
+  op_validator: check-node-with-shared-layer
+
+digamma.out:
+  promote_int_to_float: [self]
+  guid: digamma_fwd
+  namespaces: [torch]
+  op_validator: check-node-with-shared-layer
+
 lgamma:
   promote_int_to_float: [self]
   out_ids: [0]

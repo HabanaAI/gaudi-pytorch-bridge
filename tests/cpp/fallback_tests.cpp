@@ -34,19 +34,6 @@ class FallbackTest : public ::testing::Test,
   }
 };
 
-TEST_F(FallbackTest, Simple) {
-  auto ones = torch::ones(10, "hpu");
-  auto res = ones.digamma();
-  res = res.add(ones);
-
-  constexpr float ones_digamma = 0.42278409;
-  auto exp = torch::full(10, ones_digamma);
-  EXPECT_TRUE(allclose(exp, res.to("cpu")));
-
-  const auto& freq = habana::HpuFallbackHelper::get()->get_op_count();
-  EXPECT_EQ(freq.at("aten::digamma.out"), 1);
-}
-
 TEST_F(FallbackTest, inverse) {
   auto a = torch::randn({2, 2});
   auto b = a.inverse();

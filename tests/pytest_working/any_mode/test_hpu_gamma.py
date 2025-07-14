@@ -23,6 +23,18 @@ from test_utils import compile_function_if_compile_mode, format_tc
 igamma_dtypes = [torch.bfloat16, torch.float16, torch.float32, torch.float64]
 igammac_dtypes = [torch.bfloat16, torch.float16, torch.float32, torch.float64]
 lgamma_dtypes = [torch.bfloat16, torch.float16, torch.float32, torch.float64]
+digamma_dtypes = [
+    torch.bfloat16,
+    torch.float16,
+    torch.bool,
+    torch.float32,
+    torch.float64,
+    torch.int16,
+    torch.int32,
+    torch.int64,
+    torch.int8,
+    torch.uint8,
+]
 shape_list = [[0], [1], [3, 4]]
 
 
@@ -72,4 +84,19 @@ def test_hpu_igammac(dtype, input_shape):
         fn = compile_function_if_compile_mode(fn)
         cpu_output = torch.igammac(cpu_input_x, cpu_input_y)
         hpu_output = fn(hpu_input_x, hpu_input_y).cpu()
+    assert torch.isclose(cpu_output, hpu_output, atol=0.001, rtol=0.001, equal_nan=True).all()
+
+
+@pytest.mark.parametrize("dtype", digamma_dtypes, ids=format_tc)
+@pytest.mark.parametrize("input_shape", shape_list, ids=format_tc)
+def test_hpu_digamma(dtype, input_shape):
+    def fn(input):
+        return torch.digamma(input)
+
+    with use_eager_fallback():
+        cpu_input = torch.randn(input_shape).to(dtype)
+        hpu_input = cpu_input.to("hpu")
+        fn = compile_function_if_compile_mode(fn)
+        cpu_output = torch.digamma(cpu_input)
+        hpu_output = fn(hpu_input).cpu()
     assert torch.isclose(cpu_output, hpu_output, atol=0.001, rtol=0.001, equal_nan=True).all()

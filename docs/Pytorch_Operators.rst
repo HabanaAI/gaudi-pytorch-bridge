@@ -304,6 +304,7 @@ cross                                    Yes      Yes      Yes     Yes       Yes
 cumprod                                  Yes      Yes      Yes     No        Yes      Yes       No        Yes      Yes    torch
 cumsum                                   Yes      Yes      Yes     No        Yes      Yes       No        Yes      Yes    torch
 diag                                     Yes      Yes      Yes     No        No       No        No        No       No     torch
+digamma                                  Yes      Yes      Yes     No        Yes      Yes       Yes       Yes      Yes    torch
 div                                      Yes      Yes      Yes     No        Yes      Yes       Yes       Yes      Yes    torch
 divide                                   Yes      Yes      Yes     No        Yes      Yes       Yes       Yes      Yes    torch
 dot                                      Yes      Yes      Yes     Yes       Yes      Yes       No        No       No     torch
