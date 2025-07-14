@@ -4,7 +4,6 @@
   <remote name="habana-internal" alias="origin" fetch="ssh://git@github.com/habana-internal"/>
   <remote name="HabanaEmbedded" alias="origin" fetch="ssh://git@github.com/HabanaEmbedded"/>
   <default revision="master" remote="habana-internal" sync-j="32"/>
-  <project name="aeon"/>
   <project name="automation"/>
   <project name="coral-sim"/>
   <project name="deepspeed-fork"/>

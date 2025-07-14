@@ -319,11 +319,6 @@ build_pytorch_modules()
 
     set_os_specific_vars
 
-    #OpenCloudOS 9.2 specific scenario in which AEON is not used
-    if [[ $(sed -n 's/^PRETTY_NAME="\([^"]*\)"/\1/p' /etc/os-release) == "OpenCloudOS 9.2" ]]; then
-        __variables_to_build="${__variables_to_build} --skip-aeon"
-    fi
-
     #CI job creates venv for every job. So we need to have python pkg install unconditionally
     pip install -r $PYTORCH_MODULES_ROOT_PATH/requirements.txt
 
@@ -2691,8 +2686,6 @@ setup_standalone()
 
     bash habanalabs-installer.sh uninstall -y
     bash habanalabs-installer.sh install -t base -y
-
-    sudo ln -s /usr/lib/habanalabs/libaeon.so.1 /usr/lib/habanalabs/libaeon.so
 
     export HABANA_SOFTWARE_STACK="$(pwd)"
 

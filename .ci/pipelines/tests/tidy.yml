@@ -12,7 +12,6 @@ common:
     - repository: embedded-specs
       githubOrg: habana-internal
   dependencies:
-    - AEON
     - COMPLEX_GUID
     - HCL
     - HL_THUNK
