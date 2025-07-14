@@ -386,21 +386,6 @@ endfunction()
 
 if(BUILD_PKGS)
   build_or_install_wheel(
-    ${PROJECT_SOURCE_DIR}/pytorch_helpers/dataloader/habana_dataloader
-    __init__.py
-    habana_dataloader/__init__.py
-    habana_dataloader/aeon_config.py
-    habana_dataloader/aeon_manifest.py
-    habana_dataloader/aeon_ssd_configurator.py
-    habana_dataloader/aeon_transformers.py
-    habana_dataloader/habana_dataset.py
-    include/blocking_queue.h
-    include/data_loader.h
-    include/pybind11_json.hpp
-    LICENSE.txt
-    main.cpp
-    setup.py)
-  build_or_install_wheel(
     ${PROJECT_SOURCE_DIR}/python_packages
     habana_frameworks/torch/__init__.py
     habana_frameworks/torch/activity_profiler/__init__.py

@@ -53,5 +53,3 @@ else()
 endif()
 
 add_subdirectory(synapse_utils_shim)
-
-add_subdirectory(dataloader/habana_dataloader)

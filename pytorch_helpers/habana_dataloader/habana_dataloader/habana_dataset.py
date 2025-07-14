@@ -28,8 +28,6 @@ import torch.distributed as dist
 import torch.utils.data
 import torchvision.datasets
 
-from .aeon_ssd_configurator import AeonSSDConfigurator
-
 
 def _is_distributed():
     return dist.is_available() and dist.is_initialized()
@@ -49,90 +47,15 @@ def _get_rank():
         return 0
 
 
-def isGaudi(device):
-    return device == htexp.synDeviceType.synDeviceGaudi
-
-
 def isGaudi2(device):
     return device == htexp.synDeviceType.synDeviceGaudi2
 
 
 def deviceStr(device):
-    if isGaudi(device):
-        return "gaudi"
-    elif isGaudi2(device):
+    if isGaudi2(device):
         return "gaudi2"
     else:
         raise ValueError("Unsupported device")
-
-
-class SSDDataLoader(torch.utils.data.DataLoader):
-    def __init__(self, *args, **kwargs):
-        import habana_dataloader.habana_dl_app
-
-        dataset = kwargs.get("dataset", args[0] if args else None)
-        self.batch_size = kwargs.get("batch_size")
-        num_workers = kwargs.get("num_workers")
-        shuffle = kwargs.get("shuffle")
-        manifest = kwargs.get("manifest", "manifest.cfg")
-        drop_last = kwargs.get("drop_last", False)
-        self.encoder = None
-        distributed = kwargs.get("sampler") is not None
-        channels_last = kwargs.get("channels_last", False)
-
-        self.configurator = AeonSSDConfigurator(
-            dataset,
-            self.batch_size,
-            num_workers,
-            shuffle,
-            channels_last,
-            manifest,
-            distributed=distributed,
-        )
-        aeon_config = self.configurator.get_config()
-
-        self.aeon = habana_dataloader.habana_dl_app.HabanaAcceleratedPytorchDL.create(
-            aeon_config,
-            True,
-            True,
-            channels_last,
-            drop_last,  # pin_memory  # use_prefetch  # channels-last
-        )
-
-    def __iter__(self):
-        self.iter = iter(self.aeon)
-        return self
-
-    def __len__(self):
-        return len(self.aeon)
-
-    def __next__(self):
-        img, img_id, img_size, bbox, label = next(self.iter)
-        if not self.configurator.is_train():
-            img_size = torch.split(img_size, 1, dim=1)
-            img_size = (img_size[1].squeeze(dim=1), img_size[0].squeeze(dim=1))
-
-        if self.encoder:
-            bbox_out = torch.empty((self.batch_size, 8732, 4), dtype=bbox.dtype)
-            label_out = torch.empty((self.batch_size, 8732), dtype=label.dtype)
-            for i, (b, l) in enumerate(zip(bbox, label, strict=False)):
-                indexes = l.nonzero()
-                if indexes.nelement() == 0:
-                    # WA for empty label
-                    l = torch.zeros((1), dtype=label.dtype)
-                    b = torch.zeros((1, 4), dtype=bbox.dtype)
-                    b[:, 2:] = 1
-                else:
-                    l = l[indexes].squeeze(dim=1)
-                    b = b[indexes].squeeze(dim=1)
-                b, l = self.encoder.encode(b, l)
-                bbox_out[i] = b
-                label_out[i] = l
-        else:  # aeon encoder
-            bbox_out = bbox
-            label_out = label
-
-        return img.contiguous(), img_id, img_size, bbox_out, label_out
 
 
 class SSDMediaDataLoader(torch.utils.data.DataLoader):
@@ -355,54 +278,7 @@ class ResnetDataLoader(torch.utils.data.DataLoader):
         try:
             print("HabanaDataLoader device type ", self.DeviceType)
 
-            self.aeon_fallback_activated = False
-            if "PT_HPU_MEDIA_PIPE" in os.environ:
-                self.aeon_fallback_activated = os.getenv("PT_HPU_MEDIA_PIPE").lower() in ("false", "0", "f")
-
-            # Try aeon when HPUMediaPipe is not available
-            if (not self.aeon_fallback_activated) and isGaudi2(self.DeviceType):
-                try:
-                    from habana_frameworks.medialoaders.torch.media_dataloader_mediapipe import (
-                        HPUMediaPipe,
-                    )
-
-                except ImportError as e:
-                    print(f"Failed to initialize Habana media Dataloader, error: {str(e)}\nFallback to aeon dataloader")
-                    self.aeon_fallback_activated = True
-
-            if isGaudi(self.DeviceType) or (self.aeon_fallback_activated):
-                import habana_dataloader.habana_dl_app
-
-                from .aeon_config import get_aeon_config
-                from .aeon_manifest import generate_aeon_manifest
-                from .aeon_transformers import HabanaAeonTransforms
-
-                self._aeon_dl_handle_vars(keyword_args)
-                torch_transforms = self.dataset.transform
-                aeon_data_dir = self.dataset.root
-
-                ht = HabanaAeonTransforms(torch_transforms)
-                aeon_transform_config, is_train = ht.get_aeon_transforms()
-                manifest_filename = generate_aeon_manifest(self.dataset.imgs)
-                aeon_config_json = get_aeon_config(
-                    aeon_data_dir,
-                    manifest_filename,
-                    aeon_transform_config,
-                    self.batch_size,
-                    self.num_workers,
-                    channels_last,
-                    is_train,
-                )
-                self.aeon = habana_dataloader.habana_dl_app.HabanaAcceleratedPytorchDL(
-                    aeon_config_json,
-                    True,
-                    True,
-                    channels_last,
-                    self.drop_last,  # pin_memory  # use_prefetch
-                )
-                print("Running with Habana aeon DataLoader")
-
-            elif isGaudi2(self.DeviceType):
+            if isGaudi2(self.DeviceType):
                 self._media_dl_handle_vars(keyword_args)
                 root = self.dataset.root
                 torch_transforms = self.dataset.transform
@@ -442,9 +318,7 @@ class ResnetDataLoader(torch.utils.data.DataLoader):
     def __len__(self):
         if self.fallback_activated:
             return super().__len__()
-        elif isGaudi(self.DeviceType) or (self.aeon_fallback_activated):
-            return len(self.aeon)
-        elif isGaudi2(self.DeviceType):
+        if isGaudi2(self.DeviceType):
             return len(self.iterator)
         else:
             raise AssertionError("Invalid device type")
@@ -452,32 +326,10 @@ class ResnetDataLoader(torch.utils.data.DataLoader):
     def __iter__(self):
         if self.fallback_activated:
             return super().__iter__()
-        elif isGaudi(self.DeviceType) or (self.aeon_fallback_activated):
-            return iter(self.aeon)
-        elif isGaudi2(self.DeviceType):
+        if isGaudi2(self.DeviceType):
             return iter(self.iterator)
         else:
             raise AssertionError("Invalid device type")
-
-    def _aeon_dl_handle_vars(self, kwargs):
-        if not kwargs.get("dataset"):
-            raise ValueError("'dataset' can not be None")
-        self.dataset = kwargs.get("dataset")
-        self.batch_size = kwargs.get("batch_size", 1)
-        self._enforce_value_for_arg(kwargs, "shuffle", False)  # TODO: support
-        self.sampler = kwargs.get("sampler", None)
-        self._enforce_value_for_arg(kwargs, "batch_sampler", None)
-        self._enforce_value_for_arg(kwargs, "num_workers", 8)  # TODO: support
-        self.num_workers = kwargs.get("num_workers", 8)
-        self._enforce_value_for_arg(kwargs, "collate_fn", None)
-        self._enforce_value_for_arg(kwargs, "pin_memory", True, False)  # TODO: support
-        self.drop_last = kwargs.get("drop_last", False)
-        self._enforce_value_for_arg(kwargs, "timeout", 0)
-        self._enforce_value_for_arg(kwargs, "worker_init_fn", None)
-        self._enforce_value_for_arg(kwargs, "multiprocessing_context", None)
-        self._enforce_value_for_arg(kwargs, "generator", None)
-        self._enforce_value_for_arg(kwargs, "prefetch_factor", 2)  # TODO: support
-        self._enforce_value_for_arg(kwargs, "persistent_workers", False)
 
     def _media_dl_handle_vars(self, kwargs):
         if not kwargs.get("dataset"):
@@ -574,7 +426,7 @@ def _is_coco_dataset(dataset):
 def _is_hpumediapipe_available():
     try:
         from habana_frameworks.medialoaders.torch.media_dataloader_mediapipe import (
-            HPUMediaPipe,  # noqa: F401
+            HPUMediaPipe,
         )
 
         return True
@@ -593,27 +445,11 @@ class HabanaDataLoader:
             self.DeviceType = htexp._get_device_type()
             print("HabanaDataLoader device type ", self.DeviceType)
 
-            self.aeon_fallback_activated = False
-            if "PT_HPU_MEDIA_PIPE" in os.environ:
-                self.aeon_fallback_activated = os.getenv("PT_HPU_MEDIA_PIPE").lower() in ("false", "0", "f")
-
             media_multi = False
-            if (self.aeon_fallback_activated is False) and ("PT_HPU_ENABLE_MEDIA_PIPE_SSD_MULTI_CARD" in os.environ):
+            if "PT_HPU_ENABLE_MEDIA_PIPE_SSD_MULTI_CARD" in os.environ:
                 media_multi = os.getenv("PT_HPU_ENABLE_MEDIA_PIPE_SSD_MULTI_CARD").lower() in ("true", "1", "t")
 
-            # Try aeon when HPUMediaPipe is not available
-            if (not self.aeon_fallback_activated) and isGaudi2(self.DeviceType):
-                num_instances = _get_world_size()
-                if _is_hpumediapipe_available() is False:
-                    print("Fallback to aeon dataloader")
-                    self.aeon_fallback_activated = True
-                elif (media_multi is False) and (num_instances > 1):
-                    print("Fallback to aeon dataloader as world_size is ", num_instances)
-                    self.aeon_fallback_activated = True
-
-            if isGaudi(self.DeviceType) or (self.aeon_fallback_activated):
-                dataloader_type = SSDDataLoader
-            elif isGaudi2(self.DeviceType):
+            if isGaudi2(self.DeviceType):
                 dataloader_type = SSDMediaDataLoader
 
         try:

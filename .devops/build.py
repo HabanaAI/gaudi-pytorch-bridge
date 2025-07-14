@@ -952,9 +952,9 @@ def create_wheel_target_for_single_python(
 
     pmake(f"{new_serializer}: {serializer}")
 
-    expected_wheel_pattern = (
-        f"{os.environ[f'PYTORCH_MODULES_{cmake_configuration}_BUILD']}/pkgs/"
-        f"{full_wheel_name.replace('-', '_')}-*-cp{str(py_ver).replace('.', '')}*.whl"
+    expected_wheel_pattern = f"{os.environ[f'PYTORCH_MODULES_{cmake_configuration}_BUILD']}/pkgs/{full_wheel_name}"
+    expected_wheel_pattern += (
+        "-*.whl" if full_wheel_name == "habana_torch_dataloader" else f"-*-cp{str(py_ver).replace('.', '')}*.whl"
     )
 
     # make final wheel(s) target depend on py-version specific parts
@@ -1801,7 +1801,7 @@ def list_wheel_specs_for_specific_pt_versions(
         WheelSpec(
             wheel_name="habana_torch_dataloader",
             pt_versions=versions,
-            wheel_src_dir="pytorch_helpers/dataloader/habana_dataloader",
+            wheel_src_dir="pytorch_helpers/habana_dataloader",
         ),
     ]
 

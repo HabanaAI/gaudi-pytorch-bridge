@@ -22,13 +22,7 @@ import sys
 from glob import glob
 
 from setuptools import Extension
-from setuptools.command.build_ext import build_ext
 from setuptools.command.install_lib import install_lib
-
-
-class SkipBuildExt(build_ext):
-    def run(self):
-        pass
 
 
 def InstallCMakeLibs(module_namespace, wheel_name, wheel_build_dir, wheel_pt_vers, ignore_func):

@@ -19,14 +19,14 @@
 import os
 import shutil
 
-from setup_utils import InstallCMakeLibs, PrebuiltPtExtension, SkipBuildExt, get_version
+from setup_utils import get_version
 from setuptools import setup
 
 release_build_dir_var = "PYTORCH_MODULES_RELEASE_BUILD"
 release_build_dir = os.getenv(release_build_dir_var)
 if release_build_dir is None:
     raise OSError(f"{release_build_dir_var} not set")
-build_dir = os.path.join(release_build_dir, "pytorch_helpers/dataloader/habana_dataloader")
+build_dir = os.path.join(release_build_dir, "pytorch_helpers/habana_dataloader")
 if os.path.exists(build_dir):
     shutil.rmtree(build_dir)
 os.makedirs(build_dir)
@@ -52,17 +52,6 @@ setup(
     author_email="support@habana.ai",
     zip_safe=False,
     packages=["habana_dataloader"],
-    ext_modules=[PrebuiltPtExtension("habana_dataloader.habana_dl_app", release_build_dir)],
-    cmdclass={
-        "build_ext": SkipBuildExt,
-        "install_lib": InstallCMakeLibs(
-            module_namespace=os.path.join("habana_dataloader"),
-            wheel_name="habana_torch_dataloader",
-            wheel_pt_vers=wheel_pt_vers,
-            wheel_build_dir=wheel_build_dir,
-            ignore_func=shutil.ignore_patterns("*.debug", "__pycache__"),
-        ),
-    },
     options={
         "egg_info": {"egg_base": build_dir},
         "build": {"build_base": os.path.join(build_dir, "build")},
