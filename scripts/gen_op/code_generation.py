@@ -896,7 +896,7 @@ def handle_return_eager(
         code += "  {}hpu_op.call({});".format("auto res = ", fe_call_args)
         code += "\n"
         code += f"  return {handle_output_mask}(res, {param_vars[len(param_vars) - 1]})"
-    elif inplace_op_info[1] == "aten::_fused_adamw":  # currently only fused_adamw is supported
+    elif inplace_op_info[1] in ["aten::_fused_adamw", "aten::_fused_adam"]:
         code += f"  std::vector<at::TensorList> tensorlists = {{ {fe_call_args} }};"
         code += " \n"
         code += "  hpu_op.call(tensorlists)"
