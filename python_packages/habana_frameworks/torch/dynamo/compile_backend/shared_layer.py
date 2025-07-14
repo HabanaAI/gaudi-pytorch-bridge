@@ -174,7 +174,7 @@ hpu_ds_fallback_list = {
 META_SHAPE_CHANGED_EXCEPTION = "Meta output shape changed."
 
 
-def is_index_2d(node):
+def is_index_op_self_dim_upto_4d(node):
     indices_arg = node.args[1]
     shape = None
     tensor_meta = node.meta.get("val", node.meta.get("tensor_meta"))
@@ -183,7 +183,7 @@ def is_index_2d(node):
             shape = tensor_meta.shape
         elif isinstance(tensor_meta, py_sym_types):
             shape = tensor_meta
-    if len(shape) == 2 and len(shape) == len(indices_arg):
+    if len(shape) <= 4 and len(shape) == len(indices_arg):
         return True
     else:
         # if not shape or len(shape) != 2 or len(shape) != len(indices_arg):
@@ -197,7 +197,7 @@ def check_for_conditional_eager_fallback(node, op_name, is_dynamic):
         return False, ""
     if is_dynamic:
         return True, "Dynamic shape is not supported for this op"
-    if is_index_2d(node):
+    if is_index_op_self_dim_upto_4d(node):
         return False, ""
 
     indices = node.args[1]

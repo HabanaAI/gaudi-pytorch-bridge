@@ -191,9 +191,23 @@ def test_index(shape, indices):
             lambda shape: torch.zeros(shape[0], dtype=torch.int32),
             id="2d_row_index_zeros_int32",
         ),
+        pytest.param(
+            lambda t, idx: t[:, :, :, idx],
+            (3, 3, 4, 4),
+            0,
+            lambda shape: torch.zeros(shape[1], dtype=torch.int64),
+            id="4d_col_index_zeros_int64",
+        ),
+        pytest.param(
+            lambda t, idx: t[:, :, :, idx],
+            (3, 3, 4, 4),
+            1,
+            lambda shape: torch.zeros(shape[1], dtype=torch.int64),
+            id="4d_col_index_zeros_int64",
+        ),
     ],
 )
-def test_2d_indexing_with_various_index_types(func, input_shape, idx_dim, idx_fn):
+def test_Nd_indexing_with_various_index_types(func, input_shape, idx_dim, idx_fn):
     input_cpu = torch.rand(*input_shape, dtype=torch.float32, requires_grad=True)
     idx_cpu = idx_fn(input_shape)
     input_hpu = input_cpu.to(hpu)
