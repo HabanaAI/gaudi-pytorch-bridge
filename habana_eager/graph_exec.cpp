@@ -400,6 +400,26 @@ std::vector<at::IValue> GraphExec::ProcessDynamicStack(
   return new_stack;
 }
 
+namespace {
+bool isOptimizedOrConvertedScaleTensor(const c10::IValue& scale) {
+  if (not scale.isTensor()) {
+    // Case where scale is shared and was already removed due to
+    // optimization.
+    return true;
+  }
+  const auto& scale_tensor = scale.toTensor();
+  if (not scale_tensor.is_cpu()) {
+    // Case where scale is shared and was already converted to H2D tensor.
+    HABANA_ASSERT(
+        get_tensor_extra_meta(scale_tensor)->get_tensor_type() ==
+            HOST_TO_DEVICE_TENSOR,
+        "Expected scale as a H2D or CPU tensor.");
+    return true;
+  }
+  return false;
+}
+} // namespace
+
 // Patching H2D scale tensors created in HandleH2dScales pass
 // with values from CPU tensors.
 void GraphExec::PatchScaleH2dTensors(torch::jit::Stack& orig_stack) {
@@ -416,10 +436,13 @@ void GraphExec::PatchScaleH2dTensors(torch::jit::Stack& orig_stack) {
   for (const auto& [scale_indices, node_name] : m_h2d_scales_idx_names) {
     if ((node_name == "hpu::cast_to_fp8_v2" or
          node_name == "hpu::cast_from_fp8") and
-        cast_trivial_scales_optimization_enabled) {
+        cast_trivial_scales_optimization_enabled and
+        scale_indices.size() == 1) {
       const auto idx = scale_indices[0];
+      if (isOptimizedOrConvertedScaleTensor(orig_stack[idx])) {
+        continue;
+      }
       const auto& cpu_scale = orig_stack[idx].toTensor();
-      HABANA_ASSERT(cpu_scale.is_cpu(), "Expected scale as a CPU tensor.");
 
       if (cpu_scale.item().toDouble() == 1.0) {
         orig_stack[idx] = std::nullopt;
@@ -434,25 +457,33 @@ void GraphExec::PatchScaleH2dTensors(torch::jit::Stack& orig_stack) {
         gemm_trivial_scales_optimization_enabled) {
       const auto idx_a = scale_indices[0];
       const auto idx_b = scale_indices[1];
-      const auto& cpu_scale_a = orig_stack[idx_a].toTensor();
-      const auto& cpu_scale_b = orig_stack[idx_b].toTensor();
-      HABANA_ASSERT(cpu_scale_a.is_cpu(), "Expected scale_a as a CPU tensor.");
-      HABANA_ASSERT(cpu_scale_b.is_cpu(), "Expected scale_b as a CPU tensor.");
 
-      if (cpu_scale_a.item().toDouble() == 1 / cpu_scale_b.item().toDouble()) {
-        orig_stack[idx_a] = std::nullopt;
-        orig_stack[idx_b] = std::nullopt;
-        PT_BRIDGE_DEBUG(
-            "CPU scales of op ",
-            node_name,
-            " were set to None, because the're reciprocals");
-        continue;
+      // Scales might be shared between many ops, and might be already removed
+      // due to optimization.
+      if (orig_stack[idx_a].isTensor() and orig_stack[idx_b].isTensor()) {
+        const auto& cpu_scale_a = orig_stack[idx_a].toTensor();
+        const auto& cpu_scale_b = orig_stack[idx_b].toTensor();
+
+        // Scales might be shared between many ops, and might be already
+        // converted to H2D tensors.
+        if (cpu_scale_a.is_cpu() and cpu_scale_b.is_cpu() and
+            cpu_scale_a.item().toDouble() ==
+                1 / cpu_scale_b.item().toDouble()) {
+          orig_stack[idx_a] = std::nullopt;
+          orig_stack[idx_b] = std::nullopt;
+          PT_BRIDGE_DEBUG(
+              "CPU scales of op ",
+              node_name,
+              " were set to None, because they're reciprocals");
+          continue;
+        }
       }
     }
     for (const auto idx : scale_indices) {
+      if (isOptimizedOrConvertedScaleTensor(orig_stack[idx])) {
+        continue;
+      }
       const auto& cpu_scale = orig_stack[idx].toTensor();
-      HABANA_ASSERT(cpu_scale.is_cpu(), "Expected scale as a CPU tensor.");
-
       const auto scale_value = cpu_scale.item().toDouble();
 
       const auto maybe_h2d_scale =

@@ -62,73 +62,46 @@ struct HandleH2dScalesPass {
       : m_graph(std::move(graph)),
         m_h2d_scales_idx_names(h2d_scales_idx_names) {}
 
-  bool run(torch::jit::Stack& stack) {
+  void run(torch::jit::Stack& stack) {
     PT_EAGER_TRACE;
-    return processBlocks(m_graph->block(), stack);
+    processBlocks(m_graph->block(), stack);
   }
 
  private:
-  bool convertScaleToH2d(
+  void collectScaleIndices(
       const torch::jit::Value* input,
-      torch::jit::Stack& org_stack,
+      const torch::jit::Stack& org_stack,
       const GraphInputIndexMap& org_stack_index_map,
       const std::string& node_name,
       std::vector<size_t>& op_scale_indices) {
+    // Many fp8 ops allow for None scale, so it needs to be handled here.
+    if (not input->type()->cast<torch::jit::TensorType>()) {
+      return;
+    }
     const auto scale_name = input->debugName();
     const auto scale_idx = org_stack_index_map.at(scale_name);
     const auto scale_ivalue = org_stack[scale_idx];
     const auto scale_tensor = scale_ivalue.toTensor();
 
-    if (scale_tensor.device().type() != c10::DeviceType::CPU) {
+    if (scale_tensor.is_cpu()) {
+      // Store CPU scales indices for later patching.
+      op_scale_indices.emplace_back(scale_idx);
+    } else {
       PT_BRIDGE_WARN(
           "H2D scales flow is enabled, but op ",
           node_name,
           " received non cpu scale.");
-      return false;
     }
-
-    const auto dtype = scale_tensor.scalar_type();
-    HABANA_ASSERT(
-        dtype == at::ScalarType::Float or dtype == at::ScalarType::BFloat16,
-        "CPU scale should be Float or BFloat16, got ",
-        dtype);
-
-    // Create H2D tensor and set it as a scale input.
-    at::Tensor h2d_tensor =
-        createDynamicTensor({1}, HOST_TO_DEVICE_TENSOR, dtype);
-    const auto is_float = dtype == at::ScalarType::Float;
-    const auto el_size = is_float ? sizeof(float_t) : sizeof(at::BFloat16);
-    const auto dt_type = is_float ? habana::HostDataType::FLOAT_T
-                                  : habana::HostDataType::BFLOAT16_T;
-
-    auto tmeta{get_tensor_extra_meta(h2d_tensor)};
-    tmeta->set_host_size(1);
-    tmeta->set_host_el_size(el_size);
-    tmeta->set_host_dt_type(dt_type);
-    tmeta->set_host_total_elem(2 * el_size);
-
-    org_stack[scale_idx] = torch::jit::IValue(h2d_tensor);
-
-    // Store CPU scales indices for later patching.
-    op_scale_indices.emplace_back(scale_idx);
-
-    PT_BRIDGE_DEBUG(
-        "Scale CPUTensor ",
-        scale_name,
-        " of node ",
-        node_name,
-        " was converted to H2D tensor.");
-
-    return true;
   }
 
-  bool processBlock(torch::jit::Block* block, torch::jit::Stack& org_stack) {
+  void processBlock(
+      const torch::jit::Block* block,
+      const torch::jit::Stack& org_stack) {
     PT_EAGER_TRACE;
     HABANA_ASSERT(m_graph->inputs().size() == org_stack.size());
 
     GraphInputIndexMap org_stack_index_map;
     habana_helpers::createGraphInputStackIndexMap(m_graph, org_stack_index_map);
-    bool changed{false};
 
     for (const auto node : block->nodes()) {
       const auto maybe_schema = node->maybeSchema();
@@ -152,12 +125,11 @@ struct HandleH2dScalesPass {
       std::vector<size_t> op_scale_indices{};
       op_scale_indices.reserve(scale_indices.size());
 
-      bool local_changed{false};
       for (const size_t idx : scale_indices) {
         const auto scale = node->inputs().at(idx);
         if (scale->node()->kind() == torch::jit::prim::ListConstruct) {
           for (const auto& input : scale->node()->inputs()) {
-            local_changed |= convertScaleToH2d(
+            collectScaleIndices(
                 input,
                 org_stack,
                 org_stack_index_map,
@@ -165,7 +137,7 @@ struct HandleH2dScalesPass {
                 op_scale_indices);
           }
         } else {
-          local_changed |= convertScaleToH2d(
+          collectScaleIndices(
               scale,
               org_stack,
               org_stack_index_map,
@@ -173,23 +145,20 @@ struct HandleH2dScalesPass {
               op_scale_indices);
         }
       }
-      if (local_changed) {
+      if (not op_scale_indices.empty()) {
         m_h2d_scales_idx_names.emplace_back(
             std::move(op_scale_indices), std::move(node_name));
-        changed = true;
       }
     }
-    return changed;
   }
 
-  bool processBlocks(
-      at::ArrayRef<torch::jit::Block*> blocks,
-      torch::jit::Stack& org_stack) {
+  void processBlocks(
+      const at::ArrayRef<torch::jit::Block*> blocks,
+      const torch::jit::Stack& org_stack) {
     PT_EAGER_TRACE;
-    bool changed{true};
-    for (auto block : blocks)
-      changed &= processBlock(block, org_stack);
-    return changed;
+    for (auto block : blocks) {
+      processBlock(block, org_stack);
+    }
   }
 
   std::shared_ptr<torch::jit::Graph> m_graph;
@@ -202,10 +171,7 @@ void HandleH2dScales(
     H2dScalesIndicesNames& h2d_scales_idx_names) {
   PT_EAGER_TRACE;
   HandleH2dScalesPass pass{graph, h2d_scales_idx_names};
-  bool changed{pass.run(stack)};
-  if (changed) {
-    PT_EAGER_DEBUG(__PRETTY_FUNCTION__, ": \n", *graph);
-  }
+  pass.run(stack);
 }
 
 } // namespace habana::graph::pass
