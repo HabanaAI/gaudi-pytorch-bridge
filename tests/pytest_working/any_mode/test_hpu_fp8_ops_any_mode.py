@@ -294,7 +294,7 @@ def test_cast_to_fp8_v2_fwd_bwd(scale, dtype, fp8_dtype):
         check_ops_executed_in_jit_ir({"cast_to_fp8_v2", "cast_from_fp8"})
 
 
-def float8_cast_with_scaling(
+def cast_to_fp8_per_block(
     x: torch.Tensor, block_size: tuple[int, int], out_dtype, scale_dtype=None
 ) -> tuple[torch.Tensor, torch.Tensor]:
     bh, bw = block_size
@@ -335,13 +335,58 @@ def test_cast_per_block(block_size, out_dtype, batch, scale_dtype):
     factor = 3 * maxFp8Val(out_dtype, is_gaudi2())
     a = torch.randn(shape, dtype=dtype) * factor
 
-    casted, scales = float8_cast_with_scaling(a, block_size, out_dtype, scale_dtype)
-    casted_hpu, scales_hpu = torch.ops.hpu.cast_to_fp8_just_in_time(
-        a.to("hpu"), block_size, out_dtype=out_dtype, scale_dtype=scale_dtype
-    )
+    casted, scales = cast_to_fp8_per_block(a, block_size, out_dtype, scale_dtype)
+    fn = compile_function_if_compile_mode(torch.ops.hpu.cast_to_fp8_just_in_time)
+    casted_hpu, scales_hpu = fn(a.to("hpu"), block_size, out_dtype=out_dtype, scale_dtype=scale_dtype)
 
     compare_tensors(casted_hpu, casted.cpu())
     compare_tensors(scales_hpu, scales.cpu(), atol=1e-5, rtol=1e-5)
+
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir("cast_to_fp8_just_in_time")
+
+
+def cast_from_fp8_per_block(x: torch.Tensor, scale: torch.Tensor, out_dtype) -> torch.Tensor:
+    bh = x.shape[-2] // scale.shape[-2]
+    bw = x.shape[-1] // scale.shape[-1]
+
+    block_shape = list(x.shape)
+    block_shape[-2] = scale.shape[-2]
+    block_shape[-1] = scale.shape[-1]
+    block_shape.insert(-1, bh)
+    block_shape.append(bw)
+
+    x_blocks = x.view(block_shape).to(out_dtype)
+    x_scaled = x_blocks * scale.unsqueeze(-2).unsqueeze(-1).to(out_dtype)
+
+    return x_scaled.view(x.shape)
+
+
+@pytest.mark.parametrize("block_size", [(1, 4), (4, 4), (4, 1)], ids=format_tc)
+@pytest.mark.parametrize("in_dtype", fp8_dtypes, ids=format_tc)
+@pytest.mark.parametrize("batch", [False, True])
+@pytest.mark.parametrize("out_dtype", [torch.float, torch.bfloat16])
+def test_cast_from_per_block(block_size, in_dtype, batch, out_dtype):
+    shape = (8, 24)
+    if batch:
+        shape = (2, 3, *shape)
+
+    scale_shape = list(shape)
+    scale_shape[-2] = shape[-2] // block_size[0]
+    scale_shape[-1] = shape[-1] // block_size[1]
+
+    factor = maxFp8Val(in_dtype, is_gaudi2()) / 4.0
+    a = (torch.randn(shape, dtype=out_dtype) * factor).to(in_dtype)
+    scale = torch.randn(scale_shape, dtype=out_dtype) * factor
+
+    casted_cpu = cast_from_fp8_per_block(a, scale, out_dtype)
+    fn = compile_function_if_compile_mode(torch.ops.hpu.cast_from_fp8)
+    casted_hpu = fn(a.to("hpu"), scale.to("hpu"), out_dtype)
+
+    compare_tensors(casted_hpu, casted_cpu.cpu())
+
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir("cast_from_fp8")
 
 
 def cast_to_fp8_hybrid_common(shape, dtype, stochastic, is_amax, is_scale_152, is_scale_143):
@@ -1099,6 +1144,9 @@ def test_fp8_gemm_per_block(block_a, block_b, trans_a, trans_b, batch):
     tol = 1e-7
 
     compare_tensors(res, res_cpu, atol=tol, rtol=tol)
+
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir("fp8_gemm_v2")
 
 
 @pytest.mark.parametrize("dtype", [torch.bfloat16] + fp8_dtypes)

@@ -90,9 +90,9 @@ def meta_cast_to_fp8_v2_scalar_list(input, scale, stochastic=False, is_amax=Fals
 def meta_cast_to_fp8_just_in_time(input, block_shape, *, out_dtype=None, scale_dtype=None):
     out_dtype = out_dtype if out_dtype else torch.float8_e4m3fn
     scale_dtype = scale_dtype if scale_dtype else input.dtype
-    scale_shape = input.shape
-    scale_shape[-2] /= block_shape[0]
-    scale_shape[-1] /= block_shape[1]
+    scale_shape = list(input.shape)
+    scale_shape[-2] //= block_shape[0]
+    scale_shape[-1] //= block_shape[1]
 
     out = input.new_empty(input.shape, dtype=out_dtype)
     scale = input.new_empty(scale_shape, dtype=scale_dtype)
