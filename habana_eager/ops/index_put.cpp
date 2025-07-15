@@ -352,7 +352,7 @@ at::Tensor& _index_put_impl_eager(
   if (advanced_indexing) {
     at::Stack stack;
     stack.emplace_back(self);
-    stack.emplace_back(c10::IValue(indices));
+    stack.emplace_back(indices);
     std::tie(self_permuted, indices_vec) =
         generate_advanced_indexing_indices_list(stack); //(self, indices_in);
   } else {

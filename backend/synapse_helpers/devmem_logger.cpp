@@ -449,8 +449,7 @@ void deviceMallocData::report_fragmentation(bool from_free) {
     for (const auto& entry : sorted_by_ptr_log) {
       const auto& entry_addr = entry.first;
       if (current_head < entry_addr) {
-        free_list.emplace_back(
-            std::make_pair(current_head, entry_addr - current_head));
+        free_list.emplace_back(current_head, entry_addr - current_head);
       } else {
         assert(current_head == entry_addr);
       }
@@ -461,8 +460,7 @@ void deviceMallocData::report_fragmentation(bool from_free) {
                     "Last allocation exceeds DRAM size\n";
     } else if (current_head != dram_start_ + dram_size_) {
       free_list.emplace_back(
-          std::make_pair(
-              current_head, dram_start_ + dram_size_ - current_head));
+          current_head, dram_start_ + dram_size_ - current_head);
     }
 
     out_stream << "Free List\n";
@@ -601,10 +599,10 @@ void deviceMallocData::record_graph_tensor_info(
     uint64_t size) {
   if (is_graph_input) {
     graph_input_indices.insert({index, graph_input.size()});
-    graph_input.emplace_back(std::make_tuple(index, size, name));
+    graph_input.emplace_back(index, size, name);
   } else if (is_graph_output) {
     graph_output_indices.insert({index, graph_output.size()});
-    graph_output.emplace_back(std::make_tuple(index, size, name));
+    graph_output.emplace_back(index, size, name);
   }
 }
 
@@ -650,11 +648,11 @@ void deviceMallocData::record_tensor_info(
     uint64_t start,
     uint64_t end) {
   if (is_param) {
-    params.emplace_back(std::make_tuple(start, end, name));
+    params.emplace_back(start, end, name);
   } else if (is_grad) {
-    grads.emplace_back(std::make_tuple(start, end, name));
+    grads.emplace_back(start, end, name);
   } else if (is_optim_state) {
-    optim_states.emplace_back(std::make_tuple(start, end, name));
+    optim_states.emplace_back(start, end, name);
   } else if (is_graph_input || is_graph_output) {
     // Not adding via this.. graph_input.emplace_back(std::make_tuple(start,
     // end, name));

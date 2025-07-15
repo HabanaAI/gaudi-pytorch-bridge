@@ -2524,7 +2524,7 @@ Tensor& _index_put_impl_hpu_lazy_(
   if (advanced_indexing) {
     at::Stack stack;
     stack.emplace_back(self);
-    stack.emplace_back(c10::IValue(indices));
+    stack.emplace_back(indices);
     std::tie(self, indices_vec) =
         generate_advanced_indexing_indices_list(stack);
   } else {

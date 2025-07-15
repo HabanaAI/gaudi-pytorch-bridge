@@ -657,7 +657,8 @@ void SliceInsertOperator::ComputeParams(
     if (needs_params_handling) {
       synapse_helpers::tensor& syn_input_tensor = p_context_->syn_inputs_[0];
       auto tensor_id = syn_input_tensor.id();
-      std::vector<int64_t> min, max;
+      std::vector<int64_t> min;
+      std::vector<int64_t> max;
       std::tie(min, max) = habana::ShapeInference::GetMinMaxShape(tensor_id);
       params.ends[i] = static_cast<unsigned long>(max[wrapped_dim]);
     }
@@ -757,7 +758,8 @@ void SliceInsertOperator::AllocateAndAddSynapseNode(
          habana::ShapeInfo::InferencePass::MAX_SHAPE) &&
         (habana::ShapeInference::GetMaxPolicyInUse() ==
          habana_helpers::DynamicDimsPolicy::CALCULATED)) {
-      std::vector<int64_t> min, max;
+      std::vector<int64_t> min;
+      std::vector<int64_t> max;
       synapse_helpers::tensor& syn_tensor_start = p_context_->syn_inputs_[3];
       std::tie(min, max) =
           habana::ShapeInference::GetMinMaxShape(syn_tensor_start.id());
@@ -785,7 +787,8 @@ void SliceInsertOperator::AllocateAndAddSynapseNode(
     auto host_tensor = inputs[2].toTensor();
     auto params_vec = SliceOperator::ComputeParamsfromH2DTensor(host_tensor);
 
-    std::vector<int64_t> start, step;
+    std::vector<int64_t> start;
+    std::vector<int64_t> step;
     start = SliceOperator::get_start_tensor(params_vec);
     step = SliceOperator::get_step_tensor(params_vec);
     ValidateSliceInsertInputs(inp_shape, out_shape, step, start);
@@ -1362,7 +1365,8 @@ void StridedInsertOperator::compute_params(
       // For Dynamic case fill strides/offset params with max size
       if (!graph.is_dry_run()) {
         synapse_helpers::tensor& stride_tensor = hop.GetSynInputs()[2];
-        std::vector<int64_t> min, max;
+        std::vector<int64_t> min;
+        std::vector<int64_t> max;
         std::tie(min, max) =
             habana::ShapeInference::GetMinMaxShape(stride_tensor.id());
         strides = max;
@@ -1562,7 +1566,8 @@ namespace {
 std::vector<int64_t> GetStridedViewOperatorStrides(
     torch::jit::Stack& inputs,
     bool graph_dry_run) {
-  std::vector<int64_t> size, strides;
+  std::vector<int64_t> size;
+  std::vector<int64_t> strides;
   auto self = inputs[0].toTensor();
   auto size_st = inputs[1].toTensor();
   if (HasFrontendStrides(inputs)) {
@@ -1816,7 +1821,8 @@ void StridedViewOperator::compute_params(
   // For Dynamic case fill strides/offset params with max size
   if (graph.is_dynamic_graph() && have_shape_tensors) {
     synapse_helpers::tensor& stride_tensor = p_context_->syn_inputs_[2];
-    std::vector<int64_t> min, max;
+    std::vector<int64_t> min;
+    std::vector<int64_t> max;
     std::tie(min, max) =
         habana::ShapeInference::GetMinMaxShape(stride_tensor.id());
     strides = max;
@@ -1846,7 +1852,8 @@ void StridedViewOperator::AllocateAndAddSynapseNode(
     Stack& inputs,
     const habana::OutputMetaDataVector& output_metadata) {
   synStridedOpParams params;
-  std::vector<int64_t> size, strides;
+  std::vector<int64_t> size;
+  std::vector<int64_t> strides;
   int64_t offset;
   compute_params(params, inputs, graph, size, strides, offset);
   auto self = inputs[0].toTensor();
@@ -1892,7 +1899,8 @@ void StridedViewOperator::ReuseMemoryAndAddSynapseNode(
     const std::vector<synapse_helpers::tensor_or_ref>& syn_t_vec,
     const habana::OutputMetaDataVector& output_metadata) {
   synStridedOpParams params;
-  std::vector<int64_t> sizes, strides;
+  std::vector<int64_t> sizes;
+  std::vector<int64_t> strides;
   int64_t offset;
   compute_params(params, inputs, graph, sizes, strides, offset);
   auto self = inputs[0].toTensor();

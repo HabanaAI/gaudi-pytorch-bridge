@@ -59,7 +59,7 @@ struct DetectWeightTensorsPass {
       torch::jit::Node* user_node) {
     std::queue<std::pair<torch::jit::Value*, torch::jit::Node*>> nodes_to_visit;
 
-    nodes_to_visit.push(std::make_pair(initial_input, user_node));
+    nodes_to_visit.emplace(initial_input, user_node);
 
     while (!nodes_to_visit.empty()) {
       auto input_node_pair{nodes_to_visit.front()};
@@ -87,7 +87,7 @@ struct DetectWeightTensorsPass {
         if (cast_input == input)
           for (auto& use : cast_output->uses()) {
             torch::jit::Node* user_node{use.user};
-            nodes_to_visit.push(std::make_pair(cast_output, user_node));
+            nodes_to_visit.emplace(cast_output, user_node);
           }
       }
       nodes_to_visit.pop();

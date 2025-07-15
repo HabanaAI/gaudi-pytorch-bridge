@@ -37,7 +37,8 @@ bool get_device_deallocation() {
 }
 
 void print_device_memory_stats(synDeviceId deviceID) {
-  uint64_t free_mem, total_mem;
+  uint64_t free_mem;
+  uint64_t total_mem;
   auto status = synDeviceGetMemoryInfo(deviceID, &free_mem, &total_mem);
   if (synStatus::synSuccess != status) {
     PT_DEVMEM_FATAL(

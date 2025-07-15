@@ -243,7 +243,7 @@ c10::intrusive_ptr<Work> allgather_coalesced_hpu_(
     const c10::intrusive_ptr<c10d::ProcessGroup>& process_group,
     bool async_op) {
   auto input_list_vec = input_list.vec();
-  AllgatherOptions opts = AllgatherOptions{};
+  auto opts = AllgatherOptions{};
   opts.asyncOp = async_op;
   return process_group->getBackend(c10::DeviceType::HPU)
       ->allgather_coalesced(
@@ -272,7 +272,7 @@ c10::intrusive_ptr<c10d::Work> allgather_into_tensor_coalesced_hpu_(
     bool async_op) {
   auto output_vec = outputs.vec();
   auto input_vec = inputs.vec();
-  AllgatherOptions opts = AllgatherOptions{};
+  auto opts = AllgatherOptions{};
   opts.asyncOp = async_op;
   return process_group->getBackend(c10::DeviceType::HPU)
       ->allgather_into_tensor_coalesced(output_vec, input_vec, opts);

@@ -1225,7 +1225,8 @@ struct DropoutFunction : public torch::autograd::Function<DropoutFunction> {
     if ((p == 0) || !train)
       return input.clone();
 
-    at::Tensor result1, result2;
+    at::Tensor result1;
+    at::Tensor result2;
     std::tie(result1, result2) = at::native_dropout(input, p, train);
     ctx->save_for_backward({result2});
 

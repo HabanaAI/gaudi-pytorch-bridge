@@ -216,7 +216,7 @@ bool handle_bool_mask_indices(
     auto o1 = input.toOptional<at::Tensor>();
     if (o1.has_value() && !o1->defined()) {
       bool_indices_vec.emplace_back(o1.value());
-      indices_in_ivals_vec.push_back(c10::IValue(o1.value()));
+      indices_in_ivals_vec.emplace_back(o1.value());
     } else if (o1.has_value() && o1->defined()) {
       if (o1.value().scalar_type() == c10::ScalarType::Bool) {
         if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
@@ -231,11 +231,11 @@ bool handle_bool_mask_indices(
             for (auto i : c10::irange((int)nz_indices.size())) {
               auto nzi = habana_lazy::squeeze_hpu_lazy(nz_indices.at(i), 1);
               bool_indices_vec.emplace_back(nzi);
-              indices_in_ivals_vec.emplace_back(c10::IValue(nzi));
+              indices_in_ivals_vec.emplace_back(nzi);
             }
           } else {
             bool_indices_vec.emplace_back(t_nz);
-            indices_in_ivals_vec.emplace_back(c10::IValue(t_nz));
+            indices_in_ivals_vec.emplace_back(t_nz);
           }
         } else {
           has_bool_mask = true;
@@ -248,16 +248,16 @@ bool handle_bool_mask_indices(
             for (auto i : c10::irange((int)nz_indices.size())) {
               auto nzi = at::squeeze(nz_indices.at(i), 1).contiguous();
               bool_indices_vec.emplace_back(nzi);
-              indices_in_ivals_vec.emplace_back(c10::IValue(nzi));
+              indices_in_ivals_vec.emplace_back(nzi);
             }
           } else {
             bool_indices_vec.emplace_back(t_nz);
-            indices_in_ivals_vec.emplace_back(c10::IValue(t_nz));
+            indices_in_ivals_vec.emplace_back(t_nz);
           }
         }
       } else {
         bool_indices_vec.emplace_back(o1.value());
-        indices_in_ivals_vec.push_back(c10::IValue(o1.value()));
+        indices_in_ivals_vec.emplace_back(o1.value());
       }
     }
   }

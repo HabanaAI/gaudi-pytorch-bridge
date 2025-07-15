@@ -72,11 +72,11 @@ std::vector<torch::jit::IValue> CreateInputs(
 
   for (const auto shape : tensor_shapes) {
     torch::Tensor t = torch::randn(shape);
-    input_ivalues.emplace_back(at::IValue{t});
+    input_ivalues.emplace_back(t);
   }
 
   for (const auto val : scalars) {
-    input_ivalues.emplace_back(at::IValue{at::Scalar(val)});
+    input_ivalues.emplace_back(at::Scalar(val));
   }
 
   return input_ivalues;
@@ -101,9 +101,9 @@ std::shared_ptr<torch::jit::Graph> CreateJITGraph() {
 }
 
 torch::jit::Stack createStack(std::vector<at::Tensor>&& list) {
-  return torch::jit::Stack(
+  return {
       std::make_move_iterator(list.begin()),
-      std::make_move_iterator(list.end()));
+      std::make_move_iterator(list.end())};
 }
 
 uint64_t EnvHelper::InitSeed() {

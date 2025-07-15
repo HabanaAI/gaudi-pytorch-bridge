@@ -85,7 +85,8 @@ synapse_helpers::tensor create_tensor(
         devid, shape.vec(), calculate_strides(shape.vec()), persistent, name);
   }
 
-  std::vector<int64_t> min, max;
+  std::vector<int64_t> min;
+  std::vector<int64_t> max;
   if (graph.is_dynamic_graph()) {
     std::tie(min, max) = habana::ShapeInference::GetMinMaxShape(tensor_id);
   }
@@ -173,7 +174,8 @@ synapse_helpers::tensor create_tensor(
         DATA_TENSOR);
   }
 
-  std::vector<int64_t> min, max;
+  std::vector<int64_t> min;
+  std::vector<int64_t> max;
   if (graph.is_dynamic_graph()) {
     std::tie(min, max) = habana::ShapeInference::GetMinMaxShape(tensor_id);
   }
@@ -353,7 +355,8 @@ synapse_helpers::tensor create_tensor(
         name);
   }
 
-  std::vector<int64_t> min, max;
+  std::vector<int64_t> min;
+  std::vector<int64_t> max;
   if (graph.is_dynamic_graph()) {
     std::tie(min, max) = habana::ShapeInference::GetMinMaxShape(tensor_id);
   }
@@ -559,7 +562,8 @@ synapse_helpers::tensor create_shape_tensor(
         shape_tensor_type);
   }
 
-  std::vector<int64_t> min, max;
+  std::vector<int64_t> min;
+  std::vector<int64_t> max;
   if (graph.is_dynamic_graph()) {
     std::tie(min, max) = habana::ShapeInference::GetMinMaxShape(tensor_id);
   }
@@ -683,7 +687,8 @@ synapse_helpers::tensor create_shape_tensor(
         shape_tensor_type);
   }
 
-  std::vector<int64_t> min, max;
+  std::vector<int64_t> min;
+  std::vector<int64_t> max;
   if (graph.is_dynamic_graph()) {
     std::tie(min, max) = habana::ShapeInference::GetMinMaxShape(tensor_id);
   }
@@ -980,7 +985,8 @@ synapse_helpers::tensor duplicate_tensor_in_memory_section_with_size(
                      .with_is_shape_agnostic_on(tensor.is_shape_agnostic());
 
   if (tensor.has_dynamic_shape()) {
-    std::vector<int64_t> min, max;
+    std::vector<int64_t> min;
+    std::vector<int64_t> max;
     auto tensor_id =
         synapse_helpers::detail::tensor_name_generator::get_tensor_id();
     std::tie(min, max) = habana::ShapeInference::GetMinMaxShape(tensor_id);

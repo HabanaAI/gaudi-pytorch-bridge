@@ -487,7 +487,8 @@ void habana::HabanaOperator::AllocateSynapseOutput(
     const synDataType synType,
     const OutputMetaData& output_metadata,
     bool is_shape_tensor) {
-  std::vector<int64_t> min_shape, max_shape;
+  std::vector<int64_t> min_shape;
+  std::vector<int64_t> max_shape;
   if (is_shape_tensor == false) {
     p_context_->syn_outputs_.emplace_back(
         habana_helpers::create_tensor(
@@ -871,7 +872,7 @@ void habana::InferOutputMetaRetType::AddTensor(
   auto tensor = habana::nonPersistentTensor(
       data.sizes, data.strides, data.mf, scalarTypeToTypeMeta(data.dtype));
 
-  v.emplace_back(std::make_tuple(sif_tensor_id_, tensor));
+  v.emplace_back(sif_tensor_id_, tensor);
 }
 
 void habana::InferOutputMetaRetType::AddOutputTensor(

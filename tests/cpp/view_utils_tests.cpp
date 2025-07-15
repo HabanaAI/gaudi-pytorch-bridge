@@ -137,7 +137,10 @@ TEST(ViewUtilsTest, IsAliasSliceOnChlastInput) {
     habana_helpers::EnableRefineDynamicShape();
   }
 
-  int N = 2, C = 3, H = 4, W = 5;
+  int N = 2;
+  int C = 3;
+  int H = 4;
+  int W = 5;
   std::vector<int> in_sizes{8, 10, 12, 20};
   for (int i = 0; i < in_sizes.size(); i++) {
     int W = in_sizes[i];

@@ -151,7 +151,8 @@ uint64_t ShapeInference::UpdateShapeInfo(
 
 std::tuple<std::vector<int64_t>, std::vector<int64_t>> ShapeInference::
     GetMinMaxShape(const uint64_t tensor_id) {
-  std::vector<int64_t> min, max;
+  std::vector<int64_t> min;
+  std::vector<int64_t> max;
   if (ShapeInference::m_shape_info) {
     if (ShapeInference::m_shape_info->m_min_shapes.count(tensor_id) &&
         ShapeInference::m_shape_info->m_max_shapes.count(tensor_id)) {

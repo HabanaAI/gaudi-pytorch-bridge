@@ -17,7 +17,8 @@
 namespace habana_torch::jit {
 bool RemoveDuplicateConstPass(habana_torch::jit::Graph& g) {
   bool graph_changed = false;
-  std::list<Node*> const_nodes, nodes_to_remove;
+  std::list<Node*> const_nodes;
+  std::list<Node*> nodes_to_remove;
   PT_BRIDGE_DEBUG("Starting 'Remove duplicate const' pass.");
   for (Node* n : g.nodes()) {
     // Iterate only over const nodes

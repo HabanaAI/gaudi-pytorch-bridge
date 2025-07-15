@@ -200,7 +200,7 @@ void CompareWrapperOperator::AllocateAndAddSynapseNode(
       operand.suggest_memory_format(),
       c10::ScalarType::Bool,
       output_metadata.at(0).persistent);
-  inputs.push_back(output);
+  inputs.emplace_back(output);
   CompareOutWrapperOperator::AllocateAndAddSynapseNode(
       graph, inputs, output_metadata);
   // revert input stack
@@ -229,7 +229,7 @@ InferOutputMetaRetType CompareWrapperOperator::InferOutputMeta(
       operand.suggest_memory_format(),
       c10::ScalarType::Bool,
       false);
-  inputs.push_back(output);
+  inputs.emplace_back(output);
   return CompareOutWrapperOperator::InferOutputMeta(inputs);
 }
 

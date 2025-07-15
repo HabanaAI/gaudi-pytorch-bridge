@@ -75,7 +75,8 @@ OutputMetaDataVector MedianDimOutputMeta(const at::Stack& stack) {
   auto medianDimShapes = MediandimOutputShape(stack);
   auto self = stack_tensor(stack, index_of_self);
 
-  OutputMetaData valuesMeta, indicesMeta;
+  OutputMetaData valuesMeta;
+  OutputMetaData indicesMeta;
 
   valuesMeta.shape = medianDimShapes[0];
   valuesMeta.dtype = self.scalar_type();

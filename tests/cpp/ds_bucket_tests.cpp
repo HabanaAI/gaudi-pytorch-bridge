@@ -36,14 +36,17 @@ TEST(DS_TensorShapeTest, Simple) {
   const int K = 16;
   torch::Tensor c0 = torch::randn({K, C, W, H}, torch::requires_grad(false));
 
-  at::IntArrayRef shape_0(c0.sizes()), strides_0(c0.strides());
+  at::IntArrayRef shape_0(c0.sizes());
+  at::IntArrayRef strides_0(c0.strides());
   c10::ScalarType type(c10::ScalarType::Long);
 
-  habana_helpers::TensorShape tshape(shape_0, type), tstrides(strides_0, type);
+  habana_helpers::TensorShape tshape(shape_0, type);
+  habana_helpers::TensorShape tstrides(strides_0, type);
   PT_TEST_DEBUG("tshape : ", tshape, " tstrides : ", tstrides);
   PT_TEST_DEBUG("expected shape : ", shape_0, " exp strides : ", strides_0);
 
-  auto shape_1(tshape.get_dims()), strides_1(tstrides.get_dims());
+  auto shape_1(tshape.get_dims());
+  auto strides_1(tstrides.get_dims());
   PT_TEST_DEBUG(
       "actual shape : ",
       at::IntArrayRef(shape_1),

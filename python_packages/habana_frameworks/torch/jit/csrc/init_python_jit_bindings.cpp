@@ -823,10 +823,10 @@ void defineRealTypeClasses(pybind11::module& m) {
               for (const auto& item : py_list) {
                 if (py::isinstance<py::str>(item)) {
                   const auto str_value = item.cast<std::string>();
-                  cpp_list.push_back(str_value);
+                  cpp_list.emplace_back(str_value);
                 } else if (py::isinstance<py::int_>(item)) {
                   const auto int_value = item.cast<int64_t>();
-                  cpp_list.push_back(int_value);
+                  cpp_list.emplace_back(int_value);
                 } else {
                   HABANA_ASSERT(
                       0, "Shape or strides contain incorrect dimension info.");

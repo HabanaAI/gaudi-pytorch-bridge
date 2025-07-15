@@ -300,8 +300,8 @@ InferOutputMetaRetType TopkOperator::InferOutputMeta(
         self.suggest_memory_format(),
         c10::ScalarType::Int,
         false);
-    inputs.push_back(IValue(values));
-    inputs.push_back(IValue(indices));
+    inputs.emplace_back(values);
+    inputs.emplace_back(indices);
   }
   auto out = TopkOutOperator::InferOutputMeta(inputs);
   if (inputs.size() == 7) {
@@ -339,8 +339,8 @@ void TopkOperator::AllocateAndAddSynapseNode(
       self.suggest_memory_format(),
       c10::ScalarType::Int,
       output_metadata.at(1).persistent);
-  inputs.push_back(IValue(values));
-  inputs.push_back(IValue(indices));
+  inputs.emplace_back(values);
+  inputs.emplace_back(indices);
 
   TopkOutOperator::AllocateAndAddSynapseNode(graph, inputs, output_metadata);
 }
@@ -357,8 +357,8 @@ void TopkOperator::SetPTOutputs(torch::jit::Stack& inputs) {
       c10::ScalarType::Int,
       true);
 
-  inputs.push_back(IValue(values));
-  inputs.push_back(IValue(indices));
+  inputs.emplace_back(values);
+  inputs.emplace_back(indices);
 
   TopkOutOperator::SetPTOutputs(inputs);
 }

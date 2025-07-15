@@ -477,9 +477,12 @@ void OptimizerFusedAdamWOperator::AddNode(
     const auto& exp_avg = exp_avg_vec[i];
     const auto& exp_avg_sq = exp_avg_sq_vec[i];
 
-    std::optional<synTensor> exp_avg_scale_syn, exp_avg_sq_scale_syn;
-    std::optional<sh::tensor> exp_avg_casted, exp_avg_sq_casted;
-    std::optional<sh::tensor> exp_avg_scale_updated, exp_avg_sq_scale_updated;
+    std::optional<synTensor> exp_avg_scale_syn;
+    std::optional<synTensor> exp_avg_sq_scale_syn;
+    std::optional<sh::tensor> exp_avg_casted;
+    std::optional<sh::tensor> exp_avg_sq_casted;
+    std::optional<sh::tensor> exp_avg_scale_updated;
+    std::optional<sh::tensor> exp_avg_sq_scale_updated;
     if (is_fp8) {
       exp_avg_scale_syn = exp_avg_scales.value()[i].syn_t;
       exp_avg_sq_scale_syn = exp_avg_sq_scales.value()[i].syn_t;

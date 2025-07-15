@@ -264,8 +264,8 @@ JitNode* replace_copy_with_strided_insert(
       op_strided_insert,
       {node->input(1), node->input(0), value_strides, value_offset},
       1);
-  inputs.push_back(value_strides);
-  inputs.push_back(value_offset);
+  inputs.emplace_back(value_strides);
+  inputs.emplace_back(value_offset);
 
   jit_node->input(0)->setType(
       c10::TensorType::createContiguous(

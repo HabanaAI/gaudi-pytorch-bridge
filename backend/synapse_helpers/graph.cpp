@@ -19,6 +19,7 @@
 #include <perf_lib_layer_params.h>
 #include <synapse_api.h>
 #include <sys/stat.h>
+#include <chrono>
 #include <mutex>
 #include <ostream>
 #include <string>
@@ -36,7 +37,6 @@
 #include "habana_helpers/stat_collection.h"
 #include "habana_helpers/towl.h"
 #include "habana_lazy/memlog.h"
-#include "util/time_measure.h"
 
 #if !defined __GNUC__ || __GNUC__ >= 8
 #include <filesystem>
@@ -563,7 +563,8 @@ void graph::add_node(
   if (!hints_str.empty()) {
     auto hints_map = ParseHintsFromString(hints_str);
 
-    bool is_exec_order_provided = false, is_group_id_provided = false;
+    bool is_exec_order_provided = false;
+    bool is_group_id_provided = false;
     synUserExecOrder user_exec_order;
     synUserProgrammability user_programmability;
     for (const auto& h : hints_map) {
@@ -613,8 +614,9 @@ std::shared_ptr<graph::recipe_handle> graph::compile() {
       "Setting node dependencies failed. synStatus=",
       Logger::formatStatusMsg(status));
 
-  TIME_MEASURE_VARS;
-  START_TIME_MEASURE;
+  std::chrono::time_point<std::chrono::steady_clock> start_time;
+  std::chrono::time_point<std::chrono::steady_clock> end_time;
+  start_time = std::chrono::steady_clock::now();
   auto recipe_handle{std::make_unique<graph::recipe_handle>()};
 
   auto name = get_unique_recipe_name(name_, eager_mode_);
@@ -643,7 +645,13 @@ std::shared_ptr<graph::recipe_handle> graph::compile() {
         Logger::formatStatusMsg(status));
   }
 
-  END_TIME_MEASURE("Synapse graph compilation took");
+  end_time = std::chrono::steady_clock::now();
+  PT_SYNHELPER_DEBUG(
+      "Synapse graph compilation took ",
+      std::chrono::duration_cast<std::chrono::milliseconds>(
+          end_time - start_time)
+          .count(),
+      " ms")
   in_execution_phase_ = true;
   recipe_handle->graph_is_empty_ = graph_is_empty_;
   recipe_handle->in_execution_phase_ = true;

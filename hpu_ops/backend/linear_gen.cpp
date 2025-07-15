@@ -29,7 +29,8 @@ OutputMetaDataVector LinearMeta(const at::Stack& stack) {
   meta.shape[static_cast<size_t>(input.dim() - 1)] = weight.sizes().vec()[0];
   // Condition check to detect input with incompatible shapes
   // Number of dimensions in matrix 1 can vary
-  long mat1_dim0 = 1, dim_i = 0;
+  long mat1_dim0 = 1;
+  long dim_i = 0;
   for (; dim_i < input.dim() - 1; ++dim_i)
     mat1_dim0 *= input.sizes().vec()[static_cast<size_t>(dim_i)];
   HABANA_ASSERT(

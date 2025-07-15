@@ -51,7 +51,7 @@ static inline void index_fe(torch::jit::Stack& in_stack) {
     c10::List<std::optional<at::Tensor>> bool_mask_indices(bool_indices_vec);
     inputs_vec.clear();
     inputs_vec.emplace_back(sub_inputs.at(0));
-    inputs_vec.emplace_back(c10::IValue(bool_mask_indices));
+    inputs_vec.emplace_back(bool_mask_indices);
   } else {
     indices_in = indices_in_orig;
   }

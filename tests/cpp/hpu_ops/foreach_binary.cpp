@@ -61,8 +61,10 @@ class HpuOpTest : public HpuOpTestUtil {
       std::vector<at::ScalarType> dtypes,
       std::vector<at::ScalarType> otherDtypes,
       FunctionTwoLists& fn) {
-    std::vector<at::Tensor> cpu_in1, cpu_in2;
-    std::vector<at::Tensor> hpu_in1, hpu_in2;
+    std::vector<at::Tensor> cpu_in1;
+    std::vector<at::Tensor> cpu_in2;
+    std::vector<at::Tensor> hpu_in1;
+    std::vector<at::Tensor> hpu_in2;
     for (int i = 0; i < sizes.size(); ++i) {
       GenerateInputs(2, {sizes[i], otherSizes[i]}, {dtypes[i], otherDtypes[i]});
 
@@ -103,8 +105,10 @@ class HpuOpTest : public HpuOpTestUtil {
       std::vector<at::ScalarType> dtypes,
       std::vector<at::ScalarType> otherDtypes,
       const std::function<void(at::TensorList, at::TensorList)>& fn) {
-    std::vector<at::Tensor> cpu_in1, cpu_in2;
-    std::vector<at::Tensor> hpu_in1, hpu_in2;
+    std::vector<at::Tensor> cpu_in1;
+    std::vector<at::Tensor> cpu_in2;
+    std::vector<at::Tensor> hpu_in1;
+    std::vector<at::Tensor> hpu_in2;
     for (int i = 0; i < sizes.size(); ++i) {
       GenerateInputs(2, {sizes[i], otherSizes[i]}, {dtypes[i], otherDtypes[i]});
 

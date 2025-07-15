@@ -341,7 +341,7 @@ std::vector<synapse_helpers::tensor> CommonForeachBinary(
 
         std::vector<at::IValue> pt_inputs = {self, other};
         if (alpha.has_value()) {
-          pt_inputs.push_back(alpha.value());
+          pt_inputs.emplace_back(alpha.value());
         }
 
         outputs.push_back(node_creator(

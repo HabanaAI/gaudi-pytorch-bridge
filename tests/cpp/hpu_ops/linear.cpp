@@ -70,7 +70,9 @@ auto linear_test = [](std::vector<int64_t> in_shape /* shape upto n-1*/,
     if (bias_required)
       grad_bias = bias.grad();
 
-    at::Tensor hgrad_in, hgrad_wt, hgrad_bias;
+    at::Tensor hgrad_in;
+    at::Tensor hgrad_wt;
+    at::Tensor hgrad_bias;
     hgrad_in = hin.grad();
     hgrad_wt = hwt.grad();
     if (bias_required)
@@ -128,7 +130,9 @@ auto linear_backward_test =
         if (bias_required)
           grad_bias = bias.grad();
 
-        at::Tensor hgrad_in, hgrad_wt, hgrad_bias;
+        at::Tensor hgrad_in;
+        at::Tensor hgrad_wt;
+        at::Tensor hgrad_bias;
         hgrad_in = hin.grad();
         hgrad_wt = hwt.grad();
         if (bias_required)

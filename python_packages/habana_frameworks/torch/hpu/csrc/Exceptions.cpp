@@ -136,7 +136,9 @@ PyWarningHandler::~PyWarningHandler() noexcept(false) {
   auto& warning_buffer = internal_handler_.warning_buffer_;
 
   if (!warning_buffer.empty()) {
-    PyObject *type = nullptr, *value = nullptr, *traceback = nullptr;
+    PyObject* type = nullptr;
+    PyObject* value = nullptr;
+    PyObject* traceback = nullptr;
     pybind11::gil_scoped_acquire gil;
     auto result = 0;
     if (in_exception_) {

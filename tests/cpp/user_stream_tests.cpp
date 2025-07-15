@@ -134,7 +134,8 @@ TEST(TestStream, MultithreadGetAndSetTest) {
   auto num_hpus = device.get_count_by_current_type();
   if (num_hpus == 0)
     return;
-  at::optional<c10::hpu::HPUStream> s0, s1;
+  at::optional<c10::hpu::HPUStream> s0;
+  at::optional<c10::hpu::HPUStream> s1;
 
   std::thread t0{thread_fun, std::ref(s0)};
   std::thread t1{thread_fun, std::ref(s1)};
@@ -284,7 +285,8 @@ TEST(TestStream, MultithreadStreamAddOP) {
   auto num_hpus = device.get_count_by_current_type();
   if (num_hpus == 0)
     return;
-  bool result1, result2;
+  bool result1;
+  bool result2;
 
   std::thread t0{thread_fun_add, std::ref(result1)};
   std::thread t1{thread_fun_add, std::ref(result2)};
@@ -314,7 +316,8 @@ TEST(TestStream, MultithreadStreamKernelAdd) {
   torch::Tensor tHabana_A = tensor_A.to(torch::kHPU);
   torch::Tensor tensor_B = torch::randn({200, 300});
   torch::Tensor tHabana_B = tensor_B.to(torch::kHPU);
-  torch::Tensor outHabana_A, outHabana_B;
+  torch::Tensor outHabana_A;
+  torch::Tensor outHabana_B;
 
   std::thread t0{kernel_add, tensor_A, std::ref(outHabana_A)};
   std::thread t1{kernel_add, tensor_B, std::ref(outHabana_B)};
@@ -473,7 +476,9 @@ TEST(TestStream, TestEventblockandwait_1) {
   if (num_hpus == 0)
     return;
 
-  auto t_dim_0 = 2000, t_dim_1 = 3000, t_dim_2 = 6000;
+  auto t_dim_0 = 2000;
+  auto t_dim_1 = 3000;
+  auto t_dim_2 = 6000;
   if (is_simulator()) {
     t_dim_0 = 20;
     t_dim_1 = 30;

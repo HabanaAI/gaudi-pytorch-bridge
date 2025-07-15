@@ -942,7 +942,7 @@ DynamicBucketInfo::DynamicBucketInfo(std::istream& is) {
   int bucket_size = 0;
   deserialize(is, bucket_size);
   for (int i = 0; i < bucket_size; ++i) {
-    buckets_.emplace_back(Bucket(is));
+    buckets_.emplace_back(is);
   }
   deserialize(is, global_count);
   deserialize(is, mfu_bucket_id);
@@ -1261,7 +1261,8 @@ void DynamicBucketInfo::CalculateLocalHistoricPerTensor(
       continue;
     }
 
-    std::map<int64_t, int64_t> local_vals, current_vals;
+    std::map<int64_t, int64_t> local_vals;
+    std::map<int64_t, int64_t> current_vals;
     for (auto curr_dim{dynamic_dims->second.begin()};
          curr_dim != dynamic_dims->second.end();
          curr_dim++) {
@@ -1766,7 +1767,7 @@ void DynamicBucketInfo::DynamicDimsHelper::Deserialize(std::istream& is) {
   int flat_dd_size = 0;
   deserialize(is, flat_dd_size);
   for (int i = 0; i < flat_dd_size; ++i) {
-    flat_dd_.emplace_back(DynamicDimsElement(is));
+    flat_dd_.emplace_back(is);
   }
 }
 

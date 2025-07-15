@@ -317,9 +317,9 @@ bool ArangeOperatorDS::ReplaceWithDynamicHPUOp(
 
     // aliased floats into int64 because floats are from prim consts
     std::vector<std::pair<int64_t, int64_t>> mixed_indexes;
-    mixed_indexes.push_back(std::make_pair(start_idx, start_value));
-    mixed_indexes.push_back(std::make_pair(end_idx, end_value));
-    mixed_indexes.push_back(std::make_pair(step_idx, step_value));
+    mixed_indexes.emplace_back(start_idx, start_value);
+    mixed_indexes.emplace_back(end_idx, end_value);
+    mixed_indexes.emplace_back(step_idx, step_value);
 
     // Step2: Create shape tensor and insert to graph inputs.
     auto arange_st_name = GetDynamicTensorName(end->debugName(), SHAPE_TENSOR);
@@ -503,8 +503,7 @@ bool ConstantPad2dOperatorDS::ReplaceWithDynamicHPUOp(
       scalar_indexes_pad);
   std::vector<std::pair<int64_t, int64_t>> mixed_scalar_indexes;
   for (size_t i = 0; i < self_size.size(); i++) {
-    mixed_scalar_indexes.push_back(
-        std::make_pair(scalar_indexes_pad[i], self_size[i]));
+    mixed_scalar_indexes.emplace_back(scalar_indexes_pad[i], self_size[i]);
   }
   // Step2: Create shape tensor and insert to graph inputs.
   auto pad_st_name =
@@ -747,7 +746,7 @@ bool AsStridedOperatorDS::ReplaceWithDynamicHPUOp(
   for (size_t i = 0; i < fill_dim; i++) {
     h2d_values.push_back(static_cast<uint64_t>(0));
     scalar_indexes.push_back(LONG_MAX);
-    h2d_expr.push_back("0");
+    h2d_expr.emplace_back("0");
   }
   // Fill num_strides at 0 index
   scalar_indexes.insert(scalar_indexes.begin(), LONG_MAX);
@@ -1042,7 +1041,7 @@ bool AsStridedScatterOperatorDS::ReplaceWithDynamicHPUOp(
   for (size_t i = 0; i < fill_dim; i++) {
     h2d_values.push_back(static_cast<uint64_t>(0));
     scalar_indexes.push_back(LONG_MAX);
-    h2d_expr.push_back("0");
+    h2d_expr.emplace_back("0");
   }
   // Insert num_strides at 0 index (first value)
   // and LONG_MAX as corresponding index
@@ -1264,7 +1263,7 @@ bool StridedInsertOperatorDS::ReplaceWithDynamicHPUOp(
   for (size_t i = 0; i < fill_dim; i++) {
     h2d_values.push_back(static_cast<uint64_t>(0));
     scalar_indexes.push_back(LONG_MAX);
-    h2d_expr.push_back("0");
+    h2d_expr.emplace_back("0");
   }
   // Fill num_strides at 0 index
   scalar_indexes.insert(scalar_indexes.begin(), LONG_MAX);
@@ -1449,7 +1448,7 @@ bool RandpermGeneratorOperatorDS::ReplaceWithDynamicHPUOp(
   int64_t step_value = 1;
   scalar_indexes.push_back(step_idx);
   h2d_values.push_back(static_cast<uint64_t>(step_value));
-  h2d_expr.push_back("1");
+  h2d_expr.emplace_back("1");
 
   int64_t end_idx = LONG_MAX;
   int64_t end_value = 0;
@@ -1465,7 +1464,7 @@ bool RandpermGeneratorOperatorDS::ReplaceWithDynamicHPUOp(
   int64_t start_value = 0;
   scalar_indexes.push_back(start_idx);
   h2d_values.push_back(static_cast<uint64_t>(start_value));
-  h2d_expr.push_back("0");
+  h2d_expr.emplace_back("0");
 
   // Step2: Create H2D tensor and insert to graph inputs.
   auto arange_h2d_name =

@@ -39,7 +39,8 @@ std::string get_device_name() {
 }
 
 uint64_t get_memory_size() {
-  uint64_t free_mem{}, total_mem{};
+  uint64_t free_mem{};
+  uint64_t total_mem{};
   auto status = synDeviceGetMemoryInfo(0, &free_mem, &total_mem);
   if (status != synSuccess) {
     PT_SYNHELPER_DEBUG(
@@ -117,7 +118,8 @@ void SynapseProfilerSource::set_offset(unsigned offset) {
 }
 
 void SynapseProfilerSource::convertLogs(TraceSink& output) {
-  size_t size{}, count{};
+  size_t size{};
+  size_t count{};
   getLogsSize(size, count);
   if (count == 0) {
     std::cerr << "No profiler entries" << std::endl;

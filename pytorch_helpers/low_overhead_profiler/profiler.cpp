@@ -199,7 +199,9 @@ void print_histogram(
 
   std::vector<uint64_t> buckets(
       NUM_EQUIDISTANT_BUCKETS + NUM_EXPONENTIAL_BUCKETS, 0);
-  uint64_t equidistant_bucket_size, exponential_range, exponential_base;
+  uint64_t equidistant_bucket_size;
+  uint64_t exponential_range;
+  uint64_t exponential_base;
   create_buckets(
       events,
       target_event_name,

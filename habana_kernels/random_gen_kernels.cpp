@@ -78,7 +78,7 @@ InferOutputMetaRetType RandpermOperatorHT::InferOutputMeta(
   out.call_InferOutputMeta(arangeOp, stack);
 
   stack.clear();
-  stack.emplace_back(IValue(arangeOutput));
+  stack.emplace_back(arangeOutput);
   auto randShuffleOp = make_operator<RandomShuffleOperator>(
       this->p_context_->device_id_, at::ScalarType::Int);
 
@@ -127,7 +127,7 @@ void RandpermOperatorHT::AllocateAndAddSynapseNode(
   // be automatically casted to int32 dtype.
   auto randShuffleOp = make_operator<RandomShuffleOperator>(
       this->p_context_->device_id_, at::ScalarType::Int);
-  stack.emplace_back(IValue(arangeOutput));
+  stack.emplace_back(arangeOutput);
   randShuffleOp->SetSynapseInput(arangeOp->GetSynOutputs()[0]);
   randShuffleOp->SetSynapseInput(p_context_->syn_inputs_[1]);
   randShuffleOp->AllocateAndAddSynapseNode(graph, stack, output_metadata);
@@ -179,7 +179,7 @@ void RandpermOperator::AllocateAndAddSynapseNode(
   // be automatically casted to int32 dtype.
   auto randShuffleOp = make_operator<RandomShuffleOperator>(
       this->p_context_->device_id_, at::ScalarType::Int);
-  stack.emplace_back(IValue(arangeOutput));
+  stack.emplace_back(arangeOutput);
   randShuffleOp->SetSynapseInput(arangeOp->GetSynOutputs()[0]);
   randShuffleOp->SetSynapseInput(p_context_->syn_inputs_[0]);
   randShuffleOp->AllocateAndAddSynapseNode(graph, stack, output_metadata);

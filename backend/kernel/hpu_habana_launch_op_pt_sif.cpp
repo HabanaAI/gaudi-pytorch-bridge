@@ -711,7 +711,7 @@ bool HabanaLaunchOpPT::RunHybridSif(
       if (node_params_vec_ptr) {
         // add dummy node params for all sub-kernels/syn nodes if any
         for (size_t i = 0; i < num_syn_nodes; i++) {
-          (*node_params_vec_ptr).push_back(InferNodeParams(nullptr, 0));
+          (*node_params_vec_ptr).emplace_back(nullptr, 0);
         }
       }
     }};
@@ -802,7 +802,7 @@ bool HabanaLaunchOpPT::RunHybridSif(
                 ? params.size()
                 : output_shape_info.GetKernels().size() + 1;
             for (size_t i = 0; i < nodesCount; i++) {
-              (*node_params_vec_ptr).push_back(InferNodeParams(nullptr, 0));
+              (*node_params_vec_ptr).emplace_back(nullptr, 0);
             }
           }
         }

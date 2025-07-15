@@ -141,7 +141,8 @@ void PostNmsOperator::AllocateAndAddSynapseNode(
   if (graph.is_dynamic_graph() && (!graph.is_dry_run())) {
     synapse_helpers::tensor& syn_tensor = p_context_->syn_outputs_.back();
     auto tensor_id = syn_tensor.id();
-    std::vector<int64_t> min, max;
+    std::vector<int64_t> min;
+    std::vector<int64_t> max;
     std::tie(min, max) = habana::ShapeInference::GetMinMaxShape(tensor_id);
     params.max_output_size = static_cast<int>(max[0]);
   } else {

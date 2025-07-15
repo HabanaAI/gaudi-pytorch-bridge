@@ -228,7 +228,8 @@ InferOutputMetaRetType TransposeOperator::InferOutputMeta(
   auto dim0_ = inputs[1].toInt();
   auto dim1_ = inputs[2].toInt();
 
-  std::vector<int64_t> self_sizes, self_strides;
+  std::vector<int64_t> self_sizes;
+  std::vector<int64_t> self_strides;
   std::tie(self_sizes, self_strides) =
       TransposeOperator::compute_output_shape(self, dim0_, dim1_);
 
@@ -264,7 +265,8 @@ void TransposeOperator::AllocateAndAddSynapseNode(
   int64_t dim0 = at::maybe_wrap_dim(dim0_, self.dim(), /*wrap_scalar=*/true);
   int64_t dim1 = at::maybe_wrap_dim(dim1_, self.dim(), /*wrap_scalar=*/true);
 
-  std::vector<int64_t> self_sizes, self_strides;
+  std::vector<int64_t> self_sizes;
+  std::vector<int64_t> self_strides;
   std::tie(self_sizes, self_strides) =
       TransposeOperator::compute_output_shape(self, dim0_, dim1_);
   auto out = habana::createPTTensor(
@@ -340,7 +342,8 @@ InferOutputMetaRetType PermuteOperator::InferOutputMeta(
     torch::jit::Stack& inputs) {
   Tensor self = inputs[0].toTensor();
   const auto dims = inputs[1].toIntVector();
-  std::vector<int64_t> new_sizes, new_strides;
+  std::vector<int64_t> new_sizes;
+  std::vector<int64_t> new_strides;
   std::tie(new_sizes, new_strides) =
       PermuteOperator::compute_output_shape(self, dims);
 
@@ -376,7 +379,8 @@ void PermuteOperator::AllocateAndAddSynapseNode(
       (self.dim() <= HABANA_DIM_MAX),
       "Number of tensor dims larger then allowed max limit");
 
-  std::vector<int64_t> new_sizes, new_strides;
+  std::vector<int64_t> new_sizes;
+  std::vector<int64_t> new_strides;
   std::tie(new_sizes, new_strides) =
       PermuteOperator::compute_output_shape(self, dims);
 
@@ -555,7 +559,7 @@ InferOutputMetaRetType ViewOperator::InferOutputMeta(
     // remove start_dim & end_dim. we have already used these to compute shape
     inputs.pop_back();
     // insert computed shape into inputs stack before calling reshape
-    inputs.push_back(IValue(inferred_dims));
+    inputs.emplace_back(inferred_dims);
   }
 
   return ReshapeOperator::InferOutputMeta(inputs);
@@ -594,7 +598,7 @@ void ViewOperator::AllocateAndAddSynapseNode(
     // remove start_dim & end_dim. we have already used these to compute shape
     inputs.pop_back();
     // insert computed shape into inputs stack before calling reshape
-    inputs.push_back(IValue(inferred_dims));
+    inputs.emplace_back(inferred_dims);
   } else {
     HABANA_ASSERT(p_context_->syn_inputs_.back().ref().is_shape_tensor());
   }

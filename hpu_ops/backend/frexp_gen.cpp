@@ -21,7 +21,8 @@ OutputMetaDataVector FrexpMeta(const at::Stack& stack) {
   const auto& self = stack_tensor(stack, 0);
   const auto shape = self.sizes().vec();
 
-  OutputMetaData mantissaMeta, exponentMeta;
+  OutputMetaData mantissaMeta;
+  OutputMetaData exponentMeta;
   mantissaMeta.shape = exponentMeta.shape = shape;
 
   mantissaMeta.dtype = self.scalar_type();

@@ -106,9 +106,9 @@ void mem_handle::ensure_fits_ptr(
 }
 
 HandlesMap::HandlesMap() {
-  handles_[BUCKET_TYPE_SMALL].emplace_back(Record{});
-  handles_[BUCKET_TYPE_MEDIUM].emplace_back(Record{});
-  handles_[BUCKET_TYPE_BIG].emplace_back(Record{});
+  handles_[BUCKET_TYPE_SMALL].emplace_back();
+  handles_[BUCKET_TYPE_MEDIUM].emplace_back();
+  handles_[BUCKET_TYPE_BIG].emplace_back();
 }
 
 bucket_type HandlesMap::getBucketIndexForGivenTensorSize(size_t size) {

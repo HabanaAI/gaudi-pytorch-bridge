@@ -174,8 +174,8 @@ InferOutputMetaRetType ReduceOperator::InferOutputMeta(
     auto ReshapeOp = make_operator<ReshapeOperator>(
         this->p_context_->device_id_, self.scalar_type());
     std::vector<c10::IValue> stack;
-    stack.emplace_back(IValue(self));
-    stack.emplace_back(IValue(shape));
+    stack.emplace_back(self);
+    stack.emplace_back(shape);
     auto& reshape_out = out.call_InferOutputMeta(ReshapeOp, stack);
     self_reshaped = std::get<1>(reshape_out.GetOutputTensor(0));
 
@@ -225,8 +225,8 @@ InferOutputMetaRetType ReduceOperator::InferOutputMeta(
     auto ReshapeOp = make_operator<ReshapeOperator>(
         this->p_context_->device_id_, self_reshaped.scalar_type());
     std::vector<c10::IValue> stack;
-    stack.emplace_back(IValue(self_reshaped));
-    stack.emplace_back(IValue(output.sizes()));
+    stack.emplace_back(self_reshaped);
+    stack.emplace_back(output.sizes());
     // reshape output
     out.call_InferOutputMeta(ReshapeOp, stack);
     // since reshape is directly realized at synapse guid level
@@ -325,8 +325,8 @@ void ReduceOperator::AllocateAndAddSynapseNode(
     ReshapeOp->SetSynapseInput(p_context_->syn_inputs_[0]);
     // Build Params for the graph
     std::vector<c10::IValue> stack;
-    stack.emplace_back(IValue(self));
-    stack.emplace_back(IValue(shape));
+    stack.emplace_back(self);
+    stack.emplace_back(shape);
     ReshapeOp->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
 
     auto self_reshaped = ReshapeOp->GetOutputs()[0];

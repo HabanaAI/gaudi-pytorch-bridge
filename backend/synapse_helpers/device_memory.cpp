@@ -852,14 +852,14 @@ bool device_memory::defragment_memory(
             " dst_end_addr::",
             dst_end_addr);
         size_t size_base = dst_end_addr - src_base_addr;
-        move_address.push_back({src_base_addr, dst_base_addr, size_base});
+        move_address.emplace_back(src_base_addr, dst_base_addr, size_base);
 
         size_t remaning_size = size - size_base;
         src_base_addr = src_base_addr + size_base;
         dst_base_addr = dst_base_addr + size_base;
-        move_address.push_back({src_base_addr, dst_base_addr, remaning_size});
+        move_address.emplace_back(src_base_addr, dst_base_addr, remaning_size);
       } else {
-        move_address.push_back({src_base_addr, dst_base_addr, size});
+        move_address.emplace_back(src_base_addr, dst_base_addr, size);
       }
 
       ++total_moved_resources;

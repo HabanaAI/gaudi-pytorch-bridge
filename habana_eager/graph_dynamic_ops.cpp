@@ -610,13 +610,17 @@ bool SliceOperatorDS::ReplaceWithDynamicHPUOp(
   std::vector<std::pair<int64_t, int64_t>> mixed_indexes;
   std::vector<std::pair<int64_t, int64_t>> mixed_scalar_indexes;
   for (size_t i = 0; i < self_size.size(); i++)
-    mixed_scalar_indexes.push_back(
-        std::make_pair(scalar_indexes[i], self_size[i]));
+    mixed_scalar_indexes.emplace_back(scalar_indexes[i], self_size[i]);
 
   // get Dim
-  int64_t dim_idx = LONG_MAX, start_idx = LONG_MAX, end_idx = LONG_MAX,
-          step_idx = LONG_MAX;
-  int64_t dim = 0, start = 0, end = 0, step = 0;
+  int64_t dim_idx = LONG_MAX;
+  int64_t start_idx = LONG_MAX;
+  int64_t end_idx = LONG_MAX;
+  int64_t step_idx = LONG_MAX;
+  int64_t dim = 0;
+  int64_t start = 0;
+  int64_t end = 0;
+  int64_t step = 0;
   GetValueAndScalarIndexFromInput(
       slice_node->inputs().at(1), in_stack, org_stack_index_map, dim, dim_idx);
   // get start
@@ -642,10 +646,10 @@ bool SliceOperatorDS::ReplaceWithDynamicHPUOp(
       slice_node->inputs().at(4), org_stack_index_map, m_range_infos);
 
   // capture actual values
-  mixed_indexes.push_back(std::make_pair(dim_idx, dim));
-  mixed_indexes.push_back(std::make_pair(start_idx, start));
-  mixed_indexes.push_back(std::make_pair(end_idx, end));
-  mixed_indexes.push_back(std::make_pair(step_idx, step));
+  mixed_indexes.emplace_back(dim_idx, dim);
+  mixed_indexes.emplace_back(start_idx, start);
+  mixed_indexes.emplace_back(end_idx, end);
+  mixed_indexes.emplace_back(step_idx, step);
 
   dim = at::maybe_wrap_dim(dim, self_size.size(), /*wrap_scalar=*/true);
   end = self_size[dim] < end ? self_size[dim] : end;

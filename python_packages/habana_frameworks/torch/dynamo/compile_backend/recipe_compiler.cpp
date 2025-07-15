@@ -48,10 +48,10 @@ std::vector<at::Tensor> batch_empty(const std::vector<EmptyBatchData>& batch) {
     HABANA_ASSERT(habana_helpers::is_supported_type(dtype));
 
     if (!el.stride.has_value()) {
-      result.push_back(
+      result.emplace_back(
           at::detail::empty_generic(el.size, allocator, hpu_ks, dtype, {}));
     } else {
-      result.push_back(
+      result.emplace_back(
           at::detail::empty_strided_generic(
               el.size, el.stride.value(), allocator, hpu_ks, dtype));
     }
@@ -170,7 +170,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
 
         torch::jit::Stack out_stack;
         for (size_t idx = 0; idx < outputs.size(); idx++) {
-          out_stack.push_back(outputs[idx]);
+          out_stack.emplace_back(outputs[idx]);
         }
         return torch::jit::createPyObjectForStack(std::move(out_stack));
       },

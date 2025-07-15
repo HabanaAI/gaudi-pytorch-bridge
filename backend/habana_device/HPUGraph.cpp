@@ -99,8 +99,7 @@ void HPUGraph::capture_end() {
     for (size_t inp = 0; inp < num_inputs; ++inp) {
       std::shared_ptr<habana_lazy::Data> d =
           single_graph->input_vals_[inp].m_data_ptr.lock();
-      single_graph->hblazy_tensors_in_.emplace_back(
-          habana_lazy::HbLazyTensor(std::move(d)));
+      single_graph->hblazy_tensors_in_.emplace_back(std::move(d));
     }
   }
 

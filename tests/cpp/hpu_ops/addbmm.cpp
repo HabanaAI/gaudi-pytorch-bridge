@@ -139,7 +139,8 @@ TEST_F(HpuOpTest, addbmmTest) {
   constexpr int m = 2;
   constexpr int p = 2;
   constexpr int batch = 10;
-  const c10::Scalar alpha = 0, beta = 1;
+  const c10::Scalar alpha = 0;
+  const c10::Scalar beta = 1;
   GenerateInputs(3, {{n, p}, {batch, n, m}, {batch, m, p}});
 
   torch::Tensor expected = torch::addbmm(
@@ -155,7 +156,8 @@ TEST_F(HpuOpTest, addbmmTestAlphaBeta) {
   constexpr int m = 3;
   constexpr int p = 4;
   constexpr int batch = 10;
-  const c10::Scalar alpha = 1.2, beta = 1.8;
+  const c10::Scalar alpha = 1.2;
+  const c10::Scalar beta = 1.8;
   GenerateInputs(3, {{n, p}, {batch, n, m}, {batch, m, p}});
 
   torch::Tensor expected = torch::addbmm(
@@ -172,7 +174,8 @@ TEST_F(HpuOpTest, addbmmTestAlpha) {
   constexpr int m = 4;
   constexpr int p = 5;
   constexpr int batch = 10;
-  const c10::Scalar alpha = 3.8, beta = 0.0;
+  const c10::Scalar alpha = 3.8;
+  const c10::Scalar beta = 0.0;
   GenerateInputs(3, {{n, p}, {batch, n, m}, {batch, m, p}});
 
   torch::Tensor expected = torch::addbmm(
@@ -189,7 +192,8 @@ TEST_F(HpuOpTest, addbmmTestAlphaBF16) {
   constexpr int m = 34;
   constexpr int p = 15;
   constexpr int batch = 10;
-  const c10::Scalar alpha = 3.8, beta = 0.0;
+  const c10::Scalar alpha = 3.8;
+  const c10::Scalar beta = 0.0;
   GenerateInputs(3, {{n, p}, {batch, n, m}, {batch, m, p}}, {torch::kBFloat16});
 
   torch::Tensor expected = torch::addbmm(
@@ -205,7 +209,8 @@ TEST_F(HpuOpTest, addbmmTestBeta) {
   constexpr int m = 4;
   constexpr int p = 5;
   constexpr int batch = 10;
-  const c10::Scalar alpha = 1.0, beta = 3.2;
+  const c10::Scalar alpha = 1.0;
+  const c10::Scalar beta = 3.2;
   GenerateInputs(3, {{n, p}, {batch, n, m}, {batch, m, p}});
 
   torch::Tensor expected = torch::addbmm(
@@ -221,7 +226,8 @@ TEST_F(HpuOpTest, addbmmTestAlphaBetaBroadcast1) {
   constexpr int m = 5;
   constexpr int p = 7;
   constexpr int batch = 10;
-  const c10::Scalar alpha = 1.9, beta = 3.2;
+  const c10::Scalar alpha = 1.9;
+  const c10::Scalar beta = 3.2;
   GenerateInputs(3, {{1, p}, {batch, n, m}, {batch, m, p}});
 
   torch::Tensor expected = torch::addbmm(
@@ -238,7 +244,8 @@ TEST_F(HpuOpTest, addbmmTestAlphaBetaBroadcast2) {
   constexpr int m = 5;
   constexpr int p = 7;
   constexpr int batch = 10;
-  const c10::Scalar alpha = 1.9, beta = 3.2;
+  const c10::Scalar alpha = 1.9;
+  const c10::Scalar beta = 3.2;
   GenerateInputs(3, {{n, 1}, {batch, n, m}, {batch, m, p}});
 
   torch::Tensor expected = torch::addbmm(

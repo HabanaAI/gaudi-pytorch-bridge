@@ -149,16 +149,16 @@ void NormOperator::AddL0NormNode(
   std::shared_ptr<HabanaOperator> ne_op =
       make_operator<NotEqualScalar>(device_id, scalar_type);
   ne_op->SetSynapseInput(p_context_->syn_inputs_[0]);
-  stack.emplace_back(IValue(self));
-  stack.emplace_back(IValue(0.0));
+  stack.emplace_back(self);
+  stack.emplace_back(0.0);
   ne_op->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
   stack.clear();
   using namespace std::literals;
   std::string node_type = get_guid_with_precision("cast_i8_to"sv, scalar_type);
   auto cast1 = make_operator<CastOperator>(device_id, node_type);
   cast1->SetSynapseInput(ne_op->GetSynOutputs()[0]);
-  stack.emplace_back(IValue(ne_op->GetOutputs()[0]));
-  stack.emplace_back(IValue(scalar_type));
+  stack.emplace_back(ne_op->GetOutputs()[0]);
+  stack.emplace_back(scalar_type);
 
   OutputMetaData md;
   md.dtype = scalar_type;
@@ -168,10 +168,10 @@ void NormOperator::AddL0NormNode(
   auto sum_dim_op =
       make_operator<SumDimOperator>(this->p_context_->device_id_, scalar_type);
   sum_dim_op->SetSynapseInput(cast1->GetSynOutputs()[0]);
-  stack.emplace_back(IValue(cast1->GetOutputs()[0]));
-  stack.emplace_back(IValue(dims));
-  stack.emplace_back(IValue(keepdim));
-  stack.emplace_back(IValue(scalar_type));
+  stack.emplace_back(cast1->GetOutputs()[0]);
+  stack.emplace_back(dims);
+  stack.emplace_back(keepdim);
+  stack.emplace_back(scalar_type);
   sum_dim_op->AllocateAndAddSynapseNode(graph, stack, {output_metadata});
   stack.clear();
   p_context_->syn_outputs_.emplace_back(
@@ -200,7 +200,7 @@ void NormOperator::AddLInfNormNode(
   torch::jit::Stack stack;
   auto abs_op = make_operator<AbsOperator>(device_id, scalar_type);
   abs_op->SetSynapseInput(p_context_->syn_inputs_[0]);
-  stack.emplace_back(IValue(self));
+  stack.emplace_back(self);
   abs_op->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
   stack.clear();
   // Reduction operation - Create the operator
@@ -215,10 +215,10 @@ void NormOperator::AddLInfNormNode(
     HABANA_ASSERT(0, "Call to AddLInfNormNode with invalid p value");
   }
   reduce_op->SetSynapseInput(abs_op->GetSynOutputs()[0]);
-  stack.emplace_back(IValue(abs_op->GetOutputs()[0]));
-  stack.emplace_back(IValue(dims));
-  stack.emplace_back(IValue(keepdim));
-  stack.emplace_back(IValue(scalar_type));
+  stack.emplace_back(abs_op->GetOutputs()[0]);
+  stack.emplace_back(dims);
+  stack.emplace_back(keepdim);
+  stack.emplace_back(scalar_type);
   reduce_op->AllocateAndAddSynapseNode(graph, stack, {output_metadata});
   stack.clear();
   p_context_->syn_outputs_.emplace_back(
@@ -271,21 +271,21 @@ void NormOperator::AllocateAndAddSynapseNode(
           this->p_context_->device_id_, scalar_type);
       mulOp->SetSynapseInput(p_context_->syn_inputs_[0]);
       mulOp->SetSynapseInput(identityOp->GetSynOutputs()[0]);
-      stack.emplace_back(IValue(self));
-      stack.emplace_back(IValue(identityOp->GetOutputs()[0]));
+      stack.emplace_back(self);
+      stack.emplace_back(identityOp->GetOutputs()[0]);
       mulOp->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
       stack.clear();
       // add node to compute reduce_sum
       auto sum_lp = make_operator<SumOperator>(device_id, scalar_type);
       sum_lp->SetSynapseInput(mulOp->GetSynOutputs()[0]);
-      stack.emplace_back(IValue(mulOp->GetOutputs()[0]));
-      stack.emplace_back(IValue(scalar_type));
+      stack.emplace_back(mulOp->GetOutputs()[0]);
+      stack.emplace_back(scalar_type);
       sum_lp->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
       stack.clear();
 
       auto sqrt_op = make_operator<SqrtOperator>(device_id, scalar_type);
       sqrt_op->SetSynapseInput(sum_lp->GetSynOutputs()[0]);
-      stack.emplace_back(IValue(sum_lp->GetOutputs()[0]));
+      stack.emplace_back(sum_lp->GetOutputs()[0]);
       sqrt_op->AllocateAndAddSynapseNode(graph, stack, output_metadata);
       stack.clear();
       // synapse_helpers::tensor& sum_syn_tensor = sum_lp.GetSynOutputs()[0];
@@ -302,7 +302,7 @@ void NormOperator::AllocateAndAddSynapseNode(
       LpNormFrobeniusOp->SetSynapseInput(p_context_->syn_inputs_[0]);
 
       // Build Params for the graph
-      stack.emplace_back(IValue(self));
+      stack.emplace_back(self);
       LpNormFrobeniusOp->AllocateAndAddSynapseNode(
           graph, stack, output_metadata);
 
@@ -331,9 +331,9 @@ void NormOperator::AllocateAndAddSynapseNode(
         this->p_context_->device_id_, scalar_type);
     LpNormOp->SetSynapseInput(ReShapeOp->GetSynOutputs()[0]);
     // Build Params for the graph
-    stack.emplace_back(IValue(output_reshape));
-    stack.emplace_back(IValue(p));
-    stack.emplace_back(IValue(0)); // dim
+    stack.emplace_back(output_reshape);
+    stack.emplace_back(p);
+    stack.emplace_back(0); // dim
     LpNormOp->AllocateAndAddSynapseNode(graph, stack, output_metadata);
     p_context_->syn_outputs_.emplace_back(
         std::move(LpNormOp->GetSynOutputs()[0]));
@@ -412,7 +412,7 @@ void LpNormOperator::AllocateAndAddSynapseNode(
       this->p_context_->device_id_, self.scalar_type());
   reciprocalOp->SetSynapseInput(p_context_->syn_outputs_[1]);
   // Build Params for the graph
-  stack.emplace_back(IValue(retain));
+  stack.emplace_back(retain);
   reciprocalOp->AllocateAndAddSynapseNode(
       graph, stack, OutputMetaDataVector(1));
   stack.clear();
@@ -421,14 +421,14 @@ void LpNormOperator::AllocateAndAddSynapseNode(
   auto slice_op = make_operator<SliceOperator>(
       this->p_context_->device_id_, self.scalar_type());
   slice_op->SetSynapseInput(reciprocalOp->GetSynOutputs()[0]);
-  stack.emplace_back(IValue(reciprocalOp->GetOutputs()[0]));
+  stack.emplace_back(reciprocalOp->GetOutputs()[0]);
   int start = 0;
   int end = 1;
   int step = 1;
-  stack.emplace_back(IValue(dim));
-  stack.emplace_back(IValue(start));
-  stack.emplace_back(IValue(end));
-  stack.emplace_back(IValue(step));
+  stack.emplace_back(dim);
+  stack.emplace_back(start);
+  stack.emplace_back(end);
+  stack.emplace_back(step);
   slice_op->AllocateAndAddSynapseNode(graph, stack, output_metadata);
   p_context_->syn_outputs_.erase(p_context_->syn_outputs_.begin());
   p_context_->syn_outputs_.insert(
@@ -486,8 +486,8 @@ std::shared_ptr<SliceOperator> FusedNormOperator::compute_clip_coeff(
       // Add node to compute norm on each gradient tensor
       auto norm_lp = make_operator<NormOperator>(device_id, scalar_type);
       norm_lp->SetSynapseInput(p_context_->syn_inputs_[i]);
-      stack.emplace_back(IValue(gradients.get(i)));
-      stack.emplace_back(IValue(2.0));
+      stack.emplace_back(gradients.get(i));
+      stack.emplace_back(2.0);
       norm_lp->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
       stack.clear();
       // each grad_norm connected to cat node
@@ -498,8 +498,8 @@ std::shared_ptr<SliceOperator> FusedNormOperator::compute_clip_coeff(
 
     // grad_norms are concatened into a single big tensor of shape
     // {num_params,1}
-    stack.emplace_back(IValue(cat_input));
-    stack.emplace_back(IValue(0));
+    stack.emplace_back(cat_input);
+    stack.emplace_back(0);
     cat_grad_norms->AllocateAndAddSynapseNode(
         graph, stack, OutputMetaDataVector(1));
     stack.clear();
@@ -507,8 +507,8 @@ std::shared_ptr<SliceOperator> FusedNormOperator::compute_clip_coeff(
     // node to do compute total_norm
     auto norm_final = make_operator<NormOperator>(device_id, scalar_type);
     norm_final->SetSynapseInput(cat_grad_norms->GetSynOutputs()[0]);
-    stack.emplace_back(IValue(cat_grad_norms->GetOutputs()[0]));
-    stack.emplace_back(IValue(2.0));
+    stack.emplace_back(cat_grad_norms->GetOutputs()[0]);
+    stack.emplace_back(2.0);
     norm_final->AllocateAndAddSynapseNode(graph, stack, output_metadata);
     stack.clear();
     p_context_->syn_outputs_.emplace_back(
@@ -528,9 +528,9 @@ std::shared_ptr<SliceOperator> FusedNormOperator::compute_clip_coeff(
     // total_norm + 1e-6
     auto add_op1 = make_operator<AddOperator>(device_id, scalar_type);
     add_op1->SetSynapseInput(p_context_->syn_outputs_[0]);
-    stack.emplace_back(IValue(p_context_->pt_outputs_[0]));
-    stack.emplace_back(IValue(Scalar(eps)));
-    stack.emplace_back(IValue(1.0));
+    stack.emplace_back(p_context_->pt_outputs_[0]);
+    stack.emplace_back(Scalar(eps));
+    stack.emplace_back(1.0);
     add_op1->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
     stack.clear();
 
@@ -538,8 +538,8 @@ std::shared_ptr<SliceOperator> FusedNormOperator::compute_clip_coeff(
     auto div_final = make_operator<DivOperator>(device_id, scalar_type);
     div_final->SetSynapseInput(p_context_->syn_inputs_[num_params]);
     div_final->SetSynapseInput(add_op1->GetSynOutputs()[0]);
-    stack.emplace_back(IValue(max_grad_norm));
-    stack.emplace_back(IValue(add_op1->GetOutputs()[0]));
+    stack.emplace_back(max_grad_norm);
+    stack.emplace_back(add_op1->GetOutputs()[0]);
     div_final->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
     stack.clear();
 
@@ -547,16 +547,16 @@ std::shared_ptr<SliceOperator> FusedNormOperator::compute_clip_coeff(
     auto gt_op = make_operator<GtOperator>(device_id, scalar_type);
     gt_op->SetSynapseInput(p_context_->syn_outputs_[0]);
     gt_op->SetSynapseInput(p_context_->syn_inputs_[num_params]);
-    stack.emplace_back(IValue(p_context_->pt_outputs_[0]));
-    stack.emplace_back(IValue(max_grad_norm));
+    stack.emplace_back(p_context_->pt_outputs_[0]);
+    stack.emplace_back(max_grad_norm);
     gt_op->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
     stack.clear();
 
     std::string node_type = "cast_i8_to_f32";
     auto cast1 = make_operator<CastOperator>(device_id, node_type);
     cast1->SetSynapseInput(gt_op->GetSynOutputs()[0]);
-    stack.emplace_back(IValue(gt_op->GetOutputs()[0]));
-    stack.emplace_back(IValue(c10::ScalarType::Float));
+    stack.emplace_back(gt_op->GetOutputs()[0]);
+    stack.emplace_back(c10::ScalarType::Float);
     OutputMetaData md;
     md.dtype = at::kFloat;
     cast1->AllocateAndAddSynapseNode(graph, stack, {md});
@@ -566,23 +566,23 @@ std::shared_ptr<SliceOperator> FusedNormOperator::compute_clip_coeff(
     auto mul1 = make_operator<MulOperator>(device_id, scalar_type);
     mul1->SetSynapseInput(cast1->GetSynOutputs()[0]);
     mul1->SetSynapseInput(div_final->GetSynOutputs()[0]);
-    stack.emplace_back(IValue(cast1->GetOutputs()[0]));
-    stack.emplace_back(IValue(div_final->GetOutputs()[0]));
+    stack.emplace_back(cast1->GetOutputs()[0]);
+    stack.emplace_back(div_final->GetOutputs()[0]);
     mul1->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
     stack.clear();
     // imask = (mask == 0)
     auto eq_op = make_operator<EqOperator>(device_id, scalar_type);
     eq_op->SetSynapseInput(cast1->GetSynOutputs()[0]);
-    stack.emplace_back(IValue(cast1->GetOutputs()[0]));
-    stack.emplace_back(IValue(0.0));
+    stack.emplace_back(cast1->GetOutputs()[0]);
+    stack.emplace_back(0.0);
     eq_op->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
     stack.clear();
 
     node_type = "cast_i8_to_f32";
     auto cast2 = make_operator<CastOperator>(device_id, node_type);
     cast2->SetSynapseInput(eq_op->GetSynOutputs()[0]);
-    stack.emplace_back(IValue(eq_op->GetOutputs()[0]));
-    stack.emplace_back(IValue(c10::ScalarType::Float));
+    stack.emplace_back(eq_op->GetOutputs()[0]);
+    stack.emplace_back(c10::ScalarType::Float);
     cast2->AllocateAndAddSynapseNode(graph, stack, {md});
     stack.clear();
 
@@ -590,19 +590,19 @@ std::shared_ptr<SliceOperator> FusedNormOperator::compute_clip_coeff(
     auto add_op2 = make_operator<AddOperator>(device_id, scalar_type);
     add_op2->SetSynapseInput(mul1->GetSynOutputs()[0]);
     add_op2->SetSynapseInput(cast2->GetSynOutputs()[0]);
-    stack.emplace_back(IValue(mul1->GetOutputs()[0]));
-    stack.emplace_back(IValue(cast2->GetOutputs()[0]));
-    stack.emplace_back(IValue(1.0));
+    stack.emplace_back(mul1->GetOutputs()[0]);
+    stack.emplace_back(cast2->GetOutputs()[0]);
+    stack.emplace_back(1.0);
     add_op2->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
     stack.clear();
     // take just the first element of add since all values would be repeated
 
     slice_op->SetSynapseInput(add_op2->GetSynOutputs()[0]);
-    stack.emplace_back(IValue(add_op2->GetOutputs()[0]));
-    stack.emplace_back(IValue(0));
-    stack.emplace_back(IValue(0));
-    stack.emplace_back(IValue(1));
-    stack.emplace_back(IValue(1));
+    stack.emplace_back(add_op2->GetOutputs()[0]);
+    stack.emplace_back(0);
+    stack.emplace_back(0);
+    stack.emplace_back(1);
+    stack.emplace_back(1);
     slice_op->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
     stack.clear();
   } else {
@@ -637,8 +637,8 @@ void FusedNormOperator::AllocateAndAddSynapseNode(
     auto mul1 = make_operator<MulInplaceOperator>(device_id, scalar_type);
     mul1->SetSynapseInput(p_context_->syn_inputs_[i]);
     mul1->SetSynapseInput(slice_op->GetSynOutputs()[0]);
-    stack.emplace_back(IValue(gradients.get(i)));
-    stack.emplace_back(IValue(slice_op->GetOutputs()[0]));
+    stack.emplace_back(gradients.get(i));
+    stack.emplace_back(slice_op->GetOutputs()[0]);
     auto out_metadata = SelectVectorIndices(output_metadata, {i + 1U});
     mul1->AllocateAndAddSynapseNode(graph, stack, out_metadata);
     stack.clear();
@@ -671,8 +671,8 @@ void FusedNormLazyOperator::AllocateAndAddSynapseNode(
     auto mul1 = make_operator<MulOperator>(device_id, scalar_type);
     mul1->SetSynapseInput(p_context_->syn_inputs_[i]);
     mul1->SetSynapseInput(slice_op->GetSynOutputs()[0]);
-    stack.emplace_back(IValue(gradients.get(i)));
-    stack.emplace_back(IValue(slice_op->GetOutputs()[0]));
+    stack.emplace_back(gradients.get(i));
+    stack.emplace_back(slice_op->GetOutputs()[0]);
     mul1->AllocateAndAddSynapseNode(
         graph, stack, SelectVectorIndices(output_metadata, {i + 1}));
     stack.clear();
@@ -705,7 +705,7 @@ at::Tensor BatchNormForwardOperator::create_or_return_tensor_bn(
     p_context_->syn_inputs_.insert(it, std::move(syn_tensor));
 
     appended_tensor_infos.emplace_back(
-        std::make_tuple(syn_tensor.name(), ret_tensor, syn_tensor.id()));
+        syn_tensor.name(), ret_tensor, syn_tensor.id());
   } else if (input.defined() && input.device() != DeviceType::HPU) {
     ret_tensor = input.to(DeviceType::HPU);
   } else {
@@ -753,7 +753,8 @@ void BatchNormForwardOperator::preProcessInputs(
   HABANA_ASSERT(
       training, "BN Forward training flag should be set to 1 in training mode");
 
-  Tensor wt_hpu, bias_hpu;
+  Tensor wt_hpu;
+  Tensor bias_hpu;
   auto device = DeviceType::HPU;
   auto channel_dim = synapse_helpers::layouts::INPUT_C_IDX;
 
@@ -884,7 +885,7 @@ void BatchNormBackwardOperator::create_opt_input_tensor_bn_bwd(
     auto syn_tensor = habana_helpers::create_tensor(
         ret_tensor, graph, true, false, std::nullopt);
     appended_tensor_infos.emplace_back(
-        std::make_tuple(syn_tensor.name(), ret_tensor, syn_tensor.id()));
+        syn_tensor.name(), ret_tensor, syn_tensor.id());
     // if input is not defined, we get dummy tensor from wrapper
     // create new one and place it to the original position
     p_context_->syn_inputs_.emplace_back(std::move(syn_tensor));

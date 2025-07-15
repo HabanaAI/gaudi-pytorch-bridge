@@ -169,20 +169,20 @@ std::vector<at::IValue> convert_ivalues_to_backend_tensors(
           // metadata
           [&stack](const torch::jit::IValue& v) { stack.push_back(v); },
           // scalars
-          [&stack](const at::Scalar& s) { stack.push_back(s); },
+          [&stack](const at::Scalar& s) { stack.emplace_back(s); },
           // tensors
           [&stack, &symbol](const at::Tensor& t) {
             if (t.device().type() == c10::DeviceType::HPU) {
               if (habana::get_tensor_extra_meta(t)->is_shape_tensor()) {
-                stack.push_back(t);
+                stack.emplace_back(t);
               } else {
-                stack.push_back(HbEagerTensorPool::get_backend_tensor(t));
+                stack.emplace_back(HbEagerTensorPool::get_backend_tensor(t));
               }
               return;
             }
 
             if (t.unsafeGetTensorImpl()->is_wrapped_number()) {
-              stack.push_back(t);
+              stack.emplace_back(t);
               return;
             }
 
@@ -199,7 +199,7 @@ std::vector<at::IValue> convert_ivalues_to_backend_tensors(
                       std::begin(maskedFillPrefix),
                       std::end(maskedFillPrefix),
                       std::begin(qualstring))) {
-                stack.push_back(t.item());
+                stack.emplace_back(t.item());
                 return;
               }
             }
@@ -215,7 +215,7 @@ std::vector<at::IValue> convert_ivalues_to_backend_tensors(
               l.push_back(HbEagerTensorPool::get_backend_tensor(t));
             }
 
-            stack.push_back(l);
+            stack.emplace_back(l);
           }});
   return stack;
 }
@@ -929,9 +929,9 @@ torch::jit::Stack EagerExec::prepare_input_stack(
           // metadata
           [](const torch::jit::IValue&) {},
           // scalars
-          [&stack](const at::Scalar& s) { stack.push_back(s); },
+          [&stack](const at::Scalar& s) { stack.emplace_back(s); },
           // tensors
-          [&stack](const at::Tensor& t) { stack.push_back(t); }});
+          [&stack](const at::Tensor& t) { stack.emplace_back(t); }});
 
   return stack;
 }

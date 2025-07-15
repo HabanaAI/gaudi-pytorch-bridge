@@ -65,7 +65,9 @@ int ArangeOperator::GetOutputSize(Scalar start_, Scalar end_, Scalar step_) {
   HABANA_ASSERT(!((start > end) && (step > 0)), "step must be negative.");
   HABANA_ASSERT(!((start < end) && (step < 0)), "step must be positive.");
 
-  double max, min, abs_del;
+  double max;
+  double min;
+  double abs_del;
   int depth;
   max = start > end ? start : end;
   min = start > end ? end : start;
@@ -843,8 +845,8 @@ void IndexPutOperator::AllocateAndAddSynapseNodeBoolIndices(
     castOp1 =
         make_operator<CastOperator>(this->p_context_->device_id_, node1_type);
     castOp1->SetSynapseInput(p_context_->syn_inputs_[0]);
-    stack.emplace_back(IValue(self));
-    stack.emplace_back(IValue(c10::ScalarType::Float));
+    stack.emplace_back(self);
+    stack.emplace_back(c10::ScalarType::Float);
     auto md = OutputMetaDataVector(1);
     md[0].dtype = stack[1].toScalarType();
     castOp1->AllocateAndAddSynapseNode(graph, stack, md);
@@ -854,8 +856,8 @@ void IndexPutOperator::AllocateAndAddSynapseNodeBoolIndices(
     castOp2 =
         make_operator<CastOperator>(this->p_context_->device_id_, node1_type);
     castOp2->SetSynapseInput(bcastOp->GetSynOutputs()[0]);
-    stack.emplace_back(IValue(broadcasted_values));
-    stack.emplace_back(IValue(c10::ScalarType::Float));
+    stack.emplace_back(broadcasted_values);
+    stack.emplace_back(c10::ScalarType::Float);
     md[0].dtype = stack[1].toScalarType();
     castOp2->AllocateAndAddSynapseNode(graph, stack, md);
     stack.clear();
@@ -899,8 +901,8 @@ void IndexPutOperator::AllocateAndAddSynapseNodeBoolIndices(
     std::shared_ptr<HabanaOperator> castOpOut =
         make_operator<CastOperator>(this->p_context_->device_id_, node1_type);
     castOpOut->SetSynapseInput(add_op->GetSynOutputs()[0]);
-    stack.emplace_back(IValue(add_op->GetOutputs()[0]));
-    stack.emplace_back(IValue(out_type));
+    stack.emplace_back(add_op->GetOutputs()[0]);
+    stack.emplace_back(out_type);
     castOpOut->AllocateAndAddSynapseNode(graph, stack, output_metadata);
     stack.clear();
     p_context_->syn_outputs_.emplace_back(
@@ -1365,8 +1367,8 @@ void IndexPutOperator2::AllocateAndAddSynapseNode(
     castOp1 =
         make_operator<CastOperator>(this->p_context_->device_id_, node1_type);
     castOp1->SetSynapseInput(p_context_->syn_inputs_[0]);
-    stack.emplace_back(IValue(self));
-    stack.emplace_back(IValue(c10::ScalarType::Float));
+    stack.emplace_back(self);
+    stack.emplace_back(c10::ScalarType::Float);
     auto md = OutputMetaDataVector(1);
     md[0].dtype = stack[1].toScalarType();
     castOp1->AllocateAndAddSynapseNode(graph, stack, md);
@@ -1376,8 +1378,8 @@ void IndexPutOperator2::AllocateAndAddSynapseNode(
     castOp2 =
         make_operator<CastOperator>(this->p_context_->device_id_, node1_type);
     castOp2->SetSynapseInput(bcastOp->GetSynOutputs()[0]);
-    stack.emplace_back(IValue(broadcasted_values));
-    stack.emplace_back(IValue(c10::ScalarType::Float));
+    stack.emplace_back(broadcasted_values);
+    stack.emplace_back(c10::ScalarType::Float);
     md[0].dtype = stack[1].toScalarType();
     castOp2->AllocateAndAddSynapseNode(graph, stack, md);
     stack.clear();
@@ -1414,8 +1416,8 @@ void IndexPutOperator2::AllocateAndAddSynapseNode(
     std::shared_ptr<HabanaOperator> castOpOut =
         make_operator<CastOperator>(this->p_context_->device_id_, node1_type);
     castOpOut->SetSynapseInput(add_op->GetSynOutputs()[0]);
-    stack.emplace_back(IValue(add_op->GetOutputs()[0]));
-    stack.emplace_back(IValue(out_type));
+    stack.emplace_back(add_op->GetOutputs()[0]);
+    stack.emplace_back(out_type);
     castOpOut->AllocateAndAddSynapseNode(graph, stack, output_metadata);
     stack.clear();
     p_context_->syn_outputs_.emplace_back(
@@ -1684,7 +1686,8 @@ void ScatterNdOperator::AllocateAndAddSynapseNode(
   // For Dynamic case fill index params with max size
   if (graph.is_dynamic_graph() && (!graph.is_dry_run())) {
     synapse_helpers::tensor& syn_input_tensor = p_context_->syn_inputs_[1];
-    std::vector<int64_t> min, max;
+    std::vector<int64_t> min;
+    std::vector<int64_t> max;
     std::tie(min, max) =
         habana::ShapeInference::GetMinMaxShape(syn_input_tensor.id());
     indices_shape = max;
@@ -1727,7 +1730,7 @@ void IndexSelectOperator::AllocateAndAddSynapseNode(
   auto index = inputs[2].toTensor();
   HABANA_ASSERT(index.dim() <= 1, "index tensor cannot be more than 1D")
   bool sparse_grad = false;
-  inputs.emplace_back(IValue(sparse_grad));
+  inputs.emplace_back(sparse_grad);
   GatherOperator::AllocateAndAddSynapseNode(graph, inputs, output_metadata);
   // Revert input stack
   inputs.pop_back();
@@ -1736,7 +1739,7 @@ void IndexSelectOperator::AllocateAndAddSynapseNode(
 InferOutputMetaRetType IndexSelectOperator::InferOutputMeta(
     torch::jit::Stack& inputs) {
   bool sparse_grad = false;
-  inputs.emplace_back(IValue(sparse_grad));
+  inputs.emplace_back(sparse_grad);
   return GatherOperator::InferOutputMeta(inputs);
 }
 
@@ -1744,7 +1747,7 @@ void IndexSelectOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   auto index = inputs[2].toTensor();
   HABANA_ASSERT(index.dim() <= 1, "index tensor cannot be more than 1D")
   bool sparse_grad = false;
-  inputs.emplace_back(IValue(sparse_grad));
+  inputs.emplace_back(sparse_grad);
   GatherOperator::SetPTOutputs(inputs);
 }
 
@@ -1783,8 +1786,8 @@ void NarrowOperator::AllocateAndAddSynapseNode(
       ").");
 
   inputs.erase(inputs.cend() - 1, inputs.cend());
-  inputs.emplace_back(IValue(start + length));
-  inputs.emplace_back(IValue(1));
+  inputs.emplace_back(start + length);
+  inputs.emplace_back(1);
   SliceOperator::AllocateAndAddSynapseNode(graph, inputs, output_metadata);
 }
 
@@ -1969,7 +1972,10 @@ InferOutputMetaRetType SliceOperator::InferOutputMeta(
       }
     }
   } else {
-    int64_t dim, start, end, step;
+    int64_t dim;
+    int64_t start;
+    int64_t end;
+    int64_t step;
     dim = inputs[1].toInt();
     start = inputs[2].toInt();
     end = inputs[3].isNone() ? INT64_MAX : inputs[3].toInt();
@@ -2099,7 +2105,10 @@ void SliceOperator::AllocateAndAddSynapseNode(
     const OutputMetaDataVector& output_metadata) {
   HABANA_ASSERT(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
   auto self = inputs[0].toTensor();
-  int64_t dim, start, end, step;
+  int64_t dim;
+  int64_t start;
+  int64_t end;
+  int64_t step;
   std::vector<int64_t> shape;
 
   bool has_shape_tensor = inputs[2].isTensor();
@@ -2126,7 +2135,8 @@ void SliceOperator::AllocateAndAddSynapseNode(
          habana::ShapeInfo::InferencePass::MAX_SHAPE) &&
         (habana::ShapeInference::GetMaxPolicyInUse() ==
          habana_helpers::DynamicDimsPolicy::CALCULATED)) {
-      std::vector<int64_t> min, max;
+      std::vector<int64_t> min;
+      std::vector<int64_t> max;
       synapse_helpers::tensor& syn_tensor_start = p_context_->syn_inputs_[3];
       std::tie(min, max) =
           habana::ShapeInference::GetMinMaxShape(syn_tensor_start.id());
@@ -2159,7 +2169,8 @@ void SliceOperator::AllocateAndAddSynapseNode(
     auto host_tensor = inputs[2].toTensor();
     auto params_vec = ComputeParamsfromH2DTensor(host_tensor);
 
-    std::vector<int64_t> start, step;
+    std::vector<int64_t> start;
+    std::vector<int64_t> step;
     start = get_start_tensor(params_vec);
     step = get_step_tensor(params_vec);
 
@@ -2256,7 +2267,8 @@ void SliceOperator::AllocateAndAddSynapseNode(
     if (needs_params_handling) {
       synapse_helpers::tensor& syn_input_tensor = p_context_->syn_inputs_[0];
       auto tensor_id = syn_input_tensor.id();
-      std::vector<int64_t> min, max;
+      std::vector<int64_t> min;
+      std::vector<int64_t> max;
       std::tie(min, max) = habana::ShapeInference::GetMinMaxShape(tensor_id);
       params.ends[0] = static_cast<TSize>(max[static_cast<size_t>(dim)]);
     }

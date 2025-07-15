@@ -35,7 +35,8 @@ class HpuOpTest : public HpuOpTestUtil {
       at::optional<at::IntArrayRef> dims,
       at::optional<int64_t> dim) {
     auto [hpu_input, cpu_input] = prepare_input(inputSize, dtype);
-    at::Tensor hpu_result, cpu_result;
+    at::Tensor hpu_result;
+    at::Tensor cpu_result;
 
     if (dims.has_value()) {
       hpu_result = torch::count_nonzero(hpu_input, dims.value());

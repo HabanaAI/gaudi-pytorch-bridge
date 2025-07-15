@@ -131,7 +131,8 @@ bool CoalescedStringentPooling::pool_create(synDeviceId deviceID, uint64_t size)
   const std::lock_guard<std::mutex> lock(sp_mutex);
   synStatus status{synStatus::synSuccess};
   pool_id = deviceID;
-  uint64_t free_mem, total_mem;
+  uint64_t free_mem;
+  uint64_t total_mem;
   status = synDeviceGetMemoryInfo(deviceID, &free_mem, &total_mem);
   if (synStatus::synSuccess != status) {
     PT_DEVMEM_DEBUG(
@@ -1217,8 +1218,7 @@ std::vector<std::pair<uint64_t, uint64_t>> CoalescedStringentPooling::
     if (chunk->size == 0)
       continue;
     if (chunk->used) {
-      occupied_chunk_map.emplace_back(
-          std::make_pair(chunk->memptr, chunk->size));
+      occupied_chunk_map.emplace_back(chunk->memptr, chunk->size);
     }
   }
 

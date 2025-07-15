@@ -190,7 +190,8 @@ at::DataPtr HPUDeviceAllocator::allocate(size_t num_bytes) {
     }
 
     if (status != synStatus::synSuccess) {
-      uint64_t free_mem, total_mem;
+      uint64_t free_mem;
+      uint64_t total_mem;
       auto status_mem = synDeviceGetMemoryInfo(
           allocator_active_device_id, &free_mem, &total_mem);
       if (synStatus::synSuccess != status_mem) {

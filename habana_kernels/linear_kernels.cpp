@@ -288,8 +288,8 @@ void habana::DotOperator::AllocateAndAddSynapseNode(
       this->p_context_->device_id_, mat1.scalar_type());
   ReShapeOp_m1->SetSynapseInput(p_context_->syn_inputs_[0]);
   // Build Params for the graph
-  stack.emplace_back(IValue(mat1));
-  stack.emplace_back(IValue(shape_m1));
+  stack.emplace_back(mat1);
+  stack.emplace_back(shape_m1);
   ReShapeOp_m1->AllocateAndAddSynapseNode(
       graph, stack, habana::OutputMetaDataVector(1));
   stack.clear();
@@ -304,8 +304,8 @@ void habana::DotOperator::AllocateAndAddSynapseNode(
       this->p_context_->device_id_, mat2.scalar_type());
   ReShapeOp_m2->SetSynapseInput(p_context_->syn_inputs_[1]);
   // Build Params for the graph
-  stack.emplace_back(IValue(mat2));
-  stack.emplace_back(IValue(shape_m2));
+  stack.emplace_back(mat2);
+  stack.emplace_back(shape_m2);
   ReShapeOp_m2->AllocateAndAddSynapseNode(
       graph, stack, habana::OutputMetaDataVector(1));
   stack.clear();
@@ -315,8 +315,8 @@ void habana::DotOperator::AllocateAndAddSynapseNode(
   mmOp->SetSynapseInput(ReShapeOp_m1->GetSynOutputs()[0]);
   mmOp->SetSynapseInput(ReShapeOp_m2->GetSynOutputs()[0]);
   // Build Params for the graph
-  stack.emplace_back(IValue(ReShapeOp_m1->GetOutputs()[0]));
-  stack.emplace_back(IValue(ReShapeOp_m2->GetOutputs()[0]));
+  stack.emplace_back(ReShapeOp_m1->GetOutputs()[0]);
+  stack.emplace_back(ReShapeOp_m2->GetOutputs()[0]);
   OutputMetaData mm_output_metadata{};
   mm_output_metadata.dtype = output_metadata.at(0).dtype;
   mmOp->AllocateAndAddSynapseNode(graph, stack, {mm_output_metadata});
@@ -330,8 +330,8 @@ void habana::DotOperator::AllocateAndAddSynapseNode(
       this->p_context_->device_id_, mmOp->GetOutputs()[0].scalar_type());
   ReShapeOp_out->SetSynapseInput(mmOp->GetSynOutputs()[0]);
   // Build Params for the graph
-  stack.emplace_back(IValue(mmOp->GetOutputs()[0]));
-  stack.emplace_back(IValue(shape));
+  stack.emplace_back(mmOp->GetOutputs()[0]);
+  stack.emplace_back(shape);
   ReShapeOp_out->AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
   p_context_->syn_outputs_.emplace_back(
@@ -380,8 +380,8 @@ void habana::MvOperator::AllocateAndAddSynapseNode(
   mmOp->SetSynapseInput(p_context_->syn_inputs_[0]);
   mmOp->SetSynapseInput(ReShapeOp->GetSynOutputs()[0]);
   // Build Params for the graph
-  stack.emplace_back(IValue(mat1));
-  stack.emplace_back(IValue(ReShapeOp->GetOutputs()[0]));
+  stack.emplace_back(mat1);
+  stack.emplace_back(ReShapeOp->GetOutputs()[0]);
   OutputMetaData mm_output_metadata{};
   mm_output_metadata.dtype = output_metadata.at(0).dtype;
   mmOp->AllocateAndAddSynapseNode(graph, stack, {mm_output_metadata});
@@ -396,8 +396,8 @@ void habana::MvOperator::AllocateAndAddSynapseNode(
       this->p_context_->device_id_, mmOp->GetOutputs()[0].scalar_type());
   ReShapeOp_2->SetSynapseInput(mmOp->GetSynOutputs()[0]);
   // Build Params for the graph
-  stack.emplace_back(IValue(mmOp->GetOutputs()[0]));
-  stack.emplace_back(IValue(shape2));
+  stack.emplace_back(mmOp->GetOutputs()[0]);
+  stack.emplace_back(shape2);
   ReShapeOp_2->AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
   p_context_->syn_outputs_.emplace_back(
@@ -746,7 +746,7 @@ void habana::MatMulOperator::AllocateAndAddSynapseNode(
     stack = {IValue(t1), IValue(tensor2), mat1_transposed, mat2_transposed};
     if (bias1d_present_for_bmm) {
       mm_op->SetSynapseInput(p_context_->syn_inputs_[2]);
-      stack.emplace_back(IValue(inputs[2].toTensor()));
+      stack.emplace_back(inputs[2].toTensor());
     }
     OutputMetaData mm_output_metadata{};
     mm_output_metadata.dtype = output_metadata.at(0).dtype;

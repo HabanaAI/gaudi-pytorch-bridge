@@ -217,7 +217,8 @@ void LinAlgCross::AddNode(
       (syn_dim ==
        self.dim() - 1); // Checking whether syndim is SCD (last dimension)
 
-  std::vector<synapse_helpers::tensor> transpose_input1, transpose_input2;
+  std::vector<synapse_helpers::tensor> transpose_input1;
+  std::vector<synapse_helpers::tensor> transpose_input2;
 
   // Permutation dimensions for transpose
   auto trans_dim1 = syn_dim;
@@ -265,7 +266,8 @@ void LinAlgCross::AddNode(
 
   // Split Params
   int64_t split_axis;
-  std::vector<synTensor> split_input, split_input2;
+  std::vector<synTensor> split_input;
+  std::vector<synTensor> split_input2;
 
   if (is_scd) {
     split_axis = syn_dim;

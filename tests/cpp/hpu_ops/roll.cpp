@@ -18,7 +18,8 @@
 class HpuOpTest : public HpuOpTestUtil {};
 
 TEST_F(HpuOpTest, roll) {
-  constexpr unsigned int dim0 = 4, dim1 = 3;
+  constexpr unsigned int dim0 = 4;
+  constexpr unsigned int dim1 = 3;
   GenerateInputs(1, {{dim0, dim1}});
 
   std::srand((unsigned int)-1);
@@ -47,7 +48,11 @@ TEST_F(HpuOpTest, roll_1d) {
 }
 
 TEST_F(HpuOpTest, roll_5d) {
-  constexpr unsigned int dim0 = 4, dim1 = 3, dim2 = 1, dim3 = 2, dim4 = 6;
+  constexpr unsigned int dim0 = 4;
+  constexpr unsigned int dim1 = 3;
+  constexpr unsigned int dim2 = 1;
+  constexpr unsigned int dim3 = 2;
+  constexpr unsigned int dim4 = 6;
   GenerateInputs(1, {{dim0, dim1, dim2, dim3, dim4}});
 
   std::srand((unsigned int)-1);
@@ -63,7 +68,8 @@ TEST_F(HpuOpTest, roll_5d) {
 }
 
 TEST_F(HpuOpTest, roll_bf16) {
-  constexpr unsigned int dim0 = 4, dim1 = 3;
+  constexpr unsigned int dim0 = 4;
+  constexpr unsigned int dim1 = 3;
   GenerateInputs(1, {{dim0, dim1}}, {torch::kBFloat16});
 
   std::srand((unsigned int)-1);
@@ -78,7 +84,8 @@ TEST_F(HpuOpTest, roll_bf16) {
 }
 
 TEST_F(HpuOpTest, roll_u8) {
-  constexpr unsigned int dim0 = 4, dim1 = 5;
+  constexpr unsigned int dim0 = 4;
+  constexpr unsigned int dim1 = 5;
   GenerateInputs(1, {{dim0, dim1}}, {torch::kUInt8});
 
   std::srand((unsigned int)-1);
@@ -107,7 +114,11 @@ TEST_F(HpuOpTest, roll_1d_axis_none) {
 }
 
 TEST_F(HpuOpTest, roll_5d_axis_none) {
-  constexpr unsigned int dim0 = 4, dim1 = 3, dim2 = 1, dim3 = 2, dim4 = 6;
+  constexpr unsigned int dim0 = 4;
+  constexpr unsigned int dim1 = 3;
+  constexpr unsigned int dim2 = 1;
+  constexpr unsigned int dim3 = 2;
+  constexpr unsigned int dim4 = 6;
   GenerateInputs(1, {{dim0, dim1, dim2, dim3, dim4}});
 
   std::srand((unsigned int)-1);

@@ -134,7 +134,9 @@ void RollHabanaOperator::AddNode(
     input_shape = c10::ArrayRef<int64_t>(flattened_size);
   }
 
-  unsigned int to_shift, remain_shift, mod_shift;
+  unsigned int to_shift;
+  unsigned int remain_shift;
+  unsigned int mod_shift;
 
   // Iterate over the axis
   for (unsigned int i = 0; i < axisElementsCount; i++) {
@@ -166,7 +168,8 @@ void RollHabanaOperator::AddNode(
 
     if (to_shift != 0 && remain_shift != 0) {
       // Calculate the output shape
-      auto out_shape_0 = input_shape.vec(), out_shape_1 = input_shape.vec();
+      auto out_shape_0 = input_shape.vec();
+      auto out_shape_1 = input_shape.vec();
       out_shape_0[axis_flat] = to_shift;
       out_shape_1[axis_flat] = remain_shift;
 

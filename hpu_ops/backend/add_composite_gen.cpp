@@ -53,7 +53,7 @@ static SharedMetaDataVector AddCompositeSharedMeta(
   meta.inputs_data = {
       {self.dim(), dtype}, {other1.dim(), dtype}, {other2.dim(), dtype}};
   if (tensor_value) {
-    meta.inputs_data.push_back({0, dtype});
+    meta.inputs_data.emplace_back(0, dtype);
   }
   meta.outputs_data = {{output_rank, dtype}};
 

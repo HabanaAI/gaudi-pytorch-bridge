@@ -266,7 +266,7 @@ void HistoryItemLog::Deserialize(std::istream& is) {
   int hist_items_size = 0;
   deserialize(is, hist_items_size);
   for (int i = 0; i < hist_items_size; ++i) {
-    hist_items_.emplace_back(HistoryItem(is));
+    hist_items_.emplace_back(is);
   }
 }
 

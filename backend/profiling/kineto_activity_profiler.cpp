@@ -173,7 +173,7 @@ void GenericTraceActivitySink::addDevice(
     int64_t device) {
   int64_t sort_index = device < 8 ? device + 0x1000000LL : device;
   std::string dev_name = static_cast<std::string>(name);
-  deviceInfos_.push_back({device, sort_index, dev_name, dev_name});
+  deviceInfos_.emplace_back(device, sort_index, dev_name, dev_name);
 }
 
 void GenericTraceActivitySink::addResource(
@@ -181,8 +181,8 @@ void GenericTraceActivitySink::addResource(
     int64_t device,
     int64_t resource,
     int64_t sort_index) {
-  resourceInfos_.push_back(
-      {device, resource, sort_index, static_cast<std::string>(name)});
+  resourceInfos_.emplace_back(
+      device, resource, sort_index, static_cast<std::string>(name));
 }
 
 std::string GenericTraceActivitySink::getDeviceDetails() {

@@ -29,7 +29,9 @@ OutputMetaDataVector LinearBackwardMeta(const at::Stack& stack) {
   } else {
     bias_grad_shape.push_back(1);
   }
-  OutputMetaData input_meta, weight_meta, bias_meta;
+  OutputMetaData input_meta;
+  OutputMetaData weight_meta;
+  OutputMetaData bias_meta;
 
   input_meta.shape = input.sizes().vec();
   input_meta.dtype = input.scalar_type();

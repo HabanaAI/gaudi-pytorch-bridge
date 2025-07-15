@@ -765,8 +765,7 @@ void ProcessStridedInsertAtOutput(
       if (NodeRequiresControlEdge(input_node) == ControlEdgeType::None) {
         break;
       } else {
-        memory_reuse_pairs.emplace_back(
-            std::make_pair(input_node->output(0), node));
+        memory_reuse_pairs.emplace_back(input_node->output(0), node);
       }
     }
 
@@ -803,7 +802,7 @@ void ProcessStridedInsertAtOutput(
     gtest LazyBasicKernelTest.allreducewithcontroledge. */
 
     // Book keep the node pair that reuses same memory.
-    memory_reuse_pairs.emplace_back(std::make_pair(val_ins[0], node));
+    memory_reuse_pairs.emplace_back(val_ins[0], node);
   }
 }
 

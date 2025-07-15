@@ -415,8 +415,8 @@ void habana::AddcmulInplaceOperator::AllocateAndAddSynapseNode(
         this->p_context_->device_id_, scalar_type);
     mulOp->SetSynapseInput(p_context_->syn_inputs_[1]);
     mulOp->SetSynapseInput(identityOp->GetSynOutputs()[0]);
-    stack.emplace_back(IValue(tensor1));
-    stack.emplace_back(IValue(identityOp->GetOutputs()[0]));
+    stack.emplace_back(tensor1);
+    stack.emplace_back(identityOp->GetOutputs()[0]);
     mulOp->AllocateAndAddSynapseNode(
         graph, stack, habana::OutputMetaDataVector(1));
     stack.clear();
@@ -426,9 +426,9 @@ void habana::AddcmulInplaceOperator::AllocateAndAddSynapseNode(
         this->p_context_->device_id_, scalar_type);
     addOp->SetSynapseInput(p_context_->syn_inputs_[0]);
     addOp->SetSynapseInput(mulOp->GetSynOutputs()[0]);
-    stack.emplace_back(IValue(self));
-    stack.emplace_back(IValue(mulOp->GetOutputs()[0]));
-    stack.emplace_back(IValue(alphaValue));
+    stack.emplace_back(self);
+    stack.emplace_back(mulOp->GetOutputs()[0]);
+    stack.emplace_back(alphaValue);
     addOp->AllocateAndAddSynapseNode(graph, stack, output_metadata);
     stack.clear();
 
@@ -441,8 +441,8 @@ void habana::AddcmulInplaceOperator::AllocateAndAddSynapseNode(
         this->p_context_->device_id_, scalar_type);
     mulOp->SetSynapseInput(p_context_->syn_inputs_[1]);
     mulOp->SetSynapseInput(p_context_->syn_inputs_[2]);
-    stack.emplace_back(IValue(tensor1));
-    stack.emplace_back(IValue(tensor2));
+    stack.emplace_back(tensor1);
+    stack.emplace_back(tensor2);
     mulOp->AllocateAndAddSynapseNode(
         graph, stack, habana::OutputMetaDataVector(1));
     stack.clear();
@@ -452,9 +452,9 @@ void habana::AddcmulInplaceOperator::AllocateAndAddSynapseNode(
         this->p_context_->device_id_, scalar_type);
     addOp->SetSynapseInput(p_context_->syn_inputs_[0]);
     addOp->SetSynapseInput(mulOp->GetSynOutputs()[0]);
-    stack.emplace_back(IValue(self));
-    stack.emplace_back(IValue(mulOp->GetOutputs()[0]));
-    stack.emplace_back(IValue(alphaValue));
+    stack.emplace_back(self);
+    stack.emplace_back(mulOp->GetOutputs()[0]);
+    stack.emplace_back(alphaValue);
     addOp->AllocateAndAddSynapseNode(graph, stack, output_metadata);
     stack.clear();
 

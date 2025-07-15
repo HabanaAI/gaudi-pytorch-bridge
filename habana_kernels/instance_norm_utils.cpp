@@ -80,7 +80,8 @@ std::tuple<Tensor, Tensor, Tensor> batchnorm_double_backward(
   bool affine = isDefined(gamma);
   // TODO: Do we have a ScalarOrTensor type?  Would such a thing exist?
   Tensor gamma_expanded;
-  Tensor ggG_expanded, ggB_expanded;
+  Tensor ggG_expanded;
+  Tensor ggB_expanded;
   if (affine) {
     // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
     gamma_expanded = expand_as_dim1(*gamma, input);

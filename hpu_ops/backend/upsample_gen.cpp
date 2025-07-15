@@ -877,7 +877,9 @@ FillParamsT FillBicubicFwdParams(const at::Stack& stack) {
   auto align_corners = stack.at(2).toBool();
   // scales
   auto scales = stack.at(3);
-  double scale_w = 1.0, scale_h = 1.0, scale_d = 1.0;
+  double scale_w = 1.0;
+  double scale_h = 1.0;
+  double scale_d = 1.0;
   if (!scales.isNone()) {
     scale_h = !scales.isScalar() ? scales.toDoubleVector().at(0)
                                  : stack.at(3).toDouble();
@@ -946,7 +948,9 @@ FillParamsT FillBicubicBwdParams(const at::Stack& stack) {
   auto align_corners = stack.at(3).toBool();
   // scales
   auto scales = stack.at(4);
-  double scale_w = 1.0, scale_h = 1.0, scale_d = 1.0;
+  double scale_w = 1.0;
+  double scale_h = 1.0;
+  double scale_d = 1.0;
   if (!scales.isNone()) {
     scale_h = !scales.isScalar() ? scales.toDoubleVector().at(0)
                                  : stack.at(4).toDouble();
@@ -971,7 +975,9 @@ FillParamsT FillBilinearFwdParams(const at::Stack& stack) {
   auto align_corners = stack.at(2).toBool();
   // scales
   auto scales = stack.at(3);
-  double scale_w = 1.0, scale_h = 1.0, scale_d = 1.0;
+  double scale_w = 1.0;
+  double scale_h = 1.0;
+  double scale_d = 1.0;
   if (!scales.isNone()) {
     scale_h = !scales.isScalar() ? scales.toDoubleVector().at(0)
                                  : stack.at(3).toDouble();
@@ -995,7 +1001,9 @@ std::tuple<double, double, double> ExtractScales(
     const at::Stack& stack,
     size_t scale_h_idx,
     size_t scale_w_idx) {
-  double scale_w = 1.0, scale_h = 1.0, scale_d = 1.0;
+  double scale_w = 1.0;
+  double scale_h = 1.0;
+  double scale_d = 1.0;
   if (!scales.isNone()) {
     scale_h = !scales.isScalar() ? scales.toDoubleVector().at(0)
                                  : stack.at(scale_h_idx).toDouble();
@@ -1042,7 +1050,9 @@ FillParamsT FillBilinearBwdParams(const at::Stack& stack) {
   auto align_corners = stack.at(3).toBool();
   // scales
   auto scales = stack.at(4);
-  double scale_w = 1.0, scale_h = 1.0, scale_d = 1.0;
+  double scale_w = 1.0;
+  double scale_h = 1.0;
+  double scale_d = 1.0;
   if (!scales.isNone()) {
     scale_h = !scales.isScalar() ? scales.toDoubleVector().at(0)
                                  : stack.at(4).toDouble();
@@ -1075,7 +1085,9 @@ FillParamsT FillNearestFwdParams(const at::Stack& stack) {
   auto out_size = stack.at(1);
   // scales
   auto scales = stack.at(2);
-  double scale_w = 1.0, scale_h = 1.0, scale_d = 1.0;
+  double scale_w = 1.0;
+  double scale_h = 1.0;
+  double scale_d = 1.0;
   if (!scales.isNone()) {
     scale_h = !scales.isScalar() ? scales.toDoubleVector().at(0)
                                  : stack.at(2).toDouble();
@@ -1166,7 +1178,9 @@ FillParamsT FillNearestBwdParams(const at::Stack& stack) {
   auto out_size = stack.at(1);
   // scales
   auto scales = stack.at(3);
-  double scale_w = 1.0, scale_h = 1.0, scale_d = 1.0;
+  double scale_w = 1.0;
+  double scale_h = 1.0;
+  double scale_d = 1.0;
   if (!scales.isNone()) {
     scale_h = !scales.isScalar() ? scales.toDoubleVector().at(0)
                                  : stack.at(3).toDouble();
@@ -1648,7 +1662,9 @@ void UpSampleTrilinear3DFwdOperator::AddNode(
   auto align_corners = stack.at(2).toBool();
 
   auto scales = stack.at(3);
-  double scale_d = 1.0, scale_w = 1.0, scale_h = 1.0;
+  double scale_d = 1.0;
+  double scale_w = 1.0;
+  double scale_h = 1.0;
   if (!scales.isNone()) {
     scale_d = stack.at(3).toOptional<double>().value_or(1.0F);
     scale_h = stack.at(4).toOptional<double>().value_or(1.0F);
@@ -1690,7 +1706,9 @@ void UpSampleNearest3DFwdOperator::AddNode(
   auto out_size = stack.at(1);
   // scales
   auto scales = stack.at(2);
-  double scale_d = 1.0, scale_w = 1.0, scale_h = 1.0;
+  double scale_d = 1.0;
+  double scale_w = 1.0;
+  double scale_h = 1.0;
   if (!scales.isNone()) {
     scale_d = !scales.isScalar() ? scales.toDoubleVector().at(0)
                                  : stack.at(2).toDouble();
@@ -1722,7 +1740,9 @@ void UpSampleNearest3DBwdOperator::AddNode(
   auto out_size = stack.at(1);
   // scales
   auto scales = stack.at(3);
-  double scale_d = 1.0, scale_w = 1.0, scale_h = 1.0;
+  double scale_d = 1.0;
+  double scale_w = 1.0;
+  double scale_h = 1.0;
   if (!scales.isNone()) {
     scale_d = !scales.isScalar() ? scales.toDoubleVector().at(0)
                                  : stack.at(3).toDouble();

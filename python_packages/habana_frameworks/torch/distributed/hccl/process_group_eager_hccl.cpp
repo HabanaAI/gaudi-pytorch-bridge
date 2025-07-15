@@ -433,7 +433,7 @@ void PointToPoint_Execute_Task(
       // Postponing submit events is needed because calls within group are
       // batched and run at groupEnd, due to that submit events before groupEnd
       // leads to problem with synchronization due to missing events.
-      group_submit_events_tasks_queue.push_back(_submit_events_task);
+      group_submit_events_tasks_queue.emplace_back(_submit_events_task);
     } else {
       _submit_events_task();
     }
@@ -615,7 +615,7 @@ void Collective_Execute_Task(
       // Postponing submit events is needed because calls within group are
       // batched and run at groupEnd, due to that submit events before groupEnd
       // leads to problem with synchronization due to missing events.
-      group_submit_events_tasks_queue.push_back(_submit_events_task);
+      group_submit_events_tasks_queue.emplace_back(_submit_events_task);
     } else {
       _submit_events_task();
     }
@@ -772,11 +772,10 @@ void ProcessGroupEagerHCCL::permutedSendTensorsToDense(
             c10::MemoryFormat::Contiguous));
 
     // Get backend tensors
-    tensors_backend.push_back(
-        std::make_pair(
-            habana::eager::HbEagerTensorPool::get_backend_tensor(tensor),
-            habana::eager::HbEagerTensorPool::get_backend_tensor(
-                clone_tensors.back())));
+    tensors_backend.emplace_back(
+        habana::eager::HbEagerTensorPool::get_backend_tensor(tensor),
+        habana::eager::HbEagerTensorPool::get_backend_tensor(
+            clone_tensors.back()));
 
     // Set tensor pipeline metadata
     auto tensor_hb_tmeta{

@@ -490,7 +490,7 @@ SharedMetaDataVector RandomSeedTensorInputIntegersSharedMeta(
   auto computeDtype = convertToI16 ? c10::ScalarType::Short : dtype;
 
   SharedMetaData randomSharedMeta{"random_uniform_pt_fwd"};
-  randomSharedMeta.inputs_data.push_back({self.dim(), computeDtype});
+  randomSharedMeta.inputs_data.emplace_back(self.dim(), computeDtype);
   randomSharedMeta.inputs_data.push_back(seedSharedTensor);
   randomSharedMeta.outputs_data.emplace_back(self.dim(), computeDtype);
   if (!convertToI16 && c10::isFloatingType(dtype)) {

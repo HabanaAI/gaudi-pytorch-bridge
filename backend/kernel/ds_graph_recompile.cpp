@@ -79,7 +79,7 @@ torch::jit::Stack habana::CreateInputStack(
     } else {
       auto pt_input = habana::CreateEmptyTensor(
           *ti, tensor_data, input_shapes.at(tidx).get_dims());
-      new_input_stack.push_back(torch::jit::IValue(pt_input));
+      new_input_stack.emplace_back(pt_input);
     }
   }
   PT_BRIDGE_END;

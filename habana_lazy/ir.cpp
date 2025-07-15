@@ -222,7 +222,7 @@ void Value::SetNode(
   this->scalar_type = scalar_type;
   mp_node = std::move(node);
 
-  mp_node->m_outputs.emplace_back(Output(*this));
+  mp_node->m_outputs.emplace_back(*this);
 
   HbContext* devctx = habana_lazy::HbContextArena::Get()->GetHbContext(device);
 

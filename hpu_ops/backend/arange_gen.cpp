@@ -593,7 +593,9 @@ void ArangeDefaultStartEndStep::AddNode(
 
   const auto internal_out_dtype = habana_helpers::getInternalDtype(out_dtype);
 
-  c10::Scalar start, end, step;
+  c10::Scalar start;
+  c10::Scalar end;
+  c10::Scalar step;
   if (!stack[0].isTensor()) {
     start = stack.at(0).toScalar();
     end = stack.at(1).toScalar();

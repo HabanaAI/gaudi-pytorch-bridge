@@ -45,7 +45,10 @@ TEST_F(HpuOpTest, log_sigmoid_fwd_out) {
 
 TEST_F(HpuOpTest, log_sigmoid_bwd) {
   GenerateInputs(1);
-  at::Tensor cpu_fwd_result, hpu_fwd_result, cpu_buffer, hpu_buffer;
+  at::Tensor cpu_fwd_result;
+  at::Tensor hpu_fwd_result;
+  at::Tensor cpu_buffer;
+  at::Tensor hpu_buffer;
   auto cpu_input = GetCpuInput(0);
   auto hpu_input = GetHpuInput(0);
   std::tie(cpu_fwd_result, cpu_buffer) = torch::log_sigmoid_forward(cpu_input);
@@ -61,7 +64,10 @@ TEST_F(HpuOpTest, log_sigmoid_bwd_out) {
   GenerateInputs(1);
 
   torch::ScalarType dtype = torch::kFloat;
-  at::Tensor cpu_fwd_result, hpu_fwd_result, cpu_buffer, hpu_buffer;
+  at::Tensor cpu_fwd_result;
+  at::Tensor hpu_fwd_result;
+  at::Tensor cpu_buffer;
+  at::Tensor hpu_buffer;
   auto cpu_input = GetCpuInput(0);
   auto hpu_input = GetHpuInput(0);
   std::tie(cpu_fwd_result, cpu_buffer) = torch::log_sigmoid_forward(cpu_input);

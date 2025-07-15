@@ -420,7 +420,7 @@ void HabanaLaunchOpPT::HandleMappedTensor(
 
   for (sh::tensor& tensor : *(syn_tensor_input->second)) {
     sh::tensor& syn_tensor = habana_op->SetSynapseInput(tensor);
-    tensorList->emplace_back(sh::tensor_or_ref(syn_tensor));
+    tensorList->emplace_back(syn_tensor);
   }
 
   pt_to_synapse_tensors_.erase(value_to_ivalue_[value_in]);
@@ -440,7 +440,8 @@ sh::tensor& HabanaLaunchOpPT::AllocateSynapseTensor(
         *syn_graph_ptr_, pt_tensor, true, tmeta->get_tensor_type(), host_ptr);
     return syn_tensor;
   } else {
-    habana_helpers::TensorShape min_shape, max_shape;
+    habana_helpers::TensorShape min_shape;
+    habana_helpers::TensorShape max_shape;
 
     void* pt_tensor_buffer_start = pt_tensor.storage().data_ptr().get();
     bool is_duplicate_syn_tensor{
@@ -495,7 +496,7 @@ void HabanaLaunchOpPT::HandleUnmappedTensor(
     PT_BRIDGE_DEBUG(
         "Allocated synpase tensor for input tensor: ", syn_tensor.id());
 
-    tensorList->emplace_back(sh::tensor_or_ref(syn_tensor));
+    tensorList->emplace_back(syn_tensor);
 
     std::string irn = "%" + value_in->debugName();
     PtTensorInfoShared ti = std::make_shared<PtTensorInfo>(
@@ -852,7 +853,8 @@ int64_t HabanaLaunchOpPT::ProcessSynapseOutputs(
       " doesnt match the generated ",
       output_tensors_pt.size());
 
-  size_t output_nodes_idx = 0, output_tensor_idx = 0;
+  size_t output_nodes_idx = 0;
+  size_t output_tensor_idx = 0;
 
   auto cur_sif_tidx = habana::ShapeInference::GetSifTensorId();
 
@@ -920,7 +922,7 @@ int64_t HabanaLaunchOpPT::ProcessSynapseOutputs(
                                 sh::tensor& sh_t) {
     SharedSynTensorOrRefListPtr tensorList =
         std::make_shared<SynTensorOrRefList>();
-    tensorList->emplace_back(sh::tensor_or_ref(sh_t));
+    tensorList->emplace_back(sh_t);
     pt_to_synapse_tensors_.emplace(
         value_to_ivalue_[nodes[node_output_idx]], tensorList);
 
@@ -1183,7 +1185,7 @@ void HabanaLaunchOpPT::create_duplicate_syn_tensor(
   pt_to_synapse_tensors_.erase(value_to_ivalue_[value_in]);
   SharedSynTensorOrRefListPtr tensorList =
       std::make_shared<SynTensorOrRefList>();
-  tensorList->emplace_back(sh::tensor_or_ref(syn_tensor));
+  tensorList->emplace_back(syn_tensor);
   pt_to_synapse_tensors_.emplace(value_to_ivalue_[value_in], tensorList);
 }
 
@@ -1671,7 +1673,7 @@ void HabanaLaunchOpPT::handlePrimConstantNode(
               tensor, *syn_graph_ptr_, true, false, tensor.scalar_type()));
       SharedSynTensorOrRefListPtr tensorList =
           std::make_shared<SynTensorOrRefList>();
-      tensorList->emplace_back(sh::tensor_or_ref(meta_syn_tensors_.back()));
+      tensorList->emplace_back(meta_syn_tensors_.back());
       pt_to_synapse_tensors_.emplace(value_to_ivalue_[value], tensorList);
       PtTensorInfoShared ti = std::make_shared<PtTensorInfo>(
           tensor,
@@ -1735,7 +1737,7 @@ habana_helpers::IShapeList HabanaLaunchOpPT::getInputIShapesForNode(
             "Value = ", value_name, " Ishape is not a supported type !!!");
       }
     } else {
-      ishape_list.push_back(habana_helpers::IShape());
+      ishape_list.emplace_back();
       PT_DYNAMIC_SHAPE_DEBUG("Dummy IShape added for node = ", value_name);
     }
   }
@@ -1762,7 +1764,7 @@ habana_helpers::IShapeList HabanaLaunchOpPT::getOutputIShapesForNode(
             " Ishape is not a tensor type and not supported !!!");
       }
     } else {
-      ishape_list.push_back(habana_helpers::IShape());
+      ishape_list.emplace_back();
       PT_BRIDGE_DEBUG(
           "Node = ",
           value_name,
@@ -2026,7 +2028,8 @@ void HabanaLaunchOpPT::validateOutputShapeDynamic(
       " but got: ",
       num_outs_got);
   // compare output shape
-  size_t i = 0, j = 0;
+  size_t i = 0;
+  size_t j = 0;
   std::vector<int64_t> t;
   for (sh::tensor& out_tensor_syn : syn_outputs) {
     if (out_tensor_syn.is_shape_tensor()) {
@@ -4125,7 +4128,7 @@ torch::jit::Stack HabanaLaunchOpPT::CreateStack(
         if (tmeta) {
           new_tmeta->set_tensor_type(tmeta->get_tensor_type());
         }
-        new_stack.push_back(torch::jit::IValue(new_tensor));
+        new_stack.emplace_back(new_tensor);
       }
     } else {
       new_stack.push_back(stack[i]);
@@ -4671,8 +4674,7 @@ void HabanaLaunchOpPT::ConstructDuplicateShapeMap(
           shape);
       // Mark set bit and add to duplicate tensors shapes map
       tensor_map->second.second = true;
-      duplicate_tensors_shape_map.emplace_back(
-          std::make_pair(new_handle, std::move(shape)));
+      duplicate_tensors_shape_map.emplace_back(new_handle, std::move(shape));
     } else {
       PT_EAGER_DEBUG(
           "[SHAPE AGNOSTIC] orig handle : ",
@@ -4700,8 +4702,7 @@ void HabanaLaunchOpPT::ConstructDuplicateShapeMap(
           " get geomtery org shapes : ",
           shape);
       // Add to duplicate tensors shapes map
-      duplicate_tensors_shape_map.emplace_back(
-          std::make_pair(new_handle, std::move(shape)));
+      duplicate_tensors_shape_map.emplace_back(new_handle, std::move(shape));
     }
   }
 }
@@ -6331,7 +6332,7 @@ void HabanaLaunchOpPT::CreateOutputReuseInputSynapseTensor(
     pt_to_synapse_tensors_.erase(ivpsh);
     SharedSynTensorOrRefListPtr tensorList =
         std::make_shared<SynTensorOrRefList>();
-    tensorList->emplace_back(synapse_helpers::tensor_or_ref(syn_tensor));
+    tensorList->emplace_back(syn_tensor);
     pt_to_synapse_tensors_.emplace(ivpsh, tensorList);
   }
 }

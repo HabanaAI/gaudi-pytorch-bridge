@@ -110,8 +110,7 @@ struct ReplaceGetItemWithListUnpackPass {
               graph->insertNode(graph->create(list_unpack_symbol, 0))};
           list_unpack_node->addInput(list_unpack_input);
           list_unpack_desc_map.emplace(
-              std::make_pair(
-                  list_unpack_input, ListUnpackDesc(list_unpack_node)));
+              list_unpack_input, ListUnpackDesc(list_unpack_node));
         }
 
         ListUnpackDesc& desc{

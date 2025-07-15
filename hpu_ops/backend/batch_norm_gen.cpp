@@ -864,9 +864,11 @@ void BatchNormBwdOpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
       1,
       weightStorageOpt);
 
-  synTensor saved_mean{}, saved_istd{};
-  std::optional<sh::tensor> saved_mean_storage, saved_istd_storage,
-      weight_storage;
+  synTensor saved_mean{};
+  synTensor saved_istd{};
+  std::optional<sh::tensor> saved_mean_storage;
+  std::optional<sh::tensor> saved_istd_storage;
+  std::optional<sh::tensor> weight_storage;
   if (!is_training(training, running_mean_opt.has_value())) {
     std::optional<sh::tensor> runningMeanStorageOpt;
     const auto [running_mean] = get_or_create_tensor<TENSOR_IDX>(

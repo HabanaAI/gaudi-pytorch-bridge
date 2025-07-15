@@ -380,7 +380,8 @@ split_weights_tensor(
     const at::TensorList& w12,
     bool permuted_weights,
     bool unsqueeze = false) {
-  std::vector<at::Tensor> w1, w2;
+  std::vector<at::Tensor> w1;
+  std::vector<at::Tensor> w2;
   const auto split_dim = (unsqueeze or permuted_weights) ? 0 : 1;
   const auto split_index = w12[0].size(split_dim) / 2;
   for (const auto& tensor : w12) {
@@ -1205,7 +1206,8 @@ at::Tensor mixture_of_experts_fp8_fused_weights_dynamic(
 
   at::TensorList d_scale_w1 = d_scale_w12;
   at::TensorList d_scale_w2 = d_scale_w12;
-  std::vector<at::Tensor> d_scale_w1_vec, d_scale_w2_vec;
+  std::vector<at::Tensor> d_scale_w1_vec;
+  std::vector<at::Tensor> d_scale_w2_vec;
 
   if (d_scale_w12[0].dim() != 0) {
     const auto unsqueeze = d_scale_w12[0].dim() == 1;

@@ -56,7 +56,9 @@ OutputMetaDataVector BlockSoftmaxMeta(const at::Stack& stack) {
   const int64_t gqa = attn.size(2);
   const int64_t num_tokens = attn.size(3);
 
-  OutputMetaData attn_meta, block_maxes_meta, block_sums_meta;
+  OutputMetaData attn_meta;
+  OutputMetaData block_maxes_meta;
+  OutputMetaData block_sums_meta;
 
   // Output 1: attn - same shape as input attn
   attn_meta.shape = attn.sizes().vec();

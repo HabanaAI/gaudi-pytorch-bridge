@@ -623,7 +623,8 @@ void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
 
             // habana_helpers::handle_const_section_tensor(src, tensor);
             handled_ids_set.insert(tmeta->get_const_id());
-            uint64_t section_size = 0, section_data = 0;
+            uint64_t section_size = 0;
+            uint64_t section_data = 0;
             synSectionId tensorSectionId;
             bool isInput;
             getTensorSectionId(

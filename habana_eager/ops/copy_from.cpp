@@ -49,7 +49,8 @@ std::vector<int64_t> calcNewStrides(
     const std::vector<int64_t>& pt_permute) {
   // compute strides based on new sizes after permute
   // permtue the strides
-  std::vector<int64_t> new_sizes, new_strides;
+  std::vector<int64_t> new_sizes;
+  std::vector<int64_t> new_strides;
   std::tie(new_sizes, new_strides) =
       PermuteOperator::compute_output_shape(permutedTensor, pt_permute);
 

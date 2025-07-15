@@ -509,7 +509,8 @@ synapse_error_v<device_handle> device::create(
   std::shared_ptr<device> device_ptr{new device(
       synapse_session, new_device_id, acquired_device_type, alignmentInfo[0])};
 
-  uint64_t free_mem, total_mem;
+  uint64_t free_mem;
+  uint64_t total_mem;
   status = synDeviceGetMemoryInfo(device_ptr->id(), &free_mem, &total_mem);
   if (synStatus::synSuccess != status) {
     PT_SYNHELPER_FATAL(

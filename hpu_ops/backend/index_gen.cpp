@@ -138,7 +138,8 @@ static sizes_vec IndexOutShapeFromOrigStack(const at::Stack& stack) {
   }
 
   if (adv_indexing_present) {
-    std::vector<int64_t> permuted_input_sizes, new_strides;
+    std::vector<int64_t> permuted_input_sizes;
+    std::vector<int64_t> new_strides;
     std::tie(permuted_input_sizes, new_strides) =
         PermuteOperator::compute_output_shape(self, self_permute_dims);
 
@@ -187,7 +188,8 @@ sizes_vec IndexOutputShape(const at::Stack& stack) {
     if (adv_indexing_present) {
       auto indexing_tensor_shapes = calc_indexing_tensors_shapes(stack);
       std::vector<int64_t> self_permute_dims = stack[3].toIntList().vec();
-      std::vector<int64_t> permuted_input_sizes, new_strides;
+      std::vector<int64_t> permuted_input_sizes;
+      std::vector<int64_t> new_strides;
       std::tie(permuted_input_sizes, new_strides) =
           PermuteOperator::compute_output_shape(input, self_permute_dims);
       sizes_vec shape = std::vector<std::vector<int64_t>>{
@@ -510,7 +512,8 @@ void IndexHabanaOperator::AddNode(
 
     synTensor permuted_self_t;
     const auto& params = FillPermuteParams(stack);
-    std::vector<int64_t> new_sizes, new_strides;
+    std::vector<int64_t> new_sizes;
+    std::vector<int64_t> new_strides;
     std::tie(new_sizes, new_strides) =
         PermuteOperator::compute_output_shape(self, self_permute_dims);
     auto permuted_self = BuildOp(

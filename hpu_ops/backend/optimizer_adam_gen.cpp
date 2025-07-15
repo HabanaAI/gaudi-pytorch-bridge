@@ -418,7 +418,8 @@ std::vector<synapse_helpers::tensor> FusedAdamCommon(
        {one_t, beta2_n[0].get()},
        scalar_1d_attr});
 
-  std::vector<synapse_helpers::tensor> exp_avg_sq_cap, exp_avg_sq_max;
+  std::vector<synapse_helpers::tensor> exp_avg_sq_cap;
+  std::vector<synapse_helpers::tensor> exp_avg_sq_max;
   if (amsgrad) {
     //------calculate v^max-------------------//
     // v_t^max = max(v_t^, v_t)

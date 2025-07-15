@@ -190,8 +190,8 @@ void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
       // Weight decay tensor index == after 4 tensor lists + 1 tensors
       mul_wt_wd->SetSynapseInput(p_context_->syn_inputs_[4 * num_params + 1]);
 
-      stack.emplace_back(IValue(weights.get(i)));
-      stack.emplace_back(IValue(modified_wd_t));
+      stack.emplace_back(weights.get(i));
+      stack.emplace_back(modified_wd_t);
       mul_wt_wd->AllocateAndAddSynapseNode(
           graph, stack, OutputMetaDataVector(1));
       stack.clear();
@@ -201,8 +201,8 @@ void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
     auto mul_exp_avg =
         make_operator<habana::MulInplaceOperator>(device_id, scalar_type);
     mul_exp_avg->SetSynapseInput(p_context_->syn_inputs_[2 * num_params + i]);
-    stack.emplace_back(IValue(exp_avg.get(i)));
-    stack.emplace_back(IValue(beta1));
+    stack.emplace_back(exp_avg.get(i));
+    stack.emplace_back(beta1);
     mul_exp_avg->AllocateAndAddSynapseNode(
         graph, stack, OutputMetaDataVector(1));
     stack.clear();
@@ -212,9 +212,9 @@ void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
     sh::tensor& syn_in_11 =
         add_exp_avg->SetSynapseInput(mul_exp_avg->GetSynOutputs()[0]);
     add_exp_avg->SetSynapseInput(p_context_->syn_inputs_[i]);
-    stack.emplace_back(IValue(mul_exp_avg->GetOutputs()[0]));
-    stack.emplace_back(IValue(gradients.get(i)));
-    stack.emplace_back(IValue(Scalar(1.0 - beta1.toDouble())));
+    stack.emplace_back(mul_exp_avg->GetOutputs()[0]);
+    stack.emplace_back(gradients.get(i));
+    stack.emplace_back(Scalar(1.0 - beta1.toDouble()));
     add_exp_avg->AllocateAndAddSynapseNode(
         graph, stack, OutputMetaDataVector(1));
     stack.clear();
@@ -224,8 +224,8 @@ void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
         make_operator<habana::MulInplaceOperator>(device_id, scalar_type);
     mul_exp_avg_sq->SetSynapseInput(
         p_context_->syn_inputs_[3 * num_params + i]);
-    stack.emplace_back(IValue(exp_avg_sq.get(i)));
-    stack.emplace_back(IValue(beta2));
+    stack.emplace_back(exp_avg_sq.get(i));
+    stack.emplace_back(beta2);
     mul_exp_avg_sq->AllocateAndAddSynapseNode(
         graph, stack, OutputMetaDataVector(1));
     stack.clear();
@@ -241,10 +241,10 @@ void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
     auto syn_in_3 = habana_helpers::create_tensor(
         gradients.get(i), graph, true, false, std::nullopt);
     addcmul_exp_avg_sq->SetSynapseInput(syn_in_3);
-    stack.emplace_back(IValue(mul_exp_avg_sq->GetOutputs()[0]));
-    stack.emplace_back(IValue(gradients.get(i)));
-    stack.emplace_back(IValue(gradients.get(i)));
-    stack.emplace_back(IValue(Scalar(1.0 - beta2.toDouble())));
+    stack.emplace_back(mul_exp_avg_sq->GetOutputs()[0]);
+    stack.emplace_back(gradients.get(i));
+    stack.emplace_back(gradients.get(i));
+    stack.emplace_back(Scalar(1.0 - beta2.toDouble()));
     addcmul_exp_avg_sq->AllocateAndAddSynapseNode(
         graph, stack, OutputMetaDataVector(1));
     stack.clear();
@@ -255,7 +255,7 @@ void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
     auto sqrt_exp_avg_sq = make_operator<SqrtOperator>(device_id, scalar_type);
     sh::tensor& syn_in_15 = sqrt_exp_avg_sq->SetSynapseInput(
         addcmul_exp_avg_sq->GetSynOutputs()[0]);
-    stack.emplace_back(IValue(addcmul_exp_avg_sq->GetOutputs()[0]));
+    stack.emplace_back(addcmul_exp_avg_sq->GetOutputs()[0]);
     sqrt_exp_avg_sq->AllocateAndAddSynapseNode(
         graph, stack, OutputMetaDataVector(1));
     stack.clear();
@@ -263,9 +263,9 @@ void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
     auto add_exp_avg_sq =
         make_operator<habana::AddOperator>(device_id, scalar_type);
     add_exp_avg_sq->SetSynapseInput(sqrt_exp_avg_sq->GetSynOutputs()[0]);
-    stack.emplace_back(IValue(sqrt_exp_avg_sq->GetOutputs()[0]));
-    stack.emplace_back(IValue(epsilon));
-    stack.emplace_back(IValue(1.0));
+    stack.emplace_back(sqrt_exp_avg_sq->GetOutputs()[0]);
+    stack.emplace_back(epsilon);
+    stack.emplace_back(1.0);
     add_exp_avg_sq->AllocateAndAddSynapseNode(
         graph, stack, OutputMetaDataVector(1));
     stack.clear();
@@ -279,8 +279,8 @@ void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
     sh::tensor& syn_in_17 =
         div_wt->SetSynapseInput(add_exp_avg->GetSynOutputs()[0]);
     div_wt->SetSynapseInput(add_exp_avg_sq->GetSynOutputs()[0]);
-    stack.emplace_back(IValue(add_exp_avg->GetOutputs()[0]));
-    stack.emplace_back(IValue(add_exp_avg_sq->GetOutputs()[0]));
+    stack.emplace_back(add_exp_avg->GetOutputs()[0]);
+    stack.emplace_back(add_exp_avg_sq->GetOutputs()[0]);
     div_wt->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
     stack.clear();
 
@@ -288,8 +288,8 @@ void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
     mul_wt->SetSynapseInput(div_wt->GetSynOutputs()[0]);
     mul_wt->SetSynapseInput(
         p_context_->syn_inputs_[4 * static_cast<size_t>(num_params)]);
-    stack.emplace_back(IValue(div_wt->GetOutputs()[0]));
-    stack.emplace_back(IValue(neg_step_size));
+    stack.emplace_back(div_wt->GetOutputs()[0]);
+    stack.emplace_back(neg_step_size);
     mul_wt->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
     stack.clear();
 
@@ -301,20 +301,20 @@ void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
       add_wt->SetSynapseInput(p_context_->syn_inputs_[1 * num_params + i]);
       add_wt->SetSynapseInput(mul_wt->GetSynOutputs()[0]);
 
-      stack.emplace_back(IValue(weights.get(i)));
-      stack.emplace_back(IValue(mul_wt->GetOutputs()[0]));
-      stack.emplace_back(IValue(1.0));
+      stack.emplace_back(weights.get(i));
+      stack.emplace_back(mul_wt->GetOutputs()[0]);
+      stack.emplace_back(1.0);
       add_wt->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
       stack.clear();
     } else {
       // use the updated weight tensor after  weight decay operation
       add_wt->SetSynapseInput(mul_wt_wd->GetSynOutputs()[0]);
-      stack.emplace_back(IValue(mul_wt_wd->GetOutputs()[0]));
+      stack.emplace_back(mul_wt_wd->GetOutputs()[0]);
 
       add_wt->SetSynapseInput(mul_wt->GetSynOutputs()[0]);
 
-      stack.emplace_back(IValue(mul_wt->GetOutputs()[0]));
-      stack.emplace_back(IValue(1.0));
+      stack.emplace_back(mul_wt->GetOutputs()[0]);
+      stack.emplace_back(1.0);
       add_wt->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
       stack.clear();
     }
@@ -431,9 +431,9 @@ void OptimizerFusedAdagradOperator::AllocateAndAddSynapseNode(
         p_context_->syn_inputs_[3 * static_cast<size_t>(num_params)]);
     op->SetSynapseInput(p_context_->syn_inputs_[3 * num_params + 1]);
 
-    stack.emplace_back(IValue(gradients.get(i)));
-    stack.emplace_back(IValue(weights.get(i)));
-    stack.emplace_back(IValue(variances.get(i)));
+    stack.emplace_back(gradients.get(i));
+    stack.emplace_back(weights.get(i));
+    stack.emplace_back(variances.get(i));
     stack.emplace_back(inputs[3]);
     stack.emplace_back(inputs[4]);
     stack.emplace_back(inputs[5]);
@@ -530,8 +530,8 @@ void OptimizerFusedSGDOperator::AllocateAndAddSynapseNode(
     op->SetSynapseInput(
         p_context_->syn_inputs_[2 * static_cast<size_t>(num_params)]);
 
-    stack.emplace_back(IValue(gradients.get(i)));
-    stack.emplace_back(IValue(weights.get(i)));
+    stack.emplace_back(gradients.get(i));
+    stack.emplace_back(weights.get(i));
     stack.emplace_back(inputs[2]);
     stack.emplace_back(inputs[3]);
     stack.emplace_back(inputs[4]);
@@ -595,8 +595,8 @@ void OptimizerFusedEMAOperator::AllocateAndAddSynapseNode(
     mul_in_exp->SetSynapseInput(p_context_->syn_inputs_[num_params + i]);
     mul_in_exp->SetSynapseInput(
         p_context_->syn_inputs_[2 * static_cast<size_t>(num_params)]);
-    stack.emplace_back(IValue(updated_ema.get(i)));
-    stack.emplace_back(IValue(decay));
+    stack.emplace_back(updated_ema.get(i));
+    stack.emplace_back(decay);
     mul_in_exp->AllocateAndAddSynapseNode(
         graph, stack, OutputMetaDataVector(1));
     stack.clear();
@@ -604,17 +604,17 @@ void OptimizerFusedEMAOperator::AllocateAndAddSynapseNode(
     auto sub_exp = make_operator<habana::SubOperator>(device_id, scalar_type);
     sub_exp->SetSynapseInput(
         p_context_->syn_inputs_[2 * static_cast<size_t>(num_params)]);
-    stack.emplace_back(IValue(1.0));
-    stack.emplace_back(IValue(decay));
-    stack.emplace_back(IValue(1.0));
+    stack.emplace_back(1.0);
+    stack.emplace_back(decay);
+    stack.emplace_back(1.0);
     sub_exp->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
     stack.clear();
 
     auto mul_exp = make_operator<habana::MulOperator>(device_id, scalar_type);
     mul_exp->SetSynapseInput(p_context_->syn_inputs_[i]);
     mul_exp->SetSynapseInput(sub_exp->GetSynOutputs()[0]);
-    stack.emplace_back(IValue(model_inputs.get(i)));
-    stack.emplace_back(IValue(sub_exp->GetOutputs()[0]));
+    stack.emplace_back(model_inputs.get(i));
+    stack.emplace_back(sub_exp->GetOutputs()[0]);
     mul_exp->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
     stack.clear();
 
@@ -625,10 +625,10 @@ void OptimizerFusedEMAOperator::AllocateAndAddSynapseNode(
         update_exp->SetSynapseInput(mul_exp->GetSynOutputs()[0]);
     update_exp->SetSynapseInput(mul_in_exp->GetSynOutputs()[0]);
 
-    stack.emplace_back(IValue(mul_exp->GetOutputs()[0]));
-    stack.emplace_back(IValue(mul_in_exp->GetOutputs()[0]));
+    stack.emplace_back(mul_exp->GetOutputs()[0]);
+    stack.emplace_back(mul_in_exp->GetOutputs()[0]);
     // dummy input
-    stack.emplace_back(IValue(Scalar(1.0)));
+    stack.emplace_back(Scalar(1.0));
     update_exp->AllocateAndAddSynapseNode(graph, stack, outputMetaData);
     stack.clear();
 
@@ -775,9 +775,9 @@ void OptimizerFusedSGDMomentumOperator::AllocateAndAddSynapseNode(
     op->SetSynapseInput(
         p_context_->syn_inputs_[3 * num_params + 2]); // mom tensor
 
-    stack.emplace_back(IValue(gradients.get(i)));
-    stack.emplace_back(IValue(weights.get(i)));
-    stack.emplace_back(IValue(momentum.get(i)));
+    stack.emplace_back(gradients.get(i));
+    stack.emplace_back(weights.get(i));
+    stack.emplace_back(momentum.get(i));
     stack.emplace_back(inputs[3]);
     stack.emplace_back(inputs[4]);
     stack.emplace_back(inputs[5]);

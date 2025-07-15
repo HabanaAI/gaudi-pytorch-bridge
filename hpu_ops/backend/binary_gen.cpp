@@ -117,7 +117,8 @@ static auto BuildBinary(
     bool add_casts,
     bool update_guid = true) {
   std::unique_ptr<synapse_helpers::tensor> constant;
-  std::vector<synapse_helpers::tensor> mul, cast;
+  std::vector<synapse_helpers::tensor> mul;
+  std::vector<synapse_helpers::tensor> cast;
 
   if (add_casts) {
     auto result_cast_type = habana_helpers::DataTypeToCastType(result_type);
@@ -248,7 +249,7 @@ static synapse_helpers::tensor createForeachBinaryNode(
     scalar = OpBackend::BuildConstant(op, graph, other, scalar_type);
     inputs.push_back(scalar.value().get());
 
-    sizes.push_back({});
+    sizes.emplace_back();
     dtypes.push_back(result_type);
   }
 
