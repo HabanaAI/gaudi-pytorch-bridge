@@ -19,6 +19,9 @@
 namespace habana {
 OutputMetaDataVector ReplicationPad1DMeta(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
+  TORCH_CHECK_NOT_IMPLEMENTED(
+      self.scalar_type() != torch::kBool,
+      "\"replication_pad1d\" not implemented for 'Bool'");
   OutputMetaData meta;
   meta.shape = ComputePadOutputShape(stack, pad1D)[0];
   meta.dtype = self.scalar_type();
@@ -27,6 +30,9 @@ OutputMetaDataVector ReplicationPad1DMeta(const at::Stack& stack) {
 
 OutputMetaDataVector ReplicationPad2DMeta(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
+  TORCH_CHECK_NOT_IMPLEMENTED(
+      self.scalar_type() != torch::kBool,
+      "\"replication_pad2d\" not implemented for 'Bool'");
   OutputMetaData meta;
   meta.shape = ComputePadOutputShape(stack, pad2D)[0];
   meta.dtype = self.scalar_type();
@@ -35,6 +41,9 @@ OutputMetaDataVector ReplicationPad2DMeta(const at::Stack& stack) {
 
 OutputMetaDataVector ReplicationPad3DMeta(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
+  TORCH_CHECK_NOT_IMPLEMENTED(
+      self.scalar_type() != torch::kBool,
+      "\"replication_pad3d\" not implemented for 'Bool'");
   OutputMetaData meta;
   meta.shape = ComputePadOutputShape(stack, pad3D)[0];
   meta.dtype = self.scalar_type();
