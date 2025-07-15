@@ -23,7 +23,7 @@ jobs:
                 chmod 600 ${HOME}/.ssh/id_rsa
                 rm -rf ${HOME}/.ssh/id_rsa.pub
                 sed -i '/Host gerrit/a\    User jenkins\' ~/.ssh/config
-                ssh-keyscan -H github.com >> ~/.ssh/known_hosts
+                ssh -o StrictHostKeyChecking=accept-new github.com || true
             - name: checkout repo tool
               run: |
                 git clone https://gerrit.googlesource.com/git-repo /tmp/git-repo
