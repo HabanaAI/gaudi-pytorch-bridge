@@ -34,5 +34,5 @@ pytest==7.1.2
 pyvirtualdisplay==0.2.4
 pyyaml==6.0.1
 scipy>=1.13
-tensorboard==2.11.2
+tensorboard<2.13
 tox==3.24.4
