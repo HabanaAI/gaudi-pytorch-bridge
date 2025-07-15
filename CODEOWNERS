@@ -3,6 +3,6 @@
 # These owners will be the default owners for everything in
 # the repo. Unless a later match takes precedence,
 # below owners will be requested for review when someone opens a pull request.
-* @habana-internal/pytorch_modules_approvers
+* @habana-internal/pytorch_modules_approvers @habana-internal/pytorch_modules_approvers_migration
 
 CODEOWNERS @mryszt
