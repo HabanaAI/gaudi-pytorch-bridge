@@ -71,13 +71,15 @@ ArangeFE<at::Tensor&>::ArangeFE(
     auto hl_params_shape =
         habana_lazy::GetOrCreateHbLazyTensor(params_shape, c10::kHPU);
 
-    auto hl_param_internal = hl_params_shape.CurrentTensorAttached().value();
-    auto tmeta{get_tensor_extra_meta(hl_param_internal)};
-    tmeta->set_host_data(
-        params_vec.data(),
-        params_vec.size(),
-        sizeof(int),
-        habana::HostDataType::INT32_T);
+    auto opt_value = hl_params_shape.CurrentTensorAttached();
+    if (opt_value.has_value()) {
+      auto tmeta{get_tensor_extra_meta(opt_value.value())};
+      tmeta->set_host_data(
+          params_vec.data(),
+          params_vec.size(),
+          sizeof(int),
+          habana::HostDataType::INT32_T);
+    }
 
     // Create a dummy shape tensor for the output, this shape tensor is not
     // added to synapse graph, but only ensures that when we match in bucket
@@ -142,13 +144,15 @@ LazyArange<at::Tensor>::LazyArange(
     auto hl_params_shape =
         habana_lazy::GetOrCreateHbLazyTensor(params_shape, c10::kHPU);
 
-    auto hl_param_internal = hl_params_shape.CurrentTensorAttached().value();
-    auto tmeta{get_tensor_extra_meta(hl_param_internal)};
-    tmeta->set_host_data(
-        params_vec.data(),
-        params_vec.size(),
-        sizeof(float),
-        habana::HostDataType::FLOAT_T);
+    auto current_tensor_attached = hl_params_shape.CurrentTensorAttached();
+    if (current_tensor_attached.has_value()) {
+      auto tmeta{get_tensor_extra_meta(current_tensor_attached.value())};
+      tmeta->set_host_data(
+          params_vec.data(),
+          params_vec.size(),
+          sizeof(float),
+          habana::HostDataType::FLOAT_T);
+    }
     // Create a dummy shape tensor for the output, this shape tensor is not
     // added to synapse graph, but only ensures that when we match in bucket
     // we are restricted by the size of the output
@@ -161,14 +165,17 @@ LazyArange<at::Tensor>::LazyArange(
         SHAPE_TENSOR);
     // Mark this front end shape tensor as it does not need synapse tensor
     auto hl_result_shape =
-        habana_lazy::GetOrCreateHbLazyTensor(result_shape, c10::kHPU);
-    auto hl_result_shape_internal =
-        hl_result_shape.CurrentTensorAttached().value();
-    auto stImpl =
-        habana_lazy::GetHbInternalTensorImpl(hl_result_shape_internal);
-    if (stImpl) {
-      stImpl->setH2DFrontEndShapeTensor();
+        habana_lazy::GetOrCreateHbLazyTensor(result_shape, c10::kHPU)
+            .CurrentTensorAttached();
+
+    if (hl_result_shape.has_value()) {
+      auto stImpl =
+          habana_lazy::GetHbInternalTensorImpl(hl_result_shape.value());
+      if (stImpl) {
+        stImpl->setH2DFrontEndShapeTensor();
+      }
     }
+
     set_inputs(
         {params_shape,
          result_shape,
@@ -185,16 +192,17 @@ LazyArange<at::Tensor>::LazyArange(
         false,
         HOST_TO_DEVICE_TENSOR);
     auto hl_params_shape =
-        habana_lazy::GetOrCreateHbLazyTensor(params_shape, c10::kHPU);
+        habana_lazy::GetOrCreateHbLazyTensor(params_shape, c10::kHPU)
+            .CurrentTensorAttached();
 
-    auto hl_param_internal = hl_params_shape.CurrentTensorAttached().value();
-    auto tmeta{get_tensor_extra_meta(hl_param_internal)};
-    tmeta->set_host_data(
-        params_vec.data(),
-        params_vec.size(),
-        sizeof(int),
-        habana::HostDataType::INT32_T);
-
+    if (hl_params_shape.has_value()) {
+      auto tmeta{get_tensor_extra_meta(hl_params_shape.value())};
+      tmeta->set_host_data(
+          params_vec.data(),
+          params_vec.size(),
+          sizeof(int),
+          habana::HostDataType::INT32_T);
+    }
     // Create a dummy shape tensor for the output, this shape tensor is not
     // added to synapse graph, but only ensures that when we match in bucket
     // we are restricted by the size of the output
@@ -207,14 +215,16 @@ LazyArange<at::Tensor>::LazyArange(
         SHAPE_TENSOR);
     // Mark this front end shape tensor as it does not need synapse tensor
     auto hl_result_shape =
-        habana_lazy::GetOrCreateHbLazyTensor(result_shape, c10::kHPU);
-    auto hl_result_shape_internal =
-        hl_result_shape.CurrentTensorAttached().value();
-    auto stImpl =
-        habana_lazy::GetHbInternalTensorImpl(hl_result_shape_internal);
-    if (stImpl) {
-      stImpl->setH2DFrontEndShapeTensor();
+        habana_lazy::GetOrCreateHbLazyTensor(result_shape, c10::kHPU)
+            .CurrentTensorAttached();
+    if (hl_result_shape.has_value()) {
+      auto stImpl =
+          habana_lazy::GetHbInternalTensorImpl(hl_result_shape.value());
+      if (stImpl) {
+        stImpl->setH2DFrontEndShapeTensor();
+      }
     }
+
     set_inputs(
         {params_shape,
          result_shape,

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -762,10 +762,13 @@ void HlExec::Create(
   for (const auto& inp : inputs) {
     auto t = mp_g_->addInput(inp.ToString());
     HABANA_ASSERT(!inp.m_data_ptr.expired());
-    std::shared_ptr<Data> d = inp.m_data_ptr.lock();
+    std::shared_ptr<Data> data = inp.m_data_ptr.lock();
+    HABANA_ASSERT(
+        data->logical_element_type.has_value(),
+        "Optional variable has no data");
     t->setType(
         c10::TensorType::createContiguous(
-            *(d->logical_element_type), d->device, d->sizes));
+            *(data->logical_element_type), data->device, data->sizes));
     t->setDebugName(inp.ToString());
     ir_map[ir::Output(inp)] = t;
   }
@@ -868,6 +871,15 @@ void HlExec::Create(
               c10::TypeKind::TensorType) {
             auto irout_val = node->GetOutput(idx);
             auto jit_value_out = jit_node->output(idx);
+            HABANA_ASSERT(
+                irout_val.get_scalar_type().has_value(),
+                "Optional variable has no scalar type data");
+            HABANA_ASSERT(
+                irout_val.get_device().has_value(),
+                "Optional variable has no device data");
+            HABANA_ASSERT(
+                irout_val.get_sizes().has_value(),
+                "Optional variable has no sizes data");
             jit_value_out->setType(
                 c10::TensorType::createContiguous(
                     *(irout_val.get_scalar_type()),

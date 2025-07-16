@@ -141,8 +141,11 @@ ir::NodePtr strided_insert_h2d(
         orig_t, insert_t, stride_st, node_str);
   } else {
     auto lazy_ten = GetHbLazyTensor(offset_st);
-    auto tensor_offset = lazy_ten.CurrentTensorAttached().value();
-    auto impl_offset = habana_lazy::GetHbInternalTensorImpl(tensor_offset);
+    auto tensor_offset = lazy_ten.CurrentTensorAttached();
+    HABANA_ASSERT(
+        tensor_offset.has_value(), "Optional tensor variable has no value");
+    auto impl_offset =
+        habana_lazy::GetHbInternalTensorImpl(tensor_offset.value());
     HABANA_ASSERT(impl_offset, "impl_offset is invalid");
 
     // Mark this front end shape tensor as it does not need synapse tensor.
@@ -214,8 +217,12 @@ Tensor add_strided_insert_node(
             orig_t, insert_t, out_stride_st, offset_st, node_str);
       } else {
         auto lazy_ten = GetHbLazyTensor(offset_st);
-        auto tensor_offset_st = lazy_ten.CurrentTensorAttached().value();
-        auto impl_st = habana_lazy::GetHbInternalTensorImpl(tensor_offset_st);
+        auto tensor_offset_st = lazy_ten.CurrentTensorAttached();
+        HABANA_ASSERT(
+            tensor_offset_st.has_value(),
+            "Optional tensor variable has no value");
+        auto impl_st =
+            habana_lazy::GetHbInternalTensorImpl(tensor_offset_st.value());
         HABANA_ASSERT(impl_st, "impl_st is invalid");
 
         std::vector<int64_t> stride_ratios;
@@ -257,9 +264,11 @@ Tensor HbLazyTensorViews::get_base_tensor(const Tensor& self) {
 
   // handle multi level views
   auto hl_t = GetHbLazyTensor(self, true, false);
-  while (hl_t.getDataPtr()->stride_params.has_value()) {
-    out = hl_t.getDataPtr()->stride_params.value().base;
+  auto stride_params = hl_t.getDataPtr()->stride_params;
+  while (stride_params.has_value()) {
+    out = stride_params.value().base;
     hl_t = GetHbLazyTensor(out, true, false);
+    stride_params = hl_t.getDataPtr()->stride_params;
   }
 
   return out;
@@ -279,8 +288,9 @@ bool HbLazyTensorViews::HandleViews(const Tensor& t, const HbLazyTensor& hl_t) {
   PT_LAZY_TRACE;
   bool is_view = false;
   StrideParams params;
-  if (hl_t.getDataPtr()->stride_params.has_value()) {
-    auto& params = hl_t.getDataPtr()->stride_params.value();
+  auto stride_params = hl_t.getDataPtr()->stride_params;
+  if (stride_params.has_value()) {
+    auto& params = stride_params.value();
     // pick the most recent version
     // use base if it is as_strided op else use the parent
     auto parent_or_base =
@@ -357,6 +367,7 @@ bool HbLazyTensorViews::HandleViews(const Tensor& t, const HbLazyTensor& hl_t) {
       }
 
       is_view = true;
+      stride_params = hl_t.getDataPtr()->stride_params;
     }
   }
   return is_view;
@@ -573,8 +584,10 @@ Tensor HbLazyTensorViews::HandleViewsD2H(const Tensor& src) {
     Tensor base;
     Tensor base_internal_tensor;
     if (src.is_contiguous()) {
-      base =
-          get_recent_base_tensor(hl_t.getDataPtr()->stride_params.value().base);
+      auto stride_params = hl_t.getDataPtr()->stride_params;
+      HABANA_ASSERT(
+          stride_params.has_value(), "Optional variable has no value!");
+      base = get_recent_base_tensor(stride_params.value().base);
       HABANA_ASSERT(base.storage(), "base tensor should have valid storage");
       base_internal_tensor = GetHbLazyTensor(base).EvaluateTensorData();
       auto hb_impl = habana_lazy::GetHbInternalTensorImpl(base_internal_tensor);
@@ -648,9 +661,9 @@ std::vector<at::Tensor> HbLazyTensorViews::UpdateViewDistributed(
     auto context = get_device_lazy_execution_context();
     auto t_updated = t;
 
-    if (hl_t.getDataPtr()->stride_params.has_value()) {
-      auto base =
-          get_recent_base_tensor(hl_t.getDataPtr()->stride_params.value().base);
+    auto stride_params = hl_t.getDataPtr()->stride_params;
+    if (stride_params.has_value()) {
+      auto base = get_recent_base_tensor(stride_params.value().base);
 
       if (t_updated.is_contiguous()) {
         // optimization for contiguous views
@@ -1147,16 +1160,18 @@ void HbLazyTensorViews::HandleViewsLiveTensors(
 
   for (auto hl_t : maybe_view_outputs) {
     auto id = hl_t.getTensorUniqueId();
-    auto& params = hl_t.getDataPtr()->stride_params.value();
+    auto stride_params = hl_t.getDataPtr()->stride_params;
 
-    if (is_view_out) {
-      add_strided_view_output_node(hl_t, id, params, context);
+    if (is_view_out && stride_params.has_value()) {
+      add_strided_view_output_node(hl_t, id, stride_params.value(), context);
     } else {
       context->viewContext.hb_tensors_exclude_out_view.emplace_back(hl_t);
     }
 
     // clear the writecnt
-    params.write_cnt = 0;
+    if (stride_params.has_value()) {
+      stride_params.value().write_cnt = 0;
+    }
   }
 
   if (context->viewContext.view_outputs.empty()) {
@@ -1270,15 +1285,13 @@ void HbLazyTensorViews::HandleViewsPermutedSend(const at::Tensor& src) {
   auto src_const_id = habana::get_tensor_const_id(src);
   auto hl_t = GetHbLazyTensor(src);
 
-  bool is_view = hl_t.getDataPtr()->stride_params.has_value();
-
-  if (is_view) {
+  auto stride_params = hl_t.getDataPtr()->stride_params;
+  if (stride_params.has_value()) {
     bool reuse_base_storage = false;
     Tensor base;
     Tensor base_internal_tensor;
     if (src.is_contiguous()) {
-      base =
-          get_recent_base_tensor(hl_t.getDataPtr()->stride_params.value().base);
+      base = get_recent_base_tensor(stride_params.value().base);
       HABANA_ASSERT(base.storage(), "base tensor should have valid storage");
       base_internal_tensor = GetHbLazyTensor(base).EvaluateTensorData();
       auto hb_impl = habana_lazy::GetHbInternalTensorImpl(base_internal_tensor);

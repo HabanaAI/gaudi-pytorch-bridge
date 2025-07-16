@@ -242,10 +242,12 @@ std::unordered_set<int64_t> get_hb_base_tensor_id_list_if_view(
   auto hl_t = hl_t_in;
   std::unordered_set<int64_t> view_t_list;
   view_t_list.insert(hl_t.getTensorUniqueId());
-  while (hl_t.getDataPtr()->stride_params.has_value()) {
-    auto out = hl_t.getDataPtr()->stride_params.value().base;
+  auto stride_params = hl_t.getDataPtr()->stride_params;
+  while (stride_params.has_value()) {
+    auto out = stride_params.value().base;
     hl_t = habana_lazy::GetHbLazyTensor(out, true, false);
     view_t_list.insert(hl_t.getTensorUniqueId());
+    stride_params = hl_t.getDataPtr()->stride_params;
   }
   return view_t_list;
 }

@@ -911,8 +911,13 @@ void GraphExec::UpdateSeedTensors(torch::jit::Stack& stack) {
       m_reset_seed = false;
     }
 
-    stack[0] = *m_seed_tensors.seed;
-    stack[1] = *m_seed_tensors.counter;
+    if (m_seed_tensors.seed.has_value()) {
+      stack[0] = *m_seed_tensors.seed;
+    }
+
+    if (m_seed_tensors.counter.has_value()) {
+      stack[1] = *m_seed_tensors.counter;
+    }
   }
 }
 

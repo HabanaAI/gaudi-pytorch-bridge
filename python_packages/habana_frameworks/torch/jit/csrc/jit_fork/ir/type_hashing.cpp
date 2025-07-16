@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,7 +33,8 @@ namespace habana_torch::jit {
 
 namespace {
 size_t hashType(const Type& type) {
-  if (auto named_type = type.castRaw<ClassType>()) {
+  auto named_type = type.castRaw<ClassType>();
+  if (named_type && named_type->name().has_value()) {
     return get_hash(named_type->name().value());
   }
   size_t hash = 0;

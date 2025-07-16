@@ -483,7 +483,7 @@ void OptimizerFusedAdamWOperator::AddNode(
     std::optional<sh::tensor> exp_avg_sq_casted;
     std::optional<sh::tensor> exp_avg_scale_updated;
     std::optional<sh::tensor> exp_avg_sq_scale_updated;
-    if (is_fp8) {
+    if (is_fp8 && exp_avg_scales.has_value() && exp_avg_sq_scales.has_value()) {
       exp_avg_scale_syn = exp_avg_scales.value()[i].syn_t;
       exp_avg_sq_scale_syn = exp_avg_sq_scales.value()[i].syn_t;
       auto cast_result = BuildOp(
@@ -513,7 +513,9 @@ void OptimizerFusedAdamWOperator::AddNode(
     auto exp_avg_mul_beta1 = BuildOp(
         graph,
         mul_node,
-        {is_fp8 ? exp_avg_casted.value().get() : exp_avg.syn_t, beta1_t},
+        {is_fp8 && exp_avg_casted.has_value() ? exp_avg_casted.value().get()
+                                              : exp_avg.syn_t,
+         beta1_t},
         exp_avg_attr);
 
     auto grad_scaled = BuildOp(
@@ -526,7 +528,7 @@ void OptimizerFusedAdamWOperator::AddNode(
         {{gradient.pt_t.sizes(), scalar_dtype}});
 
     std::optional<sh::tensor> exp_avg_1_out;
-    if (is_fp8) {
+    if (is_fp8 && exp_avg_scale_syn.has_value()) {
       auto moment_and_scale = GetMomentInFp8WithScale(
           this,
           graph,
@@ -567,7 +569,10 @@ void OptimizerFusedAdamWOperator::AddNode(
     auto exp_avg_sq_mul_beta2 = BuildOp(
         graph,
         mul_node,
-        {is_fp8 ? exp_avg_sq_casted.value().get() : exp_avg_sq.syn_t, beta2_t},
+        {is_fp8 && exp_avg_sq_casted.has_value()
+             ? exp_avg_sq_casted.value().get()
+             : exp_avg_sq.syn_t,
+         beta2_t},
         exp_avg_sq_attr);
 
     auto exp_avg_sq_1 = BuildOp(
@@ -577,7 +582,7 @@ void OptimizerFusedAdamWOperator::AddNode(
         {NodeAttr::NodeOutputAttr{gradient.pt_t.sizes(), scalar_dtype}});
 
     std::optional<sh::tensor> exp_avg_sq_1_out;
-    if (is_fp8) {
+    if (is_fp8 && exp_avg_sq_scale_syn.has_value()) {
       auto moment_and_scale = GetMomentInFp8WithScale(
           this,
           graph,
@@ -644,7 +649,8 @@ void OptimizerFusedAdamWOperator::AddNode(
     syn_out(i) = std::move(result[0]);
     syn_out(i + vec_size) = std::move(exp_avg_1_out.value());
     syn_out(i + 2 * vec_size) = std::move(exp_avg_sq_1_out.value());
-    if (is_fp8) {
+    if (is_fp8 && exp_avg_scale_updated.has_value() &&
+        exp_avg_sq_scale_updated.has_value()) {
       syn_out(i + 3 * vec_size) = std::move(exp_avg_scale_updated.value());
       syn_out(i + 4 * vec_size) = std::move(exp_avg_sq_scale_updated.value());
     }

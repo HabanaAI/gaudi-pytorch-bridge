@@ -36,7 +36,10 @@ OutputMetaDataVector RepeatInterleaveMeta(const at::Stack& stack) {
 
 FillParamsT RepeatInterleaveParams(const at::Stack& stack) {
   PARAMS_STUB(ns_RepeatInterleave::Params);
-  params->outputSize = stack.at(1).toOptional<int64_t>().value();
+  auto opt_val = stack.at(1).toOptional<int64_t>();
+  if (opt_val.has_value()) {
+    params->outputSize = opt_val.value();
+  }
 
   return paramsT;
 }

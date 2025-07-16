@@ -482,7 +482,7 @@ void SDPABwd::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
   std::vector<synTensor> syn_inputs = {
       grad.syn_t, q.syn_t, k.syn_t, v.syn_t, P.syn_t};
-  if (p > 0.0) {
+  if (p > 0.0 && dm.has_value()) {
     syn_inputs.push_back(dm.value().syn_t);
   } else {
     syn_inputs.push_back(nullptr);
@@ -575,7 +575,7 @@ void Fp8SDPABwd::AddNode(
 
   std::vector<synTensor> syn_inputs = {
       grad.syn_t, q.syn_t, k.syn_t, v.syn_t, P.syn_t};
-  if (p > 0.0) {
+  if (p > 0.0 && dm.has_value()) {
     syn_inputs.push_back(dm.value().syn_t);
   } else {
     syn_inputs.push_back(nullptr);
@@ -1055,7 +1055,7 @@ void SDPARecompBwd::AddNode(
   }
   syn_inputs.push_back(m.syn_t);
   syn_inputs.push_back(linv.syn_t);
-  if (p > 0.0) {
+  if (p > 0.0 && seed.has_value()) {
     syn_inputs.push_back(seed.value().syn_t);
   } else {
     syn_inputs.push_back(nullptr);
@@ -1138,7 +1138,7 @@ void Fp8SDPARecompBwd::AddNode(
   }
   syn_inputs.push_back(m.syn_t);
   syn_inputs.push_back(linv.syn_t);
-  if (p > 0.0) {
+  if (p > 0.0 && seed.has_value()) {
     syn_inputs.push_back(seed.value().syn_t);
   } else {
     syn_inputs.push_back(nullptr);

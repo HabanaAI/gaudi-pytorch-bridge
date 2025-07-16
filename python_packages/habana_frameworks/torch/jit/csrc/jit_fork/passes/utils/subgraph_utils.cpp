@@ -92,17 +92,20 @@ struct ValueMapper {
       bool is_existing_value = false;
       for (size_t i = 0; i < existing_last_uses_.size() && !is_existing_value;
            ++i) {
-        is_existing_value = existing_last_uses_[i].has_value() &&
-            usesEqual(*existing_last_uses_[i], last_use);
+        auto last_uses = existing_last_uses_[i];
+        is_existing_value =
+            last_uses.has_value() && usesEqual(*last_uses, last_use);
       }
       if (is_existing_value) {
         continue;
       }
 
       size_t i = 0;
-      while (i < last_uses_.size() && last_uses_.at(i).has_value() &&
-             !usesEqual(*last_uses_.at(i), last_use)) {
-        ++i;
+      for (; i < last_uses_.size(); i++) {
+        const auto& opt_use = last_uses_.at(i);
+        if (!opt_use.has_value() || usesEqual(*opt_use, last_use)) {
+          break;
+        }
       }
       HABANA_ASSERT(i != last_uses_.size());
       db.replaceWithNewValue(placeholder_node_->outputs().at(i), v);

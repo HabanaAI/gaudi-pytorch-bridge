@@ -162,9 +162,10 @@ std::tuple<std::vector<int64_t>, std::vector<at::Tensor>> transposeToFront(
   }
   dims.reserve(self.dim());
   for (const auto i : c10::irange<size_t>(self.dim())) {
-    if ((i < indices.size()) && indices[i].has_value()) {
+    auto indice = indices[i];
+    if ((i < indices.size()) && indice.has_value()) {
       dims.push_back(i);
-      transposedIndices.emplace_back(indices[i].value());
+      transposedIndices.emplace_back(indice.value());
     }
   }
   for (const auto i : c10::irange<size_t>(self.dim())) {

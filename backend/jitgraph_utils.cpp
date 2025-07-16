@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -165,7 +165,10 @@ void visit_prim_node(
   if (torch::jit::prim::Constant == node->kind()) {
     for (const auto value : node->outputs()) {
       HABANA_ASSERT(val_to_ival_map.count(value) == 0);
-      val_to_ival_map[value] = torch::jit::IValue(toIValue(value).value());
+      auto opt_val = torch::jit::toIValue(value);
+      HABANA_ASSERT(
+          opt_val.has_value(), "Optional variable opt_val has no value");
+      val_to_ival_map[value] = opt_val.value();
     }
   } else if (torch::jit::prim::ListConstruct == node->kind()) {
     auto node_outputs = node->outputs();

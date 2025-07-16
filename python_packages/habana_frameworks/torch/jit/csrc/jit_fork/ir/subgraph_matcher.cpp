@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -318,6 +318,7 @@ bool SubgraphMatcher::matchNodes(const Node* n1, Node* n2) {
         return false;
       }
       auto t = n2->output()->type()->expect<ClassType>();
+      HABANA_ASSERT(t->name().has_value(), "Optional variable has no value!");
       auto real_typename = t->name()->qualifiedName();
       auto pattern_typename = n1->s(attr::name);
       if (!endsWith(real_typename, pattern_typename)) {

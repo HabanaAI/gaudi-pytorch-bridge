@@ -104,7 +104,9 @@ static bool removableSetItem(Node* n) {
     return false;
   }
   auto li_node = n->inputs().at(0)->node();
-  int64_t index = *constant_as<int64_t>(n->input(1));
+  auto opt_index = constant_as<int64_t>(n->input(1));
+  HABANA_ASSERT(opt_index.has_value(), "Optional variable has no value!");
+  int64_t index = opt_index.value();
   if (index < 0) {
     index += li_node->inputs().size();
   }
@@ -205,7 +207,9 @@ bool MutationRemover::RemoveListMutation(Block* block) {
         list_construct->addInput(node->inputs().at(1));
         break;
       case aten::insert: {
-        auto pos = toIValue(node->inputs().at(1))->toInt();
+        auto opt_pos = toIValue(node->inputs().at(1));
+        HABANA_ASSERT(opt_pos.has_value(), "Optional variable has no value");
+        auto pos = opt_pos.value().toInt();
         const auto size = static_cast<int64_t>(list_construct->inputs().size());
         // insert to neg position equals insert to std::max(pos+size, 0)
         if (pos < 0) {
@@ -218,7 +222,9 @@ bool MutationRemover::RemoveListMutation(Block* block) {
         break;
       }
       case aten::_set_item: {
-        auto pos = toIValue(node->inputs().at(1))->toInt();
+        auto opt_pos = toIValue(node->inputs().at(1));
+        HABANA_ASSERT(opt_pos.has_value(), "Optional variable has no value");
+        auto pos = opt_pos.value().toInt();
         const auto size = static_cast<int64_t>(list_construct->inputs().size());
         if (pos < 0) {
           pos = std::max(pos + size, static_cast<int64_t>(0));
@@ -232,9 +238,10 @@ bool MutationRemover::RemoveListMutation(Block* block) {
 
     // process use-chain and aliasing of node output
     bool has_output = (!node->outputs().empty());
-    if (has_output) {
+    auto db_alias = getOrCreateAliasDb();
+    if (has_output && db_alias->writeIndex_.has_value()) {
       node->output()->replaceAllUsesWith(mutated_value);
-      getOrCreateAliasDb()->writeIndex_->erase(node);
+      db_alias->writeIndex_->erase(node);
     }
 
     node->destroy();
@@ -321,8 +328,11 @@ bool MutationRemover::RemoveTensorMutation(Block* block) {
     getOrCreateAliasDb()->createValue(mutated_value);
 
     // We must erase the destroyed node from the AliasDb lists of writes
-    getOrCreateAliasDb()->writeIndex_->erase(node);
-    node->destroy();
+    auto db_alias = getOrCreateAliasDb();
+    if (db_alias->writeIndex_.has_value()) {
+      db_alias->writeIndex_->erase(node);
+      node->destroy();
+    }
 
     // now that we have removed a mutating op, the write cache is stale
     // TODO: don't strictly need to reset write cache, evaluate on models

@@ -65,6 +65,7 @@ void habana::RefinementEngine::Refine() {
     m_stackQueue.pop_front();
     mutex_lock.unlock();
 
+    HABANA_ASSERT(qentry.has_value(), "Optional variable qentry has no value");
     auto graph_key{qentry.value()};
     if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_COMPILE_THREAD)) {
       PT_DYNAMIC_SHAPE_DEBUG(
@@ -113,11 +114,14 @@ void habana::RefinementEngine::AddGraphKey(
     bool key_found{false};
     for (size_t i = 0; i < m_readyQueue.size(); i++) {
       // We should not see a shutdown enqueued if we are within this function
-      if (m_readyQueue[i].value() == key) {
-        PT_DYNAMIC_SHAPE_DEBUG(
-            "Graph key ", key, " is already added for refinement");
-        key_found = true;
-        break;
+      auto data = m_readyQueue[i];
+      if (data.has_value()) {
+        if (data.value() == key) {
+          PT_DYNAMIC_SHAPE_DEBUG(
+              "Graph key ", key, " is already added for refinement");
+          key_found = true;
+          break;
+        }
       }
     }
     if (!key_found) {

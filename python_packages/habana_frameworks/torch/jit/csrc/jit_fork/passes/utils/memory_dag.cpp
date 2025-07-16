@@ -243,7 +243,8 @@ void MemoryDAG::setWildcards(
     }
     // If this element contains an edited memory location, update the cache to
     // contain the pointed-to wildcard element as well.
-    if (getMemoryLocations(e.get()).intersects(it->second)) {
+    if (getMemoryLocations(e.get()).intersects(it->second) &&
+        e->cachedMemoryLocations_.has_value()) {
       e->cachedMemoryLocations_->set(wildcardElement->index);
     }
   }

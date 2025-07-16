@@ -298,27 +298,30 @@ bool FuseConvBatchnorm(
           "[FuseConvBatchnorm] redundant_input: ",
           bn->input(idx_running_var)->debugName());
 
-      auto bn_eps =
-          torch::jit::constant_as<double>(bn->namedInput("eps")).value();
-      PT_LAZY_DEBUG("[FuseConvBatchnorm] bn_eps = ", bn_eps);
+      auto bn_eps = torch::jit::constant_as<double>(bn->namedInput("eps"));
+      if (bn_eps.has_value()) {
+        PT_LAZY_DEBUG("[FuseConvBatchnorm] bn_eps = ", bn_eps.value());
 
-      auto status = computeUpdatedConvWeightAndBias(
-          conv_w_tmeta_ptr->get_tensor_size(),
-          (float*)conv_w,
-          (float*)conv_b,
-          (float*)bn_rv,
-          (float*)bn_rm,
-          (float*)bn_w,
-          (float*)bn_b,
-          bn_eps,
-          conv_w_permutation.empty());
-      if (!status) {
-        PT_LAZY_DEBUG("[FuseConvBatchnorm] Compute unsuccessful!");
-        redundant_inputs.pop_back();
-        redundant_inputs.pop_back();
-        redundant_inputs.pop_back();
-        redundant_inputs.pop_back();
-        continue;
+        auto status = computeUpdatedConvWeightAndBias(
+            conv_w_tmeta_ptr->get_tensor_size(),
+            (float*)conv_w,
+            (float*)conv_b,
+            (float*)bn_rv,
+            (float*)bn_rm,
+            (float*)bn_w,
+            (float*)bn_b,
+            bn_eps.value(),
+            conv_w_permutation.empty());
+        if (!status) {
+          PT_LAZY_DEBUG("[FuseConvBatchnorm] Compute unsuccessful!");
+          redundant_inputs.pop_back();
+          redundant_inputs.pop_back();
+          redundant_inputs.pop_back();
+          redundant_inputs.pop_back();
+          continue;
+        }
+      } else {
+        PT_LAZY_DEBUG("[FuseConvBatchnorm] ERROR! bn_eps has no value!");
       }
 
       PT_LAZY_DEBUG("[FuseConvBatchnorm] Update conv parameters");

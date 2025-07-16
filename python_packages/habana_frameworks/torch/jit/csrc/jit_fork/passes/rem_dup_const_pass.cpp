@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,11 +23,12 @@ bool RemoveDuplicateConstPass(habana_torch::jit::Graph& g) {
   for (Node* n : g.nodes()) {
     // Iterate only over const nodes
     if (n->kind() == prim::Constant) {
-      auto val = toIValue(n->output()).value();
+      auto val = toIValue(n->output());
+      HABANA_ASSERT(val.has_value(), "Optional variable has no value!");
       auto node_it = find_if(
           const_nodes.begin(), const_nodes.end(), [&val](const Node* n) {
             auto n_val = toIValue(n->output()).value();
-            return val == n_val;
+            return val.value() == n_val;
           });
       if (node_it != const_nodes.end()) {
         // This const node already exists

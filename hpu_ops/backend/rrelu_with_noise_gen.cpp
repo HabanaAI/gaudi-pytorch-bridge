@@ -90,7 +90,7 @@ void Rrelu_with_noise::AddNode(
   if (is_functional) {
     noise_out_idx = 1;
   }
-  if (training) {
+  if (training && noiseIn.has_value()) {
     std::optional<synapse_helpers::tensor> noiseStorageOpt;
     auto [noise_in_storage_or_idx] = get_or_create_tensor<STORAGE_IDX>(
         *this,

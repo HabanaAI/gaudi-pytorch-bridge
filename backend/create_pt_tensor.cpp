@@ -25,14 +25,14 @@ StorageLessWrapperTensorImpl::StorageLessWrapperTensorImpl(
     at::optional<caffe2::TypeMeta> data_type)
     : TensorImpl(
           c10::DispatchKeySet(c10::DispatchKey::HPU),
-          data_type.has_value() ? data_type.value() : rep.dtype(),
+          data_type.value_or(rep.dtype()),
           rep.device()) {}
 
 StorageLessWrapperTensorImpl::StorageLessWrapperTensorImpl(
     at::optional<caffe2::TypeMeta> data_type)
     : TensorImpl(
           c10::DispatchKeySet(c10::DispatchKey::HPU),
-          data_type.value(),
+          data_type.value_or(caffe2::TypeMeta()),
           at::kHPU) {}
 
 void StorageLessWrapperTensorImpl::release_resources() {}

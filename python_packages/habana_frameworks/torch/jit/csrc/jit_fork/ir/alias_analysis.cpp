@@ -350,8 +350,12 @@ bool AliasDb::hasWriters(const Value* v) const {
   }
 
   const auto& el = it->second;
-  return writtenToLocationsIndex_->intersects(
-      memoryDAG_->getMemoryLocations(el));
+  if (writtenToLocationsIndex_.has_value()) {
+    return writtenToLocationsIndex_->intersects(
+        memoryDAG_->getMemoryLocations(el));
+  } else {
+    return false;
+  }
 }
 
 void AliasDb::getWritesImpl(Node* n, MemoryLocations& ret) const {

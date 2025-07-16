@@ -218,8 +218,9 @@ static Value* tryMatchArgument(
   // Some functions that take lists of integers or floats for fixed size arrays
   // also allow single ints/floats to be passed in their place. The single
   // int/float is then repeated to the length of the list
-  if (isIntOrFloatUsedAsList(value, arg)) {
-    std::vector<Value*> repeated(*arg.N(), value);
+  auto opt_arg = arg.N();
+  if (isIntOrFloatUsedAsList(value, arg) && opt_arg.has_value()) {
+    std::vector<Value*> repeated(opt_arg.value(), value);
     value =
         graph.insertNode(graph.createList(value->type(), repeated))->output();
   }

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -334,23 +334,28 @@ void RecalculateBatchnormParams(
         continue;
       }
 
-      auto bn_eps =
-          torch::jit::constant_as<double>(bn->namedInput("eps")).value();
-      PT_LAZY_DEBUG(
-          "[RecalculateBatchnormParams] [recompute batchnorm Params] bn_eps = ",
-          bn_eps);
-
-      auto status = recomputeBatchnormParams(
-          bn_b_tmeta_ptr->get_tensor_size(),
-          (float*)bn_rv,
-          (float*)bn_rm,
-          (float*)bn_w,
-          (float*)bn_b,
-          bn_eps);
-
-      if (!status) {
+      auto bn_eps = torch::jit::constant_as<double>(bn->namedInput("eps"));
+      if (bn_eps.has_value()) {
         PT_LAZY_DEBUG(
-            "[RecalculateBatchnormParams] [recompute batchnorm Params ERROR!]");
+            "[RecalculateBatchnormParams] [recompute batchnorm Params] bn_eps = ",
+            bn_eps.value());
+
+        auto status = recomputeBatchnormParams(
+            bn_b_tmeta_ptr->get_tensor_size(),
+            (float*)bn_rv,
+            (float*)bn_rm,
+            (float*)bn_w,
+            (float*)bn_b,
+            bn_eps.value());
+
+        if (!status) {
+          PT_LAZY_DEBUG(
+              "[RecalculateBatchnormParams] [recompute batchnorm Params ERROR!]");
+          continue;
+        }
+      } else {
+        PT_LAZY_DEBUG(
+            "[RecalculateBatchnormParams] [recompute batchnorm Params ERROR! bn_eps has no value!]");
         continue;
       }
 

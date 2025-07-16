@@ -188,7 +188,9 @@ bool IssetToIntegralDType(
       static const auto constant_symbol{
           c10::Symbol::fromQualString("prim::Constant")};
       if (val->node()->kind() == constant_symbol) {
-        auto scalar_val = toIValue(val).value().toScalar();
+        auto opt_val = toIValue(val);
+        HABANA_ASSERT(opt_val.has_value(), "Optional variable has no value");
+        auto scalar_val = opt_val.value().toScalar();
         isitInger = isitInger && scalar_val.isIntegral(true);
       } else if (org_stack_index_map.count(in_name)) {
         auto index = static_cast<int64_t>(org_stack_index_map[in_name]);

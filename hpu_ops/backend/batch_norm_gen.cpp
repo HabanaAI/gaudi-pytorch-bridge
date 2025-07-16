@@ -44,6 +44,10 @@ static synTensor cast_if_necessary_or_default(
     std::optional<TensorsPair> source_opt,
     synTensor& default_val,
     std::optional<sh::tensor>& storage) {
+  if (!source_opt.has_value()) {
+    return default_val;
+  }
+
   if (should_cast_from_BF16(source_opt)) {
     storage = OpBackend::BuildCast(
         op,

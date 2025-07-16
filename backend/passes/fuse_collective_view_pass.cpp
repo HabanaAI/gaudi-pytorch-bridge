@@ -173,13 +173,20 @@ bool FuseCollectiveViewPass::CanFuse(
   } else {
     if (strcmp(node->kind().toQualString(), "aten::slice") == 0) {
       auto input = node->input(0);
-      auto dim = torch::jit::toIValue(node->input(1)).value().toInt();
-      auto step = torch::jit::toIValue(node->input(4)).value().toInt();
-      bool can_fuse = CanFuse(input, dim, step);
-      if (can_fuse && !IsGraphInputOutput(input)) {
-        can_fuse = CanFuse(input->node());
+
+      auto dim = torch::jit::toIValue(node->input(1));
+      auto step = torch::jit::toIValue(node->input(4));
+
+      if (dim.has_value() && step.has_value()) {
+        bool can_fuse =
+            CanFuse(input, dim.value().toInt(), step.value().toInt());
+        if (can_fuse && !IsGraphInputOutput(input)) {
+          can_fuse = CanFuse(input->node());
+        }
+        return can_fuse;
+      } else {
+        return false;
       }
-      return can_fuse;
     } else if (
         strcmp(node->kind().toQualString(), "aten::view") == 0 ||
         strcmp(node->kind().toQualString(), "aten::squeeze") == 0) {
@@ -220,9 +227,11 @@ void FuseCollectiveViewPass::GetExternalParams(
     auto sizes = tensor_type->sizes();
     auto strides = tensor_type->strides();
     auto ndim = sizes.size();
+    auto dim_sizes = sizes[dim];
+    auto dim_strides = strides[dim];
     if (ndim.has_value() &&
         ndim.value() > uint64_t(dim = at::maybe_wrap_dim(dim, ndim.value())) &&
-        sizes[dim].has_value() && strides[dim].has_value()) {
+        dim_sizes.has_value() && dim_strides.has_value()) {
       auto normalize_func = [](int64_t idx, int64_t size) -> int64_t {
         if (size <= 0) {
           return 0;
@@ -237,9 +246,9 @@ void FuseCollectiveViewPass::GetExternalParams(
         return idx;
       };
 
-      start = normalize_func(start, sizes[dim].value());
-      end = normalize_func(end, sizes[dim].value());
-      auto stride = strides[dim].value();
+      start = normalize_func(start, dim_sizes.value());
+      end = normalize_func(end, dim_sizes.value());
+      auto stride = dim_strides.value();
       params.offset = start * stride;
       params.numel = (end - start) * stride;
     }
@@ -263,9 +272,9 @@ void FuseCollectiveViewPass::FuseSliceInsertOps(
             slice_insert_node->input(2)->unique();
       });
   bool have_shape_tensor = const_node_vec.empty() || const_node_vec.end() == it;
-  if (!have_shape_tensor) {
-    auto paramsList =
-        torch::jit::toIValue(slice_insert_node->input(2)).value().toIntList();
+  auto opt_param_list = torch::jit::toIValue(slice_insert_node->input(2));
+  if (!have_shape_tensor && opt_param_list.has_value()) {
+    auto paramsList = opt_param_list.value().toIntList();
     if (paramsList.size() == 4) {
       ExternalParams params;
 
@@ -298,24 +307,32 @@ void FuseCollectiveViewPass::FuseSliceInsertOps(
 }
 
 void FuseCollectiveViewPass::FuseSliceOps(torch::jit::Node* slice_node) {
-  auto dim = torch::jit::toIValue(slice_node->input(1)).value().toInt();
-  auto start = torch::jit::toIValue(slice_node->input(2)).value().toInt();
-  auto end = torch::jit::toIValue(slice_node->input(3)).value().toInt();
-  auto step = torch::jit::toIValue(slice_node->input(4)).value().toInt();
+  auto dim = torch::jit::toIValue(slice_node->input(1));
+  auto start = torch::jit::toIValue(slice_node->input(2));
+  auto end = torch::jit::toIValue(slice_node->input(3));
+  auto step = torch::jit::toIValue(slice_node->input(4));
 
-  auto input = slice_node->input(0);
-  auto output = slice_node->output();
-  bool can_fuse = CanFuse(input, dim, step);
+  if (dim.has_value() && start.has_value() && end.has_value() &&
+      step.has_value()) {
+    auto input = slice_node->input(0);
+    auto output = slice_node->output();
+    bool can_fuse = CanFuse(input, dim.value().toInt(), step.value().toInt());
 
-  if (can_fuse) {
-    ExternalParams params;
-    GetExternalParams(input, dim, start, end, params);
+    if (can_fuse) {
+      ExternalParams params;
+      GetExternalParams(
+          input,
+          dim.value().toInt(),
+          start.value().toInt(),
+          end.value().toInt(),
+          params);
 
-    input_valptr_to_params_map_[input] =
-        std::make_shared<ExternalParams>(params);
-    output->replaceAllUsesWith(input);
-    slice_node->removeAllInputs();
-    slice_node->destroy();
+      input_valptr_to_params_map_[input] =
+          std::make_shared<ExternalParams>(params);
+      output->replaceAllUsesWith(input);
+      slice_node->removeAllInputs();
+      slice_node->destroy();
+    }
   }
 }
 
@@ -332,8 +349,9 @@ void FuseCollectiveViewPass::FuseSqueezeViewOps(torch::jit::Node* node) {
 
     auto it = input_valptr_to_params_map_.find(output);
     if (it == input_valptr_to_params_map_.end()) {
-      if (sizes[0].has_value() && ndim.value() == 1) {
-        GetExternalParams(input, 0, 0, sizes[0].value(), params);
+      auto first_elem = sizes[0];
+      if (first_elem.has_value() && ndim.value() == 1) {
+        GetExternalParams(input, 0, 0, first_elem.value(), params);
         input_valptr_to_params_map_[input] =
             std::make_shared<ExternalParams>(params);
         output->replaceAllUsesWith(input);

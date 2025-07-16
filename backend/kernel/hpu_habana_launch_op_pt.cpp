@@ -1518,8 +1518,9 @@ IValPtrShared MapPrimListConstructNodeInputIShape(
       if (producer_node->kind() == torch::jit::prim::Constant) {
         // The Scalar as stack input already got updated as input part and
         // Rest is constant so no need to update, we can use previous values
-        torch::jit::IValue const_ivalue =
-            torch::jit::toIValue(value_in).value();
+        auto val = torch::jit::toIValue(value_in);
+        HABANA_ASSERT(val.has_value(), "Optional variable has no value");
+        torch::jit::IValue const_ivalue = val.value();
         auto ivptrsh = std::make_shared<IVal>(const_ivalue);
         value_to_ivalue[value_in] = ivptrsh;
       } else if (dsi->value_to_ishape[value_name].isScalar()) {
@@ -1654,8 +1655,9 @@ void HabanaLaunchOpPT::handlePrimConstantNode(
   bool is_jit_cached_graph_info_available = syn_build_cache.is_complete();
   for (const auto value : node_vals) {
     IValPtrShared ivptrsh = nullptr;
-    if (is_jit_cached_graph_info_available == false) {
-      ivptrsh = std::make_shared<IVal>(toIValue(value).value());
+    auto val = toIValue(value);
+    if (is_jit_cached_graph_info_available == false && val.has_value()) {
+      ivptrsh = std::make_shared<IVal>(val.value());
     }
     if (value->type()->kind() == c10::TypeKind::TensorType) {
       auto ivptrsh_updated =
@@ -2405,8 +2407,9 @@ void HabanaLaunchOpPT::CreateValueIShapeMapForNode(
         } else if (node_val->type() != torch::jit::NoneType::get()) {
           // TODO Albin check if any other condition need to check here and
           // check the value
-          torch::jit::IValue const_ivalue =
-              torch::jit::toIValue(node_val).value();
+          auto val = torch::jit::toIValue(node_val);
+          HABANA_ASSERT(val.has_value(), "Optional variable has no value");
+          torch::jit::IValue const_ivalue = val.value();
           if (const_ivalue.isScalar()) {
             // TODO: Check Ishape has to be created with actual scalar type
             habana_helpers::IShape ishape(
@@ -2573,9 +2576,10 @@ void HabanaLaunchOpPT::CreateIValueForNodeInputs(
       if (producer_node->kind() == torch::jit::prim::Constant) {
         // The Scalar as stack input already got updated as input part and
         // Rest is constant so no need to update, we can use previous values
-        torch::jit::IValue const_ivalue =
-            torch::jit::toIValue(node_val).value();
-        auto ivptrsh = std::make_shared<IVal>(const_ivalue);
+        auto const_ivalue = torch::jit::toIValue(node_val);
+        HABANA_ASSERT(
+            const_ivalue.has_value(), "Optional variable has no value");
+        auto ivptrsh = std::make_shared<IVal>(const_ivalue.value());
         value_to_ivalue_[node_val] = ivptrsh;
       } else if (producer_node->kind() == torch::jit::prim::ListConstruct) {
         IValPtrShared ival = MapPrimListConstructNodeInputIShape(
@@ -3213,7 +3217,8 @@ void HabanaLaunchOpPT::HandleAllocatedOutputs(
            std::tuple{outputs_metadata.begin(), node_outputs.begin()};
        itm != outputs_metadata.end();
        ++itm, ++itn) {
-    if (jitgraph_utils::isInGraphOutputs(*itn)) {
+    if (jitgraph_utils::isInGraphOutputs(*itn) &&
+        allocated_outputs_.has_value()) {
       HABANA_ASSERT(
           allocated_outputs_iter != allocated_outputs_->end(),
           "number of allocated_outputs_ is smaller than numer of outputs found in JIT graph");

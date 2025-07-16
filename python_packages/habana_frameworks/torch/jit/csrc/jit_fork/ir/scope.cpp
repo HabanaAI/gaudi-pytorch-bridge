@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@ std::string get_module_info(const ModuleInstanceInfo& module_instance_info) {
   const auto& class_type = module_instance_info.class_type();
   std::string instance_name = module_instance_info.instance_name();
   std::string type_name;
-  if (class_type) {
+  if (class_type && class_type->name().has_value()) {
     type_name += class_type->name()->qualifiedName();
     type_name = type_name.substr(type_name.find_last_of('.') + 1);
   }

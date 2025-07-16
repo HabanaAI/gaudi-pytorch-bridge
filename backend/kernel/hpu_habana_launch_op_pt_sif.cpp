@@ -304,7 +304,10 @@ void HabanaLaunchOpPT::visit_prim_node(
   if (torch::jit::prim::Constant == node->kind()) {
     for (const auto value : node->outputs()) {
       HABANA_ASSERT(val_to_ival_map.count(value) == 0);
-      val_to_ival_map[value] = IVal(toIValue(value).value());
+      auto opt_val = torch::jit::toIValue(value);
+      HABANA_ASSERT(
+          opt_val.has_value(), "Optional variable opt_val has no value");
+      val_to_ival_map[value] = opt_val.value();
       PT_DYNAMIC_SHAPE_DEBUG(
           "For %",
           value->debugName(),
