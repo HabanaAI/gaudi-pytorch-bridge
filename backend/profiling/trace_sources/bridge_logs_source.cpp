@@ -166,7 +166,7 @@ BridgeLogsSource::BridgeLogsSource(
       mandatory_events, is_requested);
 }
 
-BridgeLogsSource::~BridgeLogsSource() {}
+BridgeLogsSource::~BridgeLogsSource() = default;
 
 void BridgeLogsSource::start(TraceSink& sink) {
   BridgeLogsSourceImpl::instance().start(sink);

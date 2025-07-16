@@ -26,7 +26,7 @@ namespace habana::profile {
 class JsonActivityProfiler : public Profiler {
  public:
   JsonActivityProfiler() : Profiler{parser_} {}
-  virtual ~JsonActivityProfiler() {}
+  virtual ~JsonActivityProfiler() = default;
 
   static JsonActivityProfiler* instance() {
     try {

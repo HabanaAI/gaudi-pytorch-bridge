@@ -360,7 +360,7 @@ size_t ComputeSymSizeHashCode(at::ArrayRef<torch::jit::IValue> input_refs) {
   return sym_hash_code;
 }
 
-OptimizedJITGraphAndMetaData::OptimizedJITGraphAndMetaData() {}
+OptimizedJITGraphAndMetaData::OptimizedJITGraphAndMetaData() = default;
 
 OptimizedJITGraphAndMetaData::OptimizedJITGraphAndMetaData(
     const std::shared_ptr<torch::jit::Graph> JitGraphToLowering,

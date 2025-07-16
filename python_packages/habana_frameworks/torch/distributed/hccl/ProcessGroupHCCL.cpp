@@ -255,7 +255,7 @@ ProcessGroupHCCL::WorkHCCL::WorkHCCL(
   future_->markCompleted(at::IValue(outputs_));
 }
 
-ProcessGroupHCCL::WorkHCCL::~WorkHCCL() {}
+ProcessGroupHCCL::WorkHCCL::~WorkHCCL() = default;
 
 bool ProcessGroupHCCL::WorkHCCL::isCompleted() {
   return exception() || wait(); // check for the completion of work;

@@ -127,7 +127,7 @@ struct MemoryLogger : public TraceSource {
   unsigned offset_{};
 };
 
-MemorySource::~MemorySource() {}
+MemorySource::~MemorySource() = default;
 void MemorySource::start(TraceSink& sink) {
   MemoryLogger::instance().start(sink);
 }

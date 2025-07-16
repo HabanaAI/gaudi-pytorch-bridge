@@ -51,7 +51,7 @@ UniqueTokenGenerator* UniqueTokenGenerator::instance_{nullptr};
 std::atomic_uint64_t UniqueTokenGenerator::current_token_{
     Bucket::uninitialized_token};
 
-SplitStatImplBase::~SplitStatImplBase() {}
+SplitStatImplBase::~SplitStatImplBase() = default;
 
 void Bucket::CreateSplitStatImpl(SplitPolicy sp) {
   switch (sp) {

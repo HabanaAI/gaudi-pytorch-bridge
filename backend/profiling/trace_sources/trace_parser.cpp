@@ -198,7 +198,7 @@ HpuTraceParser::HpuTraceParser(unsigned offset)
   engine_type_database_ = std::make_unique<EngineDatabase>(offset);
 }
 
-HpuTraceParser::~HpuTraceParser() {}
+HpuTraceParser::~HpuTraceParser() = default;
 
 void HpuTraceParser::update(
     long double hpu_start_time,

@@ -400,7 +400,7 @@ ProcessGroupLazyHCCL::WorkLazy::WorkLazy(const std::vector<at::Tensor>& outputs)
   future_->markCompleted(at::IValue(outputs_));
 }
 
-ProcessGroupLazyHCCL::WorkLazy::~WorkLazy() {}
+ProcessGroupLazyHCCL::WorkLazy::~WorkLazy() = default;
 
 bool ProcessGroupLazyHCCL::WorkLazy::isCompleted() {
   return true;

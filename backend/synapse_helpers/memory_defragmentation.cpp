@@ -32,13 +32,7 @@ static std::string MemoryStateToString(MemoryState state) {
   return {};
 }
 
-MemoryBlock::MemoryBlock(const MemoryBlock& other)
-    : state_{other.state_},
-      handle_{other.handle_},
-      ptr_{other.ptr_},
-      size_{other.size_},
-      actual_size_{other.actual_size_},
-      stream_{other.stream_} {}
+MemoryBlock::MemoryBlock(const MemoryBlock& other) = default;
 
 MemoryBlock& MemoryBlock::operator=(const MemoryBlock& other) {
   if (this == &other) {
