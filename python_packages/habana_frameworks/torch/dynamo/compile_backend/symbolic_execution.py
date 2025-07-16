@@ -332,9 +332,8 @@ class SymExprNodeManager:
             def symexpr_python(
                 *arguments,
                 sym_expr=copy.deepcopy(symbolic_expr),
-                sym_expr_symbols=copy.deepcopy(symbolic_expr_symbols),
             ):
-                sym_value_dict = dict(zip(sym_expr_symbols, arguments, strict=False))
+                sym_value_dict = dict(zip(symbolic_expr_symbols, arguments, strict=False))
                 sym_value_set = frozenset(sym_value_dict.items())
                 expr_hist = all_expr_hist.setdefault(sym_expr, {})
                 if sym_value_set in expr_hist:
@@ -360,9 +359,8 @@ class SymExprNodeManager:
             def symexpr_python(
                 *arguments,
                 sym_expr=copy.deepcopy(symbolic_expr),
-                sym_expr_symbols=copy.deepcopy(symbolic_expr_symbols),
             ):
-                sym_value_pairs = list(zip(sym_expr_symbols, arguments, strict=False))
+                sym_value_pairs = list(zip(symbolic_expr_symbols, arguments, strict=False))
                 sym_value_set = frozenset(sym_value_pairs)
                 expr_hist = all_expr_hist.setdefault(sym_expr, {})
                 if sym_value_set in expr_hist:
