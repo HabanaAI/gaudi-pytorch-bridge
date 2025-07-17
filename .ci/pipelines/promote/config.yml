@@ -56,9 +56,7 @@ orchestratorConfig:
   - testToLaunch: habana-internal/vllm_fork/Tests/Test_vllm_fork_gaudi2_asic_perf
   - testToLaunch: habana-internal/vllm_fork/Tests/Test_vllm_fork_gaudi3_asic_perf
   - testToLaunch: habana-internal/sglang/Tests/Test_sglang_gaudi3_asic_2cards_precommit_unit_test_compile_suite
-    silentMode: true
   - testToLaunch: habana-internal/sglang/Tests/Test_sglang_gaudi3_asic_promote_unit_tests_suite
-    silentMode: true  
   codeCoverageConfig:
   - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi2_sim_cpp_suite
   coverityConfig: null
