@@ -82,9 +82,6 @@ def convert_from_int4_common(
     scale_dtype,
     disable_clip=False,
 ):
-    if out_dtype == torch.float8_e5m2 and (is_zero_point, packed_zero_point) == (True, True) and variant == "uint4":
-        pytest.skip("https://jira.habana-labs.com/browse/SW-182397")
-
     fn = getattr(torch.ops.hpu, "convert_from_" + variant)
 
     # dequantize_4_bits cguid executes subtraction in 8bits dtype if zero_point is 4bits
@@ -101,6 +98,9 @@ def convert_from_int4_common(
     # Generates tensor of range 0-15 to simulate uint4 values.
     # For int4 variant rolls values > 7 to be negative.
     input = torch.randint(0, 16, real_shape, dtype=torch.int)
+    if is_zero_point and packed_zero_point and out_dtype == torch.float8_e5m2:
+        input = input.to(out_dtype).to(torch.int).clamp(0, 15)
+
     input_hpu = torch.tensor(pack_int4_into_int32(input, packed_shape), dtype=torch.int).to("hpu")
     if variant == "int4":
         input = torch.where(input > 7, input - 16, input)
@@ -134,9 +134,9 @@ def convert_from_int4_common(
 
     # sub i8/u8 is currently not supported by the bridge
     if packed_zero_point:
-        subtraction = (input - zero_point).to(out_dtype).to("hpu")
-    else:
-        subtraction = input.to("hpu") - zero_point.to("hpu")
+        input = input.to(out_dtype)
+        zero_point = zero_point.to(out_dtype)
+    subtraction = input.to("hpu") - zero_point.to("hpu")
     result_ref = subtraction * scale.to("hpu")
 
     return result_hpu, result_ref
