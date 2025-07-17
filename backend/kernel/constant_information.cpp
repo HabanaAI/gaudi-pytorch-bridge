@@ -202,13 +202,12 @@ bool ConstantInformation::IsCheckSumExistInAnyConstInfo(
     return false;
   }
 
-  for (auto& info : const_checksum_iterator->second.infos_) {
-    if (info.checksum_ == checksum) {
-      return true;
-    }
-  }
-
-  return false;
+  return std::any_of(
+      const_checksum_iterator->second.infos_.begin(),
+      const_checksum_iterator->second.infos_.end(),
+      [&checksum](const constInfo_t& info) {
+        return info.checksum_ == checksum;
+      });
 }
 
 std::optional<ConstantInformation::checksum_t> ConstantInformation::

@@ -95,10 +95,10 @@ class InpShapeGen {
 
     c10::ScalarType typ(c10::ScalarType::Long);
     std::vector<habana_helpers::InpTensorShapes> input_shapes_vec;
-    for (auto inputs : dyn_dimvals_arg) {
+    for (const auto& inputs : dyn_dimvals_arg) {
       int64_t input_idx{0};
       habana_helpers::InpTensorShapes input_shapes;
-      for (auto dimvals : inputs) {
+      for (const auto& dimvals : inputs) {
         habana_helpers::TensorShape ts(dimvals, typ);
         input_shapes.emplace(input_idx, ts);
         input_idx++;
@@ -377,7 +377,7 @@ TEST_P(DynamicBucketInfoTest, MinShape) {
   std::cout << "PTI_DBG :: "
             << "Will use the following input tensor shapes:" << '\n';
   size_t in_idx{0};
-  for (auto a : s) {
+  for (const auto& a : s) {
     std::cout << "PTI_DBG :: "
               << "input shape[" << in_idx++ << "]" << '\n'
               << a;

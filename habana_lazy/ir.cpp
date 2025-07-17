@@ -159,7 +159,7 @@ void Node::ReplaceInput(
 Node::~Node() {
   // auto hash1 = this->get_hash();
   if (GET_ENV_FLAG_NEW(PT_HPU_AVOID_RE_EXECUTE_GRAPHS)) {
-    for (auto node_ptr : m_uses_reverse_nodes) {
+    for (const auto& node_ptr : m_uses_reverse_nodes) {
       auto node = node_ptr.get();
       if (node) {
         auto& uses = node->GetUses();

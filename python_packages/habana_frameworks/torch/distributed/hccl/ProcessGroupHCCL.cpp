@@ -229,7 +229,7 @@ void ProcessGroupHCCL::destroy() {
   device_contexts_.clear();
 
   if (!this->emulate_distributed_) {
-    for (auto element : hccl_communicator_) {
+    for (const auto& element : hccl_communicator_) {
       hcclCommDestroy(*(element.second));
     }
   }

@@ -569,7 +569,8 @@ void SingleHPUGraph::replay(std::vector<at::Tensor>& inputs, bool async) {
       std::any_of(inputs.begin(), inputs.end(), [](const auto& t) {
         return t.is_cpu();
       })) {
-    return replayV3(inputs, async);
+    replayV3(inputs, async);
+    return;
   }
 
   if (graph_) {

@@ -30,7 +30,7 @@ TEST_F(HpuOpTest, index) {
   }
   c10::List<std::optional<at::Tensor>> indices_list{};
   indices_list.reserve(vec_cpu.size());
-  for (auto t : vec_cpu) {
+  for (const auto& t : vec_cpu) {
     indices_list.push_back(c10::make_optional(t.to(torch::kHPU)));
   }
   auto out_cpu = at::index(input_cpu, indices_cpu);

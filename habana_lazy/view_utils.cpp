@@ -390,7 +390,7 @@ std::vector<Tensor> HbLazyTensorViews::HandleViewsTensorList(
     const TensorList in_list) {
   std::vector<Tensor> updated_t_list;
 
-  for (auto t : in_list) {
+  for (const auto& t : in_list) {
     auto hl_t = GetHbLazyTensor(t);
 
     auto is_view = HandleViews(t, hl_t);
@@ -653,7 +653,7 @@ std::vector<at::Tensor> HbLazyTensorViews::UpdateViewDistributed(
   std::vector<at::Tensor> out_vec;
   std::vector<HbLazyTensor> hl_t_vec;
 
-  for (auto t : in_vec) {
+  for (const auto& t : in_vec) {
     // auto out = src;
     auto hl_t = GetHbLazyTensor(t);
 
@@ -1158,7 +1158,7 @@ void HbLazyTensorViews::HandleViewsLiveTensors(
     is_view_out = true;
   }
 
-  for (auto hl_t : maybe_view_outputs) {
+  for (const auto& hl_t : maybe_view_outputs) {
     auto id = hl_t.getTensorUniqueId();
     auto stride_params = hl_t.getDataPtr()->stride_params;
 
@@ -1187,7 +1187,7 @@ void HbLazyTensorViews::StepMarkerAllReduce(const std::vector<Tensor>& inputs) {
   std::set<int64_t> bucket_recent_id;
   std::vector<habana_lazy::HbLazyTensor> bucket_hl_t;
 
-  for (auto t : inputs) {
+  for (const auto& t : inputs) {
     auto base = habana_lazy::HbLazyTensorViews::get_base_tensor(t);
     auto org_id = habana_lazy::GetHbLazyTensorId(base, false, false);
 

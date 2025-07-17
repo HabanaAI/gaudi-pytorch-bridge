@@ -56,13 +56,13 @@ void get_patterns(Patterns& patterns) {
     for (json::iterator it = j.begin(); it != j.end(); ++it) {
       auto k = it.value()["Pattern"];
       std::string p;
-      for (auto lk : k) {
+      for (const auto& lk : k) {
         p += lk;
         p += "\n";
       }
       std::string r;
       k = it.value()["ReplacePattern"];
-      for (auto lk : k) {
+      for (const auto& lk : k) {
         r += lk;
         r += "\n";
       }

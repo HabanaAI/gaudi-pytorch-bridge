@@ -70,7 +70,7 @@ std::vector<torch::jit::IValue> CreateInputs(
     std::vector<float> scalars) {
   std::vector<torch::jit::IValue> input_ivalues;
 
-  for (const auto shape : tensor_shapes) {
+  for (const auto& shape : tensor_shapes) {
     torch::Tensor t = torch::randn(shape);
     input_ivalues.emplace_back(t);
   }
@@ -221,7 +221,7 @@ std::vector<at::Tensor> get_input_tensors(
     idx_tensor_map.emplace(idx, pt_tensor);
   }
 
-  for (auto p : idx_tensor_map) {
+  for (const auto& p : idx_tensor_map) {
     PT_TEST_DEBUG(
         "Adding tensor for input[",
         p.first,

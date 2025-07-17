@@ -272,5 +272,5 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       "get_permute_cache_size", []() { return habana::PermuteCache::Size(); });
   m.def(
       "is_permute_cache_empty", []() { return habana::PermuteCache::Empty(); });
-  m.def("flush_permute_cache", []() { return habana::PermuteCache::Flush(); });
+  m.def("flush_permute_cache", []() { habana::PermuteCache::Flush(); });
 }

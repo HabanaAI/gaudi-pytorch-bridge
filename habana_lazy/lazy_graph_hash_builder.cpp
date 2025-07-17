@@ -113,7 +113,7 @@ void GraphHashBuilder::prepareInputsStackMap(
     const std::vector<ir::Value>& inputs) {
   PT_LAZY_TRACE;
   PT_LAZY_DEBUG("Preparing input stack map for hash ", fwd_running_hash);
-  for (auto in : inputs) {
+  for (const auto& in : inputs) {
     std::shared_ptr<Data> d = in.m_data_ptr.lock();
     auto uid = d->unique_id;
     PT_LAZY_DEBUG(

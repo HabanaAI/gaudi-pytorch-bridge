@@ -60,7 +60,7 @@ struct HandleDynamicOpsPass {
 
   void dumpValueIValueMap() {
     PT_EAGER_DEBUG("Map m_value_ivalue_map size :", m_value_ivalue_map.size());
-    for (auto it : m_value_ivalue_map) {
+    for (const auto& it : m_value_ivalue_map) {
       if (it.second->isTensor()) {
         PT_EAGER_DEBUG(
             "value name = ",
@@ -99,7 +99,7 @@ struct HandleDynamicOpsPass {
         SET_SIZE_STRIDE_0D(tensor_);
     }
 
-    for (auto val_ivalue : value_ivalue_map) {
+    for (const auto& val_ivalue : value_ivalue_map) {
       m_value_ivalue_map[val_ivalue.first] =
           std::make_shared<IVal>(val_ivalue.second);
     }
@@ -331,7 +331,7 @@ void HandleDynamicInputPatching(
       std::vector<std::pair<int64_t, int64_t>>,
       PT_MAX_SHAPETENSOR_INPUT>
       mixed_list;
-  for (auto dtensor_info : dmeta->ds_input_patching_list) {
+  for (const auto& dtensor_info : dmeta->ds_input_patching_list) {
     auto dtensor_indexes = dtensor_info.second;
     dtensor_list.clear();
     scalar_list.clear();

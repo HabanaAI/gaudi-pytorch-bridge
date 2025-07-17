@@ -66,10 +66,9 @@
 #include "pytorch_helpers/habana_helpers/dtype_helpers.h"
 #include "pytorch_helpers/habana_helpers/h2d_scales.h"
 
-#define MAX_DIMS_FOR_ADVANCED_INDEXING (8)
-
 using namespace habana;
 using namespace at;
+constexpr int MAX_DIMS_FOR_ADVANCED_INDEXING = 8;
 
 #define FP8_CHECK                                 \
   HABANA_ASSERT(                                  \
@@ -1558,7 +1557,9 @@ Tensor view_hpu(const Tensor& self_, SymIntArrayRef size) {
   auto out = as_strided_hpu_lazy(
       self_, inferred_size, stride_value, self_.storage_offset());
 
-  auto func = std::bind(view_hpu_lazy_parallel_impl, self_, size_.vec(), out);
+  auto func = [&self_, size_vec = size_.vec(), &out]() {
+    view_hpu_lazy_parallel_impl(self_, size_vec, out);
+  };
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_ACC_VIEW_OPS_MODE) != 0) {
     RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(view, func, out);
   } else {

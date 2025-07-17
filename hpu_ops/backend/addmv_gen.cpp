@@ -15,14 +15,6 @@
 #include "generated/backend/addmv.h"
 #include "hpu_ops/shared_meta_common.h"
 
-#define idxSelf 0
-#define idxMat1 1
-#define idxMat2 2
-#define idxBatch1 1
-#define idxBatch2 2
-#define idxBeta 3
-#define idxAlpha 4
-
 namespace habana {
 
 OutputMetaDataVector AddMVMeta(const at::Stack& stack) {
@@ -66,8 +58,8 @@ SharedMetaDataVector AddMVSharedMeta(
 void AddMV::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto meta = AddMVMeta(stack)[0];
   update_guid_dtype(guid_, meta.dtype);
-  const float beta_val = stack.at(idxBeta).toScalar().toFloat();
-  const float alpha_val = stack.at(idxAlpha).toScalar().toFloat();
+  const float beta_val = stack.at(3).toScalar().toFloat();
+  const float alpha_val = stack.at(4).toScalar().toFloat();
 
   const bool shouldUseParams =
       beta_val == 0.0 || beta_val == 1.0 || alpha_val == 1.0;

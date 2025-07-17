@@ -270,7 +270,7 @@ nlohmann::json JsonFileParser::constructEvent(
   }
 
   if (!activity.args.empty()) {
-    for (auto kv : activity.args) {
+    for (const auto& kv : activity.args) {
       args[kv.first] = kv.second;
     }
   }

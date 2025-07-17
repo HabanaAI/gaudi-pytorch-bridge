@@ -18,12 +18,10 @@
 namespace habana_helpers {
 
 bool is_symbolic_expr(const std::string& expr_str) {
-  for (auto& c : expr_str) {
-    if (!(std::isdigit(c) || c == '[' || c == ']' || c == ',' ||
-          std::isspace(c)))
-      return true;
-  }
-  return false;
+  return std::any_of(expr_str.begin(), expr_str.end(), [](char c) {
+    return !(
+        std::isdigit(c) || c == '[' || c == ']' || c == ',' || std::isspace(c));
+  });
 }
 
 bool is_output_shape_empty(const std::string& expr_str) {
@@ -31,11 +29,9 @@ bool is_output_shape_empty(const std::string& expr_str) {
   if (expr_str.empty())
     return true;
   // expr_str is of the form "[[]]" or "[[], []]" ...
-  for (auto& c : expr_str) {
-    if (!(c == '[' || c == ']' || c == ','))
-      return false;
-  }
-  return true;
+  return std::all_of(expr_str.begin(), expr_str.end(), [](char c) {
+    return c == '[' || c == ']' || c == ',';
+  });
 }
 
 bool nodeHasScalarGraphInput(

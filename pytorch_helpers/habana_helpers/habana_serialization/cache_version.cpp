@@ -159,11 +159,12 @@ bool check_env_fo_hashing(const std::string& env_var) {
       "ELIMINATE_FIRST_TRANSPOSE             ",
       "ELIMINATE_LAST_TRANSPOSE              ",
       "DISABLE_TENSORS_PINNING               "};
-  for (auto const& v : hashed_env_vars) {
-    if (env_var.find(v) != std::string::npos)
-      return true;
-  }
-  return false;
+  return std::any_of(
+      hashed_env_vars.begin(),
+      hashed_env_vars.end(),
+      [&env_var](const std::string& v) {
+        return env_var.find(v) != std::string::npos;
+      });
 }
 
 std::string CacheVersion::libs_env_hash() {

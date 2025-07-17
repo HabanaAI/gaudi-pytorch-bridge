@@ -31,7 +31,7 @@ static std::vector<int64_t> broadcast_size(at::TensorList indices) {
   int max = 1;
   int max_dim = 0;
   int i = 0;
-  for (auto t : indices) {
+  for (const auto& t : indices) {
     if ((t.dim() > max) && (t.scalar_type() != c10::ScalarType::Bool)) {
       max_dim = i;
       max = t.dim();

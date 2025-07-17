@@ -87,12 +87,12 @@ bool isOutputCollective(const torch::jit::Node* node) {
 }
 
 bool isInGraphOutputs(const torch::jit::Node* node) {
-  for (auto node_outs : node->outputs()) {
-    if (isInGraphOutputs(node_outs)) {
-      return true;
-    }
-  }
-  return false;
+  return std::any_of(
+      node->outputs().begin(),
+      node->outputs().end(),
+      [](const torch::jit::Value* node_outs) {
+        return isInGraphOutputs(node_outs);
+      });
 }
 
 bool isInGraphOutputs(const torch::jit::Value* value) {

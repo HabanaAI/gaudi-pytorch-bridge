@@ -93,7 +93,7 @@ void GenericTraceActivitySink::addCompleteActivity(
   }
 
   if (!activity.args.empty()) {
-    for (auto kv : activity.args) {
+    for (const auto& kv : activity.args) {
       std::string value = toString(kv.second);
       ev->addMetadata(kv.first, value);
     }

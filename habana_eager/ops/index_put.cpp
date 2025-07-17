@@ -26,7 +26,7 @@
 #include "hpu_ops/hpu_op_helper.h"
 #include "hpu_ops/op_logger.h"
 
-#define MAX_DIMS_FOR_ADVANCED_INDEXING (8)
+constexpr int MAX_DIMS_FOR_ADVANCED_INDEXING = 8;
 
 namespace habana::eager {
 
@@ -146,7 +146,7 @@ generate_advanced_indexing_indices_list(const at::Stack& stack) {
   int64_t i = 0;
   std::vector<int64_t> index_t_sizes(self.dim());
   std::vector<bool> index_all_elems(self.dim());
-  for (auto index_input : indices) {
+  for (const auto& index_input : indices) {
     auto input = index_input;
     if (input.has_value() &&
         (input.value().scalar_type() != c10::ScalarType::Bool)) {

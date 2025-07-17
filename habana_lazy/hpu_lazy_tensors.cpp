@@ -1431,7 +1431,7 @@ void HbLazyTensor::SyncTensorsGraphInternal(
     t.IrReconnectAsInputNode();
   }
 
-  for (auto t : context->viewContext.updated_bucket_list) {
+  for (const auto& t : context->viewContext.updated_bucket_list) {
     // clear IR values corresponding to sync tensors
     t.IrReconnectAsInputNode();
   }

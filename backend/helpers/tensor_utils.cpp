@@ -252,7 +252,7 @@ void habana_helpers::copy_scalars_to_device(
   synapse_helpers::device::transfer_manifest manifest;
   std::vector<at::Tensor> src_list;
   std::vector<at::Tensor> dst_list;
-  for (auto pair : tensors_list) {
+  for (const auto& pair : tensors_list) {
     auto src = pair.first;
     auto dst = pair.second;
     HABANA_ASSERT(dst.nbytes() >= src.nbytes());

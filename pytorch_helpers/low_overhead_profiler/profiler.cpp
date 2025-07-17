@@ -33,16 +33,14 @@
 
 #include "profiler.h"
 
-// RING_SIZE HAVE TO BE POWER OF 2 - due to algorithm used later.
-#define EVENT_TABLE_SIZE 10000000
-#define STAGE_INITIALIZER {0, 0, 0, 0, 0}
-#define NUM_EXPONENTIAL_BUCKETS 3
-#define NUM_EQUIDISTANT_BUCKETS 5
-#define NUM_TOP_OPS 5
-#define NUM_TIMING_DATA_CNTS 100
+constexpr int NUM_EXPONENTIAL_BUCKETS = 3;
+constexpr int NUM_EQUIDISTANT_BUCKETS = 5;
+constexpr int NUM_TOP_OPS = 5;
+constexpr int NUM_TIMING_DATA_CNTS = 100;
 
 namespace LOP {
 
+// NOLINTBEGIN(hicpp-no-assembler)
 inline uint64_t barriered_rdtsc() {
   uint64_t tsc;
   __asm__ __volatile__(
@@ -56,6 +54,7 @@ inline uint64_t barriered_rdtsc() {
 
   return tsc;
 }
+// NOLINTEND(hicpp-no-assembler)
 
 ProfilerEngine::ProfilerEngine()
     : enabled(true),
@@ -335,7 +334,7 @@ void ProfilerEngine::flush() {
       stage_queue_length_variance;
   std::unordered_map<size_t, std::unordered_map<std::string, int64_t>>
       stage_queue_length_std;
-  uint64_t current_index[NUM_OF_PIPELINE_STAGES] = STAGE_INITIALIZER;
+  uint64_t current_index[NUM_OF_PIPELINE_STAGES] = {0, 0, 0, 0, 0};
   uint64_t device_total_queue_length = 0;
   uint64_t min_device_queue_len = 0;
   uint64_t max_device_queue_len = 0;

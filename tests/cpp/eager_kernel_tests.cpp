@@ -363,7 +363,7 @@ TEST_F(EagerKernelTest, IndexTest) {
   c10::List<std::optional<at::Tensor>> indices_list{};
   // auto tensorlist = indices.vec();
   indices_list.reserve(vec_cpu.size());
-  for (auto t : vec_cpu) {
+  for (const auto& t : vec_cpu) {
     indices_list.push_back(c10::make_optional(t.to(torch::kHPU)));
   }
   auto out_cpu = at::index(input_cpu, indices_cpu);
@@ -389,7 +389,7 @@ TEST_F(EagerKernelTest, BroadCastIndexTest) {
   c10::List<std::optional<at::Tensor>> indices_list{};
   // auto tensorlist = indices.vec();
   indices_list.reserve(vec_cpu.size());
-  for (auto t : vec_cpu) {
+  for (const auto& t : vec_cpu) {
     indices_list.push_back(c10::make_optional(t.to(torch::kHPU)));
   }
   auto out_cpu = at::index(input_cpu, indices_cpu);
@@ -419,7 +419,7 @@ TEST_F(EagerKernelTest, BroadCastIndexTest1) {
   c10::List<std::optional<at::Tensor>> indices_list{};
   // auto tensorlist = indices.vec();
   indices_list.reserve(vec_cpu.size());
-  for (auto t : vec_cpu) {
+  for (const auto& t : vec_cpu) {
     indices_list.push_back(c10::make_optional(t.to(torch::kHPU)));
   }
   auto out_cpu = at::index(input_cpu, indices_cpu);

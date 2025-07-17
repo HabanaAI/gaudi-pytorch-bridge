@@ -33,7 +33,7 @@ PytMediaProxy::~PytMediaProxy() {
     PT_BRIDGE_WARN("Unreleased buffer found, address = ", elem.first);
     device.get_device_memory().free(elem.second);
   }
-  for (auto elem : buffer_to_output_tensor_) {
+  for (const auto& elem : buffer_to_output_tensor_) {
     PT_BRIDGE_WARN("Unreleased tensor found, address = ", elem.first);
   }
 }

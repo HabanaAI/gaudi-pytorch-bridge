@@ -193,7 +193,7 @@ detail::TensorDescrArray CreateTensorList(const T& meta) {
 [[maybe_unused]] std::string ToDebugString(const at::Stack& xs) {
   std::string r = "[";
   const char* sep = "";
-  for (auto x : xs) {
+  for (const auto& x : xs) {
     r += sep;
     r += ToDebugString(x);
     sep = ", ";

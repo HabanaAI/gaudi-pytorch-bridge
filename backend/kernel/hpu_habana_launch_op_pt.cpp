@@ -2736,7 +2736,7 @@ void HabanaLaunchOpPT::ProcessIntermediateSymbolicShapes(
 
       PT_BRIDGE_DEBUG("Node output shapes:", shape_str_list);
       std::vector<std::shared_ptr<habana::SizeExpression>> size_expr_vec;
-      for (auto shape_str : shape_str_list) {
+      for (const auto& shape_str : shape_str_list) {
         if (shape_str == "[]") {
           size_expr_vec.push_back(nullptr);
         } else {
