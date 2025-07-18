@@ -360,6 +360,7 @@ synStatus device_memory::free(void* free_ptr) {
     if (h.offset() != 0) {
       PT_DEVMEM_FATAL("Cannot free offseted handle ", h);
     }
+    device_.wait_until_address_ready(reinterpret_cast<uint64_t>(free_ptr));
     const auto id = h.id();
     std::unique_lock<std::mutex> lock(mutex_);
     if (handle2pointer_.checkIdIsReset(id))
