@@ -454,7 +454,8 @@ void GraphExec::PatchScaleH2dTensors(torch::jit::Stack& orig_stack) {
       }
     } else if (
         node_name == "hpu::fp8_gemm_v2" and
-        gemm_trivial_scales_optimization_enabled) {
+        gemm_trivial_scales_optimization_enabled and
+        scale_indices.size() == 2) {
       const auto idx_a = scale_indices[0];
       const auto idx_b = scale_indices[1];
 

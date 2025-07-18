@@ -1399,6 +1399,12 @@ def test_conv2d_fp8_h2d():
     assert "conv2d_fp8.default doesn't support H2D scales feature yet, but received CPU scales." in exception_msg
 
 
+class SharedScaleMode(Enum):
+    NONE = 1
+    ONE = 2
+    TWO = 3
+
+
 def common_h2d_scales(
     src_dtype,
     batched_tensors,
@@ -1408,6 +1414,7 @@ def common_h2d_scales(
     is_hw_aligned,
     in_shape_a=(4, 8),
     in_shape_b=(8, 16),
+    shared_scale=SharedScaleMode.NONE,
 ):
     ht.enable_inference_mode()
 
@@ -1474,15 +1481,31 @@ def common_h2d_scales(
                 False,
             )
 
+    max_fp8 = 240.0 if is_gaudi2() else 448.0
+    min_fp8 = -max_fp8
+
     def fn_cpu(a, b, sa, sb, sa_inv, sb_inv, scale_out):
         scaled_a = (a * sa).to(fp8_dtype).to(src_dtype)
         scaled_b = (b * sb).to(fp8_dtype).to(src_dtype)
         res = torch.matmul(scaled_a, scaled_b) * (sa_inv * sb_inv)
         if fuse_cast:
-            res = (res * scale_out).to(fp8_dtype)
+            res = (res * scale_out).clamp(min_fp8, max_fp8).to(fp8_dtype)
         return res
 
     fn_hpu = compile_function_if_compile_mode(fn_hpu, dynamic=False)
+
+    if shared_scale == SharedScaleMode.NONE:
+
+        def scales_fn(sa, sb):
+            return 1 / sa, 1 / sb
+    elif shared_scale == SharedScaleMode.ONE:
+
+        def scales_fn(sa, sb):
+            return 1 / sb, sa
+    elif shared_scale == SharedScaleMode.TWO:
+
+        def scales_fn(sa, sb):
+            return sb, sa
 
     for sa_val in scale_values:
         for sb_val in scale_values:
@@ -1490,8 +1513,9 @@ def common_h2d_scales(
                 a, b, ah, bh, sa, sb, so = generate_inputs(sa_val, sb_val, so_val)
 
                 # Scales as CPU Tensors are intentional.
-                res_hpu = fn_hpu(ah, bh, sa, sb, 1 / sa, 1 / sb, so)
-                res_cpu = fn_cpu(a, b, sa, sb, 1 / sa, 1 / sb, so)
+                gemm_scales = scales_fn(sa, sb)
+                res_hpu = fn_hpu(ah, bh, sa, sb, *gemm_scales, so)
+                res_cpu = fn_cpu(a, b, sa, sb, *gemm_scales, so)
 
                 tol = 1e-5 if src_dtype == torch.float else 0.125
 
@@ -1540,6 +1564,30 @@ def test_h2d_scales(src_dtype, batched_tensors, fuse_cast, trivial_scales_mode):
         assert stats["TotalHit"] == expected_hits
         bc.set_pt_hpu_enable_cache_metrics(False)
         metric_debug_reload()
+
+
+@pytest.mark.skipif(is_pytest_mode_eager(), reason="Eager mode doesn't support H2D scales.")
+@pytest.mark.parametrize("fuse_cast, trivial_scales_mode", [(False, 0), (True, 1), (False, 2), (True, 0)])
+@pytest.mark.parametrize("shared_scale", [SharedScaleMode.ONE, SharedScaleMode.TWO])
+def test_h2d_scales_shared_scale(fuse_cast, trivial_scales_mode, shared_scale):
+    src_dtype = torch.bfloat16
+    batched_tensors = False
+    bias_values = [3, 7, 11] if is_gaudi2() else [2, 7, 12]
+    scale_values = convertExpBiasToScale(bias_values)
+    scale_out_values = convertExpBiasToScale((3, 7)) if fuse_cast else (1.0,)
+
+    with bc.env_setting("PT_HPU_H2D_TRIVIAL_SCALES_MODE", trivial_scales_mode):
+        common_h2d_scales(
+            src_dtype,
+            batched_tensors,
+            fuse_cast,
+            scale_values,
+            scale_out_values,
+            is_hw_aligned=True,
+            in_shape_a=(4 + trivial_scales_mode, 8),
+            in_shape_b=(8, 16 + trivial_scales_mode),
+            shared_scale=shared_scale,
+        )
 
 
 @pytest.mark.skipif(is_pytest_mode_eager(), reason="Eager mode doesn't support H2D scales.")
