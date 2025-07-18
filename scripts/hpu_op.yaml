@@ -4737,21 +4737,17 @@ logit_backward.grad_input:
   skip_slrg: true
 
 logspace:
-  output_meta: LogspaceMeta
-  custom_fill_params: FillLogspaceFwdParams
-  guid: logspace_fwd
   op_backend: LogSpace
   op_validator: LogspaceSharedMeta
+  output_meta: LogspaceMeta
   namespaces: [torch]
   out_ids: [0]
 
 logspace.out:
-  output_meta: LogspaceOutMeta
-  custom_fill_params: FillLogspaceFwdParams
-  guid: logspace_fwd
   op_backend: LogSpace
   op_validator: LogspaceSharedMeta
   namespaces: [torch]
+  output_meta: LogspaceOutMeta
 
 lt.Scalar_out:
   guid: less_fwd
