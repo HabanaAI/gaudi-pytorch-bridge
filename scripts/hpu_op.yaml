@@ -8367,6 +8367,7 @@ cast_from_fp8:
   out_ids: [0]
   op_validator: CastFromFp8SharedMeta
   namespaces: [torch.hpu]
+  skip_slrg: true # Exception - inputs mixed dtypes
   lazy:
     acc_thread: true
     override_fn: cast_from_fp8_lazy
@@ -8378,6 +8379,7 @@ cast_from_fp8.scalar:
   out_ids: [0]
   op_validator: CastFromFp8SharedMeta
   namespaces: [torch.hpu]
+  skip_slrg: true # Exception - inputs mixed dtypes
 
 cast_from_fp8.scalar_list:
   custom_op_schema: "hpu::cast_from_fp8.scalar_list(Tensor input, float[] scale, ScalarType out_dtype, int[]? scale_shape=None) -> Tensor"
@@ -8386,6 +8388,7 @@ cast_from_fp8.scalar_list:
   out_ids: [0]
   op_validator: CastFromFp8SharedMeta
   namespaces: [torch.hpu]
+  skip_slrg: true # Exception - inputs mixed dtypes
 
 cast_to_fp8:
   custom_op_schema: "hpu::cast_to_fp8(Tensor input, Tensor? scale, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) amax) -> (Tensor(a!), Tensor(b!))"
@@ -8393,6 +8396,7 @@ cast_to_fp8:
   is_custom_op_out_variant: true
   op_validator: CastToFp8SharedMeta
   namespaces: [torch.hpu]
+  skip_slrg: true # Exception - inputs mixed dtypes
 
 cast_to_fp8_v2:
   custom_op_schema: "hpu::cast_to_fp8_v2(Tensor input, Tensor? scale=None, bool stochastic_rounding=False, bool is_amax=False, ScalarType dtype=None, int[]? scale_shape=None) -> (Tensor, Tensor)"
@@ -8402,6 +8406,7 @@ cast_to_fp8_v2:
   autograd: true
   op_validator: CastToFp8SharedMeta
   namespaces: [torch.hpu]
+  skip_slrg: true # Exception - inputs mixed dtypes
   lazy:
     acc_thread: true
     override_fn: cast_to_fp8_v2_lazy
@@ -8414,6 +8419,7 @@ cast_to_fp8_v2.scalar:
   autograd: true
   op_validator: CastToFp8SharedMeta
   namespaces: [torch.hpu]
+  skip_slrg: true # Exception - inputs mixed dtypes
 
 cast_to_fp8_v2.scalar_list:
   custom_op_schema: "hpu::cast_to_fp8_v2.scalar_list(Tensor input, float[] scale, bool stochastic_rounding=False, bool is_amax=False, ScalarType dtype=None, int[]? scale_shape=None) -> (Tensor, Tensor)"
@@ -8423,6 +8429,7 @@ cast_to_fp8_v2.scalar_list:
   autograd: true
   op_validator: CastToFp8SharedMeta
   namespaces: [torch.hpu]
+  skip_slrg: true # Exception - inputs mixed dtypes
 
 cast_to_fp8_just_in_time:
   custom_op_schema: "hpu::cast_to_fp8_just_in_time(Tensor input, int[2] block_shape, *, ScalarType? out_dtype=None, ScalarType? scale_dtype=None) -> (Tensor, Tensor)"
@@ -8502,6 +8509,7 @@ fake_quant_fp4:
   out_ids: [0]
   op_validator: check-node-with-shared-layer
   namespaces: [torch.hpu]
+  skip_slrg: true # Exception - fp4
 
 fp8_gemm:
   custom_op_schema: "hpu::fp8_gemm(Tensor A, bool trans_A, Tensor B, bool trans_B, Tensor D, ScalarType out_dtype, Tensor? A_scale_inv, Tensor? B_scale_inv, Tensor? bias, bool accumulate, Tensor(a!) out) -> Tensor(a!)"
@@ -8610,6 +8618,7 @@ ragged_softmax:
   out_ids: [0]
   op_validator: check-node-with-shared-layer
   namespaces: [torch.hpu]
+  skip_slrg: true # Exception - mixed input dtypes
 
 scaled_masked_softmax:
   custom_op_schema: "hpu::scaled_masked_softmax(Tensor input, Tensor mask, float scale) -> Tensor"
@@ -8627,6 +8636,7 @@ scaled_masked_triangular_softmax:
   out_ids: [0]
   op_validator: ScaledMaskedTriangularSoftmaxSharedMeta
   namespaces: [torch.hpu]
+  skip_slrg: true # Exception - mixed input dtypes
 
 scaled_triangular_softmax:
   custom_op_schema: "hpu::scaled_triangular_softmax(Tensor self, float inv_scale_attn, Tensor? exp_sum_recpr=None, Tensor? max=None) -> Tensor"
@@ -8661,6 +8671,7 @@ softmax_fp8:
   output_meta: SoftmaxFp8Meta
   op_validator: SoftmaxFp8SharedMeta
   namespaces: [torch.hpu]
+  skip_slrg: true # Exception - mixed input dtypes
 
 softmax_fp8.Scalar_scales:
   custom_op_schema: "hpu::softmax_fp8.Scalar_scales(Tensor input, int dim, float input_scale, float output_scale, Tensor? inv_attn_heads=None, Tensor? fused_add=None) -> Tensor"
@@ -8670,6 +8681,7 @@ softmax_fp8.Scalar_scales:
   output_meta: SoftmaxFp8Meta
   op_validator: SoftmaxFp8SharedMeta
   namespaces: [torch.hpu]
+  skip_slrg: true # Exception - mixed input dtypes
 
 softmax_fp8.Scalar:
   custom_op_schema: "hpu::softmax_fp8.Scalar(Tensor input, int dim, float input_scale, float output_scale, float inv_attn_heads, Tensor? fused_add=None) -> Tensor"
@@ -8679,6 +8691,7 @@ softmax_fp8.Scalar:
   output_meta: SoftmaxFp8Meta
   op_validator: SoftmaxFp8SharedMeta
   namespaces: [torch.hpu]
+  skip_slrg: true # Exception - mixed input dtypes
 
 rms_norm:
   custom_op_schema: "hpu::rms_norm(Tensor data_in, Tensor gamma, float epsilon) -> (Tensor, Tensor)"
@@ -8794,6 +8807,7 @@ mixture_of_experts:
   out_ids: [0]
   frontend_blocklist: [eager]
   namespaces: [torch.hpu]
+  skip_slrg: true # Exception - mixed input dtypes
 
 mixture_of_experts.fused_weights:
   custom_op_schema: "hpu::mixture_of_experts.fused_weights(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, bool? recomp=True, int chunk_size=0, int total_experts=0) -> Tensor"
@@ -8802,6 +8816,7 @@ mixture_of_experts.fused_weights:
   out_ids: [0]
   frontend_blocklist: [eager]
   namespaces: [torch.hpu]
+  skip_slrg: true # Exception - mixed input dtypes
 
 mixture_of_experts_fp8_measurement:
   custom_op_schema: "hpu::mixture_of_experts_fp8_measurement(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, bool measurement_mode, *, int chunk_size=0, int total_experts=0) -> (Tensor, Tensor)"
@@ -8829,6 +8844,7 @@ mixture_of_experts.fp8:
   out_ids: [2]
   op_validator: MixtureOfExpertsFp8SharedMeta
   namespaces: [torch.hpu]
+  skip_slrg: true # Exception - mixed input dtypes
   lazy:
     acc_thread: true
     override_fn: mixture_of_experts_fp8_lazy
@@ -8841,6 +8857,7 @@ mixture_of_experts.fp8_fused_weights:
   out_ids: [2]
   op_validator: MixtureOfExpertsFp8FusedSharedMeta
   namespaces: [torch.hpu]
+  skip_slrg: true # Exception - mixed input dtypes
   lazy:
     acc_thread: true
     override_fn: mixture_of_experts_fp8_fused_weights_lazy
@@ -8853,6 +8870,7 @@ mixture_of_experts.fp8_scalars:
   out_ids: [2]
   op_validator: MixtureOfExpertsFp8SharedMeta
   namespaces: [torch.hpu]
+  skip_slrg: true # Exception - mixed input dtypes
 
 mixture_of_experts.fp8_fused_weights_scalars:
   custom_op_schema: "hpu::mixture_of_experts.fp8_fused_weights_scalars(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, float d_scale_hidden_states, float[] d_scale_intermediate_hidden_states, float[] d_scale_w12, float[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, int chunk_size=0, int total_experts=0) -> Tensor"
@@ -8862,6 +8880,7 @@ mixture_of_experts.fp8_fused_weights_scalars:
   out_ids: [2]
   op_validator: MixtureOfExpertsFp8FusedSharedMeta
   namespaces: [torch.hpu]
+  skip_slrg: true # Exception - mixed input dtypes
 
 mixture_of_experts.fp8_dynamic:
   custom_op_schema: "hpu::mixture_of_experts.fp8_dynamic(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, Tensor d_scale_hidden_states, Tensor[] d_scale_w1, Tensor[] d_scale_w2, Tensor[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, int chunk_size=0, int total_experts=0) -> Tensor"
@@ -8871,6 +8890,7 @@ mixture_of_experts.fp8_dynamic:
   out_ids: [2]
   op_validator: MixtureOfExpertsFp8SharedMeta
   namespaces: [torch.hpu]
+  skip_slrg: true # Exception - mixed input dtypes
   lazy:
     acc_thread: true
     override_fn: mixture_of_experts_fp8_dynamic_lazy
@@ -8883,6 +8903,7 @@ mixture_of_experts.fp8_fused_weights_dynamic:
   out_ids: [2]
   op_validator: MixtureOfExpertsFp8FusedSharedMeta
   namespaces: [torch.hpu]
+  skip_slrg: true # Exception - mixed input dtypes
   lazy:
     acc_thread: true
     override_fn: mixture_of_experts_fp8_fused_weights_dynamic_lazy
@@ -8895,6 +8916,7 @@ mixture_of_experts.fp8_scalars_dynamic:
   out_ids: [2]
   op_validator: MixtureOfExpertsFp8SharedMeta
   namespaces: [torch.hpu]
+  skip_slrg: true # Exception - mixed input dtypes
 
 mixture_of_experts.fp8_fused_weights_scalars_dynamic:
   custom_op_schema: "hpu::mixture_of_experts.fp8_fused_weights_scalars_dynamic(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, float d_scale_hidden_states, float[] d_scale_w12, float[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, int chunk_size=0, int total_experts=0) -> Tensor"
@@ -8904,6 +8926,7 @@ mixture_of_experts.fp8_fused_weights_scalars_dynamic:
   out_ids: [2]
   op_validator: MixtureOfExpertsFp8FusedSharedMeta
   namespaces: [torch.hpu]
+  skip_slrg: true # Exception - mixed input dtypes
 
 mixture_of_experts.fp8_blockwise:
   custom_op_schema: "hpu::mixture_of_experts.fp8_blockwise(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, Tensor[] d_scale_w1, Tensor[] d_scale_w2, Tensor[] d_scale_w3, int block_size, bool permuted_weights, str activation, int experts_min, int experts_max, *, int chunk_size=0, int total_experts=0) -> Tensor"
@@ -8913,6 +8936,7 @@ mixture_of_experts.fp8_blockwise:
   out_ids: [2]
   op_validator: MixtureOfExpertsFp8SharedMeta
   namespaces: [torch.hpu]
+  skip_slrg: true # Exception - mixed input dtypes
 
 mixture_of_experts.fp8_fused_weights_blockwise:
   custom_op_schema: "hpu::mixture_of_experts.fp8_fused_weights_blockwise(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, Tensor[] d_scale_w12, Tensor[] d_scale_w3, int block_size, bool permuted_weights, str activation, int experts_min, int experts_max, *, int chunk_size=0, int total_experts=0) -> Tensor"
@@ -8922,6 +8946,7 @@ mixture_of_experts.fp8_fused_weights_blockwise:
   out_ids: [2]
   op_validator: MixtureOfExpertsFp8FusedSharedMeta
   namespaces: [torch.hpu]
+  skip_slrg: true # Exception - mixed input dtypes
 
 mixture_of_experts_fwd:
   custom_op_schema: "hpu::mixture_of_experts_fwd(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, int chunk_size=0, int total_experts=0) -> Tensor[]"
@@ -9112,7 +9137,8 @@ block_softmax:
   guid: block_softmax
   out_ids: [0]
   output_meta: BlockSoftmaxMeta
-  op_validator_exception: custom_op
+  op_validator: check-node-with-shared-layer
+  skip_slrg: true # Exception - HPUDeviceContext::get_device().type()
 
 optimizer_adamw:
   custom_op_schema: "hpu::optimizer_adamw(Tensor[] gradient_vec, Tensor(a!)[] weight_vec, Tensor(b!)[] exp_avg_vec, Tensor(c!)[] exp_avg_sq_vec, Tensor neg_step_t, float beta1, float beta2, float epsilon, Tensor weight_decay, bool has_weight_decay, Tensor(d!)[]? exp_avg_scales=None, Tensor(e!)[]? exp_avg_sq_scales=None) -> Tensor[]"
@@ -9162,12 +9188,14 @@ optimizer_sgd:
   only_slrg: true
   op_validator: OptimizerSgdSharedMeta
   namespaces: [torch.hpu.optimizer]
+  skip_slrg: true # Exception - inputs mixed dtypes
 
 optimizer_sgd_momentum:
   custom_op_schema: "hpu::optimizer_sgd_momentum(Tensor[] gradients, Tensor(a!)[] weights_in, Tensor(b!)[] momentum_in, Tensor epoch_num, Tensor(c!) learning_rate, Tensor(d!) mom, float wd, float damp, bool nesterov) -> Tensor[]"
   only_slrg: true
   op_validator: OptimizerSgdMomentumSharedMeta
   namespaces: [torch.hpu.optimizer]
+  skip_slrg: true # Exception - inputs mixed dtypes
 
 mamba_pscan:
   custom_op_schema: "hpu::mamba_pscan(Tensor state, Tensor x, Tensor dt, Tensor A, Tensor B) -> Tensor"

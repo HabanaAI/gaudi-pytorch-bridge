@@ -71,13 +71,27 @@ std::unordered_map<std::string, std::vector<at::ScalarType>>
         {"one_hot", // I32/I16 not supported in compile mode
          {at::ScalarType::Int, at::ScalarType::Short}},
         {"complex",
-         {c10::ScalarType::Float8_e4m3fn,
-          c10::ScalarType::Float8_e5m2,
-          c10::ScalarType::Long,
-          c10::ScalarType::Int,
-          c10::ScalarType::Short,
-          c10::ScalarType::Char,
-          c10::ScalarType::Bool}}};
+         {at::ScalarType::Float8_e4m3fn,
+          at::ScalarType::Float8_e5m2,
+          at::ScalarType::Long,
+          at::ScalarType::Int,
+          at::ScalarType::Short,
+          at::ScalarType::Char,
+          at::ScalarType::Bool}},
+        {"optimizer_ema",
+         {at::ScalarType::Float8_e4m3fn,
+          at::ScalarType::Float8_e5m2,
+          at::ScalarType::Long,
+          at::ScalarType::Int,
+          at::ScalarType::Short,
+          at::ScalarType::Char,
+          at::ScalarType::Bool}},
+        {"sum_fp8",
+         {at::ScalarType::Long,
+          at::ScalarType::Int,
+          at::ScalarType::Float,
+          at::ScalarType::BFloat16,
+          at::ScalarType::Half}}};
 
 std::unordered_map<std::string, std::vector<at::ScalarType>>
     whitelisted_precision_types_op_map = {};

@@ -1967,6 +1967,7 @@ def run_doc_gen(selected_wheel_configs, pt_modules_root):
                 "python3",
                 f"{pt_modules_root}/sl_report_generator/report_parser.py",
                 f"--path {pt_modules_root}/docs",
+                "--gen_custom_doc",
                 venv=wheel_config.venv_dirs[0],
             )
             run(

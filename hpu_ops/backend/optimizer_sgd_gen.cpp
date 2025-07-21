@@ -38,10 +38,12 @@ SharedMetaDataVector OptimizerSgdSharedMeta(
     SharedMetaData optimizer_shared_meta{"optimizer_sgd_bwd"};
     optimizer_shared_meta.inputs_data = {
         {gradient.dim(), precision_type},
-        {weight.dim(), precision_type},
-        {lr.dim(), precision_type}};
+        getSharedMetaFromTensor(weight),
+        createOptionalNotPresentSharedMetaTensor(),
+        createOptionalNotPresentSharedMetaTensor(),
+        getSharedMetaFromTensor(lr)};
     optimizer_shared_meta.outputs_data.emplace_back(
-        weight.dim(), precision_type);
+        getSharedMetaFromTensor(weight));
     shared_meta_vec.push_back(optimizer_shared_meta);
   }
 
@@ -70,13 +72,15 @@ SharedMetaDataVector OptimizerSgdMomentumSharedMeta(
     SharedMetaData optimizer_shared_meta{"optimizer_sgd_bwd"};
     optimizer_shared_meta.inputs_data = {
         {gradient.dim(), precision_type},
-        {weight.dim(), precision_type},
-        {momentum.dim(), precision_type},
-        {epoch_num.dim(), precision_type},
-        {lr.dim(), precision_type},
-        {mom.dim(), precision_type}};
+        getSharedMetaFromTensor(weight),
+        getSharedMetaFromTensor(momentum),
+        getSharedMetaFromTensor(epoch_num),
+        getSharedMetaFromTensor(lr),
+        getSharedMetaFromTensor(mom)};
     optimizer_shared_meta.outputs_data = {
-        {weight.dim(), precision_type}, {momentum.dim(), precision_type}};
+        getSharedMetaFromTensor(weight),
+        createOptionalNotPresentSharedMetaTensor(),
+        getSharedMetaFromTensor(momentum)};
     shared_meta_vec.push_back(optimizer_shared_meta);
   }
 
