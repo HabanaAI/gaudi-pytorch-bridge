@@ -72,7 +72,6 @@ def pass_reorder_custom_ops(ctx: OptimizerContext) -> bool:
             and hasattr(node.target, "__module__")
             and node.target.__module__ in ["torch._ops.hpu_prepare_ops", "torch._ops.hpu_post_ops"]
         ):
-            assert len(node.users) == 0, "Pre/Post ops should not have any users"
             if node.target.__module__ == "torch._ops.hpu_prepare_ops":
                 node_in = node.args
                 node.args = (graph_input,)
@@ -213,7 +212,6 @@ def pass_post_reorder_custom_ops(ctx: OptimizerContext) -> bool:
             and hasattr(node.target, "__module__")
             and node.target.__module__ in ["torch._ops.hpu_prepare_ops", "torch._ops.hpu_post_ops"]
         ):
-            assert len(node.users) == 0, "Pre/Post ops should not have any users"
             if node.target.__module__ == "torch._ops.hpu_prepare_ops":
                 prepare_op_list += [node]
             else:
