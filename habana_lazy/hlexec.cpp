@@ -777,7 +777,8 @@ void HlExec::Create(
     // Is it a scalar node?
     if (c10::Symbol::fromQualString("prim::constant") == node->op()) {
       // add constant
-      auto scalar_node = dynamic_cast<ir::ScalarConstant*>(node.get());
+      auto* scalar_node = dynamic_cast<ir::ScalarConstant*>(node.get());
+      HABANA_ASSERT(scalar_node, "Expected a scalar constant node");
       auto scalar_const = scalar_node->getIValue();
       // TBD: Should we create a constant node, or should it be
       // a 1-element tensor as input?

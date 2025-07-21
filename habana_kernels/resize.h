@@ -143,6 +143,7 @@ inline TensorImpl* resize_impl_hpu_(
       self != nullptr, "Trying to resize tensor with non-existing TensorImpl");
   if (auto tmeta = self->get_backend_meta()) {
     auto hb_tmeta = dynamic_cast<habana::TensorExtraMeta*>(tmeta);
+    HABANA_ASSERT(hb_tmeta, "TensorImpl does not have Habana meta");
     if (hb_tmeta->is_tensor_pipelined()) {
       habana::TryJoinPendingEagerPipelineThreads();
     }

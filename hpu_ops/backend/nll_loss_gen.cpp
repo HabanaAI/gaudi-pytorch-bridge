@@ -79,15 +79,15 @@ static FillParamsT FillNllLossParams(int64_t reduction, int64_t ignore_index) {
 }
 
 FillParamsT FillNllLossFwdParams(const at::Stack& stack) {
-  auto ignore = stack.at(3).toInt();
-  auto reduction = stack.at(4).toInt();
-  return FillNllLossParams(ignore, reduction);
+  auto reduction = stack.at(3).toInt();
+  auto ignore_index = stack.at(4).toInt();
+  return FillNllLossParams(reduction, ignore_index);
 }
 
 FillParamsT FillNllLossBwdParams(const at::Stack& stack) {
-  auto ignore = stack.at(4).toInt();
-  auto reduction = stack.at(5).toInt();
-  return FillNllLossParams(ignore, reduction);
+  auto reduction = stack.at(4).toInt();
+  auto ignore_index = stack.at(5).toInt();
+  return FillNllLossParams(reduction, ignore_index);
 }
 enum modes { Fwd2D, Bwd2D };
 

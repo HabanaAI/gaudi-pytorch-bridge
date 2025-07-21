@@ -207,10 +207,10 @@ TEST_F(LazyDynamicFallbackTest, ViewTest) {
   int C = 4;
   at::Scalar alpha = 1.0;
   at::Scalar Y = 2.0;
-  std::vector<int> in_sizes{6, 8, 10};
-  for (int i = 0; i < in_sizes.size(); i++) {
-    int W = in_sizes[i];
-    int H = in_sizes[i] / 2;
+  std::vector<int64_t> in_sizes{6, 8, 10};
+  for (size_t i = 0; i < in_sizes.size(); i++) {
+    const auto W = in_sizes[i];
+    const auto H = in_sizes[i] / 2;
     PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
     torch::Tensor A = torch::randn({N, C, H, W}, torch::requires_grad(false));
     torch::Tensor hA = A.to(torch::kHPU);

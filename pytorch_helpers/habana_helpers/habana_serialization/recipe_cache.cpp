@@ -70,14 +70,12 @@ std::optional<synRecipeHandle> get_recipe_handle(
     }
     PT_HABHELPER_DEBUG("Found cache entry with recipe: ", recipe_path);
     return recipeHandle;
-  } else {
-    PT_HABHELPER_DEBUG(
-        "Found cache entry without recipe: ",
-        recipe_path,
-        "- probably empty recipe cached.");
-    return nullptr;
   }
-  return {};
+  PT_HABHELPER_DEBUG(
+      "Found cache entry without recipe: ",
+      recipe_path,
+      "- probably empty recipe cached.");
+  return nullptr;
 }
 
 bool rename_file(const std::string& old_path, const std::string& new_path) {

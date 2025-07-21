@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -123,10 +123,10 @@ void replace_inplace_ops(
     std::shared_ptr<Graph>& graph,
     const std::vector<Node*>& nodes) {
   for (auto& node : nodes) {
-    torch::jit::WithInsertPoint insert_point(node);
     if (nullptr == node) {
       continue;
     }
+    torch::jit::WithInsertPoint insert_point(node);
 
     std::string kind = node->kind().toQualString();
     std::string new_kind = inPlaceToOutOfPlace.at(kind);

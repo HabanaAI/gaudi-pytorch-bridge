@@ -83,10 +83,7 @@ void DTypeHelper::build() {
   }
 
   if (!output_values_.empty()) {
-    for (auto& output : output_values_) {
-      result_dtype_ = get_dtype(output);
-      break;
-    }
+    result_dtype_ = get_dtype(output_values_.at(0));
   }
 
   if (promote_common_input_type_) {

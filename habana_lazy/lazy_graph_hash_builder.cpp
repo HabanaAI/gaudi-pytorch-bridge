@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -259,7 +259,9 @@ void GraphHashBuilder::addInputTensors(const at::Tensor& tensor) {
 
     {
       // view or recent base
-      auto& params_opt = hl_t.getDataPtr()->stride_params;
+      auto hl_t_data_ptr = hl_t.getDataPtr();
+      HABANA_ASSERT(hl_t_data_ptr, "GetHbLazyTensor for a non lazy tensor");
+      auto& params_opt = hl_t_data_ptr->stride_params;
       if (params_opt.has_value()) {
         auto& params = params_opt.value();
         auto recent_base =

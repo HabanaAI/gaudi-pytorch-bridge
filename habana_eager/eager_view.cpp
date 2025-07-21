@@ -17,6 +17,7 @@
 #include <cstddef>
 #include <string_view>
 #include "backend/habana_device/hpu_cached_devices.h"
+#include "habana_helpers/logging.h"
 
 namespace habana::eager {
 
@@ -496,6 +497,7 @@ void HandleOutputInsert(
     }
   }
 
+  HABANA_ASSERT(node, "Node is null, expected at least one node in the graph");
   PT_EAGER_DEBUG("[HandleOutputInsert] Op Name: ", node->kind().toQualString());
 
   PtEagerGraphDebug pt_eager_graph_debug(graph);
@@ -581,6 +583,7 @@ void HandleInputOutputViews(
     }
   }
 
+  HABANA_ASSERT(node, "Node is null, expected at least one node in the graph");
   PT_EAGER_DEBUG(
       "[HandleInputOutputViews] Op Name: ", node->kind().toQualString());
 

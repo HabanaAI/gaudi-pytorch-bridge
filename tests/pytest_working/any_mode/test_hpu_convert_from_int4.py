@@ -348,25 +348,23 @@ def unpack_zeros_cuda_old(in_qzeros, in_scales, bits, wf, cuda):
 
 
 def get_weight_cuda_old(use_zeros, bits, in_qweight, in_qzeros, in_scales, in_group_size):
-    if bits in [2, 4, 8]:
-        wf = torch.tensor(list(range(0, 32, bits)), dtype=torch.int32).unsqueeze(0)
+    if bits not in [2, 4, 8]:
+        raise NotImplementedError("Only 2,3,4,8 bits are supported.")
+
+    wf = torch.tensor(list(range(0, 32, bits)), dtype=torch.int32).unsqueeze(0)
     if wf.device != in_scales.device:
         wf = wf.to(in_scales.device)
+    zeros = unpack_zeros_cuda_old(in_qzeros, in_scales, bits, wf, True)
 
-    if bits in [2, 4, 8]:
-        zeros = unpack_zeros_cuda_old(in_qzeros, in_scales, bits, wf, True)
+    scales = in_scales
+    scales = scales.reshape(-1, 1, scales.shape[-1])
 
-        scales = in_scales
-        scales = scales.reshape(-1, 1, scales.shape[-1])
-
-        weight = torch.bitwise_right_shift(
-            torch.unsqueeze(in_qweight, 1).expand(-1, 32 // bits, -1),
-            wf.unsqueeze(-1),
-        ).to(torch.int16 if bits == 8 else torch.int8)
-        weight = torch.bitwise_and(weight, (2**bits) - 1)
-        weight = weight.reshape(-1, in_group_size, weight.shape[2])
-    else:
-        raise NotImplementedError("Only 2,3,4,8 bits are supported.")
+    weight = torch.bitwise_right_shift(
+        torch.unsqueeze(in_qweight, 1).expand(-1, 32 // bits, -1),
+        wf.unsqueeze(-1),
+    ).to(torch.int16 if bits == 8 else torch.int8)
+    weight = torch.bitwise_and(weight, (2**bits) - 1)
+    weight = weight.reshape(-1, in_group_size, weight.shape[2])
 
     weight = scales * (weight - zeros) if use_zeros else scales * weight
     weight = weight.reshape(weight.shape[0] * weight.shape[1], weight.shape[2])
