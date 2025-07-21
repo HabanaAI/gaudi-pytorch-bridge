@@ -1,5 +1,5 @@
 orchestratorConfig:
-  cron: 1 6-18/12 * * *
+  cron: 0 0-12/12 * * *
   retriggerThreshold: '2'
   testConfig:
   - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi2_sim_cpp_suite
