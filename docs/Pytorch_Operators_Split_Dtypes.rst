@@ -194,6 +194,7 @@ _foreach_tanh\_                          Yes      Yes      Yes     No    torch
 _foreach_trunc                           Yes      Yes      Yes     No    torch
 _foreach_trunc\_                         Yes      Yes      Yes     No    torch
 _foreach_zero\_                          Yes      Yes      Yes     Yes   torch
+_fused_adam\_                            Yes      Yes      Yes     No    torch
 _fused_adamw\_                           Yes      Yes      Yes     No    torch
 _fused_dropout                           Yes      Yes      Yes     No    torch
 _logcumsumexp                            Yes      Yes      Yes     No    torch
@@ -304,7 +305,7 @@ cross                                    Yes      Yes      Yes     Yes   torch
 cumprod                                  Yes      Yes      Yes     No    torch
 cumsum                                   Yes      Yes      Yes     No    torch
 diag                                     Yes      Yes      Yes     No    torch
-digamma                                  Yes      Yes      Yes     No    torch
+digamma                                  Yes      No       No      No    torch
 div                                      Yes      Yes      Yes     No    torch
 divide                                   Yes      Yes      Yes     No    torch
 dot                                      Yes      Yes      Yes     Yes   torch
@@ -1144,6 +1145,7 @@ _foreach_tanh\_                           Yes      Yes       Yes       Yes      
 _foreach_trunc                            Yes      Yes       Yes       Yes      Yes    torch
 _foreach_trunc\_                          Yes      Yes       Yes       Yes      Yes    torch
 _foreach_zero\_                           Yes      Yes       Yes       Yes      Yes    torch
+_fused_adam\_                             No       No        No        No       No     torch
 _fused_adamw\_                            No       No        No        No       No     torch
 _fused_dropout                            No       No        No        No       No     torch
 _logcumsumexp                             No       No        No        No       No     torch
@@ -1363,7 +1365,7 @@ max                                       Yes      Yes       Yes       Yes      
 max_pool2d                                No       No        No        No       No     torch
 max_pool3d                                No       No        No        No       No     torch
 maximum                                   Yes      Yes       Yes       Yes      Yes    torch
-mean                                      Yes      Yes       Yes       Yes      Yes    torch
+mean                                      No       No        No        No       No     torch
 median                                    Yes      Yes       No        No       No     torch
 meshgrid                                  No       No        No        No       No     torch
 min                                       Yes      Yes       Yes       Yes      Yes    torch
@@ -1531,9 +1533,9 @@ ReLU                                      No       No        No        No       
 ReflectionPad1d                           Yes      Yes       Yes       Yes      Yes    torch.nn
 ReflectionPad2d                           Yes      Yes       Yes       Yes      Yes    torch.nn
 ReflectionPad3d                           Yes      Yes       Yes       Yes      Yes    torch.nn
-ReplicationPad1d                          Yes      Yes       Yes       Yes      Yes    torch.nn
-ReplicationPad2d                          Yes      Yes       Yes       Yes      Yes    torch.nn
-ReplicationPad3d                          Yes      Yes       Yes       Yes      Yes    torch.nn
+ReplicationPad1d                          Yes      Yes       Yes       Yes      No     torch.nn
+ReplicationPad2d                          Yes      Yes       Yes       Yes      No     torch.nn
+ReplicationPad3d                          Yes      Yes       Yes       Yes      No     torch.nn
 SiLU                                      No       No        No        No       No     torch.nn
 Sigmoid                                   Yes      Yes       Yes       Yes      Yes    torch.nn
 SmoothL1Loss                              No       No        No        No       No     torch.nn
@@ -1776,7 +1778,7 @@ masked_select                             No       Yes       No        No       
 matmul                                    No       No        No        No       No     torch.Tensor
 max                                       Yes      Yes       Yes       Yes      Yes    torch.Tensor
 maximum                                   Yes      Yes       Yes       Yes      Yes    torch.Tensor
-mean                                      Yes      Yes       Yes       Yes      Yes    torch.Tensor
+mean                                      No       No        No        No       No     torch.Tensor
 median                                    Yes      Yes       No        No       No     torch.Tensor
 min                                       Yes      Yes       Yes       Yes      Yes    torch.Tensor
 minimum                                   Yes      Yes       Yes       Yes      Yes    torch.Tensor

@@ -91,7 +91,16 @@ std::unordered_map<std::string, std::vector<at::ScalarType>>
           at::ScalarType::Int,
           at::ScalarType::Float,
           at::ScalarType::BFloat16,
-          at::ScalarType::Half}}};
+          at::ScalarType::Half}},
+        {"mean", // Integers not supported in eager mode
+         {at::ScalarType::Long,
+          at::ScalarType::Int,
+          at::ScalarType::Short,
+          at::ScalarType::Char,
+          at::ScalarType::Bool}},
+        {"replication_pad1d", {at::ScalarType::Bool}},
+        {"replication_pad2d", {at::ScalarType::Bool}},
+        {"replication_pad3d", {at::ScalarType::Bool}}};
 
 std::unordered_map<std::string, std::vector<at::ScalarType>>
     whitelisted_precision_types_op_map = {};
