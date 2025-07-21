@@ -12,6 +12,5 @@ pre-commit
 pybind11>=2.12
 requests
 setuptools==78.1.1
-symengine>=0.14.0 ; python_version != '3.11'
-symengine<0.10.0 ; python_version == '3.11'
+symengine>=0.14.0
 wheel>=0.40
