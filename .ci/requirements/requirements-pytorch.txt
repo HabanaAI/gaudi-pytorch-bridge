@@ -2,7 +2,7 @@
 numpy
 packaging>=24.1
 pandas
-protobuf<6 # required for graph visualization during runtime
+protobuf>=4.25.8 # required for graph visualization during runtime
 pybind11
 pydot
 regex>=2023.5.5
