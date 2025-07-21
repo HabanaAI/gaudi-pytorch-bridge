@@ -16,28 +16,38 @@
 #
 ###############################################################################
 
+function __get_func_name()
+{
+    if [ -n "$ZSH_NAME" ]; then
+        # shellcheck disable=SC2154
+        echo "${funcstack[2]}"
+    else
+        # shellcheck disable=SC2154
+        echo "${FUNCNAME[1]}"
+    fi
+}
+
 function pytorch_functions_help()
 {
     echo -e "\n- The following is a list of available functions for PyTorch"
-    echo -e "build_pytorch_fork             -   Build the habana pytorch fork"
-    echo -e "build_pytorch_modules          -   Build habana pytorch intergation modules"
-    echo -e "build_pytorch_dist             -   Build habana pytorch distrubuted modules"
-    echo -e "build_pytorch_tb_plugin        -   Build habana pytorch tensorboard plugin"
-    echo -e "build_lightning_habana_fork    -   Build lightning habana fork"
-    echo -e "build_pytorch_data             -   Build habana pytorch data"
-    echo -e "build_pytorch_text             -   Build habana pytorch text"
-    echo -e "build_pytorch_audio            -   Build habana pytorch audio"
-    echo -e "run_pytorch_qa_tests           -   Run pytorch QA tests"
-    echo -e "run_pytorch_modules_tests      -   Run pytorch modules tests"
-    echo -e "run_habana_lightning_tests     -   Run habana lightning plugin tests"
+    echo -e "build_pytorch_fork             -   Build the Habana PyTorch fork"
+    echo -e "build_pytorch_modules          -   Build Habana PyTorch integration modules"
+    echo -e "build_pytorch_tb_plugin        -   Build Habana PyTorch TensorBoard plugin"
+    echo -e "build_lightning_habana_fork    -   Build Lightning Habana fork"
+    echo -e "build_pytorch_data             -   Build the torchdata package"
+    echo -e "build_pytorch_text             -   Build the torchtext package"
+    echo -e "build_pytorch_audio            -   Build the torchaudio package"
+    echo -e "build_pytorch_vision           -   Build the torchvision package"
+    echo -e "run_pytorch_qa_tests           -   Run PyTorch QA tests"
+    echo -e "run_pytorch_modules_tests      -   Run PyTorch modules tests"
+    echo -e "run_habana_lightning_tests     -   Run Habana Lightning plugin tests"
     echo -e "run_lightning_habana_fw_tests  -   Run Lightning Habana tests"
-    echo -e "build_pytorch_vision           -   Build the habana pytorch vision"
     echo -e "setup_standalone               -   Setup environment to build pytorch_modules out of NPU stack (once per version)"
 }
 
 function pytorch_usage()
 {
-    if [ $1 == "build_pytorch_fork" ]; then
+    if [ "$1" == "build_pytorch_fork" ]; then
         echo -e "\n usage: $1 [options]\n"
 
         echo -e "options:\n"
@@ -53,9 +63,7 @@ function pytorch_usage()
         echo -e "       --build-version        Build version used for whl creation"
         echo -e "       --pytorch-next         Build pytorch-next instead of pytorch-fork"
         echo -e "  -h,  --help                 Prints this help"
-    fi
-
-    if [ $1 == "build_lightning_habana_fork" ]; then
+    elif [ "$1" == "build_lightning_habana_fork" ]; then
         echo -e "\n usage: $1 [options]\n"
 
         echo -e "options:\n"
@@ -67,32 +75,14 @@ function pytorch_usage()
         echo -e "       --install              will install the package"
         echo -e "       --dist                 create a wheel distribution/default"
         echo -e "  -h,  --help                 Prints this help"
-    fi
-
-    if [ "$1" == "build_pytorch_modules" ]; then
+    elif [ "$1" == "build_pytorch_modules" ]; then
         "${PYTORCH_MODULES_ROOT_PATH}"/.devops/build.py --help
         echo -e ""
         echo -e "Additionally:"
         echo -e "       --recursive            Build all NPU stack dependencies beforehand"
         echo -e "       --standalone           Build pytorch_modules outside of NPU stack. Run setup_standalone before using this flag."
-    fi
-
-    if [ $1 == "build_pytorch_dist" ]; then
+    elif [ "$1" == "build_pytorch_tb_plugin" ]; then
         echo -e "\n usage: $1 [options]\n"
-
-        echo -e "options:\n"
-        echo -e "  -j,  --jobs <val>           Overwrite number of jobs"
-        echo -e "  -c   --configure            Configure before build"
-        echo -e "  -a,  --build-all            Build both debug and release build"
-        echo -e "  -r,  --release              Build only release build"
-        echo -e "  -y,  --no-tidy              Skip running clang-tidy during build"
-        echo -e "  -s,  --sanitize             Build with sanitize flags on"
-        echo -e "  -v,  --verbose              Build with verbose"
-        echo -e "  -h,  --help                 Prints this help"
-    fi
-
-   if [ $1 == "build_pytorch_tb_plugin" ]; then
-      echo -e "\n usage: $1 [options]\n"
 
         echo -e "options:\n"
         echo -e "  -j,  --jobs <val>           Max jobs used for compilation"
@@ -104,9 +94,7 @@ function pytorch_usage()
         echo -e "       --dist                 create a wheel distribution/default"
         echo -e "       --no-fe                Disable front-end build"
         echo -e "  -h,  --help                 Prints this help"
-    fi
-
-    if [ $1 == "run_pytorch_modules_tests" ]; then
+    elif [ "$1" == "run_pytorch_modules_tests" ]; then
         echo -e "\nusage: $1 [options]\n"
         echo -e "options:\n"
         echo -e "  -l,  --list-tests                   List the available tests"
@@ -123,9 +111,7 @@ function pytorch_usage()
         echo -e "  -hllog LOG_LEVEL                    0-TRACE, 1-DEBUG 2-INFO, 3-WARN, 4-ERR, 5-CRITICAL"
         echo -e "  -r, --rerun-failures                Rerun tests on failure"
         echo -e "  -h,  --help                         Prints this help"
-    fi
-
-    if [ $1 == "run_pytorch_qa_tests" ]; then
+    elif [ "$1" == "run_pytorch_qa_tests" ]; then
         echo -e "\nusage: $1 [options]\n"
         echo -e "options:\n"
         echo -e "  -l,  --list-tests                   List the available tests"
@@ -137,9 +123,7 @@ function pytorch_usage()
         echo -e "  -a,  --mark MARKER                  Run tests marked by MARKER"
         echo -e "  -t,  --suite-type TYPE              Run specific suite type [all, ops, perf, acc, topology_ci, distributed]. Default: all"
         echo -e "  -hllog LOG_LEVEL                    0-TRACE, 1-DEBUG 2-INFO, 3-WARN, 4-ERR, 5-CRITICAL"
-    fi
-
-    if [ $1 == "run_pytorch_lightning_qa_tests" ]; then
+    elif [ "$1" == "run_pytorch_lightning_qa_tests" ]; then
         echo -e "\nusage: $1 [options]\n"
         echo -e "options:\n"
         echo -e "  -l,  --list-tests                   List the available tests"
@@ -151,10 +135,7 @@ function pytorch_usage()
         echo -e "  -a,  --mark MARKER                  Run tests marked by MARKER"
         echo -e "  -t,  --suite-type TYPE              Run specific suite type [all, ops, perf, acc, topology_ci, distributed]. Default: all"
         echo -e "  -hllog LOG_LEVEL                    0-TRACE, 1-DEBUG 2-INFO, 3-WARN, 4-ERR, 5-CRITICAL"
-
-    fi
-
-    if [ $1 == "run_habana_lightning_tests" ]; then
+    elif [ "$1" == "run_habana_lightning_tests" ]; then
         echo -e "\nusage: $1 [options]\n"
         echo -e "options:\n"
         echo -e "  -l,  --list-tests                   List the available tests"
@@ -167,9 +148,7 @@ function pytorch_usage()
         echo -e "  -t,  --suite-type TYPE              Run specific suite type [all, py_tests, cpp_tests]. Default: all"
         echo -e "  -hllog LOG_LEVEL                    0-TRACE, 1-DEBUG 2-INFO, 3-WARN, 4-ERR, 5-CRITICAL"
         echo -e "  -h,  --help                         Prints this help"
-    fi
-
-    if [ $1 == "run_lightning_habana_fw_tests" ]; then
+    elif [ "$1" == "run_lightning_habana_fw_tests" ]; then
         echo -e "\nusage: $1 [options]\n"
         echo -e "options:\n"
         echo -e "  -l,  --list-tests                   List the available tests"
@@ -182,9 +161,7 @@ function pytorch_usage()
         echo -e "  -t,  --suite-type TYPE              Run specific suite type [all, py_tests, cpp_tests]. Default: all"
         echo -e "  -hllog LOG_LEVEL                    0-TRACE, 1-DEBUG 2-INFO, 3-WARN, 4-ERR, 5-CRITICAL"
         echo -e "  -h,  --help                         Prints this help"
-    fi
-
-    if [ $1 == "build_pytorch_data" ]; then
+    elif [ "$1" == "build_pytorch_data" ]; then
         echo -e "\n usage: $1 [options]\n"
 
         echo -e "options:\n"
@@ -196,9 +173,7 @@ function pytorch_usage()
         echo -e "       --dist                 create a wheel distribution/default"
         echo -e "       --pt-data-version      PytorchData version"
         echo -e "  -h,  --help                 Prints this help"
-    fi
-
-    if [ $1 == "build_pytorch_text" ]; then
+    elif [ "$1" == "build_pytorch_text" ]; then
         echo -e "\n usage: $1 [options]\n"
 
         echo -e "options:\n"
@@ -210,9 +185,7 @@ function pytorch_usage()
         echo -e "       --dist                 create a wheel distribution/default"
         echo -e "       --pt-text-version      PytorchText version"
         echo -e "  -h,  --help                 Prints this help"
-    fi
-
-    if [ $1 == "build_pytorch_audio" ]; then
+    elif [ "$1" == "build_pytorch_audio" ]; then
         echo -e "\n usage: $1 [options]\n"
 
         echo -e "options:\n"
@@ -224,8 +197,7 @@ function pytorch_usage()
         echo -e "       --dist                 create a wheel distribution/default"
         echo -e "       --pt-audio-version     PytorchAudio version"
         echo -e "  -h,  --help                 Prints this help"
-    fi
-    if [ $1 == "build_pytorch_vision" ]; then
+    elif [ "$1" == "build_pytorch_vision" ]; then
         echo -e "\n usage: $1 [options]\n"
 
         echo -e "options:\n"
@@ -237,14 +209,17 @@ function pytorch_usage()
         echo -e "       --dist                 create a wheel distribution/default"
         echo -e "       --pt-vision-version    Pytorch Vision version"
         echo -e "  -h,  --help                 Prints this help"
-    fi
-    if [ $1 == "setup_standalone" ]; then
+    elif [ "$1" == "setup_standalone" ]; then
         echo -e "\n usage: $1 [options]\n"
         echo -e "\n setup_standalone should be executed only to setup environment to new version\n"
 
         echo -e "options:\n"
         echo -e "  -v,  --version <val>        [Mandatory] Version on which environment would be set"
         echo -e "  -h,  --help                 Print this help"
+    else
+        echo "Unknown function name: $1"
+        pytorch_functions_help
+        return 1
     fi
 }
 
@@ -286,7 +261,7 @@ build_pytorch_modules()
             __configure="yes"
             ;;
         -h  | --help )
-            usage $__scriptname
+            pytorch_usage $__scriptname
             return 0
             ;;
         -r  | --release )
@@ -384,161 +359,6 @@ build_pytorch_modules()
     printf "\nElapsed time: %02u:%02u:%02u \n\n" $(($SECONDS / 3600)) $((($SECONDS / 60) % 60)) $(($SECONDS % 60))
 }
 
-build_pytorch_dist()
-{
-    SECONDS=0
-
-    echo "Pytorch dist build skipped.  Support will be removed next release"
-    return 0
-
-    local __scriptname=$(__get_func_name)
-
-    local __jobs=${NUMBER_OF_JOBS}
-    local __all=""
-    local __debug="yes"
-    local __configure=""
-    local __release=""
-    local __no_tidy=""
-    local __sanitize="OFF"
-    local __verbose=""
-    local __build_res=0
-
-    # parameter while-loop
-    while [ -n "$1" ];
-    do
-        case $1 in
-        -a  | --build-all )
-            __all="yes"
-            ;;
-        -j  | --jobs )
-            shift
-            __jobs=$1
-            ;;
-        -c  | --configure )
-            __configure="yes"
-            ;;
-        -h  | --help )
-            usage $__scriptname
-            return 0
-            ;;
-        -r  | --release )
-            __debug=""
-            __release="yes"
-            ;;
-        -y  | --no-tidy )
-            __no_tidy="yes"
-            ;;
-        -s  | --sanitize )
-            __sanitize="ON"
-            ;;
-        -v  | --verbose )
-            __verbose="VERBOSE=1"
-            ;;
-        *)
-            __argument=$1
-            ;;
-        esac
-        shift
-    done
-
-    pushd $PYTORCH_MODULES_ROOT_PATH
-    echo "git submodule update for pybind11"
-    git submodule sync
-    __result=$?
-    if [ $__result -ne 0 ]; then
-        echo "git submodule init failed!"
-        popd
-        return $__result
-    fi
-
-    git submodule update --init --recursive --force
-    __result=$?
-    if [ $__result -ne 0 ]; then
-        echo "git submodule update failed!"
-        popd
-        return $__result
-    fi
-    popd
-
-    if [ -n "$__all" ]; then
-        __debug="yes"
-        __release="yes"
-    fi
-
-    CLANG_TIDY_DEFINE=""
-    if [ ! -z "$__no_tidy" ]; then
-        CLANG_TIDY_DEFINE="-DCLANG_TIDY="
-    fi
-
-    if [ -n "$__debug" ]; then
-        echo -e "Building in debug mode"
-        if [ ! -d $PYTORCH_DIST_DEBUG_BUILD ]; then
-            __configure="yes"
-        fi
-
-        if [ -n "$__configure" ]; then
-            if [ -d $PYTORCH_DIST_DEBUG_BUILD ]; then
-                rm -rf $PYTORCH_DIST_DEBUG_BUILD
-            fi
-            mkdir -p $PYTORCH_DIST_DEBUG_BUILD
-        fi
-
-        _verify_exists_dir "$PYTORCH_DIST_DEBUG_BUILD" $PYTORCH_DIST_DEBUG_BUILD
-
-        pushd $PYTORCH_DIST_DEBUG_BUILD
-        (set -x; cmake \
-            -DCMAKE_BUILD_TYPE=Debug \
-            $CLANG_TIDY_DEFINE \
-            -DSANITIZER=$__sanitize \
-            $PYTORCH_DIST_ROOT_PATH)
-         make $__verbose -j$__jobs
-        __build_res=$?
-        popd
-        if [ $__build_res -ne 0 ]; then
-            return $__build_res
-        fi
-
-        cp -fs $PYTORCH_DIST_DEBUG_BUILD/*.so $BUILD_ROOT_DEBUG
-        if [ -z "$__all" ]; then
-            cp -fs $PYTORCH_DIST_DEBUG_BUILD/*.so $BUILD_ROOT_LATEST
-        fi
-    fi
-
-    if [ -n "$__release" ]; then
-        echo "Building in release mode"
-        if [ ! -d $PYTORCH_DIST_RELEASE_BUILD ]; then
-            __configure="yes"
-        fi
-
-        if [ -n "$__configure" ]; then
-            if [ -d $PYTORCH_DIST_RELEASE_BUILD ]; then
-                rm -rf $PYTORCH_DIST_RELEASE_BUILD
-            fi
-            mkdir -p $PYTORCH_DIST_RELEASE_BUILD
-        fi
-
-        _verify_exists_dir "$PYTORCH_DIST_RELEASE_BUILD" $PYTORCH_DIST_RELEASE_BUILD
-        pushd $PYTORCH_DIST_RELEASE_BUILD
-        (set -x; cmake \
-            -DCMAKE_BUILD_TYPE=Release \
-            $CLANG_TIDY_DEFINE \
-            -DSANITIZER=$__sanitize \
-            $PYTORCH_DIST_ROOT_PATH)
-        make $__verbose -j$__jobs
-        __build_res=$?
-        popd
-        if [ $__build_res -ne 0 ]; then
-            return $__build_res
-        fi
-
-        cp -fs $PYTORCH_DIST_RELEASE_BUILD/*.so $BUILD_ROOT_RELEASE
-        cp -fs $PYTORCH_DIST_RELEASE_BUILD/*.so $BUILD_ROOT_LATEST
-    fi
-
-    printf "\nElapsed time: %02u:%02u:%02u \n\n" $(($SECONDS / 3600)) $((($SECONDS / 60) % 60)) $(($SECONDS % 60))
-    return 0
-}
-
 build_pytorch_fork()
 {
     SECONDS=0
@@ -606,7 +426,7 @@ build_pytorch_fork()
             __pytorch_next="true"
             ;;
         -h  | --help )
-            usage $__scriptname
+            pytorch_usage $__scriptname
             return 0
             ;;
         -j  | --jobs )
@@ -618,7 +438,7 @@ build_pytorch_fork()
             ;;
         *)
             echo Invalid argument: $1
-            usage $__scriptname
+            pytorch_usage $__scriptname
             return 1
         esac
         shift
@@ -743,7 +563,7 @@ build_pytorch_tb_plugin()
             __build_package=""
             ;;
         -h  | --help )
-            usage $__scriptname
+            pytorch_usage $__scriptname
             return 0
             ;;
         esac
@@ -848,7 +668,7 @@ build_lightning_habana_fork()
             __whl_params=" install"
             ;;
         -h  | --help )
-            usage $__scriptname
+            pytorch_usage $__scriptname
             return 0
             ;;
         esac
@@ -861,12 +681,12 @@ build_lightning_habana_fork()
         eval ${__env_vars} python setup.py clean
     fi
 
-    echo "Build parameters for lightning habana ${__whl_params}"
+    echo "Build parameters for Lightning Habana ${__whl_params}"
 
     (set -x;eval ${__env_vars} python setup.py ${__whl_params})
     __result=$?
     if [ $__result -ne 0 ]; then
-        echo "Lightning habana build failed!"
+        echo "Lightning Habana build failed!"
     fi
 
     popd
@@ -958,7 +778,7 @@ run_pytorch_modules_tests()
             shift
             if [[ "$1" =~ \  ]]; then
                echo "Test case can't contain white space and only one test case can be provided."
-               usage $__scriptname
+               pytorch_usage $__scriptname
                return 1
             fi
             __test_case="$1"
@@ -968,7 +788,7 @@ run_pytorch_modules_tests()
             __pytest_mode="$1"
             if [[ "${__pytest_mode}" != "lazy" && "${__pytest_mode}" != "compile" && "${__pytest_mode}" != "eager" && "${__pytest_mode}" != "all" ]]; then
                 echo "Pytest mode \"$__pytest_mode\" is not allowed"
-                usage $__scriptname
+                pytorch_usage $__scriptname
                 return 1 # error
             fi
             ;;
@@ -977,12 +797,12 @@ run_pytorch_modules_tests()
             __cpp_rerun_fail="--rerun-fail"
             ;;
         -h  | --help )
-            usage $__scriptname
+            pytorch_usage $__scriptname
             return 0
             ;;
         *)
             echo "The parameter $1 is not allowed"
-            usage $__scriptname
+            pytorch_usage $__scriptname
             return 1 # error
             ;;
         esac
@@ -1010,7 +830,7 @@ run_pytorch_modules_tests()
         ;;
     *)
         echo "Test suite type \"$__suite_type\" is not allowed"
-        usage $__scriptname
+        pytorch_usage $__scriptname
         return 1 # error
         ;;
     esac
@@ -1228,7 +1048,7 @@ run_pytorch_qa_tests()
     # By default the tox venv installs all the python modules from the external world instead of cached data.
     # This is because there is no config file which pip can use to get this info.
     # So populate the PIP env variable to point to the same pip.conf as in CI env. This file is custom made
-    # and points to habana artifactory cache.
+    # and points to Habana artifactory cache.
     export PIP_CONFIG_FILE="${VIRTUAL_ENV}/pip.conf"
 
     # parameter while-loop
@@ -1270,12 +1090,12 @@ run_pytorch_qa_tests()
             __color="--color=no"
             ;;
         -h  | --help )
-            usage $__scriptname
+            pytorch_usage $__scriptname
             return 0
             ;;
         *)
             echo "The parameter $1 is not allowed"
-            usage $__scriptname
+            pytorch_usage $__scriptname
             return 1 # error
             ;;
         esac
@@ -1322,7 +1142,7 @@ run_pytorch_qa_tests()
         ;;
     *)
         echo "Test suite type \"$__suite_type\" is not allowed"
-        usage $__scriptname
+        pytorch_usage $__scriptname
         return 1 # error
         ;;
     esac
@@ -1342,7 +1162,7 @@ run_pytorch_qa_tests()
     test_path=""
 
     if [ "$__pytest_marks" == "-m=smoke" ] && [ "$__suite_type" == "ops" ] && [ "${__dut}" == "gaudi" ]; then
-        #run pytorch single_op tests with suite_type = ops
+        #run PyTorch single_op tests with suite_type = ops
         # run in eager mode
        (set -x; LOCK_GAUDI_SYNAPSE_API=1 ENABLE_CONSOLE=true PYTHONPATH="$PYTORCH_TESTS_ROOT" $opts_single_op ${__pytorch_qa_test_path} "--junit-xml=${__xml}_"single_op.xml" ")
         __test_status_1=$?
@@ -1485,12 +1305,12 @@ run_habana_lightning_tests()
             __marker="-m \"$1\""
             ;;
         -h  | --help )
-            usage $__scriptname
+            pytorch_usage $__scriptname
             return 0
             ;;
         *)
             echo "The parameter $1 is not allowed"
-            usage $__scriptname
+            pytorch_usage $__scriptname
             return 1 # error
             ;;
         esac
@@ -1574,12 +1394,12 @@ run_pytorch_lightning_qa_tests()
             __marker="-m \"$1\""
             ;;
         -h  | --help )
-            usage $__scriptname
+            pytorch_usage $__scriptname
             return 0
             ;;
         *)
             echo "The parameter $1 is not allowed"
-            usage $__scriptname
+            pytorch_usage $__scriptname
             return 1 # error
             ;;
         esac
@@ -1676,12 +1496,12 @@ run_lightning_habana_fw_tests()
             __marker="-m \"$1\""
             ;;
         -h  | --help )
-            usage $__scriptname
+            pytorch_usage $__scriptname
             return 0
             ;;
         *)
             echo "The parameter $1 is not allowed"
-            usage $__scriptname
+            pytorch_usage $__scriptname
             return 1 # error
             ;;
         esac
@@ -2217,7 +2037,7 @@ build_pytorch_text()
             shift
             ;;
         -h  | --help )
-            usage $__scriptname
+            pytorch_usage $__scriptname
             return 0
             ;;
         esac
@@ -2300,7 +2120,7 @@ build_pytorch_data()
             shift
             ;;
         -h  | --help )
-            usage $__scriptname
+            pytorch_usage $__scriptname
             return 0
             ;;
         esac
@@ -2379,7 +2199,7 @@ build_pytorch_audio()
             shift
             ;;
         -h  | --help )
-            usage $__scriptname
+            pytorch_usage $__scriptname
             return 0
             ;;
         esac
@@ -2462,7 +2282,7 @@ build_pytorch_vision()
             __next_version=true
             ;;
         -h  | --help )
-            usage $__scriptname
+            pytorch_usage $__scriptname
             return 0
             ;;
         esac
@@ -2510,7 +2330,7 @@ build_pytorch_vision()
     return $__result
 }
 
-# Installs pt fork, pt vision, lightning if required & pt modules
+# Installs PT fork, PT vision, Lightning if required & PT modules
 # called from the ci/promote flow
 install_pytorch_whls() {
     __clean_pytorch_dev_py_deps
@@ -2622,7 +2442,7 @@ setup_standalone()
              shift
             ;;
         -h  | --help )
-            usage setup_standalone
+            pytorch_usage setup_standalone
             return 0
             ;;
         *)
