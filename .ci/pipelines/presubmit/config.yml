@@ -85,7 +85,7 @@ orchestratorConfig:
       - docs/*
     - repository: lightning-habana-fork
       gitHubOrg: habana-internal
-  - testToLaunch: habana-internal/multinode_tests/Tests/Test_multinode_tests_gaudi2_sim_pt_distributed_ci
+  - testToLaunch: habana-internal/multinode_tests/Tests/Test_multinode_tests_gaudi2_asic_pt_distributed_smoke
     triggerMap:
     - repository: pytorch-integration
       gitHubOrg: habana-internal
