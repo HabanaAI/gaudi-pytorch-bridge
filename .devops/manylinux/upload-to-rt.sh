@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -19,8 +19,8 @@
 #
 # Uploads images built using build.sh to Artifactory
 #
-regular_image=artifactory-kfs.habana-labs.com/docker/manylinux/al2
-icecc_image=artifactory-kfs.habana-labs.com/developers-docker-dev-local/manylinux/al2-with-icecc
+regular_image=artifactory-kfs.habana-labs.com/docker/manylinux/manylinux_2_28
+icecc_image=$regular_image-with-icecc
 
 date_tag=$(date +%Y%m%d_%H%M%S)
 
@@ -32,4 +32,3 @@ docker push $regular_image:"$date_tag"
 
 docker push $icecc_image:latest
 docker push $icecc_image:"$date_tag"
-

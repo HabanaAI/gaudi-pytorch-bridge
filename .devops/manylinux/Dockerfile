@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -15,26 +15,34 @@
 #
 ###############################################################################
 #
-# Custom manylinux_2_26 for building pytorch-integration.
-#
-# Only supports Python 3.8 - unlike typical manylinux images.
-#
-# It's based on AL2, our oldest supported OS glibc-wise,
-# so we can build using it and run everywhere.
-#
-# As we're dropping AL2 in the near future, this is a minimum-effort image.
-# When we switch to manylinux_2_28, a lighter-weight solution should be crafted.
-#
 
-# Why try harder?
-FROM artifactory-kfs.habana-labs.com/devops-docker-local/habana-builder-pt:amzn2-1.17.0
+# Dockerfile for base image: https://github.com/pytorch/pytorch/blob/main/.ci/docker/manywheel/Dockerfile_2_28
+# Latest tag can be found at: https://hub.docker.com/r/pytorch/manylinux2_28-builder/tags?name=cpu
+FROM pytorch/manylinux2_28-builder:cpu-87cefcaa420ab3b6d6e06e63aa33970b3723d060
 
-# Disabling mirror from base image as it's already dead
-RUN yum-config-manager --disable mirror.centos.org_centos_7_sclo_x86_64_rh_ && \
-    yum install -y passwd && \
-    yum clean all && \
-    rm -rf /var/cache/yum
+# Provide all versions of Python and Pip in PATH
+RUN for py in /opt/python/cp*[0-9]/bin/{python3,pip3}.*; do \
+        ln -sf $py /usr/bin/$(basename $py); \
+    done
 
-COPY entrypoint /usr/local/bin/
-ENTRYPOINT [ "entrypoint" ]
-CMD [ "/bin/bash" ]
+# Here's why we install specific packages below:
+# * numactl-libs (libnuma.so.1) are required to import pytorch-fork
+# * zlib is required to build integration
+# * sqlite, sox, and curl are required to build aeon which we depend on
+# * protobuf-compiler is required to for graph_visualization in dynamo debug utils
+# * redhat-lsb-core provides lsb_release required by automation scripts, e.g. for building aeon
+RUN dnf update -y && dnf install -y \
+        ccache \
+        sudo \
+        passwd \
+        numactl-libs \
+        zlib-devel \
+        sqlite-devel \
+        sox-devel \
+        curl-devel \
+        protobuf-compiler \
+        redhat-lsb-core \
+    && dnf clean all
+
+COPY --chmod=755 entrypoint.sh cd-entrypoint.sh /usr/local/bin/
+ENTRYPOINT [ "entrypoint.sh" ]

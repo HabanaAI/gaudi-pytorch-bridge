@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -24,10 +24,12 @@
 
 set -e
 
-yum install -y libcap-ng-devel libarchive-devel lzo-devel libzstd-devel
+dnf config-manager --set-enabled powertools  # for libarchive-devel on AlmaLinux 8
+dnf install -y libcap-ng-devel libarchive-devel lzo-devel libzstd-devel
 
 mkdir -p /tmp/icecc
 pushd /tmp/icecc || exit 1
+trap "rm -r /tmp/icecc" EXIT
 
 wget 'https://github.com/icecc/icecream/releases/download/1.4/icecc-1.4.0.tar.xz'
 xz -d icecc-1.4.0.tar.xz
@@ -41,7 +43,6 @@ make -j "$(nproc)"
 make install
 # binaries will be in /opt/icecream/{bin,sbin} - you might want to add them to PATH
 
-popd 2 || exit 1
-rm -r /tmp/icecc
+popd && popd || exit 1
 
 adduser --create-home --home-dir /var/cache/icecc --shell /bin/false --system --user-group icecc

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -17,7 +17,8 @@
 ###############################################################################
 
 # If iceccd can't connect to a scheduler, make sure you're docker running with --net=host.
-iceccd --nice 10 -u icecc -b /var/cache/icecc -d -m 0 -p 10246 -N "${HOSTNAME}"-manylinux
+# For printing full debug logs to console, replace `-d` with `-vvv &`
+iceccd --nice 10 -u icecc -b /var/cache/icecc --no-remote -p 10246 -N "${HOSTNAME}"-manylinux -d
 
-# shellcheck source=../entrypoint
-exec entrypoint "$@"
+# shellcheck source=../entrypoint.sh
+exec entrypoint.sh "$@"

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -23,10 +23,14 @@ if [ -z "$HOST_USER" ] || [ -z "$HOST_UID" ] || [ -z "$HOST_GID" ]; then
     exit 1
 fi
 
+chmod ugo+rwX /tmp
+
 groupadd -g "$HOST_GID" software
-useradd -m -u "$HOST_UID" -g "$HOST_GID" "$HOST_USER"
-passwd -d "$HOST_USER"
+useradd -m -u "$HOST_UID" -g "$HOST_GID" "$HOST_USER" 2>/dev/null
+passwd -d "$HOST_USER" >/dev/null 2>&1
 USER_HOME=/home/"$HOST_USER"
+
+echo "$HOST_USER ALL=(ALL) ALL" >> /etc/sudoers
 
 chown "$HOST_UID":"$HOST_GID" "$USER_HOME"
 if [[ ! -d /.ssh-host ]]; then
@@ -45,4 +49,8 @@ Host *
     StrictHostKeyChecking no
 EOM
 
-exec su "$HOST_USER" -c "source /opt/rh/devtoolset-11/enable && $*"
+cat >> "$USER_HOME"/.bashrc << EOM
+[ -z "$PS1" ] && export PS1='[\u@\h \W]\\$ '
+EOM
+
+exec su "$HOST_USER" -c "cd-entrypoint.sh $*"

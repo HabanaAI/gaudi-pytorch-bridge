@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -23,9 +23,9 @@
 
 set -e
 
-echo Building AL2-based Manylinux docker
-docker build -t artifactory-kfs.habana-labs.com/docker/manylinux/al2:latest .
+echo Building manylinux_2_28 docker
+docker build -t artifactory-kfs.habana-labs.com/docker/manylinux/manylinux_2_28:latest .
 
 echo
-echo Building an icecc-enabled Manylinux docker based on the above one
-docker build -t artifactory-kfs.habana-labs.com/developers-docker-dev-local/manylinux/al2-with-icecc:latest icecc
+echo Building an icecc-enabled Manylinux docker based on the one above
+docker build -t artifactory-kfs.habana-labs.com/docker/manylinux/manylinux_2_28-with-icecc:latest icecc
