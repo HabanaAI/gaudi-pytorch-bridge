@@ -43,6 +43,31 @@ OutputMetaDataVector LogspaceOutMeta(const at::Stack& stack) {
   return {meta};
 }
 
+// AddNode function is needed as the bridge cannot infer correctly the precision
+// type in a compile mode.
+void LogSpace::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
+  auto meta = OutputMeta(stack)[0];
+  auto params = FillParams(stack);
+
+  syn_out(0) = std::move(BuildOp(
+      graph,
+      get_guid_with_precision("logspace_fwd"sv, meta.dtype),
+      {},
+      {{meta.shape, meta.dtype, 0}},
+      params.ptr(),
+      params.size())[0]);
+}
+
+FillParamsT FillLogspaceFwdParams(const at::Stack& stack) {
+  PARAMS_STUB(ns_Logspace::Params);
+  params->start = stack[0].toScalar().to<float>();
+  params->end = stack[1].toScalar().to<float>();
+  params->steps = stack[2].toScalar().to<int32_t>();
+  params->base = stack[3].toScalar().to<float>();
+
+  return paramsT;
+}
+
 SharedMetaDataVector LogspaceSharedMeta(
     const at::Stack& stack,
     habana_helpers::HabanaExecutionMode) {
@@ -53,118 +78,8 @@ SharedMetaDataVector LogspaceSharedMeta(
     dtype = stack.at(4).toOptional<at::ScalarType>().value_or(
         torch::get_default_dtype_as_scalartype());
 
-  int64_t len = stack.at(2).toScalar().to<int64_t>();
-  float base = stack.at(3).toScalar().to<float>();
-
-  auto castNeeded = c10::isIntegralType(dtype, true);
-  auto outType = castNeeded ? at::kFloat : dtype;
-  if (len == 0) {
-    SharedMetaData memsetSharedMeta{"memset"};
-    memsetSharedMeta.outputs_data.emplace_back(1, outType);
-
-    return {memsetSharedMeta};
-  } else if (base == 1.F) {
-    // [SW-205149] return empty vector because shape tensor validation will
-    // block shape agnostic flow
-    return {};
-  }
-
-  float start = stack.at(0).toScalar().to<float>();
-  float end = stack.at(1).toScalar().to<float>();
-  SharedMetaDataVector metaVec;
-  metaVec.reserve(3);
-  SharedMetaTensor commonTensor = {1, outType};
-  if (start != end && len != 1) {
-    SharedMetaData rangeSharedMeta{"range"};
-    rangeSharedMeta.outputs_data.push_back(commonTensor);
-    metaVec.push_back(rangeSharedMeta);
-  }
-
-  SharedMetaData powSharedMeta{"pow_fwd"};
-  powSharedMeta.inputs_data = {commonTensor, commonTensor};
-  powSharedMeta.outputs_data.push_back(commonTensor);
-  metaVec.push_back(powSharedMeta);
-
-  return metaVec;
-}
-
-FillParamsT RangeParams(const at::Stack& stack) {
-  float start = stack[0].toScalar().to<float>();
-  float end = stack[1].toScalar().to<float>();
-  int64_t step = stack[2].toScalar().to<int64_t>();
-
-  float endValueModification = 0.000001;
-  int64_t arange_step = step;
-
-  float delta = (end - start);
-  if (1.0 != arange_step) {
-    delta /= (arange_step - 1.0);
-  }
-  if (arange_step != 1) {
-    endValueModification = delta / 2.0;
-  }
-
-  end += endValueModification;
-  PARAMS_STUB(ns_RangeKernel::Params);
-
-  get<float>(params->start) = start;
-  get<float>(params->limit) = end;
-  get<float>(params->delta) = delta;
-
-  return paramsT;
-}
-
-void LogSpace::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
-  auto meta = OutputMeta(stack)[0];
-  float start = stack[0].toScalar().to<float>();
-  float end = stack[1].toScalar().to<float>();
-  int64_t len = stack[2].toScalar().to<int64_t>();
-  float base = stack[3].toScalar().to<float>();
-
-  auto castNeeded = c10::isIntegralType(meta.dtype, true);
-  auto outType = castNeeded ? at::kFloat : meta.dtype;
-  std::optional<int> finalIndex =
-      castNeeded ? std::nullopt : c10::make_optional<int>(0);
-
-  if (len == 0) {
-    auto result = habana::OpBackend::BuildOp(
-        graph, "memset", {}, {{meta.shape, outType, 0}});
-    syn_out(0) = std::move(result[0]);
-  } else if (base == 1.F) {
-    auto result = ConstantHelper(
-        graph, 1.F, castNeeded ? at::kInt : outType, meta.shape, 0);
-    syn_out(0) = std::move(result);
-  } else {
-    using namespace std::literals;
-    std::vector<synapse_helpers::tensor> range;
-    if (start != end && len != 1) {
-      auto params = RangeParams(stack);
-
-      range = BuildOp(
-          graph,
-          get_guid_with_precision("range"sv, outType),
-          {},
-          {{meta.shape, outType}},
-          params.ptr(),
-          params.size());
-    } else {
-      range.push_back(ConstantHelper(graph, start, outType, meta.shape));
-    }
-
-    auto constant = ConstantHelper(graph, stack[3].toScalar(), outType);
-
-    auto pow = BuildOp(
-        graph,
-        get_guid_with_precision("pow_fwd"sv, outType),
-        {constant.get(), range[0].get()},
-        {{meta.shape, outType, finalIndex}});
-
-    auto result = castNeeded
-        ? BuildCast(
-              this, graph, pow[0].get(), meta.shape, outType, meta.dtype, 0)
-        : std::move(pow[0]);
-
-    syn_out(0) = std::move(result);
-  }
+  SharedMetaData powSharedMeta{"logspace_fwd"};
+  powSharedMeta.outputs_data.emplace_back(1, dtype);
+  return {powSharedMeta};
 }
 } // namespace habana

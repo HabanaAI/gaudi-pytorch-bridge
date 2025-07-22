@@ -167,7 +167,8 @@ class NodeParamAgnosticOpList {
         c10::Symbol::fromQualString("aten::scatter"),
         c10::Symbol::fromQualString("aten::repeat_interleave"),
         c10::Symbol::fromQualString("aten::eye"),
-        c10::Symbol::fromQualString("hpu::randperm")};
+        c10::Symbol::fromQualString("hpu::randperm"),
+        c10::Symbol::fromQualString("aten::logspace")};
     return ops_list;
   }
 
