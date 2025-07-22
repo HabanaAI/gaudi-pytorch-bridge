@@ -43,7 +43,7 @@ class PipelineDeleter {
 
   void delete_function(void*);
 
-  int m_marked_tid = 0;
+  long m_marked_tid = 0;
 };
 
 } // namespace common

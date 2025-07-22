@@ -12,29 +12,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "habana_kernels/embedding_kernels.h"
 #include <ATen/InferSize.h>
 #include <perf_lib_layer_params.h>
 #include <synapse_api.h>
 #include <torch/script.h>
-
 #include "backend/create_pt_tensor.h"
-#include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/helpers/create_tensor.h"
-#include "backend/helpers/graph.h"
-#include "backend/helpers/tensor_utils.h"
 #include "backend/kernel/hpu_shape_inference.h"
-#include "habana_helpers/frontend_utils.h"
 #include "habana_helpers/logging.h"
-#include "habana_helpers/logging_pt.h"
-#include "habana_kernels/basic_kernels.h"
-#include "habana_kernels/embedding_kernels.h"
-#include "habana_kernels/index_kernels.h"
-#include "habana_kernels/tensor_shape_kernels.h"
-#include "habana_kernels/topk_kernels.h"
-#include "habana_lazy/aten_lazy_bridge.h"
-#include "habana_lazy/tensor_impl.h"
 #include "hpu_ops/hpu_op_helper.h"
-#include "kernel_utils.h"
 
 using namespace torch;
 using namespace habana;
@@ -42,7 +29,7 @@ using namespace habana;
 std::vector<int64_t> PadOperator::compute_output_shape(
     const at::Tensor& self,
     c10::IntArrayRef pad) {
-  auto ndim = self.dim();
+  auto ndim = static_cast<size_t>(self.dim());
   auto lpad = pad.size() / 2;
 
   HABANA_ASSERT(
@@ -51,7 +38,7 @@ std::vector<int64_t> PadOperator::compute_output_shape(
       pad.size());
 
   HABANA_ASSERT(
-      ndim >= (int64_t)lpad,
+      ndim >= lpad,
       "Length of pad should be no more than twice the number of "
       "dimensions of the input. Pad length is ",
       pad.size(),
@@ -85,7 +72,7 @@ std::vector<int64_t> PadOperator::compute_output_shape_ds(
     const at::Tensor& self,
     c10::IntArrayRef pad_before,
     c10::IntArrayRef pad_after) {
-  auto ndim = self.dim();
+  auto ndim = static_cast<size_t>(self.dim());
 
   auto shape = self.sizes().vec();
 
@@ -132,7 +119,7 @@ void PadOperator::AllocateAndAddSynapseNode(
   std::vector<int64_t> shape;
   shape = compute_output_shape(self, pad);
 
-  auto ndim = self.dim();
+  auto ndim = static_cast<size_t>(self.dim());
   auto lpad = pad.size() / 2;
 
   ns_PadKernelEx::Params param;
@@ -144,8 +131,24 @@ void PadOperator::AllocateAndAddSynapseNode(
   }
   memset(param.pads, 0, sizeof(param.pads));
   for (size_t i = 0; i < lpad; i++) {
-    param.pads[i] = pad[2 * i];
-    param.pads[i + ndim] = pad[2 * i + 1];
+    // Although param.pads is unsigned, glue layer recasts it to signed.
+    // So, we need to check that the value is within the range of int.
+    HABANA_ASSERT(
+        pad[2 * i] >= std::numeric_limits<int>::min() and
+            pad[2 * i] <= std::numeric_limits<int>::max(),
+        "Pad value at index ",
+        2 * i,
+        " is out of unsigned range: ",
+        pad[2 * i]);
+    param.pads[i] = static_cast<unsigned int>(pad[2 * i]);
+    HABANA_ASSERT(
+        pad[2 * i + 1] >= std::numeric_limits<int>::min() and
+            pad[2 * i + 1] <= std::numeric_limits<int>::max(),
+        "Pad value at index ",
+        2 * i + 1,
+        " is out of unsigned range: ",
+        pad[2 * i + 1]);
+    param.pads[i + ndim] = static_cast<unsigned int>(pad[2 * i + 1]);
   }
 
   at::Tensor output;
@@ -200,30 +203,38 @@ void PadOperatorHT::AllocateAndAddSynapseNode(
   shape = inputs[2].toTensor().sizes().vec();
   at::Tensor host_tensor = inputs[1].toTensor();
   auto tmeta{get_tensor_extra_meta(host_tensor)};
-  auto output_shape = inputs[2].toTensor().sizes().vec();
-  auto input_shape = self.sizes().vec();
+  auto output_shape = inputs[2].toTensor().sizes();
+  auto input_shape = self.sizes();
   HABANA_ASSERT(
       tmeta->get_host_dt_type() == habana::HostDataType::UINT32_T,
       "Incorrect datatype of HOST");
   if (habana::ShapeInference::GetCurrentPass() ==
       habana::ShapeInfo::InferencePass::MIN_SHAPE) {
-    auto ndim = self.dim();
+    const auto ndim = static_cast<size_t>(self.dim());
     auto in_data = self.sizes().vec();
     std::vector<uint32_t> data(MAX_DIMENSIONS_NUM * 2, 0);
-    for (unsigned int i = 0; i < ndim; i++) {
+    for (size_t i = 0; i < ndim; i++) {
       // order of dims is reversed in H2D tensor
-      data[ndim - i - 1] = output_shape[i] - input_shape[i];
+      const auto data_element = output_shape[i] - input_shape[i];
+      HABANA_ASSERT(
+          data_element <= std::numeric_limits<uint32_t>::max(),
+          "Output shape minus input shape is out of range for uint32_t");
+      data[ndim - i - 1] = static_cast<uint32_t>(data_element);
     }
     tmeta->set_min<uint32_t>(data);
   } else if (
       habana::ShapeInference::GetCurrentPass() ==
       habana::ShapeInfo::InferencePass::MAX_SHAPE) {
-    auto ndim = self.dim();
+    auto ndim = static_cast<size_t>(self.dim());
     auto in_data = self.sizes().vec();
     std::vector<uint32_t> data(MAX_DIMENSIONS_NUM * 2, 0);
-    for (unsigned int i = 0; i < ndim; i++) {
+    for (size_t i = 0; i < ndim; i++) {
       // order of dims is reversed in H2D tensor
-      data[ndim - i - 1] = output_shape[i] - input_shape[i];
+      const auto data_element = output_shape[i] - input_shape[i];
+      HABANA_ASSERT(
+          data_element <= std::numeric_limits<uint32_t>::max(),
+          "Output shape minus input shape is out of range for uint32_t");
+      data[ndim - i - 1] = static_cast<uint32_t>(data_element);
     }
     tmeta->set_max<uint32_t>(data);
   }

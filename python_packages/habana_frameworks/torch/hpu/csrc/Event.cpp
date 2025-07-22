@@ -42,7 +42,7 @@ static PyObject* THP_HPU_Event_pynew(
   }
 
   THPObjectPtr ptr(type->tp_alloc(type, 0));
-  SUPPRESS_WCONVERSION(if (!ptr)) {
+  if (nullptr == ptr) {
     return nullptr;
   }
 

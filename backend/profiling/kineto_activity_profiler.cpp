@@ -26,6 +26,7 @@
 #include <kineto/output_base.h>
 #include <kineto/time_since_epoch.h>
 #pragma GCC diagnostic pop
+#include <common/warning_suppress.h>
 #include <torch/csrc/profiler/orchestration/observer.h>
 #include <stack>
 
@@ -232,7 +233,7 @@ std::unique_ptr<GenericTraceActivity> GenericTraceActivitySink::constructFlow(
   flow->device = static_cast<int32_t>(device);
   flow->resource = static_cast<int32_t>(resource);
   flow->startTime = time;
-  flow->flow.id = static_cast<uint32_t>(flow_id);
+  SUPPRESS_WCONVERSION(flow->flow.id = static_cast<uint32_t>(flow_id);)
   flow->flow.type = kLinkAsyncCpuGpu;
   flow->flow.start = start;
   return flow;

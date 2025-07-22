@@ -24,9 +24,7 @@
 #include "backend/habana_device/PinnedMemoryAllocator.h"
 #include "backend/helpers/tensor_utils.h"
 #include "backend/random.h"
-#include "backend/synapse_helpers/device_helpers.h"
 #include "common/dump_args.h"
-#include "generated/lazy/fp8_gemm_v2.h"
 #include "habana_helpers/frontend_utils.h"
 #include "habana_helpers/pt_version_check.h"
 #include "habana_kernels/basic_kernels.h"
@@ -56,8 +54,6 @@
 #include "habana_lazy/permute_tensors.h"
 #include "habana_lazy/view_utils.h"
 #include "hpu_ops/bincount.h"
-#include "hpu_ops/fp8_ops.h"
-#include "hpu_ops/mixture_of_experts.h"
 #include "hpu_ops/op_logger.h"
 #include "hpu_ops/optimizer_lamb_gen.h"
 #include "hpu_ops/sdpa_gen.h"
@@ -714,12 +710,12 @@ void copy_hpu_lazy_D2H_internal(
       c10 ::Allocator* allocator;
       allocator = habana::getHABANADeviceAllocator();
       int64_t nelements = multiply_integers(_src.sizes());
-      int elem_size = _src.dtype().itemsize();
-      int64_t size_bytes = nelements * elem_size;
+      const auto elem_size = static_cast<int64_t>(_src.dtype().itemsize());
+      const int64_t size_bytes = nelements * elem_size;
       storage = c10::make_intrusive<StorageImpl>(
           c10::StorageImpl::use_byte_size_t(),
           size_bytes,
-          allocator->allocate(nelements * elem_size),
+          allocator->allocate(static_cast<size_t>(size_bytes)),
           allocator,
           true);
     }
@@ -878,14 +874,15 @@ void calculate_size_stride_cl(
     std::vector<int64_t>& stride,
     std::vector<int64_t>& permute_dims) {
   std::iota(permute_dims.begin(), permute_dims.end(), -1);
+  HABANA_ASSERT(dim >= 1, "Dim for stride calculation needs to be at least 1.");
   // prepare the permute params to channels first.
   permute_dims[0] = 0;
   permute_dims[1] = dim - 1;
   auto temp = size[1];
-  for (int i = 1; i < dim - 1; i++) {
+  for (size_t i = 1; i < static_cast<size_t>(dim - 1); ++i) {
     size[i] = size[i + 1];
   }
-  size[dim - 1] = temp;
+  size[static_cast<size_t>(dim - 1)] = temp;
   habana_helpers::recalc_strides(stride, size);
 }
 
@@ -956,12 +953,12 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src_, bool non_blocking) {
         c10 ::Allocator* allocator;
         allocator = habana::getHABANADeviceAllocator();
         int64_t nelements = multiply_integers(self.sizes());
-        int elem_size = self.dtype().itemsize();
+        const auto elem_size = static_cast<int64_t>(self.dtype().itemsize());
         int64_t size_bytes = nelements * elem_size;
         storage = c10::make_intrusive<StorageImpl>(
             c10::StorageImpl::use_byte_size_t(),
             size_bytes,
-            allocator->allocate(nelements * elem_size),
+            allocator->allocate(static_cast<size_t>(size_bytes)),
             allocator,
             /*resizeable=*/true);
       }
@@ -1056,7 +1053,7 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src_, bool non_blocking) {
     auto dim = self.dim();
     auto size = self.sizes().vec();
     auto stride = self.strides().vec();
-    std::vector<int64_t> permute_dims(dim);
+    std::vector<int64_t> permute_dims(static_cast<size_t>(dim));
     calculate_size_stride_cl(dim, size, stride, permute_dims);
 
     self.unsafeGetTensorImpl()->set_sizes_and_strides(size, stride);
@@ -1183,7 +1180,7 @@ ir::NodePtr strided_view_h2d(
   auto stride_sizes = stride.vec();
 
   auto stride_st = empty_hpu_lazy(
-      stride_data_vec.size() * 2,
+      static_cast<int64_t>(stride_data_vec.size() * 2),
       self.options().dtype(c10::ScalarType::Int),
       self.suggest_memory_format(),
       false,
@@ -1575,7 +1572,8 @@ inline DimVector compute_strides_for_view_dtype_downsize(
     int64_t size_ratio,
     ScalarType old_dtype,
     ScalarType new_dtype) {
-  const int64_t ndim = old_strides.size();
+  const auto ndim = old_strides.size();
+  HABANA_ASSERT(ndim >= 1, "strides size must be at least 1.");
 
   HABANA_ASSERT(
       old_strides[ndim - 1] == 1,
@@ -1587,7 +1585,7 @@ inline DimVector compute_strides_for_view_dtype_downsize(
       old_strides[ndim - 1]);
 
   DimVector new_strides(ndim);
-  for (int64_t dim_idx = 0; dim_idx < ndim - 1; dim_idx++) {
+  for (size_t dim_idx = 0; dim_idx < ndim - 1; dim_idx++) {
     new_strides[dim_idx] = old_strides[dim_idx] * size_ratio;
   }
   new_strides[ndim - 1] = 1;
@@ -1601,7 +1599,8 @@ inline DimVector compute_strides_for_view_dtype_upsize(
     int64_t size_ratio,
     ScalarType old_dtype,
     ScalarType new_dtype) {
-  const int64_t ndim = old_strides.size();
+  const auto ndim = old_strides.size();
+  HABANA_ASSERT(ndim >= 1, "Strides size must be at least 1.")
   HABANA_ASSERT(
       old_strides[ndim - 1] == 1,
       "self.stride(-1) must be 1 to view ",
@@ -1612,7 +1611,7 @@ inline DimVector compute_strides_for_view_dtype_upsize(
       old_strides[ndim - 1]);
 
   DimVector new_strides(ndim);
-  for (int64_t dim_idx = 0; dim_idx < ndim - 1; dim_idx++) {
+  for (size_t dim_idx = 0; dim_idx < ndim - 1; dim_idx++) {
     HABANA_ASSERT(
         (old_strides[dim_idx] % size_ratio) == 0,
         "self.stride(",
@@ -1677,9 +1676,9 @@ Tensor view_dtype_hpu(const Tensor& self, ScalarType dtype) {
         self.strides(), size_ratio, self.scalar_type(), dtype);
 
     auto old_sizes = self.sizes();
-    DimVector new_sizes(self.dim());
+    DimVector new_sizes(static_cast<size_t>(self.dim()));
     std::copy(old_sizes.begin(), old_sizes.end(), new_sizes.begin());
-    new_sizes[self.dim() - 1] *= size_ratio;
+    new_sizes[static_cast<size_t>(self.dim() - 1)] *= size_ratio;
 
     auto new_storage_offset = size_ratio * self.storage_offset();
 
@@ -1718,9 +1717,9 @@ Tensor view_dtype_hpu(const Tensor& self, ScalarType dtype) {
         self.strides(), size_ratio, self.scalar_type(), dtype);
 
     auto old_sizes = self.sizes();
-    DimVector new_sizes(self.dim());
+    DimVector new_sizes(static_cast<size_t>(self.dim()));
     std::copy(old_sizes.begin(), old_sizes.end(), new_sizes.begin());
-    new_sizes[self.dim() - 1] /= size_ratio;
+    new_sizes[static_cast<size_t>(self.dim() - 1)] /= size_ratio;
 
     auto new_storage_offset = self.storage_offset() / size_ratio;
 
@@ -2051,12 +2050,20 @@ Tensor constant_pad_hpu_lazy(
         // Host tensor layout 1D - 10 elements:
         // pad_before[0]...pad_before[4], pad_after[0] ... pad_after[4] (for
         // dimensionality IFM less then 5 some elements not in use)
-        pad_ht_vec[i] = pad[2 * i];
-        pad_ht_vec[MAX_DIMENSIONS_NUM + i] = pad[2 * i + 1];
+        // Padding is passed as uint32_t, but really expects int32_t inside.
+        HABANA_ASSERT(
+            pad[2 * i] >= std::numeric_limits<int32_t>::min() &&
+            pad[2 * i] <= std::numeric_limits<int32_t>::max());
+        pad_ht_vec[i] = static_cast<uint32_t>(pad[2 * i]);
+        HABANA_ASSERT(
+            pad[2 * i + 1] >= std::numeric_limits<int32_t>::min() &&
+            pad[2 * i + 1] <= std::numeric_limits<int32_t>::max());
+        pad_ht_vec[MAX_DIMENSIONS_NUM + i] =
+            static_cast<uint32_t>(pad[2 * i + 1]);
       }
 
       auto pad_tensor = empty_hpu_lazy(
-          pad_ht_vec.size(),
+          static_cast<long>(pad_ht_vec.size()),
           self.options().dtype(c10::ScalarType::Int),
           self.suggest_memory_format(),
           false,
@@ -2267,11 +2274,12 @@ static c10::List<std::optional<at::Tensor>> check_for_boolean_advanced_indexing(
         auto nonzero_indices = habana_lazy::nonzero_hpu_lazy(input);
         t_nz = habana_lazy::squeeze_hpu_lazy(nonzero_indices, 1);
         if (t_nz.dim() > 1) {
-          std::vector<int64_t> dims_sz_vec(t_nz.sizes()[1], 1);
+          std::vector<int64_t> dims_sz_vec(
+              static_cast<size_t>(t_nz.sizes()[1]), 1);
           c10::IntArrayRef dims_sz(dims_sz_vec);
           auto nz_indices =
               habana_lazy::split_with_sizes_hpu_lazy(t_nz, dims_sz, 1);
-          for (auto i : c10::irange((int)nz_indices.size())) {
+          for (size_t i = 0; i < nz_indices.size(); ++i) {
             auto nzi = habana_lazy::squeeze_hpu_lazy(nz_indices.at(i), 1);
             bool_indices_vec.emplace_back(nzi);
           }
@@ -2308,26 +2316,27 @@ generate_advanced_indexing_indices_list(const at::Stack& stack) {
   }
 
   auto self_sizes = self.sizes().vec();
-  std::vector<at::Tensor> indices_list;
-  int64_t i = 0;
-  std::vector<int64_t> index_t_sizes(self.dim());
-  std::vector<bool> index_all_elems(self.dim());
-  for (auto index_input : indices) {
-    auto input = index_input;
-    if (input.has_value() &&
-        (input.value().scalar_type() != c10::ScalarType::Bool)) {
-      index_all_elems[i] = false;
-      index_t_sizes[i] = input.value().numel();
-    } else if (!input.has_value()) {
-      index_t_sizes[i] = self_sizes[i];
+  std::vector<int64_t> index_t_sizes(static_cast<size_t>(self.dim()));
+  std::vector<bool> index_all_elems(static_cast<size_t>(self.dim()));
+  {
+    size_t i = 0;
+    for (auto index_input : indices) {
+      auto input = index_input;
+      if (input.has_value() &&
+          (input.value().scalar_type() != c10::ScalarType::Bool)) {
+        index_all_elems[i] = false;
+        index_t_sizes[i] = input.value().numel();
+      } else if (!input.has_value()) {
+        index_t_sizes[i] = self_sizes[i];
+        index_all_elems[i] = true;
+      }
+      i++;
+    }
+    // account for any trailing dims that are not specified to be
+    // indexed explicitly, but need to be taken care of.
+    for (; i < static_cast<size_t>(self.dim()); i++) {
       index_all_elems[i] = true;
     }
-    i++;
-  }
-  // account for any trailing dims that are not specified to be
-  // indexed explicitly, but need to be taken care of.
-  for (; i < self.dim(); i++) {
-    index_all_elems[i] = true;
   }
 
   // Implement the repeat and repeat_interleaves logic so that the
@@ -2368,14 +2377,15 @@ generate_advanced_indexing_indices_list(const at::Stack& stack) {
   // TODO:
   // adjust this algorithm to larger dim tensors as the r/ri logic
   // is applied dim wise and not on the flattened shape.
-  std::vector<int64_t> repeats_needed(self.dim());
-  std::vector<int64_t> repeat_interleaves_needed(self.dim());
-  int repeat_index = 0;
-  // Array holding a schape that was already processed through the r/ri logic
+  std::vector<int64_t> repeats_needed(static_cast<size_t>(self.dim()));
+  std::vector<int64_t> repeat_interleaves_needed(
+      static_cast<size_t>(self.dim()));
+  size_t repeat_index = 0;
+  // Array holding a shape that was already processed through the r/ri logic
   // keep the index of the indice in order to copy schema if necessary from
   // repeats_needed and repeat_interleaves_needed arrays.
   std::vector<std::pair<std::vector<int64_t>, int64_t>> explicit_indice_handled;
-  for (i = 0; i < self.dim(); i++) {
+  for (size_t i = 0; i < static_cast<size_t>(self.dim()); i++) {
     repeats_needed[i] = 1;
     repeat_interleaves_needed[i] = 1;
     // Array required for saving shapes in order not to r/ri
@@ -2391,8 +2401,9 @@ generate_advanced_indexing_indices_list(const at::Stack& stack) {
       if (it != std::end(explicit_indice_handled)) {
         // If the r/ri schema was already performed for the
         // current indice shape, just copy it.
-        repeats_needed[i] = repeats_needed[it->second];
-        repeat_interleaves_needed[i] = repeat_interleaves_needed[it->second];
+        repeats_needed[i] = repeats_needed[static_cast<size_t>(it->second)];
+        repeat_interleaves_needed[i] =
+            repeat_interleaves_needed[static_cast<size_t>(it->second)];
         continue;
       }
       // if the current indice is explicit, then save it in order
@@ -2400,7 +2411,7 @@ generate_advanced_indexing_indices_list(const at::Stack& stack) {
       shapes_handled.push_back(shape_to_find);
     }
 
-    for (int j = 0; j < self.dim(); ++j) {
+    for (size_t j = 0; j < static_cast<size_t>(self.dim()); ++j) {
       if (i == j)
         continue;
 
@@ -2441,10 +2452,11 @@ generate_advanced_indexing_indices_list(const at::Stack& stack) {
   // and repeat_interleaves_needed. Note that in Boolean mask indexing method we
   // have to create indices from the mask using nonzero and squeeze as done in
   // previous code block.
-  for (int dim = 0; dim < self.dim(); dim++) {
+  std::vector<at::Tensor> indices_list;
+  for (size_t dim = 0; dim < static_cast<size_t>(self.dim()); dim++) {
     at::Tensor it;
     if (index_all_elems[dim]) {
-      std::vector<int64_t> shape{self.sizes().vec()[dim]};
+      std::vector<int64_t> shape{self.sizes()[dim]};
       c10::IntArrayRef arange_size(shape.data(), shape.size());
       at::TensorOptions options =
           self.options().dtype(c10::ScalarType::Long).device(c10::kHPU);
@@ -2452,7 +2464,7 @@ generate_advanced_indexing_indices_list(const at::Stack& stack) {
           habana_lazy::empty_hpu_lazy(arange_size, options, std::nullopt);
       generated_index_tensor = at::arange(
           0,
-          self.sizes().vec()[dim],
+          self.sizes()[dim],
           1,
           c10::ScalarType::Long,
           std::nullopt,
@@ -2600,8 +2612,8 @@ Tensor nonzero_hpu_lazy(const Tensor& self) {
   habana_lazy::NoAccThread no_acc_thread;
 
   auto input_shape = self.sizes();
-  int dimensions = input_shape.size();
-  int elements = self.numel();
+  const auto dimensions = static_cast<int64_t>(input_shape.size());
+  const auto elements = self.numel();
   at::TensorOptions hb_options = self.options();
   hb_options = hb_options.dtype(c10::ScalarType::Long);
 
@@ -2682,8 +2694,8 @@ Tensor& nonzero_out_hpu_lazy(const Tensor& self, Tensor& output) {
   habana_lazy::NoAccThread no_acc_thread;
 
   auto input_shape = self.sizes();
-  int dimensions = input_shape.size();
-  int elements = self.numel();
+  const auto dimensions = static_cast<int64_t>(input_shape.size());
+  const auto elements = self.numel();
   at::TensorOptions hb_options = self.options();
   hb_options = hb_options.dtype(c10::ScalarType::Long);
 
@@ -2838,7 +2850,7 @@ Tensor& masked_select_out_hpu_lazy(
   // Resize output tensor(s) to correct shape
   // Output shape is the 1st dim value of index result from non_zero
   auto hl_out = GetOrCreateHbLazyTensor(out, c10::kHPU);
-  std::vector<int64_t> out_shape{result.sizes().vec()[0]};
+  std::vector<int64_t> out_shape{result.sizes()[0]};
   if (out.sizes().vec() != out_shape) {
     auto out_reshaped = hl_out.getAttachedTensorImpl();
     THHTensor_resizeNd(
@@ -3042,10 +3054,11 @@ Tensor index_put_frontend_impl_hpu_lazy(
   }
 
   // Calculate the dimensionality of updates for broadcasting
-  auto rank_inp = self.ndimension();
-  auto rank_idx = concatenated_indices.sizes().vec()[1];
+  const auto rank_inp = static_cast<size_t>(self.ndimension());
+  const auto rank_idx =
+      static_cast<size_t>(concatenated_indices.sizes().vec()[1]);
   std::vector<int64_t> value_upd_dim{concatenated_indices.sizes().vec()[0]};
-  for (int i = rank_idx; i < rank_inp; i++)
+  for (auto i = rank_idx; i < rank_inp; i++)
     value_upd_dim.push_back(self.sizes().vec()[i]);
   auto broadcasted_values = value.broadcast_to(value_upd_dim);
   if (!accumulate) {
@@ -3065,12 +3078,17 @@ Tensor index_put_frontend_impl_hpu_lazy(
   } else {
     // Convert indices to values (ravelling indices) for sorting
     std::vector<int64_t> indices_shape;
-    for (int i = 0; i < concatenated_indices.sizes().vec()[1]; i++)
+    for (size_t i = 0; i < rank_idx; i++)
       indices_shape.push_back(self_cast.sizes().vec()[i]);
     // Compute multiplication factor for each dimension
     std::vector<int> mul_factor_v{1};
     for (size_t i = 0; i < indices_shape.size() - 1; i++) {
-      mul_factor_v.push_back(mul_factor_v[i] * indices_shape[i]);
+      HABANA_ASSERT(
+          (static_cast<int64_t>(mul_factor_v[i]) * indices_shape[i]) <=
+              std::numeric_limits<int>::max(),
+          "Too large mul_factor");
+      mul_factor_v.push_back(
+          mul_factor_v[i] * static_cast<int>(indices_shape[i]));
     }
     auto mul_factor =
         torch::from_blob(
@@ -3107,8 +3125,8 @@ Tensor index_put_frontend_impl_hpu_lazy(
 std::vector<Tensor> nonzero_ip_hpu_lazy(const Tensor& self) {
   PT_LAZY_TRACE;
   auto input_shape = self.sizes();
-  int dimensions = input_shape.size();
-  int elements = self.numel();
+  auto dimensions = static_cast<int64_t>(input_shape.size());
+  int64_t elements = self.numel();
   at::TensorOptions hb_options = self.options();
   hb_options = hb_options.dtype(c10::ScalarType::Int);
 
@@ -3211,8 +3229,9 @@ Tensor index_put_hpu_lazy(
     auto nonzero_sliced_outputs =
         slice_hpu_lazy(nonzero_outputs[0], 0, 0, indices[0].numel(), 1);
     // Calculate the dimensionality of updates for broadcasting
-    auto rank_inp = self.ndimension();
-    auto rank_idx = nonzero_sliced_outputs.sizes().vec()[1];
+    const auto rank_inp = static_cast<size_t>(self.ndimension());
+    const auto rank_idx =
+        static_cast<size_t>(nonzero_sliced_outputs.sizes().vec()[1]);
     std::vector<int64_t> value_upd_dim;
 
     if ((value_in.numel() >
@@ -3221,15 +3240,15 @@ Tensor index_put_hpu_lazy(
       if (indices[0].dim() != self.dim() &&
           value_in.dim() != (1 + (self.dim() - indices[0].dim()))) {
         value_upd_dim.push_back(nonzero_sliced_outputs.sizes().vec()[0]);
-        for (int i = rank_idx; i < rank_inp; i++)
+        for (size_t i = rank_idx; i < rank_inp; i++)
           value_upd_dim.push_back(self.sizes().vec()[i]);
       } else {
-        for (int i = 0; i < value_in.dim(); i++)
+        for (size_t i = 0; i < static_cast<size_t>(value_in.dim()); i++)
           value_upd_dim.push_back(value_in.sizes().vec()[i]);
       }
     } else { // We are assuming uses passes value shapes correctly for scatter
       value_upd_dim.push_back(nonzero_sliced_outputs.sizes().vec()[0]);
-      for (int i = rank_idx; i < rank_inp; i++)
+      for (size_t i = rank_idx; i < rank_inp; i++)
         value_upd_dim.push_back(self.sizes().vec()[i]);
     }
 
@@ -3449,7 +3468,7 @@ static inline Tensor bn_reshape_to_4d(const Tensor& in_t) {
     // Input is in dims format N,C,D1,D2,D3,...,Dm,H,W
     std::vector<int64_t> permute_dims(in_shape.size(), 0);
     for (size_t i = 0; i < permute_dims.size(); i++) {
-      permute_dims[i] = i;
+      permute_dims[i] = static_cast<int64_t>(i);
     }
     std::swap(permute_dims[1], permute_dims[permute_dims.size() - 3]);
     // Changed/Permuted Input is in dims format N,Dm,D1,D2,D3,...,C,H,W
@@ -3457,14 +3476,19 @@ static inline Tensor bn_reshape_to_4d(const Tensor& in_t) {
     in_shape = in_.sizes().vec();
     auto higher_dim_size = std::accumulate(
         in_shape.begin(),
-        in_shape.begin() + in_shape.size() - 3,
+        in_shape.begin() +
+            static_cast<decltype(in_shape.begin())::difference_type>(
+                in_shape.size() - 3),
         1,
         std::multiplies<int64_t>{});
     ret_shape[0] = higher_dim_size;
     // Get the shape ready to change input to format
     // {(N*Dm*D1*D2*D3*Dm-1),C,H,W}
     std::copy(
-        in_shape.begin() + in_shape.size() - 3,
+        in_shape.begin() +
+            static_cast<decltype(in_shape.begin())::difference_type>(
+                in_shape.size()) -
+            3,
         in_shape.end(),
         ret_shape.begin() + 1);
   } else {
@@ -3481,7 +3505,7 @@ static inline Tensor bn_reshape_from_4d_to_orig(
     const Tensor& in_t,
     std::vector<int64_t> in_sizes) {
   Tensor res;
-  int dims = in_sizes.size();
+  size_t dims = in_sizes.size();
   switch (dims) {
     case 1:
       res = in_t.reshape({in_sizes[0]});
@@ -3497,7 +3521,7 @@ static inline Tensor bn_reshape_from_4d_to_orig(
       // Final output should be in format N,C,D1,D2,D3,...,Dm,H,W
       std::vector<int64_t> permute_dims(in_sizes.size(), 0);
       for (size_t i = 0; i < permute_dims.size(); i++) {
-        permute_dims[i] = i;
+        permute_dims[i] = static_cast<long>(i);
       }
       std::swap(permute_dims[1], permute_dims[permute_dims.size() - 3]);
       std::swap(in_sizes[1], in_sizes[in_sizes.size() - 3]);
@@ -4123,15 +4147,15 @@ native_group_norm_backward_hpu_lazy(
 
   Tensor bn_fwd_out;
   auto input_shape = input_.sizes().vec();
-  std::vector<int64_t> rszarr_bn_in(input_.dim());
-  std::vector<int64_t> rszarr_bn_fwd_mean(input_.dim());
+  std::vector<int64_t> rszarr_bn_in(static_cast<size_t>(input_.dim()));
+  std::vector<int64_t> rszarr_bn_fwd_mean(static_cast<size_t>(input_.dim()));
   int64_t m = input_.numel() / Nmod;
-  for (int i = 0; i < input_.dim(); i++) {
+  for (size_t i = 0; i < static_cast<size_t>(input_.dim()); i++) {
     rszarr_bn_in[i] = 1;
     rszarr_bn_fwd_mean[i] = 1;
   }
   rszarr_bn_in[1] = Nmod;
-  rszarr_bn_in[input_.dim() - 1] = m;
+  rszarr_bn_in[static_cast<size_t>(input_.dim() - 1)] = m;
   rszarr_bn_fwd_mean[1] = Nmod;
   c10::IntArrayRef bn_in_view_shape(rszarr_bn_in);
   auto bn_fwd_in = at::reshape(
@@ -4151,16 +4175,16 @@ native_group_norm_backward_hpu_lazy(
     bn_fwd_out = at::reshape(bn_fwd_out_tmp, input_shape);
   }
 
-  std::vector<int64_t> dimarr(input_.dim() - 1);
-  for (int i = 0; i < (input_.dim() - 1); i++)
-    dimarr[i] = i + 1;
+  std::vector<int64_t> dimarr(static_cast<size_t>(input_.dim() - 1));
+  for (size_t i = 0; i < static_cast<size_t>((input_.dim() - 1)); i++)
+    dimarr[i] = static_cast<long>(i + 1);
   dimarr[0] = 0;
   c10::IntArrayRef reduce_dims(dimarr);
 
   auto t1 = at::mul(grad_out, bn_fwd_out);
 
-  std::vector<int64_t> rszarr1(input_.dim());
-  for (int i = 0; i < input_.dim(); i++)
+  std::vector<int64_t> rszarr1(static_cast<size_t>(input_.dim()));
+  for (size_t i = 0; i < static_cast<size_t>(input_.dim()); i++)
     rszarr1[i] = 1;
   rszarr1[1] = C.expect_int();
   c10::IntArrayRef wt_view_shape(rszarr1);
@@ -4253,7 +4277,7 @@ at::Tensor& randperm_hpu_lazy_ht(Tensor& output, int64_t n, at::Tensor seed) {
   auto out_shape = DimVector({n});
   std::vector<int32_t> params_vec{0 /*start*/, (int32_t)n /*end*/, 1 /*step*/};
   auto params_shape = empty_hpu_lazy(
-      params_vec.size(),
+      static_cast<int64_t>(params_vec.size()),
       output.options().dtype(c10::ScalarType::Int),
       output.suggest_memory_format(),
       false,
@@ -4336,7 +4360,7 @@ at::Tensor repeat_hpu_lazy_ht(const at::Tensor& self, at::IntArrayRef repeats) {
     params_vec.push_back(static_cast<int32_t>(n));
   });
   auto params_shape = empty_hpu_lazy(
-      params_vec.size(),
+      static_cast<int64_t>(params_vec.size()),
       self.options().dtype(c10::ScalarType::Int),
       self.suggest_memory_format(),
       false,
@@ -4426,7 +4450,7 @@ at::Tensor repeat_inlv_hpu_lazy(
     auto tmeta{get_tensor_extra_meta(hl_param_internal)};
     tmeta->set_host_data(
         repeats_cpu.data_ptr(),
-        repeats_cpu.sizes()[0],
+        static_cast<size_t>(repeats_cpu.sizes()[0]),
         sizeof(int32_t),
         HostDataType::INT32_T);
     tmeta->set_H2D_data_for_bucketing();
@@ -4684,7 +4708,7 @@ void adjustPTSizesLazy(Tensor& t) {
   // but data permuted for channel last, so change the size and stride
   // NCHW
   auto sizes = t.sizes().vec();
-  std::vector<int> out_pos = {
+  std::vector<size_t> out_pos = {
       LayoutFormatDims::N,
       LayoutFormatDims::W,
       LayoutFormatDims::C,
@@ -4694,7 +4718,7 @@ void adjustPTSizesLazy(Tensor& t) {
       sizes[out_pos[1]],
       sizes[out_pos[2]],
       sizes[out_pos[3]]};
-  std::vector<int> out_pos_5d = {
+  std::vector<size_t> out_pos_5d = {
       LayoutFormatWithDepthDims::N,
       LayoutFormatWithDepthDims::W,
       LayoutFormatWithDepthDims::C,
@@ -4840,11 +4864,11 @@ std::vector<Tensor> split_with_sizes_hpu_lazy(
   HABANA_ASSERT(
       self.dim() != 0, "split expects at least a 1-dimensional tensor");
   int64_t cur_size = self.size(dim);
-  int64_t num_splits = split_sizes.size();
+  const auto num_splits = split_sizes.size();
   std::vector<Tensor> splits(num_splits);
   int64_t start_idx = 0;
 
-  for (const auto i : c10::irange(num_splits)) {
+  for (size_t i = 0; i < num_splits; ++i) {
     auto length = split_sizes[i];
     HABANA_ASSERT(
         length >= 0,
@@ -4913,9 +4937,10 @@ std::tuple<Tensor, Tensor> topk_hpu_lazy_impl(
    private:
     T get_result_overrideable() override {
       auto shape_out = self.sizes().vec();
-      int64_t dim_ = c10::maybe_wrap_dim(dim, self.dim(), /*wrap_scalar=*/true);
-      if (shape_out.size() > (uint64_t)(dim_)) {
-        shape_out[dim_] = k;
+      size_t wrapped_dim = static_cast<size_t>(
+          c10::maybe_wrap_dim(dim, self.dim(), /*wrap_scalar=*/true));
+      if (shape_out.size() > wrapped_dim) {
+        shape_out[wrapped_dim] = k;
       }
       auto type = kLong; // PyTorch expects returned indices dtype to be Long
 
@@ -4942,20 +4967,24 @@ std::tuple<Tensor, Tensor> sort_hpu_lazy(
     int64_t dim,
     bool descending) {
   PT_LAZY_TRACE;
-  int64_t size_dim = self.dim() ? self.size(dim) : 1;
-  dim = at::maybe_wrap_dim(dim, self.dim(), true);
 
-  if (self.dim() == 0 && self.numel() == 1)
+  if (self.dim() == 0 && self.numel() == 1) {
     return {self.clone(), at::zeros({}, TensorOptions(kHPU).dtype(at::kLong))};
+  }
+
+  const int64_t size_dim = self.dim() ? self.size(dim) : 1;
+  dim = at::maybe_wrap_dim(dim, self.dim(), true);
+  const auto self_dim = static_cast<size_t>(self.dim());
 
   // Currently TPC supports only Axis 0(dim -1 in Pytorch) for topk.
   // For any other Axis, topk is called on the permuted input
-  if (self.dim() > 0 && dim != self.dim() - 1) {
-    std::vector<int64_t> permute_dims(self.dim());
+  if (self_dim > 0 && static_cast<size_t>(dim) != self_dim - 1) {
+    std::vector<int64_t> permute_dims(self_dim);
     std::iota(permute_dims.begin(), permute_dims.end(), 0);
-    std::swap(permute_dims[dim], permute_dims[self.dim() - 1]);
+    std::swap(
+        permute_dims[static_cast<size_t>(dim)], permute_dims[self_dim - 1]);
     auto permuted_self = permute_hpu_lazy_phy(self, permute_dims);
-    dim = self.dim() - 1;
+    dim = static_cast<int64_t>(self_dim - 1);
     auto out =
         topk_hpu_lazy_impl(permuted_self, size_dim, dim, descending, true);
     auto permuted_out_0 = permute_hpu_lazy_phy(std::get<0>(out), permute_dims);
@@ -5028,7 +5057,7 @@ Tensor fused_norm_hpu_lazy(
 
     ir::NodePtr node =
         std::make_shared<ir::FusedNorm>(grad, max_norm, norm_type, node_str);
-    int64_t out_index = 0;
+    size_t out_index = 0;
 
     auto hlgrad = habana_lazy::GetHbLazyTensor(grad[0]);
     node->set_as_output_tensor_list();
@@ -5136,7 +5165,7 @@ std::tuple<Tensor, Tensor> _unique_hpu_lazy(
         override {
       auto inputs = get_inputs();
       auto self = inputs[0].toTensor();
-      int elements = self.numel();
+      int64_t elements = self.numel();
       auto output_shape = at::DimVector{elements};
       auto valid_shape = at::DimVector{1};
       auto result0 = empty_hpu_lazy(
@@ -5155,7 +5184,7 @@ std::tuple<Tensor, Tensor> _unique_hpu_lazy(
     }
   };
 
-  int elements = self.numel();
+  int64_t elements = self.numel();
   std::vector<int64_t> feature_map_shape{elements};
   std::vector<int64_t> valid_count_shape{1};
   std::vector<int64_t> return_inverse_shape{elements};
@@ -5225,7 +5254,7 @@ std::tuple<Tensor, Tensor, Tensor> unique2_hpu_lazy(
     get_result_overrideable() override {
       auto inputs = get_inputs();
       auto self = inputs[0].toTensor();
-      int elements = self.numel();
+      int64_t elements = self.numel();
       auto output_shape = at::DimVector{elements};
       auto valid_shape = at::DimVector{1};
       auto inverse_tensor_shape = DimVector{elements};
@@ -5251,7 +5280,7 @@ std::tuple<Tensor, Tensor, Tensor> unique2_hpu_lazy(
     }
   };
 
-  int elements = self.numel();
+  int64_t elements = self.numel();
   std::vector<int64_t> feature_map_shape{elements};
   std::vector<int64_t> valid_count_shape{1};
   std::vector<int64_t> inverse_tensor_shape{elements};
@@ -5358,8 +5387,10 @@ std::tuple<Tensor, Tensor, Tensor> unique_dim_hpu_lazy(
       }
       auto output_shape = at::DimVector(self.sizes());
       auto valid_shape = at::DimVector{1};
-      auto inverse_tensor_shape = DimVector{self.sizes().at(dim)};
-      auto counts_tensor_shape = DimVector{self.sizes().at(dim)};
+      auto inverse_tensor_shape =
+          DimVector{self.sizes().at(static_cast<size_t>(dim))};
+      auto counts_tensor_shape =
+          DimVector{self.sizes().at(static_cast<size_t>(dim))};
 
       auto result0 = empty_hpu_lazy(
           output_shape, self.options(), self.suggest_memory_format(), false);
@@ -5384,8 +5415,10 @@ std::tuple<Tensor, Tensor, Tensor> unique_dim_hpu_lazy(
 
   std::vector<int64_t> feature_map_shape = self.sizes().vec();
   std::vector<int64_t> valid_count_shape{1};
-  std::vector<int64_t> inverse_tensor_shape{feature_map_shape[dim]};
-  std::vector<int64_t> counts_tensor_shape{feature_map_shape[dim]};
+  std::vector<int64_t> inverse_tensor_shape{
+      feature_map_shape[static_cast<size_t>(dim)]};
+  std::vector<int64_t> counts_tensor_shape{
+      feature_map_shape[static_cast<size_t>(dim)]};
 
   // Add unique_dim node
   Unique k(

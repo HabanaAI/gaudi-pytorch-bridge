@@ -12,6 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "habana_kernels/basic_kernels.h"
 #include <ATen/ATen.h>
 #include <ATen/CPUFunctions.h>
 #include <ATen/ExpandUtils.h>
@@ -21,23 +22,15 @@
 #include <c10/core/Storage.h>
 #include <synapse_api.h>
 #include <torch/script.h>
-
 #include "backend/backend_meta.h"
-#include "pytorch_helpers/habana_helpers/dtype_helpers.h"
-
 #include "backend/create_pt_tensor.h"
 #include "backend/habana_device/PinnedMemoryAllocator.h"
-#include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/helpers/create_tensor.h"
 #include "backend/helpers/tensor_utils.h"
 #include "backend/kernel/hpu_shape_inference.h"
 #include "habana_helpers/frontend_utils.h"
 #include "habana_helpers/logging.h"
-#include "habana_helpers/logging_pt.h"
-#include "habana_kernels/basic_kernels.h"
 #include "habana_kernels/index_kernels.h"
-#include "habana_kernels/kernel_utils.h"
-#include "habana_kernels/resize.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "hpu_ops/hpu_op_helper.h"
 
@@ -462,7 +455,7 @@ void AsStridedLayoutOperator::AllocateAndAddSynapseNode(
       inputs[1].isIntList(), "Input arg 1 needs to be of Int List type");
 
   at::Tensor output;
-  int64_t offset = 0;
+  const uint64_t offset = 0;
   std::optional<int64_t> opt_offset = c10::make_optional((int64_t)0);
   auto sizes = self.sizes().vec();
   auto dims = inputs[1].toIntVector();
@@ -526,8 +519,8 @@ Tensor pin_memory_hpu(const at::Tensor& self, at::Device device) {
   auto* allocator = habana::PinnedMemoryAllocator_get();
   auto storage = Storage(
       Storage::use_byte_size_t(),
-      at::detail::computeStorageNbytes(
-          self.sizes(), self.strides(), self.dtype().itemsize()),
+      static_cast<int64_t>(at::detail::computeStorageNbytes(
+          self.sizes(), self.strides(), self.dtype().itemsize())),
       allocator,
       /*resizable=*/false);
   auto tensor = at::cpu::empty({0}, self.options())
@@ -645,7 +638,8 @@ void SliceInsertOperator::ComputeParams(
     int64_t step = paramsList[i * 4 + 3];
     size_t wrapped_dim{};
     FixSliceParams(self, dim, start, end, step, wrapped_dim);
-    params.axes[i] = get_dim_in_tpc_order(dim, self.dim());
+    params.axes[i] =
+        static_cast<unsigned>(get_dim_in_tpc_order(dim, self.dim()));
     params.starts[i] = static_cast<unsigned long>(start);
     params.ends[i] = static_cast<unsigned long>(end);
     params.steps[i] = static_cast<unsigned long>(step);
@@ -922,13 +916,14 @@ void SelectScatterOperator::AllocateAndAddSynapseNode(
   // dim is the third input
   // dim is a shape tensor if dynamic shape is enabled
   bool is_dim_shape_tensor = inputs[2].isTensor();
-  int dim = 0;
-  if (is_dim_shape_tensor)
+  int64_t dim = 0;
+  if (is_dim_shape_tensor) {
     dim = inputs[2].toTensor().sizes().vec()[0];
-  else
+  } else {
     // dim is integer if dynamic shape is disabled or
     // the first iteration if DS is enabled
     dim = inputs[2].toInt();
+  }
 
   // Unsqueeze requires src and dim
   auto unsqueezeOp = make_operator<UnsqueezeOperator>(
@@ -940,14 +935,15 @@ void SelectScatterOperator::AllocateAndAddSynapseNode(
 
   // index is the fourth input
   // index is a shape tensor if dynamic shape is enabled
-  int index = 0;
-  bool is_index_shape_tensor = inputs[3].isTensor();
-  if (is_index_shape_tensor)
+  int64_t index = 0;
+  const bool is_index_shape_tensor = inputs[3].isTensor();
+  if (is_index_shape_tensor) {
     index = inputs[3].toTensor().sizes().vec()[0];
-  else
+  } else {
     // index is integer if dynamic shape is disabled or
     // the first iteration if DS is enabled
     index = inputs[3].toInt();
+  }
   int64_t start = index;
   int64_t end = index + 1;
   int64_t step = 1;
@@ -978,13 +974,16 @@ bool StridedInsertOperator::verifyViewMemoryAccess(
     IntArrayRef& strides,
     int64_t& offset) {
   auto rv = real.sizes().vec();
-  const uint64_t realTensorElements =
-      std::accumulate(rv.begin(), rv.end(), 1, std::multiplies<unsigned>());
+  const int64_t realTensorElements = std::accumulate(
+      rv.begin(),
+      rv.end(),
+      static_cast<int64_t>(1),
+      std::multiplies<int64_t>());
   if (realTensorElements == 0) {
     return true;
   }
-  uint64_t lastElementOffset = 0;
-  for (unsigned d = 0; d < view.dim(); d++) {
+  int64_t lastElementOffset = 0;
+  for (size_t d = 0; d < static_cast<size_t>(view.dim()); d++) {
     if (view.sizes()[d] == 0) {
       return true;
     }
@@ -1045,7 +1044,7 @@ std::vector<int64_t> GetAsStridedOperatorStrideData(
     at::Tensor& stride_t,
     bool dry_run) {
   std::vector<int64_t> strides;
-  size_t data_size = stride_t.sizes()[0];
+  size_t data_size = static_cast<size_t>(stride_t.sizes()[0]);
 
   auto tmeta{get_tensor_extra_meta(stride_t)};
   habana::HostDataType h2d_dt_type = tmeta->get_host_dt_type();
@@ -1206,7 +1205,7 @@ void StridedInsertOperator::compute_params_h2d(
   std::vector<int64_t> stride_values;
   strides = GetStridedInsertOperatorH2DStrides(inputs, graph.is_dry_run());
   if (!IsStridesRatioUsed(inputs)) {
-    uint64_t num_stride = strides[0];
+    const auto num_stride = static_cast<uint64_t>(strides[0]);
     offset = strides[1];
 
     for (uint64_t i = 0; i < num_stride; i++) {
@@ -1316,7 +1315,7 @@ void StridedInsertOperator::compute_params(
       offset = offset_tensor.sizes()[0];
       auto syn_shape_input = habana_helpers::create_shape_tensor_backend(
           strides_ref,
-          orig_t.device().index(),
+          static_cast<synDeviceId>(orig_t.device().index()),
           graph,
           false,
           SHAPE_TENSOR,
@@ -1544,12 +1543,15 @@ bool StridedViewOperator::verifyViewMemoryAccess(
     IntArrayRef& strides,
     int64_t& offset) {
   auto rv = real.sizes().vec();
-  const uint64_t realTensorElements =
-      std::accumulate(rv.begin(), rv.end(), 1, std::multiplies<unsigned>());
+  const int64_t realTensorElements = std::accumulate(
+      rv.begin(),
+      rv.end(),
+      static_cast<int64_t>(1),
+      std::multiplies<int64_t>());
   if (realTensorElements == 0) {
     return true;
   }
-  uint64_t lastElementOffset = 0;
+  int64_t lastElementOffset = 0;
   for (unsigned d = 0; d < view.dim(); d++) {
     if (view.sizes()[d] == 0) {
       return true;
@@ -1608,7 +1610,7 @@ InferOutputMetaRetType StridedViewOperator::InferOutputMeta(
       std::vector<int64_t> h2d_strides;
       h2d_strides = GetStridedViewOperatorH2DStrides(inputs, true);
       if (!IsStridesRatioUsed(inputs)) {
-        size_t num_strides = h2d_strides[0];
+        const auto num_strides = static_cast<size_t>(h2d_strides[0]);
         for (size_t i = 0; i < num_strides; i++) {
           strides.push_back(h2d_strides[2 + i]);
         }
@@ -1638,7 +1640,7 @@ InferOutputMetaRetType StridedViewOperator::InferOutputMeta(
   }
 
   // skip meta op as it does not need to add syn node and node params
-  int meta_op = 0;
+  int64_t meta_op = 0;
   if (inputs.size() == 5) {
     meta_op = inputs[4].toInt();
   }
@@ -1668,7 +1670,7 @@ void StridedViewOperator::compute_params_h2d(
 
   if (!IsStridesRatioUsed(inputs)) {
     auto stride_tensor = inputs[2].toTensor();
-    uint64_t num_stride = strides[0];
+    const auto num_stride = static_cast<size_t>(strides[0]);
     offset = strides[1];
 
     for (uint64_t i = 0; i < num_stride; i++) {
@@ -1741,7 +1743,7 @@ void StridedViewOperator::compute_params_h2d(
   // TODO  For Dynamic case fill strides/offset params with max size
   strides.clear();
   for (auto it = stride_values.rbegin(); it != stride_values.rend(); ++it) {
-    strides.push_back(static_cast<uint64_t>(*it));
+    strides.push_back(*it);
   }
 }
 
@@ -1780,7 +1782,7 @@ void StridedViewOperator::compute_params(
       offset = offset_tensor.sizes()[0];
       auto syn_shape_input = habana_helpers::create_shape_tensor_backend(
           strides_ref,
-          self.device().index(),
+          static_cast<synDeviceId>(self.device().index()),
           graph,
           false,
           SHAPE_TENSOR,
@@ -1857,7 +1859,7 @@ void StridedViewOperator::AllocateAndAddSynapseNode(
   int64_t offset;
   compute_params(params, inputs, graph, size, strides, offset);
   auto self = inputs[0].toTensor();
-  int meta_op = 0;
+  int64_t meta_op = 0;
   if (inputs.size() == 5) {
     meta_op = inputs[4].toInt();
   }
@@ -1919,7 +1921,7 @@ void StridedViewOperator::ReuseMemoryAndAddSynapseNode(
           graph,
           sizes,
           strides_contig,
-          offset * graph_input.itemsize(),
+          static_cast<size_t>(offset) * graph_input.itemsize(),
           output_metadata.at(0).external);
 
   // This flag can be enabled in model scripts only if DDP

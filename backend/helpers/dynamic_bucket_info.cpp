@@ -1073,9 +1073,14 @@ int64_t DynamicBucketInfo::GetMaxMultiplier(const PadShapes& pad_shapes) {
   for (auto& pad_shape : pad_shapes) {
     int64_t num_dyn_dims_in_tensor =
         dynamic_dims_helper_.dd_.at(pad_shape.first).size();
-    if (pad_shape.second.input.num_elements() *
-            std::pow(default_max_multiplier_, num_dyn_dims_in_tensor) >
-        pad_shape.second.output.num_elements()) {
+    if (auto multiplier =
+            std::pow(default_max_multiplier_, num_dyn_dims_in_tensor);
+        multiplier *
+                static_cast<double>(pad_shape.second.input.num_elements()) >
+            static_cast<double>(std::numeric_limits<int64_t>::max()) ||
+        pad_shape.second.input.num_elements() *
+                static_cast<int64_t>(multiplier) >
+            pad_shape.second.output.num_elements()) {
       // unless MAX size would exceed the static Pad output size, then fall back
       // to MAX=current
       max_multiplier = 1;

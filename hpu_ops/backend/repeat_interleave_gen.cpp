@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 
+#include <perf_lib_layer_params.h>
 #include "backend/habana_operator.h"
 #include "hpu_ops/hpu_op_helper.h"
 #include "hpu_ops/repeat_interleave.h"

@@ -25,7 +25,7 @@ using namespace ::habana;
 
 namespace {
 
-int get_thread_tid() {
+long get_thread_tid() {
   return syscall(static_cast<long>(SYS_gettid));
 }
 
