@@ -392,6 +392,10 @@ class HabanaLaunchOpPT {
     return require_h2d_ || require_st_;
   }
 
+  void set_debug_id(size_t debug_id) {
+    debug_id_ = debug_id;
+  }
+
   // A map holding the ival hash and inputidx. 1-1 map for all inputs
   std::unordered_map<int64_t, int64_t> ival_hash_to_input_index_map_ = {};
 
@@ -662,7 +666,7 @@ class HabanaLaunchOpPT {
 
   size_t jit_graph_cache_hit_count_ = 0;
   unsigned set_module_name_in_outputs_metadata_count_ = 0;
-
+  size_t debug_id_ = habana::profile::RecipeRegistry::invalidId();
   // Main function responsible for constructing a synapse graph from
   // 1. JIT IR Graph
   // 2. Input Stack

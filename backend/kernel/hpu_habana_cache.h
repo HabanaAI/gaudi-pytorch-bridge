@@ -26,6 +26,7 @@
 #include "backend/helpers/tensor_info.h"
 #include "backend/kernel/hpu_recipe_cache.h"
 #include "backend/kernel/hpu_shape_inference.h"
+#include "backend/profiling/trace_sources/bridge_logs_source.h"
 #include "backend/synapse_helpers/graph.h"
 #include "habana_helpers/logging.h"
 #include "synapse_common_types.h"
@@ -478,7 +479,7 @@ struct RecipeLauncher {
   std::string graph_name_;
   std::shared_ptr<habana_helpers::CollectiveKernelInfos>
       collective_kernels_info_;
-
+  size_t debug_id_ = habana::profile::RecipeRegistry::invalidId();
   friend std::ostream& operator<<(std::ostream& O, const RecipeLauncher& v);
 };
 

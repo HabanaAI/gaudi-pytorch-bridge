@@ -42,6 +42,15 @@ enum class TraceSourceVariant : unsigned {
   MEMORY_LOGS = 30000
 };
 
+enum class TimePolicy { kPrevEnd, kPrevStart };
+
+struct LinkSpec {
+  std::string canonical;
+  TimePolicy policy;
+  std::string prev;
+  bool needRemove = false;
+};
+
 int64_t getOffset(TraceSourceVariant variant);
 
 class TraceSource;
@@ -149,9 +158,12 @@ class Profiler {
 };
 
 namespace bridge {
+bool linked_events_enabled();
+void trace_start(std::string_view id, size_t index);
 void trace_start(std::string_view id);
 void trace_end(std::string_view id);
 bool is_enabled(std::string_view id);
+size_t get_debug_index();
 }; // namespace bridge
 
 }; // namespace habana::profile

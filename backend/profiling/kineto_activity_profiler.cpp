@@ -20,6 +20,7 @@
 #include <string_view>
 #include <vector>
 #include "backend/profiling/profiling.h"
+#include "backend/profiling/trace_sources/bridge_logs_source.h"
 #include "backend/synapse_helpers/env_flags.h"
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
@@ -40,6 +41,58 @@ std::string toString(std::string_view str) {
   return std::string("\"") + std::string(str) + std::string("\"");
 }
 
+//------------------------------------------------------------------------------
+// Link-specification table used by GenericTraceActivitySink to create Perfetto
+// flow edges between pairs of activities.
+//
+// Each LinkSpec instance encodes:
+//
+//   canonical - The canonical (current) activity name.
+//   policy    - Indicates where the flow edge starts: at the end or
+//                start timestamp of the previous matching activity.
+//   prev      - The activity name before the current event.
+//   needRemove - If true, remove the previous event..
+//
+// The table defines when and how two events should be linked together.
+//------------------------------------------------------------------------------
+
+static const std::array<habana::profile::LinkSpec, 4> kLinkSpecs{
+    {{"run", habana::profile::TimePolicy::kPrevEnd, "run", true},
+     {"Launch", habana::profile::TimePolicy::kPrevEnd, "run", false},
+     {"compileGraph", habana::profile::TimePolicy::kPrevStart, "run", true},
+     {"enqueueWithExternalEventsExt",
+      habana::profile::TimePolicy::kPrevStart,
+      "Launch",
+      true}}};
+
+bool startsWith(std::string_view s, std::string_view p) noexcept {
+  return s.size() >= p.size() && s.compare(0, p.size(), p) == 0;
+}
+
+const habana::profile::LinkSpec* findSpec(std::string_view name) noexcept {
+  for (const auto& spec : kLinkSpecs)
+    if (startsWith(name, spec.canonical))
+      return &spec;
+  return nullptr;
+}
+
+std::string makeKey(
+    const std::string& key,
+    const habana::profile::Activity& act,
+    const std::optional<habana::profile::RecipeInfo>& recipe) {
+  std::string k{key};
+  k += ":";
+  if (auto it = act.args.find("index"); it != act.args.end()) {
+    k += it->second;
+  } else if (
+      recipe && !recipe->recipeName.empty() &&
+      habana::profile::RecipeRegistry::hasRecipeName(recipe->recipeName)) {
+    auto id = habana::profile::RecipeRegistry::getRecipeId(recipe->recipeName);
+    k += std::to_string(id);
+  }
+  return k;
+}
+
 bool shouldHideEvent(
     std::unique_ptr<libkineto::GenericTraceActivity>& activity,
     int64_t startTime,
@@ -58,7 +111,6 @@ bool shouldHideEvent(
 
   return false;
 }
-
 } // namespace
 
 namespace habana::profile {
@@ -75,6 +127,9 @@ void GenericTraceActivitySink::addCompleteActivity(
     const std::optional<RecipeInfo>& recipeInfo,
     uint64_t start,
     uint64_t end) {
+  if (habana::profile::bridge::linked_events_enabled()) {
+    AddLinkedEvent(activity, recipeInfo, start, end);
+  }
   auto ev = std::make_unique<GenericTraceActivity>(
       defaultTraceSpan(),
       mapHabanaTypeToKinetoType(activity.type),
@@ -103,6 +158,19 @@ void GenericTraceActivitySink::addCompleteActivity(
   activities_.push_back(std::move(ev));
 }
 
+void GenericTraceActivitySink::AddLinkedEvent(
+    const Activity& activity,
+    const std::optional<RecipeInfo>& recipeInfo,
+    uint64_t start,
+    uint64_t end) {
+  auto pr = popLinkedEvent(activity, recipeInfo, start, end);
+  pushLinkedEvent(activity, recipeInfo, start, end);
+  if (pr.has_value()) {
+    auto [begin, finish] = pr.value();
+    addFlowEvent(activity.name, activity.name, begin, finish);
+  }
+}
+
 void GenericTraceActivitySink::finishPendingsActivities(uint64_t time) {
   for (auto& [key, activityStack] : pendingActivities_) {
     while (!activityStack.empty()) {
@@ -116,6 +184,49 @@ void GenericTraceActivitySink::finishPendingsActivities(uint64_t time) {
     }
   }
   pendingActivities_.clear();
+}
+
+void GenericTraceActivitySink::pushLinkedEvent(
+    const Activity& activity,
+    const std::optional<RecipeInfo>& recipeInfo,
+    uint64_t start,
+    uint64_t end) {
+  if (const auto* spec = findSpec(activity.name)) {
+    linked_.try_emplace(
+        makeKey(spec->canonical, activity, recipeInfo),
+        activity.device,
+        activity.resource,
+        start,
+        end);
+  }
+}
+
+std::optional<std::pair<Flow, Flow>> GenericTraceActivitySink::popLinkedEvent(
+    const Activity& activity,
+    const std::optional<RecipeInfo>& recipeInfo,
+    uint64_t start,
+    uint64_t /*end*/) {
+  const auto* spec = findSpec(activity.name);
+  if (!spec)
+    return std::nullopt;
+
+  auto key = makeKey(spec->prev, activity, recipeInfo);
+  auto it = linked_.find(key);
+  if (it == linked_.end())
+    return std::nullopt;
+
+  const auto& [linkedDevice, linkedResource, prevStart, prevEnd] = it->second;
+  uint64_t beginTime =
+      (spec->policy == TimePolicy::kPrevEnd) ? prevEnd : prevStart;
+  uint64_t finishTime = start;
+
+  Flow begin{linkedDevice, linkedResource, static_cast<int64_t>(beginTime)};
+  Flow finish{
+      activity.device, activity.resource, static_cast<int64_t>(finishTime)};
+  if (spec->needRemove) {
+    linked_.erase(it);
+  }
+  return std::pair{begin, finish};
 }
 
 void GenericTraceActivitySink::addActivity(
@@ -132,7 +243,7 @@ void GenericTraceActivitySink::addActivity(
     auto it = pendingActivities_.find(key);
     if (it != pendingActivities_.end() && !it->second.empty()) {
       uint64_t start = it->second.top().startTime;
-      addCompleteActivity(activity, recipeInfo, start, time);
+      addCompleteActivity(it->second.top().activity, recipeInfo, start, time);
       it->second.pop();
       if (it->second.empty()) {
         pendingActivities_.erase(it);
@@ -244,7 +355,8 @@ void GenericTraceActivitySink::addFlowEvent(
     std::string_view,
     const Flow& startFlow,
     const Flow& finishFlow) {
-  if (GET_ENV_FLAG_NEW(PT_TB_ENABLE_FLOW_EVENTS)) {
+  if (habana::profile::bridge::linked_events_enabled() or
+      GET_ENV_FLAG_NEW(PT_TB_ENABLE_FLOW_EVENTS)) {
     flow_id_counter_++;
     std::string flow_name = std::string(name);
     auto flow_start = constructFlow(
@@ -398,7 +510,12 @@ void HpuActivityProfilerSession::start() {
         "hpu_lazy"};
   } else {
     mandatory_events = {
-        "LaunchRecipeTask", "add_new_recipe", "launch_recipe", "launch"};
+        "LaunchRecipeTask",
+        "add_new_recipe",
+        "launch_recipe",
+        "launch",
+        "run",
+        "Launch"};
   }
 
   bool bridge_profile = Config::getInstance().isBridgeProfileEnabled();

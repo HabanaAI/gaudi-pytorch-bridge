@@ -5047,8 +5047,7 @@ void HabanaLaunchOpPT::run(
     std::optional<std::vector<std::vector<int64_t>>> output_shapes,
     bool dry_run,
     HabanaLaunchOpPipeline::PipelineCallBase& pipeline_execution) {
-  PT_BRIDGE_BEGIN;
-
+  PT_BRIDGE_BEGIN_WITH_INDEX(debug_id_);
   if (enable_shape_agnostic_caching_) {
     HABANA_ASSERT(output_shapes.has_value());
     out_shapes_ = std::move(*output_shapes);

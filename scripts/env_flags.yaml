@@ -669,6 +669,11 @@ PT_PYTORCH_PROFILER_USE_KINETO:
   default: true
   doc: "Enables the PyTorch profiler integrated with Kineto."
 
+PT_PROFILER_EAGER_LINKED_EVENTS:
+  type: bool
+  default: false
+  doc: "Enables linked events tracking in the PyTorch profiler integrated with Kineto."
+
 PT_HPU_ENABLE_GENERIC_STREAM:
   type: bool
   default: true

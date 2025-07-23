@@ -101,7 +101,23 @@ class GenericTraceActivitySink : public TraceSink {
       int64_t beginTime,
       int64_t endTime);
 
+  void pushLinkedEvent(
+      const Activity& activity,
+      const std::optional<RecipeInfo>& recipeInfo,
+      uint64_t start,
+      uint64_t end);
+  std::optional<std::pair<Flow, Flow>> popLinkedEvent(
+      const Activity& activity,
+      const std::optional<RecipeInfo>& recipeInfo,
+      uint64_t start,
+      uint64_t end);
+
  private:
+  void AddLinkedEvent(
+      const Activity& activity,
+      const std::optional<RecipeInfo>& recipeInfo,
+      uint64_t start,
+      uint64_t end);
   struct PendingActivity {
     Activity activity;
     std::optional<RecipeInfo> recipeInfo;
@@ -117,6 +133,8 @@ class GenericTraceActivitySink : public TraceSink {
   std::unordered_map<std::string, std::stack<PendingActivity>>
       pendingActivities_;
 
+  using LinkInfo = std::tuple<int64_t, int64_t, uint64_t, uint64_t>;
+  std::unordered_map<std::string, LinkInfo> linked_;
   uint64_t profiler_event_index_{0};
   uint64_t flow_id_counter_{0};
   std::ostringstream device_properties_;

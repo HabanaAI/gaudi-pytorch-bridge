@@ -140,6 +140,7 @@ struct EagerOpMetaData {
   std::vector<int64_t> new_strided_insert_output_shape_;
   size_t num_out_tensors_ = 0;
   bool skip_lowering_ = false;
+  size_t debug_id_ = habana::profile::RecipeRegistry::invalidId();
 };
 
 /**

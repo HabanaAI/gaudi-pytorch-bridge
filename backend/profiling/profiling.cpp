@@ -56,11 +56,11 @@ void Profiler::init_sources(
   // Need to avoid logger duplication in the list.
   trace_sources_.clear();
 
-  trace_sources_.push_back(std::make_unique<SynapseProfilerSource>());
   if (bridge || !mandatory_events.empty()) {
     trace_sources_.push_back(
         std::make_unique<BridgeLogsSource>(bridge, mandatory_events));
   }
+  trace_sources_.push_back(std::make_unique<SynapseProfilerSource>());
   if (memory) {
     trace_sources_.push_back(std::make_unique<MemorySource>());
   }

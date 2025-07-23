@@ -15,8 +15,8 @@
 #include "habana_eager/ops/eager_op.h"
 
 #include <torch/csrc/jit/ir/ir.h>
-
 #include "backend/habana_device/hpu_cached_devices.h"
+#include "backend/profiling/profiling.h"
 #include "backend/synapse_helpers/env_flags.h"
 #include "habana_eager/eager_context.h"
 #include "pytorch_helpers/habana_helpers/python_utils.h"
@@ -104,6 +104,8 @@ void EagerOpBase::validate_inputs(
 std::mutex EagerOpBase::m_mutex;
 
 void EagerOpBase::run(OutputSpecsOrTensors&& out_spec_or_tensors) {
+  m_eager_op_meta_data.debug_id_ = habana::profile::bridge::get_debug_index();
+  PT_BRIDGE_BEGIN_WITH_INDEX(m_eager_op_meta_data.debug_id_);
   std::optional<std::vector<at::Tensor>> allocated_outputs =
       out_spec_or_tensors.get_tensors();
   auto stack = convert_ivalues_to_backend_tensors(m_inputs, m_symbol);
@@ -153,6 +155,7 @@ void EagerOpBase::run(OutputSpecsOrTensors&& out_spec_or_tensors) {
 
     hlexec.launch();
   }
+  PT_BRIDGE_END;
 }
 
 } // namespace habana::eager

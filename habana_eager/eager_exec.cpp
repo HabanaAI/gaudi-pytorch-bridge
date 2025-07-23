@@ -493,6 +493,7 @@ void EagerExec::launch() {
     }
     auto habana_launch_op =
         std::make_unique<habana::HabanaLaunchOpPT>(graph_and_meta);
+    habana_launch_op->set_debug_id(m_eager_op_meta_data.debug_id_);
     habana_launch_op->set_input_stack(stack);
     habana_launch_op->set_require_h2d_st(
         m_eager_op_meta_data.require_h2d_, m_eager_op_meta_data.require_st_);

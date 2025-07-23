@@ -999,7 +999,9 @@ void habana::HabanaLaunchOpPT::ExecuteSynapseGraph() {
     UpdateOutputs();
     return;
   }
-
+  if (debug_id_ != habana::profile::RecipeRegistry::invalidId()) {
+    recipe_launcher_->debug_id_ = debug_id_;
+  }
   [[maybe_unused]] auto& device = HPUDeviceContext::get_device();
 
   PT_BRIDGE_DEBUG("HabanaOp recipe cache :: launching new recipe");

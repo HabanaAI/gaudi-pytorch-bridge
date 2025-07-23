@@ -14,6 +14,8 @@
  */
 
 #pragma once
+#include <shared_mutex>
+#include <string_view>
 #include "backend/profiling/profiling.h"
 
 namespace habana::profile {
@@ -30,4 +32,21 @@ class BridgeLogsSource : public TraceSource {
   TraceSourceVariant get_variant() override;
   void set_offset(unsigned offset) override;
 };
+
+class RecipeRegistry {
+ public:
+  RecipeRegistry() = delete;
+  static size_t invalidId();
+  static void registerRecipe(const std::string& recipe, std::size_t id);
+
+  static size_t getRecipeId(std::string_view recipe);
+
+  static bool hasRecipeName(std::string_view recipe);
+
+ private:
+  static constexpr size_t kInvalidDebugId = std::numeric_limits<size_t>::max();
+  static std::unordered_map<std::string, std::size_t> recipes_;
+  static std::shared_mutex mtx_;
+};
+
 }; // namespace habana::profile

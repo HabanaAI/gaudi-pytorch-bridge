@@ -275,6 +275,16 @@ template <class... Args>
 inline void nop(__attribute__((unused)) const Args&... args) {};
 } // namespace Logger
 
+inline std::pair<bool, bool> // { traceEnabled, active }
+pt_trace_decision(
+    HlLogger::LoggerType modEnum,
+    const std::string_view funcName) noexcept {
+  const bool traceEnabled =
+      hl_logger::logLevelAtLeast(modEnum, HLLOG_LEVEL_TRACE);
+  const bool forced = Logger::isTracingForced(modEnum, funcName);
+  return {traceEnabled, traceEnabled || forced};
+}
+
 #define HABANA_CHECK_MSG(cond, ...) \
   Logger::CheckMsgImpl(             \
       "Expected " #cond " to be true, but got false.", ##__VA_ARGS__)
@@ -364,7 +374,8 @@ inline void nop(__attribute__((unused)) const Args&... args) {};
 
 /************************TRACE MACROS************************************/
 #define PT_MOD_BEGIN(MOD) PT_MOD_SCOPE(MOD, __PRETTY_FUNCTION__, __FUNCTION__)
-
+#define PT_MOD_BEGIN_WITH_INDEX(MOD, INDEX) \
+  PT_MOD_SCOPE_WITH_INDEX(MOD, __PRETTY_FUNCTION__, __FUNCTION__, INDEX)
 #define PT_KERNEL_BEGIN                                           \
   {                                                               \
     bool lazy_mode = GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE);          \
@@ -383,6 +394,8 @@ inline void nop(__attribute__((unused)) const Args&... args) {};
 #define PT_BRIDGE_BEGIN PT_MOD_BEGIN(PT_BRIDGE)
 #define PT_BRIDGE_LAMBDA_BEGIN(LAMBDA_NAME) \
   PT_MOD_SCOPE(PT_BRIDGE, __PRETTY_FUNCTION__, LAMBDA_NAME)
+#define PT_BRIDGE_BEGIN_WITH_INDEX(index) \
+  PT_MOD_BEGIN_WITH_INDEX(PT_BRIDGE, index)
 #define PT_SYNHELPER_BEGIN PT_MOD_BEGIN(PT_SYNHELPER)
 #define PT_DISTRIBUTED_BEGIN PT_MOD_BEGIN(PT_DISTRIBUTED)
 
@@ -394,15 +407,17 @@ inline void nop(__attribute__((unused)) const Args&... args) {};
 #define PT_SYNHELPER_END PT_MOD_END(PT_SYNHELPER)
 #define PT_DISTRIBUTED_END PT_MOD_END(PT_DISTRIBUTED)
 
-#define PT_MOD_SCOPE(MOD, PNAME, NAME)                             \
-  std::optional<PTFuncLog> ptFuncLogger{};                         \
-  bool isTraceLoggerEnabled{hl_logger::logLevelAtLeast(            \
-      HlLogger::LoggerType::MOD, HLLOG_LEVEL_TRACE)};              \
-  bool isTracingForced{                                            \
-      Logger::isTracingForced(HlLogger::LoggerType::MOD, NAME)};   \
-  if (isTraceLoggerEnabled or isTracingForced) {                   \
-    ptFuncLogger.emplace(#MOD, PNAME, NAME, isTraceLoggerEnabled); \
-  }
+#define PT_MOD_SCOPE(MOD, PNAME, NAME)                                    \
+  [[maybe_unused]] std::optional<PTFuncLog> ptFuncLogger;                 \
+  const auto _ptDec = pt_trace_decision(HlLogger::LoggerType::MOD, NAME); \
+  if (_ptDec.second)                                                      \
+    ptFuncLogger.emplace(#MOD, PNAME, NAME, _ptDec.first);
+
+#define PT_MOD_SCOPE_WITH_INDEX(MOD, PNAME, NAME, INDEX)                  \
+  [[maybe_unused]] std::optional<PTFuncLog> ptFuncLogger;                 \
+  const auto _ptDec = pt_trace_decision(HlLogger::LoggerType::MOD, NAME); \
+  if (_ptDec.second)                                                      \
+    ptFuncLogger.emplace(#MOD, PNAME, NAME, _ptDec.first, INDEX);
 
 #define PT_MOD_TRACE(MOD, PNAME, NAME) PT_MOD_SCOPE(MOD, PNAME, NAME)
 
@@ -507,13 +522,7 @@ class PTFuncLog {
   const std::string_view name;
   bool isActive;
 
- public:
-  PTFuncLog(
-      const std::string_view module,
-      const std::string_view pn,
-      const std::string_view n,
-      bool isActive)
-      : module(module), pName(pn), name(n), isActive(isActive) {
+  void logBegin() const {
     if (isActive) {
       HLLOG_TRACE(
           PT_TRACE,
@@ -525,8 +534,30 @@ class PTFuncLog {
               ": begin of ",
               pName));
     }
+  }
+
+ public:
+  PTFuncLog(
+      const std::string_view module,
+      const std::string_view pn,
+      const std::string_view n,
+      bool isActive)
+      : module(module), pName(pn), name(n), isActive(isActive) {
+    logBegin();
     habana::profile::bridge::trace_start(name);
   }
+
+  PTFuncLog(
+      const std::string_view module,
+      const std::string_view pn,
+      const std::string_view n,
+      bool isActive,
+      size_t index)
+      : module(module), pName(pn), name(n), isActive(isActive) {
+    logBegin();
+    habana::profile::bridge::trace_start(name, index);
+  }
+
   ~PTFuncLog() noexcept {
     try {
       if (isActive) {

@@ -17,11 +17,13 @@
 #include <syscall.h>
 #include <unistd.h>
 #include <atomic>
+#include <charconv>
 #include <chrono>
 #include <deque>
 #include <mutex>
 #include <regex>
 #include <sstream>
+#include <string>
 #include <unordered_set>
 #include "pytorch_helpers/habana_helpers/logging.h"
 
@@ -35,7 +37,13 @@ uint64_t nowNanos() {
 } // namespace
 
 namespace habana::profile {
-
+struct EventHasher {
+  std::size_t operator()(const std::pair<pid_t, int64_t>& p) const noexcept {
+    std::size_t h1 = std::hash<pid_t>{}(p.first);
+    std::size_t h2 = std::hash<int64_t>{}(p.second);
+    return h1 ^ (h2 << 1);
+  }
+};
 struct BridgeLogsSourceImpl : public TraceSource {
   BridgeLogsSourceImpl() = default;
   ~BridgeLogsSourceImpl() override = default;
@@ -48,6 +56,23 @@ struct BridgeLogsSourceImpl : public TraceSource {
       events_.emplace_back(std::string{id}, dtime, tid, is_begin);
     }
   }
+  void log(std::string_view id, bool is_begin, size_t index) {
+    if (enabled(id)) {
+      int64_t dtime = nowNanos();
+      pid_t tid = syscall(__NR_gettid);
+      std::string event_id{id};
+      std::lock_guard<std::mutex> lg{m};
+      updateThreadNames(tid);
+      events_.emplace_back(std::move(event_id), dtime, tid, is_begin);
+      eventsToIndexes_[{tid, dtime}] = index;
+    }
+  }
+
+  size_t generateDebugIndex() {
+    static std::atomic<size_t> debug_index{0};
+    return debug_index.fetch_add(1, std::memory_order_relaxed);
+  }
+
   void set_mandatory_events(
       const std::vector<std::string>& mandatory_events,
       bool catch_all_events) {
@@ -110,11 +135,23 @@ struct BridgeLogsSourceImpl : public TraceSource {
     pid_t pid = static_cast<pid_t>(getpid()) + offset_;
     std::lock_guard<std::mutex> lg{m};
     for (const auto& event : events_) {
-      output.addActivity(
-          {event.name, {}, ActivityType::HPU_RUNTIME, pid, event.tid},
-          {},
-          event.time,
-          event.begin);
+      if (eventsToIndexes_.count({event.tid, event.time})) {
+        auto index = eventsToIndexes_[{event.tid, event.time}];
+        output.addActivity(
+            {event.name,
+             {{"index", std::to_string(index)}},
+             ActivityType::HPU_RUNTIME,
+             pid,
+             event.tid},
+            {},
+            event.time,
+            event.begin);
+      } else
+        output.addActivity(
+            {event.name, {}, ActivityType::HPU_RUNTIME, pid, event.tid},
+            {},
+            event.time,
+            event.begin);
     }
     for (const auto& entry : threadNames) {
       std::string name =
@@ -122,6 +159,7 @@ struct BridgeLogsSourceImpl : public TraceSource {
       output.addResource(name, pid, entry.first);
     }
     events_.clear();
+    eventsToIndexes_.clear();
   }
   TraceSourceVariant get_variant() override {
     return TraceSourceVariant::BRIDGE_LOGS;
@@ -145,6 +183,8 @@ struct BridgeLogsSourceImpl : public TraceSource {
     Event(std::string&& name, uint64_t time, pid_t tid, bool begin)
         : name(std::move(name)), time(time), tid(tid), begin(begin) {}
   };
+  std::unordered_map<std::pair<pid_t, int64_t>, size_t, EventHasher>
+      eventsToIndexes_;
   std::deque<Event> events_;
   std::atomic<bool> is_started_{false};
   std::atomic<bool> mandatory_list_initialized_{false};
@@ -185,7 +225,50 @@ void BridgeLogsSource::set_offset(unsigned offset) {
   BridgeLogsSourceImpl::instance().set_offset(offset);
 }
 
+std::unordered_map<std::string, std::size_t> RecipeRegistry::recipes_{};
+std::shared_mutex RecipeRegistry::mtx_{};
+
+size_t RecipeRegistry::invalidId() {
+  return kInvalidDebugId;
+}
+
+void RecipeRegistry::registerRecipe(const std::string& name, std::size_t id) {
+  if (!habana::profile::bridge::linked_events_enabled() or id == invalidId())
+    return;
+
+  std::unique_lock<std::shared_mutex> lock(mtx_);
+  recipes_[name] = id;
+}
+
+size_t RecipeRegistry::getRecipeId(std::string_view name) {
+  if (!habana::profile::bridge::linked_events_enabled())
+    return invalidId();
+
+  std::shared_lock<std::shared_mutex> lock(mtx_);
+  auto it = recipes_.find(std::string(name));
+  return (it != recipes_.end()) ? it->second : invalidId();
+}
+
+bool RecipeRegistry::hasRecipeName(std::string_view name) {
+  if (!habana::profile::bridge::linked_events_enabled())
+    return false;
+
+  std::shared_lock<std::shared_mutex> lock(mtx_);
+  return recipes_.find(std::string(name)) != recipes_.end();
+}
+
 namespace bridge {
+bool linked_events_enabled() {
+  return GET_ENV_FLAG_NEW(PT_PROFILER_EAGER_LINKED_EVENTS);
+}
+void trace_start(std::string_view id, size_t index) {
+  if (!linked_events_enabled() or
+      index == habana::profile::RecipeRegistry::invalidId()) {
+    BridgeLogsSourceImpl::instance().log(id, true);
+    return;
+  }
+  BridgeLogsSourceImpl::instance().log(id, true, index);
+}
 void trace_start(std::string_view id) {
   BridgeLogsSourceImpl::instance().log(id, true);
 }
@@ -194,6 +277,9 @@ void trace_end(std::string_view id) {
 }
 bool is_enabled(std::string_view name) {
   return BridgeLogsSourceImpl::instance().enabled(name);
+}
+size_t get_debug_index() {
+  return BridgeLogsSourceImpl::instance().generateDebugIndex();
 }
 }; // namespace bridge
 }; // namespace habana::profile

@@ -23,6 +23,7 @@
 #include "backend/helpers/tensor_utils.h"
 #include "backend/jit_graph_cache.h"
 #include "backend/kernel/hpu_habana_meta_op_list.h"
+#include "backend/profiling/trace_sources/bridge_logs_source.h"
 #include "backend/synapse_helpers/devmem_logger.h"
 #include "common/utils.h"
 #include "common/warning_suppress.h"
@@ -1614,10 +1615,13 @@ void RecipeLauncher::Launch(
     std::vector<synLaunchTensorInfo>& syn_launch_info,
     std::vector<size_t>& external_tensor_info_indexes,
     const VecOfIValPtrSh& dma_inputs) {
-  PT_BRIDGE_BEGIN;
+  PT_BRIDGE_BEGIN_WITH_INDEX(debug_id_);
   MaybePrintDebugInfo(
       input_refs, intermediate_tensors_ptr, aten_outputs, *this);
-
+  if (recipe_) {
+    habana::profile::RecipeRegistry::registerRecipe(
+        recipe_->recipe_name_, debug_id_);
+  }
   auto& device = HPUDeviceContext::get_device();
   auto& stream_handle = device.get_stream(hpu_stream);
 
