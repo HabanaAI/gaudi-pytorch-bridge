@@ -122,6 +122,7 @@ using CValPtr = const torch::jit::Value*;
 using CValPtrMap =
     std::unordered_map<CValPtr, std::tuple<NodeParamType, size_t, size_t>>;
 using CValPtrtoIValueMap = std::unordered_map<CValPtr, torch::jit::IValue>;
+using AdjacentCastFp8Indices = std::vector<std::pair<size_t, size_t>>;
 
 inline bool is_eager_caching_supported() {
   return ((habana::HPUDeviceContext::get_device().type() == synDeviceGaudi) &&
@@ -500,6 +501,15 @@ struct OptimizedJITGraphAndMetaData {
     return jit_cache_hit_count_;
   }
 
+  void set_adjacent_cast_fp8_indices(
+      const AdjacentCastFp8Indices& adjacent_cast_fp8_indices) {
+    adjacent_cast_fp8_indices_ = adjacent_cast_fp8_indices;
+  }
+
+  AdjacentCastFp8Indices get_adjacent_cast_fp8_indices() const {
+    return adjacent_cast_fp8_indices_;
+  }
+
  private:
   std::shared_ptr<torch::jit::Graph> jit_graph_to_lowering = nullptr;
   std::string opstrs = std::string();
@@ -541,6 +551,7 @@ struct OptimizedJITGraphAndMetaData {
   std::vector<bool> m_is_reusable;
   bool skip_tensor_permutation_{false};
   size_t jit_cache_hit_count_ = 0;
+  AdjacentCastFp8Indices adjacent_cast_fp8_indices_;
 };
 
 /**

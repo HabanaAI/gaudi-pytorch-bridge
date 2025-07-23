@@ -58,9 +58,11 @@ std::vector<size_t> get_scales_indices(std::string_view node_name) {
 struct HandleH2dScalesPass {
   explicit HandleH2dScalesPass(
       std::shared_ptr<torch::jit::Graph> graph,
-      H2dScalesIndicesNames& h2d_scales_idx_names)
+      H2dScalesIndicesNames& h2d_scales_idx_names,
+      AdjacentCastFp8Indices& adjacent_cast_fp8_indices)
       : m_graph(std::move(graph)),
-        m_h2d_scales_idx_names(h2d_scales_idx_names) {}
+        m_h2d_scales_idx_names(h2d_scales_idx_names),
+        m_adjacent_cast_fp8_indices(adjacent_cast_fp8_indices) {}
 
   void run(torch::jit::Stack& stack) {
     PT_EAGER_TRACE;
@@ -92,6 +94,59 @@ struct HandleH2dScalesPass {
           node_name,
           " received non cpu scale.");
     }
+  }
+
+  void collectIndicesOfAdjacentScales(
+      const torch::jit::Node* node,
+      const GraphInputIndexMap& org_stack_index_map) {
+    static const std::unordered_set<c10::Symbol> m_logical_ops{
+        c10::Symbol::fromQualString("aten::reshape"),
+        c10::Symbol::fromQualString("aten::view"),
+        c10::Symbol::fromQualString("aten::t"),
+        c10::Symbol::fromQualString("aten::transpose"),
+        c10::Symbol::fromQualString("aten::squeeze"),
+        c10::Symbol::fromQualString("aten::unsqueeze"),
+        c10::Symbol::fromQualString("aten::permute"),
+        c10::Symbol::fromQualString("aten::expand"),
+        c10::Symbol::fromQualString("aten::slice"),
+        c10::Symbol::fromQualString("aten::clone")};
+    static const c10::Symbol m_cast_to_fp8_symbol =
+        c10::Symbol::fromQualString("hpu::cast_to_fp8_v2");
+    static const c10::Symbol m_cast_from_fp8_symbol =
+        c10::Symbol::fromQualString("hpu::cast_from_fp8");
+
+    const auto node_symbol = node->kind();
+    if (m_cast_to_fp8_symbol != node_symbol and
+        m_cast_from_fp8_symbol != node_symbol) {
+      return;
+    }
+    const auto& inputs = node->inputs();
+    const auto input = inputs[0];
+    // Logical ops are allowed to be placed between cast_to_fp8 and
+    // cast_from_fp8 nodes.
+    auto parent_node = input->node();
+    while (m_logical_ops.count(parent_node->kind()) == 1) {
+      parent_node = parent_node->inputs()[0]->node();
+    }
+    const auto parent_symbol = parent_node->kind();
+    const bool node_is_cast_to = m_cast_to_fp8_symbol == node_symbol;
+    if (not((node_is_cast_to and m_cast_from_fp8_symbol == parent_symbol) or
+            (not node_is_cast_to and m_cast_to_fp8_symbol == parent_symbol))) {
+      return;
+    }
+    const auto node_scale = inputs[1];
+    if (node_scale->type()->cast<at::TensorType>() == nullptr) {
+      return;
+    }
+
+    const auto parent_scale = parent_node->inputs()[1];
+    if (parent_scale->type()->cast<at::TensorType>() == nullptr) {
+      return;
+    }
+
+    m_adjacent_cast_fp8_indices.emplace_back(
+        org_stack_index_map.at(parent_scale->debugName()),
+        org_stack_index_map.at(node_scale->debugName()));
   }
 
   void processBlock(
@@ -149,7 +204,14 @@ struct HandleH2dScalesPass {
         m_h2d_scales_idx_names.emplace_back(
             std::move(op_scale_indices), std::move(node_name));
       }
+      if (GET_ENV_FLAG_NEW(PT_HPU_MARK_NON_RECIPROCAL_CASTS)) {
+        collectIndicesOfAdjacentScales(node, org_stack_index_map);
+      }
     }
+    PT_BRIDGE_DEBUG(
+        "Found ",
+        m_adjacent_cast_fp8_indices.size(),
+        " pairs of adjacent cast_to/from_fp8 nodes in the graph");
   }
 
   void processBlocks(
@@ -163,14 +225,17 @@ struct HandleH2dScalesPass {
 
   std::shared_ptr<torch::jit::Graph> m_graph;
   H2dScalesIndicesNames& m_h2d_scales_idx_names;
+  AdjacentCastFp8Indices& m_adjacent_cast_fp8_indices;
 };
 
 void HandleH2dScales(
     std::shared_ptr<torch::jit::Graph> graph,
     torch::jit::Stack& stack,
-    H2dScalesIndicesNames& h2d_scales_idx_names) {
+    H2dScalesIndicesNames& h2d_scales_idx_names,
+    AdjacentCastFp8Indices& adjacent_cast_fp8_indices) {
   PT_EAGER_TRACE;
-  HandleH2dScalesPass pass{graph, h2d_scales_idx_names};
+  HandleH2dScalesPass pass{
+      graph, h2d_scales_idx_names, adjacent_cast_fp8_indices};
   pass.run(stack);
 }
 

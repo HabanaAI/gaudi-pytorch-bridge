@@ -309,12 +309,17 @@ GraphExec::GraphExec(
     }
   }
 
+  AdjacentCastFp8Indices adjacent_cast_fp8_indices{};
   if (habana_helpers::is_h2d_scales_enabled()) {
     // HandleH2dScales must run after dynamic passes, because it needs valid
     // indices of the original stack.
     [[maybe_unused]] static bool scales_created =
         HPUDeviceContext::h2d_scales_cache().CreateH2dScales();
-    pass::HandleH2dScales(m_graph, example_inputs, m_h2d_scales_idx_names);
+    pass::HandleH2dScales(
+        m_graph,
+        example_inputs,
+        m_h2d_scales_idx_names,
+        adjacent_cast_fp8_indices);
   }
 
   at::ArrayRef<torch::jit::IValue> input_refs =
@@ -358,6 +363,9 @@ GraphExec::GraphExec(
   m_graph_and_meta->set_sym_expr_hash(m_sym_expr_hash);
   m_graph_and_meta->SetUserMarkDynamic(m_mark_dynamic);
   m_graph_and_meta->SetUserRangesDynamic(m_range_infos);
+  if (habana_helpers::is_h2d_scales_enabled()) {
+    m_graph_and_meta->set_adjacent_cast_fp8_indices(adjacent_cast_fp8_indices);
+  }
 };
 
 bool GraphExec::IsDynamicGraph() {
@@ -418,6 +426,42 @@ bool isOptimizedOrConvertedScaleTensor(const c10::IValue& scale) {
   }
   return false;
 }
+
+float GetH2dScaleValue(const at::Tensor& scale_tensor) {
+  auto tmeta{habana::get_tensor_extra_meta(scale_tensor)};
+  if (scale_tensor.dtype() == at::ScalarType::Float) {
+    return *reinterpret_cast<float*>(tmeta->get_host_ptr());
+  } else {
+    auto scale_val_bf16 =
+        *reinterpret_cast<at::BFloat16*>(tmeta->get_host_ptr());
+    return static_cast<float>(scale_val_bf16);
+  }
+}
+
+void MarkNonReciprocalH2dScales(
+    const AdjacentCastFp8Indices& adjacent_cast_fp8_indices,
+    torch::jit::Stack& orig_stack) {
+  std::vector<size_t> known_reciprocals{};
+
+  for (const auto& [parent_id, child_id] : adjacent_cast_fp8_indices) {
+    if (std::find(
+            known_reciprocals.begin(), known_reciprocals.end(), parent_id) !=
+        known_reciprocals.end()) {
+      continue;
+    }
+    const auto& parent_scale = orig_stack[parent_id].toTensor();
+    const auto& child_scale = orig_stack[child_id].toTensor();
+
+    const float parent_val = GetH2dScaleValue(parent_scale);
+    const float child_val = GetH2dScaleValue(child_scale);
+
+    if (child_val != 1.0 / parent_val) {
+      habana::get_tensor_extra_meta(parent_scale)->set_h2d_not_reciprocal(true);
+    } else {
+      known_reciprocals.push_back(child_id);
+    }
+  }
+}
 } // namespace
 
 // Patching H2D scale tensors created in HandleH2dScales pass
@@ -425,7 +469,8 @@ bool isOptimizedOrConvertedScaleTensor(const c10::IValue& scale) {
 void GraphExec::PatchScaleH2dTensors(torch::jit::Stack& orig_stack) {
   PT_EAGER_TRACE;
   // Patching hw-aligned scales with preallocated H2D tensors.
-  const auto& h2d_scales_cache = HPUDeviceContext::h2d_scales_cache();
+  auto& h2d_scales_cache = HPUDeviceContext::h2d_scales_cache();
+  h2d_scales_cache.UpdateCurrentIndicesOfH2dScales();
   std::vector<size_t> non_hw_scales_indices;
 
   bool cast_trivial_scales_optimization_enabled =
@@ -486,14 +531,14 @@ void GraphExec::PatchScaleH2dTensors(torch::jit::Stack& orig_stack) {
       }
       const auto& cpu_scale = orig_stack[idx].toTensor();
       const auto scale_value = cpu_scale.item().toDouble();
-
-      const auto maybe_h2d_scale =
-          h2d_scales_cache.TryGetH2dScale(scale_value, cpu_scale.scalar_type());
+      const auto maybe_h2d_scale = h2d_scales_cache.TryGetH2dScale(cpu_scale);
 
       std::string_view caching_message;
       if (maybe_h2d_scale.has_value()) {
         // Update the original stack with the H2D tensor.
         orig_stack[idx] = torch::jit::IValue(maybe_h2d_scale.value());
+        habana::get_tensor_extra_meta(orig_stack[idx].toTensor())
+            ->set_h2d_not_reciprocal(false);
         caching_message = "from cache ";
       } else {
         non_hw_scales_indices.push_back(idx);
@@ -542,8 +587,12 @@ void GraphExec::PatchScaleH2dTensors(torch::jit::Stack& orig_stack) {
         torch::jit::IValue(h2d_scales_cache.CreateH2dTensorScale(
             cpu_scale.data_ptr(),
             cpu_scale.scalar_type(),
-            alloc_pointer,
-            h2d_pointer));
+            &alloc_pointer,
+            &h2d_pointer));
+  }
+  if (GET_ENV_FLAG_NEW(PT_HPU_MARK_NON_RECIPROCAL_CASTS)) {
+    MarkNonReciprocalH2dScales(
+        m_graph_and_meta->get_adjacent_cast_fp8_indices(), orig_stack);
   }
 }
 

@@ -521,6 +521,9 @@ struct TensorExtraMeta : public BaseTensorExtraMeta {
     return std::make_unique<at::Tensor>(send_tensor_meta_->getTensor());
   }
 
+  void set_h2d_not_reciprocal(bool not_reciprocal);
+  bool is_h2d_not_reciprocal() const;
+
  private:
   c10::IntArrayRef sizes_{0};
   habana::LayoutFormat tensor_layout_{habana::LayoutFormat::NCHW};
@@ -553,6 +556,10 @@ struct TensorExtraMeta : public BaseTensorExtraMeta {
   bool is_tensor_pipelined_{false};
   std::shared_ptr<SendTensorMeta> send_tensor_meta_{nullptr};
   std::vector<uint64_t> h2d_host_data_;
+
+  // Used only for h2d scales. Marks tensor in runtime for graph recompilation,
+  // when subsequent scales are not reciprocals.
+  bool h2d_not_reciprocal_{false};
 };
 
 TensorExtraMeta* get_tensor_extra_meta_from_hb_internal_tensor_impl(

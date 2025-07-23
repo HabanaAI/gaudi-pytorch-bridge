@@ -156,6 +156,13 @@ void TensorExtraMeta::prepare_const_tensor(
   }
 }
 
+void TensorExtraMeta::set_h2d_not_reciprocal(bool not_reciprocal) {
+  h2d_not_reciprocal_ = not_reciprocal;
+}
+bool TensorExtraMeta::is_h2d_not_reciprocal() const {
+  return h2d_not_reciprocal_;
+}
+
 TensorExtraMeta* allocate_tensor_extra_meta(at::TensorImpl& impl) {
   HABANA_ASSERT(
       impl.get_backend_meta() == nullptr, "Meta is already assigned.");

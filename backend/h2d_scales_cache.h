@@ -36,9 +36,12 @@ class EqualFn {
   }
 };
 
+// Pair of vector of cached H2D scales and idx of scale that should be used
+// next.
+using ScalesIdxPair = std::pair<std::vector<at::Tensor>, int>;
 using ScalarToScalesMap = std::unordered_map<
     std::pair<double, at::ScalarType>,
-    at::Tensor,
+    ScalesIdxPair,
     HashFn,
     EqualFn>;
 
@@ -52,14 +55,13 @@ class H2dScalesCache {
   ~H2dScalesCache() = default;
 
   bool CreateH2dScales();
-  std::optional<at::Tensor> TryGetH2dScale(
-      const double scale,
-      const at::ScalarType dtype) const;
+  std::optional<at::Tensor> TryGetH2dScale(const at::Tensor& scale_tensor);
+  void UpdateCurrentIndicesOfH2dScales();
   static at::Tensor CreateH2dTensorScale(
       void* scale_ptr,
       at::ScalarType dtype,
-      void*& alloc_pointer,
-      void*& h2d_pointer);
+      void** alloc_pointer = nullptr,
+      void** h2d_pointer = nullptr);
 
  private:
   ScalarToScalesMap h2d_scales_map_;

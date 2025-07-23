@@ -105,11 +105,11 @@ void HandleScaleScalar(
 
 using namespace habana::fp8;
 
-ns_CastKernel::Params GetCastParams(
+ns_ConvertToFp8::ParamsV2 GetCastParams(
     const bool stochastic,
     const at::ScalarType& from_dtype,
     const at::ScalarType& to_dtype) {
-  ns_CastKernel::Params params{};
+  ns_ConvertToFp8::ParamsV2 params{};
   if (stochastic) {
     const bool is_sftz_available = is_sr_sftz and
         from_dtype == at::ScalarType::BFloat16 and
@@ -236,19 +236,23 @@ void CastToFp8V2::AddNode(sh::graph& graph, const at::Stack& stack) {
   ValidateScaleShape(scale, scale_shape);
 
   auto guid = get_guid_with_precision("convert_to_fp8"sv, src_type);
+  auto params = GetCastParams(stochastic_rounding, src_type, dst_type);
 
   auto meta = CastToFp8V2Meta(stack);
   std::vector<synTensor> syn_inputs{syn_in(0)};
   std::vector<sh::tensor> adjusted_scale;
   if (scale.isTensor()) {
+    const auto& scale_tensor = scale.toTensor();
     HandleScaleTensor(
         this,
         graph,
-        scale.toTensor(),
+        scale_tensor,
         syn_in(1),
         adjusted_scale,
         syn_inputs,
         scale_shape);
+    params.not_reciprocal_h2d_scale =
+        habana::get_tensor_extra_meta(scale_tensor)->is_h2d_not_reciprocal();
   } else {
     HandleScaleScalar(
         this,
@@ -259,13 +263,12 @@ void CastToFp8V2::AddNode(sh::graph& graph, const at::Stack& stack) {
         syn_inputs,
         scale_shape);
   }
+
   std::vector<NodeAttr::NodeOutputAttr> output_attrs{
       {meta[0].shape, meta[0].dtype, 0}};
   if (is_amax) {
     output_attrs.push_back({meta[1].shape, meta[1].dtype, 1});
   }
-
-  auto params = GetCastParams(stochastic_rounding, src_type, dst_type);
 
   auto casted = OpBackend::BuildNode(
       this, graph, {guid, syn_inputs, output_attrs, &params, sizeof(params)});
@@ -317,6 +320,7 @@ void CastFromFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
       "CastFromFp8 output dtype must be equal to float or bfloat16.");
 
   auto guid = get_guid_with_precision("convert_from_fp8"sv, dst_type);
+  ns_ConvertFromFp8::Params params{};
 
   std::vector<synTensor> syn_inputs{syn_in(0)};
   std::vector<sh::tensor> adjusted_scale;
@@ -329,6 +333,9 @@ void CastFromFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
         adjusted_scale,
         syn_inputs,
         scale_shape);
+    params.not_reciprocal_h2d_scale =
+        habana::get_tensor_extra_meta(scale.toTensor())
+            ->is_h2d_not_reciprocal();
   } else {
     HandleScaleScalar(
         this,
@@ -341,7 +348,9 @@ void CastFromFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
   }
 
   auto casted = OpBackend::BuildNode(
-      this, graph, {guid, syn_inputs, {{sizes, dst_type, 0}}});
+      this,
+      graph,
+      {guid, syn_inputs, {{sizes, dst_type, 0}}, &params, sizeof(params)});
 
   syn_out(0) = std::move(casted[0]);
 }

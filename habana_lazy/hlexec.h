@@ -387,6 +387,8 @@ class HlExec {
 
   void CreateNodeBcastMap(const ir::NodePtrList& nodes);
   void IdentifyAndSetGraphNodes(const ir::NodePtrList& nodes);
+  void CollectAdjacentCastFp8Nodes(const ir::NodePtrList& nodes);
+  void MarkNonReciprocalH2dScales(const ir::NodePtrList& nodes);
   GraphPtr mp_g_;
   OptimizedJITGraphAndMetaDataPtr mp_g_and_meta_data_{nullptr};
   size_t m_g_hash_;

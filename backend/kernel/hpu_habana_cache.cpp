@@ -57,8 +57,9 @@ namespace {
     if (input.isTensor()) {
       auto pt_tensor = input.toTensor();
       auto tmeta{habana::get_tensor_extra_meta(pt_tensor, true)};
-      if (tmeta && tmeta->get_tensor_type() == HOST_TO_DEVICE_TENSOR &&
-          tmeta->peek_H2D_data_for_bucketing()) {
+      const bool is_h2d_tensor =
+          tmeta && tmeta->get_tensor_type() == HOST_TO_DEVICE_TENSOR;
+      if (is_h2d_tensor && tmeta->peek_H2D_data_for_bucketing()) {
         size_t h2d_size = tmeta->get_host_size();
 
         std::vector<int64_t> h2d_vec;
@@ -95,6 +96,9 @@ namespace {
               h2d_single_value + ((i + 1) * static_cast<uint64_t>(h2d_vec[i]));
         }
         h2d_hash_code = at::hash_combine(h2d_hash_code, h2d_single_value);
+      } else if (is_h2d_tensor) {
+        h2d_hash_code =
+            at::hash_combine(h2d_hash_code, tmeta->is_h2d_not_reciprocal());
       }
     }
   }

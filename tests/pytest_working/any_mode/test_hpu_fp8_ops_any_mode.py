@@ -1609,6 +1609,79 @@ def test_non_hw_h2d_scales(src_dtype, fuse_cast):
     assert stats["TotalHit"] == expected_hits
 
 
+@pytest.mark.skipif(is_pytest_mode_eager(), reason="Eager mode doesn't support H2D scales.")
+@pytest.mark.parametrize("non_reciprocal_enabled", [True, False])
+def test_h2d_non_reciprocal_scales(non_reciprocal_enabled):
+    bias_values = [3, 7]
+    scale_values = convertExpBiasToScale(bias_values)
+    fp8_dtype = torch.float8_e4m3fn
+    src_dtype = torch.float
+    shape = (5, 6) if non_reciprocal_enabled else (6, 5)
+
+    exec_count = pow(len(scale_values), 4)
+    expected_misses = 4 if non_reciprocal_enabled else 1
+    expected_hits = exec_count - expected_misses
+
+    ht.enable_inference_mode()
+    import habana_frameworks.torch.utils.experimental as htexp
+
+    htexp._set_scale_attributes(True, 10)
+
+    bc.set_pt_hpu_enable_cache_metrics(True)
+    metric_debug_reload()
+    metric = metric_global("recipe_cache")
+
+    def fn_hpu(a, b, scale_to_1, scale_to_2, scale_from_1, scale_from_2, scale_g_1, scale_g_2):
+        from_a = torch.ops.hpu.cast_from_fp8(a.sin().to(fp8_dtype), scale_from_1, src_dtype)
+        from_b = torch.ops.hpu.cast_from_fp8((b * b).to(fp8_dtype), scale_from_2, src_dtype)
+        from_a = from_a.t().clone().reshape(2, -1)
+        from_b = from_b.reshape(-1, 2)
+        to_a = torch.ops.hpu.cast_to_fp8_v2(from_a, scale_to_1, False, False, fp8_dtype)[0]
+        to_b = torch.ops.hpu.cast_to_fp8_v2(from_b, scale_to_2, False, False, fp8_dtype)[0]
+        return torch.ops.hpu.fp8_gemm_v2(to_a, False, to_b, False, None, src_dtype, scale_g_1, scale_g_2, None, False)
+
+    def fn_cpu(a, b, scale_to_1, scale_to_2, scale_from_1, scale_from_2, scale_g_1, scale_g_2):
+        from_a = (a.sin() * scale_from_1 * scale_to_1).to(fp8_dtype).to(src_dtype).t().reshape(2, -1)
+        from_b = ((b * b) * scale_from_2 * scale_to_2).to(fp8_dtype).to(src_dtype).reshape(-1, 2)
+        return torch.matmul(from_a, from_b) * (scale_g_1 * scale_g_2)
+
+    with bc.env_setting("PT_HPU_MARK_NON_RECIPROCAL_CASTS", non_reciprocal_enabled):
+        bc.set_pt_hpu_enable_cache_metrics(True)
+        metric_debug_reload()
+        metric = metric_global("recipe_cache")
+
+        fn_hpu = compile_function_if_compile_mode(fn_hpu)
+
+        a = torch.rand(shape, dtype=src_dtype)
+        b = torch.rand(shape, dtype=src_dtype)
+        ah = a.to("hpu")
+        bh = b.to("hpu")
+
+        tol = 0.001
+
+        for st1_val in scale_values:
+            for st2_val in scale_values:
+                for sf1_val in scale_values:
+                    for sf2_val in scale_values:
+                        st1 = torch.tensor(st1_val, dtype=src_dtype)
+                        st2 = torch.tensor(st2_val, dtype=src_dtype)
+                        sf1 = torch.tensor(sf1_val, dtype=src_dtype)
+                        sf2 = torch.tensor(sf2_val, dtype=src_dtype)
+
+                        res_hpu = fn_hpu(ah, bh, st1, st2, sf1, sf2, 1 / st1, 1 / st2).cpu()
+                        res_cpu = fn_cpu(a, b, st1, st2, sf1, sf2, 1 / st1, 1 / st2)
+                        compare_tensors(res_hpu, res_cpu, atol=tol, rtol=tol)
+
+        htexp._set_scale_attributes(False, 0)
+        ht.disable_inference_mode()
+
+        stats = dict(metric.stats())
+        assert stats["TotalMiss"] == expected_misses
+        assert stats["TotalHit"] == expected_hits
+        bc.set_pt_hpu_enable_cache_metrics(False)
+        metric_debug_reload()
+
+
 @pytest.mark.parametrize("src_dtype", [torch.float, torch.bfloat16])
 def test_cast_to_from_h2d(src_dtype):
     bias_values = [3, 7, 11, 15] if is_gaudi2() else [2, 6, 12, 15]

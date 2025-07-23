@@ -63,9 +63,10 @@ bool H2dScalesCache::CreateH2dScales() {
                                     void* scale_ptr,
                                     const at::ScalarType dtype) {
     std::pair<double, at::ScalarType> key{scale_value, dtype};
-    h2d_scales_map_.emplace(
-        std::move(key),
-        CreateH2dTensorScale(scale_ptr, dtype, alloc_pointer, h2d_pointer));
+    ScalesIdxPair scales_and_idx{
+        {CreateH2dTensorScale(scale_ptr, dtype, &alloc_pointer, &h2d_pointer)},
+        0};
+    h2d_scales_map_.emplace(std::move(key), std::move(scales_and_idx));
   };
 
   for (const auto bias : biases) {
@@ -83,20 +84,35 @@ bool H2dScalesCache::CreateH2dScales() {
 }
 
 std::optional<at::Tensor> H2dScalesCache::TryGetH2dScale(
-    const double scale,
-    const at::ScalarType dtype) const {
-  auto it = h2d_scales_map_.find({scale, dtype});
+    const at::Tensor& scale_tensor) {
+  const auto dtype = scale_tensor.scalar_type();
+  auto it = h2d_scales_map_.find({scale_tensor.item().toDouble(), dtype});
   if (it != h2d_scales_map_.end()) {
-    return it->second;
+    auto& [scales_vec, current_idx] = it->second;
+    if (current_idx >= 0) {
+      PT_BRIDGE_DEBUG("H2D scale taken from cache, current idx: ", current_idx);
+      return scales_vec[current_idx--];
+    }
+    const auto new_scale = CreateH2dTensorScale(scale_tensor.data_ptr(), dtype);
+    scales_vec.push_back(new_scale);
+    PT_BRIDGE_DEBUG(
+        "H2D scale added to cache, current size: ", scales_vec.size());
+    return new_scale;
   }
   return std::nullopt;
+}
+
+void H2dScalesCache::UpdateCurrentIndicesOfH2dScales() {
+  for (auto& [key, scales] : h2d_scales_map_) {
+    scales.second = scales.first.size() - 1;
+  }
 }
 
 at::Tensor H2dScalesCache::CreateH2dTensorScale(
     void* scale_ptr,
     at::ScalarType dtype,
-    void*& alloc_pointer,
-    void*& h2d_pointer) {
+    void** alloc_pointer,
+    void** h2d_pointer) {
   at::Tensor scale_tensor =
       createDynamicTensor({1}, HOST_TO_DEVICE_TENSOR, dtype);
   auto tmeta{get_tensor_extra_meta(scale_tensor)};
@@ -107,22 +123,28 @@ at::Tensor H2dScalesCache::CreateH2dTensorScale(
   const auto dt_type = is_float ? habana::HostDataType::FLOAT_T
                                 : habana::HostDataType::BFLOAT16_T;
 
-  // Use memory from preallocated chunk. This is the case for the initial
-  // cache of H2D scales tensors created at startup. Set the host and compile
-  // pointer from preallocated chunk and increment the h2d_pointer to point to
-  // end of current H2D.
-  const auto host_total_elem = 2 * scale_value_size;
+  if (nullptr == alloc_pointer and nullptr == h2d_pointer) {
+    // Allocate memory for a single H2D scale tensor. This is the case for scale
+    // tensors added to cache in runtime.
+    tmeta->set_host_data(scale_ptr, 1, scale_value_size, dt_type);
+  } else {
+    // Use memory from preallocated chunk. This is the case for the initial
+    // cache of H2D scales tensors created at startup. Set the host and compile
+    // pointer from preallocated chunk and increment the h2d_pointer to point to
+    // end of current H2D.
+    const auto host_total_elem = 2 * scale_value_size;
 
-  tmeta->set_host_size(1);
-  tmeta->set_host_el_size(scale_value_size);
-  tmeta->set_host_dt_type(dt_type);
-  tmeta->set_host_total_elem(host_total_elem);
-  tmeta->set_alloc_ptr(alloc_pointer);
-  tmeta->set_host_ptr(h2d_pointer);
-  char* ptr = static_cast<char*>(h2d_pointer) + host_total_elem;
-  h2d_pointer = static_cast<char*>(ptr + host_total_elem);
-  tmeta->set_compile_host_ptr(ptr);
-  tmeta->update_host_data(scale_ptr, 1, scale_value_size, true);
+    tmeta->set_host_size(1);
+    tmeta->set_host_el_size(scale_value_size);
+    tmeta->set_host_dt_type(dt_type);
+    tmeta->set_host_total_elem(host_total_elem);
+    tmeta->set_alloc_ptr(*alloc_pointer);
+    tmeta->set_host_ptr(*h2d_pointer);
+    char* ptr = static_cast<char*>(*h2d_pointer) + host_total_elem;
+    *h2d_pointer = static_cast<char*>(ptr + host_total_elem);
+    tmeta->set_compile_host_ptr(ptr);
+    tmeta->update_host_data(scale_ptr, 1, scale_value_size, true);
+  }
 
   return scale_tensor;
 }

@@ -964,3 +964,9 @@ PT_HPU_H2D_TRIVIAL_SCALES_MODE:
         0 - no trivial scales optimization
         1 - scales equal to 1.0 are removed in cast_to_fp8_v2 and cast_from_fp8
         2 - as in mode 1, and reciprocal scales are removed in fp8_gemm_v2"
+
+PT_HPU_MARK_NON_RECIPROCAL_CASTS:
+  type: bool
+  default: false
+  settable: true
+  doc: "This flag controls marking adjacent cast_to/from_fp8 nodes that contain non-reciprocal H2D scales."

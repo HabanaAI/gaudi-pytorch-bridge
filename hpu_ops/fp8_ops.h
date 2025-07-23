@@ -20,7 +20,7 @@
 
 namespace habana {
 
-ns_CastKernel::Params GetCastParams(
+ns_ConvertToFp8::ParamsV2 GetCastParams(
     const bool stochastic,
     const at::ScalarType& from_dtype,
     const at::ScalarType& to_dtype);

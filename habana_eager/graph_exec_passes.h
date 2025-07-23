@@ -27,7 +27,8 @@ bool AddDeterministicAttribute(std::shared_ptr<torch::jit::Graph> graph);
 bool HandleH2dScales(
     std::shared_ptr<torch::jit::Graph> graph,
     torch::jit::Stack& stack,
-    H2dScalesIndicesNames& h2d_scales_idx_names);
+    H2dScalesIndicesNames& h2d_scales_idx_names,
+    AdjacentCastFp8Indices& adjacent_cast_fp8_indices);
 bool GetOutputsOrderInGraph(
     std::shared_ptr<torch::jit::Graph> graph,
     std::vector<size_t>& outputs_order);

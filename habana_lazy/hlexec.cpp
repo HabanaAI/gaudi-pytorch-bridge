@@ -37,6 +37,7 @@
 #include "passes/replace_inplace_ops.h"
 #include "passes/replace_views_with_reshapes.h"
 #include "passes/transform_graph.h"
+#include "pytorch_helpers/habana_helpers/h2d_scales.h"
 #include "pytorch_helpers/visualize/visualize.h"
 
 using namespace std::literals;
@@ -468,6 +469,140 @@ void HlExec::SearchAndDeleteRedundantInputs(
   }
 }
 
+namespace {
+float GetH2dScaleValue(const ir::Value& scale) {
+  const auto scale_internal =
+      habana_lazy::GetOrCreateHbLazyTensor(
+          scale.m_data_ptr.lock()->tensor_data.value(), at::kHPU)
+          .CurrentTensorAttached()
+          .value();
+  auto tmeta{habana::get_tensor_extra_meta(scale_internal)};
+  if (scale_internal.dtype() == at::ScalarType::Float) {
+    return *reinterpret_cast<float*>(tmeta->get_host_ptr());
+  } else {
+    auto scale_val_bf16 =
+        *reinterpret_cast<at::BFloat16*>(tmeta->get_host_ptr());
+    return static_cast<float>(scale_val_bf16);
+  }
+}
+} // namespace
+
+/*
+ * Traverses graph and looks for pairs of cast_to_fp8 and cast_from_fp8
+ * nodes. Logical ops may be placed between them.
+ */
+void HlExec::CollectAdjacentCastFp8Nodes(const ir::NodePtrList& nodes) {
+  PT_LAZY_TRACE;
+  static const std::unordered_set<c10::Symbol> logical_ops{
+      c10::Symbol::fromQualString("aten::reshape"),
+      c10::Symbol::fromQualString("aten::view"),
+      c10::Symbol::fromQualString("aten::t"),
+      c10::Symbol::fromQualString("aten::transpose"),
+      c10::Symbol::fromQualString("aten::squeeze"),
+      c10::Symbol::fromQualString("aten::unsqueeze"),
+      c10::Symbol::fromQualString("aten::permute"),
+      c10::Symbol::fromQualString("aten::expand"),
+      c10::Symbol::fromQualString("aten::slice"),
+      c10::Symbol::fromQualString("aten::clone")};
+  static const c10::Symbol cast_to_fp8_symbol =
+      c10::Symbol::fromQualString("hpu::cast_to_fp8_v2");
+  static const c10::Symbol cast_from_fp8_symbol =
+      c10::Symbol::fromQualString("hpu::cast_from_fp8");
+
+  habana::AdjacentCastFp8Indices adjacent_cast_fp8_indices{};
+
+  for (const auto& node : nodes) {
+    const auto& op = node->op();
+    if (cast_to_fp8_symbol != op and cast_from_fp8_symbol != op) {
+      continue;
+    }
+
+    const auto& inputs = node->GetInputs();
+    const auto& input = inputs[0];
+
+    // Logical ops are allowed to be placed between cast_to_fp8 and
+    // cast_from_fp8 nodes.
+    auto parent_node = input.mp_node;
+    while (logical_ops.count(parent_node->op()) == 1) {
+      parent_node = parent_node->GetInputs()[0].mp_node;
+    }
+    const auto& parent_op = parent_node->op();
+    const bool node_is_cast_to = cast_to_fp8_symbol == op;
+
+    if (not((node_is_cast_to and cast_from_fp8_symbol == parent_op) or
+            (not node_is_cast_to and cast_to_fp8_symbol == parent_op))) {
+      continue;
+    }
+
+    const auto& node_scale = inputs[1];
+    if (not node_scale.IsHpuInputNode()) {
+      continue;
+    }
+
+    const auto& parent_scale = parent_node->GetInputs()[1];
+    if (not parent_scale.IsHpuInputNode()) {
+      continue;
+    }
+
+    adjacent_cast_fp8_indices.emplace_back(
+        parent_node->get_post_order_pos(), node->get_post_order_pos());
+  }
+  PT_BRIDGE_DEBUG(
+      "Found ",
+      adjacent_cast_fp8_indices.size(),
+      " pairs of adjacent cast_to/from_fp8 nodes in the graph");
+  mp_g_and_meta_data_->set_adjacent_cast_fp8_indices(adjacent_cast_fp8_indices);
+}
+
+/*
+ * Looks for adjacent cast_to/from_fp8 nodes with not reciprocal scales.
+ * If such pair is found, their H2D scale tensors are marked with
+ * `h2d_not_reciprocal` flag, which is then propagated to the GC pass
+ * to avoid removal of this pair.
+ */
+void HlExec::MarkNonReciprocalH2dScales(const ir::NodePtrList& nodes) {
+  PT_LAZY_TRACE;
+  const habana::AdjacentCastFp8Indices& adjacent_cast_fp8_indices =
+      mp_g_and_meta_data_->get_adjacent_cast_fp8_indices();
+  // This is a list of nodes that are already processed, so we do not
+  // process them again.
+  std::vector<ir::NodePtr> known_reciprocals{};
+
+  for (const auto& [parent_id, child_id] : adjacent_cast_fp8_indices) {
+    auto parent_node = nodes[parent_id];
+    auto child_node = nodes[child_id];
+
+    if (std::find(
+            known_reciprocals.begin(), known_reciprocals.end(), parent_node) !=
+        known_reciprocals.end()) {
+      continue;
+    }
+
+    const auto& parent_scale = parent_node->GetInputs()[1];
+    const auto& child_scale = child_node->GetInputs()[1];
+
+    const float parent_scale_val = GetH2dScaleValue(parent_scale);
+    const float child_scale_val = GetH2dScaleValue(child_scale);
+
+    if (child_scale_val != 1.0 / parent_scale_val) {
+      const auto scale_internal =
+          habana_lazy::GetOrCreateHbLazyTensor(
+              parent_scale.m_data_ptr.lock()->tensor_data.value(), at::kHPU)
+              .CurrentTensorAttached()
+              .value();
+      habana::get_tensor_extra_meta(scale_internal)
+          ->set_h2d_not_reciprocal(true);
+      PT_BRIDGE_DEBUG(
+          "Marked adjacent casts as non-reciprocal. Scales: ",
+          parent_scale_val,
+          " and ",
+          child_scale_val);
+    } else {
+      known_reciprocals.push_back(child_node);
+    }
+  }
+}
+
 /*
  * Get the JIT graph from cache, or create it.
  *
@@ -564,6 +699,11 @@ void HlExec::GetOrCreate(ir::PostOrderData& po_data, torch::jit::Stack& stack) {
         mp_g_and_meta_data_->set_fwd_graph_builder_stack_map(
             m_fwd_graph_stack_map_);
         IdentifyAndSetGraphNodes(po_data.post_order);
+        if (habana_helpers::is_h2d_scales_enabled() and
+            GET_ENV_FLAG_NEW(PT_HPU_MARK_NON_RECIPROCAL_CASTS)) {
+          CollectAdjacentCastFp8Nodes(po_data.post_order);
+          MarkNonReciprocalH2dScales(po_data.post_order);
+        }
       }};
 
   if (std::getenv("PT_HPU_LAZY_CACHE_DISABLE")) {
@@ -627,6 +767,10 @@ void HlExec::GetOrCreate(ir::PostOrderData& po_data, torch::jit::Stack& stack) {
       at::ArrayRef<torch::jit::IValue> input_refs =
           torch::jit::last(stack, mp_g_->inputs().size());
       mp_g_and_meta_data_->ComputeGraphHashCode(mp_g_, input_refs);
+    }
+    if (habana_helpers::is_h2d_scales_enabled() and
+        GET_ENV_FLAG_NEW(PT_HPU_MARK_NON_RECIPROCAL_CASTS)) {
+      MarkNonReciprocalH2dScales(po_data.post_order);
     }
     visualize::DumpCachedGraph(mp_g_, m_g_hash_);
   }
