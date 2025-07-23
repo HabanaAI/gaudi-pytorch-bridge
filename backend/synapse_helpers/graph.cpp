@@ -562,11 +562,12 @@ void graph::add_node(
   // set hints via synapse API call
   if (!hints_str.empty()) {
     auto hints_map = ParseHintsFromString(hints_str);
-
     bool is_exec_order_provided = false;
     bool is_group_id_provided = false;
+    bool is_custom_bundle_provided = false;
     synUserExecOrder user_exec_order;
-    synUserProgrammability user_programmability;
+    synUserBundling user_bundling;
+    synUserProgrammability user_programmability = {};
     for (const auto& h : hints_map) {
       if (h.first == "exec_order") {
         user_exec_order.executionOrderedIndex =
@@ -575,11 +576,34 @@ void graph::add_node(
       } else if (h.first == "group_id") {
         user_exec_order.groupId = static_cast<unsigned>(std::stoi(h.second));
         is_group_id_provided = true;
+      } else if (h.first == "user_bundle_id") {
+        user_bundling.bundleUserIndex =
+            static_cast<unsigned>(std::stoi(h.second));
+        is_custom_bundle_provided = true;
       }
     }
 
     // require both exec_order and group_id to be set
-    if (is_exec_order_provided && is_group_id_provided) {
+    if (is_custom_bundle_provided) {
+      if (is_exec_order_provided || is_group_id_provided) {
+        PT_SYNHELPER_WARN(
+            "Currently, user bundling can't be combined with user scheduling. ",
+            "Bundling will be the preferred hint in such case. Conflict found at node: ",
+            node_name);
+      }
+
+      user_programmability.userBundling = &user_bundling;
+      auto status = synNodeSetUserProgrammability(
+          graph_handle_, nodeId, &user_programmability);
+      if (status != synStatus::synSuccess) {
+        PT_SYNHELPER_WARN(
+            Logger::formatStatusMsg(status),
+            "Node " + node_type + " synNodeSetUserProgrammability");
+        PT_SYNHELPER_FATAL(
+            Logger::formatStatusMsg(status),
+            "node add synNodeSetUserProgrammability failed");
+      }
+    } else if (is_exec_order_provided && is_group_id_provided) {
       user_programmability.userExecOrder = &user_exec_order;
       auto status = synNodeSetUserProgrammability(
           graph_handle_, nodeId, &user_programmability);
