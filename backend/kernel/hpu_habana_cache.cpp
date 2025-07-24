@@ -1774,7 +1774,7 @@ void RecipeLauncher::Launch(
       // recipe_id_ needs to be passed to done_cb to ensure its lifetime until
       // corresponding recipe is finished on stream
       const auto& recipe_ptr = recipe_;
-      resource_holder->recipe_id() = recipe_ptr;
+      resource_holder->set_recipe_id(recipe_ptr);
       resource_holder->set_output_tensors(outPtRefs);
       resource_holder->set_address_lock(std::move(address_lock));
       resource_holder->set_input_tensors(ptRefs);
@@ -1823,7 +1823,7 @@ void RecipeLauncher::Launch(
       // recipe_id_ needs to be passed to done_cb to ensure its lifetime until
       // corresponding recipe is finished on stream
       const auto& recipe_ptr = recipe_;
-      resource_holder->recipe_id() = recipe_ptr;
+      resource_holder->set_recipe_id(recipe_ptr);
       resource_holder->set_address_lock(std::move(address_lock));
       resource_holder->set_recipe_counter_ptr(&recipe_counter);
       resource_holder->set_active_graph_key(active_graph_key_);
