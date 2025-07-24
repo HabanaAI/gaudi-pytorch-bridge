@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -170,7 +170,9 @@ std::map<std::string, c10::ScalarType> create_tensor_dtype_map(
   for (int i = 0; i < inputs.size(); i++) {
     auto tp = inputs[i]->type()->cast<torch::jit::TensorType>();
     std::string name = std::to_string(i) + "_" + inputs[i]->debugName();
-    tensor_dtype_map[name] = *tp->scalarType();
+    if (tp->scalarType().has_value()) {
+      tensor_dtype_map[name] = *tp->scalarType();
+    }
   }
   return tensor_dtype_map;
 }

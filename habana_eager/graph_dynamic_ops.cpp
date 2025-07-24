@@ -77,10 +77,10 @@ void GetValuesAndScalarIndexesFromListConst(
       *node);
 
   auto value = node->output(0);
-  torch::jit::IValue const_ivalue = torch::jit::toIValue(value).value();
-  if (const_ivalue.isIntList()) {
+  auto opt_const_ivalue = torch::jit::toIValue(value);
+  if (opt_const_ivalue.has_value() && opt_const_ivalue.value().isIntList()) {
     int64_t input_idx = LONG_MAX;
-    auto vec = const_ivalue.toIntVector();
+    auto vec = opt_const_ivalue.value().toIntVector();
     for (auto v : vec) {
       scalar_indexes.push_back(input_idx);
       values.push_back(v);
@@ -168,9 +168,9 @@ std::vector<std::string> GetRangeInfoExprFromListConst(
 
   auto value = node->output(0);
   std::vector<std::string> expr_values;
-  torch::jit::IValue const_ivalue = torch::jit::toIValue(value).value();
-  if (const_ivalue.isIntList()) {
-    auto vec = const_ivalue.toIntVector();
+  auto opt_const_ivalue = torch::jit::toIValue(value);
+  if (opt_const_ivalue.has_value() && opt_const_ivalue.value().isIntList()) {
+    auto vec = opt_const_ivalue.value().toIntVector();
     for (auto v : vec) {
       expr_values.push_back(std::to_string(v));
     }

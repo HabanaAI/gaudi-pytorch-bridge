@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -53,20 +53,20 @@ struct FusedDropoutHpuOpTest : public HpuOpTestUtil {
       std::initializer_list<long int> sizes,
       torch::ScalarType type,
       double p,
-      std::optional<at::Generator> gen,
+      at::Generator gen,
       int seed1,
       int seed2) {
     DisableRecipeCache();
 
     auto input = torch::randn(sizes, torch::dtype(type)).to(torch::kHPU);
 
-    gen->set_current_seed(seed1);
+    gen.set_current_seed(seed1);
     auto dropout1 = torch::_fused_dropout(input, p, gen);
 
     auto output1 = std::get<0>(dropout1).to("cpu");
     auto mask1 = std::get<1>(dropout1).to("cpu");
 
-    gen->set_current_seed(seed2);
+    gen.set_current_seed(seed2);
     auto dropout2 = torch::_fused_dropout(input, p, gen);
 
     auto output2 = std::get<0>(dropout2).to("cpu");

@@ -219,7 +219,9 @@ generate_advanced_indexing_indices_list(const at::Stack& stack) {
     std::vector<std::vector<int64_t>> shapes_handled;
 
     if (!index_all_elems[i]) {
-      auto shape_to_find = indices[i].value().sizes().vec();
+      auto opt_value = indices[i];
+      HABANA_ASSERT(opt_value.has_value(), "Optional variable has no value!");
+      auto shape_to_find = opt_value.value().sizes().vec();
       auto it = std::find_if(
           std::begin(explicit_indice_handled),
           std::end(explicit_indice_handled),
@@ -247,15 +249,17 @@ generate_advanced_indexing_indices_list(const at::Stack& stack) {
           repeat_interleaves_needed[i] *= self_sizes[j];
       } else {
         // if the shape is explicit
+        auto opt_value = indices[j];
+        HABANA_ASSERT(opt_value.has_value(), "Optional variable has no value!")
         auto it = std::find(
             std::begin(shapes_handled),
             std::end(shapes_handled),
-            indices[j].value().sizes().vec());
+            opt_value.value().sizes().vec());
         if (it != std::end(shapes_handled))
           // and already handled, don't r/ri the i indice
           continue;
 
-        shapes_handled.emplace_back(indices[j].value().sizes().vec());
+        shapes_handled.emplace_back(opt_value.value().sizes().vec());
 
         if (repeat_index >= j)
           repeats_needed[i] *= index_t_sizes[j];
@@ -264,9 +268,14 @@ generate_advanced_indexing_indices_list(const at::Stack& stack) {
       }
     }
 
-    if (!index_all_elems[i])
-      // save the handled
-      explicit_indice_handled.emplace_back(indices[i].value().sizes().vec(), i);
+    if (!index_all_elems[i]) {
+      auto opt_value = indices[i];
+      if (opt_value.has_value()) {
+        // save the handled
+        explicit_indice_handled.emplace_back(
+            opt_value.value().sizes().vec(), i);
+      }
+    }
 
     // update the repeat index for any handled indice so one more repeat is
     // applied in the next iteration.
@@ -297,7 +306,9 @@ generate_advanced_indexing_indices_list(const at::Stack& stack) {
           repeat_interleaves_needed[dim]);
       indices_list.push_back(it_repeat_interleave.repeat(repeats_needed[dim]));
     } else if (indices[dim].has_value()) {
-      auto input_temp = indices[dim].value();
+      auto opt_value = indices[dim];
+      HABANA_ASSERT(opt_value.has_value(), "Optional variable has no value!")
+      auto input_temp = opt_value.value();
       at::Tensor in_t;
       if (input_temp.defined() &&
           (input_temp.device().type() != c10::DeviceType::HPU)) {
@@ -385,7 +396,9 @@ at::Tensor& _index_put_impl_eager(
 
   indices_vec.clear();
   for (std::optional<at::Tensor> input : indices_out_opt_vec) {
-    indices_vec.push_back(input.value());
+    if (input.has_value()) {
+      indices_vec.push_back(input.value());
+    }
   }
 
   auto only_single_index_tensor = (indices_vec.size() == 1ULL);

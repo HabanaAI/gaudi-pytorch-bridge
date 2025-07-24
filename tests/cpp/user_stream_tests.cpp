@@ -145,15 +145,18 @@ TEST(TestStream, MultithreadGetAndSetTest) {
   c10::hpu::HPUStream cur_stream = c10::hpu::getCurrentHPUStream();
   c10::hpu::HPUStream default_stream = c10::hpu::getDefaultHPUStream();
 
-  if (device.type() == synDeviceGaudi) {
-    ASSERT_EQ_HPU(cur_stream, default_stream);
+  ASSERT_EQ_HPU(cur_stream, default_stream);
+  ASSERT_TRUE(s0.has_value());
+  ASSERT_TRUE(s1.has_value());
+
+  if (s0.has_value() && s1.has_value()) {
     ASSERT_NE_HPU(cur_stream, *s0);
     ASSERT_NE_HPU(cur_stream, *s1);
+  }
+
+  if (device.type() == synDeviceGaudi) {
     ASSERT_EQ_HPU(s0, s1);
   } else {
-    ASSERT_EQ_HPU(cur_stream, default_stream);
-    ASSERT_NE_HPU(cur_stream, *s0);
-    ASSERT_NE_HPU(cur_stream, *s1);
     ASSERT_NE_HPU(s0, s1);
   }
 }

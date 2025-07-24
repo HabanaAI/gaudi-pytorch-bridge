@@ -359,7 +359,7 @@ bool AliasDb::hasWriters(const Value* v) const {
 }
 
 void AliasDb::getWritesImpl(Node* n, MemoryLocations& ret) const {
-  if (writeIndex_->count(n)) {
+  if (writeIndex_.has_value() && writeIndex_->count(n)) {
     const auto& writes = writeIndex_->at(n);
     ret |= writes;
   }
@@ -490,6 +490,8 @@ std::string AliasDb::toString() const {
   }
 
   ss << "\n===3. Writes===\n";
+  HABANA_ASSERT(
+      writeIndex_.has_value(), "Optional variable writeIndex_ has no value!");
   for (const auto& pr : *writeIndex_) {
     const auto node = pr.first;
     const auto& values = pr.second;
@@ -1938,19 +1940,25 @@ void AliasDb::move(Node* toMove, Node* movePoint, MoveSide moveSide) {
 }
 
 bool AliasDb::writesToWildcard(Node* n) const {
-  if (!writeIndex_->count(n)) {
+  if (writeIndex_.has_value()) {
+    if (!writeIndex_->count(n)) {
+      return false;
+    }
+
+    const auto& writes = writeIndex_->at(n);
+
+    // Are any of these memoryLocs a wildcard element?
+    for (const auto& pr : wildcardIndex_) {
+      const auto wildcardElement = pr.second;
+      if (writes.test(wildcardElement->index)) {
+        return true;
+      }
+    }
+
+    return false;
+  } else {
     return false;
   }
-  const auto& writes = writeIndex_->at(n);
-
-  // Are any of these memoryLocs a wildcard element?
-  for (const auto& pr : wildcardIndex_) {
-    const auto wildcardElement = pr.second;
-    if (writes.test(wildcardElement->index)) {
-      return true;
-    }
-  }
-  return false;
 }
 
 bool AliasDb::mayAliasWildcard(const Value* v) const {
@@ -2055,6 +2063,8 @@ std::optional<Element*> AliasDb::setWildcard(const Value* v) {
 
 void AliasDb::buildWrittenToLocationsIndex() {
   MemoryLocations ret;
+  HABANA_ASSERT(
+      writeIndex_.has_value(), "Optional variable writeIndex_ has no value!")
   for (const auto& pr : *writeIndex_) {
     const auto& writtenLocs = pr.second;
     ret |= writtenLocs;

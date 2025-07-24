@@ -252,8 +252,9 @@ bool ArangeOperatorDS::ReplaceWithDynamicHPUOp(
 
   bool setToIntegralDType =
       IssetToIntegralDType({start, end, step}, org_stack, org_stack_index_map);
-  auto out_dtype_opt = toIValue(out_dtype_node_val).value();
-  auto out_dtype = out_dtype_opt.toOptional<at::ScalarType>().value_or(
+  auto out_dtype_opt = toIValue(out_dtype_node_val);
+  HABANA_ASSERT(out_dtype_opt.has_value(), "Optional variable has no value!");
+  auto out_dtype = out_dtype_opt.value().toOptional<at::ScalarType>().value_or(
       setToIntegralDType ? at::ScalarType::Long
                          : torch::get_default_dtype_as_scalartype());
   std::vector<int64_t> dtensor_indexes;
