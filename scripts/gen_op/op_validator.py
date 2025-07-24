@@ -65,12 +65,14 @@ class OpValidatorGenerator(ABC):
 
 def generate_dtype_macro(dtypes, check_implicit_types):
     def generate_line(dtypes, suffix=""):
-        assert isinstance(dtypes, list)
+        if not isinstance(dtypes, list):
+            raise AssertionError("Not a list instance")
         dtypes_set = set(dtypes)
-        assert len(dtypes) == len(dtypes_set), "Found same dtype defined more than once!"
+        if not len(dtypes) == len(dtypes_set):
+            raise AssertionError("Found same dtype defined more than once!")
 
-        if check_implicit_types:
-            assert not any(x in dtypes_set for x in ["Double", "Bool"]), (
+        if check_implicit_types and any(x in dtypes_set for x in ["Double", "Bool"]):
+            raise AssertionError(
                 "Double and Bool are not natively supported, they are treated as "
                 "Float and Char respectively. For instance if Float is a supported "
                 "dtype, Double is added as a supported dtype by the script."
@@ -160,13 +162,15 @@ class CheckNodeWithSharedLayerValidatorGenerator(OpValidatorGenerator):
         skip_slrg = self._ctxop.op.get("skip_slrg", False)
 
         is_compatible_with_shared_layer = not any([has_op_backend, has_op_frontend, has_early_exit, has_reduction])
-        assert is_compatible_with_shared_layer, f"cannot use shared layer for {self._ctxop.opname}"
+        if not is_compatible_with_shared_layer:
+            raise AssertionError(f"cannot use shared layer for {self._ctxop.opname}")
         if not skip_slrg:
-            assert has_namespaces, (
-                f"cannot use shared layer for {self._ctxop.opname} - missing namespaces (e.g. torch.nn.functional)"
-            )
-            if has_namespaces.count("torch.nn") > 0:
-                assert has_pytorch_module_names, (
+            if not (has_namespaces):
+                raise AssertionError(
+                    f"cannot use shared layer for {self._ctxop.opname} - missing namespaces (e.g. torch.nn.functional)"
+                )
+            if has_namespaces.count("torch.nn") > 0 and not has_pytorch_module_names:
+                raise AssertionError(
                     f"cannot use shared layer for {self._ctxop.opname} - missing pytorch_module_names (e.g. AdaptiveAvgPool2d)"
                 )
 
@@ -237,11 +241,12 @@ class CheckNodeWithCustomSharedLayerValidatorGenerator(CheckNodeWithSharedLayerV
         has_pytorch_module_names = self._ctxop.op.get("pytorch_module_names", False)
         skip_slrg = self._ctxop.get_skip_slrg()
         if not skip_slrg:
-            assert has_namespaces, (
-                f"cannot use shared layer for {self._ctxop.opname} - missing namespaces (e.g. torch.nn.functional)"
-            )
-            if has_namespaces.count("torch.nn") > 0:
-                assert has_pytorch_module_names, (
+            if not (has_namespaces):
+                raise AssertionError(
+                    f"cannot use shared layer for {self._ctxop.opname} - missing namespaces (e.g. torch.nn.functional)"
+                )
+            if has_namespaces.count("torch.nn") > 0 and not has_pytorch_module_names:
+                raise AssertionError(
                     f"cannot use shared layer for {self._ctxop.opname} - missing pytorch_module_names (e.g. AdaptiveAvgPool2d)"
                 )
         return True

@@ -146,15 +146,17 @@ def get_op_backend_class_impl(ctxop, fname, cname, num_out_tensors, param_vars):
     promote_int_to_float = ctxop.promote_int_to_float()
     is_custom_op_out_variant = ctxop.get_is_custom_op_out_variant()
 
-    assert (not out_ids) ^ (not inplace_ids) ^ is_out_fn(is_custom_op_out_variant, fname), (
-        f"`out_ids` or `inplace_ids` should not be defined for {fname}"
-        if is_out_fn(is_custom_op_out_variant, fname)
-        else f"Either `out_ids` or `inplace_ids` should be defined for {fname}"
-    )
+    if not (not out_ids) ^ (not inplace_ids) ^ is_out_fn(is_custom_op_out_variant, fname):
+        raise AssertionError(
+            f"`out_ids` or `inplace_ids` should not be defined for {fname}"
+            if is_out_fn(is_custom_op_out_variant, fname)
+            else f"Either `out_ids` or `inplace_ids` should be defined for {fname}"
+        )
 
     scalar_ids_set = set(scalar_ids)
     err_ids = scalar_ids_set.intersection(out_ids if len(out_ids) else inplace_ids)
-    assert len(err_ids) == 0, f"Input(s) at {err_ids} cannot be both scalar and tensor for {fname}."
+    if not len(err_ids) == 0:
+        raise AssertionError(f"Input(s) at {err_ids} cannot be both scalar and tensor for {fname}.")
 
     out_ids = ", ".join([str(o) for o in out_ids])
     inplace_ids = ", ".join([str(i) for i in inplace_ids])
@@ -172,9 +174,12 @@ def get_op_backend_class_impl(ctxop, fname, cname, num_out_tensors, param_vars):
 
     synapse_layouts = ctxop.get_synapse_layouts()
     if len(synapse_layouts):
-        assert len(synapse_layouts) == 2, "Define both input and output layouts."
-        assert len(synapse_layouts[0]), "Input layouts size should be atleast 1."
-        assert len(synapse_layouts[1]), "Output layouts size should be atleast 1."
+        if not len(synapse_layouts) == 2:
+            raise AssertionError("Define both input and output layouts.")
+        if not len(synapse_layouts[0]):
+            raise AssertionError("Input layouts size should be atleast 1.")
+        if not len(synapse_layouts[1]):
+            raise AssertionError("Output layouts size should be atleast 1.")
         in_layouts = ", ".join(["synapse_helpers::layouts::SynapseLayoutFormat::" + l for l in synapse_layouts[0]])
         out_layouts = ", ".join(["synapse_helpers::layouts::SynapseLayoutFormat::" + l for l in synapse_layouts[1]])
         ctor_extra_calls.append(f"SetSynapseLayouts({{{in_layouts}}}, {{{out_layouts}}});")
@@ -537,9 +542,8 @@ def parse_params(params, rtype, fc, funsig, out_ids, should_skip_inplace_param_f
         if fc and pname in fc[1:]:
             fc_params.append(f"{param_types[i].strip()} {pname}")
 
-    assert len(fc) == 0 or len(fc_params) + 1 == len(fc), (
-        f"Cannot find all params specified for fallback check {fc[0]}."
-    )
+    if not (len(fc) == 0 or len(fc_params) + 1 == len(fc)):
+        raise AssertionError(f"Cannot find all params specified for fallback check {fc[0]}.")
 
     if rtype == "void" and out_ids is not None:
         out_indices = out_ids
@@ -561,7 +565,8 @@ def handle_type_promotion(ctxop, fname, fe_call_args, param_vars):
     safe_cast_check = ctxop.safe_cast_check()
 
     promote_types = bool(promote_to_common_type) + bool(promote_int_to_float)
-    assert promote_types < 2, "Only one of [promote_to_common_type, promote_int_to_float] may be set to True."
+    if not promote_types < 2:
+        raise AssertionError("Only one of [promote_to_common_type, promote_int_to_float] may be set to True.")
     promote_types = bool(promote_types)
     use_compute_type = promote_types
     dtype_helper_inputs = []
@@ -583,8 +588,10 @@ def handle_type_promotion(ctxop, fname, fe_call_args, param_vars):
         safe_cast = is_inplace_or_out_op(ctxop.get_is_custom_op_out_variant(), fname)
 
         if safe_cast_check is not None:
-            assert safe_cast, f"safe_cast_check cannot check for non inplace/non out variant, op={fname}"
-            assert safe_cast_check is False, f"safe_cast_check is true by default for inplace/out variant, op={fname}"
+            if not safe_cast:
+                raise AssertionError(f"safe_cast_check cannot check for non inplace/non out variant, op={fname}")
+            if safe_cast_check is not False:
+                raise AssertionError(f"safe_cast_check is true by default for inplace/out variant, op={fname}")
             safe_cast = safe_cast_check
 
         code = templates.AUTO_COMPUTE_TYPE.format(
@@ -1084,9 +1091,8 @@ def generate_op(fndef, op_name, ctxop, op_params, is_check_kernel_support=False,
     op_backend_class = None
     if not only_slrg:
         if ctxop.get_override_fn():
-            assert ctxop.get_op_frontend_class() == "LazyOp" and ctxop.get_op_backend_class() == "OpBackend", (
-                f"{op_name} has defined override_fn, it cannot take op_frontend or op_backend"
-            )
+            if not (ctxop.get_op_frontend_class() == "LazyOp" and ctxop.get_op_backend_class() == "OpBackend"):
+                raise AssertionError(f"{op_name} has defined override_fn, it cannot take op_frontend or op_backend")
         elif not ctxop.get_only_shared_layer():
             op_backend_class = f"Gen{op_name.replace('.', '_')}"
             op_backend = get_op_backend_class_impl(ctxop, fname, op_backend_class, len(call_args), param_vars)
@@ -1704,7 +1710,8 @@ def generate_autograd_ops(args, fgens_autograd):
 def generate(args):
     yaml_ctx = yaml_context_from_files(args.yaml, args.templates)
     pt_ops, errors, all_ops_metas = extract_pt_ops(args.pt_signatures, yaml_ctx.get_op_names())
-    assert len(errors) == 0
+    if not len(errors) == 0:
+        raise AssertionError("Errors appeared")
 
     fgens_native = []
     fgens_hpu_wrap_lazy = []
@@ -1718,7 +1725,8 @@ def generate(args):
         ctxop = Op(op_name, op_params)
         if ctxop.get_hpu_wrap():
             fndef = pt_ops.get(op_name, None)
-            assert fndef is not None, f"Op {op_name} doesn't exist in aten namespace, consider removing it from yaml."
+            if not fndef is not None:
+                raise AssertionError(f"Op {op_name} doesn't exist in aten namespace, consider removing it from yaml.")
             op_meta = generate_op_meta(fndef.cpp_sig, op_name, op_params)
             fgens_hpu_wrap_lazy.append(op_meta)
             if fndef.dtdf or ctxop.treat_as_dtdf():
@@ -2191,7 +2199,8 @@ def generate_check_kernel_support(args):
     yaml_ctx = yaml_context_from_files(args.yaml, args.templates)
     # pt_ops is dict of {op_name : (cpp_sig, aten_sig, dtdf)}
     pt_ops, errors, _ = extract_pt_ops(args.pt_signatures, yaml_ctx.get_op_names())
-    assert len(errors) == 0
+    if not len(errors) == 0:
+        raise AssertionError("Errors appeared")
 
     fgens_native = []
     fgens_hpu_wrap = []
@@ -2202,7 +2211,8 @@ def generate_check_kernel_support(args):
         if not ctxop.get_only_slrg():
             if ctxop.get_hpu_wrap():
                 fndef = pt_ops.get(op_name, None)
-                assert fndef is not None, f"Op {op_name} doesn't exist in the aten namespace."
+                if not fndef is not None:
+                    raise AssertionError(f"Op {op_name} doesn't exist in the aten namespace.")
                 op_meta = generate_op_meta(fndef.cpp_sig, op_name, op_params)
                 fgens_hpu_wrap.append(op_meta)
             elif ctxop.get_custom_op_schema():

@@ -80,7 +80,8 @@ def _parent_name(target: str) -> tuple[str, str]:
 
 
 def replace_node_module(node: fx.Node, modules: dict[str, Any], new_module: torch.nn.Module):
-    assert isinstance(node.target, str)
+    if not isinstance(node.target, str):
+        raise AssertionError("Not a string instance")
     parent_name, name = _parent_name(node.target)
     setattr(modules[parent_name], name, new_module)
 

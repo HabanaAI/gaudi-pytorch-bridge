@@ -90,7 +90,8 @@ class StringEmit:
 def last_match(t):
     if isinstance(t, lark.lexer.Token):
         return t.end_column - 1
-    assert isinstance(t, lark.tree.Tree)
+    if not isinstance(t, lark.tree.Tree):
+        raise AssertionError("Not a lark.tree.Tree instance")
     return last_match(t.children[-1])
 
 
@@ -98,7 +99,8 @@ def for_every_token(t, fn):
     if isinstance(t, lark.lexer.Token):
         fn(t)
     else:
-        assert isinstance(t, lark.tree.Tree)
+        if not isinstance(t, lark.tree.Tree):
+            raise AssertionError("Not a lark.tree.Tree instance")
         for c in t.children:
             for_every_token(c, fn)
 
@@ -115,7 +117,8 @@ def emit_string(t, emit, emit_fn):
         if isinstance(t, lark.lexer.Token):
             emit.advance(t)
         else:
-            assert isinstance(t, lark.tree.Tree)
+            if not isinstance(t, lark.tree.Tree):
+                raise AssertionError("Not a lark.tree.Tree instance")
             for c in t.children:
                 emit_string(c, emit, emit_fn)
     else:
@@ -123,11 +126,15 @@ def emit_string(t, emit, emit_fn):
 
 
 def typed_child(t, n, ttype):
-    assert isinstance(t, lark.tree.Tree)
-    assert n < len(t.children)
+    if not isinstance(t, lark.tree.Tree):
+        raise AssertionError("Not a lark.tree.Tree instance")
+    if not n < len(t.children):
+        raise AssertionError("Not enought children")
     c = t.children[n]
-    assert isinstance(c, lark.tree.Tree)
-    assert c.data == ttype, t.pretty()
+    if not isinstance(c, lark.tree.Tree):
+        raise AssertionError("Not a lark.tree.Tree instance")
+    if not c.data == ttype:
+        raise AssertionError(t.pretty())
     return c
 
 
@@ -170,13 +177,15 @@ def create_map_sig(tree, orig_sig):
 #   - for type std::optional<ArrayRef<int>> it will return std::optional<ArrayRef> as
 #        further type extraction is not necessary in that case
 def type_core(t, recursive=True):
-    assert isinstance(t, lark.tree.Tree)
+    if not isinstance(t, lark.tree.Tree):
+        raise AssertionError("Not a lark.tree.Tree instance")
     for c in t.children:
         if isinstance(c, lark.tree.Tree) and c.data == "core_type":
             c = c.children[0]
             if isinstance(c, lark.lexer.Token):
                 return c.value
-            assert isinstance(c, lark.tree.Tree) and c.data == "template"
+            if not isinstance(c, lark.tree.Tree) and c.data == "template":
+                raise AssertionError("Not a lark.tree.Tree instance")
             if recursive:
                 try:
                     for c2 in c.children:
@@ -189,13 +198,15 @@ def type_core(t, recursive=True):
 
 
 def type_is_const(t):
-    assert isinstance(t, lark.tree.Tree)
+    if not isinstance(t, lark.tree.Tree):
+        raise AssertionError("Not a lark.tree.Tree instance")
     c = t.children[0]
     return isinstance(c, lark.lexer.Token) and c.value == "const"
 
 
 def extract_list(t, l):
-    assert isinstance(t, lark.tree.Tree)
+    if not isinstance(t, lark.tree.Tree):
+        raise AssertionError("Not a lark.tree.Tree instance")
     l.append(t.children[0])
     if len(t.children) == 2:
         c = t.children[1]
@@ -217,39 +228,52 @@ def get_function_signature(t, orig_sig, namefn):
 
 
 def get_parameters(t):
-    assert isinstance(t, lark.tree.Tree)
+    if not isinstance(t, lark.tree.Tree):
+        raise AssertionError("Not a lark.tree.Tree instance")
     c = t.children[2]
-    assert isinstance(c, lark.tree.Tree)
-    assert c.data == "params"
+    if not isinstance(c, lark.tree.Tree):
+        raise AssertionError("Not a lark.tree.Tree instance")
+    if not c.data == "params":
+        raise AssertionError("Not params")
     params = []
     extract_list(c, params)
     return params
 
 
 def param_name(t):
-    assert isinstance(t, lark.tree.Tree)
+    if not isinstance(t, lark.tree.Tree):
+        raise AssertionError("Not a lark.tree.Tree instance")
     c = t.children[1]
-    assert isinstance(c, lark.tree.Tree)
-    assert c.data == "param_name"
+    if not isinstance(c, lark.tree.Tree):
+        raise AssertionError("Not a lark.tree.Tree instance")
+    if not c.data == "param_name":
+        raise AssertionError("Not a param name")
     token = c.children[0]
-    assert isinstance(token, lark.lexer.Token)
+    if not isinstance(token, lark.lexer.Token):
+        raise AssertionError("Not a lark.lexer.Token instance")
     return token.value
 
 
 def param_type(t):
-    assert isinstance(t, lark.tree.Tree)
+    if not isinstance(t, lark.tree.Tree):
+        raise AssertionError("Not a lark.tree.Tree instance")
     c = t.children[0]
-    assert isinstance(c, lark.tree.Tree)
+    if not isinstance(c, lark.tree.Tree):
+        raise AssertionError("Not a lark.tree.Tree instance")
     return c
 
 
 def get_return_type_str(t, orig_sig):
-    assert isinstance(t, lark.tree.Tree)
+    if not isinstance(t, lark.tree.Tree):
+        raise AssertionError("Not a lark.tree.Tree instance")
     fname = t.children[1]
-    assert isinstance(fname, lark.tree.Tree)
-    assert fname.data == "fnname"
+    if not isinstance(fname, lark.tree.Tree):
+        raise AssertionError("Not a lark.tree.Tree instance")
+    if not fname.data == "fnname":
+        raise AssertionError("Incorrect fname")
     token = fname.children[0]
-    assert isinstance(token, lark.lexer.Token)
+    if not isinstance(token, lark.lexer.Token):
+        raise AssertionError("Not a lark.lexer.Token instance")
     return orig_sig[0 : token.column - 2]
 
 

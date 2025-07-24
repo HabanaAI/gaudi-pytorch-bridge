@@ -80,7 +80,6 @@ def _get_available_modules_from_environ():
         # For handling situation when {HABANA_VISIBLE_MODULES_VAR}
         # is set, but empty
         return [0, 1, 2, 3, 4, 5, 6, 7]
-    assert len(visible_modules) > 0 and len(visible_modules) <= 8, (
-        f"{HABANA_VISIBLE_MODULES_VAR} does not have valid value."
-    )
+    if not (len(visible_modules) > 0 and len(visible_modules) <= 8):
+        raise AssertionError(f"{HABANA_VISIBLE_MODULES_VAR} does not have valid value.")
     return visible_modules

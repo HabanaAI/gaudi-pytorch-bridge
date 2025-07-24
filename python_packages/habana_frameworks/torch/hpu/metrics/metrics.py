@@ -62,21 +62,24 @@ class MetricManager:
         self._metric_saver = None
 
     def register(self, name, metric_class):
-        assert name not in self._metrics_types, f"Metric with given name ({name}) is already registered"
+        if not name not in self._metrics_types:
+            raise AssertionError(f"Metric with given name ({name}) is already registered")
 
         self._metrics_types[name] = metric_class
         self._global_metrics.append(metric_class())
         self._global_metrics[-1].on_metric_change(self._metric_saver.metric_change_callback)
 
     def unregister(self, name):
-        assert name in self._metrics_types, f"Metric with given name ({name}) is not registered"
+        if name not in self._metrics_types:
+            raise AssertionError(f"Metric with given name ({name}) is not registered")
         self.get_global_metric(name).stop()
         del self._metrics_types[name]
         self._global_metrics = [m for m in self._global_metrics if m.name() != name]
 
     def get_global_metric(self, name: str):
         metrics = [m for m in self._global_metrics if m.name() == name]
-        assert len(metrics) <= 1, "There are more than one metric with given name"
+        if not len(metrics) <= 1:
+            raise AssertionError("There are more than one metric with given name")
 
         return metrics[0] if len(metrics) == 1 else None
 

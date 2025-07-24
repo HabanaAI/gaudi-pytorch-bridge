@@ -227,7 +227,8 @@ class Unpickler:
             key = read(1)
             if not key:
                 raise EOFError
-            assert isinstance(key, bytes_types)
+            if not isinstance(key, bytes_types):
+                raise AssertionError("Not a bytes_types instance")
             # Risky operators
             if key[0] == GLOBAL[0]:
                 module = readline()[:-1].decode("utf-8")

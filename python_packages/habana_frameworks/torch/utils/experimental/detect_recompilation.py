@@ -32,7 +32,8 @@ DYNSHAPE_FIELD = "_dynshape_info"
 
 class Node:
     def __init__(self, name, parent=None):
-        assert type(name) is str
+        if type(name) is not str:
+            raise AssertionError("Not a string")
         self.name = name
         self.children = []
         self.parent = parent
@@ -60,7 +61,8 @@ class Table:
         self.max_char = max_char
 
     def add_row(self, lst):
-        assert len(lst) == len(self.field_names)
+        if not len(lst) == len(self.field_names):
+            raise AssertionError("Lengths don't match")
         self.rows += [lst]
 
     def _fattest_per_col(self):
@@ -84,7 +86,8 @@ class Table:
         for rowidx, row in enumerate(self.rows):
             if rowidx == 0:
                 st += row_boundary("=")
-            assert len(budget_col) == len(row)
+            if not len(budget_col) == len(row):
+                raise AssertionError("Lengths don't match")
             # splitting a row across multiple rows
             max_rows_needed = max(
                 [
@@ -187,22 +190,20 @@ def _parse(lines):
             modulenm = modulenm.split("module ")[-1].strip("'")
             if mdlname in module_files:
                 classnm1, modulenm1, filenm1 = module_files[mdlname]
-                assert (mdlname, classnm, modulenm, filenm) != (
-                    mdlname,
-                    classnm1,
-                    modulenm1,
-                    filenm1,
-                )
+                if not (mdlname, classnm, modulenm, filenm) != (mdlname, classnm1, modulenm1, filenm1):
+                    raise AssertionError("Not a match")
             module_files[mdlname] = (classnm, modulenm, filenm)
 
         step_done = False
         if "DETECT_RECOMPILE_AUTO" in ln and "step" in ln:
             p0, p1 = ln.split("step:")
             step_from_ln = int(p1.split(" ")[0])
-            assert step_from_ln > step
+            if not step_from_ln > step:
+                raise AssertionError("Steps don't match")
             top_module_name_ = ln.split("][")[1].split("]")[0]
             if top_module_name is not None:
-                assert top_module_name == top_module_name_
+                if not top_module_name == top_module_name_:
+                    raise AssertionError("Top module names don't match")
             else:
                 top_module_name = top_module_name_
             step_done = True
@@ -253,7 +254,8 @@ def _parse(lines):
                 rhs_node = Node(rhs, parent=lhs_node)
                 created_nodes[rhs] = rhs_node
             else:
-                assert created_nodes[rhs].parent is None or created_nodes[rhs].parent.name == lhs_node.name
+                if created_nodes[rhs].parent is not None or created_nodes[rhs].parent.name == lhs_node.name:
+                    raise AssertionError("Incorrect node parent name")
                 created_nodes[rhs].parent = lhs_node
                 created_nodes[rhs].add_self_as_child(lhs_node)
 
@@ -286,9 +288,11 @@ def _wrap_fn(old_fn, tag1, write_to, level=0, waittime=1):
     import torch
 
     def forward(self, *args, **kwargs):
-        assert not torch.distributed.is_initialized(), "Expected 1x run, but torch being used in distributed fashion"
+        if torch.distributed.is_initialized():
+            raise AssertionError("Expected 1x run, but torch being used in distributed fashion")
         field_contents = getattr(self, DYNSHAPE_FIELD)
-        assert INP_HASH in field_contents
+        if INP_HASH not in field_contents:
+            raise AssertionError("INP_HASH missing from field_contents")
         inp_hash = htcore.hpu.input_hash((args, kwargs))
         htcore.mark_step()
         time.sleep(waittime)
@@ -362,7 +366,8 @@ def detect_recompilation_auto_model(model, mdlname="Net", waittime=1, csv_out="o
     def helper(model, write_to, mdlname="Net", level=0, waittime=1):
         model.__name__ = mdlname
         if hasattr(model, DYNSHAPE_FIELD):
-            assert hash(model) in edited_modules, f"The model already has field {DYNSHAPE_FIELD}"
+            if hash(model) not in edited_modules:
+                raise AssertionError(f"The model already has field {DYNSHAPE_FIELD}")
             # we potentially have a situation like:
             # parent
             #   self.c1 = child1()
@@ -373,7 +378,8 @@ def detect_recompilation_auto_model(model, mdlname="Net", waittime=1, csv_out="o
             # so we will skip adding again for self.c1
             return model
 
-        assert hash(model) not in edited_modules
+        if hash(model) in edited_modules:
+            raise AssertionError(f"The model doesn't have field {DYNSHAPE_FIELD}")
         edited_modules.update([hash(model)])
         setattr(model, DYNSHAPE_FIELD, {})
         field_contents = getattr(model, DYNSHAPE_FIELD)
@@ -407,9 +413,11 @@ def detect_recompilation_auto_model(model, mdlname="Net", waittime=1, csv_out="o
         for name, layer in model.named_children():
             layer = helper(layer, write_to, mdlname + "/" + name, level + 1, waittime=waittime)
         if level == 0:
-            assert not hasattr(model, "raw_logs"), "The model already has field raw_logs"
+            if hasattr(model, "raw_logs"):
+                raise AssertionError("The model already has field raw_logs")
             model.raw_logs = MethodType(lambda self: write_to, model)
-            assert not hasattr(model, "analyse_dynamicity"), "The model already has field analyse_dynamicity"
+            if hasattr(model, "analyse_dynamicity"):
+                raise AssertionError("The model already has field analyse_dynamicity")
             model.analyse_dynamicity = MethodType(_get_analyser(csv_out), model)
         return model
 
@@ -438,7 +446,8 @@ def data_dynamicity(dl):
     Returns:
             hist (dictionary): A histogram of inputs
     """
-    assert not torch.distributed.is_initialized(), "Expected 1x run, but torch being used in distributed fashion"
+    if torch.distributed.is_initialized():
+        raise AssertionError("Expected 1x run, but torch being used in distributed fashion")
     hist = {}
     for dt in dl:
         shp_key = get_shape(dt)
@@ -497,9 +506,11 @@ def const_shape_dataloader(dl, maxlen):
     maxlength = -1
     for k, const_shape in const_shape_dt.items():
         currlen = len(const_shape)
-        assert currlen < maxlen
+        if not currlen < maxlen:
+            raise AssertionError("Max length reached")
         if maxlength < currlen:
             maxlength = currlen
             maxlenkey = k
-    assert maxlength > 0, "Perhaps dataset is empty"
+    if not maxlength > 0:
+        raise AssertionError("Perhaps dataset is empty")
     return helper(const_shape_dt[maxlenkey])

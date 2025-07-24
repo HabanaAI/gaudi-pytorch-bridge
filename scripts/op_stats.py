@@ -37,7 +37,8 @@ def need_op_sublist_stats():
     if s:
         if not os.path.isfile(s):
             print("Op stats requested for sublist, but path", s, "does not exist")
-            assert 0
+            if not 0:
+                raise AssertionError("Op stats requested for sublist, but path does not exist")
         else:
             need = True
     if not need:
@@ -384,7 +385,8 @@ def unique_ops_stats_v2(unique_ops, pt_op_dict):
                         unique_op_dict[uop]["dt_dt_ni"] = unique_op_dict[uop].get("dt_dt_ni", 0) + 1
                 else:
                     print("got type2 as ", pt_op_dict[k]["type2"])
-                    assert 0, "invalid type2"
+                    if not 0:
+                        raise AssertionError("Invalid type2")
 
     return unique_op_dict
 

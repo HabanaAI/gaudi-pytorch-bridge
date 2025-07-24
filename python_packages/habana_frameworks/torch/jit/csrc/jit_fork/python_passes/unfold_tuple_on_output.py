@@ -29,7 +29,8 @@ def pass_unfold_tuple_on_output(jit_graph: jit.Graph):
     last_node = jit_graph_nodes[-1]
 
     if last_node.kind() == "prim::TupleConstruct":
-        assert len(list(jit_graph.outputs())) == 1
+        if not len(list(jit_graph.outputs())) == 1:
+            raise AssertionError("Incorrect output number")
         jit_graph.eraseOutput(0)
         for node_input in last_node.inputs():
             jit_graph.registerOutput(node_input)

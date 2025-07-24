@@ -102,7 +102,8 @@ def output_type(dtype):
 def cpp_from_schema(schema):
     ptrn = r'([^(]*)\((.*)\) -> ([^"]*)'
     m = re.match(ptrn, schema)
-    assert m is not None, f"Custom schema {schema} didn't match pattern"
+    if not m is not None:
+        raise AssertionError(f"Custom schema {schema} didn't match pattern")
 
     op_name = m.groups()[0].split(".")[0].split("::")[-1]
     inputs = m.groups()[1].replace(", *", "").split(", ")

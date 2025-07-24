@@ -52,7 +52,8 @@ def test_activity_profiler(device, activities):
             os.remove(fname)
             trace_file_gen = True
             break
-    assert trace_file_gen
+    if not trace_file_gen:
+        raise Exception("Trace file removal failed ")
 
 
 if __name__ == "__main__":

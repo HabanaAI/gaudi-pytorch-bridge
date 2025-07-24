@@ -191,7 +191,8 @@ class graph:
             self.__class__.default_capture_stream = htorch.hpu.Stream()
 
         self.capture_stream = stream if stream is not None else self.__class__.default_capture_stream
-        assert self.capture_stream is not None
+        if not self.capture_stream is not None:
+            raise AssertionError("Incorrect capture_stream")
         self.stream_ctx = htorch.hpu.stream(self.capture_stream)
         self.hpu_graph = hpu_graph
         self.dry_run = dry_run
@@ -265,19 +266,22 @@ def make_graphed_callables(
 
     for c, args in zip(callables, sample_args, strict=False):
         if isinstance(c, torch.nn.Module):
-            assert len(c._backward_hooks) == 0 and len(c._forward_hooks) == 0 and len(c._forward_pre_hooks) == 0, (
-                "Modules must not have hooks registered at the time they are passed. However, registering hooks "
-                + "on modules after passing them through make_graphed_callables is allowed."
+            if not len(c._backward_hooks) == 0 and len(c._forward_hooks) == 0 and len(c._forward_pre_hooks) == 0:
+                raise AssertionError("")(
+                    "Modules must not have hooks registered at the time they are passed. However, registering hooks "
+                    + "on modules after passing them through make_graphed_callables is allowed."
+                )
+            if not all(b.requires_grad is False for b in c.buffers()):
+                raise AssertionError(
+                    "In any :class:`~torch.nn.Module` passed to "
+                    + ":func:`~make_graphed_callables`, only parameters may be trainable. All buffers must have "
+                    + "``requires_grad=False``."
+                )
+        if not all(isinstance(arg, torch.Tensor) for arg in args):
+            raise AssertionError(
+                "In the beta API, sample_args "
+                + "for each callable must be a tuple of Tensors. Other types and keywordargs are not allowed."
             )
-            assert all(b.requires_grad is False for b in c.buffers()), (
-                "In any :class:`~torch.nn.Module` passed to "
-                + ":func:`~make_graphed_callables`, only parameters may be trainable. All buffers must have "
-                + "``requires_grad=False``."
-            )
-        assert all(isinstance(arg, torch.Tensor) for arg in args), (
-            "In the beta API, sample_args "
-            + "for each callable must be a tuple of Tensors. Other types and keywordargs are not allowed."
-        )
 
     per_callable_len_user_args = [len(args) for args in sample_args]
     per_callable_module_params = [tuple(c.parameters()) if isinstance(c, torch.nn.Module) else () for c in callables]
@@ -435,7 +439,8 @@ def make_graphed_callables(
                         marked_inputs = marked_inputs + (inputs[i],)
                     ctx.save_for_backward(*marked_inputs)
                     fwd_graph.replayV3(marked_inputs, asynchronous)
-                    assert isinstance(static_outputs, tuple)
+                    if not isinstance(static_outputs, tuple):
+                        raise AssertionError("Not a tuple instance")
                     return tuple(o.detach() for o in static_outputs)
                 else:
                     for i in range(len_user_args):
@@ -443,7 +448,8 @@ def make_graphed_callables(
                         #     static_input_surface[i].copy_(inputs[i])
                         static_input_surface[i].copy_(inputs[i])
                     fwd_graph.replay(asynchronous)
-                    assert isinstance(static_outputs, tuple)
+                    if not isinstance(static_outputs, tuple):
+                        raise AssertionError("Not a tuple instance")
                     return tuple(o.detach() for o in static_outputs)
 
             @staticmethod
@@ -470,7 +476,8 @@ def make_graphed_callables(
                             g.copy_(grad)
                     bwd_graph.replay(asynchronous)
                     # Input args that didn't require grad expect a None gradient.
-                    assert isinstance(static_grad_inputs, tuple)
+                    if not isinstance(static_grad_inputs, tuple):
+                        raise AssertionError("Not a tuple instance")
                     return tuple(b.detach() if b is not None else b for b in static_grad_inputs)
 
         def functionalized(*user_args):
@@ -554,10 +561,12 @@ def input_hash(obj):
 
 
 def copy_to(dst, src):
-    assert type(dst) is type(src)
+    if type(dst) is not type(src):
+        raise AssertionError("Type mismatch")
     if isinstance(dst, dict):
         for (dk, dv), (sk, sv) in zip(dst.items(), src.items(), strict=False):
-            assert dk == sk
+            if not dk == sk:
+                raise AssertionError("Data mismatch")
             copy_to(dv, sv)
     elif isinstance(dst, list) or (isinstance(dst, tuple) and not isinstance(dst, torch.Size)):
         for d, s in zip(dst, src, strict=False):
@@ -1076,9 +1085,10 @@ class GraphModel(torch.nn.Module):
         )
 
     def assert_not_dataparallel(self):
-        assert not isinstance(self.model, torch.nn.parallel.DataParallel) and not isinstance(
+        if isinstance(self.model, torch.nn.parallel.DataParallel) and not isinstance(
             self.model, torch.nn.parallel.DistributedDataParallel
-        ), "Use DataParallel/DistributedDataParallel only after wrapping with ModuleCacher"
+        ):
+            raise AssertionError("Use DataParallel/DistributedDataParallel only after wrapping with ModuleCacher")
 
     @staticmethod
     def process_function_signature(function):
@@ -1089,9 +1099,8 @@ class GraphModel(torch.nn.Module):
             inspect.Parameter.VAR_POSITIONAL,
         ]
         for key in list(func_parameters):
-            assert func_parameters[key].kind not in UNSUPPORTED, (
-                f"Unsupported argument type : {func_parameters[key].kind}"
-            )
+            if not (func_parameters[key].kind not in UNSUPPORTED):
+                raise AssertionError(f"Unsupported argument type : {func_parameters[key].kind}")
             if func_parameters[key].kind == inspect.Parameter.VAR_KEYWORD:
                 print("[WARNING] Variable keyword arguments will not be supported.")
                 del func_parameters[key]

@@ -150,12 +150,16 @@ class DivergenceAnalyzer:
 
     def validate_dump_path(self):
         if self.cfg.parallel:
-            assert os.path.exists(self.dumpdir_static), "Static dumps not found"
-            assert os.path.exists(self.dumpdir_dynamic), "Dynamic dumps not found"
+            if not os.path.exists(self.dumpdir_static):
+                raise AssertionError("Static dumps not found")
+            if not os.path.exists(self.dumpdir_dynamic):
+                raise AssertionError("Dynamic dumps not found")
 
         else:
-            assert os.path.exists(os.path.join(self.dumpdir, "./StaticSynRec.db")), "Static dumps not found"
-            assert os.path.exists(os.path.join(self.dumpdir, "./DynamicSynRec.db")), "Dynamic dumps not found"
+            if not os.path.exists(os.path.join(self.dumpdir, "./StaticSynRec.db")):
+                raise AssertionError("Static dumps not found")
+            if not os.path.exists(os.path.join(self.dumpdir, "./DynamicSynRec.db")):
+                raise AssertionError("Dynamic dumps not found")
 
     @staticmethod
     def get_synrec_path():
@@ -274,8 +278,10 @@ class DivergenceAnalyzer:
             shutil.move(source_path, destination_path)
 
     def compare_databases(self, db_static, db_dynamic):
-        assert os.path.getsize(db_static) != 0, f"db file {db_static} is empty"
-        assert os.path.getsize(db_dynamic) != 0, f"db file {db_dynamic} is empty"
+        if not os.path.getsize(db_static) != 0:
+            raise AssertionError(f"db file {db_static} is empty")
+        if not os.path.getsize(db_dynamic) != 0:
+            raise AssertionError(f"db file {db_dynamic} is empty")
 
         conn1 = sqlite3.connect(db_static)
         conn2 = sqlite3.connect(db_dynamic)
@@ -547,7 +553,8 @@ class DivergenceAnalyzer:
         if self.cfg.parallel:
             data_static = data_dict["Static"]
             data_dynamic = data_dict["Dynamic"]
-            assert len(set(data_static) - set(data_dynamic)) == 0
+            if not len(set(data_static) - set(data_dynamic)) == 0:
+                raise AssertionError("Incorrect static and dynamic data lengths")
             graph_names = sorted(data_static.keys(), key=lambda item: int(item.split("_")[-1]))
 
             for graph_name in graph_names:
@@ -603,7 +610,8 @@ class DivergenceAnalyzer:
 
         cmd_full = f'script -e -q -c "{cmd}" {outfile} > /dev/null'
         status = os.system(cmd_full)  # noqa S605
-        assert status == 0, f"[ERROR] Dumping error logs to\033[91m {outfile}\033[0m"
+        if not status == 0:
+            raise AssertionError(f"[ERROR] Dumping error logs to\033[91m {outfile}\033[0m")
 
     def train(self):
         cmd_static, cmd_dynamic = self.get_commands()
@@ -633,8 +641,10 @@ class DivergenceAnalyzer:
             p1.join()
             p2.join()
             if exit_gracefully:
-                assert p1.exitcode == 0
-                assert p2.exitcode == 0
+                if not p1.exitcode == 0:
+                    raise AssertionError("Incorrect exitcode")
+                if not p2.exitcode == 0:
+                    raise AssertionError("Incorrect exitcode")
             p1.close()
             p2.close()
 
@@ -761,7 +771,8 @@ def get_args():
 
     args = parser.parse_args()
     valid_ints = {0, 1}
-    assert args.csv in valid_ints
+    if args.csv not in valid_ints:
+        raise AssertionError("Invalid argument")
 
     return args
 

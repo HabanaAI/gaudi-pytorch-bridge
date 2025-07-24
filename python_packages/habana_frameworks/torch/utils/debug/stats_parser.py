@@ -215,7 +215,8 @@ def reasonMismatch(range_dict, shapes, bucket, compile):
             print(f"xxxxxxxxxxxxxxxxxxxx    Bucket found = {r} xxxxxxxxxxxxxxxxxxx")
             print("xxxxxxxxxxxxxxxxxxxx    Cache Hit     xxxxxxxxxxxxxxxxxxx")
             Hit = True
-            assert compile is not True
+            if not compile is not True:
+                raise AssertionError("Compile set")
             break
 
     if Hit is False:

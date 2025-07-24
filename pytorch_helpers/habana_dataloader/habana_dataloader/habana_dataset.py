@@ -477,9 +477,10 @@ class HabanaDataLoader:
 
 
 def fetch_habana_unet_loader(imgs, lbls, batch_size, mode, **kwargs):
-    assert len(imgs) > 0, "Got empty list of images"
-    if lbls is not None:
-        assert len(imgs) == len(lbls), f"Got {len(imgs)} images but {len(lbls)} lables"
+    if not len(imgs) > 0:
+        raise AssertionError("Got empty list of images")
+    if lbls is not None and len(imgs) != len(lbls):
+        raise AssertionError(f"Got {len(imgs)} images but {len(lbls)} lables")
 
     num_workers = kwargs.get("num_workers", 0)
     if num_workers != 0:

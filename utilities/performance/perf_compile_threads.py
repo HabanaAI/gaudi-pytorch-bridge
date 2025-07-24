@@ -69,7 +69,8 @@ def direct_execution(input1_list, input2_list, functor_count_list):
     :returns:           None
     """
 
-    assert len(input1_list) == len(input2_list)
+    if not len(input1_list) == len(input2_list):
+        raise AssertionError("Inputs don't match")
 
     perf_utils.print_header(f"Eager: THREAD_POOL_SIZE={env_var_thread_pool_size}, REP={execution_set_count} (sec.)")
     for functor_count in functor_count_list:
@@ -99,7 +100,8 @@ def compiled_execution(input1_list, input2_list, functor_count_list):
     :returns:                  None
     """
 
-    assert len(input1_list) == len(input2_list)
+    if not len(input1_list) == len(input2_list):
+        raise AssertionError("Inputs don't match")
 
     perf_utils.print_header(
         f"Compile: f_cmpl(input1, input2 POOL_SIZE={env_var_thread_pool_size}, REP={execution_set_count} (sec.)"
