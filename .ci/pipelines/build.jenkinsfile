@@ -20,7 +20,7 @@ if (env.COVERITY) {
 def isPrimaryOS = env.IS_PRIMARY_OS ? Boolean.valueOf(env.IS_PRIMARY_OS) : true
 
 def user_install = env.runInDocker == 'true' ? '' : '--user'
-def buildDependencies = ['SYNAPSE', "SYNAPSE_UTILS", 'HL_THUNK', 'COMPLEX_GUID', 'SWTOOLS_SDK', 'SYNAPSE_PROFILER', 'TPC_KERNELS', 'SCAL', 'PT_FORK']
+def buildDependencies = ['SYNAPSE', "SYNAPSE_UTILS", 'HL_THUNK', 'COMPLEX_GUID', 'SWTOOLS_SDK', 'SYNAPSE_PROFILER', 'TPC_KERNELS', 'PT_FORK']
 
 def preBuildStages = [
     'Install Python build dependencies': { util ->

@@ -18,7 +18,6 @@ common:
     - HLML
     - MEDIA
     - PT_FORK
-    - SCAL
     - SWTOOLS_SDK
     - SYNAPSE
     - SYNAPSE_PROFILER
@@ -32,7 +31,7 @@ common:
     CC: clang-20
     CXX: clang++-20
     CTCACHE_DIR: /build_cache/.ctcache
-    # when env_flags.yaml is edited, tidy repeatedly takes forever. 
+    # when env_flags.yaml is edited, tidy repeatedly takes forever.
     # As it's low risk, let's just disable the generated files from hash calculation
     CTCACHE_EXCLUDE_HASH_REGEX: ".*generated/env_flags.*"
     CTCACHE_SAVE_OUTPUT: 1
