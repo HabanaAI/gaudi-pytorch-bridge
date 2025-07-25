@@ -471,11 +471,14 @@ void HlExec::SearchAndDeleteRedundantInputs(
 
 namespace {
 float GetH2dScaleValue(const ir::Value& scale) {
-  const auto scale_internal =
-      habana_lazy::GetOrCreateHbLazyTensor(
-          scale.m_data_ptr.lock()->tensor_data.value(), at::kHPU)
-          .CurrentTensorAttached()
-          .value();
+  auto opt_tensor_data = scale.m_data_ptr.lock()->tensor_data;
+  HABANA_ASSERT(opt_tensor_data.has_value(), "Optional variable has no value!");
+  const auto opt_scale_internal =
+      habana_lazy::GetOrCreateHbLazyTensor(opt_tensor_data.value(), at::kHPU)
+          .CurrentTensorAttached();
+  HABANA_ASSERT(
+      opt_scale_internal.has_value(), "Optional variable has no value!");
+  auto scale_internal = opt_scale_internal.value();
   auto tmeta{habana::get_tensor_extra_meta(scale_internal)};
   if (scale_internal.dtype() == at::ScalarType::Float) {
     return *reinterpret_cast<float*>(tmeta->get_host_ptr());

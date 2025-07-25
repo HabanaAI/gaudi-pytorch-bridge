@@ -196,12 +196,12 @@ void HbExecutionContext::updateCurrentIndicesOfH2dScales() {
   for (auto& [key, scales] : m_scalar_to_h2d_scales_map) {
     scales.current_idx = scales.scales.size() - 1;
     for (auto& scale : scales.scales) {
-      auto internal_scale =
-          habana_lazy::GetOrCreateHbLazyTensor(scale, at::kHPU)
-              .CurrentTensorAttached()
-              .value();
-      habana::get_tensor_extra_meta(internal_scale)
-          ->set_h2d_not_reciprocal(false);
+      auto opt_value = habana_lazy::GetOrCreateHbLazyTensor(scale, at::kHPU)
+                           .CurrentTensorAttached();
+      if (opt_value.has_value()) {
+        habana::get_tensor_extra_meta(opt_value.value())
+            ->set_h2d_not_reciprocal(false);
+      }
     }
   }
 }
