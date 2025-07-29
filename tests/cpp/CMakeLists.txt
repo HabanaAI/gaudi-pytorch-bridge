@@ -257,6 +257,8 @@ list(
   misc_utils_tests.cpp
   nms_tests.cpp
   serialization/habana_serialization_tests.cpp
+  serialization/recipe_cache_tests.cpp
+  serialization/recipe_cache_utils_tests.cpp
   sif_tests.cpp
   synapse_helpers_memory_test.cpp
   synapse_helpers_tensor_test.cpp

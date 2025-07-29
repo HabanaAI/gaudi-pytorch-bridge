@@ -56,13 +56,6 @@ popd
 4. Install the requirements:
 ```bash
 pip install -r "$PYTORCH_MODULES_ROOT_PATH"/requirements.txt
-pip install habana-media-loader==$VERSION.$BUILD
-```
-
-5. Allow the build command to install artifacts:
-
-```bash
-sudo chmod +w /usr/lib/habanalabs/
 ```
 
 ### Code Build
@@ -84,6 +77,7 @@ export SYNAPSE_UTILS_INCLUDE_DIR=/usr/include/habanalabs/
 export BUILD_ROOT="$HOME/builds"
 export BUILD_ROOT_LATEST=/usr/lib/habanalabs/
 export PYTORCH_MODULES_RELEASE_BUILD="$BUILD_ROOT/pytorch_modules_release"  # the release build artifact directory
+export PYTORCH_MODULES_DEBUG_BUILD="$BUILD_ROOT/pytorch_modules_debug"  # the debug build artifact directory
 export PYTORCH_MODULES_ROOT_PATH="$HABANA_SOFTWARE_STACK/gaudi-pytorch-bridge"
 ```
 
@@ -95,3 +89,26 @@ export PYTORCH_MODULES_ROOT_PATH="$HABANA_SOFTWARE_STACK/gaudi-pytorch-bridge"
 - The `-i` flag installs the wheels after they are built.
 - It is recommended to leverage CCache and Icecream for faster compilation. Icecream (icecc) allows using a much larger parallel job count (`-j N`). The `N` depends on your compute cluster size.
 - Sometimes the final build command is interrupted while preparing the environment. In this case you can add `--recreate-venv force` to resolve any potential issues.
+
+### Running tests
+After building the code, you can run tests to validate functionality.
+
+1. Load the commands to run the tests:
+```bash
+source $PYTORCH_MODULES_ROOT_PATH/.ci/scripts/build.sh
+```
+
+2. Install the test requirements:
+```bash
+pip install -r $PYTORCH_MODULES_ROOT_PATH/.ci/requirements/requirements-test.txt
+```
+These are required in case you want to run Python-based tests in addition to C++ tests.
+
+3. Run the tests:
+```bash
+run_pytorch_modules_tests
+```
+To run tests on a specific device, use the --dut flag (e.g., --dut gaudi3).
+You can also specify subsets using --pytest-mode - to select the desired test mode, and --suite-type - to choose the specific test suite to run.
+
+A device is required to execute the tests.

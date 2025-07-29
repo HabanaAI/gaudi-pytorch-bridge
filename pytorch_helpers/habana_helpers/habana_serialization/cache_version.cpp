@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,10 +24,40 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <filesystem>
+#include <fstream>
 #include <string>
 #include <vector>
 
 extern char** environ;
+namespace fs = std::filesystem;
+
+// return first non-zero MAC address from the filesystem
+// zero MAC means a loopback or invalid interface
+// if no valid MAC is found, returns "00:00:00:00:00:00"
+std::string getMACFromFilesystemNonZero() {
+  // standard path for network interfaces in Linux
+  const std::string basePath = "/sys/class/net/";
+  const std::string invalidMAC = "00:00:00:00:00:00";
+
+  for (const auto& entry : fs::directory_iterator(basePath)) {
+    std::string iface = entry.path().filename();
+
+    // MAC address file for the given interface
+    std::ifstream macFile(basePath + iface + "/address");
+    if (macFile.is_open()) {
+      std::string mac;
+      std::getline(macFile, mac);
+
+      // Skip if MAC is all zeros
+      if (mac != invalidMAC) {
+        return mac;
+      }
+    }
+  }
+
+  return invalidMAC;
+}
 
 std::string get_synapse_lib_path(void) {
   std::string map_file_name{"/proc/" + std::to_string(getpid()) + "/maps"};
@@ -177,4 +207,15 @@ std::string CacheVersion::libs_env_hash() {
   std::stringstream stream;
   stream << std::hex << hash;
   return stream.str();
+}
+
+std::string CacheVersion::combined_pid_mac_addr() {
+  auto pid = std::to_string(getpid());
+  auto mac_addr = getMACFromFilesystemNonZero();
+
+  // Remove all colons
+  mac_addr.erase(
+      std::remove(mac_addr.begin(), mac_addr.end(), ':'), mac_addr.end());
+
+  return pid + "_" + mac_addr;
 }

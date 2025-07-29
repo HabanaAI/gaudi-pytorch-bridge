@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,4 +23,7 @@ class CacheVersion {
   //    content)
   //    - env variables impacting the compilation of synGraph to synRecipe
   static std::string libs_env_hash();
+  // return <PID>_<MAC_ADDR> (twelve 0s (zero) for MAC,
+  // if no valid network interface is found)
+  static std::string combined_pid_mac_addr();
 };

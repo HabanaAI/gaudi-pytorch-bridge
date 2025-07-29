@@ -220,7 +220,7 @@ void InterHostCache::thread_function(int clientfd) {
       _recv_file(metafile, clientfd, tdata);
       _recv_file(recpfile, clientfd, tdata);
 
-      cfHandler_->addFileInfo(filename);
+      cfHandler_->addFileInfo(recpfile, metafile);
 
     } else if (!cmdGet.compare(cmd)) {
       // Get lock status and decide if you can continue
@@ -392,7 +392,7 @@ bool InterHostCache::recv_file(std::string cache_id) {
   _recv_file(metafile, sockfd, data);
   _recv_file(recpfile, sockfd, data);
 
-  cfHandler_->addFileInfo(cache_id);
+  cfHandler_->addFileInfo(recpfile, metafile);
 
   PT_HABHELPER_DEBUG(
       INTERHOST_LOG, "Received by: ", rank, ", File: ", cache_id);
