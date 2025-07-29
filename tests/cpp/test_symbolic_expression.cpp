@@ -29,3 +29,122 @@ TEST(TestSymExpression, SizeExpression_tokenizer) {
   ASSERT_EQ(expected_first_token, two_tokens.at(0));
   ASSERT_EQ(expected_second_token, two_tokens.at(1));
 }
+
+TEST(
+    TestSymExpression,
+    SymExpression_ExtractSymbolValueFromExpression_MultiplicationRight) {
+  constexpr auto key = "8*S52";
+  constexpr auto value = 32;
+
+  auto result =
+      habana::SymExpression::ExtractSymbolValueFromExpression(key, value);
+
+  ASSERT_TRUE(result);
+  if (result.has_value()) {
+    ASSERT_EQ(result.value().first, "S52");
+    ASSERT_EQ(result.value().second, 4);
+  }
+}
+
+TEST(
+    TestSymExpression,
+    SymExpression_ExtractSymbolValueFromExpression_MultiplicationLeft) {
+  constexpr auto key = "S4*220";
+  constexpr auto value = 660;
+
+  auto result =
+      habana::SymExpression::ExtractSymbolValueFromExpression(key, value);
+
+  ASSERT_TRUE(result);
+  if (result.has_value()) {
+    ASSERT_EQ(result.value().first, "S4");
+    ASSERT_EQ(result.value().second, 3);
+  }
+}
+
+TEST(
+    TestSymExpression,
+    SymExpression_ExtractSymbolValueFromExpression_DivisionLeft) {
+  constexpr auto key = "200/S99";
+  constexpr auto value = 20;
+
+  auto result =
+      habana::SymExpression::ExtractSymbolValueFromExpression(key, value);
+
+  ASSERT_TRUE(result);
+  if (result.has_value()) {
+    ASSERT_EQ(result.value().first, "S99");
+    ASSERT_EQ(result.value().second, 10);
+  }
+}
+
+TEST(
+    TestSymExpression,
+    SymExpression_ExtractSymbolValueFromExpression_DivisionRight) {
+  constexpr auto key = "S65/19";
+  constexpr auto value = 8;
+
+  auto result =
+      habana::SymExpression::ExtractSymbolValueFromExpression(key, value);
+
+  ASSERT_TRUE(result);
+  if (result.has_value()) {
+    ASSERT_EQ(result.value().first, "S65");
+    ASSERT_EQ(result.value().second, 152);
+  }
+}
+
+TEST(
+    TestSymExpression,
+    SymExpression_ExtractSymbolValueFromExpression_NoAction) {
+  constexpr auto key = "S55";
+  constexpr auto value = 32;
+
+  auto result =
+      habana::SymExpression::ExtractSymbolValueFromExpression(key, value);
+  ASSERT_TRUE(!result);
+}
+
+TEST(
+    TestSymExpression,
+    SymExpression_ExtractSymbolValueFromExpression_InvalidMulArgSymbol) {
+  constexpr auto key = "S55*a";
+  constexpr auto value = 32;
+
+  auto result =
+      habana::SymExpression::ExtractSymbolValueFromExpression(key, value);
+  ASSERT_TRUE(!result);
+}
+
+TEST(
+    TestSymExpression,
+    SymExpression_ExtractSymbolValueFromExpression_InvalidDivArgSymbol) {
+  constexpr auto key = "a3/30";
+  constexpr auto value = 32;
+
+  auto result =
+      habana::SymExpression::ExtractSymbolValueFromExpression(key, value);
+  ASSERT_TRUE(!result);
+}
+
+TEST(
+    TestSymExpression,
+    SymExpression_ExtractSymbolValueFromExpression_InvalidOnlySymbols) {
+  auto result_mul =
+      habana::SymExpression::ExtractSymbolValueFromExpression("S55*S1", 32);
+  auto result_div =
+      habana::SymExpression::ExtractSymbolValueFromExpression("S55/S1", 32);
+  ASSERT_TRUE(!result_mul);
+  ASSERT_TRUE(!result_div);
+}
+
+TEST(
+    TestSymExpression,
+    SymExpression_ExtractSymbolValueFromExpression_InvalidOnlyValues) {
+  auto result_mul =
+      habana::SymExpression::ExtractSymbolValueFromExpression("32/16", 2);
+  auto result_div =
+      habana::SymExpression::ExtractSymbolValueFromExpression("8*4", 32);
+  ASSERT_TRUE(!result_mul);
+  ASSERT_TRUE(!result_div);
+}

@@ -45,9 +45,9 @@ std::string formatExpression(const std::string& input) {
   return result;
 }
 
-habana::SymExpression::SymExpression(
-    std::string e,
-    SymbolValueMap& in_symbol_value_map) {
+SymExpression::SymExpression(
+    const std::string& e,
+    const SymbolValueMap& in_symbol_value_map) {
   m_expr_str = formatExpression(e);
 
   for (auto it = in_symbol_value_map.begin(); it != in_symbol_value_map.end();
@@ -55,12 +55,78 @@ habana::SymExpression::SymExpression(
     m_symbol_table.add_variable(it->first, *(it->second));
     PT_BRIDGE_DEBUG(
         "SizeExpression m_expr_str:", it->first, ", value:", *(it->second));
+
+    if (auto sym = SymExpression::ExtractSymbolValueFromExpression(
+            it->first, *(it->second));
+        sym.has_value()) {
+      m_symbol_table.add_variable(sym.value().first, sym.value().second);
+      PT_BRIDGE_DEBUG(
+          "SizeExpression m_expr_str:",
+          sym.value().first,
+          ", value:",
+          sym.value().second);
+    }
   }
 
   m_expr_t.register_symbol_table(m_symbol_table);
 
   if (!parser.compile(m_expr_str, m_expr_t)) {
     HABANA_ASSERT(0, "ExprtK expression Compilation error... ", m_expr_str);
+  }
+}
+
+std::optional<std::pair<std::string, exprtk_T>> SymExpression::
+    ExtractSymbolValueFromExpression(
+        const std::string& symbol,
+        exprtk_T value) {
+  auto pos = symbol.find_first_of("*/");
+  if (pos == std::string::npos) {
+    return std::nullopt;
+  }
+
+  auto op = symbol[pos];
+
+  auto left = symbol.substr(0, pos);
+  auto right = symbol.substr(pos + 1);
+
+  auto isSymbol = [](const std::string& s) {
+    return !s.empty() && (s[0] == 'S' || s[0] == 's');
+  };
+
+  if (isSymbol(left)) {
+    auto val = SymExpression::extract_value_from_string(right);
+    if (!val.has_value()) {
+      return std::nullopt;
+    }
+
+    if (op == '*') {
+      return std::pair{left, value / val.value()};
+    } else if (op == '/') {
+      return std::pair{left, value * val.value()};
+    }
+  } else if (isSymbol(right)) {
+    auto val = SymExpression::extract_value_from_string(left);
+    if (!val.has_value()) {
+      return std::nullopt;
+    }
+
+    if (op == '*') {
+      return std::pair{right, value / val.value()};
+    } else if (op == '/') {
+      return std::pair{right, val.value() / value};
+    }
+  }
+
+  return std::nullopt;
+}
+
+std::optional<double> SymExpression::extract_value_from_string(
+    const std::string& str) {
+  try {
+    return std::stod(str);
+  } catch (const std::invalid_argument& e) {
+    PT_BRIDGE_DEBUG("Cannot convert string to double!", e.what());
+    return std::nullopt;
   }
 }
 

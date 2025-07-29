@@ -20,6 +20,7 @@
 #include <cstdio>
 #include <iostream>
 #include <memory>
+#include <optional>
 #include <string>
 #include <unordered_map>
 
@@ -39,11 +40,18 @@ class SymExpression {
   symbol_table_t m_symbol_table;
   expression_t m_expr_t;
 
+  static std::optional<double> extract_value_from_string(
+      const std::string& str);
+
  public:
-  SymExpression(std::string e, SymbolValueMap& in_symbol_value_map);
+  SymExpression(
+      const std::string& e,
+      const SymbolValueMap& in_symbol_value_map);
   std::string& get_expr_str();
   int64_t eval();
   void dump_symbol_table();
+  static std::optional<std::pair<std::string, exprtk_T>>
+  ExtractSymbolValueFromExpression(const std::string& symbol, exprtk_T value);
 };
 
 class SizeExpression {
