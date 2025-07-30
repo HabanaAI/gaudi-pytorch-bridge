@@ -11,6 +11,6 @@ pkginfo>=1.11.1
 pre-commit
 pybind11>=2.12
 requests
-setuptools>=67.7.2,<=77.0.1 # 77.0.1 is last known working version, TODO investigate why
+setuptools
 symengine>=0.14.0
 wheel>=0.40
