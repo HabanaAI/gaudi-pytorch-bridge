@@ -112,11 +112,7 @@ Tensor hpu_wrap::_pin_memory(
 Tensor hpu_wrap::bincount(
     const Tensor& self,
     const std::optional<Tensor>& weights,
-#if IS_PYTORCH_AT_LEAST(2, 8)
     c10::SymInt minlength) {
-#else
-    int64_t minlength) {
-#endif
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO("bincount :", DUMP_3ARGS(self, weights, minlength));

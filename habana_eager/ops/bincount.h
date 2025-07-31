@@ -21,9 +21,5 @@ namespace habana::eager {
 at::Tensor bincount_eager(
     const at::Tensor& self,
     const std::optional<at::Tensor>& weights,
-#if IS_PYTORCH_AT_LEAST(2, 8)
     c10::SymInt minlength);
-#else
-    int64_t minlength);
-#endif
 } // namespace habana::eager

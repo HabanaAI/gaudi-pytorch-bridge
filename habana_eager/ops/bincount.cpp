@@ -58,25 +58,15 @@ c10::ScalarType bincount_output_dtype(
 at::Tensor bincount_eager(
     const at::Tensor& self,
     const std::optional<at::Tensor>& weights,
-#if IS_PYTORCH_AT_LEAST(2, 8)
     c10::SymInt minlength) {
-#else
-    int64_t minlength) {
-#endif
   PT_EAGER_TRACE;
   HABANA_ASSERT(
       minlength >= 0 && minlength <= std::numeric_limits<int32_t>::max(),
       "Invalid length. Possible over or underflow.");
   // Handle case for empty tensor where we return empty tensor with size
   if (self.numel() == 0) {
-    auto output =
-#if IS_PYTORCH_AT_LEAST(2, 8)
-        at::zeros(
-            {minlength.expect_int()},
-            self.options().dtype(c10::ScalarType::Long));
-#else
-        at::zeros({minlength}, self.options().dtype(c10::ScalarType::Long));
-#endif
+    auto output = at::zeros(
+        {minlength.expect_int()}, self.options().dtype(c10::ScalarType::Long));
     return output;
   }
 
@@ -89,11 +79,7 @@ at::Tensor bincount_eager(
 
   auto max_in_input =
       static_cast<int64_t>(at::max(maybe_casted_self).item<int64_t>());
-#if IS_PYTORCH_AT_LEAST(2, 8)
   auto length = std::max(max_in_input + 1, minlength.expect_int());
-#else
-  auto length = std::max(max_in_input + 1, minlength);
-#endif
   std::vector<int64_t> shape{length};
   auto out_dtype = bincount_output_dtype(weights);
 
