@@ -3669,7 +3669,7 @@ hardswish_:
   op_validator: check-node-with-shared-layer
 
 hardswish_backward:
-  guid: hard_swish_bwd
+  guid: hard_swish_v2_bwd
   out_ids: [0]
   op_validator: check-node-with-shared-layer
   skip_slrg: true
