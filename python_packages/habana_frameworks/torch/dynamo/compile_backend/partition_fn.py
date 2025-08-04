@@ -21,7 +21,6 @@ import os
 
 from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
 from habana_frameworks.torch.dynamo.utils import str_to_bool
-from habana_frameworks.torch.utils.version_checker import is_pytorch_older_than
 
 import torch
 from torch._dynamo.utils import count_calls
@@ -110,62 +109,32 @@ def constant_fold_joint_graph(gm: torch.fx.GraphModule) -> torch.fx.GraphModule:
     return gm
 
 
-if is_pytorch_older_than("2.8.0"):
+def hpu_partition(
+    joint_module: torch.fx.GraphModule,
+    _joint_inputs,
+    *,
+    num_fwd_outputs,
+    static_lifetime_input_indices: list[int] | None = None,
+) -> tuple[torch.fx.GraphModule, torch.fx.GraphModule]:
+    # optimize the joint module before partitioning it
+    if hpu_backend_config.remove_unnecessary_clones:
+        joint_module = remove_unnecessary_clone(joint_module)
 
-    def hpu_partition(
-        joint_module: torch.fx.GraphModule, _joint_inputs, *, num_fwd_outputs
-    ) -> tuple[torch.fx.GraphModule, torch.fx.GraphModule]:
-        # optimize the joint module before partitioning it
-        if hpu_backend_config.remove_unnecessary_clones:
-            joint_module = remove_unnecessary_clone(joint_module)
+    if hpu_backend_config.joint_graph_constant_folding:
+        joint_module = constant_fold_joint_graph(joint_module)
 
-        if hpu_backend_config.joint_graph_constant_folding:
-            joint_module = constant_fold_joint_graph(joint_module)
+    # optimize the joint module before partitioning it
+    # we will fuse the attention module here
+    if str_to_bool(os.environ.get("PT_HPU_USE_FUSE_SDPA_PASS", False)) is True:
+        from habana_frameworks.torch.dynamo.compile_backend._passes.fuse_attention import (
+            hpu_recursive_joint_graph_passes,
+        )
 
-        # optimize the joint module before partitioning it
-        # we will fuse the attention module here
-        if str_to_bool(os.environ.get("PT_HPU_USE_FUSE_SDPA_PASS", False)) is True:
-            from habana_frameworks.torch.dynamo.compile_backend._passes.fuse_attention import (
-                hpu_recursive_joint_graph_passes,
-            )
+        hpu_recursive_joint_graph_passes(joint_module)
 
-            hpu_recursive_joint_graph_passes(joint_module)
-
-        try:
-            fw_module, bw_module = default_partition(joint_module, _joint_inputs, num_fwd_outputs=num_fwd_outputs)
-            bw_module = reordering_to_mimic_autograd_engine(bw_module)
-            return fw_module, bw_module
-        except AssertionError:
-            return min_cut_rematerialization_partition(joint_module, _joint_inputs, num_fwd_outputs=num_fwd_outputs)
-
-else:
-
-    def hpu_partition(
-        joint_module: torch.fx.GraphModule,
-        _joint_inputs,
-        *,
-        num_fwd_outputs,
-        static_lifetime_input_indices: list[int] | None = None,
-    ) -> tuple[torch.fx.GraphModule, torch.fx.GraphModule]:
-        # optimize the joint module before partitioning it
-        if hpu_backend_config.remove_unnecessary_clones:
-            joint_module = remove_unnecessary_clone(joint_module)
-
-        if hpu_backend_config.joint_graph_constant_folding:
-            joint_module = constant_fold_joint_graph(joint_module)
-
-        # optimize the joint module before partitioning it
-        # we will fuse the attention module here
-        if str_to_bool(os.environ.get("PT_HPU_USE_FUSE_SDPA_PASS", False)) is True:
-            from habana_frameworks.torch.dynamo.compile_backend._passes.fuse_attention import (
-                hpu_recursive_joint_graph_passes,
-            )
-
-            hpu_recursive_joint_graph_passes(joint_module)
-
-        try:
-            fw_module, bw_module = default_partition(joint_module, _joint_inputs, num_fwd_outputs=num_fwd_outputs)
-            bw_module = reordering_to_mimic_autograd_engine(bw_module)
-            return fw_module, bw_module
-        except AssertionError:
-            return min_cut_rematerialization_partition(joint_module, _joint_inputs, num_fwd_outputs=num_fwd_outputs)
+    try:
+        fw_module, bw_module = default_partition(joint_module, _joint_inputs, num_fwd_outputs=num_fwd_outputs)
+        bw_module = reordering_to_mimic_autograd_engine(bw_module)
+        return fw_module, bw_module
+    except AssertionError:
+        return min_cut_rematerialization_partition(joint_module, _joint_inputs, num_fwd_outputs=num_fwd_outputs)
