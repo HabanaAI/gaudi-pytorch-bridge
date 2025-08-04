@@ -376,7 +376,6 @@ build_pytorch_fork()
     local __default_vers="default_vers"
     local __branch=""
     local __build_manylinux_whl="false"
-    local __auditwheel="${PYTORCH_MODULES_ROOT_PATH}/.ci/scripts/pt_auditwheel.py"
     local __pytorch_next="false"
 
     # parameter while-loop
@@ -506,7 +505,7 @@ build_pytorch_fork()
 
     if [ ${__whl_params} != "develop" ];then
         if [ "z${__build_manylinux_whl}" == "ztrue" ];then
-            bash -c "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$__pytorch_root/torch/lib;python $__auditwheel repair $__pytorch/dist/torch*.whl"
+            bash -c "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$__pytorch_root/torch/lib;python auditwheel repair $__pytorch/dist/torch*.whl"
             TORCH_WHL_PATH="$__pytorch_root/wheelhouse/"
         else
             TORCH_WHL_PATH="$__pytorch_root/dist/"
@@ -1918,13 +1917,11 @@ __clean_pytest_dev_py_deps()
 # By installing static libs we don't require MKL to be installed at runtime, either from pip or from the system package
 # manager.
 #
-# Inspired by https://github.com/pytorch/builder/blob/main/common/install_mkl.sh
+# Inspired by https://github.com/pytorch/pytorch/blob/3da14d38bd396f5bbe8494872d1509efa1a6f048/.ci/docker/common/install_mkl.sh
 __provide_mkl()
 {
   local -r __mkl_version=2024.2.0
-
-  # choose the location depending on the user's sudo permissions
-  local -r __mkl_root="$(sudo -v &>/dev/null && echo /opt/intel || echo ~/.local/opt/intel)"
+  local -r __mkl_root="$HOME/.local/opt/intel"
 
   (
     set -e
@@ -1935,11 +1932,13 @@ __provide_mkl()
     else
       echo Installing MKL at "${__mkl_root}"
 
-      sudo mkdir -p "${__mkl_root}"
-      sudo chown -R "$(whoami)" "${__mkl_root}"
+      mkdir -p "${__mkl_root}"
 
-      mkdir /tmp/mkl
-      pushd /tmp/mkl
+      local temp_dir
+      temp_dir=$(mktemp -d)
+      mkdir -p "$temp_dir"
+      trap 'rm -rf "$temp_dir"' EXIT
+      pushd "$temp_dir" >&/dev/null
 
       python3 -mpip install wheel
       python3 -mpip download -d . mkl-static==${__mkl_version} mkl-include==${__mkl_version}
@@ -1950,7 +1949,7 @@ __provide_mkl()
       python3 -m wheel unpack mkl_include-${__mkl_version}-py2.py3-none-manylinux1_x86_64.whl
       mv mkl_include-${__mkl_version}/mkl_include-${__mkl_version}.data/data/include "${__mkl_root}"
 
-      popd
+      popd >&/dev/null
     fi
   )
   local __result=$?

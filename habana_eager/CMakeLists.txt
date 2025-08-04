@@ -121,10 +121,11 @@ target_include_directories(habana_pytorch2_frontend PRIVATE ${PROJECT_SOURCE_DIR
 target_include_directories(habana_pytorch2_frontend PRIVATE ${CMAKE_BINARY_DIR})
 target_link_libraries(
   habana_pytorch2_frontend
-  PRIVATE Python::Python
+  PRIVATE Python::Module
           exprtk::exprtk
-          habana_serialization
-          pytorch_synapse_utils_shim
+          npu::habana_serialization
+          npu::python_embed_shim
+          npu::pytorch_synapse_utils_shim
           torch
           nlohmann_json::nlohmann_json
           absl::strings

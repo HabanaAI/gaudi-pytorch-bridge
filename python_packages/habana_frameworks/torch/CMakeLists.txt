@@ -18,7 +18,10 @@
 set(CXX_STANDARD 17)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-set(CMAKE_INSTALL_RPATH "$ORIGIN/lib")
+# Set RPATH to point to the main lib directory where shared libraries are installed
+# Python extensions are installed in habana_torch_plugin/lib/{fork_pybind,upstream_pybind}/
+# but need to find shared libraries in habana_torch_plugin/lib/
+set(CMAKE_INSTALL_RPATH "$ORIGIN/..")
 
 add_habana_library(bindings INTERFACE)
 target_include_directories(
@@ -43,7 +46,7 @@ target_link_libraries(
             npu::specs_external
             $<TARGET_NAME_IF_EXISTS:npu::specs_embedded>
             pytorch_helpers
-            Python::Python
+            Python::Module
             exprtk::exprtk)
 
 add_subdirectory(internal/bridge_config)

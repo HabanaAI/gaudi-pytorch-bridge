@@ -19,7 +19,7 @@ set(SLRG_COMMON_SRC slrg_functions.cpp shared_layer_report_generator.cpp stack_g
                     utils/shared_structures.cpp ${CMAKE_BINARY_DIR}/generated/slrg/registry.cpp)
 set(SLRG_PY_SRC ${SLRG_COMMON_SRC} slrg_bindings.cpp)
 
-set(SLRG_LINKS Python::Python torch habana_pytorch_backend habana_pytorch_plugin)
+set(SLRG_LINKS Python::Module torch habana_pytorch_backend habana_pytorch_plugin)
 
 set_source_files_properties(${CMAKE_BINARY_DIR}/generated/slrg/registry.cpp PROPERTIES COMPILE_FLAGS -w)
 

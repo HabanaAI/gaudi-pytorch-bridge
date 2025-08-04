@@ -19,7 +19,6 @@
 #include "habana_eager/eager_context.h"
 #include "habana_eager/eager_pipeline_utils.h"
 #include "habana_eager/eager_tensor.h"
-#include "habana_eager/helpers.h"
 #include "habana_eager/ops/as_strided.h"
 #include "habana_eager/ops/bincount.h"
 #include "habana_eager/ops/eager_op.h"

@@ -64,7 +64,7 @@ LibSynapseUtilsLoader& LibSynapseUtilsLoader::GetInstance() {
 
 LibSynapseUtilsLoader::LibSynapseUtilsLoader() {
   lib_handle_ = dlopen("libsynapse_utils.so", RTLD_LOCAL | RTLD_NOW);
-  CHECK_NULL(lib_handle_);
+  CHECK_NULL_MSG(lib_handle_, dlerror());
   shim_slu::LoadSymbols(lib_handle_);
 }
 

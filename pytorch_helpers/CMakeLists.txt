@@ -48,4 +48,5 @@ else()
   find_program(SWIG swig)
 endif()
 
+add_subdirectory(python_embed_shim)
 add_subdirectory(synapse_utils_shim)

@@ -16,7 +16,6 @@
 #include <iostream>
 
 #include "backend/synapse_helpers/env_flags.h"
-#include "pytorch_helpers/habana_helpers/python_utils.h"
 #include "thread_pool.h"
 
 namespace habana_helpers {

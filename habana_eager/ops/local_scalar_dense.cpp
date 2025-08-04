@@ -21,7 +21,6 @@
 #include "common/utils.h"
 #include "habana_eager/eager_context.h"
 #include "habana_eager/eager_tensor.h"
-#include "habana_eager/helpers.h"
 #include "habana_helpers/frontend_utils.h"
 
 void Copy_Scalar_To_Host_Execute_Task(

@@ -93,15 +93,15 @@ target_include_directories(habana_pytorch_backend PRIVATE ${CMAKE_SOURCE_DIR} ${
 
 target_link_libraries(
   habana_pytorch_backend
-  PUBLIC habana_pytorch_backend_ops pytorch_synapse_helpers c10 exprtk::exprtk
-  PRIVATE Python::Python
-          habana_serialization
+  PUBLIC npu::habana_pytorch_backend_ops npu::pytorch_synapse_helpers npu::python_embed_shim c10 exprtk::exprtk
+  PRIVATE Python::Module
+          npu::habana_serialization
+          npu::pytorch_synapse_utils_shim
           torch
           nlohmann_json::nlohmann_json
           absl::strings
           absl::str_format
-          pytorch_synapse_utils_shim
-          -lstdc++fs
+          stdc++fs
           npu::hllogger)
 
 target_include_directories(
@@ -112,7 +112,7 @@ target_include_directories(habana_pytorch_backend SYSTEM PUBLIC $<TARGET_PROPERT
                                                                 $<TARGET_PROPERTY:hcl,INTERFACE_INCLUDE_DIRECTORIES>)
 
 target_compile_definitions(habana_pytorch_backend PUBLIC GENERIC_HELPERS)
-target_compile_features(habana_pytorch_backend PUBLIC cxx_std_14) # still required as this is transitive
+target_compile_features(habana_pytorch_backend PUBLIC cxx_std_17) # still required as this is transitive
 set_target_properties(
   habana_pytorch_backend
   PROPERTIES CXX_STANDARD 17

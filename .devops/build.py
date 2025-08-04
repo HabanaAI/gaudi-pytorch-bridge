@@ -26,7 +26,6 @@ import os
 import shutil
 import subprocess as sp  # nosec
 import sys
-import tempfile
 from collections import defaultdict, namedtuple
 from collections.abc import Iterable, Sequence
 from contextlib import contextmanager
@@ -49,8 +48,15 @@ from build_profiles.version import (
     is_official_stable_cpu_version,
     is_wheel_version,
 )
+from icecc_utils import ensure_icecc_setup
+from manylinuxrunner import GenericManylinuxRunner
 
 log = logging.getLogger(__file__)
+
+
+class PTIntegrationManyLinuxRunner(GenericManylinuxRunner):
+    def get_bash_command(self, raw_args: Iterable[str]):
+        return f"{__file__} " + " ".join(raw_args)
 
 
 @dataclass(unsafe_hash=True)
@@ -100,10 +106,11 @@ class WheelConfig(NamedTuple):
 
 
 venv_base_dir = os.path.join(os.environ["HOME"], ".venvs")
-
+if os.getenv("IN_MANYLINUX_ENV"):
+    venv_base_dir = os.path.join(venv_base_dir, os.getenv("AUDITWHEEL_POLICY", "unidentified_manylinux"))
 
 supported_pt_versions = tuple(map(_to_version_and_source, profiles.get_available_versions()))
-recommended_pt_version = _to_version_and_source(profiles.get_version_literal_and_source("current"))
+recommended_pt_version = _to_version_and_source(profiles.get_version_literal_and_source("current", strict=True))
 
 supported_python_versions = (
     Version("3.10"),
@@ -133,53 +140,6 @@ build_dir_suffix = "pytorch_modules_multi_build"
 build_dir = os.path.join(build_root, build_dir_suffix)
 
 default_job_count = len(os.sched_getaffinity(0))
-
-
-def call_with_error_logging(cmd):
-    with tempfile.TemporaryFile() as tmp_out, tempfile.TemporaryFile() as tmp_err:
-        try:
-            return sp.call(cmd.split(), stdout=tmp_out, stderr=tmp_err)
-        except Exception:
-            log.error(f"Unexpected error when calling `{cmd}`:")
-            log.error("stdout:")
-            log.error(tmp_out.readlines())
-            log.error("stderr:")
-            log.error(tmp_err.readlines())
-            raise
-
-
-def ensure_icecc_setup():
-    lsb_release = sp.check_output(["lsb_release", "-d"], text=True)
-    if "Ubuntu" not in lsb_release and "Debian" not in lsb_release:
-        log.fatal("--use-icecc flag only supported for dpkg-based distros")
-        sys.exit(1)
-
-    icecc_installed = call_with_error_logging("dpkg -s icecc") == 0
-
-    if icecc_installed:
-        ensure_iceccd_started()
-    else:
-        log.info("icecc not installed. Installing and doing setup...")
-        sp.check_call(["sudo", "apt", "update"])
-        sp.check_call(["sudo", "apt", "install", "icecc", "-y"])
-        sp.check_call(
-            [
-                "sudo",
-                "sed",
-                "-i",
-                's/ICECC_NICE_LEVEL="5"/ICECC_NICE_LEVEL="10"/',
-                "/etc/icecc/icecc.conf",
-            ]
-        )
-        sp.check_call(["sudo", "systemctl", "restart", "iceccd"])
-
-
-def ensure_iceccd_started():
-    iceccd_stopped = call_with_error_logging("systemctl status iceccd") != 0
-
-    if iceccd_stopped:
-        log.info("iceccd was stopped. Trying to start it...")
-        sp.check_call(["sudo", "systemctl", "start", "iceccd"])
 
 
 def get_release_version():
@@ -695,7 +655,6 @@ def prepare_build_envs(
     """
     result = defaultdict(list)
     created_venvs = {}
-    installed_packages = get_installed_packages()
 
     for wheel_spec in wheel_specs:
         for py_ver in py_versions:
@@ -706,14 +665,18 @@ def prepare_build_envs(
                 required_pt_package_name = profiles.get_required_pt_package_name(
                     pt_ver.version, profiles.RequirementPurpose.BUILD
                 )
-                use_preinstalled_pt = pt_ver.source == "preinstalled"
+                installed_pt_version = get_installed_pt_version()
+                use_preinstalled_pt = pt_ver.source == "preinstalled" or installed_pt_version is None
                 if use_preinstalled_pt and use_current_py:
                     log.info(
                         f"Need {required_pt_package_name}=={pt_ver.version} and python=={py_ver} and will "
                         f"use {required_pt_package_name} {current_pt_version} and python "
-                        f"{current_python_version} from the current env. "
+                        f"{current_python_version} in the current env."
                     )
                     venv_dir = os.environ.get("VIRTUAL_ENV", ".")
+                    if installed_pt_version is None:
+                        log.info("Installing torch in the current environment")
+                        install_pt(pt_ver, sys.executable, venv_dir, ("--user",) if venv_dir == "." else ())
                 else:
                     venv_dir_key = (py_ver, required_pt_package_name, pt_ver)
                     if venv_dir_key not in created_venvs:
@@ -1049,14 +1012,19 @@ def add_target_for_moving_wheels_to_wheelhouse(wheel_configs, pmake, wheelhouse)
 
 
 def add_target_to_repair_all_wheels(pmake, moving_target, wheelhouse) -> str:
-    """Repairing wheels makes them manylinux ones"""
+    """Repairing linux wheels makes them manylinux ones.
+    None-any wheels have broader compatibility than manylinux so we just copy them instead."""
     target = "wheel/manylinux"
     pmake(f".PHONY: {target}")
     pmake(f"{target}: {moving_target}")
     pmake(
-        f"\tfind {wheelhouse} -name '*-linux*.whl' -exec ${{PYTORCH_MODULES_ROOT_PATH}}/.devops/manylinux/repair_wheel.py "
-        f"--wheel-dir=${{PYTORCH_MODULES_RELEASE_BUILD}} {{}} \\;"
+        # TODO: base wheel dir on build type
+        # TODO: skip repair if already repaired
+        # TODO: less verbose auditwheel unless we pass -v. Debug output (pass -v) if we pass -vv.
+        f"\tfind {wheelhouse} -name '*-linux*.whl' -exec sh -c 'auditwheel repair --only-plat --exclude libtorch* --exclude libc10.so "
+        f"--wheel-dir=${{PYTORCH_MODULES_RELEASE_BUILD}}/pkgs {{}} |& grep -Fv auditwheel.lddtree:Excluding' \\;"
     )
+    pmake(f"\tfind {wheelhouse} -name '*-none-any.whl' -exec cp {{}} ${{PYTORCH_MODULES_RELEASE_BUILD}}/pkgs/ \\;")
     return target
 
 
@@ -1250,7 +1218,7 @@ def build(
             sys.exit(error.returncode)
 
 
-def get_current_pt_version() -> Version | None:
+def get_installed_pt_version() -> Version | None:
     """Figure out the PT version available in the current environment.
     This is used for an internal call as well as via a subprocess call to
     `build.py --get-pt-version` to probe virtual build environments.
@@ -1258,7 +1226,9 @@ def get_current_pt_version() -> Version | None:
     log.debug(f"Python executable: {sys.executable}")
     try:
         sys.path = [path for path in sys.path if path != os.getcwd()]
-        import torch as pt
+        os.environ["TORCH_DEVICE_BACKEND_AUTOLOAD"] = "0"
+
+        import torch as pt  # noqa: PLC0415  # most likely ran in a subprocess
 
         log.debug(f"PyTorch path: {pt.__path__}")
         return Version(pt.__version__)
@@ -1270,7 +1240,7 @@ def get_current_pt_version() -> Version | None:
 def print_current_pt_version_and_exit():
     log.name = "get-pt-version"
     try:
-        print(get_current_pt_version())
+        print(get_installed_pt_version())
         sys.exit(0)
     except Exception as e:
         print(f"Unexpected error when detecting PT version using {sys.executable}: {e}")
@@ -1633,98 +1603,6 @@ def parse_args():
     return args, raw_args
 
 
-class ManylinuxRunner:
-    def __init__(self, with_icecc=False):
-        self.with_icecc = with_icecc
-        if with_icecc:
-            self.image_name = (
-                "artifactory-kfs.habana-labs.com/developers-docker-dev-local/pytorch-sigs/pt-manylinux-with-icecc"
-            )
-        else:
-            self.image_name = "artifactory-kfs.habana-labs.com/docker/pytorch-sigs/pt-manylinux"
-
-    def run(self, args):
-        log.info("Performing a manylinux build")
-        self.pull_manylinux_container()
-        self.rerun_build_in_manylinux(args)
-
-    def pull_manylinux_container(self):
-        log.debug(f"Pulling {self.image_name} Docker image")
-        sp.check_call(f"docker pull {self.image_name}".split())
-
-    def rerun_build_in_manylinux(self, args):
-        if self.with_icecc:
-            args.remove("--use-icecc")
-        args.remove("--manylinux")
-
-        manylinux_venvs_dir = os.path.join(venv_base_dir, "manylinux2014")
-        os.makedirs(manylinux_venvs_dir, exist_ok=True)
-        manylinux_pip_cache_dir = os.path.join(manylinux_venvs_dir, "cache", "pip")
-        os.makedirs(manylinux_pip_cache_dir, exist_ok=True)
-        ccache_dir = os.path.join(os.environ["HOME"], ".ccache")
-        os.makedirs(ccache_dir, exist_ok=True)
-
-        release_build_number = os.environ.get("RELEASE_BUILD_NUMBER", "")
-        proxy_keys = " -e ".join(f"{k}={os.environ[k]}" for k in os.environ if "proxy" in k.lower())
-        proxy_keys = f" -e {proxy_keys}" if proxy_keys else ""
-
-        # Dockerized build that triggers kernel OOM can bring down the whole
-        # system. This may happen easily when too many build jobs are set with
-        # -j flag. To prevent this try limiting memory for docker build to 90%
-        # of current free memory.
-
-        memory_limit = ""
-        try:
-            free_memory = next(l for l in open("/proc/meminfo").readlines() if "MemAvailable" in l).strip().split(" ")
-            assert free_memory[-1] == "kB", "unexpected memory unit in procinfo"
-            memory_limit = int(0.9 * int(free_memory[-2])) // 1024
-            memory_limit = f"--memory={memory_limit}m"
-        except OSError:
-            log.warning("Failed to determine free system memory, build will run without max memory restriction.")
-
-        options = (
-            " -e PLAT=manylinux2014_x86_64"
-            " -e AUDITWHEEL_ARCH=86_64"
-            " -e AUDITWHEEL_PLAT=manylinux2014_x86_64"
-            " -e AUDITWHEEL_POLICY=manylinux2014"
-            f" -e PYTORCH_MODULES_RELEASE_BUILD={os.environ['PYTORCH_MODULES_RELEASE_BUILD']}"
-            f" -e PYTORCH_MODULES_DEBUG_BUILD={os.environ['PYTORCH_MODULES_DEBUG_BUILD']}"
-            f" -e PYTORCH_MODULES_ROOT_PATH={os.environ['PYTORCH_MODULES_ROOT_PATH']}"
-            f" -e PYTHONPATH={os.environ['PYTORCH_MODULES_ROOT_PATH']}/python"
-            f" -e HABANA_SOFTWARE_STACK={os.environ['HABANA_SOFTWARE_STACK']}"
-            f" -e BUILD_ROOT={os.environ['BUILD_ROOT']}"
-            f" -e SYNAPSE_ROOT={os.environ['SYNAPSE_ROOT']}"
-            f" -e HCL_INCLUDE_DIR={os.environ['HCL_INCLUDE_DIR']}"
-            f" -e MEDIA_ROOT={os.environ['MEDIA_ROOT']}"
-            f" -e CODEC_ROOT={os.environ['CODEC_ROOT']}"
-            f" -e SPECS_EXT_ROOT={os.environ['SPECS_EXT_ROOT']}"
-            f" -e BUILD_ROOT_LATEST={os.environ['BUILD_ROOT_LATEST']}"
-            f" -e BUILD_ROOT_RELEASE={os.environ['BUILD_ROOT_RELEASE']}"
-            f" -e BUILD_ROOT_DEBUG={os.environ['BUILD_ROOT_DEBUG']}"
-            f" -e HOST_USER={os.environ['USER']}"
-            f" -e HOST_UID={os.getuid()}"
-            f" -e HOST_GID={os.getgid()}"
-            f" -e RELEASE_BUILD_NUMBER={release_build_number}"
-            f"{proxy_keys}"
-            f" -v ~/.ssh:/.ssh-host:ro"
-            f" -v {os.environ['HABANA_SOFTWARE_STACK']}:{os.environ['HABANA_SOFTWARE_STACK']}"
-            f" -v {os.environ['BUILD_ROOT']}:{os.environ['BUILD_ROOT']}"
-            f" -v {manylinux_venvs_dir}:$HOME/.venvs"
-            f" -v {manylinux_pip_cache_dir}:$HOME/.cache/pip"  # for faster venv restoration
-            f" -v {ccache_dir}:$HOME/.ccache "
-        )
-        if self.with_icecc:
-            options = (
-                options + " --net=host -p ::10246/tcp -p ::8765/tcp -p ::8766/tcp -p ::8765/udp -e CCACHE_PREFIX=icecc"
-            )
-        command = (
-            f"docker run --rm {options} {memory_limit} {self.image_name} {os.environ['PYTORCH_MODULES_ROOT_PATH']}/.devops/build.py "
-            + " ".join(args)
-        )
-        log.debug(f"Running command: {command}")
-        sp.check_call(command, shell=True)  # noqa S602
-
-
 def select_targets_and_configs(args, wheel_configs: list[WheelConfig]) -> tuple[set, list]:
     if args.no_ext_build:
         return {"all"}, []
@@ -1733,15 +1611,6 @@ def select_targets_and_configs(args, wheel_configs: list[WheelConfig]) -> tuple[
         return {"wheel/manylinux"}, wheel_configs
 
     return {"wheel_install"}, wheel_configs
-
-
-def _fix_venv_dirs_if_manylinux(venv_dirs: Sequence[str]) -> Sequence[str]:
-    auditwheel_policy = os.getenv("AUDITWHEEL_POLICY", "")
-    if "manylinux" not in auditwheel_policy:
-        return venv_dirs
-    return [
-        venv.replace(".venvs/", ".venvs/" + auditwheel_policy + "/", 1) for venv in venv_dirs if "manylinux" not in venv
-    ]
 
 
 def get_newest_file(files: Sequence[str]) -> str:
@@ -1763,8 +1632,7 @@ def log_produced_wheels_and_dump_manifest(selected_wheel_configs: list[WheelConf
                     ", ".join(wheel_list),
                 )
             optional = "optional " if wheel_config.optional else ""
-            fixed_venv_dirs = ", and in ".join(_fix_venv_dirs_if_manylinux(wheel_config.venv_dirs))
-            install_info = f" and installed in {fixed_venv_dirs}" if args.install_ext else ""
+            install_info = f" and installed in {wheel_config.venv_dirs}" if args.install_ext else ""
             wheel_info = (
                 f"wheel {wheel_config.full_wheel_name}(pt_vers={wheel_config.pt_vers}, py_ver={wheel_config.py_ver})"
             )
@@ -1819,7 +1687,11 @@ def prepare_wheel_specs(
         pt_versions: set[VersionAndSource] = set()
         for requested in requested_pt_versions:
             if requested == "preinstalled":
-                decide_on_building_with_preinstalled_version(preinstalled_pt_version, pt_versions)
+                preinstalled_pt_version_and_source = determine_preinstalled_version_to_build_with(
+                    preinstalled_pt_version
+                )
+                pt_versions.add(preinstalled_pt_version_and_source)
+                preinstalled_pt_version = preinstalled_pt_version_and_source.version
             elif "://" in requested:  # URI
                 pt_versions.add(VersionAndSource(Version(requested), "uri"))
             else:
@@ -1840,44 +1712,38 @@ def prepare_wheel_specs(
     return preinstalled_pt_version, wheel_specs
 
 
-def decide_on_building_with_preinstalled_version(
-    preinstalled_pt_version: Version | None, pt_versions: set[VersionAndSource]
-):
-    if preinstalled_pt_version is None:
+def determine_preinstalled_version_to_build_with(installed_pt_version: Version | None) -> VersionAndSource:
+    if installed_pt_version is None:
         log.warning(
             f"Requested building for 'preinstalled' PyTorch version, but no "
             f"PyTorch is installed. Selecting {recommended_pt_version}."
         )
-        pt_versions.add(recommended_pt_version)
-        return
+        return recommended_pt_version
 
-    assert preinstalled_pt_version.micro is not None  # micro is the patch version, e.g. 3 in 1.2.3
-    supported = get_supported_pt_version(preinstalled_pt_version, supported_pt_versions)
+    assert installed_pt_version.micro is not None  # micro is the patch version, e.g. 3 in 1.2.3
+    supported = get_supported_pt_version(installed_pt_version, supported_pt_versions)
     if supported:
-        pt_versions.add(VersionAndSource(supported.version, "preinstalled"))
-        return
+        return VersionAndSource(supported.version, "preinstalled")
 
     # look again, allowing a different patch version, as this eases patch version bumping in CI/Promotion
     log.warning(
-        f"Requested 'preinstalled' PT version ({preinstalled_pt_version}), "
+        f"Requested 'preinstalled' PT version ({installed_pt_version}), "
         f"which is not supported. Currently supported PT versions "
         f"are {supported_pt_versions}. Checking if there's a similar enough version..."
     )
     supported = get_similar_supported_pt_version(
-        preinstalled_pt_version,
+        installed_pt_version,
         supported_pt_versions,
     )
     if not supported:
         log.fatal("No matching major/minor version found. Quitting.")
         sys.exit(1)
     log.warning(
-        f"{supported} is a good enough match for {preinstalled_pt_version}. "
+        f"{supported} is a good enough match for {installed_pt_version}. "
         "Proceeding to build with the preinstalled version."
     )
-    version_to_add = Version(
-        f"{preinstalled_pt_version.major}.{preinstalled_pt_version.minor}.{preinstalled_pt_version.micro}"
-    )
-    pt_versions.add(VersionAndSource(version_to_add, "preinstalled"))
+    version_to_add = Version(f"{installed_pt_version.major}.{installed_pt_version.minor}.{installed_pt_version.micro}")
+    return VersionAndSource(version_to_add, "preinstalled")
 
 
 def locate_pt_sources():
@@ -2004,9 +1870,12 @@ def main():
     if args.use_icecc:
         ensure_icecc_setup()
 
-    if args.manylinux:  # TODO
-        raise NotImplementedError("Manylinux builds not yet supported for PT")
-        ManylinuxRunner(with_icecc=args.use_icecc).run(raw_args)
+    if args.manylinux:
+        shouldRecreateVenv = args.recreate_venv == RecreateVenv.FORCE
+        if args.use_icecc:
+            raw_args.remove("--use-icecc")
+        raw_args.remove("--manylinux")
+        PTIntegrationManyLinuxRunner(with_icecc=args.use_icecc).run(shouldRecreateVenv, raw_args)
         exit()
 
     if args.get_pt_version:
@@ -2020,11 +1889,11 @@ def main():
         selected_python_versions = select_python_versions(args)
         log.debug(f"Selected Python versions: {selected_python_versions}")
 
-        current_pt_version = get_current_pt_version()
+        installed_pt_version = get_installed_pt_version()
 
-        current_pt_version, wheel_specs = prepare_wheel_specs(args.wheel_spec, args.pt_versions, current_pt_version)
+        installed_pt_version, wheel_specs = prepare_wheel_specs(args.wheel_spec, args.pt_versions, installed_pt_version)
 
-        pt_version_id = get_pt_version_id(str(current_pt_version))
+        pt_version_id = get_pt_version_id(str(installed_pt_version))
         cpu_index_url = get_cpu_index_url(pt_version_id)
         if cpu_index_url != "none" and args.upstream_compile:
             wheel_specs = add_upstream_versions(wheel_specs, cpu_index_url)
@@ -2049,7 +1918,7 @@ def main():
             wheel_specs,
             pt_modules_root,
             current_python_version=system_python_version,
-            current_pt_version=current_pt_version,
+            current_pt_version=installed_pt_version,
             recreate_venv=args.recreate_venv,
         )
 
@@ -2063,7 +1932,6 @@ def main():
         )
 
         selected_targets, selected_wheel_configs = select_targets_and_configs(args, wheel_configs)
-
         build(
             build_dir,
             jobs=args.jobs,

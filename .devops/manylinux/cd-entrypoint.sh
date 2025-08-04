@@ -30,7 +30,7 @@ STACK=${_STACK:-$HOME/repos}
 BUILD=${_BUILD:-$HOME/builds}
 source $STACK/automation/habana_scripts/habana_env $WORK $STACK $BUILD
 
-if [ -z "${HABANA_NO_VENV}" ];then
+if [ -z "${HABANA_NO_VENV}" ]; then
     if ! test -f $WORK/.venv/bin/activate; then
         echo "Initializing Python $HABANA_PYTHON_VERSION virtual environment in $WORK/.venv"
         python${HABANA_PYTHON_VERSION} -m venv $WORK/.venv

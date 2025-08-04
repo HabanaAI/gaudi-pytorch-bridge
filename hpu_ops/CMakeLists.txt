@@ -358,7 +358,7 @@ target_link_libraries(
   PRIVATE habana_serialization
           exprtk::exprtk
           torch
-          Python::Python
+          Python::Module
           nlohmann_json::nlohmann_json
           absl::strings
           absl::str_format
@@ -429,7 +429,7 @@ target_link_libraries(
           exprtk::exprtk
           pytorch_synapse_utils_shim
           torch
-          Python::Python
+          Python::Module
           nlohmann_json::nlohmann_json
           absl::strings
           absl::str_format

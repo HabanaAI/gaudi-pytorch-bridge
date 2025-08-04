@@ -15,21 +15,8 @@
 #
 ###############################################################################
 
-import sys
+add_habana_library(python_embed_shim OBJECT python_embed_shim.cpp)
 
-from auditwheel.main import main
-from auditwheel.policy import _POLICIES as POLICIES
+target_link_libraries(python_embed_shim PUBLIC ${CMAKE_DL_LIBS} Python::Module)
 
-PT_WHITELIST = [
-    "libtorch.so",
-    "libc10.so",
-    "libtorch_python.so",
-    "libtorch_cpu.so",
-    "libhabana_pytorch_plugin.so",  # 2 copies of library causes bridge issue
-]
-
-for p in POLICIES:
-    p["lib_whitelist"].extend(PT_WHITELIST)
-
-if __name__ == "__main__":
-    sys.exit(main())
+export(TARGETS python_embed_shim FILE python_embed_shimConfig.cmake)

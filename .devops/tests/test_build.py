@@ -79,12 +79,13 @@ def test_patch_version_compatibility_in_prepare_wheel_specs(monkeypatch):
 
     output_preinstalled, wheel_specs = build.prepare_wheel_specs("", ["preinstalled"], input_preinstalled)
 
-    assert output_preinstalled == input_preinstalled
+    assert output_preinstalled == "2.3.1"
 
     assert len(wheel_specs) == 2  # modules and dataloader
     spec = wheel_specs[0]
     assert len(spec.pt_versions) == 1
-    assert build.VersionAndSource(version=Version("2.3.1"), source="preinstalled") == list(spec.pt_versions)[0]
+    expected_version_and_source = build.VersionAndSource(version=Version("2.3.1"), source="preinstalled")
+    assert expected_version_and_source == list(spec.pt_versions)[0]
     assert build.log.warn.called or build.log.warning.called
 
 
