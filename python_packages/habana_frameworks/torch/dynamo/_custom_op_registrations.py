@@ -25,11 +25,11 @@ def register_prepare_ops(fn, fake_fn, name: str, device_types: str = "cpu", sche
     op_name = f"hpu_prepare_ops::{name}"
     custom_fn = custom_op(op_name, fn, mutates_args=(), device_types=device_types, schema=schema)
     custom_fn.register_fake(fake_fn)
-    fx_node._side_effectful_functions.add(eval(f"torch.ops.hpu_prepare_ops.{name}.default"))
+    fx_node._side_effectful_functions.add(eval(f"torch.ops.hpu_prepare_ops.{name}.default"))  # noqa S307
 
 
 def register_post_ops(fn, fake_fn, name: str, device_types: str = "cpu", schema: str | None = None):
     op_name = f"hpu_post_ops::{name}"
     custom_fn = custom_op(op_name, fn, mutates_args=(), device_types=device_types, schema=schema)
     custom_fn.register_fake(fake_fn)
-    fx_node._side_effectful_functions.add(eval(f"torch.ops.hpu_post_ops.{name}.default"))
+    fx_node._side_effectful_functions.add(eval(f"torch.ops.hpu_post_ops.{name}.default"))  # noqa S307

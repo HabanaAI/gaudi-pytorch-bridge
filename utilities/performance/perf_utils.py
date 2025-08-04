@@ -165,7 +165,7 @@ def create_functor(operations_count):
 
         fs_compiled = compile(fs, "auto_generated", "exec")
         exec(fs_compiled)  # noqa S102
-        functor_generated = eval("functor_gen")
+        functor_generated = eval("functor_gen")  # noqa S307
 
         return functor_generated
 
