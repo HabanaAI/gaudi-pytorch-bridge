@@ -63,11 +63,9 @@ repos:
         args:
           - --allow-past-years
           - --use-current-year
-          # yamllint disable rule:line-length
           - --comment-style
           - |-
             ###############################################################################|#|###############################################################################
-          # yamllint enable rule:line-length
   # TODO: fix issues and enable when time allows:
   # https://jira.habana-labs.com/browse/SW-121816
   #       - id: insert-license

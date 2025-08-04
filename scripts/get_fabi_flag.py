@@ -1,18 +1,16 @@
 ###############################################################################
+# Copyright (c) 2025 Intel Corporation
 #
-#  Copyright (c) 2025 Intel Corporation
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#     http://www.apache.org/licenses/LICENSE-2.0
 #
-#  Licensed under the Apache License, Version 2.0 (the "License");
-#  you may not use this file except in compliance with the License.
-#  You may obtain a copy of the License at
-#      http://www.apache.org/licenses/LICENSE-2.0
-#
-#  Unless required by applicable law or agreed to in writing, software
-#  distributed under the License is distributed on an "AS IS" BASIS,
-#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#  See the License for the specific language governing permissions and
-#  limitations under the License.
-#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 ###############################################################################
 
 import argparse
@@ -84,7 +82,7 @@ def get_torch_gcc_version() -> str:
 
 
 def get_gcc_version(compiler_path: str) -> str:
-    output = subprocess.check_output([compiler_path, "--version"], stderr=subprocess.STDOUT)
+    output = subprocess.check_output([compiler_path, "--version"], stderr=subprocess.STDOUT)  # noqa S603
     first_line = output.decode().split("\n")[0]
     search_result = re.search(r"\d+\.\d+(\.\d+)?", first_line)
     if search_result:
