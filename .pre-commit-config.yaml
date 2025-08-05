@@ -66,20 +66,16 @@ repos:
           - --comment-style
           - |-
             ###############################################################################|#|###############################################################################
-  # TODO: fix issues and enable when time allows:
-  # https://jira.habana-labs.com/browse/SW-121816
-  #       - id: insert-license
-  #         name: Handle copyright headers in C++ files
-  #         files: \.c(pp)?$|\.h(pp)?$
-  #         args:
-  # yamllint disable rule:line-length
-  #             - --comment-style
-  #             - |-
-  #               /*******************************************************************************| *| *******************************************************************************
-  #                */
-  # yamllint enable rule:line-length
-  #             - --fuzzy-match-generates-todo
-  #             - --use-current-year
+      - id: insert-license
+        name: Handle copyright headers in C++ files
+        files: \.cpp$|\.h(pp)?$
+        args:
+          - --allow-past-years
+          - --use-current-year
+          - --comment-style
+          - |-
+            /**| *| */
+        exclude: ^scripts/tests/files/
   - repo: https://github.com/adrienverge/yamllint.git
     rev: v1.37.0
     hooks:
@@ -91,4 +87,4 @@ repos:
         name: Check deprecated namespaces
         entry: c10::(optional|string_view|nullopt)|<c10/util/string_view.h>|<c10/util/Optional.h>
         language: pygrep
-        files: \.c(pp)?$|\.h(pp)?$|gen_op
+        files: \.cpp$|\.h(pp)?$|gen_op

@@ -1,11 +1,5 @@
-/*************************************************************************
- * Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES. All rights
- *reserved.
- *
- * See LICENSE.txt for license information.
- ************************************************************************/
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +12,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+/*************************************************************************
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES. All rights
+ *reserved.
+ *
+ * See LICENSE.txt for license information.
+ ************************************************************************/
 
 #ifndef TRANSFORMER_ENGINE_LOGGING_H_
 #define TRANSFORMER_ENGINE_LOGGING_H_
