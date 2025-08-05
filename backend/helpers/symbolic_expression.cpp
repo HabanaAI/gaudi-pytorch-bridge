@@ -58,7 +58,9 @@ SymExpression::SymExpression(
 
     if (auto sym = SymExpression::ExtractSymbolValueFromExpression(
             it->first, *(it->second));
-        sym.has_value()) {
+        sym.has_value() &&
+        in_symbol_value_map.find(sym.value().first) ==
+            in_symbol_value_map.end()) {
       m_symbol_table.add_variable(sym.value().first, sym.value().second);
       PT_BRIDGE_DEBUG(
           "SizeExpression m_expr_str:",
