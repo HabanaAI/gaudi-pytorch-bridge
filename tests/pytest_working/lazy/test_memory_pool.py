@@ -59,7 +59,7 @@ def tensor_create(device, pool_id):
     print(hpu_tensor_2.to("cpu"))
 
     # memory should not be reused due to bigger dp5 size
-    if pool_id != "5" and pool_id != "0":
+    if pool_id not in ("5", "0"):
         assert check_data_pointers(dp1, dp2) is False
 
     hpu_tensor_3 = torch.randn(8, 8).to(device)
@@ -67,7 +67,7 @@ def tensor_create(device, pool_id):
     print(hpu_tensor_3.to("cpu"))
 
     # dp1 memory must be reused
-    if pool_id != "5" and pool_id != "0":
+    if pool_id not in ("5", "0"):
         assert check_data_pointers(dp1, dp3) is True
 
     hpu_tensor_4 = torch.randn(3, 3).to(device)
@@ -80,7 +80,7 @@ def tensor_create(device, pool_id):
     print(hpu_tensor_5.to("cpu"))
 
     # dp4 memory must be reused
-    if pool_id != "5" and pool_id != "0":
+    if pool_id not in ("5", "0"):
         assert check_data_pointers(dp5, dp4) is True
 
     hpu_tensor_6 = torch.randn(3, 3).to(device)
@@ -88,7 +88,7 @@ def tensor_create(device, pool_id):
     print(hpu_tensor_6.to("cpu"))
 
     # dp6 memory must be a new block
-    if pool_id != "5" and pool_id != "0":
+    if pool_id not in ("5", "0"):
         assert check_data_pointers(dp6, dp4) is False
 
 

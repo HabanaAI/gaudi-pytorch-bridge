@@ -1593,7 +1593,7 @@ def parse_args():
         raw_args = profile_args
         if args.describe_profile:
             print("build.py " + " ".join(profile_args))
-            exit(0)
+            sys.exit(0)
         args = parser.parse_args(args=profile_args)
     else:
         raw_args = sys.argv[1:]
@@ -1874,7 +1874,7 @@ def main():
             raw_args.remove("--use-icecc")
         raw_args.remove("--manylinux")
         PTIntegrationManyLinuxRunner(with_icecc=args.use_icecc).run(shouldRecreateVenv, raw_args)
-        exit()
+        sys.exit()
 
     if args.get_pt_version:
         print_current_pt_version_and_exit()

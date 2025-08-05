@@ -209,11 +209,10 @@ class habana_quantizer(Quantizer):
 
         def is_conv_node(node):
             return node.op == "call_function" and (
-                node.target == torch.ops.aten.convolution.default
-                or node.target == torch.ops.aten.conv2d.default
+                node.target in {torch.ops.aten.convolution.default, torch.ops.aten.conv2d.default}
                 or (
                     isinstance(node.target, TorchOpOverload)
-                    and (node.target._name == "aten::convolution" or node.target._name == "aten::conv2d")
+                    and node.target._name in {"aten::convolution", "aten::conv2d"}
                 )
             )
 
@@ -259,7 +258,7 @@ class habana_quantizer(Quantizer):
         weight_qspec = get_weight_qspec(quantization_config)
         bias_qspec = get_bias_qspec(quantization_config)
         for module_or_fn_type, partitions in module_partitions.items():
-            if module_or_fn_type == torch.nn.Linear or module_or_fn_type == torch.nn.functional.linear:
+            if module_or_fn_type in (torch.nn.Linear, torch.nn.functional.linear):
                 for p in partitions:
                     act_node = p.input_nodes[0]
                     output_node = p.output_nodes[0]
@@ -342,13 +341,10 @@ class habana_quantizer(Quantizer):
 
         def is_max_pool_node(node):
             return node.op == "call_function" and (
-                node.target == torch.ops.aten.max_pool2d_with_indices.default
-                or node.target == torch.ops.aten.max_pool2d.default
+                node.target in {torch.ops.aten.max_pool2d_with_indices.default, torch.ops.aten.max_pool2d.default}
                 or (
                     isinstance(node.target, TorchOpOverload)
-                    and (
-                        node.target._name == "aten::max_pool2d_with_indices" or node.target._name == "aten::max_pool2d"
-                    )
+                    and node.target._name in {"aten::max_pool2d_with_indices", "aten::max_pool2d"}
                 )
             )
 
@@ -411,11 +407,7 @@ class habana_quantizer(Quantizer):
 
         def is_qkv(node):
             while node and node.op == "call_function":
-                if (
-                    node.target.__name__ == "index_copy.default"
-                    or node.target.__name__ == "rotary_pos_embedding.default"
-                    or node.target.__name__ == "mm.default"
-                ):
+                if node.target.__name__ in {"index_copy.default", "rotary_pos_embedding.default", "mm.default"}:
                     return True
                 node = node.args[0]
             return False
@@ -423,10 +415,7 @@ class habana_quantizer(Quantizer):
         input_act_qspec = get_input_act_qspec(quantization_config)
         output_act_qspec = get_output_act_qspec(quantization_config)
         for module_or_fn_type, partitions in module_partitions.items():
-            if (
-                module_or_fn_type == torch.ops.hpu.sdpa_recomp_fwd
-                or module_or_fn_type == torch.ops.hpu.sdpa_recomp_fwd_non_dropout.default
-            ):
+            if module_or_fn_type in (torch.ops.hpu.sdpa_recomp_fwd, torch.ops.hpu.sdpa_recomp_fwd_non_dropout.default):
                 for p in partitions:
                     output_node = p.output_nodes[0]
                     if p.input_nodes[0] and is_qkv(p.input_nodes[0]):

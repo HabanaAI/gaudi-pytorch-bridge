@@ -431,7 +431,7 @@ def prepare_data(
     scale = s.to(out_dtype)
     if scale_values == "1":
         scale = torch.ones_like(scale)
-    if scale_values == "range" or scale_values == "range_int":
+    if scale_values in ("range", "range_int"):
         range_t = torch.tensor(list(range(1, infeatures + 1)), dtype=torch.int32)
         shape_s = s.shape
         scale = (

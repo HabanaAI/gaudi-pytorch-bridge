@@ -136,7 +136,7 @@ def is_node_supported(node: torch.fx.Node) -> bool:
 
 def is_compute_node(node):
     # return false if node is a view node, input node or output node
-    return (not is_view_node(node)) and (node.op != "placeholder") and (node.op != "output")
+    return (not is_view_node(node)) and (node.op not in ["placeholder", "output"])
 
 
 def is_decomposed_from_inplace_node(node):
@@ -697,7 +697,7 @@ def jit_node_shape_propagation(jit_ir, fx_module):
         logger.debug("Matching Jit node:", jit_node_name, "from FX node index:", fx_idx)
         while fx_idx < size:
             fx_node = fx_nodes[fx_idx]
-            if fx_node.op == "placeholder" or fx_node.op == "output":
+            if fx_node.op in ("placeholder", "output"):
                 fx_idx += 1
                 continue
             if fx_node.target.__name__.count(jit_node_name) > 0:

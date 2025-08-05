@@ -314,11 +314,11 @@ def gen_expected2(dyn_inps, dyn_ops, reuse_relu, wrap_inner):
     def mapper(x):
         if dyn_inps:
             if dyn_ops:
-                return (5 if x == "InnerNet" else 2) if wrap_inner else (5 if x == "Net" or x == "Net/innernet" else 2)
+                return (5 if x == "InnerNet" else 2) if wrap_inner else (5 if x in ("Net", "Net/innernet") else 2)
             else:
                 return 2
         elif dyn_ops:
-            return (5 if x == "InnerNet" else 1) if wrap_inner else (5 if x == "Net" or x == "Net/innernet" else 1)
+            return (5 if x == "InnerNet" else 1) if wrap_inner else (5 if x in ("Net", "Net/innernet") else 1)
         else:
             return 1
 

@@ -1076,7 +1076,7 @@ def dump_scale(module: torch.fx.GraphModule, save_to_file: bool, extra_file: str
                     nn_module_stack = copy_src_quant_node.meta.get("nn_module_stack", None)
 
                     result, k_proj_v_proj_node_meta = check_kcache_or_vcache(copy_src_quant_node.args[0])
-                    assert result == "k_cache" or result == "v_cache"
+                    assert result in ("k_cache", "v_cache")
 
                     if not nn_module_stack:
                         assert k_proj_v_proj_node_meta
@@ -1103,7 +1103,7 @@ def dump_scale(module: torch.fx.GraphModule, save_to_file: bool, extra_file: str
                     nn_module_stack = input3_quant_node.meta.get("nn_module_stack", None)
 
                     result, k_proj_v_proj_node_meta = check_kcache_or_vcache(input3_quant_node.args[0])
-                    assert result == "k_cache" or result == "v_cache"
+                    assert result in ("k_cache", "v_cache")
 
                     if not nn_module_stack:
                         assert k_proj_v_proj_node_meta
@@ -1326,7 +1326,7 @@ def load_scale(module: torch.fx.GraphModule, scale_info_json=None, extra_file: s
                     nn_module_stack = copy_src_quant_node.meta.get("nn_module_stack", None)
 
                     result, k_proj_v_proj_node_meta = check_kcache_or_vcache(copy_src_quant_node.args[0])
-                    assert result == "k_cache" or result == "v_cache"
+                    assert result in ("k_cache", "v_cache")
 
                     if not nn_module_stack:
                         assert k_proj_v_proj_node_meta
@@ -1350,7 +1350,7 @@ def load_scale(module: torch.fx.GraphModule, scale_info_json=None, extra_file: s
                     nn_module_stack = input3_quant_node.meta.get("nn_module_stack", None)
 
                     result, k_proj_v_proj_node_meta = check_kcache_or_vcache(input3_quant_node.args[0])
-                    assert result == "k_cache" or result == "v_cache"
+                    assert result in ("k_cache", "v_cache")
 
                     if not nn_module_stack:
                         assert k_proj_v_proj_node_meta
@@ -1619,7 +1619,7 @@ def preprocess_linears(placeholder_map, model: torch.fx.GraphModule, tupled_args
     global param_id
     model_changed = False
     for module_or_fn_type, partitions in linear_module_partitions.items():
-        if module_or_fn_type == torch.nn.Linear or module_or_fn_type == torch.nn.functional.linear:
+        if module_or_fn_type in (torch.nn.Linear, torch.nn.functional.linear):
             for p in partitions:
                 weight_node = None
                 bias_node = None
@@ -1738,7 +1738,7 @@ def preprocess_convs(placeholder_map, model: torch.fx.GraphModule, tupled_args):
 
     global param_id
     for module_or_fn_type, partitions in conv_module_partitions.items():
-        if module_or_fn_type == torch.nn.Conv2d or module_or_fn_type == torch.nn.functional.conv2d:
+        if module_or_fn_type in (torch.nn.Conv2d, torch.nn.functional.conv2d):
             for p in partitions:
                 weight_node = None
                 bias_node = None

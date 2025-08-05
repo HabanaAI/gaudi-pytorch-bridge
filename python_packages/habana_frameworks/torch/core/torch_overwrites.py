@@ -305,7 +305,7 @@ def overwrite_torch_functions():
     # wrap torch.distributed.irecv
 
     dummy_mode = int(environ.get("P2P_DUMMY_MODE_PHASE", "0"))
-    if dummy_mode == 1 or dummy_mode == 2:
+    if dummy_mode in (1, 2):
         irecv_orig = torch.distributed.irecv
         distributed_c10d = torch.distributed.distributed_c10d
 

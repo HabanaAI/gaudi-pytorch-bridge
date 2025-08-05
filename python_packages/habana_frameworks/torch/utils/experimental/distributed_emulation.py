@@ -76,4 +76,4 @@ def distributed_emulation_apply_if_enabled():
 
         if hpu_emulate_distributed_single_rank != rank:
             print(f"Single rank emulation mode, rank {rank} terminating")
-            exit(0)
+            sys.exit(0)

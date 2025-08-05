@@ -38,8 +38,7 @@ def pass_insert_debug_nan_asserts(ctx: OptimizerContext) -> bool:
 
     nodes_to_insert_asserts = filter(
         lambda n: (
-            n.op != "placeholder"
-            and n.op != "output"
+            n.op not in {"placeholder", "output"}
             and "val" in n.meta
             and isinstance(n.meta["val"], torch._subclasses.fake_tensor.FakeTensor)
             and n.meta["val"].dtype.is_floating_point

@@ -349,7 +349,7 @@ def test_apply_rotary_pos_emb_gptj_fwd(p_size, cos_sin_size, dtype):
 class TestHpuApplyRotaryPosEmbDiffDTypes:
     @staticmethod
     def test_apply_rotary_pos_emb_diff_dtypes(p_size, cos_sin_size, dtype, cos_dtype, sin_dtype):
-        if is_gaudi1() and (dtype == torch.float16 or cos_dtype == torch.float16 or sin_dtype == torch.float16):
+        if is_gaudi1() and (torch.float16 in (dtype, cos_dtype, sin_dtype)):
             pytest.skip("Half is not supported on Gaudi.")
 
         torch.manual_seed(12345)

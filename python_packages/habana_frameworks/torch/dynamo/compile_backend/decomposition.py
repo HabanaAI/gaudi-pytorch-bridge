@@ -823,12 +823,7 @@ def index_add(
     x = x_in
     tensor = tensor_in
     index = index_in
-    if (
-        index_in.dtype == torch.int32
-        or index_in.dtype == torch.short
-        or index_in.dtype == torch.uint8
-        or index_in.dtype == torch.int8
-    ):
+    if index_in.dtype in (torch.int32, torch.short, torch.uint8, torch.int8):
         index = index_in.to(torch.long)
     dim = utils.canonicalize_dims(x.ndim, dim)
     torch._check(
@@ -849,14 +844,9 @@ def index_add(
         )
         tensor = tensor_in * alpha
 
-    if x_in.dtype == torch.int32 or x_in.dtype == torch.uint8 or x_in.dtype == torch.int8 or x_in.dtype == torch.bool:
+    if x_in.dtype in (torch.int32, torch.uint8, torch.int8, torch.bool):
         x = x_in.to(torch.float)
-    if (
-        tensor_in.dtype == torch.int32
-        or tensor_in.dtype == torch.uint8
-        or tensor_in.dtype == torch.int8
-        or tensor_in.dtype == torch.bool
-    ):
+    if tensor_in.dtype in (torch.int32, torch.uint8, torch.int8, torch.bool):
         tensor = tensor.to(torch.float)
 
     zero_dim = x.ndim == 0
@@ -872,7 +862,7 @@ def index_add(
     index_expanded = torch.ops.aten.reshape(index, expanded_sizes).expand(tensor.shape)
     ret = torch.ops.aten.scatter_add(x1, dim, index_expanded, tensor)
 
-    if x_in.dtype == torch.int32 or x_in.dtype == torch.uint8 or x_in.dtype == torch.int8 or x_in.dtype == torch.bool:
+    if x_in.dtype in (torch.int32, torch.uint8, torch.int8, torch.bool):
         return ret.to(x_in.dtype)
     else:
         return ret

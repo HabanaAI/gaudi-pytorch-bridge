@@ -23,6 +23,7 @@ import multiprocessing as mp
 import os
 import shutil
 import sqlite3
+import sys
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -321,7 +322,7 @@ class DivergenceAnalyzer:
                 "[ERROR] Static DB doesn't have same number of columns as Dynamic DB",
                 console=True,
             )
-            exit(0)
+            sys.exit(0)
 
         desired_column_names = ["GRAPH_NAME", "NAME", "VALIDATION", "DATA_IDS", "ITERATION"]
         column_dict = {col[1]: col[0] for col in columns1}
@@ -332,7 +333,7 @@ class DivergenceAnalyzer:
                 "[ERROR] All required columns are not present in DB",
                 console=True,
             )
-            exit(0)
+            sys.exit(0)
 
         idx_graph_name = column_indices[0]
         idx_tensor_name = column_indices[1]
@@ -360,7 +361,7 @@ class DivergenceAnalyzer:
             self.log("[ERROR] DB has different Tensor name for tensor in static and dynamic not comparing.")
             if self.cfg.cache:
                 self.log("[ERROR] Check with --cache 0.")
-            exit(0)
+            sys.exit(0)
 
         data_ids_table1 = [item[idx_data] for item in tensors_static[:compare_len]]
         data_ids_table2 = [item[idx_data] for item in tensors_dynamic[:compare_len]]

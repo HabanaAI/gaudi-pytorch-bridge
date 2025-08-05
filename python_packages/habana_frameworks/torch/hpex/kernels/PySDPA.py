@@ -199,7 +199,7 @@ def flex_attention_fwd(q, k, v, block_size=128, is_noop_mask=False, is_ret_lse=F
     is_fp8 = False
     compatible_dtype = orig_dtype
     compatible_dtype_for_softmax = torch.float32
-    if orig_dtype == torch.float8_e5m2 or orig_dtype == torch.float8_e4m3fn:
+    if orig_dtype in {torch.float8_e5m2, torch.float8_e4m3fn}:
         is_fp8 = True
         compatible_dtype = torch.bfloat16
     batch = q.shape[q.dim() - 4]
@@ -444,7 +444,7 @@ def flex_attention_bwd(q, k, v, o, lse, do, glse, block_size=128, is_noop_mask=F
     # (batch, number of heads, sequence length, dimension of each head)
     orig_dtype = q.dtype
     is_fp8 = False
-    if orig_dtype == torch.float8_e5m2 or orig_dtype == torch.float8_e4m3fn:
+    if orig_dtype in {torch.float8_e5m2, torch.float8_e4m3fn}:
         is_fp8 = True
     batch = q.shape[q.dim() - 4]
     head = q.shape[q.dim() - 3]

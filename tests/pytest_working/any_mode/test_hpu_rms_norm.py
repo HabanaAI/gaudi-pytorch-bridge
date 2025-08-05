@@ -43,7 +43,7 @@ def rms_norm_fwd_ref(data_in, gamma, eps):
 
 
 def rms_norm_fwd_bwd(size, eps, use_stages, bwd_mode, fast_math, data_in_dtype, gamma_dtype):
-    if is_gaudi1() and (data_in_dtype == torch.float16 or gamma_dtype == torch.float16):
+    if is_gaudi1() and (torch.float16 in (data_in_dtype, gamma_dtype)):
         pytest.skip("Half is not supported on Gaudi.")
 
     if (

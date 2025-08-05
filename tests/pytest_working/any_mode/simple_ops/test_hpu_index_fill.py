@@ -40,7 +40,7 @@ def test_hpu_index_fill(shape, dim, indices, dtype, is_scalar):
         update_value = torch.tensor(10, dtype=dtype)
         update_value_h = update_value.to("hpu")
 
-    if dtype == torch.int or dtype == torch.long:
+    if dtype in (torch.int, torch.long):
         self_tensor = torch.randint(low=-5, high=5, size=shape, dtype=dtype)
     else:
         self_tensor = torch.randn(shape).to(dtype)

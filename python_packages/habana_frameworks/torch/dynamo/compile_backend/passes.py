@@ -2217,10 +2217,7 @@ def pass_reinplace_index_copy_ops(ctx: OptimizerContext) -> bool:
                 mutated_arg_users = list(mutated_arg.users)
                 if (
                     len(mutated_arg_users) == 2
-                    and (
-                        mutated_arg_users[0].target == torch.ops.aten.copy_.default
-                        or mutated_arg_users[1].target == torch.ops.aten.copy_.default
-                    )
+                    and (torch.ops.aten.copy_.default in (mutated_arg_users[0].target, mutated_arg_users[1].target))
                     and not (mutated_arg.op == "call_function" and is_view_node(mutated_arg))
                     and not has_any_eager_users(node)  # index_copy_ output can't be the partition output
                 ):

@@ -336,7 +336,7 @@ class TestFlexAttention(InductorTestCase):
         fudge_factor: float,
         tensor_name: str | None = None,
     ):
-        if compiled_out.dtype == torch.float8_e4m3fn or compiled_out.dtype == torch.float8_e5m2:
+        if compiled_out.dtype in {torch.float8_e4m3fn, torch.float8_e5m2}:
             compiled_out = compiled_out.to(torch.float32)
         compiled_error = (golden_out - compiled_out).abs().mean()
         ref_error = (golden_out - ref_out).abs().mean()
@@ -401,7 +401,7 @@ class TestFlexAttention(InductorTestCase):
                 fudge_factor = 10.0
             elif dtype == torch.bfloat16:
                 fudge_factor = 12.0
-            elif dtype == torch.float8_e4m3fn or dtype == torch.float8_e5m2:
+            elif dtype in {torch.float8_e4m3fn, torch.float8_e5m2}:
                 fudge_factor = 10.0
             else:
                 fudge_factor = 1.1
@@ -573,7 +573,7 @@ class TestFlexAttention(InductorTestCase):
             )
 
         q_ref, k_ref, v_ref = query_key_value_clones(q, k, v)
-        if q_ref.dtype == torch.float8_e4m3fn or q_ref.dtype == torch.float8_e5m2:
+        if q_ref.dtype in {torch.float8_e4m3fn, torch.float8_e5m2}:
             q_ref = q_ref.to(torch.bfloat16)
             k_ref = k_ref.to(torch.bfloat16)
             v_ref = v_ref.to(torch.bfloat16)
@@ -621,7 +621,7 @@ class TestFlexAttention(InductorTestCase):
             ref_out.sum().backward()
             compiled_out.sum().backward()
 
-            if q.dtype == torch.float8_e4m3fn or q.dtype == torch.float8_e5m2:
+            if q.dtype in {torch.float8_e4m3fn, torch.float8_e5m2}:
                 return
             q_hpu = q.to("cpu")
             q_hpu.grad = q.grad.to("cpu")

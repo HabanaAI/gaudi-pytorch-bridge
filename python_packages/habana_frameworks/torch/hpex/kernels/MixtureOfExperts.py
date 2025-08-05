@@ -35,7 +35,7 @@ def _validate_weights_and_scales(weights, scales, expected_length):
     if len(weights) != expected_length:
         return False, f"Weights should have {expected_length} elements, but got {len(weights)}"
 
-    if weight_dtype == torch.float8_e4m3fn or weight_dtype == torch.float8_e5m2:
+    if weight_dtype in {torch.float8_e4m3fn, torch.float8_e5m2}:
         if scales is None:
             return False, "Scales should not be None"
         scales_dtype = scales[0].dtype

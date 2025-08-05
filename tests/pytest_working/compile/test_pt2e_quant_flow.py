@@ -120,7 +120,7 @@ class custom_quantizer(Quantizer):
             act_qspec = get_input_act_qspec(quantization_config)
             weight_qspec = get_weight_qspec(quantization_config)
             for module_or_fn_type, partitions in module_partitions.items():
-                if module_or_fn_type == torch.nn.Linear or module_or_fn_type == torch.nn.functional.linear:
+                if module_or_fn_type in (torch.nn.Linear, torch.nn.functional.linear):
                     for p in partitions:
                         act_node = p.input_nodes[0]
                         linear_node = p.output_nodes[0]
@@ -173,10 +173,10 @@ class custom_quantizer(Quantizer):
             input_act_qspec = get_input_act_qspec(quantization_config)
             output_act_qspec = get_input_act_qspec(quantization_config)
             for module_or_fn_type, partitions in module_partitions.items():
-                if (
-                    module_or_fn_type == torch.ops.hpu.sdpa_recomp_fwd
-                    or module_or_fn_type == torch.ops.hpu.sdpa_recomp_fwd_non_dropout.default
-                ):
+                if module_or_fn_type in {
+                    torch.ops.hpu.sdpa_recomp_fwd,
+                    torch.ops.hpu.sdpa_recomp_fwd_non_dropout.default,
+                }:
                     for p in partitions:
                         output_node = p.output_nodes[0]
                         _update_input_qspec_map(p, p.input_nodes[0], input_act_qspec)

@@ -111,7 +111,7 @@ class TestMetricsAPI:
             compute_single_step(shape, device)
             gc_metric_dict = dict(gc_metric.stats())
             assert gc_metric_dict["TotalNumber"] == 1
-            assert gc_metric_dict["TotalTime"] == total_time_of_last_iter or total_time_of_last_iter == -1
+            assert total_time_of_last_iter in (gc_metric_dict["TotalTime"], -1)
 
             print(f"Current iteration {curr_iter}. GC metric: {gc_metric.stats()}")
 

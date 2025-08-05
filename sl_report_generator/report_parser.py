@@ -76,7 +76,7 @@ def gen_doc(args):
             }
             for item in items:
                 for type in supported_types.keys():
-                    if type != "float4" and type != "int4":
+                    if type not in ("float4", "int4"):
                         supported_types[type] &= item.second[type]
                 supported_types["float4"] &= item.second.fp4_support
                 supported_types["int4"] &= item.second.int4_support

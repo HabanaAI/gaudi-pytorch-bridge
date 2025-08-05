@@ -296,10 +296,7 @@ class HabanaGraphModule(torch.nn.Module):
         # compile in static flow, even if fx-graph is dynamic
         if self._force_static_compile:
             if self._pholder_symbolic_dict:
-                if curr_symval_hash in self._symval_recipe_id_map:
-                    self._recipe_id = self._symval_recipe_id_map[curr_symval_hash]
-                else:
-                    self._recipe_id = None
+                self._recipe_id = self._symval_recipe_id_map.get(curr_symval_hash, None)
             elif self._dynamic:
                 # If symbols not properly captured (pholder_symbolic_dict is empty)
                 # even though graph is dynamic, Recompilation is needed

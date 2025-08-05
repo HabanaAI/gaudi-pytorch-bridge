@@ -1042,7 +1042,7 @@ def is_param_combo_valid(
         # at batch dim. So in slicing case, if BATCH FACTOR is provided,
         # it should should be 1.
         batch_slice_fac = get_dbg_env_var_num("PT_HPU_SDPA_BATCH_FACTOR")
-        if batch_slice_fac != 0 and batch_slice_fac != 1:
+        if batch_slice_fac not in (0, 1):
             return False
 
     if not inference:
@@ -1441,7 +1441,7 @@ def test_sdpa(
             profile_api.profiler_stop(trace_type, profile_dev_id)
             profile_api.profiler_get_trace_json(trace_type, profile_dev_id)
     if perf_run:
-        exit(0)
+        sys.exit(0)
 
     # ----------------------------------HPU Fused SDPA attention---------------------------------------------
     def sdpa_fn(
@@ -1516,7 +1516,7 @@ def test_sdpa(
     htcore.mark_step()
 
     # ------------------------------- PT NN SDPA implementation on CPU  for Test ----------------------------
-    if dropout_p == 0.0 or dropout_p == 1.0:
+    if dropout_p in (0.0, 1.0):
         with torch.autocast(device_type="cpu", dtype=torch.bfloat16, enabled=enable_autocast):
             sdp_ref = torch.nn.functional.scaled_dot_product_attention(
                 q, k, v, attn_mask=attn_mask, dropout_p=dropout_p, is_causal=is_causal
@@ -1554,7 +1554,7 @@ def test_sdpa(
         k_grad_hpu_c = k_hpu.grad.detach().to("cpu")
         v_grad_hpu_c = v_hpu.grad.detach().to("cpu")
 
-    if recompute and (dropout_p != 0.0 and dropout_p != 1.0):
+    if recompute and (dropout_p not in (0.0, 1.0)):
         vb_print("recompute and (dropout_p!=0.0 or dropout_p!=1.0): Can not compare results. Returning")
         return
 
@@ -1604,7 +1604,7 @@ def test_sdpa(
                 torch.max(torch.abs(v_t.grad - v_grad_hpu_c)),
             )
 
-    if dropout_p == 0.0 or dropout_p == 1.0:
+    if dropout_p in (0.0, 1.0):
         vb_print("\n")
         print("\ndropout_p == 0.0 or 1.0 : so, comparing with torch.nn.scaled_dot_product_attention also")
         compare_tensors(sdp_ref, O_hpu_c, atol=atol, rtol=rtol)

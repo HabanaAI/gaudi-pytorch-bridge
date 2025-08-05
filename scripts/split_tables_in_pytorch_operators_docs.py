@@ -16,6 +16,7 @@
 import argparse
 import os
 import re
+import sys
 
 
 def read_file(filepath):
@@ -52,7 +53,7 @@ if __name__ == "__main__":
     qnpu_path = os.environ.get("QNPU_PATH")
     if not qnpu_path:
         print("You need to source qnpu environment.")
-        exit()
+        sys.exit()
 
     input_filepath = os.path.join(qnpu_path, "src/pytorch-integration/docs/Pytorch_Operators.rst")
     output_filepath = os.path.join(qnpu_path, "src/pytorch-integration/docs/Pytorch_Operators_Split_Dtypes.rst")
@@ -74,17 +75,17 @@ if __name__ == "__main__":
     lines = read_file(args.input)
     if not lines:
         print("Unable to open file.")
-        exit()
+        sys.exit()
 
     operators_support_summary_line_idx = get_line_idx(lines, r"^PyTorch Operators Support Summary")
     if not operators_support_summary_line_idx:
         print("Could not find PyTorch Operators Support Summary section, exiting.")
-        exit()
+        sys.exit()
 
     table_header_line_idx = get_line_idx(lines, r"^\*\*PyTorch Operator\*\*") - 1
     if not table_header_line_idx:
         print("Could not find PyTorch Operators Support Summary table, exiting.")
-        exit()
+        sys.exit()
 
     header_line = lines[table_header_line_idx]
     columns = remove_consecutive_entries([i for i, c in enumerate(header_line) if c == " "])

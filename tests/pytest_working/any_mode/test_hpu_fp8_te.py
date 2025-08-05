@@ -1397,7 +1397,7 @@ def is_gqa(q, k):
     if dims == 4:
         q_heads = q.shape[1]
         kv_heads = k.shape[1]
-        gqa = (q_heads != kv_heads) and kv_heads != 1
+        gqa = kv_heads not in (q_heads, 1)
     return gqa
 
 

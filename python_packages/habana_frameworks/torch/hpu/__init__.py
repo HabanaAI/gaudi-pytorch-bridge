@@ -399,7 +399,7 @@ class device:
         # After 2.1 upgrade, device coming from fork might be 0
         device_idx = _get_device_index(device, optional=True)
         env_device_idx = _get_module_id_from_environ()
-        if device_idx != 0 and device_idx != env_device_idx:
+        if device_idx not in (0, env_device_idx):
             raise AssertionError(f"Requested device_id={device_idx} is different from env_device_id={env_device_idx}")
         self.idx = env_device_idx
         self.prev_idx = -1
@@ -413,7 +413,7 @@ class device:
             set_device(self.idx)
 
     def __exit__(self, type: Any, value: Any, traceback: Any):
-        if self.prev_idx != self.idx and self.prev_idx != -1:
+        if self.prev_idx not in (self.idx, -1):
             set_device(self.idx)
         return False
 

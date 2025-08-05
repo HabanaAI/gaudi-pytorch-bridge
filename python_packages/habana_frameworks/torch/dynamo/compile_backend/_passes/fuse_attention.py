@@ -138,7 +138,7 @@ def add_permute_transpose_clone(gm: torch.fx.GraphModule):
     to_remove: list[torch.fx.Node] = []
     for node in gm.graph.nodes:
         if node.op == "call_function" and (
-            node.target == torch.ops.aten.permute.default or node.target == torch.ops.aten.transpose.int
+            node.target in (torch.ops.aten.permute.default, torch.ops.aten.transpose.int)
         ):
             for user in list(node.users.keys()):
                 if user.target == torch.ops.aten.view.default:

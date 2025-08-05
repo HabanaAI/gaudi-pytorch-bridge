@@ -163,7 +163,7 @@ def main():
         ensure_icecc_setup()
 
     DefaultManyLinuxRunner(with_icecc=args.use_icecc).run(False, bash_command)
-    exit()
+    sys.exit()
 
 
 if __name__ == "__main__":

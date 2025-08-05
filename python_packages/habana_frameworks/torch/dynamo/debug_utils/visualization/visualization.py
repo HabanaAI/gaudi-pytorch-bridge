@@ -159,7 +159,7 @@ def get_node_coloring_strategy(stage=None, graph_pass=None):
         placement = node.meta.get("placement", "unknown")
         if placement == "eager":
             return "#9babb8"
-        if placement == "xpu_cluster" or placement == "cpu_cluster":
+        if placement in ("xpu_cluster", "cpu_cluster"):
             return "#eee3cb"
         return "#967e76"
 

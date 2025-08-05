@@ -146,7 +146,7 @@ def test_reinplace_leaf_index_copy():
         None,
     )
     for node in ctx.graph_module.graph.nodes:
-        if node.op == "placeholder" or node.op == "output":
+        if node.op in ["placeholder", "output"]:
             node.meta["placement"] = "eager"
         else:
             node.meta["placement"] = "hpu_cluster"
