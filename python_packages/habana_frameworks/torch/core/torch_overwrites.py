@@ -35,6 +35,7 @@ from habana_frameworks.torch.utils import _weights_only_unpickler
 from habana_frameworks.torch.utils.internal import is_lazy
 
 import torch
+from torch._C._distributed_c10d import ProcessGroup
 from torch.distributed.constants import default_pg_timeout
 from torch.export.exported_program import ExportedProgram
 from torch.functional import Tensor
@@ -125,7 +126,7 @@ def overwrite_torch_functions():
     get_pg_default_device_orig = torch.distributed.distributed_c10d._get_pg_default_device
 
     @wraps(torch.distributed.distributed_c10d._get_pg_default_device)
-    def wrap_get_pg_default_device(group):
+    def wrap_get_pg_default_device(group: ProcessGroup | None = None):
         backend_name = group._get_backend_name() if group is not None else torch.distributed.get_backend()
         if backend_name == "hccl":
             return torch.device("hpu")
@@ -197,7 +198,15 @@ def overwrite_torch_functions():
     init_process_group_orig = torch.distributed.init_process_group
 
     @wraps(torch.distributed.new_group)
-    def wrap_new_group(ranks=None, timeout=default_pg_timeout, backend=None, pg_options=None):
+    def wrap_new_group(
+        ranks=None,
+        timeout=default_pg_timeout,
+        backend=None,
+        pg_options=None,
+        use_local_synchronization=False,
+        group_desc=None,
+        device_id: torch.device | None = None,
+    ):
         nonlocal ranks_cache
         cache_enable = bc.get_pt_enable_comm_group_cache()
         hpu_backend_invoke = backend is None or "hccl" in backend
@@ -213,10 +222,12 @@ def overwrite_torch_functions():
             if ranks_tuple in ranks_cache[backend]:
                 return ranks_cache[backend][ranks_tuple]
             else:
-                ranks_cache[backend][ranks_tuple] = new_group_orig(ranks, timeout, backend, pg_options)
+                ranks_cache[backend][ranks_tuple] = new_group_orig(
+                    ranks, timeout, backend, pg_options, use_local_synchronization, group_desc, device_id
+                )
                 return ranks_cache[backend][ranks_tuple]
         else:
-            return new_group_orig(ranks, timeout, backend, pg_options)
+            return new_group_orig(ranks, timeout, backend, pg_options, use_local_synchronization, group_desc, device_id)
 
     @wraps(torch.distributed.init_process_group)
     def wrap_init_process_group(
