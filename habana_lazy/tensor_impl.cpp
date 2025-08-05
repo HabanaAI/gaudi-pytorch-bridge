@@ -283,7 +283,11 @@ int64_t HbLazyTensorImpl::numel_custom() const {
   return numel_default();
 }
 
+#if IS_PYTORCH_AT_LEAST(2, 9)
+c10::SymBool HbLazyTensorImpl::sym_is_contiguous_custom(
+#else
 bool HbLazyTensorImpl::is_contiguous_custom(
+#endif
     at::MemoryFormat memory_format) const {
   // Only check that the storage is already contiguous.
   return is_contiguous_default(memory_format);

@@ -24,6 +24,7 @@
 #include "backend/helpers/layout.h"
 #include "backend/helpers/tensor_utils.h"
 #include "backend/synapse_helpers/layout_utils.h"
+#include "habana_helpers/pt_version_check.h"
 #include "hpu_lazy_tensors.h"
 
 namespace habana_lazy {
@@ -67,7 +68,12 @@ class HbLazyTensorImpl : public c10::TensorImpl {
 
   int64_t numel_custom() const override;
 
+#if IS_PYTORCH_AT_LEAST(2, 9)
+  c10::SymBool sym_is_contiguous_custom(
+      at::MemoryFormat memory_format) const override;
+#else
   bool is_contiguous_custom(at::MemoryFormat memory_format) const override;
+#endif
 
   inline int64_t compute_numel() const;
 
