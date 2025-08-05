@@ -39,7 +39,6 @@
   <project name="optimum-habana-fork"/>
   <project name="pytorch-fork"/>
   <project name="pytorch-integration" revision="master_next"/>
-  <project name="pytorch-lightning-fork" revision="master_next"/>
   <project name="pytorch-next-cicd"/>
   <project name="pytorch-next"/>
   <project name="pytorch-training-tests"/>
