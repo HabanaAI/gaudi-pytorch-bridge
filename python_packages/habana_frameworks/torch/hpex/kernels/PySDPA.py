@@ -24,6 +24,8 @@ import math
 # USE_RETAIN_TENSORS = True
 from enum import IntEnum
 
+from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
+
 import torch
 import torch.nn.functional as F
 from torch._higher_order_ops.hints_wrap import hints_wrapper
@@ -265,12 +267,8 @@ def flex_attention_fwd(q, k, v, block_size=128, is_noop_mask=False, is_ret_lse=F
                 if not v.is_contiguous():
                     vc = vc.contiguous()
 
-                # For FP8, QK is in FP8 precision and output is in FP32
-                qc = qc.to(compatible_dtype_for_softmax)
-                kc = kc.to(compatible_dtype_for_softmax)
-                attn_weights = torch.matmul(qc, kc.transpose(-2, -1)).to(working_precision)
-
-                attn_weights = (attn_weights * scale).to(working_precision)
+                qc_f = qc.to(compatible_dtype_for_softmax)
+                kc_f = kc.to(compatible_dtype_for_softmax)
 
                 # # apply score_mod
                 b_blocks = [
@@ -301,7 +299,7 @@ def flex_attention_fwd(q, k, v, block_size=128, is_noop_mask=False, is_ret_lse=F
                         dtype=compatible_dtype_for_softmax,
                     )
                     .unsqueeze(1)
-                    .repeat(1, attn_weights.shape[qc.dim() - 1])
+                    .repeat(1, kc.shape[kc.dim() - 2])
                 )
                 q_head = q_base.unsqueeze(0).repeat(q_heads, 1, 1)
                 q_idx = q_head.unsqueeze(0).repeat(batch, 1, 1, 1)
@@ -315,45 +313,88 @@ def flex_attention_fwd(q, k, v, block_size=128, is_noop_mask=False, is_ret_lse=F
                         dtype=compatible_dtype_for_softmax,
                     )
                     .unsqueeze(0)
-                    .repeat(attn_weights.shape[kc.dim() - 2], 1)
+                    .repeat(qc.shape[qc.dim() - 2], 1)
                 )
                 kv_head = kv_base.unsqueeze(0).repeat(q_heads, 1, 1)
                 kv_idx = kv_head.unsqueeze(0).repeat(batch, 1, 1, 1)
                 # attn_weights = attn_weights + kv_idx
 
-                post_mod_scores = torch.ops.hpu.flex_attention_score_mod(attn_weights, b, h, q_idx, kv_idx)
-
-                block_row_maxes = post_mod_scores.amax(dim=-1, keepdims=True)
-                new_row_maxes = torch.maximum(block_row_maxes, row_maxes_c)
-
-                # apply mask_mod
+                # 3 cases
+                # --------------------------------------------------
+                # Case 1: is_noop_mask = False, block_masked = True
+                # Case 2: is_noop_mask = False, block_masked = False
+                # Case 3: is_noop_mask = True
+                # --------------------------------------------------
+                # Case 1: Computation is skipped
+                # Case 2, 3: Usual computation with current slice
                 if not is_noop_mask:
-                    safe_scores = post_mod_scores - new_row_maxes
-                    mask_mod_out = torch.ops.hpu.flex_attention_mask_mod(b, h, q_idx, kv_idx)
-                    safe_post_mod_scores = torch.where(mask_mod_out, safe_scores, neg_inf)
+                    mask_mod_out = torch.ops.hpu.flex_attention_mask_mod.default(b, h, q_idx, kv_idx)
+
+                    block_masked = True
+                    attn_weights_zero = False
+
+                    q_start = q_ind * qc.shape[qc.dim() - 2]
+                    q_end = (q_ind + 1) * qc.shape[qc.dim() - 2]
+                    k_start = k_ind * kc.shape[kc.dim() - 2]
+                    k_end = (k_ind + 1) * kc.shape[kc.dim() - 2]
+
+                    if hpu_backend_config.enable_flex_attention_causal_mask_optimization:
+                        for q_scalar in range(q_start, q_end):
+                            for k_scalar in range(k_start, k_end):
+                                if torch.ops.hpu.flex_attention_mask_mod_causal(q_scalar, k_scalar):
+                                    block_masked = False
+                    else:
+                        block_masked = False
+
+                    if block_masked:
+                        pass
+                    else:
+                        attn_weights = torch.matmul(qc_f, kc_f.transpose(-2, -1)).to(working_precision)
+                        attn_weights = (attn_weights * scale).to(working_precision)
+
+                        post_mod_scores = torch.ops.hpu.flex_attention_score_mod(attn_weights, b, h, q_idx, kv_idx)
+                        block_row_maxes = post_mod_scores.amax(dim=-1, keepdims=True)
+                        new_row_maxes = torch.maximum(block_row_maxes, row_maxes_c)
+                        safe_scores = post_mod_scores - new_row_maxes
+
+                        safe_post_mod_scores = torch.where(mask_mod_out, safe_scores, neg_inf)
+                        exp_weights = torch.exp(safe_post_mod_scores)
+                        block_row_sums = exp_weights.sum(dim=-1, keepdims=True)
+
+                        exp_values = torch.matmul(exp_weights, vc.to(compatible_dtype_for_softmax)).to(
+                            compatible_dtype_for_softmax
+                        )
+
                 else:
+                    attn_weights = torch.matmul(qc_f, kc_f.transpose(-2, -1)).to(working_precision)
+                    attn_weights = (attn_weights * scale).to(working_precision)
+
+                    post_mod_scores = torch.ops.hpu.flex_attention_score_mod(attn_weights, b, h, q_idx, kv_idx)
+                    block_row_maxes = post_mod_scores.amax(dim=-1, keepdims=True)
+                    new_row_maxes = torch.maximum(block_row_maxes, row_maxes_c)
+
                     safe_post_mod_scores = post_mod_scores - new_row_maxes
+                    exp_weights = torch.exp(safe_post_mod_scores)
+                    block_row_sums = exp_weights.sum(dim=-1, keepdims=True)
+                    exp_values = torch.matmul(exp_weights, vc.to(compatible_dtype_for_softmax)).to(
+                        compatible_dtype_for_softmax
+                    )
 
-                exp_weights = torch.exp(safe_post_mod_scores)
-                block_row_sums = exp_weights.sum(dim=-1, keepdims=True)
+                if not is_noop_mask and block_masked:
+                    pass
+                else:
+                    exp_row_max_diff = torch.exp(row_maxes - new_row_maxes)
+                    new_row_sums = exp_row_max_diff * row_sums_c + block_row_sums
 
-                # TODO: (QK) * V MatMul is precision of original dtype (FP8/BF16/FP32)
-                exp_values = torch.matmul(exp_weights, vc.to(compatible_dtype_for_softmax)).to(
-                    compatible_dtype_for_softmax
-                )
+                    out_c = out_c * exp_row_max_diff
+                    out_c = out_c + exp_values
 
-                exp_row_max_diff = torch.exp(row_maxes - new_row_maxes)
-                new_row_sums = exp_row_max_diff * row_sums_c + block_row_sums
-
-                out_c = out_c * exp_row_max_diff
-                out_c = out_c + exp_values
-
-                row_maxes = new_row_maxes
-                row_sums = new_row_sums
+                    row_maxes = new_row_maxes
+                    row_sums = new_row_sums
 
             # div not supported for FP8 so computing on BF16
             # Reciprocal + multiply = div
-            out_c = out_c / row_sums  # out_c * (1 / row_sums)
+            out_c = out_c / row_sums
             out.append(out_c.to(orig_dtype))
             out_row_sums.append(row_sums)
             out_row_maxes.append(row_maxes)

@@ -403,10 +403,15 @@ def flex_attention_bwd_score_mod(score, b, h, q_idx, kv_idx, grad):
     return score
 
 
-@register_meta([torch.ops.hpu.flex_attention_mask_mod])
+@register_meta([torch.ops.hpu.flex_attention_mask_mod.default])
 def flex_attention_mask_mod(b, h, q_idx, kv_idx):
     out_shape = (b.size(0), h.size(1), q_idx.size(2), kv_idx.size(3))
     return kv_idx.new_empty(out_shape, dtype=torch.bool)
+
+
+@register_meta([torch.ops.hpu.flex_attention_mask_mod_causal])
+def flex_attention_mask_mod_causal(q_idx, kv_idx):
+    return q_idx >= kv_idx
 
 
 @register_meta([torch.ops.hpu.flex_attention_pack_tensors])

@@ -1581,6 +1581,7 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::flex_attention_bwd_score_mod(Tensor score, Tensor b, Tensor h, Tensor q_idx, Tensor kv_idx, Tensor grad) -> Tensor");
   m.def(
       "hpu::flex_attention_mask_mod(Tensor b, Tensor h, Tensor q_idx, Tensor kv_idx) -> Tensor");
+  m.def("hpu::flex_attention_mask_mod_causal(int q_idx, int kv_idx) -> bool");
   m.def(
       "hpu::flex_attention_pack_tensors(Tensor h, Tensor q, Tensor kv) -> Tensor");
   m.def(
