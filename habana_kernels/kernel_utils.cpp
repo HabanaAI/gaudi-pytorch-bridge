@@ -203,7 +203,10 @@ bool habana_helpers::isLongTypeSupported(const std::string_view guid) {
   // i64 version for all kernels and will add i64->i32 cast when needed.
   using namespace std::literals;
   static const std::unordered_set<std::string_view> supported_guids{
-      "cast_"sv, "random_uniform_fwd"sv, "random_uniform_pt_fwd"sv};
+      "cast_"sv,
+      "random_uniform_fwd"sv,
+      "random_uniform_pt_fwd"sv,
+      "relu_fwd"sv};
 
   return supported_guids.find(guid) != supported_guids.end();
 }
