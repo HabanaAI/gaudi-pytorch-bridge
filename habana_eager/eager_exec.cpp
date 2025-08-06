@@ -206,16 +206,17 @@ std::vector<at::IValue> convert_ivalues_to_backend_tensors(
             HABANA_ASSERT(t.device().type() == c10::DeviceType::HPU)
           },
           [&stack](const c10::ArrayRef<torch::jit::IValue>& list) {
-            c10::List<at::Tensor> l;
-            l.reserve(list.size());
+            c10::List<at::Tensor> backend_tensor_list;
+            backend_tensor_list.reserve(list.size());
             for (auto& v : list) {
               HABANA_ASSERT(v.isTensor())
               auto& t = v.toTensor();
               HABANA_ASSERT(t.device().type() == c10::DeviceType::HPU)
-              l.push_back(HbEagerTensorPool::get_backend_tensor(t));
+              backend_tensor_list.push_back(
+                  HbEagerTensorPool::get_backend_tensor(t));
             }
 
-            stack.emplace_back(l);
+            stack.emplace_back(backend_tensor_list);
           }});
   return stack;
 }

@@ -27,10 +27,10 @@ sh::tensor NormCommon(
     at::ScalarType dtype,
     const torch::Tensor& self,
     at::IntArrayRef dim,
-    const bool keepdim,
+    bool keepdim,
     const at::Scalar& ord,
     const std::vector<NodeAttr::NodeOutputAttr>& output_attr,
-    const bool is_vec_norm);
+    bool is_vec_norm);
 
 static c10::DimVector getDimsToNorm(const int rank, const int dim) {
   c10::DimVector dims_to_norm;

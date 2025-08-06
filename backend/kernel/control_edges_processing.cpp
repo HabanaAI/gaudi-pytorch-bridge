@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -190,7 +190,7 @@ class GraphAffinityAnalyzer {
    * @param blocking_nodes_vec Vector of nodes to check against for cycle.
    */
   bool IsControlEdgeCycle(
-      const torch::jit::Node* const blocked_node,
+      const torch::jit::Node* blocked_node,
       const std::vector<torch::jit::Node*>& blocking_nodes_vec) const;
 
   /**
@@ -202,8 +202,8 @@ class GraphAffinityAnalyzer {
    * return Result of the check.
    */
   bool IsAncestorOrDescendant(
-      const torch::jit::Node* const node1,
-      const torch::jit::Node* const node2) const;
+      const torch::jit::Node* node1,
+      const torch::jit::Node* node2) const;
 
  private:
   /**
@@ -249,9 +249,8 @@ class GraphAffinityAnalyzer {
   /**
    * Checks if node 1 is an ancestor of node2.
    */
-  bool IsAncestor(
-      const torch::jit::Node* const node1,
-      const torch::jit::Node* const node2) const;
+  bool IsAncestor(const torch::jit::Node* node1, const torch::jit::Node* node2)
+      const;
 };
 
 GraphAffinityAnalyzer::GraphAffinityAnalyzer(const torch::jit::Graph& graph) {

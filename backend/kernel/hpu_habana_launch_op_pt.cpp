@@ -91,7 +91,7 @@ class PipelineCall : public PipelineCallBase {
     HPUDeviceContext::compile_thread_pool().waitWorkComplete();
   }
 
-  virtual void execute(
+  void execute(
       absl::AnyInvocable<void(habana::HabanaLaunchOpPT&)>&& compile_task,
       absl::AnyInvocable<void(habana::HabanaLaunchOpPT&)>&& execute_task)
       override {
@@ -5918,7 +5918,7 @@ void HabanaLaunchOpPT::run_shape_inference(
       }
     } catch (std::exception& e) {
       std::string error = e.what();
-      std::string error_str = error.substr(0, error.find("\n"));
+      std::string error_str = error.substr(0, error.find('\n'));
       PT_DYNAMIC_SHAPE_DEBUG(
           "Exception occured in CreateStack for Pass = ", pass);
       PT_DYNAMIC_SHAPE_DEBUG("Exception Details : ", error_str);
@@ -5945,7 +5945,7 @@ void HabanaLaunchOpPT::run_shape_inference(
     run_pass();
   } catch (std::exception& e) {
     std::string error = e.what();
-    error_str = error.substr(0, error.find("\n"));
+    error_str = error.substr(0, error.find('\n'));
     PT_DYNAMIC_SHAPE_DEBUG("Exception occured in Pass = ", pass);
     PT_DYNAMIC_SHAPE_DEBUG("Exception Details : ", error_str);
     throw_exception = true;

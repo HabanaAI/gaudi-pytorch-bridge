@@ -75,7 +75,7 @@ class IRParser {
   ParsedLiteral convertStrToNumericAttr(
       const Token& curr_token,
       const std::string& numeric_attr_str,
-      const bool is_special_value = false);
+      bool is_special_value = false);
 
   void parse();
   void parseGraphInputs();

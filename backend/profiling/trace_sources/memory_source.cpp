@@ -33,13 +33,13 @@ struct MemoryLogger : public TraceSource {
     static MemoryLogger source;
     return source;
   }
-  void start(TraceSink&) {
+  void start(TraceSink&) override {
     enabled_ = true;
   }
-  void stop() {
+  void stop() override {
     enabled_ = false;
   }
-  void extract(TraceSink& output) {
+  void extract(TraceSink& output) override {
     auto tid = static_cast<pid_t>(syscall(__NR_gettid));
     pid_t pid = getpid() + static_cast<pid_t>(offset_);
     std::lock_guard<std::mutex> lg{m};
@@ -58,10 +58,10 @@ struct MemoryLogger : public TraceSource {
     output.addDevice("Memory Logs", pid);
     events_.clear();
   }
-  TraceSourceVariant get_variant() {
+  TraceSourceVariant get_variant() override {
     return TraceSourceVariant::MEMORY_LOGS;
   }
-  void set_offset(unsigned offset) {
+  void set_offset(unsigned offset) override {
     offset_ = offset;
   }
 

@@ -77,7 +77,7 @@ SharedMetaDataVector GatherSharedMeta(
 FillParamsT FillGatherParams(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   const auto dim_ = stack.at(1).toInt();
-  const auto dim = static_cast<int>(get_dim_in_tpc_order(dim_, self.dim()));
+  const auto dim = get_dim_in_tpc_order(dim_, self.dim());
   at::Tensor indices = stack.at(2).toTensor();
   if (self.dim() != indices.dim()) {
     PARAMS_STUB(ns_GatherKernel::Params);

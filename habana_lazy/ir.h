@@ -30,7 +30,7 @@
 namespace habana_lazy {
 struct Data;
 
-const std::string getHabanaLazyGraphName();
+std::string getHabanaLazyGraphName();
 
 namespace ir {
 

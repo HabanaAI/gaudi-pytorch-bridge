@@ -20,7 +20,7 @@
 
 namespace habana_lazy {
 
-const std::string getHabanaLazyGraphName() {
+std::string getHabanaLazyGraphName() {
   return "HabanaFusedOpLazy";
 }
 

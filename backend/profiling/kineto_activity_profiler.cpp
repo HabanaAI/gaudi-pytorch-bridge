@@ -101,11 +101,11 @@ bool shouldHideEvent(
     return true;
   }
 
-  if (static_cast<int64_t>(activity->startTime) < startTime) {
+  if (activity->startTime < startTime) {
     return true;
   }
 
-  if (static_cast<int64_t>(activity->endTime) > endTime) {
+  if (activity->endTime > endTime) {
     return true;
   }
 

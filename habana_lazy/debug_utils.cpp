@@ -114,7 +114,7 @@ std::optional<size_t> GetRootNodeId(
 
 std::vector<AttrTag> GetNodeTags(const ir::NodePtr& node) {
   std::string node_string = node->ToString();
-  std::string::size_type pos = node_string.find("\n");
+  std::string::size_type pos = node_string.find('\n');
   std::vector<AttrTag> tags;
   for (;;) {
     pos = SkipTagSeparator(node_string, pos + 1);
@@ -264,7 +264,7 @@ std::string IrGraphDumpUtil::PostOrderToText(
       // Replace the \n at the end of node op name with space
       std::string node_string =
           print_ir_graph_info ? node->ToStringIrGraph() : node->ToString();
-      std::string::size_type pos = node_string.find("\n");
+      std::string::size_type pos = node_string.find('\n');
       if (pos != std::string::npos) {
         node_string[pos] = ' ';
       }

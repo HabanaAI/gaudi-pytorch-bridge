@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -116,7 +116,7 @@ class HbLazyTensorViews {
       int64_t storage_offset,
       bool create_storage);
   static at::Tensor get_base_tensor(const at::Tensor& self);
-  static const at::Tensor get_recent_base_tensor(const at::Tensor& self);
+  static at::Tensor get_recent_base_tensor(const at::Tensor& self);
   static void CustomKernelAddNodeInplace(
       const at::Tensor& self,
       habana_lazy::ir::NodePtr node,

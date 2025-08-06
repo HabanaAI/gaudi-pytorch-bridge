@@ -50,7 +50,7 @@ void* get_hb_lazy_data_ptr(HbLazyTensor& hb_tensor) {
 
 // Live tensor collection is not allowed if the launch thread execution is
 // in progress.
-const std::pair<uint64_t, uint32_t> get_future_memory() {
+std::pair<uint64_t, uint32_t> get_future_memory() {
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 0) {
     return std::make_pair<uint64_t, uint32_t>(0, 0);
   }

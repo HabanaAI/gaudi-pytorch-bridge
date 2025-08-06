@@ -203,7 +203,7 @@ void ConstSectionDataSerialize::compress_and_serialize(
     throw std::runtime_error("deflateInit2 failed while compressing.");
   }
 
-  zs.next_in = static_cast<Bytef*>(const_cast<void*>(data));
+  zs.next_in = static_cast<Bytef*>(data);
   HABANA_ASSERT(
       data_size <= std::numeric_limits<unsigned int>::max(),
       "Data size exceeds maximum unsigned int limit for compression.");

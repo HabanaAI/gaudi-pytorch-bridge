@@ -68,7 +68,7 @@ struct ops_list_status {
   std::string reason;
 };
 
-const ops_list_status validate_ops_list_path(
+ops_list_status validate_ops_list_path(
     const std::filesystem::path& path_to_list) {
   if (not std::filesystem::exists(path_to_list)) {
     std::stringstream reason;

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -68,7 +68,7 @@ class SynapseHelpersMemoryTest : public ::testing::Test {
  protected:
   std::atomic<int> defragmentationCount{0};
   habana_helpers::EventCallback defragmentationTriggeredCallback =
-      [=](const habana_helpers::EventParams& params) {
+      [this](const habana_helpers::EventParams& params) {
         for (const habana_helpers::EventParam& param : params) {
           if (param.first == "success" && param.second == "1") {
             defragmentationCount++;

@@ -46,8 +46,8 @@ TEST_F(VarStd, var_kfal5d) {
   torch::ScalarType dtype = torch::kFloat;
   std::vector<int64_t> dim = {0, 3};
 
-  auto expected = torch::var(GetCpuInput(0), dim, 1, false);
-  auto result = torch::var(GetHpuInput(0), dim, 1, false);
+  auto expected = torch::var(GetCpuInput(0), dim, at::Scalar(1), false);
+  auto result = torch::var(GetHpuInput(0), dim, at::Scalar(1), false);
 
   Compare(expected, result);
 }
@@ -57,8 +57,8 @@ TEST_F(VarStd, var_kfal3d) {
   torch::ScalarType dtype = torch::kFloat;
   std::vector<int64_t> dim = {0, 2};
 
-  auto expected = torch::var(GetCpuInput(0), dim, 2, false);
-  auto result = torch::var(GetHpuInput(0), dim, 2, false);
+  auto expected = torch::var(GetCpuInput(0), dim, at::Scalar(2), false);
+  auto result = torch::var(GetHpuInput(0), dim, at::Scalar(2), false);
 
   Compare(expected, result);
 }
@@ -67,9 +67,10 @@ TEST_F(VarStd, var_empty_dim) {
   GenerateInputs(1, {{5, 3, 3, 2, 2}});
   torch::ScalarType dtype = torch::kFloat;
 
-  auto expected =
-      torch::var(GetCpuInput(0), std::optional<at::IntArrayRef>{}, 2);
-  auto result = torch::var(GetHpuInput(0), std::optional<at::IntArrayRef>{}, 2);
+  auto expected = torch::var(
+      GetCpuInput(0), std::optional<at::IntArrayRef>{}, at::Scalar(2));
+  auto result = torch::var(
+      GetHpuInput(0), std::optional<at::IntArrayRef>{}, at::Scalar(2));
 
   Compare(expected, result);
 }
@@ -94,8 +95,8 @@ TEST_F(VarStd, var_mean_4d) {
   GenerateInputs(1, {{3, 4, 6, 8}});
   std::vector<int64_t> dim = {0, 3};
 
-  auto exp = torch::var_mean(GetCpuInput(0), dim, 1, true);
-  auto res = torch::var_mean(GetHpuInput(0), dim, 1, true);
+  auto exp = torch::var_mean(GetCpuInput(0), dim, at::Scalar(1), true);
+  auto res = torch::var_mean(GetHpuInput(0), dim, at::Scalar(1), true);
 
   Compare(std::get<0>(exp), std::get<0>(res));
   Compare(std::get<1>(exp), std::get<1>(res));
@@ -120,8 +121,8 @@ TEST_F(VarStd, std_bf16) {
   GenerateInputs(1, {{3, 6, 5, 4}}, {torch::kBFloat16});
 
   std::vector<int64_t> dim = {1, 3};
-  auto expected = torch::std(GetCpuInput(0), dim, 1, true);
-  auto result = torch::std(GetHpuInput(0), dim, 1, true);
+  auto expected = torch::std(GetCpuInput(0), dim, at::Scalar(1), true);
+  auto result = torch::std(GetHpuInput(0), dim, at::Scalar(1), true);
 
   Compare(expected, result, 6.1e-03, 1.4e-03);
 }
@@ -142,8 +143,8 @@ TEST_F(VarStd, std_mean) {
   GenerateInputs(1, {{3, 4, 6, 8}});
   std::vector<int64_t> dim = {0, 3};
 
-  auto exp = torch::std_mean(GetCpuInput(0), dim, 1, true);
-  auto res = torch::std_mean(GetHpuInput(0), dim, 1, true);
+  auto exp = torch::std_mean(GetCpuInput(0), dim, at::Scalar(1), true);
+  auto res = torch::std_mean(GetHpuInput(0), dim, at::Scalar(1), true);
 
   Compare(std::get<0>(exp), std::get<0>(res));
   Compare(std::get<1>(exp), std::get<1>(res));

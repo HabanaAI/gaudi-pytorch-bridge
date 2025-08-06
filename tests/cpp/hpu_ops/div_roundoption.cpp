@@ -17,8 +17,8 @@
 
 // Limits for generated values of variants of Int
 enum {
-  MIN_INT_VALUE_GENERATED = (-360),
-  MAX_INT_VALUE_GENERATED = (-1),
+  MIN_INT_VALUE_GENERATED = -360,
+  MAX_INT_VALUE_GENERATED = -1,
   MIN_INT8_VALUE_GENERATED = 1,
   MAX_INT8_VALUE_GENERATED = 50,
 };

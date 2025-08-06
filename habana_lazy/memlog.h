@@ -24,6 +24,6 @@ void log_dev_mem_stats(
     std::string_view name = "",
     uint64_t size = 0);
 
-const std::pair<uint64_t, uint32_t> get_future_memory();
+std::pair<uint64_t, uint32_t> get_future_memory();
 
 } // namespace habana_lazy

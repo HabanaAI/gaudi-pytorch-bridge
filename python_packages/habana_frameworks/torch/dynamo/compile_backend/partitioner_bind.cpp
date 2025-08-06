@@ -113,7 +113,7 @@
 #include <unordered_map>
 #include <vector>
 
-constexpr int NO_PARTITION = (-1);
+constexpr int NO_PARTITION = -1;
 
 namespace py = pybind11;
 

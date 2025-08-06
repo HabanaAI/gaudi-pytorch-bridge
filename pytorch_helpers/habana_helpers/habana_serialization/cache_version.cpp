@@ -37,7 +37,7 @@ namespace fs = std::filesystem;
 std::string getMACFromFilesystemNonZero() {
   // standard path for network interfaces in Linux
   const std::string basePath = "/sys/class/net/";
-  const std::string invalidMAC = "00:00:00:00:00:00";
+  std::string invalidMAC = "00:00:00:00:00:00";
 
   for (const auto& entry : fs::directory_iterator(basePath)) {
     std::string iface = entry.path().filename();

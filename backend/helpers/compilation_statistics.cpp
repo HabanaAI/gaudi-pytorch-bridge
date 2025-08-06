@@ -92,11 +92,8 @@ class CompilationStatisticsNoOp : public CompilationStatistics {
       ResultShapes,
       bool,
       uint64_t) override {};
-  virtual void LogFallback(
-      std::string,
-      DynamicDimsPolicy,
-      std::string,
-      uint64_t) override {};
+  void LogFallback(std::string, DynamicDimsPolicy, std::string, uint64_t)
+      override {};
   void LogSelectedRecipe(uint64_t, uint64_t) override {};
   void LogRecipeMemory(synapse_helpers::graph::recipe_handle&, uint64_t)
       override {};

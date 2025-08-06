@@ -211,7 +211,7 @@ tensor::tensor(
       permutation_(memory_permutation) {}
 
 tensor::tensor(tensor&& other) noexcept
-    : tensor_name_{other.name()},
+    : tensor_name_{std::move(other.tensor_name_)},
       tensor_id_{other.id()},
       device_id_{other.device_id_},
       data_type_{other.data_type_},

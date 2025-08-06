@@ -532,8 +532,8 @@ bool MemoryDefragementer::SelectRegionForResourceAllocation(
 bool MemoryDefragementer::SelectRegionForWorkspaceGrow(
     std::vector<MemoryBlock>& memory_blocks,
     size_t allocation_size,
-    int8_t* ptr_start,
-    int8_t* ptr_end,
+    const int8_t* const ptr_start,
+    const int8_t* const ptr_end,
     bool& defragmentation_needed,
     std::unique_ptr<Region>& result) {
   size_t free_memory = 0;

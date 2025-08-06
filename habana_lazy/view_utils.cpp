@@ -274,7 +274,7 @@ Tensor HbLazyTensorViews::get_base_tensor(const Tensor& self) {
   return out;
 }
 
-const Tensor HbLazyTensorViews::get_recent_base_tensor(const Tensor& self) {
+Tensor HbLazyTensorViews::get_recent_base_tensor(const Tensor& self) {
   /* Fetch the most recent version of base*/
   auto& base_t = GetHbLazyTensor(self, true, false).getDataPtr()->recent_base;
   if (base_t.has_value()) {

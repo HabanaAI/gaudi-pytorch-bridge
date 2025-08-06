@@ -48,7 +48,7 @@ void hpu_init() {
   // later will add device properties here.
 }
 
-const std::string get_device_name([[maybe_unused]] int device_id) {
+std::string get_device_name([[maybe_unused]] int device_id) {
   // We don't support index addresed device and for multi node
   // runs, every node has seperate copy of synapse lib and will
   // get device with index 0, so ignoring device_id for now.
@@ -56,7 +56,7 @@ const std::string get_device_name([[maybe_unused]] int device_id) {
 }
 
 /* clang-format off */
-const synapse_helpers::MemoryStats get_mem_stat(
+synapse_helpers::MemoryStats get_mem_stat(
     [[maybe_unused]] int device_id) {
   /* clang-format on */
   // We don't support index addresed device and for multi node
@@ -99,7 +99,7 @@ void clear_memory_stats([[maybe_unused]] int device_id) {
   device.get_device_memory().clear_memory_stats();
 }
 
-const std::string get_mem_stat_summary(int device_id) {
+std::string get_mem_stat_summary(int device_id) {
   // We don't support index addresed device and for multi node
   // runs, every node has seperate copy of synapse lib and will
   // get device with index 0, so ignoring device_id for now.
@@ -129,7 +129,7 @@ const std::string get_mem_stat_summary(int device_id) {
   return summary;
 }
 
-const py::dict get_extended_mem_stat_summary() {
+py::dict get_extended_mem_stat_summary() {
   using namespace pybind11::literals;
   auto stats = get_mem_stat(0);
   auto& device = habana::HPUDeviceContext::get_device();
