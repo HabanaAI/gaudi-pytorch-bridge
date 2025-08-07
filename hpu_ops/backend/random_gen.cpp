@@ -367,16 +367,25 @@ SharedMetaDataVector NormalSharedMeta(
   c10::ScalarType dtype = at::get_default_dtype_as_scalartype();
   auto normalVariant = static_cast<NormalVariant>(
       stack.at(0).isTensor() + stack.at(1).isTensor() * 2);
+  auto meanStddevRank = 1;
   if (stack.size() > DTYPE_INDEX)
     dtype = stack.at(DTYPE_INDEX)
                 .toOptional<at::ScalarType>()
                 .value_or(at::get_default_dtype_as_scalartype());
-  else if (normalVariant == NORMAL_TT)
-    dtype = at::result_type(stack.at(0).toTensor(), stack.at(1).isTensor());
-  else if (normalVariant == NORMAL_TF)
-    dtype = stack.at(0).toTensor().scalar_type();
-  else if (normalVariant == NORMAL_FT)
-    dtype = stack.at(1).toTensor().scalar_type();
+  else if (normalVariant == NORMAL_TT) {
+    const auto& mean = stack.at(0).toTensor();
+    const auto& stddev = stack.at(1).toTensor();
+    dtype = at::result_type(mean, stddev);
+    meanStddevRank = std::max(mean.dim(), stddev.dim());
+  } else if (normalVariant == NORMAL_TF) {
+    const auto& mean = stack.at(0).toTensor();
+    dtype = mean.scalar_type();
+    meanStddevRank = mean.dim();
+  } else if (normalVariant == NORMAL_FT) {
+    const auto& stddev = stack.at(1).toTensor();
+    dtype = stddev.scalar_type();
+    meanStddevRank = stddev.dim();
+  }
 
   int64_t outputRank;
   if (stack.at(0).isTensor())
@@ -400,37 +409,30 @@ SharedMetaDataVector NormalSharedMeta(
   }
 
   SharedMetaTensor commonTensor = {outputRank, dtype};
-  SharedMetaData randomSharedMeta{"random_normal_fwd"};
-  randomSharedMeta.inputs_data.push_back(
-      createOptionalNotPresentSharedMetaTensor());
+  SharedMetaData randomSharedMeta;
+  if (normalVariant == NORMAL_FF) {
+    randomSharedMeta.guid = "random_normal_fwd";
+    randomSharedMeta.inputs_data.push_back(
+        createOptionalNotPresentSharedMetaTensor());
+  } else {
+    randomSharedMeta.guid = "random_normal_cguid_fwd";
+    if (normalVariant == NORMAL_TT) {
+      randomSharedMeta.inputs_data.emplace_back(meanStddevRank, dtype);
+      randomSharedMeta.inputs_data.emplace_back(meanStddevRank, dtype);
+    } else if (normalVariant == NORMAL_TF) {
+      randomSharedMeta.inputs_data.emplace_back(meanStddevRank, dtype);
+      randomSharedMeta.inputs_data.push_back(
+          createOptionalNotPresentSharedMetaTensor());
+    } else {
+      randomSharedMeta.inputs_data.push_back(
+          createOptionalNotPresentSharedMetaTensor());
+      randomSharedMeta.inputs_data.emplace_back(meanStddevRank, dtype);
+    }
+  }
   randomSharedMeta.inputs_data.push_back(seedTensorMeta);
   randomSharedMeta.outputs_data = {commonTensor};
-  if (normalVariant != NORMAL_FF) {
-    SharedMetaData addSharedMeta{"add_fwd"};
-    addSharedMeta.inputs_data = {commonTensor, commonTensor};
-    addSharedMeta.outputs_data = {commonTensor};
 
-    SharedMetaData multSharedMeta{"mult_fwd"};
-    multSharedMeta.inputs_data = {commonTensor, commonTensor};
-    multSharedMeta.outputs_data = {commonTensor};
-    if (normalVariant == NORMAL_TF) {
-      auto stddev = stack.at(1).toDouble();
-      if (stddev != 1.0)
-        return {randomSharedMeta, multSharedMeta, addSharedMeta};
-
-      return {randomSharedMeta, addSharedMeta};
-    } else if (normalVariant == NORMAL_FT) {
-      auto mean = stack.at(0).toDouble();
-      if (mean != 0.0)
-        return {randomSharedMeta, multSharedMeta, addSharedMeta};
-
-      return {randomSharedMeta, multSharedMeta};
-    } else {
-      return {randomSharedMeta, multSharedMeta, addSharedMeta};
-    }
-  } else {
-    return {randomSharedMeta};
-  }
+  return {randomSharedMeta};
 }
 
 void NormalBE::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
@@ -461,16 +463,31 @@ void NormalBE::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
   synTensor syn_mean{nullptr};
   synTensor syn_std{nullptr};
+  static const bool use_philox = GET_ENV_FLAG_NEW(PT_HPU_USE_PHILOX_NORMAL);
+  PARAMS_STUB(ns_RandomNormal::ParamsV2);
+  params->mean = 0.0F;
+  params->stddev = 1.0F;
+  params->usePhilox = use_philox;
   if (normal_variant == NORMAL_TT) {
     syn_mean = syn_in(0);
     syn_std = syn_in(1);
   } else if (normal_variant == NORMAL_TF) {
     syn_mean = syn_in(0);
+    params->stddev = stack.at(STD_INDEX).toScalar().toFloat();
   } else if (normal_variant == NORMAL_FT) {
     syn_std = syn_in(0);
+    params->mean = stack.at(MEAN_INDEX).toScalar().toFloat();
   }
-  syn_out(0) = NormalTensorHelper(
-      this, graph, stack, syn_mean, syn_std, syn_seed_t, normal_variant);
+  const auto meta = NormalMetaCommon(stack, false)[0];
+  auto normal = OpBackend::BuildNode(
+      this,
+      graph,
+      {get_guid_with_precision("random_normal_cguid_fwd"sv, meta.dtype),
+       {syn_mean, syn_std, syn_seed_t},
+       {{meta.shape, meta.dtype, 0}},
+       paramsT.ptr(),
+       paramsT.size()});
+  syn_out(0) = std::move(normal[0]);
 }
 
 SharedMetaDataVector RandomSeedTensorInputIntegersSharedMeta(
@@ -692,18 +709,32 @@ void HabanaNormal::AddNode(
 
   synTensor syn_mean{nullptr};
   synTensor syn_std{nullptr};
-
+  static const bool use_philox = GET_ENV_FLAG_NEW(PT_HPU_USE_PHILOX_NORMAL);
+  PARAMS_STUB(ns_RandomNormal::ParamsV2);
+  params->mean = 0.0F;
+  params->stddev = 1.0F;
+  params->usePhilox = use_philox;
   if (normal_variant == NORMAL_TT) {
     syn_mean = syn_in(1);
     syn_std = syn_in(2);
   } else if (normal_variant == NORMAL_TF) {
     syn_mean = syn_in(1);
+    params->stddev = stack.at(STD_INDEX + 1).toScalar().toFloat();
   } else if (normal_variant == NORMAL_FT) {
     syn_std = syn_in(1);
+    params->mean = stack.at(MEAN_INDEX + 1).toScalar().toFloat();
   }
 
-  syn_out(0) = NormalTensorHelper(
-      this, graph, stack, syn_mean, syn_std, syn_seed_t, normal_variant, true);
+  const auto meta = HabanaNormalMeta(stack)[0];
+  auto normal = OpBackend::BuildNode(
+      this,
+      graph,
+      {get_guid_with_precision("random_normal_cguid_fwd"sv, meta.dtype),
+       {syn_mean, syn_std, syn_seed_t},
+       {{meta.shape, meta.dtype, 0}},
+       paramsT.ptr(),
+       paramsT.size()});
+  syn_out(0) = std::move(normal[0]);
 }
 
 //===----------------------------------------------------------------------===//
