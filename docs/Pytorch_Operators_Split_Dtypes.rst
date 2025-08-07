@@ -403,7 +403,7 @@ logical_or                               Yes      Yes      Yes     No    torch
 logical_xor                              Yes      Yes      Yes     No    torch
 logit                                    Yes      Yes      Yes     No    torch
 logit\_                                  Yes      Yes      Yes     No    torch
-logspace                                 Yes      Yes      Yes     No    torch
+logspace                                 Yes      Yes      Yes     Yes   torch
 logsumexp                                Yes      Yes      No      No    torch
 lt                                       Yes      Yes      Yes     No    torch
 masked_fill                              Yes      Yes      Yes     Yes   torch
