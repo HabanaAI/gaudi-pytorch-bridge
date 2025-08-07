@@ -13,7 +13,7 @@
 # limitations under the License.
 ###############################################################################
 
-cmake_minimum_required(VERSION 3.28 FATAL_ERROR)
+cmake_minimum_required(VERSION 4.0 FATAL_ERROR)
 
 if(POLICY CMP0076)
   set(ORIGINAL_CMAKE_WARN_DEPRECATED ${CMAKE_WARN_DEPRECATED})

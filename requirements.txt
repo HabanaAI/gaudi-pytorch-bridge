@@ -1,5 +1,5 @@
 auditwheel>=6
-cmake>=3.28
+cmake==4.0.3
 cython
 lark
 ninja>=1.11.1
@@ -11,6 +11,6 @@ pkginfo>=1.11.1
 pre-commit
 pybind11>=2.12
 requests
-setuptools==78.1.1
+setuptools>=70.1.0,<80.0  # setuptools develop deprecated on 80.0
 symengine>=0.14.0
 wheel>=0.40

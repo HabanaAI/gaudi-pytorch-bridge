@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ###############################################################################
-cmake_minimum_required(VERSION 3.28 FATAL_ERROR)
+cmake_minimum_required(VERSION 4.0 FATAL_ERROR)
 set(TARGET_NAME "_lop_profiler_C")
 add_library(${TARGET_NAME} SHARED bindings.cpp)
 target_compile_definitions(${TARGET_NAME} PRIVATE TORCH_EXTENSION_NAME=${TARGET_NAME})
