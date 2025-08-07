@@ -57,6 +57,9 @@ function pytorch_usage()
         echo -e "  -d,  --debug                Build only debug build"
         echo -e "       --install              will install the package"
         echo -e "       --dist                 create a wheel distribution"
+        echo -e "       --manylinux            build pytorch_fork in a manylinux docker container"
+        echo -e "       --use-icecc            when --manylinux argument is set, the docker container supporting iceecc is used"
+        echo -e "       --auditwheel           perform auditwheel on the built wheel to make it manylinux compatible"
         echo -e "       --build-number         Extend whl version number by build number"
         echo -e "       --build-version        Build version used for whl creation"
         echo -e "       --pytorch-next         Build pytorch-next instead of pytorch-fork"
@@ -375,6 +378,9 @@ build_pytorch_fork()
     local __branch=""
     local __build_manylinux_whl="false"
     local __pytorch_next="false"
+    local __auditwheel="false"
+    local __useicecc
+    local __variables_to_manylinux_build=$(printf "%s %s\n" "$@" "--auditwheel" | sed s/--manylinux// | sed s/--use-icecc//)
 
     # parameter while-loop
     while [ -n "$1" ];
@@ -422,6 +428,12 @@ build_pytorch_fork()
         --pytorch-next )
             __pytorch_next="true"
             ;;
+        --auditwheel )
+            __auditwheel="true"
+            ;;
+        --use-icecc )
+            __useicecc="--use-icecc"
+            ;;
         -h  | --help )
             pytorch_usage $__scriptname
             return 0
@@ -440,6 +452,14 @@ build_pytorch_fork()
         esac
         shift
     done
+
+    if [ "z${__build_manylinux_whl}" == "ztrue" ];then
+        pushd "${PYTORCH_MODULES_ROOT_PATH}"/.devops || return 1
+        (set -x; python manylinuxrunner.py ${__useicecc} build_pytorch_fork ${__variables_to_manylinux_build})
+        __result=$?
+        popd >&/dev/null
+        return $__result
+    fi
 
     set_os_specific_vars
     unset CMAKE_ROOT  # we're using CMake from requirements files
@@ -501,22 +521,24 @@ build_pytorch_fork()
         return $__result
     fi
 
-    if [ ${__whl_params} != "develop" ];then
-        if [ "z${__build_manylinux_whl}" == "ztrue" ];then
-            bash -c "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$__pytorch_root/torch/lib;python auditwheel repair $__pytorch/dist/torch*.whl"
+    if [ ${__whl_params} == "bdist_wheel" ];then
+        if [ "z${__auditwheel}" == "ztrue" ];then
+            bash -c "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$__pytorch_root/torch/lib;auditwheel repair $__pytorch_root/dist/torch*.whl"
             TORCH_WHL_PATH="$__pytorch_root/wheelhouse/"
         else
             TORCH_WHL_PATH="$__pytorch_root/dist/"
         fi
         if [ -n "$__debug" ]; then
-            rm -rf $PYTORCH_FORK_DEBUG_BUILD/pkgs
-            mkdir -p $PYTORCH_FORK_DEBUG_BUILD/pkgs
-            cp -f ${TORCH_WHL_PATH}/torch*.whl $PYTORCH_FORK_DEBUG_BUILD/pkgs
+            BUILD_PATH="$PYTORCH_FORK_DEBUG_BUILD/pkgs"
         else
-            rm -rf $PYTORCH_FORK_RELEASE_BUILD/pkgs
-            mkdir -p $PYTORCH_FORK_RELEASE_BUILD/pkgs
-            cp -f ${TORCH_WHL_PATH}/torch*.whl $PYTORCH_FORK_RELEASE_BUILD/pkgs
+            BUILD_PATH="$PYTORCH_FORK_RELEASE_BUILD/pkgs"
         fi
+        if [ -n "$__configure" ]; then
+            rm -rf $BUILD_PATH
+        fi
+        mkdir -p $BUILD_PATH
+        echo "Copying wheel from ${TORCH_WHL_PATH} to ${BUILD_PATH}"
+        cp -f ${TORCH_WHL_PATH}/torch*.whl $BUILD_PATH
     fi
 
     popd
