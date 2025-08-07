@@ -80,6 +80,7 @@ add_habana_library(
   OBJECT
   backend/adaptive_avg_pool2d_gen.cpp
   backend/adaptive_avg_pool3d_gen.cpp
+  backend/adaptive_max_pool_gen.cpp
   backend/add_composite_gen.cpp
   backend/addmm_gen.cpp
   backend/addmv_gen.cpp

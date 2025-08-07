@@ -5028,6 +5028,44 @@ max_unpool3d.out:
   namespaces: [torch.nn.functional]
   skip_slrg: true # output_shape[] in output_meta
 
+adaptive_max_pool2d:
+  custom_fill_params: FillAdaptiveMaxPool2DParams
+  output_meta: AdaptiveMaxPool2DMeta
+  guid: adaptive_max_pool_2d_fwd
+  op_backend: AdaptiveMaxPool
+  op_validator: AdaptiveMaxPool2DSharedMeta
+  namespaces: [torch.nn, torch.nn.functional]
+  pytorch_module_names: [AverageMaxPool2d]
+  out_ids: [0, 0]
+
+adaptive_max_pool2d.out:
+  custom_fill_params: FillAdaptiveMaxPool2DParams
+  output_meta: AdaptiveMaxPool2DMeta
+  guid: adaptive_max_pool_2d_fwd
+  op_backend: AdaptiveMaxPool
+  op_validator: AdaptiveMaxPool2DSharedMeta
+  namespaces: [torch.nn, torch.nn.functional]
+  pytorch_module_names: [AverageMaxPool2d]
+
+adaptive_max_pool3d:
+  custom_fill_params: FillAdaptiveMaxPool3DParams
+  output_meta: AdaptiveMaxPool3DMeta
+  guid: adaptive_max_pool_3d_fwd
+  op_backend: AdaptiveMaxPool
+  op_validator: AdaptiveMaxPool3DSharedMeta
+  namespaces: [torch.nn, torch.nn.functional]
+  pytorch_module_names: [AverageMaxPool3d]
+  out_ids: [0, 0]
+
+adaptive_max_pool3d.out:
+  custom_fill_params: FillAdaptiveMaxPool3DParams
+  output_meta: AdaptiveMaxPool3DMeta
+  guid: adaptive_max_pool_3d_fwd
+  op_backend: AdaptiveMaxPool
+  op_validator: AdaptiveMaxPool3DSharedMeta
+  namespaces: [torch.nn, torch.nn.functional]
+  pytorch_module_names: [AverageMaxPool3d]
+
 mean:
   output_meta: ReductionOpMeta
   guid: reduce_mean_multi_dim_fwd
