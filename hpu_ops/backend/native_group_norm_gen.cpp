@@ -81,92 +81,121 @@ SharedMetaDataVector NativeGroupNormFwdSharedMeta(
 
 SharedMetaDataVector NativeGroupNormBwdSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode executionMode) {
   const auto& gradOut = stack_tensor(stack, 0);
   const auto& input = stack_tensor(stack, 1);
+  const auto& mean = stack_tensor(stack, 2);
+  const auto& rstd = stack_tensor(stack, 3);
   const auto weight =
       stack.at(4).toOptional<at::Tensor>().value_or(at::Tensor());
-  const auto N = stack.at(5).toInt();
-  const auto C = stack.at(6).toInt();
-  const auto HxW = stack.at(7).toInt();
-  const auto numGroups = stack.at(8).toInt();
-  const auto Nmod = N * numGroups;
+
   const auto inputRank = input.dim();
   const auto inputDtype = input.scalar_type();
 
-  if (N * C * HxW == 0) {
-    SharedMetaData memsetSharedMeta{"memset"};
-    memsetSharedMeta.outputs_data.emplace_back(inputRank, inputDtype);
-    SharedMetaData memsetMeanRstdSharedMeta{"memset"};
-    memsetMeanRstdSharedMeta.outputs_data.emplace_back(1, inputDtype);
+  if (executionMode == habana_helpers::HabanaExecutionMode::LAZY) {
+    const auto N = stack.at(5).toInt();
+    const auto C = stack.at(6).toInt();
+    const auto HxW = stack.at(7).toInt();
+    const auto numGroups = stack.at(8).toInt();
+    const auto Nmod = N * numGroups;
 
-    return {memsetSharedMeta, memsetMeanRstdSharedMeta};
-  }
+    if (N * C * HxW == 0) {
+      SharedMetaData memsetSharedMeta{"memset"};
+      memsetSharedMeta.outputs_data.emplace_back(inputRank, inputDtype);
+      SharedMetaData memsetMeanRstdSharedMeta{"memset"};
+      memsetMeanRstdSharedMeta.outputs_data.emplace_back(1, inputDtype);
 
-  SharedMetaDataVector metaVec;
-  metaVec.reserve(5);
-  SharedMetaTensor bnCommonTensor = {inputRank, inputDtype};
-  const bool use_bn_fwd_in_gn_bwd =
-      GET_ENV_FLAG_NEW(PT_HPU_USE_BN_FWD_IN_GN_BWD);
-  if (use_bn_fwd_in_gn_bwd) {
-    SharedMetaData batchNormFwdSharedMeta{"batch_norm_fwd"};
-    batchNormFwdSharedMeta.inputs_data = {
-        {inputRank, inputDtype},
-        {1, c10::ScalarType::Float},
+      return {memsetSharedMeta, memsetMeanRstdSharedMeta};
+    }
+    SharedMetaDataVector metaVec;
+    metaVec.reserve(5);
+    SharedMetaTensor bnCommonTensor = {inputRank, inputDtype};
+    const bool use_bn_fwd_in_gn_bwd =
+        GET_ENV_FLAG_NEW(PT_HPU_USE_BN_FWD_IN_GN_BWD);
+    if (use_bn_fwd_in_gn_bwd) {
+      SharedMetaData batchNormFwdSharedMeta{"batch_norm_fwd"};
+      batchNormFwdSharedMeta.inputs_data = {
+          {inputRank, inputDtype},
+          {1, c10::ScalarType::Float},
+          {1, c10::ScalarType::Float},
+          {1, c10::ScalarType::Float},
+          {1, c10::ScalarType::Float}};
+      batchNormFwdSharedMeta.outputs_data = batchNormFwdSharedMeta.inputs_data;
+      metaVec.push_back(batchNormFwdSharedMeta);
+    } else {
+      SharedMetaData subSharedMeta{"sub_fwd"};
+      subSharedMeta.inputs_data = {bnCommonTensor, bnCommonTensor};
+      subSharedMeta.outputs_data = {bnCommonTensor};
+      metaVec.push_back(subSharedMeta);
+    }
+
+    if (!weight.defined()) {
+      SharedMetaData constantSharedMeta{"constant"};
+      constantSharedMeta.outputs_data = {bnCommonTensor};
+      metaVec.push_back(constantSharedMeta);
+    }
+
+    SharedMetaData multSharedMeta{"mult_fwd"};
+    multSharedMeta.inputs_data = {bnCommonTensor, bnCommonTensor};
+    multSharedMeta.outputs_data = {bnCommonTensor};
+    metaVec.push_back(multSharedMeta);
+
+    if (Nmod > 1) {
+      SharedMetaData constantSharedMeta{"constant"};
+      constantSharedMeta.outputs_data.emplace_back(1, c10::ScalarType::Float);
+      metaVec.push_back(constantSharedMeta);
+    }
+    SharedMetaData batchNormBwdSharedMeta{"batch_norm_bwd"};
+    batchNormBwdSharedMeta.inputs_data = {
+        bnCommonTensor,
+        bnCommonTensor,
         {1, c10::ScalarType::Float},
         {1, c10::ScalarType::Float},
         {1, c10::ScalarType::Float}};
-    batchNormFwdSharedMeta.outputs_data = batchNormFwdSharedMeta.inputs_data;
-    metaVec.push_back(batchNormFwdSharedMeta);
+    batchNormBwdSharedMeta.outputs_data = {
+        {bnCommonTensor,
+         {1, c10::ScalarType::Float},
+         {1, c10::ScalarType::Float}}};
+    metaVec.push_back(batchNormBwdSharedMeta);
+
+    SharedMetaData reduceSumMultiDimBetaSharedMeta{"reduce_sum_multi_dim_fwd"};
+    reduceSumMultiDimBetaSharedMeta.inputs_data.emplace_back(bnCommonTensor);
+    reduceSumMultiDimBetaSharedMeta.outputs_data.emplace_back(1, inputDtype);
+    metaVec.push_back(reduceSumMultiDimBetaSharedMeta);
+
+    SharedMetaData reduceSumMultiDimGammaSharedMeta{"reduce_sum_multi_dim_fwd"};
+    reduceSumMultiDimGammaSharedMeta.inputs_data.emplace_back(
+        gradOut.dim(), inputDtype);
+    reduceSumMultiDimGammaSharedMeta.outputs_data.emplace_back(1, inputDtype);
+    metaVec.push_back(reduceSumMultiDimGammaSharedMeta);
+
+    return metaVec;
   } else {
-    SharedMetaData subSharedMeta{"sub_fwd"};
-    subSharedMeta.inputs_data = {bnCommonTensor, bnCommonTensor};
-    subSharedMeta.outputs_data = {bnCommonTensor};
-    metaVec.push_back(subSharedMeta);
+    SharedMetaData nativeSharedMeta{"native_group_norm_bwd"};
+
+    if (weight.defined()) {
+      nativeSharedMeta.inputs_data = {
+          {gradOut.dim(), gradOut.scalar_type()},
+          {inputRank, inputDtype},
+          {mean.dim(), mean.scalar_type()},
+          {rstd.dim(), rstd.scalar_type()},
+          {weight.dim(), weight.scalar_type()}};
+    } else {
+      nativeSharedMeta.inputs_data = {
+          {gradOut.dim(), gradOut.scalar_type()},
+          {inputRank, inputDtype},
+          {mean.dim(), mean.scalar_type()},
+          {rstd.dim(), rstd.scalar_type()}};
+    }
+
+    nativeSharedMeta.outputs_data = {
+        {inputRank, inputDtype},
+        {{1}, inputDtype},
+        {{1}, inputDtype},
+    };
+
+    return {nativeSharedMeta};
   }
-
-  if (!weight.defined()) {
-    SharedMetaData constantSharedMeta{"constant"};
-    constantSharedMeta.outputs_data = {bnCommonTensor};
-    metaVec.push_back(constantSharedMeta);
-  }
-
-  SharedMetaData multSharedMeta{"mult_fwd"};
-  multSharedMeta.inputs_data = {bnCommonTensor, bnCommonTensor};
-  multSharedMeta.outputs_data = {bnCommonTensor};
-  metaVec.push_back(multSharedMeta);
-
-  if (Nmod > 1) {
-    SharedMetaData constantSharedMeta{"constant"};
-    constantSharedMeta.outputs_data.emplace_back(1, c10::ScalarType::Float);
-    metaVec.push_back(constantSharedMeta);
-  }
-
-  SharedMetaData batchNormBwdSharedMeta{"batch_norm_bwd"};
-  batchNormBwdSharedMeta.inputs_data = {
-      bnCommonTensor,
-      bnCommonTensor,
-      {1, c10::ScalarType::Float},
-      {1, c10::ScalarType::Float},
-      {1, c10::ScalarType::Float}};
-  batchNormBwdSharedMeta.outputs_data = {
-      {bnCommonTensor,
-       {1, c10::ScalarType::Float},
-       {1, c10::ScalarType::Float}}};
-  metaVec.push_back(batchNormBwdSharedMeta);
-
-  SharedMetaData reduceSumMultiDimBetaSharedMeta{"reduce_sum_multi_dim_fwd"};
-  reduceSumMultiDimBetaSharedMeta.inputs_data.emplace_back(bnCommonTensor);
-  reduceSumMultiDimBetaSharedMeta.outputs_data.emplace_back(1, inputDtype);
-  metaVec.push_back(reduceSumMultiDimBetaSharedMeta);
-
-  SharedMetaData reduceSumMultiDimGammaSharedMeta{"reduce_sum_multi_dim_fwd"};
-  reduceSumMultiDimGammaSharedMeta.inputs_data.emplace_back(
-      gradOut.dim(), inputDtype);
-  reduceSumMultiDimGammaSharedMeta.outputs_data.emplace_back(1, inputDtype);
-  metaVec.push_back(reduceSumMultiDimGammaSharedMeta);
-
-  return metaVec;
 }
 
 FillParamsT FillNativeGroupNormParams(const at::Stack& stack) {
