@@ -44,15 +44,19 @@ int GetRankFromEnv() {
  * separated by semicolon.
  *
  * Parameters:
- *  log_devmem=[0|1]       - enables devmem logging category
- *  log_recipe=[0|1]       - enables recipe logging category
- *  log_python=[0|1]       - enables python logging category
- *  log_collective=[0|1]   - enables collective logging category
- *  log_defrag=[0|1]       - enables defragmenter logging category
- *  log_copy=[0|1]         - enables copy logging category
- *  log_metrics=[0|1]      - enables metrics logging category
- *  rank=int               - logs only under given rank (determined by env RANK)
- *  any_rank=[0|1]         - ignore `rank` option and always log events
+ *  log_devmem=[0|1]                    - enables devmem logging category
+ *  log_recipe=[0|1]                    - enables recipe logging category
+ *  log_recipe_compile=[0|1]            - enables recipe logging category
+ *  log_recipe_tensor_touse=[0|1]       - enables recipe logging category
+ *  log_python=[0|1]                    - enables python logging category
+ *  log_collective=[0|1]                - enables collective logging category
+ *  log_defrag=[0|1]                    - enables defragmenter logging category
+ *  log_copy=[0|1]                      - enables copy logging category
+ *  log_metrics=[0|1]                   - enables metrics logging category
+ *  rank=int                            - logs only under given rank (determined
+ *                                        by env RANK)
+ *  any_rank=[0|1]                      - ignore `rank` option and
+ *                                        always log events
  */
 
 struct Config {
@@ -60,6 +64,7 @@ struct Config {
   bool log_devmem_summary = true;
   bool log_recipe = true;
   bool log_recipe_compile = true;
+  bool log_recipe_tensor_touse = true;
   bool log_python = true;
   bool log_collective = true;
   bool log_defrag = true;
@@ -109,6 +114,8 @@ struct Config {
           config.log_devmem_buf = flag;
           config.log_devmem_summary = flag;
           config.log_recipe = flag;
+          config.log_recipe_compile = flag;
+          config.log_recipe_tensor_touse = flag;
           config.log_python = flag;
           config.log_collective = flag;
           config.log_defrag = flag;
@@ -122,6 +129,10 @@ struct Config {
           config.log_python = value == "1";
         } else if (key == "log_recipe") {
           config.log_recipe = value == "1";
+        } else if (key == "log_recipe_compile") {
+          config.log_recipe_compile = value == "1";
+        } else if (key == "log_recipe_tensor_touse") {
+          config.log_recipe_tensor_touse = value == "1";
         } else if (key == "log_collective") {
           config.log_collective = value == "1";
         } else if (key == "log_defrag") {
@@ -167,6 +178,9 @@ struct Config {
     PT_TOWL_WARN("Config log_devmem_buf=", config.log_devmem_buf);
     PT_TOWL_WARN("Config log_devmem_summary=", config.log_devmem_summary);
     PT_TOWL_WARN("Config log_recipe=", config.log_recipe);
+    PT_TOWL_WARN("Config log_recipe_compile=", config.log_recipe_compile);
+    PT_TOWL_WARN(
+        "Config log_recipe_tensor_touse=", config.log_recipe_tensor_touse);
     PT_TOWL_WARN("Config log_python=", config.log_python);
     PT_TOWL_WARN("Config log_collective=", config.log_collective);
     PT_TOWL_WARN("Config log_defrag=", config.log_defrag);
@@ -493,7 +507,7 @@ void emitRecipeRequireWorkspace(const std::string& workspace) {
 }
 
 void emitRecipeTensorToUse(const std::string& dtensorinfo_dump) {
-  if (not config.log_recipe)
+  if (not config.log_recipe_tensor_touse)
     return;
   PT_TOWL_DEBUG("recipe.tensor.touse ", dtensorinfo_dump);
 }
