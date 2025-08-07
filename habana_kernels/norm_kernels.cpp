@@ -701,11 +701,11 @@ at::Tensor BatchNormForwardOperator::create_or_return_tensor_bn(
     ret_tensor = at::empty({size}, device);
     auto syn_tensor = habana_helpers::create_tensor(
         ret_tensor, graph, true, false, std::nullopt);
-    auto it = p_context_->syn_inputs_.begin() + syn_index;
-    p_context_->syn_inputs_.insert(it, std::move(syn_tensor));
-
     appended_tensor_infos.emplace_back(
         syn_tensor.name(), ret_tensor, syn_tensor.id());
+
+    auto it = p_context_->syn_inputs_.begin() + syn_index;
+    p_context_->syn_inputs_.insert(it, std::move(syn_tensor));
   } else if (input.defined() && input.device() != DeviceType::HPU) {
     ret_tensor = input.to(DeviceType::HPU);
   } else {

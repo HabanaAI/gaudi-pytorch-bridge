@@ -120,7 +120,7 @@ struct Data {
         device(c10::Device(c10::DeviceType::HPU, 0)),
         logical_element_type(tensor_data.scalar_type()),
         tensor_data(std::move(tensor_data)),
-        original_element_type(tensor_data.scalar_type()),
+        original_element_type(this->tensor_data->scalar_type()),
         unique_id(GetNextTensorId()) {
     static_cast<void>(device);
   }

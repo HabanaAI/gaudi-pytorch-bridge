@@ -391,8 +391,9 @@ void HbLazyTensor::SetTensorData(at::Tensor tensor_data) {
         device.get_device_memory().get_memory_reporter();
     reporter->getTensorStats()->setTensorAddressData(
         data()->unique_id,
-        (tensor_data.has_storage() ? tensor_data.storage().data_ptr().get()
-                                   : nullptr));
+        (data()->tensor_data->has_storage()
+             ? data()->tensor_data->storage().data_ptr().get()
+             : nullptr));
   }
 }
 
