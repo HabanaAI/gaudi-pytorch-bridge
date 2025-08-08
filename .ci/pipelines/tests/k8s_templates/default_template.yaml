@@ -39,8 +39,7 @@ spec:
                   value: "3"
                 - name: WORKSPACE
                   value: "/root"
-              command:
+              args:
                 - /bin/bash
                 - -c
-              args:
                 - $testArgs
