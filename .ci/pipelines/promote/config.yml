@@ -2,16 +2,10 @@ orchestratorConfig:
   cron: 0 8-23/12 * * *
   retriggerThreshold: '2'
   testConfig:
-  - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi2_sim_cpp_suite
-  - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi2_sim_py_suite_lazy
   - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi2_sim_py_suite_compile
   - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi2_sim_py_suite_compile_jit_fork
-  - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi2_sim_py_suite_eager
-  - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi3_sim_cpp_suite
-  - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi3_sim_py_suite_lazy
   - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi3_sim_py_suite_compile
   - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi3_sim_py_suite_compile_jit_fork
-  - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi3_sim_py_suite_eager
   - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi2_asic_topology_group_1
   - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_topology_group_2
   - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi3_asic_topology_group_1
@@ -23,64 +17,31 @@ orchestratorConfig:
   - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi3_asic_8cards_performance_8x_promote
     silentMode: false
   - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_8cards_short_accuracy_promote
-  - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_promote_pt_perf
-  - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_promote_training_suite_compile
-  - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_promote_training_suite_compile_dynamic
-  - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_promote_training_suite_eager
-  - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_promote_training_suite_lazy
-  - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi3_asic_promote_training_suite
-  - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi3_sim_promote_training_suite_dtype
-  - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_promote_training_suite_sub_graph_other
-  - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi3_sim_promote_training_suite_sub_graph_other
   - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_8cards_performance_8cards_promote
   - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_8cards_topology_8cards
-  - testToLaunch: habana-internal/deepspeed_fork/Tests/Test_deepspeed_fork_gaudi2_sim_test
   - testToLaunch: habana-internal/deepspeed_fork/Tests/Test_deepspeed_fork_gaudi2_asic_unit_tests_promote
-  - testToLaunch: habana-internal/deepspeed_fork/Tests/Test_deepspeed_fork_gaudi2_asic_8cards_test
   - testToLaunch: habana-internal/torchbench/Tests/Test_torchbench_gaudi2_asic_promote_torchbench_eager_suite
-  - testToLaunch: habana-internal/torchbench/Tests/Test_torchbench_gaudi3_asic_promote_torchbench_eager_suite
   - testToLaunch: habana-internal/habanaqa_inference/Tests/Test_habanaqa_inference_gaudi2_asic_bert_suite
-  - testToLaunch: habana-internal/habanaqa_inference/Tests/Test_habanaqa_inference_gaudi2_asic_unet_suite
-  - testToLaunch: habana-internal/habanaqa_inference/Tests/Test_habanaqa_inference_gaudi2_asic_llama7b_gptq_128input_2048output_suite
   - testToLaunch: habana-internal/habanaqa_inference/Tests/Test_habanaqa_inference_gaudi2_asic_llamav3_1_8b_inc_ptq_4096t_suite
-  - testToLaunch: habana-internal/habanaqa_inference/Tests/Test_habanaqa_inference_gaudi3_asic_llamav3_1_8b_inc_ptq_4096t_suite
-  - testToLaunch: habana-internal/habanaqa_inference/Tests/Test_habanaqa_inference_gaudi2_asic_hf_granite_20b_4096tokens_2048input_suite
-  - testToLaunch: habana-internal/habanaqa_inference/Tests/Test_habanaqa_inference_gaudi2_asic_hf_granite_8b_256tokens_128input_suite
-  - testToLaunch: habana-internal/habanaqa_inference/Tests/Test_habanaqa_inference_gaudi2_asic_llamav3_1_8b_4096t_bf16_suite
-  - testToLaunch: habana-internal/habanaqa_inference/Tests/Test_habanaqa_inference_gaudi3_asic_llamav3_1_8b_4096t_bf16_suite
-  - testToLaunch: habana-internal/habanaqa_inference/Tests/Test_habanaqa_inference_gaudi2_asic_hf_stable_diffusion_xl_suite
-  - testToLaunch: habana-internal/habanaqa_inference/Tests/Test_habanaqa_inference_gaudi2_asic_llamav3_2_11b_4096tokens_2048input_bf16_suite
-  - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_promote_pt2e_quant
-  - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_promote_dynamic_subgraphs
-  - testToLaunch: habana-internal/vllm_fork/Tests/Test_vllm_fork_gaudi2_asic_perf
-  - testToLaunch: habana-internal/vllm_fork/Tests/Test_vllm_fork_gaudi3_asic_perf
-  - testToLaunch: habana-internal/sglang/Tests/Test_sglang_gaudi3_asic_2cards_precommit_unit_test_compile_suite
-  - testToLaunch: habana-internal/sglang/Tests/Test_sglang_gaudi3_asic_promote_unit_tests_suite
   codeCoverageConfig:
   - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi2_sim_cpp_suite
   coverityConfig: null
   coverityConfig_stageSilentMode: true
   PromoteU24Config:
     - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi2_sim_cpp_suite_u24
-      silentMode: true
     - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi2_sim_py_suite_lazy_u24
-      silentMode: true
     - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi2_sim_py_suite_compile_u24
       silentMode: true
     - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi2_sim_py_suite_compile_jit_fork_u24
       silentMode: true
     - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi2_sim_py_suite_eager_u24
-      silentMode: true
     - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi3_sim_cpp_suite_u24
-      silentMode: true
     - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi3_sim_py_suite_lazy_u24
-      silentMode: true
     - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi3_sim_py_suite_compile_u24
       silentMode: true
     - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi3_sim_py_suite_compile_jit_fork_u24
       silentMode: true
     - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi3_sim_py_suite_eager_u24
-      silentMode: true
     - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi2_asic_topology_group_1_u24
       silentMode: true
     - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_topology_group_2_u24
@@ -106,26 +67,17 @@ orchestratorConfig:
       silentMode: true
     # PyTorch Operators and feature validation <Start>
     - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_promote_pt_perf_u24
-      silentMode: true
     - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_promote_training_suite_compile_u24
-      silentMode: true
     - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_promote_training_suite_compile_dynamic_u24
-      silentMode: true
     - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_promote_training_suite_eager_u24
-      silentMode: true
     - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_promote_training_suite_lazy_u24
-      silentMode: true
     - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi3_asic_promote_training_suite_u24
-      silentMode: true
     # Dtype validation <Start>
     - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi3_sim_promote_training_suite_dtype_u24
-      silentMode: true
     # Dtype validation <End>
     # Subgraph validation <Start>
     - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_promote_training_suite_sub_graph_other_u24
-      silentMode: true
     - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi3_sim_promote_training_suite_sub_graph_other_u24
-      silentMode: true
     # PT perf 8 card jobs in K8S container mode <Start>
     - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_8cards_performance_8cards_promote_u24
       silentMode: true
@@ -134,41 +86,29 @@ orchestratorConfig:
       silentMode: true
     # deepspeed-fork <Start>
     - testToLaunch: habana-internal/deepspeed_fork/Tests/Test_deepspeed_fork_gaudi2_sim_test_u24
-      silentMode: true
     - testToLaunch: habana-internal/deepspeed_fork/Tests/Test_deepspeed_fork_gaudi2_asic_unit_tests_promote_u24
       silentMode: true
     - testToLaunch: habana-internal/deepspeed_fork/Tests/Test_deepspeed_fork_gaudi2_asic_8cards_test_u24
-      silentMode: true
     # deepspeed-fork <End>
     # torchbench <Start>
     - testToLaunch: habana-internal/torchbench/Tests/Test_torchbench_gaudi2_asic_promote_torchbench_eager_suite_u24
       silentMode: true
     - testToLaunch: habana-internal/torchbench/Tests/Test_torchbench_gaudi3_asic_promote_torchbench_eager_suite_u24
-      silentMode: true
     # torchbench <End>
     - testToLaunch: habana-internal/habanaqa_inference/Tests/Test_habanaqa_inference_gaudi2_asic_bert_suite_u24
       silentMode: true
     - testToLaunch: habana-internal/habanaqa_inference/Tests/Test_habanaqa_inference_gaudi2_asic_unet_suite_u24
-      silentMode: true
     # Quantization toolkit topologies
     - testToLaunch: habana-internal/habanaqa_inference/Tests/Test_habanaqa_inference_gaudi2_asic_llama7b_gptq_128input_2048output_suite_u24
-      silentMode: true
     - testToLaunch: habana-internal/habanaqa_inference/Tests/Test_habanaqa_inference_gaudi2_asic_llamav3_1_8b_inc_ptq_4096t_suite_u24
       silentMode: true
     - testToLaunch: habana-internal/habanaqa_inference/Tests/Test_habanaqa_inference_gaudi3_asic_llamav3_1_8b_inc_ptq_4096t_suite_u24
-      silentMode: true
     - testToLaunch: habana-internal/habanaqa_inference/Tests/Test_habanaqa_inference_gaudi2_asic_hf_granite_20b_4096tokens_2048input_suite_u24
-      silentMode: true
     - testToLaunch: habana-internal/habanaqa_inference/Tests/Test_habanaqa_inference_gaudi2_asic_hf_granite_8b_256tokens_128input_suite_u24
-      silentMode: true
     - testToLaunch: habana-internal/habanaqa_inference/Tests/Test_habanaqa_inference_gaudi2_asic_llamav3_1_8b_4096t_bf16_suite_u24
-      silentMode: true
     - testToLaunch: habana-internal/habanaqa_inference/Tests/Test_habanaqa_inference_gaudi3_asic_llamav3_1_8b_4096t_bf16_suite_u24
-      silentMode: true
     - testToLaunch: habana-internal/habanaqa_inference/Tests/Test_habanaqa_inference_gaudi2_asic_hf_stable_diffusion_xl_suite_u24
-      silentMode: true
     - testToLaunch: habana-internal/habanaqa_inference/Tests/Test_habanaqa_inference_gaudi2_asic_llamav3_2_11b_4096tokens_2048input_bf16_suite_u24
-      silentMode: true
     - testToLaunch: habana-internal/habanaqa_inference/Tests/Test_habanaqa_inference_gaudi2_asic_8cards_llamav3_1_70b_inc_pcq_4096t_2048input_suite_u24
       silentMode: true
     - testToLaunch: habana-internal/habanaqa_inference/Tests/Test_habanaqa_inference_gaudi2_asic_llamav3_1_8b_inc_pcq_4096t_suite_u24
@@ -183,22 +123,16 @@ orchestratorConfig:
       silentMode: true
     # Quantization toolkit tests
     - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_promote_pt2e_quant_u24
-      silentMode: true
     # PT Dynamic Subgraph tests
     - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_promote_dynamic_subgraphs_u24
-      silentMode: true
     # PT Gaudi2 Optimum Habana Models Job <Start>
     - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_optimum_habana_models_promote_u24
       silentMode: true
     # PT Gaudi2 Optimum Habana Models Job <End>
     - testToLaunch: habana-internal/vllm_fork/Tests/Test_vllm_fork_gaudi2_asic_perf_u24
-      silentMode: true
     - testToLaunch: habana-internal/vllm_fork/Tests/Test_vllm_fork_gaudi3_asic_perf_u24
-      silentMode: true
     # SGLang Tests
     - testToLaunch: habana-internal/sglang/Tests/Test_sglang_gaudi3_asic_2cards_precommit_unit_test_compile_suite_u24
-      silentMode: true
     - testToLaunch: habana-internal/sglang/Tests/Test_sglang_gaudi3_asic_promote_unit_tests_suite_u24
-      silentMode: true
 stepConfig:
   jobTimeout: '300'
