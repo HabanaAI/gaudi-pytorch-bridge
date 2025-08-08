@@ -109,12 +109,15 @@ class Proxy {
 #define WRAP_SYMBOL(name) decltype(&::name) name = TypedLoad(embed_, #name)
   WRAP_SYMBOL(PyBaseObject_Type);
   WRAP_SYMBOL(PyBool_Type);
+  WRAP_SYMBOL(PyBuffer_Release);
   WRAP_SYMBOL(PyByteArray_AsString);
   WRAP_SYMBOL(PyByteArray_Size);
   WRAP_SYMBOL(PyByteArray_Type);
   WRAP_SYMBOL(PyBytes_AsString);
   WRAP_SYMBOL(PyBytes_AsStringAndSize);
+  WRAP_SYMBOL(PyBytes_FromString);
   WRAP_SYMBOL(PyBytes_Size);
+  WRAP_SYMBOL(PyCallable_Check);
   WRAP_SYMBOL(PyCFunction_Type);
   WRAP_SYMBOL(PyCMethod_New);
   WRAP_SYMBOL(PyCapsule_GetContext);
@@ -144,17 +147,22 @@ class Proxy {
   WRAP_SYMBOL(PyEval_GetBuiltins);
   WRAP_SYMBOL(PyEval_RestoreThread);
   WRAP_SYMBOL(PyEval_SaveThread);
+  WRAP_SYMBOL(PyExc_BufferError);
   WRAP_SYMBOL(PyExc_FutureWarning);
+  WRAP_SYMBOL(PyExc_ImportError);
   WRAP_SYMBOL(PyExc_IndexError);
+  WRAP_SYMBOL(PyExc_KeyError);
   WRAP_SYMBOL(PyExc_MemoryError);
   WRAP_SYMBOL(PyExc_OverflowError);
   WRAP_SYMBOL(PyExc_RuntimeError);
+  WRAP_SYMBOL(PyExc_StopIteration);
   WRAP_SYMBOL(PyExc_SystemError);
   WRAP_SYMBOL(PyExc_TypeError);
   WRAP_SYMBOL(PyExc_ValueError);
   WRAP_SYMBOL(PyException_SetCause);
   WRAP_SYMBOL(PyException_SetContext);
   WRAP_SYMBOL(PyException_SetTraceback);
+  WRAP_SYMBOL(PyFloat_Type);
   WRAP_SYMBOL(PyFrame_GetBack);
   WRAP_SYMBOL(PyFrame_GetCode);
   WRAP_SYMBOL(PyFrame_GetLineNumber);
@@ -163,28 +171,50 @@ class Proxy {
   WRAP_SYMBOL(PyGILState_GetThisThreadState);
   WRAP_SYMBOL(PyGILState_Release);
   WRAP_SYMBOL(PyImport_ImportModule);
+  WRAP_SYMBOL(PyIndex_Check);
   WRAP_SYMBOL(PyInstanceMethod_New);
   WRAP_SYMBOL(PyInstanceMethod_Type);
   WRAP_SYMBOL(PyInterpreterState_Get);
   WRAP_SYMBOL(PyInterpreterState_GetDict);
+  WRAP_SYMBOL(PyIter_Check);
+  WRAP_SYMBOL(PyIter_Next);
+  WRAP_SYMBOL(PyList_GetItem);
+  WRAP_SYMBOL(PyList_New);
   WRAP_SYMBOL(PyList_Size);
+  WRAP_SYMBOL(PyLong_AsLong);
+  WRAP_SYMBOL(PyLong_FromSize_t);
   WRAP_SYMBOL(PyLong_Type);
+  WRAP_SYMBOL(PyMethod_Type);
+  WRAP_SYMBOL(PyModule_Type);
   WRAP_SYMBOL(PyMem_Calloc);
   WRAP_SYMBOL(PyMem_Free);
+  WRAP_SYMBOL(PyModule_AddObject);
+  WRAP_SYMBOL(PyModule_Create2);
+  WRAP_SYMBOL(PyNumber_Check);
+  WRAP_SYMBOL(PyNumber_Long);
   WRAP_SYMBOL(PyObject_CallFunctionObjArgs);
   WRAP_SYMBOL(PyObject_CallObject);
   WRAP_SYMBOL(PyObject_ClearWeakRefs);
   WRAP_SYMBOL(PyObject_GC_UnTrack);
   WRAP_SYMBOL(PyObject_GenericGetDict);
   WRAP_SYMBOL(PyObject_GenericSetDict);
+  WRAP_SYMBOL(PyObject_GetAttr);
   WRAP_SYMBOL(PyObject_GetAttrString);
+  WRAP_SYMBOL(PyObject_GetIter);
   WRAP_SYMBOL(PyObject_HasAttrString);
   WRAP_SYMBOL(PyObject_IsInstance);
+  WRAP_SYMBOL(PyObject_LengthHint);
+  WRAP_SYMBOL(PyObject_Malloc);
   WRAP_SYMBOL(PyObject_Repr);
+  WRAP_SYMBOL(PyObject_SetAttr);
   WRAP_SYMBOL(PyObject_SetAttrString);
   WRAP_SYMBOL(PyObject_SetItem);
   WRAP_SYMBOL(PyObject_Str);
   WRAP_SYMBOL(PyProperty_Type);
+  WRAP_SYMBOL(PySequence_Tuple);
+  WRAP_SYMBOL(PySlice_AdjustIndices);
+  WRAP_SYMBOL(PySlice_Type);
+  WRAP_SYMBOL(PySlice_Unpack);
   WRAP_SYMBOL(PyThreadState_Clear);
   WRAP_SYMBOL(PyThreadState_DeleteCurrent);
   WRAP_SYMBOL(PyThreadState_Get);
@@ -203,15 +233,20 @@ class Proxy {
   WRAP_SYMBOL(PyUnicode_AsEncodedString);
   WRAP_SYMBOL(PyUnicode_AsUTF8AndSize);
   WRAP_SYMBOL(PyUnicode_AsUTF8String);
+  WRAP_SYMBOL(PyUnicode_DecodeUTF8);
+  WRAP_SYMBOL(PyUnicode_FromFormat);
   WRAP_SYMBOL(PyUnicode_FromString);
   WRAP_SYMBOL(PyWeakref_NewRef);
+  WRAP_SYMBOL(Py_GetVersion);
   WRAP_SYMBOL(Py_IsInitialized);
   WRAP_SYMBOL(_PyObject_GetDictPtr);
   WRAP_SYMBOL(_PyThreadState_UncheckedGet);
   WRAP_SYMBOL(_PyType_Lookup);
   WRAP_SYMBOL(_Py_Dealloc);
+  WRAP_SYMBOL(_Py_FalseStruct);
   WRAP_SYMBOL(_Py_NoneStruct);
   WRAP_SYMBOL(_Py_NotImplementedStruct);
+  WRAP_SYMBOL(_Py_TrueStruct);
 #undef WRAP_SYMBOL
 
  private:
@@ -245,6 +280,10 @@ extern "C" {
 // Wrappers are sorted alphabetically by name.
 // Objects are listed after functions - at the bottom.
 
+void PyBuffer_Release(Py_buffer* view) {
+  Proxy::instance().PyBuffer_Release(view);
+}
+
 char* PyByteArray_AsString(PyObject* obj) {
   return Proxy::instance().PyByteArray_AsString(obj);
 }
@@ -261,8 +300,16 @@ int PyBytes_AsStringAndSize(PyObject* obj, char** buffer, Py_ssize_t* length) {
   return Proxy::instance().PyBytes_AsStringAndSize(obj, buffer, length);
 }
 
+PyObject* PyBytes_FromString(const char* str) {
+  return Proxy::instance().PyBytes_FromString(str);
+}
+
 Py_ssize_t PyBytes_Size(PyObject* obj) {
   return Proxy::instance().PyBytes_Size(obj);
+}
+
+int PyCallable_Check(PyObject* obj) {
+  return Proxy::instance().PyCallable_Check(obj);
 }
 
 PyObject* PyCMethod_New(
@@ -427,6 +474,10 @@ PyObject* PyImport_ImportModule(const char* name) {
   return Proxy::instance().PyImport_ImportModule(name);
 }
 
+int PyIndex_Check(PyObject* obj) {
+  return Proxy::instance().PyIndex_Check(obj);
+}
+
 PyObject* PyInstanceMethod_New(PyObject* func) {
   return Proxy::instance().PyInstanceMethod_New(func);
 }
@@ -439,8 +490,32 @@ PyObject* PyInterpreterState_GetDict(PyInterpreterState* interp) {
   return Proxy::instance().PyInterpreterState_GetDict(interp);
 }
 
+int PyIter_Check(PyObject* obj) {
+  return Proxy::instance().PyIter_Check(obj);
+}
+
+PyObject* PyIter_Next(PyObject* obj) {
+  return Proxy::instance().PyIter_Next(obj);
+}
+
+PyObject* PyList_GetItem(PyObject* list, Py_ssize_t index) {
+  return Proxy::instance().PyList_GetItem(list, index);
+}
+
+PyObject* PyList_New(Py_ssize_t size) {
+  return Proxy::instance().PyList_New(size);
+}
+
 Py_ssize_t PyList_Size(PyObject* list) {
   return Proxy::instance().PyList_Size(list);
+}
+
+long PyLong_AsLong(PyObject* obj) {
+  return Proxy::instance().PyLong_AsLong(obj);
+}
+
+PyObject* PyLong_FromSize_t(size_t size) {
+  return Proxy::instance().PyLong_FromSize_t(size);
 }
 
 void* PyMem_Calloc(size_t nelem, size_t elsize) {
@@ -449,6 +524,22 @@ void* PyMem_Calloc(size_t nelem, size_t elsize) {
 
 void PyMem_Free(void* ptr) {
   Proxy::instance().PyMem_Free(ptr);
+}
+
+int PyModule_AddObject(PyObject* mod, const char* str, PyObject* value) {
+  return Proxy::instance().PyModule_AddObject(mod, str, value);
+}
+
+PyObject* PyModule_Create2(PyModuleDef* mod, int apiver) {
+  return Proxy::instance().PyModule_Create2(mod, apiver);
+}
+
+int PyNumber_Check(PyObject* obj) {
+  return Proxy::instance().PyNumber_Check(obj);
+}
+
+PyObject* PyNumber_Long(PyObject* obj) {
+  return Proxy::instance().PyNumber_Long(obj);
 }
 
 PyObject* PyObject_CallFunctionObjArgs(PyObject* callable, ...) {
@@ -480,8 +571,16 @@ int PyObject_GenericSetDict(PyObject* obj, PyObject* dict, void* context) {
   return Proxy::instance().PyObject_GenericSetDict(obj, dict, context);
 }
 
+PyObject* PyObject_GetAttr(PyObject* obj, PyObject* obj2) {
+  return Proxy::instance().PyObject_GetAttr(obj, obj2);
+}
+
 PyObject* PyObject_GetAttrString(PyObject* obj, const char* attr_name) {
   return Proxy::instance().PyObject_GetAttrString(obj, attr_name);
+}
+
+PyObject* PyObject_GetIter(PyObject* obj) {
+  return Proxy::instance().PyObject_GetIter(obj);
 }
 
 int PyObject_HasAttrString(PyObject* obj, const char* attr_name) {
@@ -492,8 +591,20 @@ int PyObject_IsInstance(PyObject* inst, PyObject* cls) {
   return Proxy::instance().PyObject_IsInstance(inst, cls);
 }
 
+Py_ssize_t PyObject_LengthHint(PyObject* obj, Py_ssize_t size) {
+  return Proxy::instance().PyObject_LengthHint(obj, size);
+}
+
+void* PyObject_Malloc(size_t size) {
+  return Proxy::instance().PyObject_Malloc(size);
+}
+
 PyObject* PyObject_Repr(PyObject* obj) {
   return Proxy::instance().PyObject_Repr(obj);
+}
+
+int PyObject_SetAttr(PyObject* obj, PyObject* attr, PyObject* value) {
+  return Proxy::instance().PyObject_SetAttr(obj, attr, value);
 }
 
 int PyObject_SetAttrString(
@@ -509,6 +620,26 @@ int PyObject_SetItem(PyObject* obj, PyObject* key, PyObject* value) {
 
 PyObject* PyObject_Str(PyObject* obj) {
   return Proxy::instance().PyObject_Str(obj);
+}
+
+PyObject* PySequence_Tuple(PyObject* obj) {
+  return Proxy::instance().PySequence_Tuple(obj);
+}
+
+Py_ssize_t PySlice_AdjustIndices(
+    Py_ssize_t length,
+    Py_ssize_t* start,
+    Py_ssize_t* stop,
+    Py_ssize_t step) {
+  return Proxy::instance().PySlice_AdjustIndices(length, start, stop, step);
+}
+
+int PySlice_Unpack(
+    PyObject* slice,
+    Py_ssize_t* start,
+    Py_ssize_t* stop,
+    Py_ssize_t* step) {
+  return Proxy::instance().PySlice_Unpack(slice, start, stop, step);
 }
 
 void PyThreadState_Clear(PyThreadState* tstate) {
@@ -578,12 +709,27 @@ PyObject* PyUnicode_AsUTF8String(PyObject* unicode) {
   return Proxy::instance().PyUnicode_AsUTF8String(unicode);
 }
 
+PyObject* PyUnicode_DecodeUTF8(
+    const char* string,
+    Py_ssize_t length,
+    const char* errors) {
+  return Proxy::instance().PyUnicode_DecodeUTF8(string, length, errors);
+}
+
+PyObject* PyUnicode_FromFormat(const char* format, ...) {
+  return Proxy::instance().PyUnicode_FromFormat(format);
+}
+
 PyObject* PyUnicode_FromString(const char* str) {
   return Proxy::instance().PyUnicode_FromString(str);
 }
 
 PyObject* PyWeakref_NewRef(PyObject* obj, PyObject* callback) {
   return Proxy::instance().PyWeakref_NewRef(obj, callback);
+}
+
+const char* Py_GetVersion() {
+  return Proxy::instance().Py_GetVersion();
 }
 
 int Py_IsInitialized() {
@@ -615,25 +761,35 @@ const char* PyUnicode_AsUTF8AndSize(PyObject* unicode, Py_ssize_t* size) {
 }
 
 // Globals
+PyLongObject _Py_FalseStruct = *Proxy::instance()._Py_FalseStruct;
 PyObject _Py_NoneStruct = *Proxy::instance()._Py_NoneStruct;
 PyObject _Py_NotImplementedStruct = *Proxy::instance()._Py_NotImplementedStruct;
+PyLongObject _Py_TrueStruct = *Proxy::instance()._Py_TrueStruct;
 PyTypeObject PyBaseObject_Type = *Proxy::instance().PyBaseObject_Type;
 PyTypeObject PyBool_Type = *Proxy::instance().PyBool_Type;
 PyTypeObject PyByteArray_Type = *Proxy::instance().PyByteArray_Type;
 PyTypeObject PyCFunction_Type = *Proxy::instance().PyCFunction_Type;
 PyTypeObject PyCapsule_Type = *Proxy::instance().PyCapsule_Type;
 PyTypeObject PyDict_Type = *Proxy::instance().PyDict_Type;
+PyObject* PyExc_BufferError = *Proxy::instance().PyExc_BufferError;
 PyObject* PyExc_FutureWarning = *Proxy::instance().PyExc_FutureWarning;
+PyObject* PyExc_ImportError = *Proxy::instance().PyExc_ImportError;
 PyObject* PyExc_IndexError = *Proxy::instance().PyExc_IndexError;
+PyObject* PyExc_KeyError = *Proxy::instance().PyExc_KeyError;
 PyObject* PyExc_MemoryError = *Proxy::instance().PyExc_MemoryError;
 PyObject* PyExc_OverflowError = *Proxy::instance().PyExc_OverflowError;
 PyObject* PyExc_RuntimeError = *Proxy::instance().PyExc_RuntimeError;
+PyObject* PyExc_StopIteration = *Proxy::instance().PyExc_StopIteration;
 PyObject* PyExc_SystemError = *Proxy::instance().PyExc_SystemError;
 PyObject* PyExc_TypeError = *Proxy::instance().PyExc_TypeError;
 PyObject* PyExc_ValueError = *Proxy::instance().PyExc_ValueError;
+PyTypeObject PyFloat_Type = *Proxy::instance().PyFloat_Type;
 PyTypeObject PyInstanceMethod_Type = *Proxy::instance().PyInstanceMethod_Type;
 PyTypeObject PyLong_Type = *Proxy::instance().PyLong_Type;
+PyTypeObject PyMethod_Type = *Proxy::instance().PyMethod_Type;
+PyTypeObject PyModule_Type = *Proxy::instance().PyModule_Type;
 PyTypeObject PyProperty_Type = *Proxy::instance().PyProperty_Type;
+PyTypeObject PySlice_Type = *Proxy::instance().PySlice_Type;
 PyTypeObject PyType_Type = *Proxy::instance().PyType_Type;
 
 } // extern "C"
