@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -51,8 +51,8 @@ class event {
   std::condition_variable ready_var_;
   std::atomic<bool> done_{false};
 
-  std::vector<device_ptr> device_ptrs_{};
-  std::vector<std::string> event_ids_{};
+  std::vector<device_ptr> device_ptrs_;
+  std::vector<std::string> event_ids_;
   stream& stream_recorded_; // used to avoid waiting on the same stream which is
                             // forbidden by synapse
   bool is_partial_{};

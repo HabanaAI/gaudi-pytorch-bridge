@@ -273,13 +273,13 @@ struct KernelMetaData {
 
 class OutputMetaData {
  public:
-  std::string name{};
-  std::string module_name{};
+  std::string name;
+  std::string module_name;
   bool persistent{false};
   bool external{false};
   at::ScalarType dtype{at::ScalarType::Undefined};
-  std::vector<int64_t> shape{};
-  std::vector<int64_t> strides{};
+  std::vector<int64_t> shape;
+  std::vector<int64_t> strides;
   at::Layout layout{};
   at::MemoryFormat mem_format{};
   std::optional<at::Tensor> allocated_tensor{};
@@ -775,7 +775,7 @@ class HabanaOperator {
   habana_helpers::HabanaFrontendTypes execution_mode{
       habana_helpers::HabanaFrontendTypes::INVALID};
   bool no_compute_flag{false};
-  std::string hints_str_{};
+  std::string hints_str_;
   bool is_op_dynamic{true};
 };
 

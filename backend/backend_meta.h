@@ -35,8 +35,8 @@ using BaseTensorExtraMeta = c10::BackendMeta;
 
 struct ShapeTensorStruct {
   bool contains_data = false;
-  std::vector<int64_t> strides{};
-  std::vector<int64_t> stride_ratio{};
+  std::vector<int64_t> strides;
+  std::vector<int64_t> stride_ratio;
   int64_t offset = 0;
 
   void set_strides_tensor_shape(std::vector<int64_t> input_strides) {

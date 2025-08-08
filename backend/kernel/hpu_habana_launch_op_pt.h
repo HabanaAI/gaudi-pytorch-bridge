@@ -511,7 +511,7 @@ class HabanaLaunchOpPT {
   size_t graph_key_with_perm_ = 0;
   size_t graph_symint_hash_ = 0;
   size_t graph_perm_hash_ = 0;
-  std::vector<std::vector<int64_t>> out_shapes_{};
+  std::vector<std::vector<int64_t>> out_shapes_;
 
   size_t prim_nodes_ival_counter_{0};
   size_t restride_node_swap_counter_{0};
@@ -650,8 +650,8 @@ class HabanaLaunchOpPT {
 
   VecOfIValPtrSh dma_inputs_{};
 
-  std::vector<synLaunchTensorInfo> syn_launch_info_{};
-  std::vector<size_t> external_tensor_info_indexes_{};
+  std::vector<synLaunchTensorInfo> syn_launch_info_;
+  std::vector<size_t> external_tensor_info_indexes_;
 
   // This object writes permutation data to the jit graph cache
   // We only use it in normal flow, because we need to set output permutation
