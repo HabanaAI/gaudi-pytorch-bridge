@@ -104,6 +104,7 @@ add_habana_library(
   backend/bitwise_gen.cpp
   backend/bitwise_shift_gen.cpp
   backend/block_softmax_adjustment_gen.cpp
+  backend/block_softmax_const_max_gen.cpp
   backend/bmm_gen.cpp
   backend/bucketize_gen.cpp
   backend/cast_to_fp8_just_in_time_gen.cpp

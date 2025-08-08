@@ -9276,3 +9276,13 @@ fused_clip_norm:
   op_validator: FusedClipNormSharedMeta
   namespaces: [torch.hpu]
   skip_slrg: true # exception - minimum 2 elements of tensor list
+
+block_softmax_const_max:
+  custom_op_schema: "hpu::block_softmax_const_max(Tensor attn, Tensor block_bias, Tensor block_groups, int batch_size, float global_block_max, *, float output_scale=1.0, ScalarType? output_dtype=None) -> Tensor"
+  guid: block_softmax_constant_max
+  out_ids: [0]
+  output_meta: BlockSoftmaxConstMaxMeta
+  custom_fill_params: BlockSoftmaxConstMaxParams
+  namespaces: [torch.hpu]
+  op_validator: check-node-with-shared-layer
+  skip_slrg: true # Op non-functional yet, as cguid not promoted

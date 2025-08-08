@@ -1684,6 +1684,13 @@ def meta_gather_csr(src, indprt, output_size):
     return src.new_empty(output_size)
 
 
+@register_meta([torch.ops.hpu.block_softmax_const_max])
+def meta_block_softmax_const_max(
+    attn, block_bias, block_groups, batch_size, global_block_max, *, output_scale=1.0, output_dtype=None
+):
+    return attn.new_empty(attn.shape, dtype=output_dtype if output_dtype else attn.dtype)
+
+
 def activate_hpu_custom_op_meta():
     activate_meta_table = {}
 
