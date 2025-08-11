@@ -57,6 +57,11 @@ class PTIntegrationManyLinuxRunner(GenericManylinuxRunner):
         return f"{__file__} " + " ".join(raw_args)
 
 
+class HLLoggerManyLinuxRunner(GenericManylinuxRunner):
+    def get_bash_command(self, raw_args: Iterable[str]):
+        return ". $PYTORCH_MODULES_ROOT_PATH/.devops/manylinux/verify-and-build-hl-logger.sh " + " ".join(raw_args)
+
+
 @dataclass(unsafe_hash=True)
 class VersionAndSource:
     version: str | Version  # can be "nightly"
@@ -1860,9 +1865,22 @@ def add_upstream_versions(wheel_specs: list[WheelSpec], cpu_index_url: str | Non
     return wheel_specs
 
 
+def get_hl_logger_build_params(args):
+    params = []
+    if args.build_all:
+        params.append("-a")
+    if args.release:
+        params.append("-r")
+    params.append("-j")
+    params.append(str(args.jobs))
+    params.append("-c")
+    params.append("-l")
+
+    return params
+
+
 def main():
     args, raw_args = parse_args()
-
     warning_stream = setup_logging(args)
 
     if args.use_icecc:
@@ -1873,6 +1891,8 @@ def main():
         if args.use_icecc:
             raw_args.remove("--use-icecc")
         raw_args.remove("--manylinux")
+        log.debug("Checking if available HLLogger build is compatible with the manylinux requirements.")
+        HLLoggerManyLinuxRunner(with_icecc=args.use_icecc).run(False, get_hl_logger_build_params(args))
         PTIntegrationManyLinuxRunner(with_icecc=args.use_icecc).run(shouldRecreateVenv, raw_args)
         sys.exit()
 
