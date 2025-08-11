@@ -5,4 +5,4 @@
 # below owners will be requested for review when someone opens a pull request.
 * @habana-internal/pytorch_modules_approvers @habana-internal/pytorch_modules_approvers_migration
 
-CODEOWNERS @mryszt
+CODEOWNERS @aostrowski-hbn @silv3s @rbabukv @HBN-MichalSzy
