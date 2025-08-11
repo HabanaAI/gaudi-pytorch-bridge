@@ -2028,6 +2028,10 @@ build_pytorch_text()
     local __result
     local __profile_getter_path="${PYTORCH_MODULES_ROOT_PATH}/.devops/profile_getter.py"
     local __pt_text_version
+    local __build_manylinux_whl="false"
+    local __auditwheel="false"
+    local __useicecc
+    local __variables_to_manylinux_build=$(printf "%s %s\n" "$@" "--auditwheel" | sed s/--manylinux// | sed s/--use-icecc//)
     # parameter while-loop
     while [ -n "$1" ];
     do
@@ -2055,6 +2059,15 @@ build_pytorch_text()
             __pt_text_version="$2"
             shift
             ;;
+        --manylinux )
+            __build_manylinux_whl="true"
+            ;;
+        --auditwheel )
+            __auditwheel="true"
+            ;;
+        --use-icecc )
+            __useicecc="--use-icecc"
+            ;;
         -h  | --help )
             pytorch_usage $__scriptname
             return 0
@@ -2062,6 +2075,11 @@ build_pytorch_text()
         esac
         shift
     done
+
+    if [ "z${__build_manylinux_whl}" == "ztrue" ];then
+        execute_in_manylinux_runner CMAKE_POLICY_VERSION_MINIMUM=3.5 TORCH_DEVICE_BACKEND_AUTOLOAD=0 $__useicecc $__scriptname $__variables_to_manylinux_build
+        return $?
+    fi
 
     rm -rf $PYTORCH_TEXT_ROOT
     mkdir -p $PYTORCH_TEXT_ROOT
@@ -2089,15 +2107,28 @@ build_pytorch_text()
     __result=$?
     if [ $__result -ne 0 ]; then
         echo "Pytorch torchtext build failed!"
+        popd
+        return $__result
     fi
-    PTT_WHL_PATH="$PYTORCH_TEXT_ROOT/dist/"
 
-    popd
     if [[ "$__whl_params" = " bdist_wheel" ]]; then
-        rm -rf $PYTORCH_TEXT_BUILD/pkgs
-        mkdir -p $PYTORCH_TEXT_BUILD/pkgs
-        cp -f ${PTT_WHL_PATH}/*.whl $PYTORCH_TEXT_BUILD/pkgs
+        PTT_WHL_PATH="$PYTORCH_TEXT_ROOT/dist/"
+        if [ "z${__auditwheel}" == "ztrue" ];then
+            # We can exclude all ".so" libs from the auditwheel repair command, as the original build command bundles up
+            # the wheel with all needed libs, including libtorchtext.so. If the libs are not excluded, the wheel contains
+            # two copies of each lib what leads to the issue of double loading lib.
+            bash -c "auditwheel repair --only-plat --exclude \"*\" ${PTT_WHL_PATH}/*.whl"
+            PTT_WHL_PATH="$PYTORCH_TEXT_ROOT/wheelhouse/"
+        fi
+        BUILD_PATH="$PYTORCH_TEXT_BUILD/pkgs"
+        if [ -n "$__configure" ]; then
+            rm -rf $BUILD_PATH
+        fi
+        mkdir -p $BUILD_PATH
+        echo "Copying wheel from ${PTT_WHL_PATH} to ${BUILD_PATH}"
+        cp -f ${PTT_WHL_PATH}/*.whl $BUILD_PATH
     fi
+    popd
 
     printf "\nElapsed time: %02u:%02u:%02u \n\n" $(($SECONDS / 3600)) $((($SECONDS / 60) % 60)) $(($SECONDS % 60))
     return $__result
@@ -2168,17 +2199,30 @@ build_pytorch_data()
     __result=$?
     if [ $__result -ne 0 ]; then
         echo "Pytorch torchdata build failed!"
+        popd
+        return $__result
     fi
-    PTD_WHL_PATH="$PYTORCH_DATA_ROOT/dist/"
+
+    if [[ "$__whl_params" = " bdist_wheel" ]]; then
+        PTD_WHL_PATH="$PYTORCH_DATA_ROOT/dist/"
+        if [ -n "$__configure" ]; then
+            rm -rf $PYTORCH_DATA_BUILD/pkgs
+        fi
+        mkdir -p $PYTORCH_DATA_BUILD/pkgs
+        echo "Copying wheel from ${PTD_WHL_PATH} to ${$PYTORCH_DATA_BUILD}/pkgs"
+        cp -f ${PTD_WHL_PATH}/*.whl ${$PYTORCH_DATA_BUILD}/pkgs
+    fi
 
     popd
-    if [[ "$__whl_params" = " bdist_wheel" ]]; then
-        rm -rf $PYTORCH_DATA_BUILD/pkgs
-        mkdir -p $PYTORCH_DATA_BUILD/pkgs
-        cp -f ${PTD_WHL_PATH}/*.whl $PYTORCH_DATA_BUILD/pkgs
-    fi
-
     printf "\nElapsed time: %02u:%02u:%02u \n\n" $(($SECONDS / 3600)) $((($SECONDS / 60) % 60)) $(($SECONDS % 60))
+    return $__result
+}
+
+execute_in_manylinux_runner(){
+    pushd "${PYTORCH_MODULES_ROOT_PATH}"/.devops || return 1
+    (set -x; python manylinuxrunner.py $@)
+    __result=$?
+    popd >&/dev/null
     return $__result
 }
 
@@ -2192,6 +2236,11 @@ build_pytorch_audio()
     local __result
     local __profile_getter_path="${PYTORCH_MODULES_ROOT_PATH}/.devops/profile_getter.py"
     local __pt_audio_version
+    local __build_manylinux_whl="false"
+    local __auditwheel="false"
+    local __useicecc
+    local __variables_to_manylinux_build=$(printf "%s %s\n" "$@" "--auditwheel" | sed s/--manylinux// | sed s/--use-icecc//)
+
     # parameter while-loop
     while [ -n "$1" ];
     do
@@ -2217,6 +2266,15 @@ build_pytorch_audio()
             __pt_audio_version="$2"
             shift
             ;;
+        --manylinux )
+            __build_manylinux_whl="true"
+            ;;
+        --auditwheel )
+            __auditwheel="true"
+            ;;
+        --use-icecc )
+            __useicecc="--use-icecc"
+            ;;
         -h  | --help )
             pytorch_usage $__scriptname
             return 0
@@ -2224,6 +2282,11 @@ build_pytorch_audio()
         esac
         shift
     done
+
+    if [ "z${__build_manylinux_whl}" == "ztrue" ];then
+        execute_in_manylinux_runner TORCH_DEVICE_BACKEND_AUTOLOAD=0 $__useicecc $__scriptname $__variables_to_manylinux_build
+        return $?
+    fi
 
     rm -rf $PYTORCH_AUDIO_ROOT
     mkdir -p $PYTORCH_AUDIO_ROOT
@@ -2247,16 +2310,28 @@ build_pytorch_audio()
     __result=$?
     if [ $__result -ne 0 ]; then
         echo "Pytorch torchaudio build failed!"
+        popd
+        return $__result
     fi
-    PTA_WHL_PATH="$PYTORCH_AUDIO_ROOT/dist/"
 
-    popd
     if [[ "$__whl_params" = " bdist_wheel" ]]; then
-        rm -rf $PYTORCH_AUDIO_BUILD/pkgs
-        mkdir -p $PYTORCH_AUDIO_BUILD/pkgs
-        cp -f ${PTA_WHL_PATH}/*.whl $PYTORCH_AUDIO_BUILD/pkgs
+        PTA_WHL_PATH="$PYTORCH_AUDIO_ROOT/dist/"
+        if [ "z${__auditwheel}" == "ztrue" ];then
+            # We can exclude all ".so" libs from the auditwheel repair command, as the original build command bundles up
+            # the wheel with all needed libs, including libtorchaudio.so. If the libs are not excluded, the wheel contains
+            # two copies of each lib what leads to the issue of double loading lib.
+            bash -c "auditwheel repair --only-plat --exclude \"*\" ${PTA_WHL_PATH}/*.whl"
+            PTA_WHL_PATH="$PYTORCH_AUDIO_ROOT/wheelhouse/"
+        fi
+        BUILD_PATH="$PYTORCH_AUDIO_BUILD/pkgs"
+        if [ -n "$__configure" ]; then
+            rm -rf $BUILD_PATH
+        fi
+        mkdir -p $BUILD_PATH
+        echo "Copying wheel from ${PTA_WHL_PATH} to ${BUILD_PATH}"
+        cp -f ${PTA_WHL_PATH}/*.whl $BUILD_PATH
     fi
-
+    popd
     printf "\nElapsed time: %02u:%02u:%02u \n\n" $(($SECONDS / 3600)) $((($SECONDS / 60) % 60)) $(($SECONDS % 60))
     return $__result
 }
@@ -2272,6 +2347,10 @@ build_pytorch_vision()
     local __profile_getter_path="${PYTORCH_MODULES_ROOT_PATH}/.devops/profile_getter.py"
     local __pt_vision_version
     local __next_version=false
+    local __build_manylinux_whl="false"
+    local __auditwheel="false"
+    local __useicecc
+    local __variables_to_manylinux_build=$(printf "%s %s\n" "$@" "--auditwheel" | sed s/--manylinux// | sed s/--use-icecc//)
     # parameter while-loop
     while [ -n "$1" ];
     do
@@ -2300,6 +2379,15 @@ build_pytorch_vision()
         --next )
             __next_version=true
             ;;
+        --manylinux )
+            __build_manylinux_whl="true"
+            ;;
+        --auditwheel )
+            __auditwheel="true"
+            ;;
+        --use-icecc )
+            __useicecc="--use-icecc"
+            ;;
         -h  | --help )
             pytorch_usage $__scriptname
             return 0
@@ -2307,6 +2395,11 @@ build_pytorch_vision()
         esac
         shift
     done
+
+    if [ "z${__build_manylinux_whl}" == "ztrue" ];then
+        execute_in_manylinux_runner TORCH_DEVICE_BACKEND_AUTOLOAD=0 $__useicecc $__scriptname $__variables_to_manylinux_build
+        return $?
+    fi
 
     rm -rf $PYTORCH_VISION_ROOT
     mkdir -p $PYTORCH_VISION_ROOT
@@ -2336,15 +2429,25 @@ build_pytorch_vision()
     if [ $__result -ne 0 ]; then
         echo "Pytorch torch vision build failed!"
     fi
-    PTV_WHL_PATH="$PYTORCH_VISION_ROOT/dist/"
 
-    popd
     if [[ "$__whl_params" = " bdist_wheel" ]]; then
-        rm -rf $PYTORCH_VISION_BUILD/pkgs
-        mkdir -p $PYTORCH_VISION_BUILD/pkgs
-        cp -f ${PTV_WHL_PATH}/*.whl $PYTORCH_VISION_BUILD/pkgs
+        PTV_WHL_PATH="$PYTORCH_VISION_ROOT/dist/"
+        if [ "z${__auditwheel}" == "ztrue" ];then
+            # We can exclude all torch related ".so" libs from the auditwheel repair command, as the original build
+            # command bundles up the wheel with them, including torch vision ".so" libs. If the libs are not excluded,
+            # the wheel contains two copies of each lib what leads to the issue of double loading lib.
+            bash -c "auditwheel repair --only-plat  --exclude libc10.so --exclude libtorch* ${PTV_WHL_PATH}/*.whl"
+            PTV_WHL_PATH="$PYTORCH_VISION_ROOT/wheelhouse/"
+        fi
+        BUILD_PATH="$PYTORCH_VISION_BUILD/pkgs"
+        if [ -n "$__configure" ]; then
+            rm -rf $BUILD_PATH
+        fi
+        mkdir -p $BUILD_PATH
+        echo "Copying wheel from ${PTV_WHL_PATH} to ${BUILD_PATH}"
+        cp -f ${PTV_WHL_PATH}/*.whl $BUILD_PATH
     fi
-
+    popd
     printf "\nElapsed time: %02u:%02u:%02u \n\n" $(($SECONDS / 3600)) $((($SECONDS / 60) % 60)) $(($SECONDS % 60))
     return $__result
 }
@@ -2424,6 +2527,10 @@ stats_parser()
 set_os_specific_vars() {
     case $OS in
         'sles')
+            export CC="gcc"
+            export CXX="g++"
+            ;;
+        'almalinux')
             export CC="gcc"
             export CXX="g++"
             ;;
