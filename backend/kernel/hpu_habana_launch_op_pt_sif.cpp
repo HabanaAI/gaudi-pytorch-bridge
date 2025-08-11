@@ -779,10 +779,11 @@ bool HabanaLaunchOpPT::RunHybridSif(
 
         HABANA_ASSERT(
             node->outputs().size() == output_tensors.size() - exclude_outputs);
-        for (size_t i = 0; i < node->outputs().size(); ++i) {
-          auto output = node->outputs().at(i);
+        size_t outTensorsId = 0;
+        for (auto&& output : node->outputs()) {
           HABANA_ASSERT(val_to_ival_map.count(output) == 0);
-          val_to_ival_map[output] = IVal(std::get<1>(output_tensors[i]));
+          val_to_ival_map[output] =
+              IVal(std::get<1>(output_tensors[outTensorsId++]));
         }
 
         // Capture node params if required and are supported per JIT IR op

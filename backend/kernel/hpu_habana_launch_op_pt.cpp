@@ -2030,14 +2030,16 @@ void HabanaLaunchOpPT::validateOutputShapeDynamic(
       " but got: ",
       num_outs_got);
   // compare output shape
-  size_t i = 0;
-  size_t j = 0;
+  size_t outShapeVecId = 0;
+  size_t outVecId = 0;
   std::vector<int64_t> t;
   for (sh::tensor& out_tensor_syn : syn_outputs) {
     if (out_tensor_syn.is_shape_tensor()) {
-      t = std::get<at::Tensor>(output_shape_vec.at(i++)).sizes().vec();
+      t = std::get<at::Tensor>(output_shape_vec.at(outShapeVecId++))
+              .sizes()
+              .vec();
     } else {
-      t = std::get<at::Tensor>(output_vec.at(j++)).sizes().vec();
+      t = std::get<at::Tensor>(output_vec.at(outVecId++)).sizes().vec();
     }
     HABANA_ASSERT(
         out_tensor_syn.pt_shape() == t,
@@ -2056,7 +2058,9 @@ void HabanaLaunchOpPT::validateOutputShapeDynamic(
     for (const auto& st : op->GetShapeTensors()) {
       if (st.is_intermediate_shape_tensor()) {
         HABANA_ASSERT(st.is_shape_tensor());
-        t = std::get<at::Tensor>(output_shape_vec.at(i++)).sizes().vec();
+        t = std::get<at::Tensor>(output_shape_vec.at(outShapeVecId++))
+                .sizes()
+                .vec();
 
         HABANA_ASSERT(
             st.pt_shape() == t,
@@ -2074,7 +2078,9 @@ void HabanaLaunchOpPT::validateOutputShapeDynamic(
   for (sh::tensor& in_tensor_syn : syn_inputs) {
     if (in_tensor_syn.is_intermediate_shape_tensor()) {
       HABANA_ASSERT(in_tensor_syn.is_shape_tensor());
-      t = std::get<at::Tensor>(output_shape_vec.at(i++)).sizes().vec();
+      t = std::get<at::Tensor>(output_shape_vec.at(outShapeVecId++))
+              .sizes()
+              .vec();
       HABANA_ASSERT(
           in_tensor_syn.pt_shape() == t,
           "Node: ",
@@ -2132,10 +2138,10 @@ void HabanaLaunchOpPT::validateOutputShapeNonDynamic(
       " but got: ",
       num_outs_got);
   // compare output shape
-  size_t j = 0;
+  size_t outVecId = 0;
   std::vector<int64_t> t;
   for (sh::tensor& out_tensor_syn : syn_outputs) {
-    t = std::get<at::Tensor>(output_vec.at(j++)).sizes().vec();
+    t = std::get<at::Tensor>(output_vec.at(outVecId++)).sizes().vec();
     HABANA_ASSERT(
         out_tensor_syn.pt_shape() == t,
         "Node: ",
@@ -2158,8 +2164,6 @@ void HabanaLaunchOpPT::validateOutputShape(
     const InferOutputMetaRetType& output_shape_handle,
     const sh::graph& syn_graph,
     const std::string& opname) {
-  auto lowering_kernels = HabanaKernel->GetKernels();
-
   if (syn_graph.is_dynamic_graph()) {
     validateOutputShapeDynamic(HabanaKernel, output_shape_handle, opname);
   } else {

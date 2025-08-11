@@ -947,3 +947,30 @@ void habana::InferOutputMetaRetType::PushOutputTensorAtFront(
     IdxTensorTuple output_tensor) {
   output_tensors_.insert(output_tensors_.begin(), std::move(output_tensor));
 }
+
+namespace habana {
+
+OutputMetaDataVector SelectVectorIndices(
+    const OutputMetaDataVector& src,
+    const std::vector<unsigned int>& indices) {
+  OutputMetaDataVector result;
+  result.reserve(indices.size());
+  for (auto index : indices) {
+    if (index < src.size())
+      result.push_back(src.at(index));
+  }
+  HABANA_ASSERT(result.size() == indices.size());
+  return result;
+}
+
+void OutputMetaData::CopySomeMembersVecSrcToDst(
+    const std::vector<OutputMetaData>& src,
+    std::vector<OutputMetaData>& dst) {
+  TORCH_INTERNAL_ASSERT_DEBUG_ONLY(dst.size() == src.size());
+  size_t commonSize = std::min(dst.size(), src.size());
+  for (size_t i = 0; i < commonSize; ++i) {
+    dst[i].CopySomeMembers(src[i]);
+  }
+}
+
+} // namespace habana

@@ -277,13 +277,13 @@ OutputMetaDataVector ArangeDefaultEndMeta(const at::Stack& stack) {
   const c10::Scalar end = stack.at(0).toScalar();
   const int64_t depth = get_arange_depth(defaultStart, end, defaultStep);
   const bool setToIntegralDType = end.isIntegral(true);
-  return {ArangeDefaultCommonMeta(
+  return ArangeDefaultCommonMeta(
       depth,
       stack.at(1),
       stack.at(2),
       stack.at(3),
       stack.at(4),
-      setToIntegralDType)};
+      setToIntegralDType);
 }
 
 OutputMetaDataVector ArangeDefaultStartEndMeta(const at::Stack& stack) {
@@ -293,13 +293,13 @@ OutputMetaDataVector ArangeDefaultStartEndMeta(const at::Stack& stack) {
   const int64_t depth = get_arange_depth(start, end, defaultStep);
   const bool setToIntegralDType =
       end.isIntegral(true) && start.isIntegral(true);
-  return {ArangeDefaultCommonMeta(
+  return ArangeDefaultCommonMeta(
       depth,
       stack.at(2),
       stack.at(3),
       stack.at(4),
       stack.at(5),
-      setToIntegralDType)};
+      setToIntegralDType);
 }
 
 OutputMetaDataVector ArangeDefaultStartEndStepMeta(const at::Stack& stack) {
@@ -314,13 +314,13 @@ OutputMetaDataVector ArangeDefaultStartEndStepMeta(const at::Stack& stack) {
     const bool setToIntegralDType =
         end.isIntegral(true) && start.isIntegral(true) && step.isIntegral(true);
 
-    return {ArangeDefaultCommonMeta(
+    return ArangeDefaultCommonMeta(
         depth,
         stack.at(3),
         stack.at(4),
         stack.at(5),
         stack.at(6),
-        setToIntegralDType)};
+        setToIntegralDType);
   } else {
     if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 1) {
       // Lazy Flow
@@ -329,13 +329,13 @@ OutputMetaDataVector ArangeDefaultStartEndStepMeta(const at::Stack& stack) {
       setToIntegralDType =
           (output_shape_tensor.scalar_type() == c10::ScalarType::Long) ||
           (output_shape_tensor.scalar_type() == c10::ScalarType::Int);
-      return {ArangeDefaultCommonMeta(
+      return ArangeDefaultCommonMeta(
           depth,
           stack.at(2),
           stack.at(3),
           stack.at(4),
           stack.at(5),
-          setToIntegralDType)};
+          setToIntegralDType);
     } else {
       // DS Compile Flow
       std::vector<int32_t> params_data;
@@ -355,13 +355,13 @@ OutputMetaDataVector ArangeDefaultStartEndStepMeta(const at::Stack& stack) {
           static_cast<float>(params_data[1]),
           static_cast<float>(params_data[2]));
 
-      return {ArangeDefaultCommonMeta(
+      return ArangeDefaultCommonMeta(
           depth,
           stack.at(2),
           stack.at(3),
           stack.at(4),
           stack.at(5),
-          setToIntegralDType)};
+          setToIntegralDType);
     }
   }
 }

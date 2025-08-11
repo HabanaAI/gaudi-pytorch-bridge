@@ -97,7 +97,7 @@ OutputMetaDataVector ScaledTriangularSoftmaxRetainMeta(const at::Stack& stack) {
   meta[1].dtype = at::ScalarType::Float;
   meta[2].shape = retain_output_shape;
   meta[2].dtype = self.scalar_type();
-  return {meta};
+  return meta;
 }
 
 SharedMetaDataVector ScaledTriangularSoftmaxSharedMeta(

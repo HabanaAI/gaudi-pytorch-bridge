@@ -651,14 +651,7 @@ void OpBackend::PopulateMetadata(
   m_output_metadata = output_metadata;
   if (UsesOutputMeta()) {
     const auto& meta = OutputMeta(stack);
-    TORCH_INTERNAL_ASSERT_DEBUG_ONLY(meta.size() == m_output_metadata.size());
-    for (size_t i = 0; i < m_output_metadata.size(); ++i) {
-      m_output_metadata[i].shape = meta[i].shape;
-      m_output_metadata[i].dtype = meta[i].dtype;
-      m_output_metadata[i].strides = meta[i].strides;
-      m_output_metadata[i].mem_format = meta[i].mem_format;
-      m_output_metadata[i].undefined = meta[i].undefined;
-    }
+    OutputMetaData::CopySomeMembersVecSrcToDst(meta, m_output_metadata);
   } else if (!m_res_ids.empty()) {
     auto outshapes = ComputeOutputShapes(stack);
     if (outshapes.empty()) {

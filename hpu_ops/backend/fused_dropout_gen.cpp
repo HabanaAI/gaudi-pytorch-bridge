@@ -29,7 +29,7 @@ std::vector<synapse_helpers::tensor> DropoutCommon(
     OpBackend* op,
     synapse_helpers::graph& graph,
     const FillParamsT& params,
-    OutputMetaDataVector metas,
+    const OutputMetaDataVector& metas,
     std::vector<synTensor>& input_tensor) {
   auto dropout = OpBackend::BuildNode(
       op,

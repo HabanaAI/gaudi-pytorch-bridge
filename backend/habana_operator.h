@@ -300,7 +300,20 @@ class OutputMetaData {
   OutputMetaData(at::ScalarType dtype, std::vector<int64_t> shape)
       : dtype(dtype), shape(std::move(shape)) {}
   OutputMetaData() = default;
+
+  void CopySomeMembers(const OutputMetaData& src) {
+    shape = src.shape;
+    dtype = src.dtype;
+    strides = src.strides;
+    mem_format = src.mem_format;
+    undefined = src.undefined;
+  }
+
+  static void CopySomeMembersVecSrcToDst(
+      const std::vector<OutputMetaData>& src,
+      std::vector<OutputMetaData>& dst);
 };
+
 using OutputMetaDataVector = std::vector<OutputMetaData>;
 
 inline OutputMetaData getMetaFromTensor(const at::Tensor& tensor) {
@@ -339,19 +352,9 @@ struct SharedMetaData {
 using SharedMetaDataVector = std::vector<SharedMetaData>;
 
 // Utility method to select a subset of metadata vector
-template <class T>
-std::vector<T> SelectVectorIndices(
-    const std::vector<T>& src,
-    const std::vector<unsigned int>& indices) {
-  std::vector<T> result;
-  result.reserve(indices.size());
-  for (auto index : indices) {
-    if (index < src.size())
-      result.push_back(src.at(index));
-  }
-  HABANA_ASSERT(result.size() == indices.size());
-  return result;
-}
+OutputMetaDataVector SelectVectorIndices(
+    const OutputMetaDataVector& src,
+    const std::vector<unsigned int>& indices);
 
 std::string get_guid_with_precision(
     const std::string_view guid,
