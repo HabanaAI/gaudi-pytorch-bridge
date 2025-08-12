@@ -19,6 +19,7 @@
 #include <sstream>
 #include <unordered_map>
 #include <utility>
+#include "backend/habana_device/HPUDevice.h"
 #include "backend/helpers/event_dispatcher.h"
 #include "backend/profiling/trace_sources/sources.h"
 #include "backend/synapse_helpers/devmem_logger.h"
@@ -348,7 +349,7 @@ synStatus device_memory::malloc(void** v_ptr, uint64_t size) {
   return status;
 }
 
-synStatus device_memory::free(void* free_ptr) {
+synStatus device_memory::free(void* free_ptr, bool deferred_free) {
   synStatus status{synStatus::synSuccess};
   if (nullptr == free_ptr) {
     return status;
@@ -360,7 +361,14 @@ synStatus device_memory::free(void* free_ptr) {
     if (h.offset() != 0) {
       PT_DEVMEM_FATAL("Cannot free offseted handle ", h);
     }
-    device_.wait_until_address_ready(reinterpret_cast<uint64_t>(free_ptr));
+    /* Dont want to check get_event_exists for deffered free call, as that call
+       is already under mutex and get_event_exists will again try to get mutex.
+     */
+    if (!deferred_free &&
+        device_.get_event_exists(reinterpret_cast<uint64_t>(free_ptr))) {
+      device_.add_deferred_free(reinterpret_cast<uint64_t>(free_ptr));
+      return status;
+    }
     const auto id = h.id();
     std::unique_lock<std::mutex> lock(mutex_);
     if (handle2pointer_.checkIdIsReset(id))

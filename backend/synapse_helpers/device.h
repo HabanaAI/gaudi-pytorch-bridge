@@ -480,6 +480,14 @@ class device final : public device_interface {
 
   uint32_t get_scale_attribute_hash_id() const;
 
+  bool get_event_exists(device_ptr device_address) {
+    return (sem_.get_event(device_address) != nullptr);
+  }
+
+  void add_deferred_free(device_ptr device_address) {
+    return sem_.add_deferred_free(device_address);
+  }
+
  private:
   friend class stream;
   static synapse_error_v<device_handle> create(

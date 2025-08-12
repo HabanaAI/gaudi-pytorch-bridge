@@ -15,6 +15,7 @@
 #pragma once
 
 #include <absl/container/flat_hash_map.h>
+#include <absl/container/flat_hash_set.h>
 #include <mutex>
 #include <vector>
 
@@ -27,10 +28,12 @@ class stream;
 
 //! Class responsible of recording events on any stream
 class stream_event_manager {
+  absl::flat_hash_set<device_ptr> deferred_free_ptr_;
   absl::flat_hash_map<device_ptr, shared_event> events_by_addr_;
   absl::flat_hash_map<device_ptr, std::shared_future<bool>> future_by_addr_;
   absl::flat_hash_map<std::string, shared_event> events_by_str_;
   std::mutex mut_;
+  std::mutex deferred_free_mut_;
   std::mutex future_mut_;
 
  public:
@@ -88,6 +91,11 @@ class stream_event_manager {
    * memory space \return shared_event if exists, nullptr otherwise
    */
   shared_event get_event(device_ptr device_address);
+
+  void add_deferred_free(device_ptr device_address) {
+    std::lock_guard<std::mutex> lock(deferred_free_mut_);
+    deferred_free_ptr_.insert(device_address);
+  }
 
   bool is_flushed();
 

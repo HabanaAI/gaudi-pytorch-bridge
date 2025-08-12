@@ -55,7 +55,7 @@ class device_memory {
       void** ptr,
       size_t size,
       synapse_helpers::hpuStream_t stream);
-  synStatus free(void* ptr);
+  synStatus free(void* ptr, bool deferred_free = false);
   synStatus free_with_stream(void* ptr);
   void* workspace_alloc(void* ptr, size_t& ws_size, size_t req_size);
   synStatus workspace_free(void* ptr);

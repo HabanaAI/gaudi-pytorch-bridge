@@ -21,6 +21,7 @@
 #include <utility>
 #include <vector>
 
+#include "backend/habana_device/HPUDevice.h"
 #include "backend/synapse_helpers/device.h"
 #include "backend/synapse_helpers/stream.h"
 #include "habana_helpers/logging.h"
@@ -355,6 +356,14 @@ void stream_event_manager::synchronize_event(shared_event& event) {
       }
       PT_SYNHELPER_DEBUG(
           "unmapping event for address ", reinterpret_cast<void*>(ptr));
+      {
+        std::lock_guard<std::mutex> lock(deferred_free_mut_);
+        if (deferred_free_ptr_.find(ptr) != deferred_free_ptr_.end()) {
+          auto& device = habana::HPUDeviceContext::get_device();
+          device.get_device_memory().free(reinterpret_cast<void*>(ptr), true);
+          deferred_free_ptr_.erase(ptr);
+        }
+      }
       events_by_addr_.erase(it);
     }
     for (auto& event_id : event->get_event_ids()) {
