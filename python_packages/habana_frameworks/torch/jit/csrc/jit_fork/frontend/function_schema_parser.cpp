@@ -68,9 +68,10 @@ struct SchemaParser {
     bool is_varret = false;
     size_t idx = 0;
     parseList('(', ',', ')', [&] {
-      if (is_vararg)
-        throw ErrorReport(L.cur().range)
-            << "... must be the last element of the argument list";
+      if (is_vararg) {
+        throw build_error_report(
+            L.cur().range, "... must be the last element of the argument list");
+      }
       if (L.nextIf('*')) {
         kwarg_only = true;
       } else if (L.nextIf(TK_DOTS)) {
@@ -85,8 +86,9 @@ struct SchemaParser {
     if (is_vararg) {
       for (const auto& arg : arguments) {
         if (arg.default_value().has_value()) {
-          throw ErrorReport(L.cur().range)
-              << "schemas with vararg (...) can't have default value args";
+          throw build_error_report(
+              L.cur().range,
+              "schemas with vararg (...) can't have default value args");
         }
       }
     }
@@ -98,8 +100,8 @@ struct SchemaParser {
     } else if (L.cur().kind == '(') {
       parseList('(', ',', ')', [&] {
         if (is_varret) {
-          throw ErrorReport(L.cur().range)
-              << "... must be the last element of the return list";
+          throw build_error_report(
+              L.cur().range, "... must be the last element of the return list");
         }
         if (L.nextIf(TK_DOTS)) {
           is_varret = true;
@@ -253,7 +255,8 @@ struct SchemaParser {
         } else if ("contiguous_format" == text) {
           return static_cast<int64_t>(c10::MemoryFormat::Contiguous);
         } else {
-          throw ErrorReport(L.cur().range) << "invalid numeric default value";
+          throw build_error_report(
+              L.cur().range, "invalid numeric default value");
         }
       }
       default:
@@ -294,8 +297,8 @@ struct SchemaParser {
         return convertToList(
             type, type.expectRef<c10::DynamicType>().dynamicKind(), range, vs);
       default:
-        throw ErrorReport(range)
-            << "lists are only supported for float, int and complex types";
+        throw build_error_report(
+            range, "lists are only supported for float, int and complex types");
     }
   }
   IValue parseConstantList(const c10::Type& type, TypeKind kind) {
@@ -358,7 +361,7 @@ struct SchemaParser {
             arg_type.expectRef<c10::DynamicType>().dynamicKind(),
             arg_N);
       default:
-        throw ErrorReport(range) << "unexpected type, file a bug report";
+        throw build_error_report(range, "unexpected type, file a bug report");
     }
     return {}; // silence warnings
   }

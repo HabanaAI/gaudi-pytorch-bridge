@@ -117,7 +117,7 @@ TypePtr SchemaTypeParser::parseBaseType() {
       // are treated as type variables
       return c10::TypeFactory::createNamed<VarType>(text);
     }
-    throw ErrorReport(tok.range) << "unknown type specifier";
+    throw build_error_report(tok.range, "unknown type specifier");
   }
   return it->second;
 }
@@ -209,17 +209,17 @@ std::optional<c10::Device> SchemaTypeParser::tryToParseDeviceType() {
       try {
         device_idx = static_cast<c10::DeviceIndex>(std::stoi(num, &num_len));
       } catch (const std::invalid_argument& e) {
-        throw ErrorReport(L.cur().range)
-            << "Device index cannot be converted to integer";
+        throw build_error_report(
+            L.cur().range, "Device index cannot be converted to integer");
       } catch (const std::out_of_range& e) {
-        throw ErrorReport(L.cur().range) << "Device index is too long";
+        throw build_error_report(L.cur().range, "Device index is too long");
       }
     }
     return c10::Device(at::kXPU, device_idx);
   }
 
-  throw ErrorReport(L.cur().range)
-      << "cannot parse device type '" << dev << "'\n";
+  throw build_error_report(
+      L.cur().range, "cannot parse device type '", dev, "'\n");
 }
 
 std::optional<bool> SchemaTypeParser::tryToParseRequiresGrad() {
@@ -231,10 +231,10 @@ std::optional<bool> SchemaTypeParser::tryToParseRequiresGrad() {
   try {
     return (bool)std::stoi(num, &num_len);
   } catch (const std::invalid_argument& e) {
-    throw ErrorReport(L.cur().range)
-        << "Field requires_grad cannot be converted to integer";
+    throw build_error_report(
+        L.cur().range, "Field requires_grad cannot be converted to integer");
   } catch (const std::out_of_range& e) {
-    throw ErrorReport(L.cur().range) << "Field requires_grad is too long";
+    throw build_error_report(L.cur().range, "Field requires_grad is too long");
   }
 }
 
@@ -265,7 +265,8 @@ TypePtr SchemaTypeParser::parseRefinedTensor() {
         auto parsed_device = tryToParseDeviceType();
         if (parsed_device.has_value()) {
           if (device.has_value()) {
-            throw ErrorReport(L.cur().range) << "'device' is specified twice";
+            throw build_error_report(
+                L.cur().range, "'device' is specified twice");
           }
           device = parsed_device;
         }
@@ -275,8 +276,8 @@ TypePtr SchemaTypeParser::parseRefinedTensor() {
         auto parsed_requires_grad = tryToParseRequiresGrad();
         if (parsed_requires_grad.has_value()) {
           if (requires_grad.has_value()) {
-            throw ErrorReport(L.cur().range)
-                << "'requires_grad' is specified twice";
+            throw build_error_report(
+                L.cur().range, "'requires_grad' is specified twice");
           }
           requires_grad = parsed_requires_grad;
         }
@@ -293,20 +294,21 @@ TypePtr SchemaTypeParser::parseRefinedTensor() {
             auto stride = c10::stoll(num, &num_len);
             strides.push_back(stride);
           } catch (const std::invalid_argument& e) {
-            throw ErrorReport(L.cur().range)
-                << "The stride value cannot be converted to int";
+            throw build_error_report(
+                L.cur().range, "The stride value cannot be converted to int");
           } catch (const std::out_of_range& e) {
-            throw ErrorReport(L.cur().range) << "The stride is too big";
+            throw build_error_report(L.cur().range, "The stride is too big");
           }
         });
         return;
       }
-      throw ErrorReport(L.cur().range)
-          << "Unexpected specifier '" << field << "'";
+      throw build_error_report(
+          L.cur().range, "Unexpected specifier '", field, "'");
     }
     if (device.has_value() || requires_grad.has_value()) {
-      throw ErrorReport(L.cur().range)
-          << "'device' and 'requires_grad' should come after dimensions in the type specification";
+      throw build_error_report(
+          L.cur().range,
+          "'device' and 'requires_grad' should come after dimensions in the type specification");
     }
 
     // Parsing ranks, supports mix of sized and unsized ranks, or, just strided
@@ -315,8 +317,8 @@ TypePtr SchemaTypeParser::parseRefinedTensor() {
       dims.emplace_back(std::nullopt);
       L.next();
       if (L.cur().kind == ':') {
-        throw ErrorReport(L.cur().range)
-            << "Strides for unsized ranks not supported";
+        throw build_error_report(
+            L.cur().range, "Strides for unsized ranks not supported");
       }
       return;
     }
@@ -334,10 +336,10 @@ TypePtr SchemaTypeParser::parseRefinedTensor() {
     try {
       dim = c10::stoll(num, &num_len);
     } catch (const std::invalid_argument& e) {
-      throw ErrorReport(L.cur().range)
-          << "The number can't be converted to int";
+      throw build_error_report(
+          L.cur().range, "The number can't be converted to int");
     } catch (const std::out_of_range& e) {
-      throw ErrorReport(L.cur().range) << "Number is too big";
+      throw build_error_report(L.cur().range, "Number is too big");
     }
     if (shape_symbol) {
       L.expect(')');
@@ -350,8 +352,9 @@ TypePtr SchemaTypeParser::parseRefinedTensor() {
     if (strides.size() != dims.size()) {
       // note: mixing unsized ranks and ranks with strides will always trigger
       // this
-      throw ErrorReport(L.cur().range)
-          << "Strides info is specified for some but not for all dimensions";
+      throw build_error_report(
+          L.cur().range,
+          "Strides info is specified for some but not for all dimensions");
     }
     ptr = at::TensorType::create(
         dtype,
@@ -453,14 +456,18 @@ SchemaTypeParser::parseFakeAndRealType() {
     L.expect('.');
     auto torch_tok = L.expect(TK_IDENT);
     if (torch_tok.text() != "torch") {
-      throw ErrorReport(torch_tok.range)
-          << "Expected classes namespace but got " << torch_tok.text();
+      throw build_error_report(
+          torch_tok.range,
+          "Expected classes namespace but got ",
+          torch_tok.text());
     }
     L.expect('.');
     auto classes_tok = L.expect(TK_IDENT);
     if (classes_tok.text() != "classes") {
-      throw ErrorReport(classes_tok.range)
-          << "Expected classes namespace but got " << classes_tok.text();
+      throw build_error_report(
+          classes_tok.range,
+          "Expected classes namespace but got ",
+          classes_tok.text());
     }
     L.expect('.');
     auto ns_tok = L.expect(TK_IDENT);
@@ -470,10 +477,11 @@ SchemaTypeParser::parseFakeAndRealType() {
         std::string("__torch__.torch.classes.") + ns_tok.text() + "." +
         class_tok.text());
     if (!fake_value) {
-      throw ErrorReport(class_tok.range)
-          << "Unknown custom class type "
-          << ns_tok.text() + "." + class_tok.text()
-          << ". Please ensure it is registered.";
+      throw build_error_report(
+          class_tok.range,
+          "Unknown custom class type ",
+          ns_tok.text() + "." + class_tok.text(),
+          ". Please ensure it is registered.");
     }
   } else {
     real_value = parseBaseType();

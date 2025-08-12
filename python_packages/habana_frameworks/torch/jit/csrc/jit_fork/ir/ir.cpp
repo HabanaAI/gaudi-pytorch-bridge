@@ -1158,7 +1158,7 @@ const torch::jit::Operator& Node::getOperator() const {
     return *maybe;
   }
 
-  auto er = ErrorReport(sourceRange());
+  std::stringstream er;
   er << "Schema not found for node. File a bug report.\n";
   er << "Node: " << *this << "\n";
   er << "Input types:";
@@ -1178,7 +1178,7 @@ const torch::jit::Operator& Node::getOperator() const {
   }
   er << "within the graph:\n";
   er << *owningGraph() << "\n";
-  throw er;
+  throw build_error_report(sourceRange(), er.str());
 }
 
 bool Node::isNondeterministic() const {

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -74,6 +74,13 @@ template <typename T>
 const ErrorReport& operator<<(const ErrorReport& e, const T& t) {
   e.ss << t;
   return e;
+}
+
+template <typename... Args>
+ErrorReport build_error_report(SourceRange r, Args&&... args) {
+  ErrorReport result{r};
+  (result << ... << std::forward<Args>(args));
+  return result;
 }
 
 } // namespace habana_torch::jit

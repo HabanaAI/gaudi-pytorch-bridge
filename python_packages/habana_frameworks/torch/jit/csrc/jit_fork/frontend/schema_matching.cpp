@@ -515,8 +515,8 @@ static std::optional<MatchedSchema> tryMatchSchema(
   // check for unused positional arguments
   if (used_args < args.size()) {
     if (failure_messages) {
-      err() << "Expected at most " << used_args << " arguments "
-            << "but found " << args.size() << " positional arguments.\n";
+      err() << "Expected at most " << used_args << " arguments " << "but found "
+            << args.size() << " positional arguments.\n";
     }
     return std::nullopt;
   }
@@ -583,8 +583,7 @@ MatchedSchema matchSchema(
           /*allow_conversions=*/true)) {
     return *result;
   }
-
-  throw ErrorReport(loc) << failure_messages.str();
+  throw build_error_report(loc, failure_messages.str());
 }
 
 static std::string prefixLine(
@@ -643,10 +642,13 @@ std::pair<size_t, MatchedSchema> matchSchemas(
         schemas, loc, graph, args, kwargs, self, /*render_errors=*/true);
   }
 
-  throw ErrorReport(loc) << "Arguments for call are not valid.\n"
-                         << "The following variants are available:\n"
-                         << prefixLine(failure_messages.str(), "  ")
-                         << "\nThe original call is" << failure_messages.str();
+  throw build_error_report(
+      loc,
+      "Arguments for call are not valid.\n",
+      "The following variants are available:\n",
+      prefixLine(failure_messages.str(), "  "),
+      "\nThe original call is",
+      failure_messages.str());
 }
 
 // Given a successful match between operator schema and symbol, emit a node
@@ -750,8 +752,8 @@ Value* emitBuiltinCall(
   // no operators found with the same name, print out similarly named operators
   if (schemas.empty()) {
     const auto close_symbols = torch::jit::findSimilarOperators(name);
-    auto error_msg = ErrorReport(loc);
     const auto& user_function_name = name.toQualString();
+    std::stringstream error_msg;
     error_msg << "Unknown builtin op: " << user_function_name << ".\n";
     if (close_symbols.empty()) {
       error_msg
@@ -764,7 +766,7 @@ Value* emitBuiltinCall(
       }
       error_msg << "\nThe original call is";
     }
-    throw error_msg;
+    throw build_error_report(loc, error_msg.str());
   }
 
   auto matched = matchSchemas(schemas, loc, graph, args, kwargs, self);
@@ -791,11 +793,9 @@ Value* emitBuiltinCall(
           return insertGraph(graph, subgraph, matched.second.inputs).at(0);
     */
 
-    auto error_msg = ErrorReport(loc);
-    error_msg
-        << "Unsupported GraphFunction. Please raise a ticket to implement this feature.\n";
-
-    throw error_msg;
+    throw build_error_report(
+        loc,
+        "Unsupported GraphFunction. Please raise a ticket to implement this feature.\n");
   }
 }
 
