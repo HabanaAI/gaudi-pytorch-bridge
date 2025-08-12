@@ -54,7 +54,7 @@ class GenericManylinuxRunner:
         os.makedirs(manylinux_venvs_dir, exist_ok=True)
         manylinux_pip_cache_dir = os.path.join(manylinux_venvs_dir, "cache", "pip")
         os.makedirs(manylinux_pip_cache_dir, exist_ok=True)
-        ccache_dir = os.path.join(os.environ["HOME"], ".ccache")
+        ccache_dir = os.path.join(os.environ["HOME"], ".cache/manylinux/ccache")
         os.makedirs(ccache_dir, exist_ok=True)
 
         release_build_number = os.environ.get("RELEASE_BUILD_NUMBER", "")
@@ -106,8 +106,6 @@ class GenericManylinuxRunner:
                 " --net=host -p ::10246/tcp -p ::8765/tcp -p ::8766/tcp -p ::8765/udp"
                 " -e CCACHE_PREFIX=icecc -e CCACHE_PREFIX_CPP=icecc -e CCACHE_DEPEND=true -e ICECC_REMOTE_CPP=1"
             )
-            if "CCACHE_MAXSIZE" in os.environ:
-                options += f" -e CCACHE_MAXSIZE={os.environ['CCACHE_MAXSIZE']}"
 
         command = (
             f"docker run --rm {interactive}{options} {self._get_memory_limit_flag()} {self.image_name} "
