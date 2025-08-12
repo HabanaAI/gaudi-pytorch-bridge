@@ -87,4 +87,6 @@ jobs:
                 gh pr create --title "[automatic commit] Update ops documentation" \
                   --body-file $HOME/prbody.txt \
                   --head auto/update_ops_docs \
-                  --base master_next
+                  --base master_next \
+                  --label "🤖 Bot" \
+                  --label "📝 Documentation"
