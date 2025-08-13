@@ -134,7 +134,7 @@ OutputMetaDataVector BlockSoftmaxConstMaxMeta(const at::Stack& stack) {
 
 SharedMetaDataVector BlockSoftmaxConstMaxSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const auto& attn = stack_tensor(stack, 0);
   const auto& block_bias = stack_tensor(stack, 1);
   const auto& block_groups = stack_tensor(stack, 2);
