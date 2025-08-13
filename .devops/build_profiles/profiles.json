@@ -9,8 +9,7 @@
         "-r",
         "--no-iwyu",
         "--recreate-venv=force",
-        "-v",
-        "--op-stats"
+        "-v"
       ]
     },
     "cd": {
@@ -22,8 +21,7 @@
         "-r",
         "--no-iwyu",
         "--recreate-venv=force",
-        "-v",
-        "--op-stats"
+        "-v"
       ]
     }
   },

@@ -34,7 +34,6 @@ from typing import (
     NamedTuple,
 )
 
-import op_stats_generator
 from build_profiles import profiles
 from build_profiles.profiles import (
     VersionLiteralAndSource,
@@ -1359,16 +1358,6 @@ def resolve_python_from_venv(venv_dir: str, build_envs: Sequence[BuildEnv]) -> s
     return get_python_exec(matching_build_env)
 
 
-def generate_op_stats(cmake_build_configs: list[tuple[str, str, bool]], build_envs: Sequence[BuildEnv]) -> None:
-    output_dir = os.getenv("HABANA_LOGS")
-    for build_directory, venv_directory, _ in cmake_build_configs:
-        if "Release" in build_directory:
-            log.info("Generating operator statistics for %s", build_directory)
-            venv_python = resolve_python_from_venv(venv_directory, build_envs)
-            torch_installation_dir = query_torch_path(venv_python, venv_directory)
-            op_stats_generator.generate_stats(torch_installation_dir, build_directory, output_dir)
-
-
 def install_wheel():
     if not is_running_in_venv():
         run("pip", "install", "--user", "wheel")
@@ -1533,11 +1522,6 @@ def parse_args():
         "--no-swig",
         action="store_true",
         help="Build without swig even if it's available",
-    )
-    parser.add_argument(
-        "--op-stats",
-        action="store_true",
-        help="Generate operator statistics",
     )
     parser.add_argument("--tidy", action="store_true", help="Build with clang-tidy")
     parser.add_argument(
@@ -1960,9 +1944,6 @@ def main():
         )
         if args.run_ctest:
             run_ctest_on_dirs(cmake_build_configs)
-
-        if args.op_stats:
-            generate_op_stats(cmake_build_configs, wheels_per_build_envs.keys())
 
     if args.install_ext:
         install_wheels_in_venvs(selected_wheel_configs)
