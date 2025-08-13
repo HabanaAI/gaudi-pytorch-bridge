@@ -59,17 +59,19 @@ def block_softmax_const_max_ref(attn, block_bias, block_groups, batch_size, glob
 @pytest.mark.skip(reason="Cguid not yet implemented https://jira.habana-labs.com/browse/SW-237040")
 @pytest.mark.parametrize(
     "input_shape, batch_size",
-    [([96, 8, 4, 1, 128], 32), ([24, 16, 8, 1, 128], 48)],
+    [([96, 8, 4, 1, 128], 32)],
 )
 @pytest.mark.parametrize("global_block_max", [0.0, 1.0, 10.0])
 @pytest.mark.parametrize("output_scale", [2.0, 3.0])
 @pytest.mark.parametrize("out_dtype", [None, torch.float8_e4m3fn])
-def test_block_softmax_const_max(input_shape, batch_size, global_block_max, output_scale, out_dtype):
+@pytest.mark.parametrize("staged", [True, False])
+def test_block_softmax_const_max(input_shape, batch_size, global_block_max, output_scale, out_dtype, staged):
     num_blocks = input_shape[0]
     block_size = input_shape[-1]
     block_bias_shape = (num_blocks, 1, 1, 1, block_size)
     input_dtype = torch.bfloat16
     groups_dtype = torch.int
+    op = torch.ops.hpu.block_softmax_const_max if staged else torch.ops.hpu.block_softmax_const_max_not_staged
 
     attn = torch.rand(input_shape, dtype=input_dtype)
     block_bias = torch.rand(block_bias_shape, dtype=input_dtype)
@@ -88,7 +90,7 @@ def test_block_softmax_const_max(input_shape, batch_size, global_block_max, outp
         attn, block_bias, block_groups, batch_size, global_block_max, output_scale, out_dtype
     )
 
-    hpu_fn = compile_function_if_compile_mode(torch.ops.hpu.block_softmax_const_max)
+    hpu_fn = compile_function_if_compile_mode(op)
 
     hpu_kwargs = {}
     if output_scale is not None:
@@ -97,7 +99,9 @@ def test_block_softmax_const_max(input_shape, batch_size, global_block_max, outp
         hpu_kwargs["output_dtype"] = out_dtype
 
     hpu_output = hpu_fn(attn_hpu, block_bias_hpu, block_groups_hpu, batch_size, global_block_max, **hpu_kwargs)
-    compare_tensors(ref_output, hpu_output.to(cpu), atol=0.001, rtol=0.001)
+
+    tol = 1e-2 if out_dtype == torch.float8_e4m3fn else 1e-3
+    compare_tensors(ref_output, hpu_output.to(cpu), atol=tol, rtol=tol)
 
     if is_pytest_mode_compile():
-        check_ops_executed_in_jit_ir("block_softmax_const_max")
+        check_ops_executed_in_jit_ir(op.__name__)

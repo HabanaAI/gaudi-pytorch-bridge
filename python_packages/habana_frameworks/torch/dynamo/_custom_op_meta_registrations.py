@@ -1684,7 +1684,7 @@ def meta_gather_csr(src, indprt, output_size):
     return src.new_empty(output_size)
 
 
-@register_meta([torch.ops.hpu.block_softmax_const_max])
+@register_meta([torch.ops.hpu.block_softmax_const_max, torch.ops.hpu.block_softmax_const_max_not_staged])
 def meta_block_softmax_const_max(
     attn, block_bias, block_groups, batch_size, global_block_max, *, output_scale=1.0, output_dtype=None
 ):
