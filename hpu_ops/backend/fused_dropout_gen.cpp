@@ -65,7 +65,7 @@ OutputMetaDataVector FusedNativeDropoutMeta(const at::Stack& stack) {
 
 SharedMetaDataVector FusedNativeDropoutSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   auto seed = stack.at(2);
   auto isSeedTensor = seed.isTensor();
   at::ScalarType seedDtype = at::ScalarType::Int;
@@ -107,7 +107,7 @@ void FusedNativeDropout::AddNode(sh::graph& graph, const at::Stack& stack) {
 
 SharedMetaDataVector NativeDropoutBackwardSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   // It is assumed that constant and cast kernels are handled for all
   // dtypes configuration, so shared layer omits validation.
 

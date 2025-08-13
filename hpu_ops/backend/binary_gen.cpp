@@ -74,18 +74,18 @@ FillParamsT FillBinaryWithAlphaParams(
 
 SharedMetaDataVector BinaryWithAlphaAddSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   return BinaryWithAlphaSharedMeta(stack, "add");
 }
 
 SharedMetaDataVector BinaryWithAlphaSubSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   return BinaryWithAlphaSharedMeta(stack, "sub");
 }
 SharedMetaDataVector BinaryWithAlphaRSubSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   return BinaryWithAlphaSharedMeta(stack, "rsub");
 }
 
@@ -436,7 +436,7 @@ SharedMetaDataVector SubForeachBinarySharedMeta(
 
 SharedMetaDataVector MulBinarySharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const bool castIntToFloat = false;
   const bool supportI8 = true;
   const bool supportI16 = true;

@@ -22,7 +22,7 @@ namespace habana {
 
 SharedMetaDataVector OptimizerSgdSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const auto& gradients = stack.at(0).toTensorVector();
   const auto& weights = stack.at(1).toTensorVector();
   const auto& lr = stack.at(2).toTensor();
@@ -52,7 +52,7 @@ SharedMetaDataVector OptimizerSgdSharedMeta(
 
 SharedMetaDataVector OptimizerSgdMomentumSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const auto& gradients = stack.at(0).toTensorVector();
   const auto& weights = stack.at(1).toTensorVector();
   const auto& momentums = stack.at(2).toTensorVector();

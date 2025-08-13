@@ -32,7 +32,7 @@ struct KvReorder : KvReorderCommon {
 
 SharedMetaDataVector KvReorderSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const auto& self = stack.at(0).toTensor();
   const auto& start = stack.at(1).toTensor();
   const auto& end = stack.at(2).toTensor();

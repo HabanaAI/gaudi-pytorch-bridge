@@ -28,7 +28,7 @@ OutputMetaDataVector IsinMeta(const at::Stack& stack) {
   return {OutputMetaData{c10::ScalarType::Bool, shape}};
 }
 
-OutputMetaDataVector ScalarIsinMeta(const at::Stack&) {
+OutputMetaDataVector ScalarIsinMeta(const at::Stack& /*unused*/) {
   return {OutputMetaData{c10::ScalarType::Bool, {}}};
 }
 

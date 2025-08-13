@@ -62,7 +62,7 @@ FillParamsT FillSoftmaxBackwardParams(const at::Stack& stack) {
 
 SharedMetaDataVector SoftmaxSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const auto& self = stack_tensor(stack, 0);
   auto dtype = self.scalar_type();
   const auto rank = self.dim();
@@ -84,7 +84,7 @@ SharedMetaDataVector SoftmaxSharedMeta(
 
 SharedMetaDataVector SoftmaxBackwardSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const auto& gradOutput = stack_tensor(stack, 0);
   const auto& output = stack_tensor(stack, 1);
   const auto dtype = output.scalar_type();

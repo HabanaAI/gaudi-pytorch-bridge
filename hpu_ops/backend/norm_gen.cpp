@@ -77,7 +77,7 @@ SharedMetaDataVector NormCommonSharedMeta(
 
 SharedMetaDataVector NormOpWithDtypeSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const auto self = stack_tensor(stack, 0);
   const bool keepdim = stack.at(3).toBool();
   const auto inputRank = self.dim();
@@ -103,7 +103,7 @@ SharedMetaDataVector NormOpWithDtypeSharedMeta(
 
 SharedMetaDataVector NormOpScalarSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   auto self = stack_tensor(stack, 0);
   const auto inputRank = self.dim();
   const auto outputRank = 1;

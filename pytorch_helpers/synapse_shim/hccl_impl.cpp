@@ -62,7 +62,7 @@ hcclResult_t hcclCommCount(hcclComm_t comm, int* count) {
   return hccl_api->hcclCommCount(comm, count);
 }
 
-hcclResult_t hcclCommSynDevice(hcclComm_t, int*) {
+hcclResult_t hcclCommSynDevice(hcclComm_t, int* /*unused*/) {
   return hcclUnsupported;
 }
 

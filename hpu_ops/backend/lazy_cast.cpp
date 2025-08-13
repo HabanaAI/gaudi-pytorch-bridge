@@ -130,7 +130,8 @@ Copy<false>::Copy(int device_id, c10::ScalarType scalar_type)
 
 struct ToCopy : OpBackend {
   ToCopy(int device_id, c10::ScalarType scalar_type);
-  void AddNode(synapse_helpers::graph&, const at::Stack&) override;
+  void AddNode(synapse_helpers::graph& /*graph*/, const at::Stack& /*stack*/)
+      override;
   static bool ToCopySTMeta(
       habana_helpers::IShapeList& inputs,
       habana_helpers::IShapeList& outputs);

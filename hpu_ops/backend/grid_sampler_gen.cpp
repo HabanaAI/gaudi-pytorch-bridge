@@ -162,7 +162,7 @@ void GridSamplerBwd::AddNode(sh::graph& graph, const at::Stack& stack) {
 
 SharedMetaDataVector GridSamplerBwdSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   SharedMetaDataVector sharedMetaDataVector;
   sharedMetaDataVector.emplace_back("transpose");
   sharedMetaDataVector.emplace_back("transpose");

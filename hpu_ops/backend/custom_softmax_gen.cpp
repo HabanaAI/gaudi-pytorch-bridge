@@ -51,7 +51,7 @@ void CustomSoftmax::AddNode(
 
 SharedMetaDataVector CustomSoftmaxSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const at::Tensor& input = stack_tensor(stack, 0);
   const auto flavor = stack.at(1).toInt();
 

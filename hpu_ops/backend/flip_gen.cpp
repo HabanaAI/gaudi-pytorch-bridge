@@ -23,7 +23,7 @@ using namespace std::literals;
 
 SharedMetaDataVector FlipSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   auto input = stack_tensor(stack, 0);
   auto rank = input.dim();
   auto dtype = input.scalar_type();

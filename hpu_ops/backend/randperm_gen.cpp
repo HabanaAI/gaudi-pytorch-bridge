@@ -137,7 +137,7 @@ OutputMetaDataVector RandPermMeta(const at::Stack& stack) {
 
 SharedMetaDataVector RandPermSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   auto dtype = c10::ScalarType::Int;
 
   SharedMetaData range{"range"};

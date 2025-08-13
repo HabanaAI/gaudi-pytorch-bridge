@@ -26,15 +26,15 @@ static FillParamsT FillisposneginfParamsFwd(
   return paramsT;
 }
 
-FillParamsT FillisinfParamsFwd(const at::Stack&) {
+FillParamsT FillisinfParamsFwd(const at::Stack& /*unused*/) {
   return FillisposneginfParamsFwd(true, true);
 }
 
-FillParamsT FillisposinfParamsFwd(const at::Stack&) {
+FillParamsT FillisposinfParamsFwd(const at::Stack& /*unused*/) {
   return FillisposneginfParamsFwd(true, false);
 }
 
-FillParamsT FillisneginfParamsFwd(const at::Stack&) {
+FillParamsT FillisneginfParamsFwd(const at::Stack& /*unused*/) {
   return FillisposneginfParamsFwd(false, true);
 }
 

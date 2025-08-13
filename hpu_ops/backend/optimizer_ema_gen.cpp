@@ -23,7 +23,7 @@ namespace habana {
 
 SharedMetaDataVector OptimizerEmaSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const auto& model_inputs = stack.at(0).toTensorVector();
   const auto& updated_ema = stack.at(1).toTensorVector();
   const auto& decay = stack.at(2).toTensor();

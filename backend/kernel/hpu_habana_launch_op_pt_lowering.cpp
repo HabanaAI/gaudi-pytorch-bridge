@@ -501,7 +501,7 @@ void habana::HabanaLaunchOpPT::HandleTensorWithNewChecksum(
     ConstantInformation::key_t key,
     char* section_data_ptr,
     size_t old_size,
-    int) {
+    int /*unused*/) {
   auto tmeta{get_tensor_extra_meta(tensor)};
   ConstantInformation::id_t const_id{tmeta->get_const_id()};
   // reallocation is required if old_size is not same as section size

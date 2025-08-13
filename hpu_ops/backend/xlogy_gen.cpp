@@ -54,7 +54,7 @@ bool ShouldCastToOutputType(
 
 SharedMetaDataVector XlogYSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   auto self = stack.at(0);
   auto other = stack.at(1);
 

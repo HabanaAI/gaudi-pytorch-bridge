@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,8 +29,8 @@ OutputMetaDataVector ScalarTensorMeta(const at::Stack& stack) {
 }
 
 SharedMetaDataVector ScalarTensorSharedMeta(
-    const at::Stack&,
-    habana_helpers::HabanaExecutionMode) {
+    const at::Stack& /*unused*/,
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   // [SW-205149] return empty vector because shape tensor validation will block
   // shape agnostic flow
   return {};

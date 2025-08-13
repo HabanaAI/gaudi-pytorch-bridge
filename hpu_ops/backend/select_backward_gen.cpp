@@ -29,7 +29,7 @@ OutputMetaDataVector SelectBackwardMeta(const at::Stack& stack) {
 
 SharedMetaDataVector SelectBwdSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const auto& grad = stack_tensor(stack, 0);
   auto dtype = grad.scalar_type();
   auto rank = stack.at(1).toIntList().size();

@@ -508,7 +508,7 @@ void ScatterAddOperator::AllocateAndAddSynapseNode(
 namespace habana {
 SharedMetaDataVector IndexAddLazySharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const auto& self = stack.at(0).toTensor();
   const auto& indices = stack.at(2).toTensor();
   const auto& value = stack.at(3).toTensor();
@@ -602,7 +602,7 @@ SharedMetaDataVector IndexAddLazySharedMeta(
 
 SharedMetaDataVector IndexAddSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const auto& self = stack.at(0).toTensor();
   const auto& value = stack.at(3).toTensor();
 
@@ -2722,7 +2722,7 @@ void Unique_Operator::AllocateAndAddSynapseNode(
 namespace habana {
 SharedMetaDataVector UniqueDimSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const auto& self = stack.at(0).toTensor();
   const auto selfDim = self.dim();
   const auto selfDtype = self.scalar_type();

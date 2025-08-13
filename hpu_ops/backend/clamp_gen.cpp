@@ -116,7 +116,7 @@ FillParamsT FillClampMaxParams(const at::Stack& stack) {
 
 SharedMetaDataVector ClampSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   auto dtype = habana_helpers::DTypeHelper::get_compute_dtype(
       stack,
       std::nullopt,

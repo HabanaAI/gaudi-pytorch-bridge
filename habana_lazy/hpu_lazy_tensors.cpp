@@ -809,7 +809,7 @@ void HbLazyTensor::SyncTensorsGraph(
 void HbLazyTensor::SyncLiveTensorsGraph(
     const c10::Device* device,
     std::shared_ptr<HbLazyFrontEndInfoToBackend> lazy_front_end_info = nullptr,
-    std::vector<HbLazyTensor>,
+    std::vector<HbLazyTensor> /*unused*/,
     bool async,
     bool is_allreduce,
     std::vector<HbLazyTensor> bucket_hl_t,

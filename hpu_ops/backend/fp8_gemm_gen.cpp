@@ -259,7 +259,7 @@ OutputMetaDataVector Fp8GemmV2Meta(const at::Stack& stack) {
 
 SharedMetaDataVector Fp8GemmSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const at::Tensor& A = stack_tensor(stack, 0);
   const at::Tensor& B = stack_tensor(stack, 2);
 
@@ -390,7 +390,7 @@ OutputMetaDataVector Fp8GemmBwdMeta(const at::Stack& stack) {
 
 SharedMetaDataVector Fp8GemmBwdSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const auto& gradIn = stack_tensor(stack, 0);
   const auto& A = stack_tensor(stack, 1);
   const auto& B = stack_tensor(stack, 3);

@@ -278,7 +278,7 @@ FillParamsT FillIndexParams(const at::Stack& stack) {
 
 SharedMetaDataVector IndexSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const auto& input = stack_tensor(stack, 0);
   auto rank = input.dim();
   auto dtype = input.scalar_type();
@@ -843,7 +843,8 @@ std::vector<int64_t> ComputeGatherOperatorOutputShape(
 
 struct SimpleIndexCompileOperator : OpBackend {
   SimpleIndexCompileOperator(int device_id, c10::ScalarType scalar_type);
-  void AddNode(synapse_helpers::graph&, const at::Stack&) override;
+  void AddNode(synapse_helpers::graph& /*graph*/, const at::Stack& /*stack*/)
+      override;
 };
 
 SimpleIndexCompileOperator::SimpleIndexCompileOperator(

@@ -28,7 +28,7 @@ constexpr auto logFileSize3GB = 3U * 1024U * 1024U * 1024U;
 constexpr auto logFileBufferSize4MB = 4UL * 1024UL * 1024UL;
 // create loggers (all the log files are created immediately when the module is
 // loaded)
-static void createModuleLoggers(LoggerType) {}
+static void createModuleLoggers(LoggerType /*unused*/) {}
 
 // all the following functions are optional and any/all of them can be omitted
 
@@ -51,7 +51,7 @@ static void createModuleLoggerOnDemandForTowl() {
 // on-demand loggers
 // log files created when the first message is logged into such logger
 // this is a recommended way of loggers creation
-static void createModuleLoggersOnDemand(LoggerType) {
+static void createModuleLoggersOnDemand(LoggerType /*unused*/) {
   hl_logger::LoggerCreateParams logging_params;
   logging_params.logFileName = "pytorch_log.txt";
   logging_params.logFileAmount = GET_ENV_FLAG_NEW(PT_LOG_FILE_AMOUNT);
@@ -89,7 +89,7 @@ static void createModuleLoggersOnDemand(LoggerType) {
 
 // a callback when a dtor of your module is called (e.g. close an app, dlclose,
 // etc) usually is used to log a final message
-static void onModuleLoggersBeforeDestroy(LoggerType) {
+static void onModuleLoggersBeforeDestroy(LoggerType /*unused*/) {
   HLLOG_INFO(
       PT_BRIDGE,
       "Closing PyTorch logger. No more log messages will be logged.");

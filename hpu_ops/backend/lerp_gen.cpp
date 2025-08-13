@@ -54,7 +54,7 @@ OutputMetaDataVector ForeachLerpMeta(const at::Stack& stack) {
 
 SharedMetaDataVector LerpSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   auto start = stack_tensor(stack, 0);
   auto startRank = start.dim();
   auto dtype = start.scalar_type();

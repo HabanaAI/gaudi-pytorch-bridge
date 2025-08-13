@@ -24,7 +24,7 @@ namespace habana {
 
 SharedMetaDataVector OptimizerLambNormSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const auto& gradients = stack.at(0).toTensorVector();
   const auto precision_type = gradients[0].scalar_type();
 
@@ -125,7 +125,7 @@ SharedMetaDataVector ComputeNormSharedMeta(
 
 SharedMetaDataVector OptimizerLambPhase1SharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const auto& gradients = stack.at(0).toTensorVector();
   const auto& weights = stack.at(1).toTensorVector();
   const auto& exp_avgs = stack.at(2).toTensorVector();
@@ -277,7 +277,7 @@ SharedMetaDataVector OptimizerLambPhase1SharedMeta(
 
 SharedMetaDataVector OptimizerLambPhase2SharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const auto& weights = stack.at(0).toTensorVector();
   const auto& adam_norms = stack.at(1).toTensorVector();
   const auto& weight_norms = stack.at(2).toTensorVector();

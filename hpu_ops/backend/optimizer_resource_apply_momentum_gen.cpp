@@ -21,7 +21,7 @@ namespace habana {
 
 SharedMetaDataVector OptimizerResourceApplyMomentumSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   SharedMetaDataVector shared_meta_vec;
   const auto& params_momentum_buf_list = stack.at(0).toTensorVector();
   const auto& dp_list = stack.at(1).toTensorVector();

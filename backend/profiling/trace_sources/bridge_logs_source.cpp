@@ -123,7 +123,7 @@ struct BridgeLogsSourceImpl : public TraceSource {
     static BridgeLogsSourceImpl source;
     return source;
   }
-  void start(TraceSink&) override {
+  void start(TraceSink& /*output*/) override {
     is_started_ = true;
   }
   void stop() override {

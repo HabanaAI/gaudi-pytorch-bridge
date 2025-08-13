@@ -28,7 +28,7 @@ OutputMetaDataVector ReduceMinMaxMeta(const at::Stack& stack) {
   return {meta};
 }
 
-FillParamsT FillMinMaxParams(const at::Stack&) {
+FillParamsT FillMinMaxParams(const at::Stack& /*unused*/) {
   PARAMS_STUB(ns_Reduction::ParamsV2);
   params->reductionDimensionMask = 0;
   params->keepDim = false;
@@ -104,25 +104,25 @@ SharedMetaDataVector MinMaxDimSharedMeta(
 
 SharedMetaDataVector MinSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   return MinMaxSharedMeta(stack, "reduce_min_multi_dim_fwd");
 }
 
 SharedMetaDataVector MaxSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   return MinMaxSharedMeta(stack, "reduce_max_multi_dim_fwd");
 }
 
 SharedMetaDataVector MinDimSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   return MinMaxDimSharedMeta(stack, "reduce_min_multi_dim_fwd");
 }
 
 SharedMetaDataVector MaxDimSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   return MinMaxDimSharedMeta(stack, "reduce_max_multi_dim_fwd");
 }
 

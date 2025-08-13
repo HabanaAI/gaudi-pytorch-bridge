@@ -59,7 +59,7 @@ OutputMetaDataVector BinaryCrossEntropyBwdMetaData(const at::Stack& stack) {
 
 SharedMetaDataVector BinaryCrossEntropyFwdSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   auto self = stack_tensor(stack, 0);
   auto target = stack_tensor(stack, 1);
   auto weights = stack.at(2).toOptional<at::Tensor>();
@@ -81,7 +81,7 @@ SharedMetaDataVector BinaryCrossEntropyFwdSharedMeta(
 
 SharedMetaDataVector BinaryCrossEntropyWithLogitsFwdSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   auto self = stack_tensor(stack, 0);
   auto target = stack_tensor(stack, 1);
   auto weights = stack.at(2).toOptional<at::Tensor>();
@@ -111,7 +111,7 @@ SharedMetaDataVector BinaryCrossEntropyWithLogitsFwdSharedMeta(
 
 SharedMetaDataVector BinaryCrossEntropyBwdSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   auto grad = stack_tensor(stack, 0);
   auto self = stack_tensor(stack, 1);
   auto target = stack_tensor(stack, 2);

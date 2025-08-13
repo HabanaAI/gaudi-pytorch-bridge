@@ -126,13 +126,13 @@ OutputMetaDataVector TriuIndicesMeta(const at::Stack& stack) {
 
 SharedMetaDataVector TriluSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   return Input0SharedMeta(stack, "matrix_band_part_fwd");
 }
 
 SharedMetaDataVector TrilTriuIndicesSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const auto dtype =
       stack.at(3).toOptional<at::ScalarType>().value_or(at::ScalarType::Long);
   SharedMetaData triluIndicesMeta{"trilu_indices"};

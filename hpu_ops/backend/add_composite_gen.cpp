@@ -62,13 +62,13 @@ static SharedMetaDataVector AddCompositeSharedMeta(
 
 SharedMetaDataVector AddCDivSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   return AddCompositeSharedMeta(stack, "addcdiv_fwd");
 }
 
 SharedMetaDataVector AddCMulSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   return AddCompositeSharedMeta(stack, "addcmul_fwd");
 }
 
@@ -90,13 +90,13 @@ OutputMetaDataVector ForeachCompoundMeta(const at::Stack& stack) {
 
 SharedMetaDataVector ForeachAddcdivSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   return ForeachCompoundSharedMeta(stack, "addcdiv_fwd");
 }
 
 SharedMetaDataVector ForeachAddcmulSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   return ForeachCompoundSharedMeta(stack, "addcmul_fwd");
 }
 

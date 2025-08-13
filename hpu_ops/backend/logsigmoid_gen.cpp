@@ -27,7 +27,7 @@ OutputMetaDataVector LogSigmoidFwdMeta(const at::Stack& stack) {
 
 SharedMetaDataVector LogSigmoidFwdSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const auto& self = stack_tensor(stack, 0);
   auto rank = self.dim();
   auto dtype = self.scalar_type();
@@ -71,7 +71,7 @@ SharedMetaDataVector LogSigmoidFwdSharedMeta(
 
 SharedMetaDataVector LogSigmoidBwdSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const auto& grad = stack_tensor(stack, 0);
   const auto& self = stack_tensor(stack, 1);
   const auto selfRank = self.dim();

@@ -87,7 +87,7 @@ OutputMetaDataVector ConstantPadMeta(const at::Stack& stack) {
 
 SharedMetaDataVector ConstantPadSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const auto& self = stack.at(0).toTensor();
   const auto selfRank = self.dim();
   const auto dtype = self.scalar_type();
@@ -198,7 +198,8 @@ void ConstantPad::AddNode(
 
 struct ConstantPadDS : OpBackend {
   ConstantPadDS(int device_id, c10::ScalarType scalar_type);
-  void AddNode(synapse_helpers::graph&, const at::Stack&) override;
+  void AddNode(synapse_helpers::graph& /*graph*/, const at::Stack& /*stack*/)
+      override;
 };
 
 ConstantPadDS::ConstantPadDS(int device_id, c10::ScalarType scalar_type)

@@ -35,7 +35,7 @@ OutputMetaDataVector ScaledMaskedTriangularSoftmaxMeta(const at::Stack& stack) {
 
 SharedMetaDataVector ScaledMaskedTriangularSoftmaxSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const at::Tensor& input = stack_tensor(stack, 0);
   const at::Tensor& startEnd = stack_tensor(stack, 1);
   const at::ScalarType outDtype =

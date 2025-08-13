@@ -89,7 +89,7 @@ OutputMetaDataVector CdistBwdMeta(const at::Stack& stack) {
 
 SharedMetaDataVector CdistBwdSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const auto& grad = stack_tensor(stack, 0);
   const auto& x1 = stack_tensor(stack, 1);
   const auto& x2 = stack_tensor(stack, 2);

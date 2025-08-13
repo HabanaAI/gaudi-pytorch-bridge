@@ -20,7 +20,7 @@
 namespace habana {
 
 static FillParamsT FillBitwiseShiftParams(
-    const at::Stack&,
+    const at::Stack& /*unused*/,
     ShiftDir_t shift_dir) {
   PARAMS_STUB(ns_BitShiftKernel::Params);
   params->direction = shift_dir;

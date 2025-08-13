@@ -32,7 +32,7 @@ OutputMetaDataVector ScaledMmMeta(const at::Stack& stack) {
 
 SharedMetaDataVector ScaledMmSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const auto mat1_dtype = stack_tensor(stack, 0).scalar_type();
   const auto mat2_dtype = stack_tensor(stack, 1).scalar_type();
   const auto scale_a = stack_tensor(stack, 2);

@@ -607,7 +607,7 @@ synapse_helpers::tensor_or_ref& habana::HabanaOperator::SetSynapseOutput(
 }
 
 habana::InferOutputMetaRetType habana::HabanaOperator::InferOutputMeta(
-    torch::jit::Stack&) {
+    torch::jit::Stack& /*unused*/) {
   return InferOutputMetaRetType(true);
 }
 

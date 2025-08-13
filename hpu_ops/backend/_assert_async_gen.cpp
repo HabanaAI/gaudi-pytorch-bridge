@@ -18,7 +18,7 @@
 namespace habana {
 SharedMetaDataVector AssertAsyncSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   auto self = stack_tensor(stack, 0);
 
   SharedMetaData assertAsyncSharedMeta{"assert_async"};

@@ -67,7 +67,7 @@ FillParamsT LinspaceRangeParams(const at::Stack& stack) {
 
 SharedMetaDataVector LinspaceOutSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   auto end = stack.at(1);
   auto steps = stack.at(2);
   int stepsVal = steps.isScalar() ? steps.toScalar().to<int>()

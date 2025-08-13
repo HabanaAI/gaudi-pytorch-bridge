@@ -31,7 +31,7 @@ OutputMetaDataVector RepeatMeta(const at::Stack& stack) {
 
 SharedMetaDataVector RepeatSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const auto& self = stack_tensor(stack, 0);
   auto dtype = self.scalar_type();
   auto inputRank = self.dim();

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,31 +34,31 @@ OutputMetaDataVector CompareMeta(const at::Stack& stack) {
 
 SharedMetaDataVector CompareEqSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   return CompareSharedMeta(stack, "equal_fwd");
 }
 
 SharedMetaDataVector CompareGeSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   return CompareSharedMeta(stack, "greater_equal_fwd");
 }
 
 SharedMetaDataVector CompareGtSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   return CompareSharedMeta(stack, "greater_fwd");
 }
 
 SharedMetaDataVector CompareLeSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   return CompareSharedMeta(stack, "less_equal_fwd");
 }
 
 SharedMetaDataVector CompareLtSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   return CompareSharedMeta(stack, "less_fwd");
 }
 

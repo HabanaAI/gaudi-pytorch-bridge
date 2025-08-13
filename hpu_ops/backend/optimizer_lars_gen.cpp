@@ -44,7 +44,7 @@ SharedMetaDataVector NormializeInputSharedMeta(
 
 SharedMetaDataVector OptimizerLarsSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const auto& params = stack.at(0).toTensorVector();
   const auto& grads = stack.at(1).toTensorVector();
   const auto& skip_masks = stack.at(2).to<std::vector<int64_t>>();

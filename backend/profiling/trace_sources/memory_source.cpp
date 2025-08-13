@@ -33,7 +33,7 @@ struct MemoryLogger : public TraceSource {
     static MemoryLogger source;
     return source;
   }
-  void start(TraceSink&) override {
+  void start(TraceSink& /*output*/) override {
     enabled_ = true;
   }
   void stop() override {

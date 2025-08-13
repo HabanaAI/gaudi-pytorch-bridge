@@ -33,14 +33,14 @@ OutputMetaDataVector HabanaRandOutputMeta(const at::Stack& stack) {
   return {meta};
 }
 
-FillParamsT FillHabanaRandParams(const at::Stack&) {
+FillParamsT FillHabanaRandParams(const at::Stack& /*unused*/) {
   PARAMS_STUB(ns_RandomUniform::Params);
   params->low = 0.0;
   params->high = 1.0;
   return paramsT;
 }
 
-FillParamsT FillHabanaRandnParams(const at::Stack&) {
+FillParamsT FillHabanaRandnParams(const at::Stack& /*unused*/) {
   static const bool use_philox = GET_ENV_FLAG_NEW(PT_HPU_USE_PHILOX_NORMAL);
   PARAMS_STUB(ns_RandomNormal::ParamsV2);
   params->mean = 0.0;
@@ -105,7 +105,7 @@ OutputMetaDataVector HabanaSeedGeneratorOutputMeta(const at::Stack& stack) {
   return {meta};
 }
 
-FillParamsT FillHabanaSeedGeneratorParams(const at::Stack&) {
+FillParamsT FillHabanaSeedGeneratorParams(const at::Stack& /*unused*/) {
   PARAMS_STUB(ns_PhiloxRandomUniform::ParamsV3);
   params->low_i = 0;
   params->high_i = std::numeric_limits<int32_t>::max();

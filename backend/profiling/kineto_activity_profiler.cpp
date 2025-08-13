@@ -352,7 +352,7 @@ std::unique_ptr<GenericTraceActivity> GenericTraceActivitySink::constructFlow(
 
 void GenericTraceActivitySink::addFlowEvent(
     std::string_view name,
-    std::string_view,
+    std::string_view /*cat*/,
     const Flow& startFlow,
     const Flow& finishFlow) {
   if (habana::profile::bridge::linked_events_enabled() or

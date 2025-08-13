@@ -211,7 +211,7 @@ SharedMetaDataVector AdamSharedMetaCommon(
 
 SharedMetaDataVector AdamSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const auto& self_vec = stack.at(0).toTensorVector();
   const auto& grads_vec = stack.at(1).toTensorVector();
   const auto& exp_avgs_vec = stack.at(2).toTensorVector();
@@ -636,7 +636,7 @@ void FusedAdam::AddNode(sh::graph& graph, const at::Stack& stack) {
 
 SharedMetaDataVector AdamLrSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const auto& self_vec = stack.at(0).toTensorVector();
   const auto& grads_vec = stack.at(1).toTensorVector();
   const auto& exp_avgs_vec = stack.at(2).toTensorVector();

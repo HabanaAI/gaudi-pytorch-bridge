@@ -52,7 +52,7 @@ OutputMetaDataVector ExponentialMeta(const at::Stack& stack) {
 
 SharedMetaDataVector ExponentialSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   auto input = stack_tensor(stack, 0);
   auto dtype = input.scalar_type();
   auto rank = input.dim();

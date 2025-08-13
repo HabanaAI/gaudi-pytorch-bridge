@@ -189,10 +189,14 @@ class OptimizerFusedAdamWOperator : public OpBackend {
             false) {}
 
   void AddNode(sh::graph& graph, const at::Stack& stack) override;
-  void CustomHandler([[maybe_unused]] sh::graph&, at::Stack&) override;
+  void CustomHandler(
+      [[maybe_unused]] sh::graph& /*unused*/,
+      at::Stack& /*stack*/) override;
 };
 
-void OptimizerFusedAdamWOperator::CustomHandler(sh::graph&, at::Stack& stack) {
+void OptimizerFusedAdamWOperator::CustomHandler(
+    sh::graph& /*unused*/,
+    at::Stack& stack) {
   const bool is_fp8 =
       at::isFloat8Type(stack.at(2).toTensorList().get(0).scalar_type());
   if (is_fp8) {
@@ -209,7 +213,7 @@ void OptimizerFusedAdamWOperator::CustomHandler(sh::graph&, at::Stack& stack) {
 
 SharedMetaDataVector OptimizerAdamWSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const auto& gradient_vec = stack.at(0).toTensorVector();
   const auto& weight_vec = stack.at(1).toTensorVector();
   const auto& exp_avg_vec = stack.at(2).toTensorVector();
@@ -659,7 +663,7 @@ void OptimizerFusedAdamWOperator::AddNode(
 
 SharedMetaDataVector AdamWSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const auto& self_vec = stack.at(0).toTensorVector();
   const auto& grads_vec = stack.at(1).toTensorVector();
   const auto& exp_avgs_vec = stack.at(2).toTensorVector();

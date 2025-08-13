@@ -37,7 +37,7 @@ OutputMetaDataVector NanSumIntListMeta(const at::Stack& stack) {
 
 SharedMetaDataVector NanSumSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const auto& self = stack_tensor(stack, 0);
   auto computeDtype =
       stack.at(3).toOptional<at::ScalarType>().value_or(self.scalar_type());

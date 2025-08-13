@@ -575,7 +575,9 @@ namespace {
 namespace defragment {
 class Lock : public device_ptr_lock_interface {
  public:
-  Lock(std::shared_ptr<synchronous_counter> counter, std::vector<device_ptr>&&);
+  Lock(
+      std::shared_ptr<synchronous_counter> counter,
+      std::vector<device_ptr>&& /*addresses*/);
   ~Lock() override;
   Lock(Lock&&) = delete;
   Lock(const Lock&) = delete;

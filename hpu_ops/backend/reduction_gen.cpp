@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -88,37 +88,37 @@ SharedMetaDataVector ReductionOpSharedMeta(
 
 SharedMetaDataVector ReductionOpSumSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   return ReductionOpSharedMeta(stack, "reduce_sum_multi_dim_fwd", false);
 }
 
 SharedMetaDataVector ReductionOpSumListSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   return ReductionOpSharedMeta(stack, "reduce_sum_multi_dim_fwd", true);
 }
 
 SharedMetaDataVector ReductionOpMeanSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   return ReductionOpSharedMeta(stack, "reduce_mean_multi_dim_fwd", false);
 }
 
 SharedMetaDataVector ReductionOpMeanListSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   return ReductionOpSharedMeta(stack, "reduce_mean_multi_dim_fwd", true);
 }
 
 SharedMetaDataVector ReductionOpProdSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   return ReductionOpSharedMeta(stack, "reduce_prod_multi_dim_fwd", false);
 }
 
 SharedMetaDataVector ReductionOpProdListSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   return ReductionOpSharedMeta(stack, "reduce_prod_multi_dim_fwd", true);
 }
 

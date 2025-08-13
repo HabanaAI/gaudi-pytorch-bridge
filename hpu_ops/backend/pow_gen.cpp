@@ -148,7 +148,7 @@ SharedMetaDataVector PowForeachBinarySharedMeta(
 
 SharedMetaDataVector PowBinarySharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   return ForeachPowOneIterationSharedMeta(stack);
 }
 

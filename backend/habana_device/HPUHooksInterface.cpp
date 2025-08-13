@@ -24,11 +24,13 @@ void HPUHooks::init() const {
   device_guard.getDevice();
 }
 
-const at::Generator& HPUHooks::getDefaultGenerator(at::DeviceIndex) const {
+const at::Generator& HPUHooks::getDefaultGenerator(
+    at::DeviceIndex /*device_index*/) const {
   return detail::getDefaultHPUGenerator();
 }
 
-at::Generator HPUHooks::getNewGenerator(at::DeviceIndex) const {
+at::Generator HPUHooks::getNewGenerator(
+    at::DeviceIndex /*device_index*/) const {
   return detail::createHPUGenerator();
 }
 
@@ -45,7 +47,7 @@ bool HPUHooks::isAvailable() const {
   return hasHPU();
 }
 
-at::Device HPUHooks::getDeviceFromPtr(void*) const {
+at::Device HPUHooks::getDeviceFromPtr(void* /*unused*/) const {
   // TODO add check if pointer valid
   habana::HABANAGuardImpl device_guard;
   return device_guard.getDevice();
@@ -63,7 +65,7 @@ at::Allocator* HPUHooks::getPinnedMemoryAllocator() const {
   return PinnedMemoryAllocator_get();
 }
 
-bool HPUHooks::hasPrimaryContext(at::DeviceIndex) const {
+bool HPUHooks::hasPrimaryContext(at::DeviceIndex /*device_index*/) const {
   // According to interface, this function is used to determine:
   // 'Whether the device at device_index is fully initialized or not.'
   // and for HPU, device index is irrelevant, as single device is supported in

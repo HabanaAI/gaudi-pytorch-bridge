@@ -27,7 +27,7 @@ OutputMetaDataVector MaskedScaleMeta(const at::Stack& stack) {
 
 SharedMetaDataVector MaskedScaleSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const auto& self = stack_tensor(stack, 0);
   const auto& mask = stack_tensor(stack, 1);
   const auto rank = self.dim();

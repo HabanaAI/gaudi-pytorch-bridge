@@ -117,108 +117,117 @@ at::Tensor hpu_wrap::batch_norm_backward_elemt(
 
 namespace habana_lazy {
 
-at::Tensor squeeze_hpu_lazy(const at::Tensor&, const int64_t) {
+at::Tensor squeeze_hpu_lazy(
+    const at::Tensor& /*unused*/,
+    const int64_t /*unused*/) {
   EAGER_NOT_SUPPORTED;
 }
 
 std::vector<at::Tensor> split_with_sizes_hpu_lazy(
-    const at::Tensor&,
-    at::IntArrayRef,
-    int64_t) {
+    const at::Tensor& /*unused*/,
+    at::IntArrayRef /*unused*/,
+    int64_t /*unused*/) {
   EAGER_NOT_SUPPORTED;
 }
 
-at::Tensor nonzero_hpu_lazy(const at::Tensor&) {
+at::Tensor nonzero_hpu_lazy(const at::Tensor& /*unused*/) {
   EAGER_NOT_SUPPORTED;
 }
 
 ::std::tuple<at::Tensor, at::Tensor> _unique_hpu_lazy(
-    const at::Tensor&,
-    bool,
-    bool) {
+    const at::Tensor& /*unused*/,
+    bool /*unused*/,
+    bool /*unused*/) {
   EAGER_NOT_SUPPORTED;
 }
 
-at::Tensor repeat_inlv_hpu_lazy(const at::Tensor&, std::optional<int64_t>) {
+at::Tensor repeat_inlv_hpu_lazy(
+    const at::Tensor& /*unused*/,
+    std::optional<int64_t> /*unused*/) {
   EAGER_NOT_SUPPORTED;
 }
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor> unique2_hpu_lazy(
-    const at::Tensor&,
-    bool,
-    bool,
-    bool) {
+    const at::Tensor& /*unused*/,
+    bool /*unused*/,
+    bool /*unused*/,
+    bool /*unused*/) {
   EAGER_NOT_SUPPORTED;
 }
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor> unique_dim_hpu_lazy(
-    const at::Tensor&,
-    int64_t,
-    bool,
-    bool,
-    bool) {
+    const at::Tensor& /*unused*/,
+    int64_t /*unused*/,
+    bool /*unused*/,
+    bool /*unused*/,
+    bool /*unused*/) {
   EAGER_NOT_SUPPORTED;
 }
 
-at::Tensor append_to_batch_h2d_list(const at::Tensor&) {
+at::Tensor append_to_batch_h2d_list(const at::Tensor& /*unused*/) {
   EAGER_NOT_SUPPORTED;
 }
 
-at::Tensor get_tensor_for_scalar(double, const at::TensorOptions&) {
+at::Tensor get_tensor_for_scalar(
+    double /*unused*/,
+    const at::TensorOptions& /*unused*/) {
   EAGER_NOT_SUPPORTED;
 }
 
-void flush_op(std::shared_ptr<HbLazyFrontEndInfoToBackend>) {
+void flush_op(std::shared_ptr<HbLazyFrontEndInfoToBackend> /*unused*/) {
   EAGER_NOT_SUPPORTED;
 }
 
-void handle_collective(const at::IValue&) {
+void handle_collective(const at::IValue& /*unused*/) {
   EAGER_NOT_SUPPORTED;
 }
 
 Tensor empty_as_strided_lazy(
-    const Tensor&,
-    IntArrayRef,
-    IntArrayRef,
-    std::optional<int64_t>) {
+    const Tensor& /*unused*/,
+    IntArrayRef /*unused*/,
+    IntArrayRef /*unused*/,
+    std::optional<int64_t> /*unused*/) {
   EAGER_NOT_SUPPORTED;
 }
 
 ir::NodePtr create_as_strided_node(
-    at::Tensor const&,
-    c10::ArrayRef<long>,
-    c10::ArrayRef<long>,
-    std::optional<long>,
-    bool) {
+    at::Tensor const& /*unused*/,
+    c10::ArrayRef<long> /*unused*/,
+    c10::ArrayRef<long> /*unused*/,
+    std::optional<long> /*unused*/,
+    bool /*unused*/) {
   EAGER_NOT_SUPPORTED;
 }
 
-bool is_inplace(at::Symbol) {
+bool is_inplace(at::Symbol /*unused*/) {
   EAGER_NOT_SUPPORTED;
 }
 
-void strided_insert_hpu_lazy(const Tensor&, const Tensor&, bool) {
+void strided_insert_hpu_lazy(
+    const Tensor& /*unused*/,
+    const Tensor& /*unused*/,
+    bool /*unused*/) {
   EAGER_NOT_SUPPORTED;
 }
 
 Tensor empty_strided_hpu_lazy(
-    IntArrayRef,
-    IntArrayRef,
-    const TensorOptions&,
-    bool,
-    synTensorType,
-    int64_t,
-    std::optional<std::reference_wrapper<const at::Tensor>>,
-    bool) {
+    IntArrayRef /*unused*/,
+    IntArrayRef /*unused*/,
+    const TensorOptions& /*unused*/,
+    bool /*unused*/,
+    synTensorType /*unused*/,
+    int64_t /*unused*/,
+    std::optional<std::reference_wrapper<const at::Tensor>> /*unused*/,
+    bool /*unused*/) {
   EAGER_NOT_SUPPORTED;
 }
 
 void InitSizesAndStrides(
-    at::Tensor&,
-    std::optional<synTensorType>,
-    std::optional<IntArrayRef>,
-    std::optional<IntArrayRef>,
-    std::optional<MemoryFormat>) {
+    at::Tensor& /*unused*/,
+    std::optional<synTensorType> /*unused*/,
+    std::optional<IntArrayRef> /*unused*/,
+    std::optional<IntArrayRef> /*unused*/,
+    std::optional<MemoryFormat> /*unused*/) {
   EAGER_NOT_SUPPORTED;
 }
 

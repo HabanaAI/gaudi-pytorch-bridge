@@ -184,7 +184,7 @@ OutputMetaDataVector CastToFp8V2Meta(const at::Stack& stack) {
 
 SharedMetaDataVector CastToFp8SharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const at::Tensor& input = stack.at(0).toTensor();
   const int inputDim = input.dim();
   const bool isCastToFp8V2 = stack.at(3).isBool();
@@ -290,7 +290,7 @@ OutputMetaDataVector CastFromFp8Meta(const at::Stack& stack) {
 
 SharedMetaDataVector CastFromFp8SharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const at::Tensor& input = stack.at(0).toTensor();
   const int inputDim = input.dim();
 
@@ -450,7 +450,7 @@ OutputMetaDataVector Conv2dFp8Meta(const at::Stack& stack) {
 
 SharedMetaDataVector Conv2dFp8SharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const at::Tensor& inputTensor = stack_tensor(stack, 0);
   const std::optional<at::Tensor> biasTensor =
       stack.at(2).toOptional<at::Tensor>();

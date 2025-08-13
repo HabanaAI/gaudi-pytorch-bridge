@@ -45,7 +45,7 @@ static auto BuildErfc(
 
 SharedMetaDataVector UnaryForeachErfcSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   auto tensors = stack.at(0).toTensorList();
   auto tensorsSize = tensors.size();
   SharedMetaDataVector metaVec;

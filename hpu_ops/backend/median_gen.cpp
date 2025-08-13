@@ -38,7 +38,7 @@ OutputMetaDataVector MedianOutputMeta(const at::Stack& stack) {
 
 SharedMetaDataVector MedianSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const auto& self = stack_tensor(stack, 0);
 
   SharedMetaData medianSharedMeta{"median"};
@@ -90,7 +90,7 @@ OutputMetaDataVector MedianDimOutputMeta(const at::Stack& stack) {
 
 SharedMetaDataVector MedianDimSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const auto& self = stack_tensor(stack, 0);
   bool keepDim = stack[index_of_keepdim].toBool();
   auto outputRank = self.dim();

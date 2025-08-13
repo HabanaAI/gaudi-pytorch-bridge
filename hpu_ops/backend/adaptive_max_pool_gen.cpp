@@ -158,13 +158,13 @@ SharedMetaDataVector AdaptiveMaxPoolCommonSharedMeta(
 
 SharedMetaDataVector AdaptiveMaxPool2DSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   return AdaptiveMaxPoolCommonSharedMeta(stack, "adaptive_max_pool_2d_fwd");
 }
 
 SharedMetaDataVector AdaptiveMaxPool3DSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   return AdaptiveMaxPoolCommonSharedMeta(stack, "adaptive_max_pool_3d_fwd");
 }
 

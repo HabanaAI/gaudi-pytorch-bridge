@@ -36,7 +36,7 @@ void FMin::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
 SharedMetaDataVector FMinSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const auto dtype = habana_helpers::DTypeHelper::get_compute_dtype(
       stack,
       std::nullopt,

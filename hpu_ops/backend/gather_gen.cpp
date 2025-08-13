@@ -62,7 +62,7 @@ OutputMetaDataVector GatherMeta(const at::Stack& stack) {
 
 SharedMetaDataVector GatherSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   auto self = stack_tensor(stack, 0);
   auto selfDtype = self.scalar_type();
   auto index = stack_tensor(stack, 2);

@@ -19,7 +19,7 @@ namespace habana {
 
 SharedMetaDataVector AllSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   auto self = stack.at(0).toTensor();
   auto dtype = self.scalar_type();
   auto isIntegralInput = c10::isIntegralType(dtype, true);

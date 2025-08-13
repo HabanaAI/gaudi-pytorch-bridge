@@ -59,7 +59,7 @@ OutputMetaDataVector CastToFp8HybridMeta(const at::Stack& stack) {
 
 SharedMetaDataVector CastToFp8HybridSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const at::Tensor& input = stack.at(0).toTensor();
   HABANA_ASSERT(
       input.dim() <= std::numeric_limits<int>::max(),

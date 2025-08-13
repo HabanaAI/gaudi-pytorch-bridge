@@ -29,7 +29,7 @@ OutputMetaDataVector GeluMeta(const at::Stack& stack) {
 
 SharedMetaDataVector GeluSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   return Input0ToOut0And1SharedMeta(stack, "gelu_fwd");
 }
 

@@ -40,7 +40,7 @@ OutputMetaDataVector FusedClipNormOp::FusedClipNormMeta(
 
 SharedMetaDataVector FusedClipNormSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const auto& gradients = stack.at(0).toTensorVector();
   const auto& max_norm = stack.at(1).toTensor();
   const auto precision_type = gradients[0].scalar_type();

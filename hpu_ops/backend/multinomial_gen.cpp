@@ -69,7 +69,7 @@ OutputMetaDataVector MultinomialMeta(const at::Stack& stack) {
 
 SharedMetaDataVector MultinomialSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const auto self = stack_tensor(stack, 0);
   const auto selfDtype = self.scalar_type();
   const auto rank = self.dim();

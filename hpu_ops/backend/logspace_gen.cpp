@@ -70,7 +70,7 @@ FillParamsT FillLogspaceFwdParams(const at::Stack& stack) {
 
 SharedMetaDataVector LogspaceSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   c10::ScalarType dtype;
   if (stack.at(4).isTensor())
     dtype = stack.at(4).toTensor().scalar_type();

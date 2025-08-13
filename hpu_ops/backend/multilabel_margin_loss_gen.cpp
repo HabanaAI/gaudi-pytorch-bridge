@@ -18,7 +18,7 @@
 namespace habana {
 
 FillParamsT FillMultilabelMarginLossParamsCommon(
-    const at::Stack&,
+    const at::Stack& /*unused*/,
     int64_t reduction) {
   PARAMS_STUB(ns_MultilabelMarginLoss::Params);
   switch (reduction) {

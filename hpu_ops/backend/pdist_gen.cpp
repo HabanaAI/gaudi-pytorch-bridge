@@ -61,7 +61,7 @@ OutputMetaDataVector PdistBwdMeta(const at::Stack& stack) {
 
 SharedMetaDataVector PdistBwdSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const auto& grad = stack_tensor(stack, 0);
   const auto& self = stack_tensor(stack, 1);
 

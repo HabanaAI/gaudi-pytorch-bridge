@@ -21,7 +21,7 @@ namespace habana {
 
 SharedMetaDataVector ScatterSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const auto& self = stack_tensor(stack, 0);
   const auto& index = stack_tensor(stack, 2);
   auto dtype = self.scalar_type();
@@ -47,7 +47,7 @@ SharedMetaDataVector ScatterSharedMeta(
 
 SharedMetaDataVector ScatterReduceSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const auto& self = stack_tensor(stack, 0);
   const auto& index = stack_tensor(stack, 2);
   const auto dtype = self.scalar_type();

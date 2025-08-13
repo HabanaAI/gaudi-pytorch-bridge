@@ -193,7 +193,7 @@ static std::pair<SynapseLayouts, SynapseLayouts> MakeLayouts(
 
 SharedMetaDataVector ConvolutionSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const auto& input = stack.at(0).toTensor();
   const auto& weight = stack.at(1).toTensor();
   const auto& bias =

@@ -760,43 +760,43 @@ SharedMetaDataVector UpsampleCommmonSharedLayer(
 
 SharedMetaDataVector UpsampleLinear1DFwdSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   return UpsampleCommmonSharedLayer(stack, stack.at(2).toBool(), 3, true);
 }
 
 SharedMetaDataVector UpsampleLinear1DBwdSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   return UpsampleCommmonSharedLayer(stack, stack.at(3).toBool(), 4, false);
 }
 
 SharedMetaDataVector UpsampleNearest1D3DFwdSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   return UpsampleCommmonSharedLayer(stack, false, 2, true);
 }
 
 SharedMetaDataVector UpsampleNearest1D3DBwdSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   return UpsampleCommmonSharedLayer(stack, false, 3, false);
 }
 
 SharedMetaDataVector UpsampleNearest2DFwdSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   return UpsampleCommmonSharedLayer(stack, true, 2, true);
 }
 
 SharedMetaDataVector UpsampleNearest2DBwdSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   return UpsampleCommmonSharedLayer(stack, true, 3, false);
 }
 
 SharedMetaDataVector UpssampleTrilinear3DSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   return UpsampleCommmonSharedLayer(stack, stack.at(2).toBool(), 3, true);
 }
 

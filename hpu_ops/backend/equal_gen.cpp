@@ -24,7 +24,7 @@ FillParamsT FillEqualParams(const at::Stack& stack) {
   return paramsT;
 }
 
-OutputMetaDataVector EqualMeta(const at::Stack&) {
+OutputMetaDataVector EqualMeta(const at::Stack& /*unused*/) {
   OutputMetaData meta;
   meta.shape = {};
   meta.dtype = c10::ScalarType::Bool;

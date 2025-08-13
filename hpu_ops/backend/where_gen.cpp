@@ -38,7 +38,7 @@ OutputMetaDataVector WhereMeta(const at::Stack& stack) {
 
 SharedMetaDataVector WhereSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   auto cond = stack_tensor(stack, 0);
   auto self = stack_tensor(stack, 1);
   auto other = stack_tensor(stack, 2);

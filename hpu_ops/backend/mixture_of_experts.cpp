@@ -539,7 +539,7 @@ SharedMetaDataVector MixtureOfExpertsSharedMetaCommon(
 
 SharedMetaDataVector MixtureOfExpertsSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   return MixtureOfExpertsSharedMetaCommon(
       stack,
       stack.size() == 12,
@@ -549,7 +549,7 @@ SharedMetaDataVector MixtureOfExpertsSharedMeta(
 
 SharedMetaDataVector MixtureOfExpertsFp8SharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   return MixtureOfExpertsSharedMetaCommon(
       stack,
       false,
@@ -559,7 +559,7 @@ SharedMetaDataVector MixtureOfExpertsFp8SharedMeta(
 
 SharedMetaDataVector MixtureOfExpertsFp8FusedSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   return MixtureOfExpertsSharedMetaCommon(
       stack,
       true,
@@ -569,7 +569,7 @@ SharedMetaDataVector MixtureOfExpertsFp8FusedSharedMeta(
 
 SharedMetaDataVector MixtureOfExpertsFwdSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const c10::ScalarType dtype = stack_tensor(stack, 0).scalar_type();
   return MixtureOfExpertsSharedMetaCommon(
       stack,
@@ -590,7 +590,7 @@ SharedMetaDataVector MixtureOfExpertsFwdSharedMeta(
 
 SharedMetaDataVector MixtureOfExpertsFwdFusedSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const c10::ScalarType dtype = stack_tensor(stack, 0).scalar_type();
   return MixtureOfExpertsSharedMetaCommon(
       stack,
@@ -610,7 +610,7 @@ SharedMetaDataVector MixtureOfExpertsFwdFusedSharedMeta(
 
 SharedMetaDataVector MixtureOfExpertsRecompFwdSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   return MixtureOfExpertsSharedMetaCommon(
       stack,
       false,
@@ -620,7 +620,7 @@ SharedMetaDataVector MixtureOfExpertsRecompFwdSharedMeta(
 
 SharedMetaDataVector MixtureOfExpertsRecompFwdFusedSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   return MixtureOfExpertsSharedMetaCommon(
       stack,
       true,
@@ -630,7 +630,7 @@ SharedMetaDataVector MixtureOfExpertsRecompFwdFusedSharedMeta(
 
 SharedMetaDataVector MixtureOfExpertsBwdSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const at::Tensor& grad = stack_tensor(stack, 0);
   const bool isFusedWeights = stack.at(10).isTensorList();
 
@@ -683,7 +683,7 @@ SharedMetaDataVector MixtureOfExpertsBwdSharedMeta(
 
 SharedMetaDataVector MixtureOfExpertsRecompBwdSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const at::Tensor& grad = stack_tensor(stack, 0);
   const at::Tensor& routerWeights = stack_tensor(stack, 3);
   const bool isFusedWeights = !stack.at(6).isTensorList();

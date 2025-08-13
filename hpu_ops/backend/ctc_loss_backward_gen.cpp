@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ OutputMetaDataVector CtcLossBackwardMeta(const at::Stack& stack) {
 
 SharedMetaDataVector CtcLossBackwardSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const auto& grad = stack_tensor(stack, 0);
   const auto& logProbs = stack_tensor(stack, 1);
   const auto& targets = stack_tensor(stack, 2);

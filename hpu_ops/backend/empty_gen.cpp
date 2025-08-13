@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -130,7 +130,8 @@ auto empty_impl(
 namespace habana {
 struct EmptyBackendDs : OpBackend {
   EmptyBackendDs(int device_id, c10::ScalarType scalar_type);
-  void AddNode(synapse_helpers::graph&, const at::Stack&) override;
+  void AddNode(synapse_helpers::graph& /*graph*/, const at::Stack& /*stack*/)
+      override;
 };
 
 void Empty::AddNode(

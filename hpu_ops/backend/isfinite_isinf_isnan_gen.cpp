@@ -21,19 +21,19 @@ namespace habana {
 
 SharedMetaDataVector IsFiniteSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   return IsFiniteInfNanSharedMeta(stack, "isfinite_fwd");
 }
 
 SharedMetaDataVector IsInfSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   return IsFiniteInfNanSharedMeta(stack, "isinf_fwd");
 }
 
 SharedMetaDataVector IsNanSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   return IsFiniteInfNanSharedMeta(stack, "isnan_fwd");
 }
 

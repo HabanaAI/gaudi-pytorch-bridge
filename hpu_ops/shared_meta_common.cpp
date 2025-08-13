@@ -277,7 +277,7 @@ SharedMetaDataVector ForeachCompoundSharedMeta(
 
 SharedMetaDataVector BoolCastSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   auto input = stack_tensor(stack, 0);
   auto dtype = input.scalar_type();
   auto rank = input.dim();
@@ -394,7 +394,7 @@ SharedMetaDataVector AminAmaxSharedMeta(
 
 SharedMetaDataVector AddInplaceSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const auto& self = stack_tensor(stack, 0);
   const auto& other = stack.at(1);
   const auto dtype = self.scalar_type();
@@ -492,7 +492,7 @@ SharedMetaDataVector BitwiseLogicalSharedMeta(
 
 SharedMetaDataVector TopkSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   auto self = stack.at(0).toTensor();
 
   SharedMetaData topkMeta("topk");
@@ -548,7 +548,7 @@ SharedMetaDataVector RandomSeedTensorInputSharedMeta(
 
 SharedMetaDataVector PadBwdSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   auto grad = stack_tensor(stack, 0);
   auto self = stack_tensor(stack, 1);
   auto dtype = self.scalar_type();
@@ -655,8 +655,8 @@ SharedMetaDataVector MaxPoolWithIndicesBwdSharedMeta(
 }
 
 SharedMetaDataVector EmptySharedMeta(
-    const at::Stack&,
-    habana_helpers::HabanaExecutionMode) {
+    const at::Stack& /*unused*/,
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   // op doesn't call any kernels or [SW-205149] return empty vector because
   // shape tensor validation will block shape agnostic flow
   return {};
@@ -664,7 +664,7 @@ SharedMetaDataVector EmptySharedMeta(
 
 SharedMetaDataVector MatmulSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const auto& self = stack_tensor(stack, 0);
   const auto& other = stack_tensor(stack, 1);
   const auto dtype = self.scalar_type();
@@ -730,7 +730,7 @@ SharedMetaDataVector StridedViewCommonSharedMeta(
 
 SharedMetaDataVector StridedViewSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const auto& self = stack_tensor(stack, 0);
   const auto dtype = self.scalar_type();
   const auto& sizes = stack.at(1);
@@ -748,7 +748,7 @@ SharedMetaDataVector StridedViewSharedMeta(
 
 SharedMetaDataVector AliasSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const auto& self = stack_tensor(stack, 0);
   const auto dtype = self.scalar_type();
 
@@ -757,7 +757,7 @@ SharedMetaDataVector AliasSharedMeta(
 
 SharedMetaDataVector InstanceNormSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const auto& self = stack_tensor(stack, 0);
   auto rank = self.dim() > 3 ? self.dim() : 4;
   const auto dtype = self.scalar_type();
@@ -772,7 +772,7 @@ SharedMetaDataVector InstanceNormSharedMeta(
 
 SharedMetaDataVector KlDivSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const auto& self = stack_tensor(stack, 0);
   const auto& target = stack_tensor(stack, 1);
   const auto reduction = stack.at(2).toInt();
@@ -827,7 +827,7 @@ SharedMetaDataVector KlDivSharedMeta(
 
 SharedMetaDataVector CopySharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const auto& self = stack_tensor(stack, 0);
   const auto dtype = self.scalar_type();
   const auto rank = self.dim();
@@ -844,7 +844,7 @@ SharedMetaDataVector CopySharedMeta(
 
 SharedMetaDataVector OneHotSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const auto& self = stack_tensor(stack, 0);
   const auto dtype = self.scalar_type();
   const auto rank = self.dim();

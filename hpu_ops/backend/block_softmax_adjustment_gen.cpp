@@ -90,7 +90,7 @@ OutputMetaDataVector BlockSoftmaxMeta(const at::Stack& stack) {
 
 SharedMetaDataVector BlockSoftmaxAdjustmentSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const auto& block_maxes = stack_tensor(stack, 0);
   const auto& block_sums = stack_tensor(stack, 1);
   const auto& block_groups = stack_tensor(stack, 2);

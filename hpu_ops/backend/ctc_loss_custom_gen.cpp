@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -68,7 +68,7 @@ REGISTER_CUSTOM_OP_OUTSHAPE_FUN(ctc_loss_custom, ctc_loss_custom_out_shape);
 
 SharedMetaDataVector OptimizerCTCLossCustomSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const auto& log_probs = stack.at(0).toTensor();
   const auto& targets = stack.at(1).toTensor();
   const auto& input_lengths = stack.at(2).toTensor();
@@ -89,7 +89,7 @@ SharedMetaDataVector OptimizerCTCLossCustomSharedMeta(
 
 SharedMetaDataVector OptimizerCTCLossCustomBackwardSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const auto& grad = stack.at(0).toTensor();
   const auto& log_probs = stack.at(1).toTensor();
   const auto& targets = stack.at(2).toTensor();

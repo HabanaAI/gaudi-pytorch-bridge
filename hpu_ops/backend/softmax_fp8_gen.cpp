@@ -75,7 +75,7 @@ OutputMetaDataVector SoftmaxFp8Meta(const at::Stack& stack) {
 
 SharedMetaDataVector SoftmaxFp8SharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const at::Tensor& input = stack_tensor(stack, 0);
   const at::ScalarType outDtype = stack.at(2).isNone()
       ? at::ScalarType::BFloat16

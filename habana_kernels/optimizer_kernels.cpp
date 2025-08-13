@@ -816,7 +816,8 @@ class OptimizerFusedLarsOperatorLazy : public OpBackend {
     this->CreateSynContext(static_cast<synDeviceId>(device_id));
     SetOutputMetaFn(OptimizerFusedLarsMeta);
   }
-  static OutputMetaDataVector OptimizerFusedLarsMeta(const at::Stack&);
+  static OutputMetaDataVector OptimizerFusedLarsMeta(
+      const at::Stack& /*stack*/);
 
   void AddNode(sh::graph& graph, const at::Stack& stack) override;
 };

@@ -43,7 +43,7 @@ FillParamsT FillsoftshrinkbwdParams(const at::Stack& stack) {
 
 SharedMetaDataVector HardShrinkFwdSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   auto self = stack_tensor(stack, 0);
   auto dtype = self.scalar_type();
   auto rank = self.dim();
@@ -58,7 +58,7 @@ SharedMetaDataVector HardShrinkFwdSharedMeta(
 
 SharedMetaDataVector HardShrinkBwdSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   auto grad = stack_tensor(stack, 0);
   auto self = stack_tensor(stack, 1);
   auto selfDtype = self.scalar_type();

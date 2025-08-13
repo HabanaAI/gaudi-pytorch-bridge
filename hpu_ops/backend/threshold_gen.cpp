@@ -42,7 +42,7 @@ OutputMetaDataVector ThresholdBwdMeta(const at::Stack& stack) {
 
 SharedMetaDataVector ThresholdBackwardSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const auto& grad = stack_tensor(stack, 0);
   const auto& self = stack_tensor(stack, 1);
   const auto dtype = grad.scalar_type();

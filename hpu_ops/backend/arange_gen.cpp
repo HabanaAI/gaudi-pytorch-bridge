@@ -527,7 +527,7 @@ static SharedMetaDataVector ArangeDefaultSharedMeta(
 
 SharedMetaDataVector ArangeDefaultEndSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const auto end = stack[0].toScalar();
   return ArangeDefaultSharedMeta(
       end.isIntegral(true), stack[1].toOptional<at::ScalarType>());
@@ -535,7 +535,7 @@ SharedMetaDataVector ArangeDefaultEndSharedMeta(
 
 SharedMetaDataVector ArangeDefaultStartEndSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const auto start = stack[0].toScalar();
   const auto end = stack[1].toScalar();
   return ArangeDefaultSharedMeta(
@@ -545,7 +545,7 @@ SharedMetaDataVector ArangeDefaultStartEndSharedMeta(
 
 SharedMetaDataVector ArangeDefaultStartStepSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const auto start = stack[0].toScalar();
   const auto end = stack[1].toScalar();
   const auto step = stack[2].toScalar();
@@ -556,7 +556,7 @@ SharedMetaDataVector ArangeDefaultStartStepSharedMeta(
 
 SharedMetaDataVector ArangeDefaultStartOutSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const auto start = stack[0].toScalar();
   const auto end = stack[1].toScalar();
   const auto step = stack[2].toScalar();

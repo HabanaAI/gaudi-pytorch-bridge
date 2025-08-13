@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -82,8 +82,8 @@ unsigned NativeDropoutEarlyExitCondition(
 ::std::tuple<at::Tensor, at::Tensor> NativeDropoutEarlyExit(
     unsigned eePath,
     const at::Tensor& input,
-    double,
-    std::optional<bool>) {
+    double /*unused*/,
+    std::optional<bool> /*unused*/) {
   if (eePath == 1) {
     return std::make_tuple(input, at::empty_like(input, input.options()));
   } else {

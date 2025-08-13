@@ -50,7 +50,7 @@ OutputMetaDataVector AllAnyDimMeta(const at::Stack& stack) {
 
 SharedMetaDataVector AnySharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   auto self = stack.at(0).toTensor();
 
   std::pair<int, at::ScalarType> metaTensor{self.dim(), c10::ScalarType::Float};

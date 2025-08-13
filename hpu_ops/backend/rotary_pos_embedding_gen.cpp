@@ -44,13 +44,13 @@ SharedMetaDataVector RotaryPosEmbeddingFwdBwdSharedMeta(
 
 SharedMetaDataVector RotaryPosEmbeddingFwdSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   return RotaryPosEmbeddingFwdBwdSharedMeta(stack, "rotary_pos_embedding_fwd");
 }
 
 SharedMetaDataVector RotaryPosEmbeddingBwdSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   return RotaryPosEmbeddingFwdBwdSharedMeta(stack, "rotary_pos_embedding_bwd");
 }
 

@@ -73,8 +73,8 @@ class PipelineCallBase {
   }
 
   virtual void execute(
-      absl::AnyInvocable<void(habana::HabanaLaunchOpPT&)>&&,
-      absl::AnyInvocable<void(habana::HabanaLaunchOpPT&)>&&) {
+      absl::AnyInvocable<void(habana::HabanaLaunchOpPT&)>&& /*unused*/,
+      absl::AnyInvocable<void(habana::HabanaLaunchOpPT&)>&& /*unused*/) {
     PT_BRIDGE_FATAL("HabanaLaunchOpPT has been used without pipeline wrapper");
   }
 };

@@ -116,7 +116,7 @@ OutputMetaDataVector HistogramBinsMeta(const at::Stack& stack) {
 
 SharedMetaDataVector HistcSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const auto self = stack.at(0).toTensor();
   SharedMetaData histcMeta{"histogram"};
   histcMeta.inputs_data.emplace_back(self.dim(), self.scalar_type());
@@ -150,13 +150,13 @@ SharedMetaDataVector HistogramCommonSharedMeta(
 
 SharedMetaDataVector HistogramBinsSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   return HistogramCommonSharedMeta(stack, 1);
 }
 
 SharedMetaDataVector HistogramBinCtSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   return HistogramCommonSharedMeta(stack, 2);
 }
 

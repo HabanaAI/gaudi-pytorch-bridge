@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,9 +16,9 @@
 #include "synapse_shim/partial_event_emulation.h"
 
 synStatus PartialEventEmulation::synTensorExtExtractExecutionOrder(
-    const synRecipeHandle,
-    uint32_t,
-    uint64_t*) {
+    const synRecipeHandle /*unused*/,
+    uint32_t /*unused*/,
+    uint64_t* /*unused*/) {
   return synSuccess;
 }
 
@@ -53,10 +53,10 @@ synStatus PartialEventEmulation::synLaunchWithExternalEvents(
 }
 
 synStatus PartialEventEmulation::synEventMapTensor(
-    synEventHandle*,
-    size_t,
-    const synLaunchTensorInfo*,
-    const synRecipeHandle) {
+    synEventHandle* /*unused*/,
+    size_t /*unused*/,
+    const synLaunchTensorInfo* /*unused*/,
+    const synRecipeHandle /*unused*/) {
   return synSuccess;
 }
 

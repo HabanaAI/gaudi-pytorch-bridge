@@ -183,7 +183,7 @@ void HPUDeviceContextImpl::Finish() {
   constant_information_.reset();
 }
 
-synapse_helpers::device& get_device(synDeviceId) {
+synapse_helpers::device& get_device(synDeviceId /*unused*/) {
   HABANA_ASSERT(device_context.device_);
   return *device_context.device_;
 }

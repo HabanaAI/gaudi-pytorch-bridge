@@ -17,7 +17,7 @@
 #include "hpu_ops/habana_random_ops.h"
 
 namespace habana {
-FillParamsT FillPoissonParams(const at::Stack&) {
+FillParamsT FillPoissonParams(const at::Stack& /*unused*/) {
   PARAMS_STUB(ns_RandomPoisson::Params);
   params->lambda = 0.0;
   params->poissonFlavor = RandomPoissonFlavor_t::WITH_DIST;
@@ -26,7 +26,7 @@ FillParamsT FillPoissonParams(const at::Stack&) {
 
 SharedMetaDataVector PoissonSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   auto self = stack_tensor(stack, 0);
   auto selfDtype = self.scalar_type();
   auto rank = self.dim();

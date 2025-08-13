@@ -17,7 +17,7 @@
 #include "habana_helpers/dtype_helpers.h"
 
 namespace habana {
-FillParamsT FillFloorDivideParams(const at::Stack&) {
+FillParamsT FillFloorDivideParams(const at::Stack& /*unused*/) {
   PARAMS_STUB(ns_DivModKernel::ParamsV2);
   // using floor mode
   params->isTruncRoundingMode = false;
@@ -27,7 +27,7 @@ FillParamsT FillFloorDivideParams(const at::Stack&) {
 
 SharedMetaDataVector FloorDivideSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const auto& self = stack.at(0);
   const auto& other = stack.at(1);
   const auto dtype = habana_helpers::DTypeHelper::binary_op_with_type_promotion(

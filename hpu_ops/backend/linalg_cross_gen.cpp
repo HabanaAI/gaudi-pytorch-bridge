@@ -18,7 +18,7 @@
 namespace habana {
 
 static sizes_vec SplitOutputShape(
-    bool,
+    bool /*unused*/,
     int64_t dim,
     std::vector<int64_t> outshape) {
   HABANA_ASSERT(
@@ -33,7 +33,7 @@ static sizes_vec SplitOutputShape(
 
 static sizes_vec TransposeOutputShape(
     const at::Stack& stack,
-    bool,
+    bool /*unused*/,
     int64_t trans_dim1,
     int64_t trans_dim2) {
   auto self = stack.at(0).toTensor();
@@ -135,7 +135,7 @@ static std::vector<synapse_helpers::tensor> Concat(
 
 SharedMetaDataVector LinAlgCrossSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const auto& self = stack_tensor(stack, 0);
   auto rank = self.dim();
   auto dtype = self.scalar_type();

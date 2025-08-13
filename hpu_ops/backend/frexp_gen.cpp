@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@ c10::ScalarType GetKernelExponentType(const c10::ScalarType dtype) {
 
 SharedMetaDataVector FrexpSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const auto& input = stack_tensor(stack, 0);
   const auto inputType = input.scalar_type();
   auto outputType = inputType;

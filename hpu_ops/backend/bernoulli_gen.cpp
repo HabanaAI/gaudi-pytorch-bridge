@@ -27,7 +27,7 @@ FillParamsT FillBernoulliWithPParams(const at::Stack& stack) {
 
 SharedMetaDataVector BernoulliSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   const auto& seed = stack.at(1);
   auto seedRank = 1;
   auto seedDtype = c10::ScalarType::Int;
@@ -51,7 +51,7 @@ SharedMetaDataVector BernoulliSharedMeta(
 
 SharedMetaDataVector BernoulliWithPSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode /*unused*/) {
   auto self = stack_tensor(stack, 0);
   auto selfRank = self.dim();
   auto selfDtype = self.scalar_type();
