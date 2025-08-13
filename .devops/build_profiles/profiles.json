@@ -60,8 +60,8 @@
       "extras": {
         "torchvision": "main",
         "torchaudio": "main",
-        "torchtext": "main",
-        "torchdata": "main"
+        "torchtext": "v0.18.0",
+        "torchdata": "v0.11.0"
       }
     },
     "rc": {
