@@ -82,6 +82,8 @@ def register_habana_activity_profiler():
             with_flops: bool = False,
             with_modules: bool = False,
             experimental_config: torch._C._profiler._ExperimentalConfig | None = None,
+            execution_trace_observer: torch.profiler.ExecutionTraceObserver | None = None,
+            acc_events: bool | None = None,
             use_cuda: bool | None = None,
         ):
             activities = (
@@ -107,6 +109,8 @@ def register_habana_activity_profiler():
                 with_flops=with_flops,
                 with_modules=with_modules,
                 experimental_config=experimental_config,
+                execution_trace_observer=execution_trace_observer,
+                acc_events=acc_events,
                 use_cuda=use_cuda,
             )
 
@@ -210,6 +214,8 @@ def register_habana_light_activity_profiler():
             with_flops: bool = False,
             with_modules: bool = False,
             experimental_config: torch._C._profiler._ExperimentalConfig | None = None,
+            execution_trace_observer: torch.profiler.ExecutionTraceObserver | None = None,
+            acc_events: bool | None = None,
             use_cuda: bool | None = None,
         ):
             bridge_profile = debug_activities is not None and DebugActivity.BRIDGE_FUNCTION_CALLS in debug_activities
@@ -225,6 +231,8 @@ def register_habana_light_activity_profiler():
                 with_flops=with_flops,
                 with_modules=with_modules,
                 experimental_config=experimental_config,
+                execution_trace_observer=execution_trace_observer,
+                acc_events=acc_events,
                 use_cuda=use_cuda,
             )
 
