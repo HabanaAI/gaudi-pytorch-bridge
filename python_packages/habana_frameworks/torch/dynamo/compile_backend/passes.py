@@ -181,6 +181,7 @@ def get_passes(stage: OptimizationPassPlacement):
             pass_summarize_graph,
             pass_check_eager_fallbacks,
             pass_detect_partition_in_to_out_duplicates,
+            pass_propagate_reusable_input_info_to_submod_in_bwd,
             pass_detect_reusable_inputs_for_partition,
             pass_compile_clusters,
             pass_make_boxed_graph,
@@ -1257,6 +1258,81 @@ def pass_fuse_partitions(ctx: OptimizerContext) -> bool:
     return True
 
 
+def pass_propagate_reusable_input_info_to_submod_in_bwd(ctx: OptimizerContext):
+    """
+    This pass propagates reusable input info to submodules in the backward graph after partition.
+    """
+    if not hpu_backend_config.enable_bwd_graph_input_reuse:
+        return False
+
+    from collections import defaultdict
+
+    graph_changed = False
+    logger.debug("=== [Pass] Propagate Reusable Inputs to Submodules ===")
+
+    # Step 1: Collect is_reusables from top-level graph
+    name_to_reusable_flag = {}
+    logger.debug("[Main Graph Placeholders]")
+    for node in ctx.graph_module.graph.nodes:
+        if node.op == "placeholder":
+            is_reusable = node.meta.get("bwd_inp_is_reusables", False)
+            name_to_reusable_flag[node.name] = is_reusable
+            logger.debug(f"  - name: {node.name}  is_reusables: {is_reusable} ")
+
+    # Step 2: Build usage map: input_name -> list of call_module nodes that use it
+    input_name_to_users = defaultdict(list)
+
+    for node in ctx.graph_module.graph.nodes:
+        if node.op == "call_module":
+            for arg in node.args:
+                if isinstance(arg, torch.fx.Node) and arg.op == "placeholder":
+                    input_name_to_users[arg.name].append(node)
+                    logger.debug(f"[Usage] Placeholder '{arg.name}' used in call_module '{node.target}'")
+
+    # Step 3: Decide which call_module is the last user of each input
+    input_name_to_last_user = {}
+    for name, users in input_name_to_users.items():
+        last_user = users[-1]
+        input_name_to_last_user[name] = last_user
+        logger.debug(f"[Last Use] Placeholder '{name}' last used in call_module '{last_user.target}'")
+
+    # Step 4: Propagate reusable info only to the last user of each input
+    for node in ctx.graph_module.graph.nodes:
+        if node.op != "call_module":
+            continue
+
+        submod = ctx.graph_module.get_submodule(node.target)
+        if not isinstance(submod, torch.fx.GraphModule):
+            continue
+
+        logger.debug(f"[Submodule: {node.target}]")
+
+        is_reusables = []
+        for sub_node in submod.graph.nodes:
+            if sub_node.op != "placeholder":
+                continue
+
+            input_name = sub_node.name
+            orig_reusable = name_to_reusable_flag.get(input_name, False)
+            last_user = input_name_to_last_user.get(input_name)
+
+            # Only the last user gets reusable
+            is_reusable = orig_reusable and (node == last_user)
+            is_reusables.append(is_reusable)
+            logger.debug(
+                f"  - Input: {input_name}, orig_reusable: {orig_reusable}, "
+                f"this_node: {node.target}, last_user: {last_user.target if last_user else 'None'}, "
+                f"==> is_reusable: {is_reusable}"
+            )
+
+        submod.meta["bwd_inp_is_reusables"] = is_reusables
+        logger.debug(f"  => Stored in submod.meta['bwd_inp_is_reusables'] = {is_reusables}")
+        graph_changed = True
+
+    logger.debug("=== [Done] Reusable input propagation pass completed ===")
+    return graph_changed
+
+
 def pass_add_fused_op_metadata(ctx: OptimizerContext):
     """
     This pass goes through every fused node (`call_module`) created by GraphPartitioner
@@ -1940,8 +2016,18 @@ def pass_detect_reusable_inputs_for_partition(ctx: OptimizerContext):
             reusable = is_last_use and not_graph_input and no_share_mem and not_frozen
             is_reusables.append(reusable)
         submod = ctx.graph_module.get_submodule(user.target)
-        submod.meta["is_reusables"] = is_reusables
         logger.debug(f"Partition {user.target} has reusable input information: {is_reusables}")
+        # original value
+        existing_reusables = submod.meta.get("bwd_inp_is_reusables", [False] * len(is_reusables))
+        logger.debug(f"Partition {user.target} has existing reusable input information: {existing_reusables}")
+        # bitwise OR operation
+        updated_reusables = [e or new for e, new in zip(existing_reusables, is_reusables, strict=False)]
+        submod.meta["is_reusables"] = updated_reusables
+        if "bwd_inp_is_reusables" in submod.meta:
+            del submod.meta["bwd_inp_is_reusables"]
+        logger.debug(
+            f"Partition {user.target} has reusable input information after merge reusable bwd input: {updated_reusables}"
+        )
 
     return True
 

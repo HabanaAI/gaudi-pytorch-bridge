@@ -581,6 +581,11 @@ PT_HPU_ENABLE_SYNAPSE_INPUT_REUSE:
   type: bool
   default: true
 
+PT_HPU_ENABLE_BWD_GRAPH_INPUT_REUSE:
+  type: bool
+  default: false
+  doc: "Enable reuse inputs of backward graph"
+
 PT_HPU_ENABLE_WEIGHT_CPU_PERMUTE:
   type: bool
   default: true

@@ -107,6 +107,143 @@ def constant_fold_joint_graph(gm: torch.fx.GraphModule) -> torch.fx.GraphModule:
     return gm
 
 
+def find_reusable_inputs_of_bwd(
+    fw_module: torch.fx.GraphModule, bw_module: torch.fx.GraphModule, joint_module: torch.fx.GraphModule
+):
+    # 1. Extract output nodes from the forward graph
+    forward_outputs = []
+    for node in fw_module.graph.nodes:
+        if node.op == "output":
+            forward_outputs = [n.name for n in node.args[0]]
+            break
+
+    # 2. Extract input (placeholder) nodes from the backward graph
+    bw_placeholders = [node for node in bw_module.graph.nodes if node.op == "placeholder"]
+    backward_inputs = [node.name for node in bw_placeholders]
+
+    # 3. Find shared names: forward outputs used as backward inputs
+    shared_names = set(forward_outputs).intersection(backward_inputs)
+
+    # 4. Extract input nodes from the forward graph
+    fw_input_names = [node.name for node in fw_module.graph.nodes if node.op == "placeholder"]
+
+    # 5 Identify outputs derived from fwd input via a chain of view ops
+    view_chain_from_input = set()
+
+    def is_derived_from_input_via_view_chain(node, visited=None):
+        if visited is None:
+            visited = set()
+        if node.name in visited:
+            return False  # avoid cycles
+        visited.add(node.name)
+
+        if node.op == "placeholder":
+            return node.name in fw_input_names
+
+        if node.op == "call_function" and is_view_node(node):
+            input_node = node.args[0]
+            if isinstance(input_node, torch.fx.Node):
+                return is_derived_from_input_via_view_chain(input_node, visited)
+
+        return False
+
+    for node in fw_module.graph.nodes:
+        if node.op == "call_function" and node.name in forward_outputs and is_derived_from_input_via_view_chain(node):
+            view_chain_from_input.add(node.name)
+
+    # 5b. Identify nodes that flow into forward outputs via view chain
+    view_chain_to_forward_output = set()
+
+    def flows_to_forward_output_via_view_chain(node, forward_output_names, visited=None, is_root=True):
+        if visited is None:
+            visited = set()
+        if node.name in visited:
+            return False
+        visited.add(node.name)
+
+        if node.name in forward_output_names:
+            return not is_root
+
+        for user in node.users:
+            if (
+                user.op == "call_function"
+                and is_view_node(user)
+                and flows_to_forward_output_via_view_chain(user, forward_output_names, visited)
+            ):
+                return True
+        return False
+
+    for node in fw_module.graph.nodes:
+        if flows_to_forward_output_via_view_chain(node, forward_outputs):
+            view_chain_to_forward_output.add(node.name)
+
+    # 6. Identify forward outputs that flow (possibly via view ops) to joint graph outputs
+    def extract_all_nodes(obj):
+        """Recursively extract all torch.fx.Node from obj (could be tuple, list, dict, or Node)."""
+        if isinstance(obj, torch.fx.Node):
+            return [obj]
+        elif isinstance(obj, tuple | list):
+            nodes = []
+            for item in obj:
+                nodes.extend(extract_all_nodes(item))
+            return nodes
+        elif isinstance(obj, dict):
+            nodes = []
+            for v in obj.values():
+                nodes.extend(extract_all_nodes(v))
+            return nodes
+        return []  # Ignore non-Node values
+
+    joint_output_names = []
+    for node in joint_module.graph.nodes:
+        if node.op == "output":
+            output_nodes = extract_all_nodes(node.args)
+            joint_output_names = [n.name for n in output_nodes]
+            break
+    view_chain_to_joint_output = set()
+
+    def flows_to_joint_output_via_view_chain(node, joint_output_names, visited=None):
+        if visited is None:
+            visited = set()
+        if node.name in visited:
+            return False
+        visited.add(node.name)
+
+        if node.name in joint_output_names:
+            return True
+
+        for user in node.users:
+            if (
+                user.op == "call_function"
+                and is_view_node(user)
+                and flows_to_joint_output_via_view_chain(user, joint_output_names, visited)
+            ):
+                return True
+        return False
+
+    for node in fw_module.graph.nodes:
+        if node.name in forward_outputs and flows_to_joint_output_via_view_chain(node, joint_output_names):
+            view_chain_to_joint_output.add(node.name)
+
+    # 7. Filter: forward outputs that are used in backward,
+    #            are not direct inputs,
+    #            are not view chain from fwd input,
+    #            are not view chain to joint output,
+    #            are not view chain to fwd output
+    filtered_shared = (
+        shared_names
+        - set(fw_input_names)
+        - view_chain_from_input
+        - view_chain_to_joint_output
+        - view_chain_to_forward_output
+    )
+
+    # 8. store is_reusables info in placeholder meta
+    for node in bw_placeholders:
+        reusable = node.name in filtered_shared
+        node.meta["bwd_inp_is_reusables"] = reusable
+
+
 def hpu_partition(
     joint_module: torch.fx.GraphModule,
     _joint_inputs,
@@ -133,6 +270,11 @@ def hpu_partition(
     try:
         fw_module, bw_module = default_partition(joint_module, _joint_inputs, num_fwd_outputs=num_fwd_outputs)
         bw_module = reordering_to_mimic_autograd_engine(bw_module)
+
+        # we use fwd and bwd to find reusable inputs of bwd
+        if hpu_backend_config.enable_bwd_graph_input_reuse:
+            find_reusable_inputs_of_bwd(fw_module, bw_module, joint_module)
+
         return fw_module, bw_module
     except AssertionError:
         return min_cut_rematerialization_partition(joint_module, _joint_inputs, num_fwd_outputs=num_fwd_outputs)
