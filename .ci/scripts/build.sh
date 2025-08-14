@@ -33,7 +33,6 @@ function pytorch_functions_help()
     echo -e "build_pytorch_tb_plugin        -   Build Habana PyTorch TensorBoard plugin"
     echo -e "build_lightning_habana_fork    -   Build Lightning Habana fork"
     echo -e "build_pytorch_data             -   Build the torchdata package"
-    echo -e "build_pytorch_text             -   Build the torchtext package"
     echo -e "build_pytorch_audio            -   Build the torchaudio package"
     echo -e "build_pytorch_vision           -   Build the torchvision package"
     echo -e "run_pytorch_qa_tests           -   Run PyTorch QA tests"
@@ -173,18 +172,6 @@ function pytorch_usage()
         echo -e "       --install              will install the package"
         echo -e "       --dist                 create a wheel distribution/default"
         echo -e "       --pt-data-version      PytorchData version"
-        echo -e "  -h,  --help                 Prints this help"
-    elif [ "$1" == "build_pytorch_text" ]; then
-        echo -e "\n usage: $1 [options]\n"
-
-        echo -e "options:\n"
-        echo -e "  -j,  --jobs <val>           Max jobs used for compilation"
-        echo -e "  -c,  --clean                clean up temporary files from 'build' command"
-        echo -e "  -r,  --release              Python only code, option ignored"
-        echo -e "  -d,  --debug                Python only code, option ignored"
-        echo -e "       --install              will install the package"
-        echo -e "       --dist                 create a wheel distribution/default"
-        echo -e "       --pt-text-version      PytorchText version"
         echo -e "  -h,  --help                 Prints this help"
     elif [ "$1" == "build_pytorch_audio" ]; then
         echo -e "\n usage: $1 [options]\n"
@@ -1904,7 +1891,7 @@ set_up_pytorch_artifacts_for_testing() (
 
 uninstall_pytorch_artifacts() {
     echo "-> Uninstalling PT artifacts"
-    pip uninstall -y torch torch-debug habana-torch-dataloader habana-torch-plugin torch_tb_profiler torchaudio torchdata torchtext torchvision
+    pip uninstall -y torch torch-debug habana-torch-dataloader habana-torch-plugin torch_tb_profiler torchaudio torchdata torchvision
 }
 
 __check_pytorch_dev_py_deps()
@@ -2016,122 +2003,6 @@ get_github_repo()
     # Clone only last state of given branch
     git clone --depth 1 --branch ${__revision} "https://github.com/${__repository}" . || { echo "Error: Checkout Failed! Provided revision: $__revision is not valid"; exit 1 ;}
   fi
-}
-
-build_pytorch_text()
-{
-    SECONDS=0
-    local __scriptname=$(__get_func_name)
-    local __env_vars=""
-    local __configure=""
-    local __whl_params=" bdist_wheel"
-    local __result
-    local __profile_getter_path="${PYTORCH_MODULES_ROOT_PATH}/.devops/profile_getter.py"
-    local __pt_text_version
-    local __build_manylinux_whl="false"
-    local __auditwheel="false"
-    local __useicecc
-    local __variables_to_manylinux_build=$(printf "%s %s\n" "$@" "--auditwheel" | sed s/--manylinux// | sed s/--use-icecc//)
-    # parameter while-loop
-    while [ -n "$1" ];
-    do
-        case $1 in
-        -j  | --jobs )
-            __env_vars+=" MAX_JOBS=$2"
-            shift
-            ;;
-        -c  | --configure )
-             __configure="yes"
-            ;;
-        -r  | --release )
-            ;;
-        -d  | --debug )
-            ;;
-        -a  | --build-all )
-            ;;
-        --dist )
-            __whl_params=" bdist_wheel"
-            ;;
-        --install )
-            __whl_params=" install"
-            ;;
-        --pt-text-version )
-            __pt_text_version="$2"
-            shift
-            ;;
-        --manylinux )
-            __build_manylinux_whl="true"
-            ;;
-        --auditwheel )
-            __auditwheel="true"
-            ;;
-        --use-icecc )
-            __useicecc="--use-icecc"
-            ;;
-        -h  | --help )
-            pytorch_usage $__scriptname
-            return 0
-            ;;
-        esac
-        shift
-    done
-
-    if [ "z${__build_manylinux_whl}" == "ztrue" ];then
-        execute_in_manylinux_runner CMAKE_POLICY_VERSION_MINIMUM=3.5 TORCH_DEVICE_BACKEND_AUTOLOAD=0 $__useicecc $__scriptname $__variables_to_manylinux_build
-        return $?
-    fi
-
-    rm -rf $PYTORCH_TEXT_ROOT
-    mkdir -p $PYTORCH_TEXT_ROOT
-    pushd $PYTORCH_TEXT_ROOT
-
-    # checkout github torchtext repo
-    if [ -z ${__pt_text_version} ]; then
-        __pt_text_version=$($__profile_getter_path --get-extras-version torchtext current)
-    fi
-    echo "get torchtext from github (tag: $__pt_text_version)"
-    get_github_repo "pytorch/text" "${__pt_text_version}"
-    git submodule update --init --recursive
-
-    if [ -n "$__configure" ]; then
-        python setup.py clean
-    fi
-
-    # Replace tcmalloc_minimal with tcmalloc to avoid Segmentation fault during torchtext importing.
-    # For details look here: SW-201537
-    sed -i 's/tcmalloc_minimal/tcmalloc/g' third_party/sentencepiece/src/CMakeLists.txt
-
-    echo "Build parameters ${__whl_params}"
-
-    (set -x;eval ${__env_vars} python setup.py ${__whl_params})
-    __result=$?
-    if [ $__result -ne 0 ]; then
-        echo "Pytorch torchtext build failed!"
-        popd
-        return $__result
-    fi
-
-    if [[ "$__whl_params" = " bdist_wheel" ]]; then
-        PTT_WHL_PATH="$PYTORCH_TEXT_ROOT/dist/"
-        if [ "z${__auditwheel}" == "ztrue" ];then
-            # We can exclude all ".so" libs from the auditwheel repair command, as the original build command bundles up
-            # the wheel with all needed libs, including libtorchtext.so. If the libs are not excluded, the wheel contains
-            # two copies of each lib what leads to the issue of double loading lib.
-            bash -c "auditwheel repair --only-plat --exclude \"*\" ${PTT_WHL_PATH}/*.whl"
-            PTT_WHL_PATH="$PYTORCH_TEXT_ROOT/wheelhouse/"
-        fi
-        BUILD_PATH="$PYTORCH_TEXT_BUILD/pkgs"
-        if [ -n "$__configure" ]; then
-            rm -rf $BUILD_PATH
-        fi
-        mkdir -p $BUILD_PATH
-        echo "Copying wheel from ${PTT_WHL_PATH} to ${BUILD_PATH}"
-        cp -f ${PTT_WHL_PATH}/*.whl $BUILD_PATH
-    fi
-    popd
-
-    printf "\nElapsed time: %02u:%02u:%02u \n\n" $(($SECONDS / 3600)) $((($SECONDS / 60) % 60)) $(($SECONDS % 60))
-    return $__result
 }
 
 build_pytorch_data()

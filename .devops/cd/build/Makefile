@@ -175,7 +175,6 @@ collect-pt-versions: validate ## extract versions from build_profiles.json and s
 	echo "TORCH_VERSION=$(shell cat $(SRC_DIR)/pytorch-fork/version.txt)" >> $(SRC_DIR)/pytorch-integration/.devops/cd/scripts/.env
 	echo "TORCHVISION_VERSION=$(shell jq -rj '.pt_versions.current.extras.torchvision' $(SRC_DIR)/pytorch-integration/.devops/build_profiles/profiles.json | cut -d- -f1)" >> $(SRC_DIR)/pytorch-integration/.devops/cd/scripts/.env
 	echo "TORCHAUDIO_VERSION=$(shell jq -rj '.pt_versions.current.extras.torchaudio' $(SRC_DIR)/pytorch-integration/.devops/build_profiles/profiles.json | cut -d- -f1)" >> $(SRC_DIR)/pytorch-integration/.devops/cd/scripts/.env
-	echo "TORCHTEXT_VERSION=$(shell jq -rj '.pt_versions.current.extras.torchtext' $(SRC_DIR)/pytorch-integration/.devops/build_profiles/profiles.json | cut -d- -f1)" >> $(SRC_DIR)/pytorch-integration/.devops/cd/scripts/.env
 	echo "TORCHDATA_VERSION=$(shell jq -rj '.pt_versions.current.extras.torchdata' $(SRC_DIR)/pytorch-integration/.devops/build_profiles/profiles.json | cut -d- -f1)" >> $(SRC_DIR)/pytorch-integration/.devops/cd/scripts/.env
 
 build-%: validate init

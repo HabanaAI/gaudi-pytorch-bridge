@@ -36,7 +36,6 @@
       "extras": {
         "torchvision": "v0.22.1",
         "torchaudio": "v2.7.1",
-        "torchtext": "v0.18.0",
         "torchdata": "v0.11.0"
       }
     },
@@ -47,7 +46,6 @@
       "extras": {
         "torchvision": "v0.23.0",
         "torchaudio": "v2.8.0",
-        "torchtext": "v0.18.0",
         "torchdata": "v0.11.0"
       }
     },
@@ -58,7 +56,6 @@
       "extras": {
         "torchvision": "main",
         "torchaudio": "main",
-        "torchtext": "v0.18.0",
         "torchdata": "v0.11.0"
       }
     },
