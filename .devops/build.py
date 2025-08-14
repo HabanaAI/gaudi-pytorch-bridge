@@ -1763,6 +1763,23 @@ def select_python_versions(args) -> set[Version]:
     return selected
 
 
+def extract_py_versions(raw_args: Iterable[str]) -> tuple[set[Version], list[str]]:
+    py_parser = argparse.ArgumentParser()
+
+    py_parser.add_argument(
+        "--python-versions",
+        "--py-versions",
+        choices=supported_python_versions + ("all", "current"),
+        nargs="+",
+        default=("current",),
+    )
+    py_args, rest = py_parser.parse_known_args(raw_args)
+    log.debug(f"Selected versions {py_args.python_versions}\n Rest: {rest}")
+    py_versions = select_python_versions(py_args)
+    log.debug(f"Py versions objects {py_versions}")
+    return py_versions, rest
+
+
 def setup_logging(args) -> StringIO:
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.INFO,
@@ -1875,9 +1892,14 @@ def main():
         if args.use_icecc:
             raw_args.remove("--use-icecc")
         raw_args.remove("--manylinux")
+        py_versions, other_args = extract_py_versions(raw_args)
         log.debug("Checking if available HLLogger build is compatible with the manylinux requirements.")
-        HLLoggerManyLinuxRunner(with_icecc=args.use_icecc).run(False, get_hl_logger_build_params(args))
-        PTIntegrationManyLinuxRunner(with_icecc=args.use_icecc).run(shouldRecreateVenv, raw_args)
+        HLLoggerManyLinuxRunner(with_icecc=args.use_icecc, py_versions=py_versions).run(
+            False, get_hl_logger_build_params(args)
+        )
+        PTIntegrationManyLinuxRunner(with_icecc=args.use_icecc, py_versions=py_versions).run(
+            shouldRecreateVenv, other_args
+        )
         sys.exit()
 
     if args.get_pt_version:

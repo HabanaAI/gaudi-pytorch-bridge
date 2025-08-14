@@ -58,6 +58,8 @@ function pytorch_usage()
         echo -e "       --dist                 create a wheel distribution"
         echo -e "       --manylinux            build pytorch_fork in a manylinux docker container"
         echo -e "       --use-icecc            when --manylinux argument is set, the docker container supporting iceecc is used"
+        echo -e "       --python-versions,     when --manylinux argument is set, the docker container will build using all provided versions"
+        echo -e "       --py-versions               eg. \"3.10\" \"current\" \"all\""
         echo -e "       --auditwheel           perform auditwheel on the built wheel to make it manylinux compatible"
         echo -e "       --build-number         Extend whl version number by build number"
         echo -e "       --build-version        Build version used for whl creation"
@@ -183,6 +185,10 @@ function pytorch_usage()
         echo -e "  -d,  --debug                Python only code, option ignored"
         echo -e "       --install              will install the package"
         echo -e "       --dist                 create a wheel distribution/default"
+        echo -e "       --manylinux            build pytorch_audio in a manylinux docker container"
+        echo -e "       --use-icecc            when --manylinux argument is set, the docker container supporting iceecc is used"
+        echo -e "       --python-versions,     when --manylinux argument is set, the docker container will build using all provided versions"
+        echo -e "       --py-versions               eg. \"3.10\" \"current\" \"all\""
         echo -e "       --pt-audio-version     PytorchAudio version"
         echo -e "  -h,  --help                 Prints this help"
     elif [ "$1" == "build_pytorch_vision" ]; then
@@ -195,6 +201,10 @@ function pytorch_usage()
         echo -e "  -d,  --debug                Python only code, option ignored"
         echo -e "       --install              will install the package"
         echo -e "       --dist                 create a wheel distribution/default"
+        echo -e "       --manylinux            build pytorch_vision in a manylinux docker container"
+        echo -e "       --use-icecc            when --manylinux argument is set, the docker container supporting iceecc is used"
+        echo -e "       --python-versions,     when --manylinux argument is set, the docker container will build using all provided versions"
+        echo -e "       --py-versions               eg. \"3.10\" \"current\" \"all\""
         echo -e "       --pt-vision-version    Pytorch Vision version"
         echo -e "  -h,  --help                 Prints this help"
     elif [ "$1" == "setup_standalone" ]; then
@@ -213,6 +223,22 @@ function pytorch_usage()
 
 __error() {
     echo "ERROR:" "$@" >&2
+}
+
+__consume_python_versions()
+{
+    local counter=0
+    while [ -n "$2" ]; do
+        case $2 in
+            3.* | "all" | "current")
+                shift
+                ((counter++))
+                ;;
+            *)
+                break
+        esac
+    done
+    echo $counter
 }
 
 build_pytorch_modules()
@@ -364,6 +390,7 @@ build_pytorch_fork()
     local __default_vers="default_vers"
     local __branch=""
     local __build_manylinux_whl="false"
+    local __n_py_versions=-1
     local __pytorch_next="false"
     local __auditwheel="false"
     local __useicecc
@@ -412,6 +439,10 @@ build_pytorch_fork()
         --manylinux )
             __build_manylinux_whl="true"
             ;;
+        --python-versions | --py-versions )
+            __n_py_versions=$(__consume_python_versions "$@")
+            shift $__n_py_versions
+            ;;
         --pytorch-next )
             __pytorch_next="true"
             ;;
@@ -446,6 +477,9 @@ build_pytorch_fork()
         __result=$?
         popd >&/dev/null
         return $__result
+    elif [ $__n_py_versions -gt -1 ]; then
+        echo "Error: --python-versions is only supported when used with --manylinux."
+        return 1
     fi
 
     set_os_specific_vars
@@ -2108,6 +2142,7 @@ build_pytorch_audio()
     local __profile_getter_path="${PYTORCH_MODULES_ROOT_PATH}/.devops/profile_getter.py"
     local __pt_audio_version
     local __build_manylinux_whl="false"
+    local __n_py_versions=-1
     local __auditwheel="false"
     local __useicecc
     local __variables_to_manylinux_build=$(printf "%s %s\n" "$@" "--auditwheel" | sed s/--manylinux// | sed s/--use-icecc//)
@@ -2140,6 +2175,10 @@ build_pytorch_audio()
         --manylinux )
             __build_manylinux_whl="true"
             ;;
+        --python-versions | --py-versions )
+            __n_py_versions=$(__consume_python_versions "$@")
+            shift $__n_py_versions
+            ;;
         --auditwheel )
             __auditwheel="true"
             ;;
@@ -2157,6 +2196,9 @@ build_pytorch_audio()
     if [ "z${__build_manylinux_whl}" == "ztrue" ];then
         execute_in_manylinux_runner TORCH_DEVICE_BACKEND_AUTOLOAD=0 $__useicecc $__scriptname $__variables_to_manylinux_build
         return $?
+    elif [ $__n_py_versions -gt -1 ]; then
+        echo "Error: --python-versions is only supported when used with --manylinux."
+        return 1
     fi
 
     rm -rf $PYTORCH_AUDIO_ROOT
@@ -2219,6 +2261,7 @@ build_pytorch_vision()
     local __pt_vision_version
     local __next_version=false
     local __build_manylinux_whl="false"
+    local __n_py_versions=-1
     local __auditwheel="false"
     local __useicecc
     local __variables_to_manylinux_build=$(printf "%s %s\n" "$@" "--auditwheel" | sed s/--manylinux// | sed s/--use-icecc//)
@@ -2253,6 +2296,10 @@ build_pytorch_vision()
         --manylinux )
             __build_manylinux_whl="true"
             ;;
+        --python-versions | --py-versions )
+            __n_py_versions=$(__consume_python_versions "$@")
+            shift $__n_py_versions
+            ;;
         --auditwheel )
             __auditwheel="true"
             ;;
@@ -2270,6 +2317,9 @@ build_pytorch_vision()
     if [ "z${__build_manylinux_whl}" == "ztrue" ];then
         execute_in_manylinux_runner TORCH_DEVICE_BACKEND_AUTOLOAD=0 $__useicecc $__scriptname $__variables_to_manylinux_build
         return $?
+    elif [ $__n_py_versions -gt -1 ]; then
+        echo "Error: --python-versions is only supported when used with --manylinux."
+        return 1
     fi
 
     rm -rf $PYTORCH_VISION_ROOT

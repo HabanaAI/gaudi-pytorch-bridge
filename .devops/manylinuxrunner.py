@@ -23,16 +23,17 @@ import sys
 from abc import abstractmethod
 from collections.abc import Iterable
 
+from build_profiles.version import Version
 from icecc_utils import ensure_icecc_setup
 
 log = logging.getLogger(__file__)
 
 
 class GenericManylinuxRunner:
-    def __init__(self, with_icecc=False):
+    def __init__(self, with_icecc=False, py_versions={Version(sys.version_info)}):
         self.policy = "manylinux_2_28"
         self.arch = "x86_64"
-
+        self.py_versions = py_versions
         self.with_icecc = with_icecc
         if with_icecc:
             self.image_name = f"artifactory-kfs.habana-labs.com/docker/manylinux/{self.policy}-with-icecc"
@@ -42,13 +43,15 @@ class GenericManylinuxRunner:
     def run(self, recreate_venv: bool, raw_args: Iterable[str]):
         log.info("Performing a manylinux build")
         self.pull_manylinux_container()
-        self.rerun_build_in_manylinux(recreate_venv, raw_args)
+
+        for py_version in self.py_versions:
+            self.rerun_build_in_manylinux(recreate_venv, raw_args, py_version)
 
     def pull_manylinux_container(self):
         log.debug(f"Pulling {self.image_name} Docker image")
         sp.check_call(f"docker pull {self.image_name}".split())
 
-    def rerun_build_in_manylinux(self, recreate_venv: bool, raw_args: Iterable[str]):
+    def rerun_build_in_manylinux(self, recreate_venv: bool, raw_args: Iterable[str], py_version: Version):
         venv_base_dir = os.path.join(os.environ["HOME"], ".venvs")
         manylinux_venvs_dir = os.path.join(venv_base_dir, self.policy)
         os.makedirs(manylinux_venvs_dir, exist_ok=True)
@@ -61,8 +64,7 @@ class GenericManylinuxRunner:
         proxy_keys = " -e ".join(f"{k}={os.environ[k]}" for k in os.environ if "proxy" in k.lower())
         proxy_keys = f" -e {proxy_keys}" if proxy_keys else ""
 
-        short_python_version = f"{sys.version_info.major}.{sys.version_info.minor}"
-        host_dir_for_venv = os.path.join(manylinux_venvs_dir, f"py{short_python_version}")
+        host_dir_for_venv = os.path.join(manylinux_venvs_dir, f"py{py_version}")
         if recreate_venv:
             log.info("Recreating main (mounted) manylinux virtual environment")
             shutil.rmtree(host_dir_for_venv, ignore_errors=True)
@@ -84,7 +86,7 @@ class GenericManylinuxRunner:
             f" -e AUDITWHEEL_POLICY={self.policy}"
             f" -e AUDITWHEEL_PLAT={self.policy}_{self.arch}"
             f" -e PLAT={self.policy}_{self.arch}"
-            f" -e HABANA_PYTHON_VERSION={short_python_version}"  # TODO: use python version from args, iterate over all
+            f" -e HABANA_PYTHON_VERSION={py_version}"
             f" -e HOST_USER={os.environ['USER']}"
             f" -e HOST_UID={os.getuid()}"
             f" -e HOST_GID={os.getgid()}"
@@ -143,11 +145,23 @@ class DefaultManyLinuxRunner(GenericManylinuxRunner):
 
 
 def parse_args():
+    from build import supported_python_versions
+
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--use-icecc",
         action="store_true",
         help="Build with icecc (distributed compilation). Currently only does something combined with --manylinux argument",
+    )
+    parser.add_argument(
+        "--python-versions",
+        "--py-versions",
+        choices=supported_python_versions + ("all", "current"),
+        nargs="+",
+        default=("current",),
+        help="Python versions to include. By default this option is set to "
+        "'current' to only build for the system-supplied python3 (ATM it's "
+        f"{Version(sys.version_info)})",
     )
     args, bash_command = parser.parse_known_args()
 
@@ -160,7 +174,7 @@ def main():
     if args.use_icecc:
         ensure_icecc_setup()
 
-    DefaultManyLinuxRunner(with_icecc=args.use_icecc).run(False, bash_command)
+    DefaultManyLinuxRunner(with_icecc=args.use_icecc, py_versions=args.python_versions).run(False, bash_command)
     sys.exit()
 
 
