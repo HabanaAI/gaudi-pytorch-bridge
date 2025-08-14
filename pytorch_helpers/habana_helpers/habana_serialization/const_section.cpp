@@ -38,8 +38,8 @@ namespace fs = std::experimental::filesystem;
 namespace serialization {
 
 ConstSectionFileHandler::ConstSectionFileHandler() {
-  const char* s_rank = getenv("RANK") ? getenv("RANK") : "0";
-  m_rank = std::atoi(s_rank);
+  const char* s_rank = std::getenv("RANK");
+  m_rank = s_rank ? std::atoi(s_rank) : 0;
 }
 
 void ConstSectionFileHandler::internal_mkdir(std::string path) {

@@ -56,8 +56,8 @@ void RecipeCacheConfig::reload() {
 
   cache_directory_path_ = params[0];
   if (habana_helpers::IsInferenceMode()) {
-    const char* s_rank = getenv("RANK") ? getenv("RANK") : "0";
-    auto rank = std::atoi(s_rank);
+    const char* s_rank = std::getenv("RANK");
+    auto rank = s_rank ? std::atoi(s_rank) : 0;
     cache_directory_path_ += std::to_string(rank);
   }
 

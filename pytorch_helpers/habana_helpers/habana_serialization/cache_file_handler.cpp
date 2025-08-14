@@ -54,11 +54,11 @@ CacheFileHandler::CacheFileHandler(const RecipeCacheConfig& recipe_cache_config)
     : maxFolderSize(recipe_cache_config.cache_dir_max_size_mb()) {
   maxFolderSize = maxFolderSize * 1024 * 1024;
 
-  const char* s_local_rank = getenv("LOCAL_RANK") ? getenv("LOCAL_RANK") : "0";
-  local_rank = std::atoi(s_local_rank);
+  const char* s_local_rank = std::getenv("LOCAL_RANK");
+  local_rank = s_local_rank ? std::atoi(s_local_rank) : 0;
 
-  const char* s_rank = getenv("RANK") ? getenv("RANK") : "0";
-  rank = std::atoi(s_rank);
+  const char* s_rank = std::getenv("RANK");
+  rank = s_rank ? std::atoi(s_rank) : 0;
 
   cache_path = recipe_cache_config.path();
   fs::path dir_path{cache_path};
