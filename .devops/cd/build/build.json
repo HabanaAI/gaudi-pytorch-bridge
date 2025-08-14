@@ -9,10 +9,10 @@
         "cmd": "build_pytorch_vision --next ${BUILD_TYPE_FLAG} ${CONFIGURE_FLAG} -j ${CPU_COUNT}"
     },
     "modules": {
-        "cmd": "build_pytorch_modules --upstream-compile --op-stats -v ${BUILD_TYPE_FLAG} ${CONFIGURE_FLAG} -j 8"
+        "cmd": "build_pytorch_modules --upstream-compile -v ${BUILD_TYPE_FLAG} ${CONFIGURE_FLAG} -j 8"
     },
     "modules_next": {
-        "cmd": "build_pytorch_modules --op-stats -v ${BUILD_TYPE_FLAG} ${CONFIGURE_FLAG} -j ${CPU_COUNT}"
+        "cmd": "build_pytorch_modules -v ${BUILD_TYPE_FLAG} ${CONFIGURE_FLAG} -j ${CPU_COUNT}"
     },
     "plugin": {
         "cmd": "build_pytorch_tb_plugin --dist ${BUILD_TYPE_FLAG} ${CONFIGURE_FLAG} -j ${CPU_COUNT}"
