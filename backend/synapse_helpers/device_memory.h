@@ -28,7 +28,6 @@
 #include <vector>
 
 #include <absl/types/span.h>
-#include "backend/synapse_helpers/device.h"
 #include "backend/synapse_helpers/device_mem_reporter.h"
 #include "backend/synapse_helpers/mem_handle.h"
 #include "backend/synapse_helpers/stream.h"

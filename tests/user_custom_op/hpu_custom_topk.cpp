@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
  */
 #include <torch/extension.h>
 #include "hpu_custom_op_pt2.h"
-#include "synapse_common_types.hpp"
+#include "synapse_common_types.h"
 
 static habana::PartialOutputMetaDataVector output_meta(
     const at::Stack& inputs) {

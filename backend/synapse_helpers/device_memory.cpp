@@ -22,6 +22,7 @@
 #include "backend/habana_device/HPUDevice.h"
 #include "backend/helpers/event_dispatcher.h"
 #include "backend/profiling/trace_sources/sources.h"
+#include "backend/synapse_helpers/device.h"
 #include "backend/synapse_helpers/devmem_logger.h"
 #include "backend/synapse_helpers/memory_defragmentation.h"
 #include "common/utils.h"

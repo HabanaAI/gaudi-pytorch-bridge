@@ -34,7 +34,6 @@
 #include "resize.h"
 
 #include "habana_lazy/memlog.h"
-#include "habana_lazy/ops/shape_ops.h"
 
 namespace habana_lazy {
 at::Tensor append_to_batch_h2d_list(const at::Tensor& scalar_tensor);
@@ -1434,90 +1433,6 @@ class LazyOp {
       uids.emplace_back(d->unique_id);
     }
     info_to_lazy_backend->set_lazy_eager_op_input_uids(std::move(uids));
-  }
-
-  void handle_strided_input(const at::Tensor& self, size_t idx) {
-    auto impl = self.unsafeGetTensorImpl();
-    auto size = impl->sizes();
-    auto stride = impl->strides();
-    auto offset = impl->storage_offset();
-    auto hl_self = GetHbLazyTensor(self);
-
-    PT_LAZY_EAGER_DEBUG(
-        "[LAZY EAGER VIEW] strided input (frontend) size : ",
-        size,
-        " strides : ",
-        stride,
-        " offset : ",
-        offset);
-
-    at::Tensor op_input_tensor = empty_hpu_lazy(
-        size,
-        self.options(),
-        std::nullopt,
-        false,
-        DATA_TENSOR,
-        std::nullopt,
-        false);
-
-    auto hl_op_input_tensor = GetHbLazyTensor(op_input_tensor);
-
-    PT_LAZY_EAGER_DEBUG(
-        "[LAZY EAGER VIEW] op input (frontend) size : ",
-        op_input_tensor.unsafeGetTensorImpl()->sizes(),
-        " strides : ",
-        op_input_tensor.unsafeGetTensorImpl()->strides(),
-        " offset : ",
-        op_input_tensor.unsafeGetTensorImpl()->storage_offset());
-
-    ir::NodePtr node = nullptr;
-
-    node = std::make_shared<habana_lazy::ir::StridedView>(
-        self, size, stride, offset, "hpu::strided_view");
-    hl_op_input_tensor.IrSetNode(node);
-    m_inputs[idx] = op_input_tensor;
-  }
-
-  void handle_strided_inputs() {
-    for (size_t i = 0; i < m_inputs.size(); ++i) {
-      const at::IValue& input = m_inputs[i];
-      if (input.isTensor()) {
-        const at::Tensor& t = input.toTensor();
-        if (t.defined()) {
-          if (GetHbLazyTensor(t).GetIsStrided()) {
-            at::Tensor strided_tensor = m_inputs[i].toTensor();
-            handle_strided_input(strided_tensor, i);
-          }
-        }
-      }
-    }
-  }
-
-  void handle_inplace_strided_output(
-      const at::Tensor& self,
-      const HbLazyTensor& hl_self,
-      ir::NodePtr node) {
-    auto impl = self.unsafeGetTensorImpl();
-    auto size = impl->sizes();
-    auto stride = impl->strides();
-    auto offset = impl->storage_offset();
-
-    at::Tensor op_output_tensor = empty_hpu_lazy(
-        size,
-        self.options(),
-        std::nullopt,
-        false,
-        DATA_TENSOR,
-        std::nullopt,
-        false);
-    auto hl_op_output_tensor = GetHbLazyTensor(op_output_tensor);
-    hl_op_output_tensor.IrSetNode(node);
-
-    std::string node_str = "hpu::strided_insert";
-
-    auto strided_node = std::make_shared<ir::StridedInsert>(
-        self, op_output_tensor, stride, offset, node_str);
-    hl_self.IrSetNode(strided_node);
   }
 
   template <typename N = NodeConstruct>

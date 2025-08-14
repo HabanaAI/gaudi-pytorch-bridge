@@ -25,7 +25,6 @@
 #include "backend/jit_graph_cache.h"
 #include "backend/kernel/constant_information.h"
 #include "backend/kernel/hpu_shape_inference.h"
-#include "backend/passes/fuse_collective_view_pass.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "pytorch_helpers/low_overhead_profiler/profiler.h"
 
@@ -129,7 +128,6 @@ class CompileStaticPermutationSetAndSave final : public PermutationInfoSaver {
   CompileStaticPermutationSetAndSave(
       std::shared_ptr<habana::OptimizedJITGraphAndMetaData> optimized_jit_graph)
       : optimized_jit_graph_(optimized_jit_graph) {};
-
   ~CompileStaticPermutationSetAndSave() {
     if (this->permutation_info_.empty())
       return;

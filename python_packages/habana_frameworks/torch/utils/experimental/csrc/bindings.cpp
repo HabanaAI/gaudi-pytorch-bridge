@@ -13,7 +13,6 @@
  * limitations under the License.
  */
 #include <ATen/Tensor.h>
-#include <synapse_common_types.h>
 #include <torch/extension.h>
 #include "backend/habana_device/HPUDevice.h"
 #include "backend/habana_device/HPUStream.h"

@@ -41,6 +41,7 @@
 #include "backend/kernel/hpu_habana_meta_op_list.h"
 #include "backend/kernel/hpu_shape_inference.h"
 #include "backend/kernel/refinement_engine.h"
+#include "backend/passes/fuse_collective_view_pass.h"
 #include "backend/passes/hpu_habana_persistence_marker_pass.h"
 #include "backend/random.h"
 #include "backend/synapse_helpers/env_flags.h" // IWYU pragma: keep // NOLINT
