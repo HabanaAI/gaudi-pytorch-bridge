@@ -107,6 +107,7 @@ def fp8_sdpa_fwd_wrapper(
     recompute=None,
     requires_grad=None,
     window_size=(-1, -1),
+    sink=None,
 ):
     requires_backward = (
         q.requires_grad or k.requires_grad or v.requires_grad if requires_grad is None else requires_grad
@@ -168,6 +169,7 @@ def fp8_sdpa_fwd_wrapper(
             valid_seq_len,
             seq_padding_type,
             window_size,
+            sink,
         )
 
         if gqa:
@@ -269,6 +271,8 @@ def fp8_sdpa_bwd_wrapper(ctx, dout, *args):
             None,
             None,
             None,
+            None,
+            None,
         )
     else:
         q, k, v, P, dm, fwd_out = ctx.saved_tensors
@@ -287,6 +291,8 @@ def fp8_sdpa_bwd_wrapper(ctx, dout, *args):
             dq,
             dk,
             dv,
+            None,
+            None,
             None,
             None,
             None,
@@ -332,6 +338,7 @@ class Fp8FusedSDPA(torch.autograd.Function):
         recompute=None,
         requires_grad=None,
         window_size=(-1, -1),
+        sink=None,
     ):
         return fp8_sdpa_fwd_wrapper(
             ctx,
@@ -356,6 +363,7 @@ class Fp8FusedSDPA(torch.autograd.Function):
             recompute=recompute,
             requires_grad=requires_grad,
             window_size=window_size,
+            sink=sink,
         )
 
     @staticmethod
@@ -385,6 +393,7 @@ def dump_api_params(
     recompute=None,
     requires_grad=None,
     window_size=(-1, -1),
+    sink=None,
 ):
     def print_t_info(name, t, is_scale=False):
         if t is not None:
@@ -420,6 +429,7 @@ def dump_api_params(
     print("requires_grad : ", requires_grad)
     print("=" * 90)
     print(f"window size wl: {window_size[0]} wr: {window_size[1]}")
+    print_t_info("sink", sink)
 
 
 def fp8_fused_sdpa(
@@ -444,6 +454,7 @@ def fp8_fused_sdpa(
     recompute=None,
     requires_grad=None,
     window_size=(-1, -1),
+    sink=None,
 ):
     dump_api_params(
         q,
@@ -467,6 +478,7 @@ def fp8_fused_sdpa(
         recompute,
         requires_grad,
         window_size,
+        sink,
     )
     outputs = Fp8FusedSDPA.apply(
         q,
@@ -490,6 +502,7 @@ def fp8_fused_sdpa(
         recompute,
         requires_grad,
         window_size,
+        sink,
     )
 
     return outputs

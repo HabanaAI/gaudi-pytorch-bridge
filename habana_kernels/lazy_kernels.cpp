@@ -6415,12 +6415,13 @@ fp8_sdpa_recomp_fwd_common(
     const std::optional<at::Tensor>& valid_seq_len,
     std::string_view seq_padding_type,
     c10::ScalarType fwdOutType,
-    SymIntArrayRef window_size) {
+    SymIntArrayRef window_size,
+    const std::optional<at::Tensor>& sink) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
       "fp8_sdpa_recomp_fwd :",
-      DUMP_20ARGS(
+      DUMP_21ARGS(
           q,
           k,
           v,
@@ -6440,7 +6441,8 @@ fp8_sdpa_recomp_fwd_common(
           is_amax_o,
           valid_seq_len,
           seq_padding_type,
-          window_size));
+          window_size,
+          sink));
 
   auto linvType = c10::ScalarType::Float;
 
@@ -6482,7 +6484,8 @@ fp8_sdpa_recomp_fwd_common(
          is_amax_o,
          valid_seq_len,
          seq_padding_type,
-         window_size},
+         window_size,
+         sink},
         Fp8SDPARecompFwdOutputShape};
     hpu_op.set_scalar_types(
         {fwdOutType,
@@ -6515,7 +6518,8 @@ fp8_sdpa_recomp_fwd_common(
          is_amax_o,
          valid_seq_len,
          seq_padding_type,
-         window_size},
+         window_size,
+         sink},
         Fp8SDPARecompFwdOutputShape};
     hpu_op.set_scalar_types(
         {fwdOutType,
@@ -6556,7 +6560,8 @@ fp8_sdpa_recomp_fwd_lazy(
     const bool is_amax_o,
     const std::optional<at::Tensor>& valid_seq_len,
     std::string_view seq_padding_type,
-    SymIntArrayRef window_size) {
+    SymIntArrayRef window_size,
+    const std::optional<at::Tensor>& sink) {
   auto fwdOutType = q.scalar_type();
   if (q.scalar_type() == at::ScalarType::Float8_e4m3fn &&
       (!q_scale_o.has_value()))
@@ -6586,7 +6591,8 @@ fp8_sdpa_recomp_fwd_lazy(
       valid_seq_len,
       seq_padding_type,
       fwdOutType,
-      window_size);
+      window_size,
+      sink);
 }
 
 std::tuple<
@@ -6616,7 +6622,8 @@ fp8_sdpa_recomp_fwd_scalar_lazy(
     const bool is_amax_o,
     const std::optional<at::Tensor>& valid_seq_len,
     std::string_view seq_padding_type,
-    SymIntArrayRef window_size) {
+    SymIntArrayRef window_size,
+    const std::optional<at::Tensor>& sink) {
   auto fwdOutType = q.scalar_type();
   if (q.scalar_type() == at::ScalarType::Float8_e4m3fn && (q_scale_o == 0.))
     fwdOutType = at::ScalarType::BFloat16;
@@ -6642,7 +6649,8 @@ fp8_sdpa_recomp_fwd_scalar_lazy(
       valid_seq_len,
       seq_padding_type,
       fwdOutType,
-      window_size);
+      window_size,
+      sink);
 }
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> fp8_sdpa_fwd_lazy(
@@ -6731,7 +6739,8 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_fwd_lazy(
     std::string_view softmax_mode,
     const std::optional<at::Tensor>& valid_seq_len,
     std::string_view seq_padding_type,
-    SymIntArrayRef window_size) {
+    SymIntArrayRef window_size,
+    const std::optional<at::Tensor>& sink) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   if (p > 0.0) {
@@ -6751,7 +6760,8 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_fwd_lazy(
          softmax_mode,
          valid_seq_len,
          seq_padding_type,
-         window_size},
+         window_size,
+         sink},
         SDPARecompFwdOutputShape};
     hpu_op.set_scalar_types(
         {q.scalar_type(),
@@ -6773,7 +6783,8 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_fwd_lazy(
          softmax_mode,
          valid_seq_len,
          seq_padding_type,
-         window_size},
+         window_size,
+         sink},
         SDPARecompFwdOutputShape};
     auto linvType = c10::ScalarType::Float;
 

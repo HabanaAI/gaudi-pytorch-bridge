@@ -97,6 +97,7 @@ def sdpa_fwd_wrapper(
     return_dropout_mask=False,
     return_attn_probs=False,
     window_size=(-1, -1),
+    sink=None,
 ):
     requires_backward = q.requires_grad or k.requires_grad or v.requires_grad
 
@@ -181,6 +182,7 @@ def sdpa_fwd_wrapper(
             valid_seq_len,
             seq_padding_type,
             window_size,
+            sink,
         )
         if gqa:
             out = gqa_output_reshape(out)
@@ -273,7 +275,7 @@ def sdpa_bwd_wrapper(ctx, dout, *args):
             dq = gqa_output_reshape(dq)
             dk = gqa_output_reshape(dk)
             dv = gqa_output_reshape(dv)
-        return dq, dk, dv, None, None, None, None, None, None, None, None, None, None
+        return dq, dk, dv, None, None, None, None, None, None, None, None, None, None, None, None
     else:
         q, k, v, P, dm, fwd_out = ctx.saved_tensors
         scale = ctx.scale
@@ -287,7 +289,7 @@ def sdpa_bwd_wrapper(ctx, dout, *args):
             dq = gqa_output_reshape(dq)
             dk = gqa_output_reshape(dk)
             dv = gqa_output_reshape(dv)
-        return dq, dk, dv, None, None, None, None, None, None, None, None, None, None
+        return dq, dk, dv, None, None, None, None, None, None, None, None, None, None, None, None
 
 
 class FusedSDPA(torch.autograd.Function):
@@ -308,6 +310,7 @@ class FusedSDPA(torch.autograd.Function):
         return_dropout_mask=False,
         return_attn_probs=False,
         window_size=(-1, -1),
+        sink=None,
     ):
         return sdpa_fwd_wrapper(
             ctx,
@@ -325,6 +328,7 @@ class FusedSDPA(torch.autograd.Function):
             return_dropout_mask=return_dropout_mask,
             return_attn_probs=return_attn_probs,
             window_size=window_size,
+            sink=sink,
         )
 
     @staticmethod

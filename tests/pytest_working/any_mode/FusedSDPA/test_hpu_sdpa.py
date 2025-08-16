@@ -106,6 +106,7 @@ def vanilla_attention_impl_for_test(
     is_causal=False,
     dbg_dropout_mask=None,
     return_attn_probs=False,
+    sinks=None,
 ):
     sqrt_dim_head = query.shape[-1] ** 0.5
     scores = torch.matmul(query, key.transpose(-2, -1))
@@ -123,7 +124,22 @@ def vanilla_attention_impl_for_test(
         # scores.masked_fill_(attn_mask == 0, -float('inf'))
         scores.masked_fill_(attn_mask == 0, LNEG)
 
-    softmax = F.softmax(scores, dim=-1)
+    if sinks is not None:
+        # attention sink reference taken from
+        # https://github.com/huggingface/transformers/blob/b374c3d12e8a42014b7911d1bddf598aeada1154/src/transformers/models/gpt_oss/modeling_gpt_oss.py#L229
+
+        attn_weights = scores
+
+        sinks = sinks.reshape(1, -1, 1, 1).expand(query.shape[0], -1, query.shape[-2], -1)
+        combined_logits = torch.cat([attn_weights, sinks], dim=-1)
+
+        combined_logits = combined_logits - combined_logits.max(dim=-1, keepdim=True).values
+        probs = F.softmax(combined_logits, dim=-1, dtype=combined_logits.dtype)
+        scores = probs[..., :-1]  # we drop the sink here
+        softmax = scores
+    else:
+        softmax = F.softmax(scores, dim=-1)
+
     weight = softmax
     if dropout_p > 0.0:
         if dbg_dropout_mask is not None:
@@ -187,6 +203,7 @@ tc_list = [
         False,  # inference
         "None",  # softmax_mode
         False,  # return_attn_probs
+        False,  # use_sink
     ),
     # Cross attention with head_dim qk != head_dim v, non-inference mode, returning dropout mask to user
     (
@@ -206,6 +223,7 @@ tc_list = [
         False,  # inference
         "None",  # softmax_mode
         False,  # return_attn_probs
+        False,  # use_sink
     ),
     # Cross attention with head_dim qk != head_dim v, inference mode, returning dropout mask and attn_probs to user
     (
@@ -225,6 +243,7 @@ tc_list = [
         True,  # inference
         "None",  # softmax_mode
         True,  # return_attn_probs
+        False,  # use_sink
     ),
     # Cross attention with head_dim qk != head_dim v, inference mode, returning attn_probs to user
     (
@@ -244,6 +263,7 @@ tc_list = [
         True,  # inference
         "None",  # softmax_mode
         True,  # return_attn_probs
+        False,  # use_sink
     ),
     # Cross attention with head_dim qk != head_dim v ;enable auto cast, is_causal = True
     (
@@ -263,6 +283,7 @@ tc_list = [
         False,  # inference
         "None",  # softmax_mode
         False,  # return_attn_probs
+        False,  # use_sink
     ),
     # Cross attention with head_dim qk != head_dim v without multi head, i.e 3D tensors
     (
@@ -282,6 +303,7 @@ tc_list = [
         False,  # inference
         "None",  # softmax_mode
         False,  # return_attn_probs
+        False,  # use_sink
     ),
 ]
 
@@ -304,6 +326,7 @@ tc_list_recompute = [
         False,  # inference
         "None",  # softmax_mode
         False,  # return_attn_probs
+        False,  # use_sink
     ),
 ]
 
@@ -329,6 +352,7 @@ tc_list_rhslice = [
         False,  # inference
         "None",  # softmax_mode
         False,  # return_attn_probs
+        False,  # use_sink
     ),
     # 4D inference
     (
@@ -348,6 +372,7 @@ tc_list_rhslice = [
         True,  # inference
         "None",  # softmax_mode
         False,  # return_attn_probs
+        False,  # use_sink
     ),
     # 3D inference
     (
@@ -367,6 +392,7 @@ tc_list_rhslice = [
         True,  # inference
         "None",  # softmax_mode
         False,  # return_attn_probs
+        False,  # use_sink
     ),
 ]
 
@@ -389,6 +415,7 @@ tc_list_rhslice_inf_attn_mask = [
         True,  # inference
         "None",  # softmax_mode
         False,  # return_attn_probs
+        False,  # use_sink
     ),
     # 3D inference, float attn_mask
     (
@@ -408,6 +435,7 @@ tc_list_rhslice_inf_attn_mask = [
         True,  # inference
         "None",  # softmax_mode
         False,  # return_attn_probs
+        False,  # use_sink
     ),
     # 4D inference, bool attn_mask
     (
@@ -427,6 +455,7 @@ tc_list_rhslice_inf_attn_mask = [
         True,  # inference
         "None",  # softmax_mode
         False,  # return_attn_probs
+        False,  # use_sink
     ),
     # 3D inference, bool attn_mask
     (
@@ -446,6 +475,7 @@ tc_list_rhslice_inf_attn_mask = [
         True,  # inference
         "None",  # softmax_mode
         False,  # return_attn_probs
+        False,  # use_sink
     ),
 ]
 # For now disable additional tests
@@ -474,6 +504,7 @@ tc_list_new_rules = [
         False,  # inference
         "None",  # softmax_mode
         False,  # return_attn_probs
+        False,  # use_sink
     ),
     # 4D Inference
     (
@@ -493,6 +524,7 @@ tc_list_new_rules = [
         True,  # inference
         "None",  # softmax_mode
         False,  # return_attn_probs
+        False,  # use_sink
     ),
     # 4D Inference dropout
     (
@@ -512,6 +544,7 @@ tc_list_new_rules = [
         True,  # inference
         "None",  # softmax_mode
         False,  # return_attn_probs
+        False,  # use_sink
     ),
     # 4D Training dropout
     (
@@ -531,6 +564,7 @@ tc_list_new_rules = [
         False,  # inference
         "None",  # softmax_mode
         False,  # return_attn_probs
+        False,  # use_sink
     ),
     # 3D Inference
     (
@@ -550,6 +584,7 @@ tc_list_new_rules = [
         True,  # inference
         "None",  # softmax_mode
         False,  # return_attn_probs
+        False,  # use_sink
     ),
     # 3D Training
     (
@@ -569,6 +604,7 @@ tc_list_new_rules = [
         False,  # inference
         "None",  # softmax_mode
         False,  # return_attn_probs
+        False,  # use_sink
     ),
     # 4D Inference bool attnmask
     (
@@ -588,6 +624,7 @@ tc_list_new_rules = [
         True,  # inference
         "None",  # softmax_mode
         False,  # return_attn_probs
+        False,  # use_sink
     ),
     # 4D Inference attnmask
     (
@@ -607,6 +644,7 @@ tc_list_new_rules = [
         True,  # inference
         "None",  # softmax_mode
         False,  # return_attn_probs
+        False,  # use_sink
     ),
     # 4D Training bool attnmask
     (
@@ -626,6 +664,7 @@ tc_list_new_rules = [
         False,  # inference
         "None",  # softmax_mode
         False,  # return_attn_probs
+        False,  # use_sink
     ),
     # 4D Training attnmask
     (
@@ -645,6 +684,7 @@ tc_list_new_rules = [
         False,  # inference
         "None",  # softmax_mode
         False,  # return_attn_probs
+        False,  # use_sink
     ),
 ]
 
@@ -666,6 +706,7 @@ test_llama_set = [
         False,  # inference
         "None",  # softmax_mode
         False,  # return_attn_probs
+        False,  # use_sink
     ),
     (
         4,  # batch_size,
@@ -684,6 +725,7 @@ test_llama_set = [
         False,  # inference
         "None",  # softmax_mode
         False,  # return_attn_probs
+        False,  # use_sink
     ),
     (
         4,  # batch_size,
@@ -702,6 +744,7 @@ test_llama_set = [
         False,  # inference
         "None",  # softmax_mode
         False,  # return_attn_probs
+        False,  # use_sink
     ),
     (
         2,  # batch_size,
@@ -720,6 +763,7 @@ test_llama_set = [
         False,  # inference
         "None",  # softmax_mode
         False,  # return_attn_probs
+        False,  # use_sink
     ),
     (
         1,  # batch_size,
@@ -738,6 +782,7 @@ test_llama_set = [
         False,  # inference
         "None",  # softmax_mode
         False,  # return_attn_probs
+        False,  # use_sink
     ),
     (
         4,  # batch_size,
@@ -756,6 +801,7 @@ test_llama_set = [
         False,  # inference
         "None",  # softmax_mode
         False,  # return_attn_probs
+        False,  # use_sink
     ),
 ]
 
@@ -777,6 +823,7 @@ fast_list = [
         False,  # inference
         "fast",  # softmax_mode
         False,  # return_attn_probs
+        False,  # use_sink
     ),
     #    (  #Non-triangular training
     #        3,  # batch_size,
@@ -815,6 +862,7 @@ tc_fa2_5_1 = [
         True,  # inference
         "None",  # softmax_mode
         False,  # return_attn_probs
+        False,  # use_sink
     ),
 ]
 tc_fa2_5_2 = [
@@ -836,6 +884,7 @@ tc_fa2_5_2 = [
         True,  # inference
         "None",  # softmax_mode
         False,  # return_attn_probs
+        False,  # use_sink
     ),
 ]
 tc_fa2_5_3 = [
@@ -857,6 +906,7 @@ tc_fa2_5_3 = [
         False,  # inference
         "None",  # softmax_mode
         False,  # return_attn_probs
+        False,  # use_sink
     ),
 ]
 tc_fa2_5_4 = [
@@ -878,6 +928,7 @@ tc_fa2_5_4 = [
         False,  # inference
         "None",  # softmax_mode
         False,  # return_attn_probs
+        False,  # use_sink
     ),
 ]
 
@@ -900,6 +951,7 @@ tc_fa2_5_nr1 = [
         False,  # inference
         "None",  # softmax_mode
         False,  # return_attn_probs
+        False,  # use_sink
     ),
 ]
 tc_fa2_5_nr2 = [
@@ -921,6 +973,7 @@ tc_fa2_5_nr2 = [
         False,  # inference
         "None",  # softmax_mode
         False,  # return_attn_probs
+        False,  # use_sink
     ),
 ]
 
@@ -943,6 +996,7 @@ tc_fa2_5_rc1 = [
         False,  # inference
         "None",  # softmax_mode
         False,  # return_attn_probs
+        False,  # use_sink
     ),
 ]
 
@@ -964,6 +1018,7 @@ fp32_softmax_list = [
         True,  # inference
         "fp32",  # softmax_mode
         False,  # return_attn_probs
+        False,  # use_sink
     ),
     (
         4,  # batch_size,
@@ -982,6 +1037,7 @@ fp32_softmax_list = [
         True,  # inference
         "fp32",  # softmax_mode
         False,  # return_attn_probs
+        False,  # use_sink
     ),
     (
         4,  # batch_size,
@@ -1000,14 +1056,38 @@ fp32_softmax_list = [
         True,  # inference
         "fp32",  # softmax_mode
         False,  # return_attn_probs
+        False,  # use_sink
     ),
 ]
+tc_list_sink = [
+    (
+        4,  # batch_size,
+        1,  # n_heads,
+        32,  # seq_len_N_t, i.e. Target seq len (i.e, of q)
+        32,  # seq_len_N_s, i.e. Source seq len (i.e, of k and v)
+        8,  # head_dim_qk, i.e. head_dim of q and k
+        8,  # head_dim_v,  i.e. head_dim of v
+        0.0,  # dropout_p,
+        False,  # use_attn_mask,
+        True,  # use_float_mask,
+        True,  # enable_autocast
+        True,  # is_causal
+        True,  # recompute
+        True,  # rhslice
+        True,  # inference
+        "None",  # softmax_mode
+        False,  # return_attn_probs
+        True,  # use_sink
+    ),
+]
+
 # total_tc_list = test_llama_set[-1:]
 # total_tc_list = tc_list_new_rules + tc_list_new_rules_non_recomp
 # total_tc_list = tc_list_new_rules[0:1]
 # For now disable additional tests
 total_tc_list_last = (
     tc_list + tc_list_recompute + tc_list_rhslice + tc_list_rhslice_inf_attn_mask + fast_list + fp32_softmax_list
+    # tc_list_sink Add once sink suppport in CGUID is merged
 )
 current_dir = os.path.dirname(__file__)
 csv_file_path = os.path.join(current_dir, "sdpa_config.csv")
@@ -1033,6 +1113,7 @@ def is_param_combo_valid(
     inference,
     softmax_mode,
     return_attn_probs,
+    use_sink,
 ):
     if is_causal and use_attn_mask:
         return False
@@ -1055,6 +1136,9 @@ def is_param_combo_valid(
         # softmax_mode == "fp32" is not supported in training
         if softmax_mode == "fp32":
             return False
+        # sink is supported only in inference
+        if use_sink:
+            return False
 
     if inference:
         if dropout_p > 0.0:
@@ -1062,6 +1146,10 @@ def is_param_combo_valid(
         # softmax_mode == "fp32" is supported only when q/k/v are BF16
         if softmax_mode == "fp32" and not enable_autocast:
             return False
+
+    # sink is not supported in 3D case
+    if use_sink and n_heads == 0:
+        return False
 
     return True
 
@@ -1200,6 +1288,14 @@ def is_param_combo_valid(
     ),
     ids=lambda return_attn_probs: f"return_attn_probs-{return_attn_probs}"
     )
+@pytest.mark.parametrize(
+    "use_sink",
+    (
+        "True",
+        "False",
+    ),
+    ids=lambda use_sink: f"use_sink-{use_sink}"
+    )
 """
 # DONOT remove following line: re-enable black formatting
 # fmt: on
@@ -1215,13 +1311,13 @@ def pytest_generate_tests(metafunc):
         if total_tc_list is not None:
             # Use total_tc_list from the configuration
             metafunc.parametrize(
-                "batch_size, n_heads, seq_len_N_t, seq_len_N_s, head_dim_qk, head_dim_v, dropout_p, use_attn_mask, use_float_mask, enable_autocast, is_causal, recompute, rhslice, inference, softmax_mode, return_attn_probs",
+                "batch_size, n_heads, seq_len_N_t, seq_len_N_s, head_dim_qk, head_dim_v, dropout_p, use_attn_mask, use_float_mask, enable_autocast, is_causal, recompute, rhslice, inference, softmax_mode, return_attn_probs, use_sink",
                 total_tc_list,
             )
         else:
             # Fallback to the current method if total_tc_list is not available
             metafunc.parametrize(
-                "batch_size, n_heads, seq_len_N_t, seq_len_N_s, head_dim_qk, head_dim_v, dropout_p, use_attn_mask, use_float_mask, enable_autocast, is_causal, recompute, rhslice, inference, softmax_mode, return_attn_probs",
+                "batch_size, n_heads, seq_len_N_t, seq_len_N_s, head_dim_qk, head_dim_v, dropout_p, use_attn_mask, use_float_mask, enable_autocast, is_causal, recompute, rhslice, inference, softmax_mode, return_attn_probs, use_sink",
                 total_tc_list_last,
             )
 
@@ -1243,6 +1339,7 @@ def test_sdpa(
     inference,
     softmax_mode,
     return_attn_probs,
+    use_sink,
     description="not provided, please see the config name and infer",
 ):
     config_name = (
@@ -1262,6 +1359,7 @@ def test_sdpa(
         f"inference = {inference} "
         f"softmax_mode = {softmax_mode} "
         f"return_attn_probs = {return_attn_probs}"
+        f"use_sink = {use_sink}"
     )
     print(config_name)
     test_case_valid = is_param_combo_valid(
@@ -1281,6 +1379,7 @@ def test_sdpa(
         inference,
         softmax_mode,
         return_attn_probs,
+        use_sink,
     )
 
     if is_gaudi1():
@@ -1399,6 +1498,12 @@ def test_sdpa(
     if use_attn_mask:
         assert is_causal is False, " use_attn_mask and is_causal can not be True at the same time"
 
+    sink = None
+    sink_hpu = None
+    if use_sink:
+        sink = torch.randn([n_heads]).to(dtype).detach()
+        sink_hpu = sink.to("hpu").detach()
+
     DBG_ONLY_dropout_mask_g = None
     return_dropout_mask = dropout_p > 0.0 and not recompute
 
@@ -1458,6 +1563,7 @@ def test_sdpa(
         seq_len_padding_type="left",
         return_dropout_mask=False,
         return_attn_probs=False,
+        sink=None,
     ):
         return FusedSDPA.apply(
             q_hpu,
@@ -1473,6 +1579,8 @@ def test_sdpa(
             seq_len_padding_type,
             return_dropout_mask,
             return_attn_probs,
+            (-1, -1),
+            sink,
         )
 
     sdpa_fn = compile_function_if_compile_mode(sdpa_fn)
@@ -1496,6 +1604,7 @@ def test_sdpa(
             "left",
             return_dropout_mask,
             return_attn_probs,
+            sink_hpu,
         )
 
     if not return_dropout_mask:
@@ -1516,7 +1625,7 @@ def test_sdpa(
     htcore.mark_step()
 
     # ------------------------------- PT NN SDPA implementation on CPU  for Test ----------------------------
-    if dropout_p in (0.0, 1.0):
+    if dropout_p in (0.0, 1.0) and use_sink is False:
         with torch.autocast(device_type="cpu", dtype=torch.bfloat16, enabled=enable_autocast):
             sdp_ref = torch.nn.functional.scaled_dot_product_attention(
                 q, k, v, attn_mask=attn_mask, dropout_p=dropout_p, is_causal=is_causal
@@ -1542,6 +1651,7 @@ def test_sdpa(
             is_causal=is_causal,
             dbg_dropout_mask=DBG_ONLY_dropout_mask_g,
             return_attn_probs=return_attn_probs,
+            sinks=sink,
         )
     if not inference:
         O_ref.backward(g_t)
@@ -1604,7 +1714,7 @@ def test_sdpa(
                 torch.max(torch.abs(v_t.grad - v_grad_hpu_c)),
             )
 
-    if dropout_p in (0.0, 1.0):
+    if dropout_p in (0.0, 1.0) and use_sink is False:
         vb_print("\n")
         print("\ndropout_p == 0.0 or 1.0 : so, comparing with torch.nn.scaled_dot_product_attention also")
         compare_tensors(sdp_ref, O_hpu_c, atol=atol, rtol=rtol)

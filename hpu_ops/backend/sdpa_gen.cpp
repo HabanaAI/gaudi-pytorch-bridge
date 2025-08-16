@@ -771,6 +771,7 @@ void SDPARecompFwd::AddNode(
   auto valid_seq_len = stackGetter.getNextInput<std::optional<TensorsPair>>();
   auto seq_padding_type = stackGetter.getNextInput<std::string_view>();
   auto window_size = stackGetter.getNextInput<std::vector<int64_t>>();
+  auto sink = stackGetter.getNextInput<std::optional<TensorsPair>>();
   unsigned int flags = 0;
 
   SDPA_SET_FLAGS(valid_seq_len, flags, VALID_SEQ_LEN_PRESENT)
@@ -804,6 +805,13 @@ void SDPARecompFwd::AddNode(
     syn_inputs.push_back(valid_seq_len.value().syn_t);
   } else {
     syn_inputs.insert(syn_inputs.end(), 7, nullptr);
+  }
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_FUSED_SDPA_SINK)) {
+    if (sink) {
+      syn_inputs.push_back(sink.value().syn_t);
+    } else {
+      syn_inputs.push_back(nullptr);
+    }
   }
 
   std::vector<NodeAttr::NodeOutputAttr> output_attrs;
@@ -876,6 +884,7 @@ void Fp8SDPARecompFwd::AddNode(
   auto valid_seq_len = stackGetter.getNextInput<std::optional<TensorsPair>>();
   auto seq_padding_type = stackGetter.getNextInput<std::string_view>();
   auto window_size = stackGetter.getNextInput<std::vector<int64_t>>();
+  auto sink = stackGetter.getNextInput<std::optional<TensorsPair>>();
 
   ns_Sdpa::ParamsV7 params{};
   unsigned int flags = 0;
@@ -937,6 +946,13 @@ void Fp8SDPARecompFwd::AddNode(
 
   if (valid_seq_len) {
     syn_inputs.push_back(valid_seq_len.value().syn_t);
+  }
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_FUSED_SDPA_SINK)) {
+    if (sink) {
+      syn_inputs.push_back(sink.value().syn_t);
+    } else {
+      syn_inputs.push_back(nullptr);
+    }
   }
   fillSdpaParams(
       params,

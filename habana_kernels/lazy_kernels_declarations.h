@@ -684,7 +684,8 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_fwd_lazy(
     std::string_view softmax_mode,
     const std::optional<at::Tensor>& valid_seq_len,
     std::string_view seq_padding_type,
-    at::SymIntArrayRef window_size);
+    at::SymIntArrayRef window_size,
+    const std::optional<at::Tensor>& sink);
 std::tuple<
     at::Tensor,
     at::Tensor,
@@ -712,7 +713,8 @@ fp8_sdpa_recomp_fwd_lazy(
     const bool is_amax_o,
     const std::optional<at::Tensor>& valid_seq_len,
     std::string_view seq_padding_type,
-    at::SymIntArrayRef window_size);
+    at::SymIntArrayRef window_size,
+    const std::optional<at::Tensor>& sink);
 
 std::tuple<
     at::Tensor,
@@ -741,7 +743,8 @@ fp8_sdpa_recomp_fwd_scalar_lazy(
     const bool is_amax_o,
     const std::optional<at::Tensor>& valid_seq_len,
     std::string_view seq_padding_type,
-    at::SymIntArrayRef window_size);
+    at::SymIntArrayRef window_size,
+    const std::optional<at::Tensor>& sink);
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_bwd_lazy(
     const at::Tensor& grad,
