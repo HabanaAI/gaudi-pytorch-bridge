@@ -946,6 +946,8 @@ void Fp8SDPARecompFwd::AddNode(
 
   if (valid_seq_len) {
     syn_inputs.push_back(valid_seq_len.value().syn_t);
+  } else {
+    syn_inputs.push_back(nullptr);
   }
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_FUSED_SDPA_SINK)) {
     if (sink) {

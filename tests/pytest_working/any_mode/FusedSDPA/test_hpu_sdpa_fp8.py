@@ -257,6 +257,7 @@ class TestModel(torch.nn.Module):
         dropout_p=0.0,
         is_causal=False,
         softmax_mode="None",
+        sink=None,
     ):
         outputs = fp8_fused_sdpa(
             q_hpu,
@@ -275,6 +276,7 @@ class TestModel(torch.nn.Module):
             d_scale_s=self.d_scale_s,
             is_amax_s=self.is_amax_s,
             is_amax_o=self.is_amax_o,
+            sink=sink,
         )
         return outputs
 
@@ -315,6 +317,7 @@ def vanilla_attention_impl_for_test(
     is_causal=False,
     scale=None,
     is_amax_s=False,
+    sinks=None,
 ):
     sqrt_dim_head = query.shape[-1] ** 0.5
     scores = torch.matmul(query, key.transpose(-2, -1))
@@ -334,7 +337,23 @@ def vanilla_attention_impl_for_test(
         attn_mask = torch.ones(seq_len_N_t, seq_len_N_s, dtype=torch.bool).tril(diagonal=0)
         scores.masked_fill_(attn_mask == 0, LNEG)
 
-    weight = F.softmax(scores, dim=-1)
+    if sinks is not None:
+        print("sin  =   ", sinks)
+        # attention sink reference taken from
+        # https://github.com/huggingface/transformers/blob/b374c3d12e8a42014b7911d1bddf598aeada1154/src/transformers/models/gpt_oss/modeling_gpt_oss.py#L229
+
+        attn_weights = scores
+
+        sinks = sinks.reshape(1, -1, 1, 1).expand(query.shape[0], -1, query.shape[-2], -1)
+        combined_logits = torch.cat([attn_weights, sinks], dim=-1)
+
+        combined_logits = combined_logits - combined_logits.max(dim=-1, keepdim=True).values
+        probs = F.softmax(combined_logits, dim=-1, dtype=combined_logits.dtype)
+        scores = probs[..., :-1]  # we drop the sink here
+        weight = scores
+    else:
+        weight = F.softmax(scores, dim=-1)
+
     fwd_out = torch.matmul(weight, value)
 
     if is_amax_s:
@@ -423,6 +442,7 @@ def is_param_combo_valid(
     is_amax_o,
     is_amax_ds,
     fp8_run_out_type,
+    use_sink,
     is_scalar_run,
 ):
     if not recompute and inference and not is_causal:
@@ -502,6 +522,9 @@ def is_param_combo_valid(
         # Currently support only fast softmax in training measurement/run
         if softmax_mode != "fast":
             return False
+        # sink is supported only in inference
+        if use_sink:
+            return False
 
     return True
 
@@ -528,6 +551,7 @@ tc_list1 = [
         False,  # is_amax_o
         False,  # is_amax_ds
         "fp8_143",  # "bf16",  # fp8_run_out_type
+        False,  # use_sink
     ),
 ]
 tc_list2 = [
@@ -552,6 +576,7 @@ tc_list2 = [
         False,  # is_amax_o
         False,  # is_amax_ds
         "fp8_143",  # "bf16",  # fp8_run_out_type
+        False,  # use_sink
     ),
 ]
 
@@ -577,6 +602,7 @@ tc_list3 = [
         False,  # is_amax_o
         False,  # is_amax_ds
         "fp8_143",  # "bf16",  # fp8_run_out_type
+        False,  # use_sink
     ),
 ]
 tc_list4 = [
@@ -601,6 +627,7 @@ tc_list4 = [
         False,  # is_amax_o
         False,  # is_amax_ds
         "fp8_143",  # "bf16",  # fp8_run_out_type
+        False,  # use_sink
     ),
 ]
 
@@ -626,6 +653,7 @@ tc_list5 = [
         False,  # is_amax_o
         False,  # is_amax_ds
         "fp8_143",  # "bf16",  # fp8_run_out_type
+        False,  # use_sink
     ),
 ]
 tc_list6 = [
@@ -650,6 +678,7 @@ tc_list6 = [
         False,  # is_amax_o
         False,  # is_amax_ds
         "fp8_143",  # "bf16",  # fp8_run_out_type
+        False,  # use_sink
     ),
 ]
 
@@ -675,6 +704,7 @@ tc_list7 = [
         False,  # is_amax_o
         False,  # is_amax_ds
         "fp8_143",  # "bf16",  # fp8_run_out_type
+        False,  # use_sink
     ),
 ]
 tc_list8 = [
@@ -699,6 +729,7 @@ tc_list8 = [
         False,  # is_amax_o
         False,  # is_amax_ds
         "fp8_143",  # "bf16",  # fp8_run_out_type
+        False,  # use_sink
     ),
 ]
 tc_list9 = [
@@ -723,6 +754,7 @@ tc_list9 = [
         False,  # is_amax_o
         False,  # is_amax_ds
         "bf16",  # "fp8_143", #"bf16",  # fp8_run_out_type
+        False,  # use_sink
     ),
 ]
 tc_list10 = [
@@ -747,6 +779,7 @@ tc_list10 = [
         False,  # is_amax_o
         False,  # is_amax_ds
         "bf16",  # "fp8_143", #"bf16",  # fp8_run_out_type
+        False,  # use_sink
     ),
 ]
 
@@ -772,6 +805,7 @@ tc_list11 = [
         False,  # is_amax_o
         False,  # is_amax_ds
         "bf16",  # "fp8_143", #"bf16",  # fp8_run_out_type
+        False,  # use_sink
     ),
 ]
 tc_list12 = [
@@ -796,6 +830,7 @@ tc_list12 = [
         False,  # is_amax_o
         False,  # is_amax_ds
         "bf16",  # "fp8_143", #"bf16",  # fp8_run_out_type
+        False,  # use_sink
     ),
 ]
 tc_list13 = [
@@ -820,13 +855,42 @@ tc_list13 = [
         False,  # is_amax_o
         True,  # is_amax_ds
         "bf16",  # "fp8_143", #"bf16",  # fp8_run_out_type
+        False,  # use_sink
     ),
 ]
+tc_list_sink = [
+    (  # Test for attn sink
+        3,  # batch_size
+        4,  # q_heads
+        4,  # kv_heads,
+        32,  # seq_len_N_t
+        32,  # seq_len_N_s
+        8,  # head_dim_qk
+        8,  # head_dim_v
+        0.0,  # dropout_p
+        False,  # use_attn_mask
+        True,  # use_float_mask
+        True,  # enable_autocast
+        True,  # is_causal
+        True,  # recompute
+        True,  # rhslice
+        True,  # inference
+        "None",  # softmax_mode
+        False,  # is_amax_s
+        False,  # is_amax_o
+        False,  # is_amax_ds
+        "fp8_143",  # "bf16",  # fp8_run_out_type
+        True,  # use_sink
+    ),
+]
+
 tc_list_inf = tc_list1 + tc_list2 + tc_list3 + tc_list4 + tc_list5 + tc_list6 + tc_list7 + tc_list8
 tc_list_train = tc_list9 + tc_list10
 
 tc_list = tc_list_inf + tc_list_train
 tc_list = tc_list + tc_list11 + tc_list12 + tc_list13
+
+# tc_list = tc_list + tc_list_sink  # keep test for sink disabled till CGUID is merged
 
 tc_list = list(tc_list)
 tc_list_copy_scalar = copy.deepcopy(tc_list)
@@ -1007,7 +1071,14 @@ tc_list = tc_list_copy_tensor
     ),
     ids=lambda fp8_run_out_type: f"fp8_run_out_type-{fp8_run_out_type}"
 )
-
+@pytest.mark.parametrize(
+    "use_sink",
+    (
+        "True",
+        "False",
+    ),
+    ids=lambda use_sink: f"use_sink-{use_sink}"
+    )
 @pytest.mark.parametrize(
     "scalar_run",
     (
@@ -1021,7 +1092,7 @@ tc_list = tc_list_copy_tensor
 
 
 @pytest.mark.parametrize(
-    "batch_size,q_heads,kv_heads,seq_len_N_t,seq_len_N_s,head_dim_qk,head_dim_v,dropout_p,use_attn_mask,use_float_mask,enable_autocast,is_causal,recompute,rhslice,inference,softmax_mode,is_amax_s,is_amax_o,is_amax_ds,fp8_run_out_type, scalar_run",
+    "batch_size,q_heads,kv_heads,seq_len_N_t,seq_len_N_s,head_dim_qk,head_dim_v,dropout_p,use_attn_mask,use_float_mask,enable_autocast,is_causal,recompute,rhslice,inference,softmax_mode,is_amax_s,is_amax_o,is_amax_ds,fp8_run_out_type, use_sink, scalar_run",
     tc_list,
     indirect=["inference"],
 )
@@ -1046,6 +1117,7 @@ def test_sdpa(
     is_amax_o,
     is_amax_ds,
     fp8_run_out_type,
+    use_sink,
     scalar_run,
 ):
     config_name = (
@@ -1069,6 +1141,7 @@ def test_sdpa(
         f"is_amax_o = {is_amax_o} "
         f"is_amax_ds = {is_amax_ds} "
         f"fp8_run_out_type = {fp8_run_out_type} "
+        f"use_sink = {use_sink}"
         f"is_scalar_run = {scalar_run}"
     )
     print(config_name)
@@ -1094,6 +1167,7 @@ def test_sdpa(
         is_amax_o,
         is_amax_ds,
         fp8_run_out_type,
+        use_sink,
         scalar_run,
     )
     if is_gaudi1():
@@ -1258,6 +1332,12 @@ def test_sdpa(
     if use_attn_mask:
         assert is_causal is False, " use_attn_mask and is_causal can not be True at the same time"
 
+    sink = None
+    sink_hpu = None
+    if use_sink:
+        sink = torch.randn([q_heads]).to(dtype).detach()
+        sink_hpu = sink.to("hpu").detach()
+
     # Set the env. var to enable batchsize/Num heads slicing if needed.
     if rhslice:
         os.environ["PT_HPU_SDPA_BATCH_NUMHEADS_SLICE"] = "1"
@@ -1283,6 +1363,7 @@ def test_sdpa(
             scale=attn_scale,
             is_causal=is_causal,
             is_amax_s=True,
+            sinks=sink,
         )
 
     vb_print("amax_s_ref = ", amax_s_ref)
@@ -1313,7 +1394,7 @@ def test_sdpa(
         # Let fp8 conversions and scale transfer to HPU be in a separate graph
         htcore.mark_step()
 
-    def sdpa_fn(model, q_hpu, k_hpu, v_hpu, attn_mask, dropout_p, is_causal, softmax_mode):
+    def sdpa_fn(model, q_hpu, k_hpu, v_hpu, attn_mask, dropout_p, is_causal, softmax_mode, sink):
         return model(
             q_hpu,
             k_hpu,
@@ -1322,6 +1403,7 @@ def test_sdpa(
             dropout_p=dropout_p,
             is_causal=is_causal,
             softmax_mode=softmax_mode,
+            sink=sink,
         )
 
     # ----------------------------------HPU Fused SDPA attention---------------------------------------------
@@ -1360,6 +1442,7 @@ def test_sdpa(
             dropout_p=dropout_p,
             is_causal=is_causal,
             softmax_mode=softmax_mode,
+            sink=sink_hpu,
         )
 
         if recompute and inference is False:

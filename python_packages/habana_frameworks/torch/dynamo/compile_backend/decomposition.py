@@ -605,6 +605,7 @@ def sdpa_recomp_fwd(
         valid_seq_len,
         seq_padding_type,
         window_size,
+        sink,
     )
 
 
@@ -724,6 +725,7 @@ def fp8_sdpa_recomp_fwd(
         valid_seq_len,
         seq_padding_type,
         window_size,
+        sink,
     )
 
 
