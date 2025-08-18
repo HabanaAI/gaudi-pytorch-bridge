@@ -2114,8 +2114,8 @@ build_pytorch_data()
             rm -rf $PYTORCH_DATA_BUILD/pkgs
         fi
         mkdir -p $PYTORCH_DATA_BUILD/pkgs
-        echo "Copying wheel from ${PTD_WHL_PATH} to ${$PYTORCH_DATA_BUILD}/pkgs"
-        cp -f ${PTD_WHL_PATH}/*.whl ${$PYTORCH_DATA_BUILD}/pkgs
+        echo "Copying wheel from ${PTD_WHL_PATH} to ${PYTORCH_DATA_BUILD}/pkgs"
+        cp -f ${PTD_WHL_PATH}/*.whl ${PYTORCH_DATA_BUILD}/pkgs
     fi
 
     popd
