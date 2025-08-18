@@ -123,6 +123,7 @@ def gen_doc(args):
         operators_torchvision_ops=str.join("", doc_rows_by_namespace["torchvision.ops"]),
         operators_torch_ops=str.join("", doc_rows_by_namespace["torch.ops"]),
     )
+    documentation = "\n".join(line.rstrip() for line in documentation.splitlines())
 
     if not Path(args.path).parent.exists():
         Path(args.path).parent.mkdir(parents=True)
@@ -131,6 +132,9 @@ def gen_doc(args):
         custom_operators_documentation = doc_templates.CUSTOM_DOC_FILE.format(
             optimizer_operators=str.join("", doc_rows_by_namespace["torch.hpu.optimizer"]),
             custom_operators=str.join("", doc_rows_by_namespace["torch.hpu"]),
+        )
+        custom_operators_documentation = "\n".join(
+            line.rstrip() for line in custom_operators_documentation.splitlines()
         )
         print(
             custom_operators_documentation,
