@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,6 @@
  */
 
 #include "../utils/device_type_util.h"
-#include "../utils/dtype_supported_on_device.h"
 #include "util.h"
 
 class HpuOpTest : public HpuOpTestUtil {
@@ -104,9 +103,6 @@ class HpuOpTest : public HpuOpTestUtil {
 
 #define KTHVALUE_TESTS(TEST_NAME, DTYPE)                  \
   TEST_F(HpuOpTest, TEST_NAME) {                          \
-    if (!IsDtypeSupportedOnCurrentDevice(DTYPE)) {        \
-      GTEST_SKIP();                                       \
-    }                                                     \
     if (isGaudi3()) {                                     \
       GTEST_SKIP() << "Test skipped on Gaudi3.";          \
     }                                                     \
@@ -120,9 +116,6 @@ class HpuOpTest : public HpuOpTestUtil {
 
 #define KTHVALUE_VALUES_TESTS(TEST_NAME, DTYPE)                         \
   TEST_F(HpuOpTest, TEST_NAME) {                                        \
-    if (!IsDtypeSupportedOnCurrentDevice(DTYPE)) {                      \
-      GTEST_SKIP();                                                     \
-    }                                                                   \
     if (isGaudi3()) {                                                   \
       GTEST_SKIP() << "Test skipped on Gaudi3.";                        \
     }                                                                   \

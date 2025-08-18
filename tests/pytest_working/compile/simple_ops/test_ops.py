@@ -19,7 +19,6 @@ from test_utils import (
     compile_function_if_compile_mode,
     format_tc,
     generic_setup_teardown_env,
-    is_gaudi1,
 )
 from torch.testing._internal.common_methods_invocations import op_db
 
@@ -30,6 +29,7 @@ all_dtypes = [
     torch.int16,
     torch.int8,
     torch.bool,
+    torch.float16,
 ]
 
 
@@ -39,10 +39,6 @@ def setup_teardown_env():
         pass
 
     generic_setup_teardown_env(temp_test_env={"PT_HPU_LAZY_MODE": 0}, callback=callback)
-
-
-if not is_gaudi1():
-    all_dtypes.append(torch.float16)
 
 
 @pytest.mark.parametrize("dtype", all_dtypes, ids=format_tc)
@@ -227,10 +223,8 @@ logical_dtypes = [
     torch.uint8,
     torch.bool,
     torch.long,
+    torch.float16,
 ]
-
-if not is_gaudi1():
-    logical_dtypes.append(torch.float16)
 
 logical_ops_not_supported_dtypes = {
     torch.logical_and: [torch.int16],

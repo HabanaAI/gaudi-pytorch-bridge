@@ -18,7 +18,6 @@ import torch
 from test_utils import (
     compile_function_if_compile_mode,
     format_tc,
-    is_gaudi1,
     is_pytest_mode_compile,
 )
 
@@ -43,8 +42,6 @@ class TestHpuIndexPutSelectLargeIndice:
         if is_pytest_mode_compile():
             pytest.skip(reason="Node: index_put requires fallback: True")
 
-        if is_gaudi1() and dtype == torch.half:
-            pytest.skip("Half is not supported on Gaudi.")
         num_blocks = 3
         block_size = 4
         hidden_dim = 2

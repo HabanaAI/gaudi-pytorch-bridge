@@ -59,7 +59,7 @@ def pytest_addoption(parser):
         "--dut",
         action="store",
         default="gaudi2",
-        help="{gaudi|gaudi2|gaudi3}, default gaudi2. Choose chip version",
+        help="{gaudi2|gaudi3}, default gaudi2. Choose chip version",
     )
     parser.addoption(
         "--vendor",
@@ -164,7 +164,7 @@ def pytest_unconfigure(config):
 
 def pytest_collection_modifyitems(config, items):
     # skip_dict has structure {"gaudi_version": {"mode": [list of failing tests on specific gaudi for specified mode]}}
-    # gaudi_version accepted values: all_gaudi | gaudi | gaudi2 | gaudi3
+    # gaudi_version accepted values: all_gaudi | gaudi2 | gaudi3
     # mode accepted values: all | lazy | compile | eager
     skip_dict = {}
     try:

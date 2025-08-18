@@ -24,7 +24,7 @@ from habana_frameworks.torch.hpex.experimental.transformer_engine.recipe import 
     DelayedScaling,
     Format,
 )
-from test_utils import _kernel_copy_to_device, compare_tensors, is_gaudi1
+from test_utils import _kernel_copy_to_device, compare_tensors
 
 g = ht.hpu.HPUGraph()
 s = ht.hpu.Stream()
@@ -442,7 +442,6 @@ def test_wrap_hpugraphs_max_graphs(max_graphs=10):
     compare_tensors(loss_hpu_vec, loss_cpu_vec, atol=0.001, rtol=1.0e-3)
 
 
-@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported dtype")
 @pytest.mark.parametrize("disable_tensor_cache", [True])
 def test_cached_module_training_fp8(disable_tensor_cache):
     torch.manual_seed(12345)

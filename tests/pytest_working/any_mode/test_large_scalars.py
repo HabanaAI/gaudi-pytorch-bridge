@@ -15,7 +15,7 @@
 
 import pytest
 import torch
-from test_utils import compile_function_if_compile_mode, format_tc, is_gaudi1
+from test_utils import compile_function_if_compile_mode, format_tc
 
 test_params = [
     (torch.mul, torch.bfloat16, [-1.0, -0.5, 0, 0.5, 1.0], torch.finfo(torch.float32).max),
@@ -32,8 +32,6 @@ test_params = [
     ids=format_tc,
 )
 def test_large_scalar(op, dtype, input_data, scalar):
-    if dtype == torch.float16 and is_gaudi1():
-        pytest.skip("Half is not supported on Gaudi")
     t = torch.tensor(input_data).to(dtype)
     result_cpu = op(t, scalar)
 
@@ -50,8 +48,6 @@ def test_large_scalar(op, dtype, input_data, scalar):
     ids=format_tc,
 )
 def test_large_scalar_out(op, dtype, input_data, scalar):
-    if dtype == torch.float16 and is_gaudi1():
-        pytest.skip("Half is not supported on Gaudi")
     t = torch.tensor(input_data).to(dtype)
     result_cpu = torch.empty_like(t)
     op(t, scalar, out=result_cpu)
@@ -76,8 +72,6 @@ def test_large_scalar_out(op, dtype, input_data, scalar):
     ids=format_tc,
 )
 def test_large_scalar_inplace(op, dtype, input_data, scalar):
-    if dtype == torch.float16 and is_gaudi1():
-        pytest.skip("Half is not supported on Gaudi")
     tensor_cpu = torch.tensor(input_data).to(dtype)
     tensor_hpu = tensor_cpu.to("hpu")
 
@@ -98,8 +92,6 @@ def test_large_scalar_inplace(op, dtype, input_data, scalar):
     ids=format_tc,
 )
 def test_foreach_large_scalar(op, dtype, input_data, scalar):
-    if dtype == torch.float16 and is_gaudi1():
-        pytest.skip("Half is not supported on Gaudi")
     t = torch.tensor([input_data]).to(dtype)
     result_cpu = op([t], scalar)[0]
 

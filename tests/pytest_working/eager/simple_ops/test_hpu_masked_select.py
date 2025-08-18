@@ -15,7 +15,7 @@
 
 import pytest
 import torch
-from test_utils import format_tc, is_gaudi1
+from test_utils import format_tc
 
 test_shapes_dtypes = [
     ((2, 2, 2), (2), torch.long),
@@ -29,9 +29,6 @@ test_shapes_dtypes = [
 class TestHpuMaskedSelect:
     @staticmethod
     def test_hpu_masked_select(self_shape, mask_shape, dtype):
-        if is_gaudi1() and dtype == torch.half:
-            pytest.skip("Half is not supported on Gaudi.")
-
         def fn(input, mask):
             return torch.masked_select(input, mask)
 
@@ -48,9 +45,6 @@ class TestHpuMaskedSelect:
 
     @staticmethod
     def test_hpu_masked_select_out(self_shape, mask_shape, dtype):
-        if is_gaudi1() and dtype == torch.half:
-            pytest.skip("Half is not supported on Gaudi.")
-
         def fn(input, mask, out):
             torch.ops.aten.masked_select.out(input, mask, out=out)
             return out

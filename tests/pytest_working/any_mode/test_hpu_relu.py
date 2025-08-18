@@ -19,13 +19,11 @@ from test_utils import (
     check_ops_executed_in_jit_ir,
     compile_function_if_compile_mode,
     format_tc,
-    is_gaudi1,
     is_pytest_mode_compile,
     is_pytest_mode_lazy,
 )
 
 
-@pytest.mark.skipif(is_gaudi1(), reason="Gaudi1 does not support relu with integer numbers larger than 2^31")
 @pytest.mark.skipif(
     is_pytest_mode_lazy(), reason="Error when trying to cast Long to Int, Input values range exceeds Int range"
 )

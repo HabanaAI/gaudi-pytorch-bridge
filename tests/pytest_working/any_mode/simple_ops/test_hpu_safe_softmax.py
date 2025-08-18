@@ -18,7 +18,6 @@ import torch
 from test_utils import (
     clear_t_compile_logs,
     format_tc,
-    is_gaudi1,
     is_pytest_mode_compile,
 )
 
@@ -29,9 +28,6 @@ from test_utils import (
 )
 @pytest.mark.parametrize("dtype", [torch.float, torch.float16, torch.bfloat16], ids=format_tc)
 def test_safe_softmax(input_shape, dim, dtype):
-    if is_gaudi1() and dtype == torch.float16:
-        pytest.skip("float16/half is not supported on Gaudi.")
-
     input = torch.randn(*input_shape, dtype=dtype)
 
     # Generate mask based on input_shape and dim

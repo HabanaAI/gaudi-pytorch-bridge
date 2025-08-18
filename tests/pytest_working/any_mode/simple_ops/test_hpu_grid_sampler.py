@@ -18,7 +18,6 @@ from test_utils import (
     check_ops_executed_in_jit_ir,
     compile_function_if_compile_mode,
     format_tc,
-    is_gaudi1,
     is_pytest_mode_compile,
     print_tensors,
 )
@@ -40,9 +39,7 @@ def pmode_to_int(pmode):
     return pmodes.index(pmode)
 
 
-dtypes = [torch.float, torch.bfloat16]
-if not is_gaudi1():
-    dtypes.append(torch.float16)
+dtypes = [torch.float, torch.bfloat16, torch.float16]
 
 
 @pytest.mark.parametrize("input_shape", [(2, 4, 4, 2), (1, 2, 3, 4, 5)], ids=format_tc)
@@ -57,8 +54,6 @@ def test_hpu_grid_sampler(input_shape, mode, padding_mode, align_corners, dtype,
     nd = dim - 2
 
     if fwdbwd == "bwd":
-        if is_gaudi1():
-            pytest.skip("grid_sampler_bwd is not supported on Gaudi1")
         if dim == 5:
             pytest.skip("SW-217785: grid_sampler_bwd is not yet supported for 5D inputs")
         if dtype not in [torch.float]:

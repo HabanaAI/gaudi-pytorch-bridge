@@ -24,7 +24,7 @@ import torch
 import torch.nn.functional as F
 from habana_frameworks.torch.hpex.kernels import FusedSDPA
 from sdpa_test_utils import check_dbg_env_var, get_dbg_env_var_num, vb_print
-from test_utils import compare_tensors, compile_function_if_compile_mode, is_gaudi1
+from test_utils import compare_tensors, compile_function_if_compile_mode
 
 DBG_FLAG_use_func_drpout = False
 print_max_diff = False
@@ -1381,9 +1381,6 @@ def test_sdpa(
         return_attn_probs,
         use_sink,
     )
-
-    if is_gaudi1():
-        pytest.skip("SDPA tests not supported on G1")
 
     if not test_case_valid:
         pytest.skip("This testcase is not valid")

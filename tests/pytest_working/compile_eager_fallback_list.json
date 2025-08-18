@@ -1253,11 +1253,6 @@
                 "test_index_put_ellipsis[inputs_shape0]",
                 "test_index_put_cpu_index[inputs_shape0]"
         ],
-        "gaudi": [
-                "test_hpu_adaptive_avg_pool1d[bfloat16-10-[2x2x7]]",
-                "test_view_negative_dim_pure_static",
-                "test_graph_mult_module_split"
-        ],
         "gaudi2": [
                 "test_op_square_inplace_output",
                 "test_te_linear_fp8[E5M2-False-16-16-bf16-device0]",

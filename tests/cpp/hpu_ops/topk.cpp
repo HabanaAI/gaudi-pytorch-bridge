@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -75,9 +75,6 @@ TEST_F(HpuOpTest, topk) {
 }
 
 TEST_F(HpuOpTest, topk_Float16) {
-  if (isGaudi()) {
-    GTEST_SKIP() << "Test skipped on Gaudi.";
-  }
   GenerateInputs(1, {{10, 3, 2}});
   auto k = 3;
   auto dim = 0;

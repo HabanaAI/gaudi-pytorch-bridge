@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,12 +15,6 @@
 #include "device_type_util.h"
 #include "backend/habana_device/HPUGuardImpl.h"
 #include "backend/habana_device/hpu_cached_devices.h"
-
-bool isGaudi() {
-  habana::HABANAGuardImpl device_guard;
-  device_guard.getDevice();
-  return habana::HPUDeviceContext::get_device().type() == synDeviceGaudi;
-}
 
 bool isGaudi2() {
   habana::HABANAGuardImpl device_guard;

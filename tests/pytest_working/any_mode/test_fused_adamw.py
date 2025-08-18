@@ -24,7 +24,6 @@ from habana_frameworks.torch.hpex.optimizers.distributed import (
 from test_utils import (
     compile_function_if_compile_mode,
     format_tc,
-    is_gaudi1,
     is_pytest_mode_compile,
     is_pytest_mode_lazy,
 )
@@ -35,12 +34,8 @@ betas = (0.9, 0.99)
 weight_decay = 0.1
 eps = 1.0e-6
 shapes = [(3, 4), (5, 6)]
-moments_dtypes = [None, torch.bfloat16, torch.float32]
+moments_dtypes = [None, torch.bfloat16, torch.float32, (torch.float8_e4m3fn, torch.float8_e5m2)]
 dtypes = [torch.bfloat16, torch.float32]
-
-
-if not is_gaudi1():
-    moments_dtypes.append((torch.float8_e4m3fn, torch.float8_e5m2))
 
 
 class Net(torch.nn.Module):

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -334,9 +334,6 @@ TEST_F(LazyIndexKernelTest, IndexAddInplaceTest) {
 }
 
 TEST_F(LazyIndexKernelTest, IndexAddInplaceTest2) {
-  if (habana::HPUDeviceContext::get_device().type() == synDeviceGaudi) {
-    GTEST_SKIP();
-  }
   torch::Tensor a = torch::randn({8, 2, 28, 28}, torch::requires_grad(false));
   torch::Tensor h_a = a.to(torch::kHPU);
   int64_t dim = 1;
@@ -358,9 +355,6 @@ TEST_F(LazyIndexKernelTest, IndexAddInplaceTest2) {
 }
 
 TEST_F(LazyIndexKernelTest, IndexAddRepeatedIndicesInplaceTest) {
-  if (habana::HPUDeviceContext::get_device().type() == synDeviceGaudi) {
-    GTEST_SKIP();
-  }
   torch::Tensor a = torch::randn({8, 3, 28, 28}, torch::requires_grad(false));
   torch::Tensor h_a = a.to(torch::kHPU);
   int64_t dim = 1;

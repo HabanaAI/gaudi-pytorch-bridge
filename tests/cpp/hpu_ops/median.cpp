@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,9 +24,6 @@ class MedianHpuOpTest : public HpuOpTestUtil,
 TEST_P(MedianHpuOpTest, median) {
   const auto& testParams = GetParam();
   auto dtype = std::get<0>(testParams);
-  if (isGaudi() && dtype == torch::kFloat16) {
-    GTEST_SKIP() << "Half dtype not supported on Gaudi1.";
-  }
   auto size = std::get<1>(testParams);
   GenerateInputs(1, {{size}}, {dtype});
   auto expected = torch::median(GetCpuInput(0));
@@ -44,9 +41,6 @@ TEST_P(MedianDimHpuOpTest, median_dim) {
   }
   const auto& testParams = GetParam();
   auto dtype = std::get<0>(testParams);
-  if (isGaudi() && dtype == torch::kFloat16) {
-    GTEST_SKIP() << "Half dtype not supported on Gaudi1.";
-  }
   auto size = std::get<1>(testParams);
   auto axis = std::get<2>(testParams);
   auto keepdim = std::get<3>(testParams);

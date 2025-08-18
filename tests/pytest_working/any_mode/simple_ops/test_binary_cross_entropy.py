@@ -24,7 +24,6 @@ from compile.test_dynamo_utils import use_eager_fallback
 from test_utils import (
     compile_function_if_compile_mode,
     format_tc,
-    is_gaudi1,
     is_pytest_mode_compile,
     is_pytest_mode_eager,
     is_pytest_mode_lazy,
@@ -42,9 +41,7 @@ size = [
 
 reduction = ["none", "mean", "sum"]
 
-dtype = [torch.float32, torch.bfloat16]
-if not is_gaudi1():
-    dtype.append(torch.float16)
+dtype = [torch.float32, torch.bfloat16, torch.float16]
 
 use_weight_broadcastable_weight = [(False, False), (True, False), (True, True)]
 

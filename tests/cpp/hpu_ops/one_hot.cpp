@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "../utils/dtype_supported_on_device.h"
+
 #include "backend/habana_device/HPUGuardImpl.h"
 #include "util.h"
 
@@ -25,9 +25,6 @@ class OneHotHpuOpTestFixture
 
 TEST_P(OneHotHpuOpTestFixture, one_hot) {
   torch::ScalarType dtype = std::get<0>(GetParam());
-  if (!IsDtypeSupportedOnCurrentDevice(dtype)) {
-    GTEST_SKIP();
-  }
   c10::ArrayRef sizes(std::get<1>(GetParam()));
   GenerateInputs(1, {sizes}, dtype);
 

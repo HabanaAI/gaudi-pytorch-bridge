@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * limitations under the License.
  */
 
-#include "../utils/dtype_supported_on_device.h"
 #include "util.h"
 
 class HpuOpTest : public HpuOpTestUtil {
@@ -72,9 +71,6 @@ class HpuOpTest : public HpuOpTestUtil {
 
 #define COUNT_NON_ZERO_TEST(DTYPE)                                          \
   TEST_F(HpuOpTest, count_nonzero_##DTYPE) {                                \
-    if (!IsDtypeSupportedOnCurrentDevice(torch::DTYPE)) {                   \
-      GTEST_SKIP();                                                         \
-    }                                                                       \
     testCountNonZero({3, 2, 4}, torch::DTYPE, at::IntArrayRef{0, 1, 2}, 0); \
     testCountNonZero(                                                       \
         {3, 2, 4, 6, 2, 1}, torch::DTYPE, at::IntArrayRef{3, 1, 2}, 0);     \
@@ -85,9 +81,6 @@ class HpuOpTest : public HpuOpTestUtil {
 
 #define COUNT_NON_ZERO_OUT_TEST(DTYPE)                                         \
   TEST_F(HpuOpTest, count_nonzero_out_##DTYPE) {                               \
-    if (!IsDtypeSupportedOnCurrentDevice(torch::DTYPE)) {                      \
-      GTEST_SKIP();                                                            \
-    }                                                                          \
     testCountNonZeroOut({3, 2, 4}, torch::DTYPE, at::IntArrayRef{0, 1, 2}, 0); \
     testCountNonZeroOut(                                                       \
         {3, 2, 4, 6, 2, 1}, torch::DTYPE, at::IntArrayRef{3, 1, 2}, 0);        \

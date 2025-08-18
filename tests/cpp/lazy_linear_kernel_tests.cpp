@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -202,8 +202,6 @@ TEST_F(LazyLinearKernelTest, MatmulBwdTest) {
       // now iterate over all cases for each N and M
       for (int gen1 = 0; gen1 < 1 << std::max(0, N - 2); gen1++) {
         for (int gen2 = 0; gen2 < 1 << std::max(0, M - 2); gen2++) {
-          if (isGaudi() && should_skip_case_on_gaudi(N, M, gen1, gen2))
-            continue;
           // perform the test for each case
           matmulbwd_test(
               generator(N, gen1, {3, 4}), generator(M, gen2, {4, 5}));

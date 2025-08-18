@@ -15,7 +15,6 @@
 
 import itertools
 
-import habana_frameworks.torch.utils.experimental as htexp
 import pytest
 import torch
 
@@ -29,16 +28,13 @@ dtype = [
     torch.int8,
     torch.uint8,
     torch.bool,
-    # torch.half,
+    torch.half,
     # torch.complex32,
     # torch.complex64,
     # torch.complex128,
     # torch.qint32,
     # torch.qint8,
 ]
-
-if htexp._get_device_type() != htexp.synDeviceType.synDeviceGaudi:
-    dtype.append(torch.half)
 
 
 def get_name(param):

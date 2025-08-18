@@ -13,20 +13,15 @@
 # limitations under the License.
 ###############################################################################
 
-import pytest
 import torch
 from test_utils import (
     check_ops_executed_in_jit_ir,
     compile_function_if_compile_mode,
-    is_gaudi1,
 )
 
 
 # A test for aten.ne.Scalar op with INT64 dtype
 def test_ne_scalar_int64():
-    if is_gaudi1():
-        pytest.skip("Int64 is not supported on Gaudi1")
-
     def fn(t, s):
         return torch.ne(t, s)
 

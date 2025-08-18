@@ -19,7 +19,7 @@ import random
 import pytest
 import torch
 from habana_frameworks.torch.hpex.kernels.fbgemm import expand_into_jagged_permute
-from test_utils import cpu, hpu, is_gaudi1
+from test_utils import cpu, hpu
 
 
 def expand_into_jagged_permute_ref(
@@ -44,20 +44,10 @@ permute_test_case_list = [
     pytest.param(
         10,
         8,
-        marks=(
-            [pytest.mark.skip(reason="synNodeCreateWithId failed for node: expand_into_jagged_permute_fwd_i32")]
-            if is_gaudi1()
-            else []
-        ),
     ),
     pytest.param(
         12,
         16,
-        marks=(
-            [pytest.mark.skip(reason="synNodeCreateWithId failed for node: expand_into_jagged_permute_fwd_i32")]
-            if is_gaudi1()
-            else []
-        ),
     ),
 ]
 

@@ -35,14 +35,11 @@ from test_utils import (
     cpu,
     format_tc,
     hpu,
-    is_gaudi1,
     is_gaudi2,
     is_pytest_mode_compile,
     is_pytest_mode_eager,
 )
 from torch import nn
-
-pytestmark = [pytest.mark.skipif(is_gaudi1(), reason="Mixture of experts is not supported for Gaudi")]
 
 DTYPES = [torch.bfloat16]  # [torch.float, torch.bfloat16]
 ACTIVATIONS = ["silu"]  # ["gelu", "relu", "silu"]
@@ -303,7 +300,6 @@ def mixture_of_experts_eager(
 
 
 @pytest.mark.skipif(_is_simulator(), reason="Mixture of experts takes too long on sim")
-@pytest.mark.skipif(is_gaudi1(), reason="Mixture of experts is not supported for Gaudi")
 @pytest.mark.parametrize("measurement_mode", [True, False])
 @pytest.mark.parametrize("dtype", DTYPES, ids=format_tc)
 @pytest.mark.parametrize("activation", ACTIVATIONS)
@@ -398,7 +394,6 @@ def handle_scales(scales, num_experts):
 
 
 @pytest.mark.skipif(_is_simulator(), reason="Mixture of experts takes too long on sim")
-@pytest.mark.skipif(is_gaudi1(), reason="Mixture of experts is not supported for Gaudi")
 @pytest.mark.parametrize("fp8_dtype", [torch.float8_e4m3fn, torch.float8_e5m2], ids=format_tc)
 @pytest.mark.parametrize("activation", ACTIVATIONS)
 @pytest.mark.parametrize("hidden_dim", HIDDEN_DIMS)
@@ -522,7 +517,6 @@ def test_mixture_of_experts_fp8(
 
 
 @pytest.mark.skipif(_is_simulator(), reason="Mixture of experts takes too long on sim")
-@pytest.mark.skipif(is_gaudi1(), reason="Mixture of experts is not supported for Gaudi")
 @pytest.mark.skipif(is_pytest_mode_eager(), reason="Eager mode doesn't support H2D scales.")
 @pytest.mark.parametrize("hw_aligned_scales", [True, False])
 def test_mixture_of_experts_fp8_h2d(hw_aligned_scales):
@@ -662,7 +656,6 @@ def quantize_blockwise(weights_tensorlist, block_size, fp8_dtype):
 
 
 @pytest.mark.skipif(_is_simulator(), reason="Mixture of experts takes too long on sim")
-@pytest.mark.skipif(is_gaudi1(), reason="Mixture of experts is not supported for Gaudi")
 @pytest.mark.parametrize("fp8_dtype", [torch.float8_e4m3fn], ids=format_tc)
 @pytest.mark.parametrize("activation", ACTIVATIONS)
 @pytest.mark.parametrize("hidden_dim", HIDDEN_DIMS)
@@ -753,7 +746,6 @@ def test_mixture_of_experts_fp8_blockwise_quant(
 
 
 @pytest.mark.skipif(_is_simulator(), reason="Mixture of experts takes too long on sim")
-@pytest.mark.skipif(is_gaudi1(), reason="Mixture of experts is not supported for Gaudi")
 @pytest.mark.skip(reason="On-demand test. Used only for debugging and integration testing")
 @pytest.mark.parametrize("fp8_dtype", [torch.float8_e4m3fn], ids=format_tc)
 @pytest.mark.parametrize("activation", ACTIVATIONS)
@@ -879,7 +871,6 @@ def check_for_fwd_bwd_ops(recomp):
 
 
 @pytest.mark.skipif(_is_simulator(), reason="Mixture of experts takes too long on sim")
-@pytest.mark.skipif(is_gaudi1(), reason="Mixture of experts is not supported for Gaudi")
 @pytest.mark.parametrize("recomp", [True, False])
 @pytest.mark.parametrize("dtype", DTYPES, ids=format_tc)
 @pytest.mark.parametrize("activation", ACTIVATIONS)
@@ -990,7 +981,6 @@ def test_mixture_of_experts_fwd_bwd(
 
 
 @pytest.mark.skipif(_is_simulator(), reason="Mixture of experts takes too long on sim")
-@pytest.mark.skipif(is_gaudi1(), reason="Mixture of experts is not supported for Gaudi")
 @pytest.mark.parametrize("recomp", [True, False])
 @pytest.mark.parametrize("dtype", DTYPES, ids=format_tc)
 @pytest.mark.parametrize("activation", ACTIVATIONS)
@@ -1575,7 +1565,6 @@ def mixture_of_experts_training_fp8(
 
 
 @pytest.mark.skip("Mixture of experts takes too long on sim")
-@pytest.mark.skipif(is_gaudi1(), reason="Mixture of experts is not supported for Gaudi")
 @pytest.mark.parametrize(
     "fp8_dtype, hybrid_mode",
     [(torch.float8_e4m3fn, False), (torch.float8_e5m2, False), (torch.float8_e4m3fn, True)],

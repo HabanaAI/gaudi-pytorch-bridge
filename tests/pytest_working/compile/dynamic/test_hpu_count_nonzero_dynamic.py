@@ -21,7 +21,6 @@ import torch
 from test_utils import (  # noqa F401
     compile_function_if_compile_mode,
     format_tc,
-    is_gaudi1,
     setup_teardown_env_fixture,
 )
 
@@ -39,10 +38,8 @@ dtypes = [
     torch.int,
     torch.short,
     torch.bool,
+    torch.float16,
 ]
-
-if not is_gaudi1():
-    dtypes.append(torch.float16)
 
 
 @pytest.mark.parametrize("shape, dim", params, ids=format_tc)

@@ -16,14 +16,12 @@
 import math
 
 import habana_frameworks.torch.hpu as hthpu
-import pytest
 import torch
 import torch.nn.functional as F
 from compile.test_dynamo_utils import use_eager_fallback
 from habana_frameworks.torch.hpu import reset_peak_memory_stats
 from habana_frameworks.torch.hpu.memory import _extended_memory_summary_dict
 from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
-from test_utils import is_gaudi1
 from torch import nn
 
 device = "hpu"
@@ -267,7 +265,6 @@ def test_produced_by_mutation_partition2():
     assert torch.allclose(sum.to("cpu"), sum_ref.to("cpu"), atol=1e-3), "output mismatch"
 
 
-@pytest.mark.skipif(is_gaudi1(), reason="random failure on G1")
 def test_ws_reduced_e2e():
     batch_size = 1024
     channel_num = 1024
@@ -338,7 +335,6 @@ def test_ws_reduced_e2e():
     assert torch.allclose(y_cpu, ref_cpu, atol=1e-3), "output mismatch"
 
 
-@pytest.mark.skipif(is_gaudi1(), reason="random failure on G1")
 def test_not_cache_hit_e2e():
     batch_size = 1024
     channel_num = 1024

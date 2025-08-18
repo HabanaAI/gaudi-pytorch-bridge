@@ -19,7 +19,6 @@ import torch
 from fp8_utils import convertExpBiasToScale
 from test_utils import (
     compare_tensors,
-    is_gaudi1,
     is_gaudi2,
     is_pytest_mode_eager,
 )
@@ -28,8 +27,6 @@ Verbose = False
 
 # Disable dynamic shapes
 ht.disable_dynamic_shape()
-
-pytestmark = [pytest.mark.skipif(is_gaudi1(), reason="Gaudi doesn't support fp8")]
 
 
 def common_h2d_scales(

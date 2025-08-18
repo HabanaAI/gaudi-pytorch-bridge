@@ -16,11 +16,9 @@
 import numpy as np
 import pytest
 import torch
-from test_utils import compare_tensors, compile_function_if_compile_mode, is_gaudi1
+from test_utils import compare_tensors, compile_function_if_compile_mode
 
-dtypes = [torch.float32, torch.bfloat16, torch.int]
-if not is_gaudi1():
-    dtypes += [torch.float8_e5m2, torch.float8_e4m3fn, torch.long]
+dtypes = [torch.float32, torch.bfloat16, torch.int, torch.float8_e5m2, torch.float8_e4m3fn, torch.long]
 
 
 @pytest.mark.parametrize("shape", [(5, 7), (6, 4, 3)])

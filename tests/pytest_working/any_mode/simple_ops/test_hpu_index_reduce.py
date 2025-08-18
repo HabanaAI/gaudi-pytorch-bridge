@@ -20,7 +20,6 @@ from test_utils import (
     check_ops_executed_in_jit_ir,
     compile_function_if_compile_mode,
     format_tc,
-    is_gaudi1,
     is_pytest_mode_compile,
 )
 
@@ -30,7 +29,6 @@ from test_utils import (
 @pytest.mark.parametrize("reduce", ["amax", "amin", "prod", "mean"])
 @pytest.mark.parametrize("include_self", [True, False])
 @pytest.mark.parametrize("dtype", [torch.float32, torch.bfloat16, torch.int32, torch.int64], ids=format_tc)
-@pytest.mark.skipif(is_gaudi1(), reason="index_reduce is not supported on Gaudi")
 def test_hpu_index_reduce(shape, dim, reduce, include_self, dtype):
     self_cpu = (torch.rand(shape) * 10).to(dtype)
     dim_size = shape[dim]

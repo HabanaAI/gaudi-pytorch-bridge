@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -58,9 +58,6 @@ HPU_SORT_TEST(sort_Int32_asc, sort, torch::kInt32, false)
 HPU_SORT_TEST(sort_Int16_asc, sort, torch::kInt16, false)
 
 TEST_F(HpuOpTest, sort_Float16_asc) {
-  if (isGaudi()) {
-    GTEST_SKIP() << "Test skipped on Gaudi.";
-  }
   GenerateInputs(1, {{10, 3, 2}});
   auto k = 3;
   auto dim = 0;

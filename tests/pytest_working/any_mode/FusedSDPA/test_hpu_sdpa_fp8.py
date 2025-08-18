@@ -37,7 +37,6 @@ from sdpa_test_utils import (  # noqa F401
 from test_utils import (
     compare_tensors,
     compile_function_if_compile_mode,
-    is_gaudi1,
     is_gaudi3,
 )
 
@@ -1170,8 +1169,6 @@ def test_sdpa(
         use_sink,
         scalar_run,
     )
-    if is_gaudi1():
-        pytest.skip("Fp8 tests not supported on G1")
 
     if not is_gaudi3() and not inference and not check_dbg_env_var("PT_HPU_SDPA_FP8_152_152_FMT"):
         pytest.skip("Fp8 training tests with hybrid precision(143 -152) not currently supported on G1 or G2")

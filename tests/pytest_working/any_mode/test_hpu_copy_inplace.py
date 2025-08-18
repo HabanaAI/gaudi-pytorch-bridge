@@ -25,7 +25,6 @@ from test_utils import (
     compare_tensors,
     compile_function_if_compile_mode,
     format_tc,
-    is_gaudi1,
     is_pytest_mode_compile,
     place_on_hpu,
 )
@@ -34,8 +33,7 @@ Verbose = False
 
 dtypes = [torch.float32, torch.bfloat16, torch.int]
 dtypes_fp8 = [torch.float8_e5m2, torch.float8_e4m3fn]
-if not is_gaudi1():
-    dtypes += dtypes_fp8
+dtypes += dtypes_fp8
 
 
 @pytest.mark.parametrize("shape", [(2, 2), (512,), (5, 4, 3, 8)], ids=format_tc)

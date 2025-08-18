@@ -36,10 +36,7 @@ from test_pt2e_quant_flow import (
     test_case_list,
     verify_nodes,
 )
-from test_utils import (
-    inference_env_fixture,  # noqa F401
-    is_gaudi1,
-)
+from test_utils import inference_env_fixture  # noqa F401
 from torch.ao.quantization.observer import MinMaxObserver
 from torch.ao.quantization.quantizer import QuantizationSpec
 from torch.ao.quantization.quantizer.xnnpack_quantizer_utils import (
@@ -168,7 +165,6 @@ def use_pt2e_quant_flow_with_separate_calibration(
             assert torch.allclose(cpu_result2[0].float(), hpu_result2[0].to(CPU).float(), rtol=2e-2, atol=2e-2)
 
 
-@pytest.mark.skipif(is_gaudi1(), reason="skip pt2e-quant feature testing on gaudi1")
 @pytest.mark.parametrize("save_or_load", ["save", "load"])
 @pytest.mark.parametrize("weight_qscheme", ["ptq", "pcq"])
 @pytest.mark.parametrize("test_case", test_case_list)
