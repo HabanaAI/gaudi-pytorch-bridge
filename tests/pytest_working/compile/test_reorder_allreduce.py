@@ -124,8 +124,6 @@ def test_reorder_allreduce_with_no_users():
             node.meta["placement"] = "eager"
 
     orig_enable_allreduce_graph_split = config.enable_allreduce_graph_split
-    orig_use_cpp_partitioner_flag = config.use_cpp_partitioner
-    config.use_cpp_partitioner = 0
     config.enable_allreduce_graph_split = 1
 
     changed = pass_allreduce_parents(ctx)
@@ -182,5 +180,4 @@ def test_reorder_allreduce_with_no_users():
         fused_0 = self.fused_0(fused_8, wait_tensor_7);  fused_8 = wait_tensor_7 = fused_0 = None"""
     assert sub_str in optimized_fn_str, "the optimized graph not match"
 
-    config.use_cpp_partitioner = orig_use_cpp_partitioner_flag
     config.enable_allreduce_graph_split = orig_enable_allreduce_graph_split

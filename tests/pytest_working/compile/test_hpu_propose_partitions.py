@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ###############################################################################
-import copy
 
 import pytest
 import torch
@@ -27,13 +26,10 @@ from habana_frameworks.torch.dynamo.compile_backend.passes import (
     pass_post_process_partitions,
     pass_propose_partitions,
 )
-from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
-from test_utils import _is_simulator, compile_function_if_compile_mode
+from test_utils import _is_simulator
 from torch import nn
-from torch._dynamo import compiled_autograd
 from torch.fx import symbolic_trace
 from torch.fx.experimental.proxy_tensor import make_fx
-from torch.optim import Adam
 
 
 class Net(nn.Module):
@@ -68,42 +64,6 @@ def assert_ops(ops_summary_1, ops_summary_2):
 
 def compiler_fn(gm):
     return torch.compile(gm, backend="hpu_backend", fullgraph=True)
-
-
-def test_propose_partitions():
-    torch.manual_seed(123)
-
-    with compiled_autograd._enable(compiler_fn):
-        input_dim = 100
-        input = torch.rand((8, input_dim), dtype=torch.float, device="hpu")
-        input_c = input.clone().detach()
-        model = Net(input_dim)
-        model_c = copy.deepcopy(model)
-
-        with FxGraphAnalyzer(reset_dynamo=True) as fga:
-            model = compile_function_if_compile_mode(
-                model,
-                options={"keep_input_mutations": True, "use_cpp_partitioner": True},
-            ).to(torch.device("hpu"))
-            optim = Adam(model.parameters())
-            output_1 = model(input)
-            output_1.sum().backward()
-            optim.step()
-        ops_summary_1 = fga.get_ops_summary()
-
-        with FxGraphAnalyzer(reset_dynamo=True) as fga:
-            model_c = compile_function_if_compile_mode(
-                model_c,
-                options={"keep_input_mutations": True, "use_cpp_partitioner": False},
-            ).to(torch.device("hpu"))
-            optim = Adam(model_c.parameters())
-            output_2 = model_c(input_c)
-            output_2.sum().backward()
-            optim.step()
-        ops_summary_2 = fga.get_ops_summary()
-
-    assert_ops(ops_summary_1, ops_summary_2)
-    assert torch.all(torch.isclose(output_2, output_1)).item()
 
 
 @pytest.mark.skipif(_is_simulator(), reason="using big tensor may cause problems on sim")

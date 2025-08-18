@@ -34,9 +34,3 @@ target_compile_definitions(_shared_layer_C PRIVATE TORCH_EXTENSION_NAME=_shared_
 set_target_properties(_shared_layer_C PROPERTIES PREFIX "")
 target_link_libraries(_shared_layer_C PUBLIC bindings torch absl::hash ${TORCH_PYTHON_LIBRARY})
 install(TARGETS _shared_layer_C LIBRARY DESTINATION habana_torch_plugin/${PYBIND_INSTALL_DIRNAME})
-
-add_habana_library(_partition_bind_C SHARED partitioner_bind.cpp)
-target_compile_definitions(_partition_bind_C PRIVATE TORCH_EXTENSION_NAME=_partition_bind_C)
-set_target_properties(_partition_bind_C PROPERTIES PREFIX "")
-target_link_libraries(_partition_bind_C PUBLIC bindings torch absl::hash ${TORCH_PYTHON_LIBRARY})
-install(TARGETS _partition_bind_C LIBRARY DESTINATION habana_torch_plugin/${PYBIND_INSTALL_DIRNAME})

@@ -16,13 +16,9 @@
 import ctypes
 from collections.abc import Mapping
 
-from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
-
 import torch
-from torch.fx.passes.infra.partitioner import CapabilityBasedPartitioner, Partition
+from torch.fx.passes.infra.partitioner import CapabilityBasedPartitioner
 from torch.fx.passes.operator_support import OperatorSupport
-
-from ._partition_bind_C import BindedPartitioner, PartitionDTO
 
 
 class HabanaClusterOperatorSupport(OperatorSupport):
@@ -37,54 +33,6 @@ class HabanaPartitioner(CapabilityBasedPartitioner):
             sup_op(),
             allows_single_node_partition=True,
         )
-
-    def propose_partitions(self) -> list[Partition]:
-        if hpu_backend_config.use_cpp_partitioner:
-            return self._propose_partitions_binded()
-        else:
-            return super().propose_partitions()
-
-    def _propose_partitions_binded(self):
-        """
-        Entry point to c++ binded version of propose_partitions function
-        """
-        node_wrappers, mapping_prim_id = self._convert_nodes_to_wrappers()
-        binded_partitioner = BindedPartitioner(
-            node_wrappers,
-            self.allows_single_node_partition,
-            self.non_compute_ops,
-            self.allowed_single_node_partition_ops,
-        )
-        partition_dto_list = binded_partitioner.propose_partitions()
-        return self._convert_dto_to_partition(partition_dto_list, mapping_prim_id)
-
-    def _convert_nodes_to_wrappers(self):
-        """
-        Convert a list of torch.fx.Node objects to a list of NodeWrapper objects.
-        Returns a tuple, where the first element is a list of NodeWrapper objects
-        and second element is a dictionary mapping id of NodeWrapper object to the
-        original torch.fx.Node
-        """
-        node_wrappers = []
-        mapping_address = {}
-        mapping_prim_id = {}
-        for idx, node in enumerate(self.graph_module.graph.nodes):
-            is_node_supported = self._is_node_supported(node)
-            wrapper = NodeWrapper(node, idx, is_node_supported)
-            mapping_address[id(node)] = id(wrapper)
-            mapping_prim_id[idx] = node
-            node_wrappers.append(wrapper)
-
-        for wrapped_node in node_wrappers:
-            wrapped_node.update_neighbors(mapping_address)
-
-        return node_wrappers, mapping_prim_id
-
-    def _convert_dto_to_partition(self, dtos: list[PartitionDTO], mapping_prim_id: dict[int, torch.fx.Node]):
-        """
-        Convert PartitionDTO object to Partition object
-        """
-        return [Partition(dto.id, [mapping_prim_id[id] for id in dto.nodes_ids]) for dto in dtos]
 
 
 class NodeWrapper:
