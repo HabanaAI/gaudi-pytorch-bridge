@@ -51,4 +51,4 @@ testsMap:
         filter: |
           set -x
           cd ${PYTORCH_MODULES_ROOT_PATH}
-          build_pytorch_modules -c --tidy --build-tool-flag=-k0
+          build_pytorch_modules -c -l --tidy --build-tool-flag=-k0
