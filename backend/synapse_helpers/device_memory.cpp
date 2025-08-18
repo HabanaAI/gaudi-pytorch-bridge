@@ -1133,7 +1133,7 @@ device_ptr device_memory::get_pointer(mem_handle h) {
 }
 
 void device_memory::get_memory_stats(MemoryStats* stats) {
-  if (pool_strategy_ != pool_allocator::strategy_none) {
+  if (pool_strategy_ != pool_allocator::strategy_none && suballoc_ != nullptr) {
     suballoc_->get_stats(stats);
   }
 }
