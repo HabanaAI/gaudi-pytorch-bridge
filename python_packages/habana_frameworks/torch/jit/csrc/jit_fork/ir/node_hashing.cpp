@@ -58,14 +58,14 @@ bool tensorEqual(const at::Tensor& lhs, const at::Tensor& rhs) {
 bool typeListEqual(
     const std::vector<TypePtr>& lhs,
     const std::vector<TypePtr>& rhs) {
-  if (lhs.size() != rhs.size())
-    return false;
-  for (const auto i : c10::irange(lhs.size())) {
-    if (*lhs[i] != *rhs[i]) {
-      return false;
-    }
-  }
-  return true;
+  return std::equal(
+      lhs.begin(),
+      lhs.end(),
+      rhs.begin(),
+      rhs.end(),
+      [](const TypePtr& lhs_elem, const TypePtr& rhs_elem) {
+        return *lhs_elem == *rhs_elem;
+      });
 }
 
 template <typename attribute_type> // int64_t, bool, double
@@ -91,12 +91,7 @@ bool attributesEqual(at::ArrayRef<IValue> a1, at::ArrayRef<IValue> a2) {
   if (a1.size() != a2.size()) {
     return false;
   }
-  for (const auto i : c10::irange(a1.size())) {
-    if (!ivaluesEqual(a1[i], a2[i])) {
-      return false;
-    }
-  }
-  return true;
+  return std::equal(a1.begin(), a1.end(), a2.begin(), ivaluesEqual);
 }
 
 bool attributesEqual(const IValue& a1, const IValue& a2) {

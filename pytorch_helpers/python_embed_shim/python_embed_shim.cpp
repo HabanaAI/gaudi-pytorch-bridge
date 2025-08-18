@@ -24,7 +24,7 @@
 namespace {
 
 template <typename... Args>
-void ShimAssert(bool condition, Args&&... args) {
+void ShimAssert(bool condition, const Args&... args) {
   if (!condition) {
     std::cerr << "ERROR: ";
     ((std::cerr << args << " "), ...);

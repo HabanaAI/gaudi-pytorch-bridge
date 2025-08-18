@@ -1,3 +1,4 @@
+//NOLINTBEGIN(hicpp-deprecated-headers,modernize-deprecated-headers)
 #include "__ilshift__.h"
 #include "_foreach_add.h"
 #include "_fused_dropout.h"
@@ -21,6 +22,7 @@
 #include "sort.h"
 #include "squeeze.h"
 #include "upsample_bicubic2d.h"
+//NOLINTEND(hicpp-deprecated-headers,modernize-deprecated-headers)
 
 #include <torch/extension.h>
 #include <pybind11/stl.h>

@@ -9,10 +9,12 @@
 #include "habana_lazy/hpu_stage_submission.h"
 using habana_lazy::LazyOp;
 
+//NOLINTBEGIN(hicpp-deprecated-headers,modernize-deprecated-headers)
 #include "_foreach_log10.h"
 #include "convolution_backward_overrideable.h"
 #include "linear_backward.h"
 #include "native_group_norm.h"
+//NOLINTEND(hicpp-deprecated-headers,modernize-deprecated-headers)
 
 
 using habana_helpers::DTypeHelper; // NOLINT(misc-unused-using-decls)

@@ -9,10 +9,12 @@
 #include "habana_lazy/hpu_stage_submission.h"
 using habana_lazy::LazyOp;
 
+//NOLINTBEGIN(hicpp-deprecated-headers,modernize-deprecated-headers)
 #include "cast_to_fp8_v2.h"
 #include "exp_fast_math.h"
 #include "mixture_of_experts.h"
 #include "softmax_fp8.h"
+//NOLINTEND(hicpp-deprecated-headers,modernize-deprecated-headers)
 
 
 using habana_helpers::DTypeHelper; // NOLINT(misc-unused-using-decls)

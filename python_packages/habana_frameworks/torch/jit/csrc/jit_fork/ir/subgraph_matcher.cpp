@@ -83,14 +83,12 @@ class SubgraphMatcher {
 // todo: it is only used in assert check, so needed to eliminate not used error
 [[maybe_unused]] bool patternGraphIsValid(const Graph& pattern) {
   // Verify that pattern graph has a single block.
-  for (const Node* n : pattern.nodes()) {
-    if (!n->blocks().empty()) {
-      return false;
-    }
-  }
-
   // TODO: Verify that nodes in the pattern don't alias.
-  return true;
+
+  return std::all_of(
+      pattern.nodes().begin(), pattern.nodes().end(), [](const Node* n) {
+        return n->blocks().empty();
+      });
 }
 
 bool SubgraphMatcher::isInput(const Value* v) {
@@ -98,12 +96,10 @@ bool SubgraphMatcher::isInput(const Value* v) {
 }
 
 bool SubgraphMatcher::isOutput(const Value* v) {
-  for (const Value* output : v->owningGraph()->outputs()) {
-    if (v == output) {
-      return true;
-    }
-  }
-  return false;
+  const auto& outputs = v->owningGraph()->outputs();
+  return std::any_of(outputs.begin(), outputs.end(), [v](const Value* output) {
+    return v == output;
+  });
 }
 
 /**

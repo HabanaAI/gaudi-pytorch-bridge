@@ -1020,12 +1020,10 @@ std::optional<IValue> Node::get(Symbol name) const {
 }
 
 bool Node::hasNamedInput(const std::string& name) const {
-  for (const auto& argument : schema().arguments()) {
-    if (argument.name() == name) {
-      return true;
-    }
-  }
-  return false;
+  return std::any_of(
+      schema().arguments().begin(),
+      schema().arguments().end(),
+      [&name](const auto& argument) { return argument.name() == name; });
 }
 
 Value* Node::namedInput(const std::string& unqualName) const {
@@ -1089,12 +1087,10 @@ bool Node::matches(
           torch::jit::getOperatorForLiteral(signature_literal)->schema())) {
     return false;
   }
-  for (Symbol s : const_inputs) {
-    if (!is_constant(s)) {
-      return false;
-    }
-  }
-  return true;
+  return std::all_of(
+      const_inputs.begin(), const_inputs.end(), [this](Symbol s) {
+        return is_constant(s);
+      });
 }
 
 bool Node::mustBeNone() const {
@@ -2451,12 +2447,10 @@ bool Node::isMemberOf(const OperatorSet& os) const {
   if (it == os.ops.end()) {
     return false;
   }
-  for (auto& op : it->second) {
-    if (matches(op->schema())) {
-      return true;
-    }
-  }
-  return false;
+  return std::any_of(
+      it->second.begin(), it->second.end(), [this](const auto& op) {
+        return matches(op->schema());
+      });
 }
 
 } // namespace habana_torch::jit

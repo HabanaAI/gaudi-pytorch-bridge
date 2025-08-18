@@ -318,17 +318,10 @@ bool EagerExec::check_and_skip_lowering() {
 
   // Check condition: if input tensor metadata send org tensor is available
   // It means it does not have permutation and lowering is not required
-  for (const auto& input : m_inputs) {
-    if (!input.isTensor()) {
-      continue;
-    }
-    auto tensor = input.toTensor();
-    auto tensor_tmeta{habana::get_tensor_extra_meta(tensor)};
-    if (tensor_tmeta->get_send_org_tensor()) {
-      return true;
-    }
-  }
-  return false;
+  return std::any_of(m_inputs.begin(), m_inputs.end(), [](const auto& input) {
+    return input.isTensor() &&
+        habana::get_tensor_extra_meta(input.toTensor())->get_send_org_tensor();
+  });
 }
 
 void EagerExec::launch() {

@@ -9,8 +9,10 @@
 #include "habana_lazy/hpu_stage_submission.h"
 using habana_lazy::LazyOp;
 
+//NOLINTBEGIN(hicpp-deprecated-headers,modernize-deprecated-headers)
 #include "addbmm.h"
 #include "as_strided.h"
+//NOLINTEND(hicpp-deprecated-headers,modernize-deprecated-headers)
 
 
 using habana_helpers::DTypeHelper; // NOLINT(misc-unused-using-decls)

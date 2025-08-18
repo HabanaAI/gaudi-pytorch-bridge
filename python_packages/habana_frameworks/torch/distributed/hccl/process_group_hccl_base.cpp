@@ -58,12 +58,10 @@ namespace {
   }
 
 bool check_same_size(const std::vector<at::Tensor>& input_tensors) {
-  for (const auto& input_tensor : input_tensors) {
-    if (!input_tensors[0].is_same_size(input_tensor)) {
-      return false;
-    }
-  }
-  return true;
+  return std::all_of(
+      input_tensors.begin(), input_tensors.end(), [&](const at::Tensor& t) {
+        return input_tensors[0].is_same_size(t);
+      });
 }
 
 void adjustElementcount_int64(

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -127,32 +127,26 @@ class HpuOpTest : public HpuOpTestUtil {
 };
 
 TEST_F(HpuOpTest, foreachAdd) {
-  FunctionOneList foreach_add_scalar = std::bind(
-      static_cast<std::vector<at::Tensor> (*)(
-          at::TensorList, const at::Scalar&)>(at::_foreach_add),
-      std::placeholders::_1,
-      1.31234579);
+  FunctionOneList foreach_add_scalar = [](at::TensorList tlist) {
+    return at::_foreach_add(tlist, 1.31234579);
+  };
   TestForeachBinary(
       {{4, 2, 3}, {4, 0, 5}, {128}, {64, 1}, {2, 3, 4, 5}},
       {at::kInt, at::kFloat, at::kByte, at::kLong, at::kBFloat16},
       foreach_add_scalar);
 
-  FunctionOneList foreach_add_scalars = std::bind(
-      static_cast<std::vector<at::Tensor> (*)(
-          at::TensorList, at::ArrayRef<at::Scalar>)>(at::_foreach_add),
-      std::placeholders::_1,
-      scalars);
+  FunctionOneList foreach_add_scalars = [](at::TensorList tlist) {
+    return at::_foreach_add(tlist, scalars);
+  };
   TestForeachBinary(
       {{4, 2, 3}, {5}, {7}, {64, 0}, {2, 1, 4, 1}},
       {at::kInt, at::kFloat, at::kByte, at::kLong, at::kBFloat16},
       foreach_add_scalars);
 
-  FunctionTwoLists foreach_add_list = std::bind(
-      static_cast<std::vector<at::Tensor> (*)(
-          at::TensorList, at::TensorList, const at::Scalar&)>(at::_foreach_add),
-      std::placeholders::_1,
-      std::placeholders::_2,
-      3);
+  FunctionTwoLists foreach_add_list = [](at::TensorList tlist1,
+                                         at::TensorList tlist2) {
+    return at::_foreach_add(tlist1, tlist2, 3);
+  };
   TestForeachBinaryList(
       {{4, 2, 3}, {5}, {7}, {64, 0}, {2, 1, 4, 1}},
       {{4, 1, 3}, {4, 1, 5}, {7}, {0}, {2, 3, 4, 5}},
@@ -162,42 +156,31 @@ TEST_F(HpuOpTest, foreachAdd) {
 }
 
 TEST_F(HpuOpTest, foreachAddInplace) {
-  FunctionOneListInplace foreach_add_inplace_scalar_floats = std::bind(
-      static_cast<void (*)(at::TensorList, const at::Scalar&)>(
-          at::_foreach_add_),
-      std::placeholders::_1,
-      2.6431);
+  FunctionOneListInplace foreach_add_inplace_scalar_floats =
+      [](at::TensorList tlist) { at::_foreach_add_(tlist, 2.6431); };
   TestForeachBinaryInplace(
       {{4, 3, 5}, {2, 3, 4, 5}},
       {at::kFloat, at::kBFloat16},
       foreach_add_inplace_scalar_floats);
 
-  FunctionOneListInplace foreach_add_inplace_scalar_ints = std::bind(
-      static_cast<void (*)(at::TensorList, const at::Scalar&)>(
-          at::_foreach_add_),
-      std::placeholders::_1,
-      2);
+  FunctionOneListInplace foreach_add_inplace_scalar_ints =
+      [](at::TensorList tlist) { at::_foreach_add_(tlist, 2); };
   TestForeachBinaryInplace(
       {{4, 3, 5}, {2, 3, 4, 5}},
       {at::kInt, at::kLong},
       foreach_add_inplace_scalar_ints);
 
-  FunctionOneListInplace foreach_add_inplace_scalars = std::bind(
-      static_cast<void (*)(at::TensorList, at::ArrayRef<at::Scalar>)>(
-          at::_foreach_add_),
-      std::placeholders::_1,
-      scalars);
+  FunctionOneListInplace foreach_add_inplace_scalars =
+      [](at::TensorList tlist) { at::_foreach_add_(tlist, scalars); };
   TestForeachBinaryInplace(
       {{4, 2, 3}, {5}, {7}, {64, 0}, {2, 1, 4, 1}},
       {at::kInt, at::kFloat, at::kFloat, at::kLong, at::kBFloat16},
       foreach_add_inplace_scalars);
 
-  FunctionTwoListsInplace foreach_add_inplace_list = std::bind(
-      static_cast<void (*)(at::TensorList, at::TensorList, const at::Scalar&)>(
-          at::_foreach_add_),
-      std::placeholders::_1,
-      std::placeholders::_2,
-      3);
+  FunctionTwoListsInplace foreach_add_inplace_list = [](at::TensorList tlist1,
+                                                        at::TensorList tlist2) {
+    at::_foreach_add_(tlist1, tlist2, 3);
+  };
   TestForeachBinaryListInplace(
       {{4, 2, 3}, {5}, {7}, {64, 0}, {2, 3, 4, 5}},
       {{4, 1, 1}, {5}, {7}, {64, 0}, {2, 1, 4, 5}},
@@ -207,70 +190,64 @@ TEST_F(HpuOpTest, foreachAddInplace) {
 }
 
 TEST_F(HpuOpTest, foreachMul) {
-  FunctionOneList foreach_mul_scalar = std::bind(
-      static_cast<std::vector<at::Tensor> (*)(
-          at::TensorList, const at::Scalar&)>(at::_foreach_mul),
-      std::placeholders::_1,
-      2.6431);
+  FunctionOneList foreach_mul_scalar = [](at::TensorList tlist) {
+    return at::_foreach_mul(tlist, 2.6431);
+  };
   TestForeachBinary(
       {{4, 2, 3}, {4, 0, 5}, {128}, {64, 1}, {2, 3, 4, 5}},
       {at::kInt, at::kFloat, at::kByte, at::kLong, at::kBFloat16},
       foreach_mul_scalar);
 
-  FunctionOneList foreach_mul_scalars = std::bind(
-      static_cast<std::vector<at::Tensor> (*)(
-          at::TensorList, at::ArrayRef<at::Scalar>)>(at::_foreach_mul),
-      std::placeholders::_1,
-      scalars);
+  FunctionOneList foreach_mul_scalars = [](at::TensorList tlist) {
+    return at::_foreach_mul(tlist, scalars);
+  };
   TestForeachBinary(
       {{4, 2, 3}, {5}, {7}, {64, 0}, {2, 1, 4, 1}},
       {at::kInt, at::kFloat, at::kByte, at::kLong, at::kBFloat16},
       foreach_mul_scalars);
 
+  FunctionTwoLists foreach_mul_list = [](at::TensorList tlist1,
+                                         at::TensorList tlist2) {
+    return at::_foreach_mul(tlist1, tlist2);
+  };
   TestForeachBinaryList(
       {{4, 2, 3}, {5}, {7}, {64, 0}, {2, 1, 4, 1}},
       {{4, 1, 3}, {4, 1, 5}, {7}, {0}, {2, 3, 4, 5}},
       {at::kInt, at::kFloat, at::kByte, at::kLong, at::kBFloat16},
       {at::kByte, at::kDouble, at::kLong, at::kShort, at::kInt},
-      static_cast<std::vector<at::Tensor> (*)(at::TensorList, at::TensorList)>(
-          at::_foreach_mul));
+      foreach_mul_list);
 }
 
 TEST_F(HpuOpTest, foreachMulInplace) {
-  FunctionOneListInplace foreach_mul_inplace_scalar_floats = std::bind(
-      static_cast<void (*)(at::TensorList, const at::Scalar&)>(
-          at::_foreach_mul_),
-      std::placeholders::_1,
-      2.6431);
+  FunctionOneListInplace foreach_mul_inplace_scalar_floats =
+      [](at::TensorList tlist) { at::_foreach_mul_(tlist, 2.6431); };
   TestForeachBinaryInplace(
       {{4, 3, 5}, {2, 3, 4, 5}},
       {at::kFloat, at::kBFloat16},
       foreach_mul_inplace_scalar_floats);
 
-  FunctionOneListInplace foreach_mul_inplace_scalar_ints = std::bind(
-      static_cast<void (*)(at::TensorList, const at::Scalar&)>(
-          at::_foreach_mul_),
-      std::placeholders::_1,
-      2);
+  FunctionOneListInplace foreach_mul_inplace_scalar_ints =
+      [](at::TensorList tlist) { at::_foreach_mul_(tlist, 2); };
   TestForeachBinaryInplace(
       {{4, 3, 5}, {2, 3, 4, 5}},
       {at::kInt, at::kLong},
       foreach_mul_inplace_scalar_ints);
 
-  FunctionOneListInplace foreach_mul_inplace_scalars = std::bind(
-      static_cast<void (*)(at::TensorList, at::ArrayRef<at::Scalar>)>(
-          at::_foreach_mul_),
-      std::placeholders::_1,
-      scalars);
+  FunctionOneListInplace foreach_mul_inplace_scalars =
+      [](at::TensorList tlist) { at::_foreach_mul_(tlist, scalars); };
   TestForeachBinaryInplace(
       {{4, 2, 3}, {5}, {7}, {64, 0}, {2, 1, 4, 1}},
       {at::kInt, at::kFloat, at::kFloat, at::kLong, at::kBFloat16},
       foreach_mul_inplace_scalars);
 
+  FunctionTwoListsInplace foreach_mul_inplace_list = [](at::TensorList tlist1,
+                                                        at::TensorList tlist2) {
+    at::_foreach_mul_(tlist1, tlist2);
+  };
   TestForeachBinaryListInplace(
       {{4, 2, 3}, {5}, {7}, {64, 0}, {2, 3, 4, 5}},
       {{4, 1, 1}, {5}, {7}, {64, 0}, {2, 1, 4, 5}},
       {at::kFloat, at::kFloat, at::kFloat, at::kShort, at::kInt},
       {at::kInt, at::kBFloat16, at::kFloat, at::kShort, at::kShort},
-      static_cast<void (*)(at::TensorList, at::TensorList)>(at::_foreach_mul_));
+      foreach_mul_inplace_list);
 }

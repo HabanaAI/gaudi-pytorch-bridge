@@ -6,7 +6,9 @@
 #include "habana_eager/eager_exec.h"
 #include "habana_eager/ops/eager_op.h"
 #include "habana_eager/ops/override_fns.h"
+//NOLINTBEGIN(hicpp-deprecated-headers,modernize-deprecated-headers)
 #include "_deform_conv2d_backward.h"
+//NOLINTEND(hicpp-deprecated-headers,modernize-deprecated-headers)
 
 
 using habana_helpers::DTypeHelper; // NOLINT(misc-unused-using-decls)

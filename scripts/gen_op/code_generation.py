@@ -1395,9 +1395,10 @@ def get_frontend_inclusions(mode, ns):
 
 def print_frontend_to_file(op_groups, dtype_defs, functions, torch_regs, gen_file_idx, out_dir, args, ns):
     frontend_inclusions = get_frontend_inclusions(out_dir, ns)
-    header_inclusions = ""
+    header_inclusions = "//NOLINTBEGIN(hicpp-deprecated-headers,modernize-deprecated-headers)\n"
     for op_group in sorted(op_groups):
         header_inclusions += f'#include "{op_group}.h"\n'
+    header_inclusions += "//NOLINTEND(hicpp-deprecated-headers,modernize-deprecated-headers)\n"
 
     print(
         templates.CPP_HEADER.format(
@@ -2153,9 +2154,10 @@ def generate_check_kernel_support_frontend(args, fgens, fgens_hpu_wrap, fgens_cu
 
     frontend_class_headers = {}
 
-    header_inclusions = ""
+    header_inclusions = "//NOLINTBEGIN(hicpp-deprecated-headers,modernize-deprecated-headers)\n"
     for op_group in sorted(op_groups):
         header_inclusions += f'#include "{op_group}.h"\n'
+    header_inclusions += "//NOLINTEND(hicpp-deprecated-headers,modernize-deprecated-headers)\n"
 
     hpu_shared_layer_unsupported_ops_def = (
         """std::set<std::string> hpu_shared_layer_unsupported_ops = {{ "{}" }};""".format(

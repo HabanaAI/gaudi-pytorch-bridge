@@ -6,11 +6,13 @@
 #include "habana_eager/eager_exec.h"
 #include "habana_eager/ops/eager_op.h"
 #include "habana_eager/ops/override_fns.h"
+//NOLINTBEGIN(hicpp-deprecated-headers,modernize-deprecated-headers)
 #include "_native_batch_norm_legit.h"
 #include "convolution_backward_overrideable.h"
 #include "eq.h"
 #include "linear_backward.h"
 #include "native_group_norm.h"
+//NOLINTEND(hicpp-deprecated-headers,modernize-deprecated-headers)
 
 
 using habana_helpers::DTypeHelper; // NOLINT(misc-unused-using-decls)

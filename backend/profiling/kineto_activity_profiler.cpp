@@ -56,7 +56,7 @@ std::string toString(std::string_view str) {
 // The table defines when and how two events should be linked together.
 //------------------------------------------------------------------------------
 
-static const std::array<habana::profile::LinkSpec, 4> kLinkSpecs{
+const std::array<habana::profile::LinkSpec, 4> kLinkSpecs{
     {{"run", habana::profile::TimePolicy::kPrevEnd, "run", true},
      {"Launch", habana::profile::TimePolicy::kPrevEnd, "run", false},
      {"compileGraph", habana::profile::TimePolicy::kPrevStart, "run", true},

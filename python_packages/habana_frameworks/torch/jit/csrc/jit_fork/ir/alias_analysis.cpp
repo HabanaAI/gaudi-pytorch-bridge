@@ -318,21 +318,17 @@ bool AliasDb::isMutable(Node* n) const {
 }
 
 bool AliasDb::hasInputWriters(const Node* n) const {
-  for (const auto input : n->inputs()) {
-    if (hasWriters(input)) {
-      return true;
-    }
-  }
-  return false;
+  return std::any_of(
+      n->inputs().begin(), n->inputs().end(), [this](const auto input) {
+        return hasWriters(input);
+      });
 }
 
 bool AliasDb::hasOutputWriters(const Node* n) const {
-  for (const auto output : n->outputs()) {
-    if (hasWriters(output)) {
-      return true;
-    }
-  }
-  return false;
+  return std::any_of(
+      n->outputs().begin(), n->outputs().end(), [this](const auto output) {
+        return hasWriters(output);
+      });
 }
 
 bool AliasDb::hasWriters(const Node* n) const {
@@ -379,17 +375,11 @@ bool AliasDb::writesToAlias(Node* n, const ValueSet& vs) const {
   }
 
   MemoryLocations locs;
-  for (const auto v : vs) {
+  return std::any_of(vs.begin(), vs.end(), [&](const auto v) {
     auto it = elementMap_.find(v);
-    if (it != elementMap_.end()) {
-      const auto& vlocs = memoryDAG_->getMemoryLocations(it->second);
-      if (writtenTo.intersects(vlocs)) {
-        return true;
-      }
-    }
-  }
-
-  return false;
+    return it != elementMap_.end() &&
+        writtenTo.intersects(memoryDAG_->getMemoryLocations(it->second));
+  });
 }
 
 MemoryLocations AliasDb::getWrites(Node* n) const {
@@ -1463,16 +1453,11 @@ bool AliasDb::mayAlias(const ValueSet& a, const ValueSet& b) const {
   }
 
   // If any of group `b`s memory locations overlap, return true.
-  for (const auto value : b) {
+  return std::any_of(b.begin(), b.end(), [&](const auto value) {
     auto it = elementMap_.find(value);
-    if (it != elementMap_.end()) {
-      if (aMemLocs.intersects(memoryDAG_->getMemoryLocations(it->second))) {
-        return true;
-      }
-    }
-  }
-  // No overlap, so group `a` and `b` do not share a memory location
-  return false;
+    return it != elementMap_.end() &&
+        aMemLocs.intersects(memoryDAG_->getMemoryLocations(it->second));
+  });
 }
 
 bool AliasDb::mayContainAlias(Value* a, Value* b) const {
@@ -1940,25 +1925,17 @@ void AliasDb::move(Node* toMove, Node* movePoint, MoveSide moveSide) {
 }
 
 bool AliasDb::writesToWildcard(Node* n) const {
-  if (writeIndex_.has_value()) {
-    if (!writeIndex_->count(n)) {
-      return false;
-    }
-
-    const auto& writes = writeIndex_->at(n);
-
-    // Are any of these memoryLocs a wildcard element?
-    for (const auto& pr : wildcardIndex_) {
-      const auto wildcardElement = pr.second;
-      if (writes.test(wildcardElement->index)) {
-        return true;
-      }
-    }
-
-    return false;
-  } else {
+  if (!(writeIndex_.has_value()) || !writeIndex_->count(n)) {
     return false;
   }
+
+  const auto& writes = writeIndex_->at(n);
+
+  // Are any of these memoryLocs a wildcard element?
+  return std::any_of(
+      wildcardIndex_.begin(), wildcardIndex_.end(), [&writes](const auto& pr) {
+        return writes.test(pr.second->index);
+      });
 }
 
 bool AliasDb::mayAliasWildcard(const Value* v) const {
