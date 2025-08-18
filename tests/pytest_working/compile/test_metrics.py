@@ -343,6 +343,7 @@ class TestMetricsDump:
 
             key, value = line.split(":", maxsplit=1)
             value = value.strip()
+            value = value.removeprefix("MetricDumpTrigger.")
             indent = key.count("\t")
             assert curr_root_indent == indent
             key = key.strip()
