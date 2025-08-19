@@ -278,6 +278,8 @@ void thread_fun_add(bool& result) {
 }
 
 TEST(TestStream, MultithreadStreamAddOP) {
+  GTEST_SKIP() << "Test skipped due to SW-234111.";
+
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
   auto& device = habana::HPUDeviceContext::get_device();

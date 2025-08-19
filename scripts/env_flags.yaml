@@ -17,6 +17,24 @@
 #  type: c_style_type [default: string] [e.g. bool, unsigned, unsigned long]
 #  default: type_value
 #  settable: True/true/False/false [optional]
+#  constraints [optional]:
+#     type: range, enum, list, filepath, custom
+#     value: rules_expression
+#         - Extra whitespace (spaces, tabs) around delimiters is allowed and ignored unless noted.
+#         - Examples for each constraint type:
+#             - range:
+#                 Format: "(min, max)"
+#                 Example: "(0,100)" or "( 0 , 100 )"
+#                 Whitespace: Allowed around parentheses and comma
+#             - enum:
+#                 Format: "val1|val2|val3"
+#                 Example: "a|b|c" or " a | b | c "
+#                 Whitespace: Allowed around pipe `|` and values; trimmed before comparison
+#             - list:
+#                 Format: "ordered=true,<a,b,c>"
+#                 Example: "ordered=true,<a,b,c>" or " ordered = true , < a , b , c > "
+#                 Whitespace: Allowed around equal sign, comma, angle brackets
+#  active_status: active/deprecated/obsolete [default: active]
 #  doc: "string_comment"
 #
 # All defined values are supported - e. g. UINT64_MAX, INT64_MAX
@@ -24,6 +42,9 @@
 
 GC_KERNEL_PATH:
   default: ""
+  constraints:
+    type: filepath
+    value: is_file
 
 PT_HABANA_MEM_LOG_FILENAME:
   default: "habana_log.livealloc.log"
@@ -34,6 +55,9 @@ PT_HPU_GRAPH_DUMP_PREFIX:
 PT_HPU_GRAPH_DUMP_MODE:
   default: ""
   settable: true
+  constraints:
+    type: enum
+    value: compile | eager | all
   doc: "Specify in which mode should bridge dump intermediate graphs. Allowed values: <compile | eager | all>\n
 
   This flag takes effect only in non-lazy mode, meaning `PT_HPU_LAZY_MODE=0`\n
@@ -45,14 +69,23 @@ PT_HPU_GRAPH_DUMP_MODE:
 PT_HPU_GRAPH_DUMP_FORMAT:
   default: "pbtxt"
   settable: true
+  constraints:
+    type: enum
+    value: svg | graphml | pbtxt
   doc: "Specify FX graph dump format. Allowed values <svg | graphml | pbtxt>"
 
 PT_COMPILATION_STATS_PATH:
   default: ""
   settable: true
+  constraints:
+    type: filepath
+    value: is_dir & is_create=false
 
 PT_RECIPE_TRACE_PATH:
   default: ""
+  constraints:
+    type: filepath
+    value: is_dir & is_create=true
 
 PT_HPU_DYNAMIC_MIN_POLICY_ORDER:
   default: "4,5,3,1"
@@ -62,6 +95,9 @@ PT_HPU_DYNAMIC_MAX_POLICY_ORDER:
 
 PT_HPU_RECIPE_CACHE_CONFIG:
   default: ",false,1024,false"
+  constraints:
+    type: custom
+    value: check_recipe_cache_config
   doc: "PT_HPU_RECIPE_CACHE_CONFIG is a comma separated list\n
 where params are encoded in the following way:\n
 - 1st param: recipe cache directory path, if empty then disk cache is\n
@@ -89,6 +125,9 @@ PT_HPU_RECIPE_CACHE_NFS_TIMEOUT_S:
 PT_HPU_LAZY_MODE:
   type: unsigned
   default: 0
+  constraints:
+    type: enum
+    value: 0 | 1
 
 PT_HPU_LAZY_ACC_PAR_MODE:
   type: unsigned
@@ -735,6 +774,9 @@ PT_TOWL_LOG_PHYSICAL:
 PT_HPU_ACC_THREAD_VERSION:
   type: int
   default: 0
+  constraints:
+    type: enum
+    value: 0 | 1 | 2
   doc: "clang-format off\n
 This is temporary variable, just to find out best\n
 solution for accumulation thread\n
@@ -775,6 +817,9 @@ PT_HPU_ENABLE_EAGER_JIT_CACHE:
 PT_HPU_STOCHASTIC_ROUNDING_MODE:
   type: unsigned
   default: 1
+  constraints:
+    type: enum
+    value: 0 | 1
   doc: "Mode of stochastic_rounding in cast_to_fp8 ops.\n
 0 - maps round_mode to CAST_ROUND_SR,\n
 1 - maps round_mode to CAST_ROUND_SFTZ - stochastic flush to zero."
@@ -885,12 +930,18 @@ PT_HPU_ENABLE_H2D_SCALES:
 PT_HPU_PT2EQ_SCALE_LOAD_PATH:
   default: ""
   settable: true
+  constraints:
+    type: filepath
+    value: is_dir & is_create=false
   doc: "This is the PT2E quantization scale path. During inference scales are loaded from this path
         which is saved after calibration."
 
 PT_HPU_PT2EQ_SCALE_DUMP_PATH:
   default: ""
   settable: true
+  constraints:
+    type: filepath
+    value: is_dir & is_create=false
   doc: "This is the path PT2E quantization scales are dumped after calibration."
 
 PT_HPU_PT2EQ_FX_GRAPH_PATTERN_MATCHING:
