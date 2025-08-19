@@ -2,10 +2,6 @@ orchestratorConfig:
   cron: 0 8-23/12 * * *
   retriggerThreshold: '2'
   testConfig:
-  - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi2_sim_py_suite_compile
-  - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi2_sim_py_suite_compile_jit_fork
-  - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi3_sim_py_suite_compile
-  - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi3_sim_py_suite_compile_jit_fork
   - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_topology_functionality
   - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi3_sim_distributed
   - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_8cards_performance_8x_promote
@@ -22,16 +18,12 @@ orchestratorConfig:
     - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi2_sim_cpp_suite_u24
     - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi2_sim_py_suite_lazy_u24
     - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi2_sim_py_suite_compile_u24
-      silentMode: true
     - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi2_sim_py_suite_compile_jit_fork_u24
-      silentMode: true
     - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi2_sim_py_suite_eager_u24
     - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi3_sim_cpp_suite_u24
     - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi3_sim_py_suite_lazy_u24
     - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi3_sim_py_suite_compile_u24
-      silentMode: true
     - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi3_sim_py_suite_compile_jit_fork_u24
-      silentMode: true
     - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi3_sim_py_suite_eager_u24
     - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi2_asic_topology_group_1_u24
     - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_topology_group_2_u24
