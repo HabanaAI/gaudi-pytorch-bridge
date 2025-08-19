@@ -26,3 +26,14 @@ def test_multilevel_view_dtype():
     c_hpu = b_hpu.view(torch.float)
     d_hpu = c_hpu.view(-1)
     compare_tensors(d_hpu.cpu(), a, 0.001, 0.001)
+
+
+def test_shape_change_and_view_dtype():
+    req_size = [6, 2, 10]
+    buffer = torch.empty(240, dtype=torch.uint8, device="hpu")
+    buffer_hpu = buffer.to("hpu")
+    raw_data_dtype = buffer.view(torch.bfloat16)
+    raw_data_dtype_hpu = buffer_hpu.view(torch.bfloat16)
+    buffer_req = raw_data_dtype.view(req_size)
+    buffer_req_hpu = raw_data_dtype_hpu.view(req_size)
+    compare_tensors(buffer_req, buffer_req_hpu.cpu(), 0.001, 0.001)

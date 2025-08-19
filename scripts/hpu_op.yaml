@@ -8003,9 +8003,7 @@ view.dtype:
   out_ids: [0]
   namespaces: [torch.Tensor]
   op_validator: EmptySharedMeta
-  lazy:
-    override_fn: view_dtype_hpu
-    acc_thread: true
+  output_meta: ViewDtypeMeta
 
 where.self:
   guid: where_fwd
