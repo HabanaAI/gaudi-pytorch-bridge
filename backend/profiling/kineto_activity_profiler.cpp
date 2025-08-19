@@ -56,20 +56,19 @@ std::string toString(std::string_view str) {
 // The table defines when and how two events should be linked together.
 //------------------------------------------------------------------------------
 
-const std::array<habana::profile::LinkSpec, 4> kLinkSpecs{
-    {{"run", habana::profile::TimePolicy::kPrevEnd, "run", true},
-     {"Launch", habana::profile::TimePolicy::kPrevEnd, "run", false},
-     {"compileGraph", habana::profile::TimePolicy::kPrevStart, "run", true},
-     {"enqueueWithExternalEventsExt",
-      habana::profile::TimePolicy::kPrevStart,
-      "Launch",
-      true}}};
-
 bool startsWith(std::string_view s, std::string_view p) noexcept {
   return s.size() >= p.size() && s.compare(0, p.size(), p) == 0;
 }
 
 const habana::profile::LinkSpec* findSpec(std::string_view name) noexcept {
+  static const std::array<habana::profile::LinkSpec, 4> kLinkSpecs{
+      {{"run", habana::profile::TimePolicy::kPrevEnd, "run", true},
+       {"Launch", habana::profile::TimePolicy::kPrevEnd, "run", false},
+       {"compileGraph", habana::profile::TimePolicy::kPrevStart, "run", true},
+       {"enqueueWithExternalEventsExt",
+        habana::profile::TimePolicy::kPrevStart,
+        "Launch",
+        true}}};
   for (const auto& spec : kLinkSpecs)
     if (startsWith(name, spec.canonical))
       return &spec;

@@ -19,8 +19,8 @@
 namespace habana {
 synDeviceId PinnedMemoryAllocator::allocator_active_device_id = -1;
 
-static PinnedMemoryAllocator pin_memory_allocator;
 at::Allocator* PinnedMemoryAllocator_get() {
+  static PinnedMemoryAllocator pin_memory_allocator;
   return &pin_memory_allocator;
 }
 

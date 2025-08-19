@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,13 +22,20 @@
 #include "habana_lazy/lazy_executor.h"
 
 namespace habana_helpers {
-thread_local bool m_enable_refine_dynamic_shape{
-    GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)};
+bool& get_enable_refine_dynamic_shape() {
+  static thread_local bool m_enable_refine_dynamic_shape{
+      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)};
+  return m_enable_refine_dynamic_shape;
+}
+
+void set_enable_refine_dynamic_shape(bool flag) {
+  get_enable_refine_dynamic_shape() = flag;
+}
 
 void SetRefineDynamicShape(bool flag) {
   auto hpu_mod = GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE);
   if (hpu_mod == 1) {
-    m_enable_refine_dynamic_shape = flag;
+    set_enable_refine_dynamic_shape(flag);
     if (lazy_to_backend::is_lazy_inference_call_context()) {
       SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, flag, 1);
     }
@@ -49,7 +56,7 @@ bool GetRefineDynamicShapeStatus() {
   auto hpu_mod = GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE);
   if (hpu_mod == 1) {
     if (!lazy_to_backend::is_lazy_inference_call_context()) {
-      return m_enable_refine_dynamic_shape;
+      return get_enable_refine_dynamic_shape();
     }
     return GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   } else if (hpu_mod == 0) {

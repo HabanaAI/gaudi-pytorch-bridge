@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -126,11 +126,14 @@ class HPUSigHandler {
     return done.compare_exchange_strong(expected, desired);
   }
 
+  static HPUSigHandler& get_instance() {
+    static HPUSigHandler sigHandlerStaticInstance;
+    return sigHandlerStaticInstance;
+  }
+
  private:
   std::atomic<bool> done;
 };
-
-static HPUSigHandler sigHandlerStaticInstance;
 
 // Fatal signal handler for Habana
 void fatalSignalHandler(int signum, siginfo_t* info, void* ctx) {
@@ -141,7 +144,7 @@ void fatalSignalHandler(int signum, siginfo_t* info, void* ctx) {
   // signal simultaneously and reach here at the same time, there will
   // be race condition on the done flag and only one thread will perform
   // the cleanup.
-  if (sigHandlerStaticInstance.CmpExcgDone()) {
+  if (HPUSigHandler::get_instance().CmpExcgDone()) {
     std::stringstream ss;
     if (signum == SIGINT) {
       ss << "Received " << strsignal(signum) << "\n";

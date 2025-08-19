@@ -27,7 +27,10 @@ namespace habana {
 synDeviceId HPUDeviceAllocator::allocator_active_device_id =
     SYN_INVALID_DEVICE_ID;
 
-static HPUDeviceAllocator hpu_device_allocator;
+HPUDeviceAllocator& getRawHpuDeviceAllocator() {
+  static HPUDeviceAllocator hpu_device_allocator;
+  return hpu_device_allocator;
+}
 
 at::DataPtr CreateDataPtr(void* v_ptr, size_t num_bytes) {
   if (v_ptr != nullptr) {
@@ -70,16 +73,18 @@ at::DataPtr CreateDataPtr(void* v_ptr, size_t num_bytes) {
 at::Allocator* getHABANADeviceAllocator() {
   HABANAGuardImpl h;
   h.getDevice();
-  return &hpu_device_allocator;
+  return &getRawHpuDeviceAllocator();
 }
 } // namespace habana
 
 // TODO: it might be not the best place to put this macro. I am confused how
 // allocators are registered.
 
+// NOLINTBEGIN(cert-err58-cpp)
 namespace at {
-REGISTER_ALLOCATOR(DeviceType::HPU, &habana::hpu_device_allocator);
+REGISTER_ALLOCATOR(DeviceType::HPU, &habana::getRawHpuDeviceAllocator());
 } // namespace at
+// NOLINTEND(cert-err58-cpp)
 
 namespace detail {
 C10_REGISTER_GUARD_IMPL(HPU, habana::HABANAGuardImpl);

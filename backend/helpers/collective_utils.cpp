@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,17 +23,20 @@
 
 namespace habana_helpers {
 
-std::map<at::ScalarType, hcclDataType_t> hcclDataType = {
-    {at::kByte, hcclUint8},
-    {at::kChar, hcclChar},
-    {at::kDouble, hcclDouble},
-    {at::kFloat, hcclFloat},
-    {at::kHalf, hcclHalf},
-    {at::kInt, hcclInt32},
-    {at::kLong, hcclInt64},
-    {at::kBFloat16, hcclBfloat16},
-    {at::kBool, hcclUint8},
-};
+const std::map<at::ScalarType, hcclDataType_t>& getHcclDataType() {
+  static const std::map<at::ScalarType, hcclDataType_t> hcclDataType = {
+      {at::kByte, hcclUint8},
+      {at::kChar, hcclChar},
+      {at::kDouble, hcclDouble},
+      {at::kFloat, hcclFloat},
+      {at::kHalf, hcclHalf},
+      {at::kInt, hcclInt32},
+      {at::kLong, hcclInt64},
+      {at::kBFloat16, hcclBfloat16},
+      {at::kBool, hcclUint8},
+  };
+  return hcclDataType;
+}
 
 // HCCL op mapping
 const std::map<c10d::ReduceOp, hcclRedOp_t> hcclOp = {
@@ -101,9 +104,9 @@ hcclDataType_t getHCCLDataType(at::ScalarType type) {
   if (at::kFloat8_e5m2 == type || at::kFloat8_e4m3fn == type) {
     return hcclUint8;
   }
-  auto it = hcclDataType.find(type);
+  auto it = getHcclDataType().find(type);
   HABANA_ASSERT(
-      it != hcclDataType.end(),
+      it != getHcclDataType().end(),
       "Input tensor data type is not supported for HCCL process group: ",
       type);
   return it->second;
