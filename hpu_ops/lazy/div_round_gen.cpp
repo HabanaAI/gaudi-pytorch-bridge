@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,6 @@
  */
 
 #include "hpu_ops/common/div_round_gen.h"
-#include "backend/synapse_helpers/device_helpers.h"
 #include "generated/lazy/div.h"
 #include "habana_helpers/dtype_helpers.h"
 #include "habana_kernels/binary_kernels.h"
@@ -41,11 +40,8 @@ static bool DivCommonCheck(
     case torch::kBFloat16:
     case torch::kFloat32:
     case torch::kFloat64:
+    case torch::kHalf:
       return true;
-    case torch::kHalf: {
-      return synapse_helpers::device_supports_fp16(
-          HPUDeviceContext::get_device().type());
-    }
     case torch::kInt8:
     case torch::kInt16:
     case torch::kInt32:

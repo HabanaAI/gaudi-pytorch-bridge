@@ -17,7 +17,6 @@
 #include <ATen/core/stack.h>
 #include <absl/container/flat_hash_set.h>
 #include <perf_lib_layer_params.h>
-#include "backend/synapse_helpers/device_helpers.h"
 #include "backend/synapse_helpers/env_flags.h"
 #include "habana_helpers/dtype_helpers.h"
 #include "habana_helpers/kernels_accumulation.h"
@@ -128,9 +127,7 @@ inline std::string& update_guid_trunc_mode(
       "mult_fwd"sv,
   };
 
-  auto device_type{habana::HPUDeviceContext::get_device().type()};
-  if (synapse_helpers::device_supports_trunc(device_type) &&
-      guids_support_trunc.contains(guid) &&
+  if (guids_support_trunc.contains(guid) &&
       (dtype == c10::ScalarType::Char || dtype == c10::ScalarType::Byte)) {
     if (guid.find_first_of('_') != std::string::npos) {
       guid.insert(guid.find_first_of('_'), trunc_str);

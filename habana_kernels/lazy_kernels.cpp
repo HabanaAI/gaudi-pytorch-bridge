@@ -66,12 +66,6 @@ using namespace habana;
 using namespace at;
 constexpr int MAX_DIMS_FOR_ADVANCED_INDEXING = 8;
 
-#define FP8_CHECK                                 \
-  HABANA_ASSERT(                                  \
-      synapse_helpers::device_supports_fp8(       \
-          HPUDeviceContext::get_device().type()), \
-      "FP8 data type is not available on this device.")
-
 namespace {
 void AddMemcpy(const Tensor& src, Tensor& dst) {
   using namespace habana_lazy;

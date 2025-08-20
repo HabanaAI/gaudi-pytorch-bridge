@@ -16,7 +16,6 @@
 #include <ATen/native/transformers/sdp_utils_cpp.h>
 #include <torch/library.h>
 #include "backend/helpers/habana_types.h"
-#include "backend/synapse_helpers/device_helpers.h"
 #include "common/dump_args.h"
 #include "generated/lazy/wrap_kernels_declarations.h"
 #include "habana_helpers/pt_version_check.h"
@@ -42,12 +41,6 @@ using namespace torch;
 using namespace at;
 using namespace habana;
 using namespace habana_lazy;
-
-#define FP8_CHECK                                 \
-  HABANA_ASSERT(                                  \
-      synapse_helpers::device_supports_fp8(       \
-          HPUDeviceContext::get_device().type()), \
-      "FP8 data type is not available on this device.")
 
 namespace habana {
 static CheckNodeWithSharedLayerValidator validator_matmul(

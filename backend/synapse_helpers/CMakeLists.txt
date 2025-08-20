@@ -23,7 +23,6 @@ add_habana_library(
   event.cpp
   event_handle_cache.cpp
   device_context.cpp
-  device_helpers.cpp
   device_memory.cpp
   devmem_logger.cpp
   graph.cpp

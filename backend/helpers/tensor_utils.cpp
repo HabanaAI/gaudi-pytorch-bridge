@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,7 +26,6 @@
 #include "backend/helpers/get_n_bytes.h"
 #include "backend/helpers/tensor_info.h"
 #include "backend/synapse_helpers/device.h"
-#include "backend/synapse_helpers/device_helpers.h"
 #include "common/utils.h"
 #include "habana_helpers/dtype_helpers.h"
 #include "habana_helpers/logging.h"
@@ -664,24 +663,15 @@ bool habana_helpers::is_supported_type(c10::ScalarType type) {
     case c10::ScalarType::Double:
     case c10::ScalarType::Bool:
     case c10::ScalarType::BFloat16:
+    case c10::ScalarType::Float8_e5m2:
+    case c10::ScalarType::Float8_e4m3fn:
+    case c10::ScalarType::Half:
       return true;
-    case c10::ScalarType::Half: {
-      auto device_type{habana::HPUDeviceContext::get_device().type()};
-      if (device_type == synDeviceGaudi) {
-        HABANA_ASSERT(false, "float16/half is not supported on Gaudi.");
-      }
-      return synapse_helpers::device_supports_fp16(device_type);
-    }
     case c10::ScalarType::ComplexHalf:
     case c10::ScalarType::ComplexFloat:
     case c10::ScalarType::ComplexDouble: {
       HABANA_ASSERT(false, "Complex datatype is not supported on HPU device.");
       return false;
-    }
-    case c10::ScalarType::Float8_e5m2:
-    case c10::ScalarType::Float8_e4m3fn: {
-      return synapse_helpers::device_supports_fp8(
-          habana::HPUDeviceContext::get_device().type());
     }
     default:
       return false;
