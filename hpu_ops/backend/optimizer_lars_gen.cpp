@@ -20,7 +20,7 @@ namespace sh = synapse_helpers;
 
 namespace habana {
 
-SharedMetaDataVector NormializeInputSharedMeta(
+SharedMetaDataVector NormalizeInputSharedMeta(
     int input_rank,
     at::ScalarType precision_type) {
   SharedMetaTensor constant_tensor{1, precision_type};
@@ -68,14 +68,14 @@ SharedMetaDataVector OptimizerLarsSharedMeta(
       mul_shared_meta.outputs_data.emplace_back(param_rank, precision_type);
       shared_meta_vec.push_back(mul_shared_meta);
     } else {
-      const auto param_norm_shared_meta_vec =
-          NormializeInputSharedMeta(param_rank, precision_type);
+      const auto param_norm_shared_meta_vec = NormalizeInputSharedMeta(
+          static_cast<int>(param_rank), precision_type);
       shared_meta_vec.insert(
           std::end(shared_meta_vec),
           std::begin(param_norm_shared_meta_vec),
           std::end(param_norm_shared_meta_vec));
       const auto grad_norm_shared_meta_vec =
-          NormializeInputSharedMeta(grad_rank, precision_type);
+          NormalizeInputSharedMeta(static_cast<int>(grad_rank), precision_type);
       shared_meta_vec.insert(
           std::end(shared_meta_vec),
           std::begin(grad_norm_shared_meta_vec),

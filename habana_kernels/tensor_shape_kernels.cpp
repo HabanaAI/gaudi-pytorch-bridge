@@ -12,25 +12,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "habana_kernels/tensor_shape_kernels.h"
 #include <ATen/ExpandUtils.h>
 #include <ATen/InferSize.h>
 #include <ATen/native/TypeProperties.h>
 #include <synapse_api.h>
 #include <torch/script.h>
-
 #include "backend/create_pt_tensor.h"
-#include "backend/habana_device/hpu_cached_devices.h"
-#include "backend/helpers/create_tensor.h"
-#include "backend/helpers/graph.h"
 #include "backend/helpers/tensor_utils.h"
-#include "habana_helpers/dtype_helpers.h"
-#include "habana_helpers/frontend_utils.h"
 #include "habana_helpers/logging.h"
-#include "habana_helpers/logging_pt.h"
-#include "habana_kernels/index_kernels.h"
 #include "habana_kernels/kernel_utils.h"
-#include "habana_kernels/resize.h"
-#include "habana_kernels/tensor_shape_kernels.h"
 #include "habana_lazy/hlexec.h"
 #include "hpu_ops/hpu_op_helper.h"
 
@@ -39,11 +30,11 @@ using namespace habana;
 
 std::vector<int64_t> CatOperator::compute_output_shape(
     const at::TensorList tensors,
-    int64_t dim_) {
-  int64_t dim = at::maybe_wrap_dim(
-      dim_,
+    int64_t dim_s) {
+  const auto dim = static_cast<size_t>(at::maybe_wrap_dim(
+      dim_s,
       tensors[0].dim(),
-      /*wrap_scalar=*/true);
+      /*wrap_scalar=*/true));
 
   auto in_tensor_count = tensors.size();
   auto first_tensor = tensors[0];
@@ -57,22 +48,24 @@ std::vector<int64_t> CatOperator::compute_output_shape(
 
 auto CatOperator::CreateParamsAndAddToContext(int64_t axis) {
   synConcatenateParams params;
-  params.axis = axis;
+  HABANA_ASSERT(
+      axis >= 0 && axis <= std::numeric_limits<unsigned int>::max(),
+      "Axis value out of range for unsigned int conversion: ",
+      axis);
+  params.axis = static_cast<unsigned int>(axis);
   return params;
 }
 
 void CatOperator::validate_cat_tensor_dim_sizes(
     const std::vector<std::vector<int64_t>>* tensors,
-    int64_t dim) {
-  unsigned i = 0;
+    uint64_t dim) {
   auto tensor_count = tensors->size();
-  auto tempT_i = 0;
-  for (i = 1; i < tensor_count; i++) {
+  size_t tempT_i = 0;
+  for (size_t i = 1; i < tensor_count; i++) {
     // check whether sizes along dimensions match except for cat dimension.
-    unsigned j = 0;
     auto sz1 = tensors->at(i);
     auto sz2 = tensors->at(tempT_i);
-    for (j = 0; j < tensors->at(i).size(); j++) {
+    for (size_t j = 0; j < tensors->at(i).size(); j++) {
       if (j != dim && (sz1[j] - sz2[j]) != 0) {
         HABANA_ASSERT(
             ((sz1[j] - sz2[j]) == 0),
@@ -96,13 +89,13 @@ Tensor CatOperator::CheckAllocateOutput(
   HABANA_ASSERT(inputs[1].isInt(), "Input arg3 type expected to be int");
 
   auto tensors = inputs[0].toTensorList();
-  auto dim_ = inputs[1].toInt();
+  auto dim_s = inputs[1].toInt();
 
   auto first_tensor = tensors.get(0);
-  int64_t dim =
-      at::maybe_wrap_dim(dim_, first_tensor.dim(), /*wrap_scalar=*/true);
+  const auto dim = static_cast<size_t>(
+      at::maybe_wrap_dim(dim_s, first_tensor.dim(), /*wrap_scalar=*/true));
   HABANA_ASSERT(
-      dim < first_tensor.ndimension(),
+      dim < static_cast<uint64_t>(first_tensor.ndimension()),
       "Cat dimension specified exceeds tensors dimensions");
 
   auto output_dtype =
@@ -119,8 +112,8 @@ Tensor CatOperator::CheckAllocateOutput(
     return output_metadata.allocated_tensor.value();
   }
 
-  if (dim != dim_) {
-    inputs[1] = IValue(dim);
+  if (static_cast<int64_t>(dim) != dim_s) {
+    inputs[1] = IValue(static_cast<int64_t>(dim));
   }
 
   std::vector<int64_t> out_size;
@@ -129,7 +122,7 @@ Tensor CatOperator::CheckAllocateOutput(
     // out tensor size should match along all dimensions for input tensors
     // except along the dim in which to cat
     out_size = first_tensor.sizes().vec();
-    out_size[dim] = 0;
+    out_size[static_cast<size_t>(dim)] = 0;
     for (unsigned i = 0; i < tensor_count; i++) {
       out_size[dim] += tensors.get(i).sizes()[dim];
     }
@@ -201,16 +194,19 @@ void CatOperator::AllocateAndAddSynapseNode(
 TransposeOperator::TransposeOperator(int device_id, c10::ScalarType scalarType)
     : HabanaOperator("transpose") {
   static_cast<void>(scalarType);
-  this->CreateSynContext(device_id);
+  this->CreateSynContext(static_cast<synDeviceId>(device_id));
   this->setNoComputeFlag();
 }
 
 std::tuple<std::vector<int64_t>, std::vector<int64_t>> TransposeOperator::
-    compute_output_shape(const at::Tensor& self, int dim0_, int dim1_) {
-  int64_t dim0 = at::maybe_wrap_dim(dim0_, self.dim(), /*wrap_scalar=*/true);
-  int64_t dim1 = at::maybe_wrap_dim(dim1_, self.dim(), /*wrap_scalar=*/true);
+    compute_output_shape(const at::Tensor& self, int64_t dim0_, int64_t dim1_) {
+  const auto dim0 = static_cast<size_t>(
+      at::maybe_wrap_dim(dim0_, self.dim(), /*wrap_scalar=*/true));
+  const auto dim1 = static_cast<size_t>(
+      at::maybe_wrap_dim(dim1_, self.dim(), /*wrap_scalar=*/true));
   HABANA_ASSERT(
-      (dim0 < self.dim()) && (dim1 < self.dim()),
+      (dim0 < static_cast<size_t>(self.dim())) &&
+          (dim1 < static_cast<size_t>(self.dim())),
       "Specified dims are beyond tensor dims");
 
   auto self_sizes = self.sizes().vec();
@@ -277,7 +273,11 @@ void TransposeOperator::AllocateAndAddSynapseNode(
       self.suggest_memory_format(),
       output_metadata.at(0).persistent);
   synTransposeParamsNDims params;
-  params.tensorDim = self.dim();
+  HABANA_ASSERT(
+      self.dim() >= 0 && self.dim() <= std::numeric_limits<unsigned int>::max(),
+      "Tensor dimension out of range for unsigned int conversion: ",
+      self.dim());
+  params.tensorDim = static_cast<unsigned int>(self.dim());
   int i;
   for (i = 0; i < HABANA_DIM_MAX; i++) {
     params.permutation[i] = static_cast<TransposePermutationDim>(i);
@@ -314,7 +314,7 @@ SharedMetaDataVector TransposeSharedMeta(
 PermuteOperator::PermuteOperator(int device_id, c10::ScalarType scalarType)
     : HabanaOperator("transpose") {
   static_cast<void>(scalarType);
-  this->CreateSynContext(device_id);
+  this->CreateSynContext(static_cast<synDeviceId>(device_id));
   this->setNoComputeFlag();
 }
 
@@ -329,11 +329,13 @@ std::tuple<std::vector<int64_t>, std::vector<int64_t>> PermuteOperator::
   // calculate new sizes and strides after permute for out tensor
   auto new_sizes = in.sizes().vec();
   auto new_strides = in.strides().vec();
-  new_sizes[new_sizes.size() - 1] = self_sizes[dims[new_sizes.size() - 1]];
+  new_sizes[new_sizes.size() - 1] =
+      self_sizes[static_cast<size_t>(dims[new_sizes.size() - 1])];
   new_strides[new_sizes.size() - 1] = 1;
-  for (int i = new_sizes.size() - 2; i >= 0; i--) {
-    new_sizes[i] = self_sizes[dims[i]];
-    new_strides[i] = new_strides[i + 1] * new_sizes[i + 1];
+  for (auto i = new_sizes.size(); i >= 2; i--) {
+    const auto index = i - 2;
+    new_sizes[index] = self_sizes[static_cast<size_t>(dims[index])];
+    new_strides[index] = new_strides[index + 1] * new_sizes[index + 1];
   }
   return std::make_tuple(new_sizes, new_strides);
 }
@@ -396,13 +398,19 @@ void PermuteOperator::AllocateAndAddSynapseNode(
             mdata.persistent);
 
   synTransposeParamsNDims params;
-  params.tensorDim = self.dim();
+  HABANA_ASSERT(
+      self.dim() >= 0 && self.dim() <= std::numeric_limits<unsigned int>::max(),
+      "Tensor dimension out of range for unsigned int conversion: ",
+      self.dim());
+  params.tensorDim = static_cast<unsigned int>(self.dim());
   // params.permute has to be populated in a reverse order for HPU FCD-LCD order
   for (int i = 0; i < self.dim(); i++) {
     params.permutation[i] = static_cast<TransposePermutationDim>(
-        self.dim() - dims[dims.size() - i - 1] - 1);
+        self.dim() -
+        dims[static_cast<size_t>(dims.size() - static_cast<size_t>(i) - 1)] -
+        1);
   }
-  for (int i = self.dim(); i < HABANA_DIM_MAX; i++) {
+  for (auto i = static_cast<int>(self.dim()); i < HABANA_DIM_MAX; i++) {
     params.permutation[i] = static_cast<TransposePermutationDim>(i);
   }
 
@@ -420,7 +428,7 @@ void PermuteCLOperator::AllocateAndAddSynapseNode(
     auto& output = p_context_->pt_outputs_[0];
     auto sizes = output.sizes().vec();
     auto strides = output.strides().vec();
-    std::vector<int> out_pos = {
+    std::vector<size_t> out_pos = {
         LayoutFormatDims::N,
         LayoutFormatDims::W,
         LayoutFormatDims::C,

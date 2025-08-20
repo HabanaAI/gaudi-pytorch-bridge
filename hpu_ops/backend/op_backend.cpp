@@ -23,6 +23,7 @@
 #include "common/utils.h"
 #include "common/warning_suppress.h"
 #include "habana_helpers/dtype_helpers.h"
+#include "habana_helpers/logging.h"
 #include "habana_kernels/kernel_utils.h"
 #include "hpu_ops/common/scalar_dtype_range.h"
 #include "hpu_ops/hpu_op_helper.h"
@@ -58,7 +59,8 @@ namespace habana {
 using namespace std::literals;
 
 static at::ScalarType GetScalarType(const at::Stack& stack, int index) {
-  const auto& ival = stack.at(index);
+  HABANA_ASSERT(index >= 0, "index must be non-negative");
+  const auto& ival = stack.at(static_cast<size_t>(index));
   auto type =
       ival.isTensor() ? ival.toTensor().scalar_type() : ival.toScalar().type();
 
@@ -96,7 +98,8 @@ OpBackend::OpBackend(
       m_scalar_ids{std::move(scalar_ids)},
       m_is_outfn{is_outfn},
       m_scalar_type{scalar_type} {
-  CreateSynContext(device_id);
+  HABANA_ASSERT(device_id >= 0, "device_id must be non-negative");
+  CreateSynContext(static_cast<synDeviceId>(device_id));
 }
 
 synTensor OpBackend::syn_in(size_t index) {
@@ -217,7 +220,9 @@ void OpBackend::HandleScalarToTensor(sh::graph& graph, const at::Stack& stack) {
     return;
   }
   for (int m_scalar_id : m_scalar_ids) {
-    const at::Scalar& val = stack.at(m_scalar_id).toScalar();
+    HABANA_ASSERT(m_scalar_id >= 0, "m_scalar_id must be non-negative");
+    const at::Scalar& val =
+        stack.at(static_cast<size_t>(m_scalar_id)).toScalar();
     auto constant = ConstantHelper(graph, val);
     if (!isOutputInfMode()) {
       // Set output from constant as input to this node at index m_scalar_id
@@ -258,10 +263,16 @@ void OpBackend::HandleOutFn(sh::graph& graph, const at::Stack& stack) {
   // Check Out variant has output shapes else raise exception
   ComputeOutputShapes(stack);
 
-  unsigned stack_size = stack.size();
-  unsigned syn_inputs_size = p_context_->syn_inputs_.size();
+  auto stack_size = static_cast<size_t>(stack.size());
+  auto syn_inputs_size = static_cast<size_t>(p_context_->syn_inputs_.size());
+  HABANA_ASSERT(
+      stack_size >= m_num_out_tensors,
+      "stack_size must be >= m_num_out_tensors");
+  HABANA_ASSERT(
+      syn_inputs_size >= m_num_out_tensors,
+      "syn_inputs_size must be >= m_num_out_tensors");
 
-  for (int i = m_num_out_tensors; i > 0; --i) {
+  for (size_t i = m_num_out_tensors; i > 0; --i) {
     p_context_->pt_outputs_.emplace_back(stack.at(stack_size - i).toTensor());
     p_context_->syn_outputs_.emplace_back(
         habana_helpers::duplicate_tensor_in_memory_section(
@@ -273,8 +284,12 @@ void OpBackend::HandleOutFn(sh::graph& graph, const at::Stack& stack) {
   // Remove the out tensors from syn inputs
   // keep input tensors for copy as needed later for dynamic shapes in CGUID
   if (guid_.find("copy_guid"sv) == std::string::npos) {
+    HABANA_ASSERT(
+        m_num_out_tensors <= std::numeric_limits<ptrdiff_t>::max(),
+        "m_num_out_tensors too large");
     p_context_->syn_inputs_.erase(
-        p_context_->syn_inputs_.end() - m_num_out_tensors,
+        p_context_->syn_inputs_.end() -
+            static_cast<ptrdiff_t>(m_num_out_tensors),
         p_context_->syn_inputs_.end());
   }
 }
@@ -302,9 +317,10 @@ void OpBackend::HandleInplaceFn(sh::graph& graph, const at::Stack& stack) {
       for (auto i = 0U; i < tensors.size(); ++i) {
         p_context_->syn_outputs_.emplace_back(
             habana_helpers::duplicate_tensor_in_memory_section(
-                p_context_->syn_inputs_[syn_counter++],
+                p_context_->syn_inputs_[static_cast<size_t>(syn_counter++)],
                 graph,
-                m_output_metadata.at(out_counter++).external));
+                m_output_metadata.at(static_cast<size_t>(out_counter++))
+                    .external));
         p_context_->pt_outputs_.emplace_back(tensors[i]);
       }
       ++inplace_ids_pos;
@@ -339,7 +355,11 @@ void OpBackend::HandleTypePromotion(sh::graph& graph, const at::Stack& stack) {
 
   at::Stack op_inputs = stack;
   if (m_is_outfn) {
-    op_inputs = {stack.begin(), stack.end() - m_num_out_tensors};
+    HABANA_ASSERT(
+        m_num_out_tensors <= std::numeric_limits<ptrdiff_t>::max(),
+        "m_num_out_tensors too large");
+    op_inputs = {
+        stack.begin(), stack.end() - static_cast<ptrdiff_t>(m_num_out_tensors)};
   }
 
   // In case of mul/div with scalars out of dtype range we need to perform
@@ -394,7 +414,7 @@ void OpBackend::HandleTypePromotion(sh::graph& graph, const at::Stack& stack) {
       continue;
     }
 
-    auto input_type = GetScalarType(stack, i);
+    auto input_type = GetScalarType(stack, static_cast<int>(i));
     if (habana_helpers::pytorch_to_synapse_type(input_type) ==
         habana_helpers::pytorch_to_synapse_type(m_scalar_type)) {
       continue;
@@ -554,7 +574,8 @@ void OpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
   m_num_syn_nodes++;
   if (isOutputInfMode()) {
     if (m_is_outfn) { // out place fn
-      for (int i = m_num_out_tensors; i > 0; --i) {
+      for (size_t i = m_num_out_tensors; i > 0; --i) {
+        HABANA_ASSERT(stack.size() >= i, "stack.size() must be >= i");
         const auto& t = stack.at(stack.size() - i).toTensor();
         m_output_inf_meta.AddOutputTensor(TensorMetaData(
             t.sizes().vec(),
@@ -565,7 +586,8 @@ void OpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
     } else if (!m_inplace_ids.empty()) { // in place fn
       for (int inplace_id : m_inplace_ids) {
         // Index can vary in syn_inputs_ and in stack
-        const auto& ival = stack.at(inplace_id);
+        HABANA_ASSERT(inplace_id >= 0, "inplace_id must be non-negative");
+        const auto& ival = stack.at(static_cast<size_t>(inplace_id));
         const auto& tensors = ival.isTensor()
             ? static_cast<at::List<at::Tensor>>(ival.toTensor())
             : ival.toTensorList();
@@ -592,7 +614,8 @@ void OpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
         const auto& outshapes = ComputeOutputShapes(stack);
         for (int res_id : m_res_ids) {
           // Index can vary in syn_inputs_ and in stack
-          const auto& ival = stack.at(res_id);
+          HABANA_ASSERT(res_id >= 0, "res_id must be non-negative");
+          const auto& ival = stack.at(static_cast<size_t>(res_id));
           const auto& tensors = ival.isTensor()
               ? static_cast<at::List<at::Tensor>>(ival.toTensor())
               : ival.toTensorList();
@@ -658,7 +681,9 @@ void OpBackend::PopulateMetadata(
       TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
           m_res_ids.size() == m_output_metadata.size());
       for (int res_id : m_res_ids) {
-        outshapes.emplace_back(stack_tensor(stack, res_id).sizes().vec());
+        HABANA_ASSERT(res_id >= 0, "res_id must be non-negative");
+        outshapes.emplace_back(
+            stack_tensor(stack, static_cast<size_t>(res_id)).sizes().vec());
       }
     }
     for (size_t i = 0; i < m_output_metadata.size(); ++i) {
@@ -756,7 +781,10 @@ void OpBackend::CreateH2dTensorInput(
     synTensorType shape_tensor_type,
     bool force_create) {
   size_t es = c10::elementSize(dtype);
-  int64_t tensorSize = (hostDataSize + es - 1) / es;
+  HABANA_ASSERT(
+      hostDataSize <= std::numeric_limits<int64_t>::max(),
+      "hostDataSize too large");
+  auto tensorSize = static_cast<int64_t>((hostDataSize + es - 1) / es);
 
   CreateShapeTensorInput(
       graph,
@@ -833,7 +861,9 @@ std::vector<sh::tensor> OpBackend::BuildNode(
       // - HandleFn placed the output(s) in in syn_outputs_ when the op uses
       // output_meta
       outputs.emplace_back(
-          std::move(op->get_syn_output_at(*attr.final_result_index).ref()));
+          std::move(op->get_syn_output_at(
+                          static_cast<size_t>(*attr.final_result_index))
+                        .ref()));
     } else if (attr.inplace_out_ptr) {
       if (std::holds_alternative<sh::tensor*>(*attr.inplace_out_ptr)) {
         outputs.emplace_back(
@@ -844,7 +874,8 @@ std::vector<sh::tensor> OpBackend::BuildNode(
       } else {
         outputs.emplace_back(
             habana_helpers::duplicate_tensor_in_memory_section(
-                op->SynInput(std::get<int>(*attr.inplace_out_ptr)),
+                op->SynInput(
+                    static_cast<size_t>(std::get<int>(*attr.inplace_out_ptr))),
                 graph,
                 /* is_external */ false));
       }
@@ -887,13 +918,14 @@ std::vector<sh::tensor> OpBackend::BuildNode(
 
       if (is_persistent) {
         const auto& impl =
-            ctx->pt_outputs_.at(*attr.final_result_index).unsafeGetTensorImpl();
+            ctx->pt_outputs_.at(static_cast<size_t>(*attr.final_result_index))
+                .unsafeGetTensorImpl();
         // Free the old storage
         impl->FreeMemory();
 
         auto storage = c10::make_intrusive<c10::StorageImpl>(
             c10::StorageImpl::use_byte_size_t(),
-            c10::multiply_integers(attr.sizes) *
+            static_cast<size_t>(c10::multiply_integers(attr.sizes)) *
                 c10::scalarTypeToTypeMeta(attr.dtype).itemsize(),
             habana::getHABANADeviceAllocator(),
             true);
@@ -902,7 +934,7 @@ std::vector<sh::tensor> OpBackend::BuildNode(
         impl->set_sizes_contiguous(attr.sizes);
 
       } else if (is_final_result) {
-        ctx->pt_outputs_.at(*attr.final_result_index) = t;
+        ctx->pt_outputs_.at(static_cast<size_t>(*attr.final_result_index)) = t;
       }
     }
     node_outputs.emplace_back(outputs.back().get());
@@ -920,11 +952,14 @@ std::vector<sh::tensor> OpBackend::BuildNode(
       output_layouts.empty() || output_layouts.size() >= node_outputs.size(),
       "Missing layouts for synapse outputs");
 
+  HABANA_ASSERT(
+      node_attr.param_size <= std::numeric_limits<unsigned int>::max(),
+      "param_size too large");
   graph.add_node(
       std::move(node_attr.inputs),
       std::move(node_outputs),
       node_attr.params,
-      node_attr.param_size,
+      static_cast<unsigned int>(node_attr.param_size),
       node_attr.guid,
       nullptr,
       input_layouts.empty() ? nullptr : input_layouts.data(),
@@ -1087,8 +1122,8 @@ sh::tensor OpBackend::BuildConstant(
   if (valtype == c10::ScalarType::Long && common::IsInt64Supported()) {
     ns_ConstantKernel::Params_v2 paramsV2{};
     int64_t value = val.to<int64_t>();
-    paramsV2.const_low = value;
-    paramsV2.const_high = value >> 32;
+    paramsV2.const_low = static_cast<int>(value);
+    paramsV2.const_high = static_cast<int>(value >> 32);
 
     auto constant = BuildNode(
         op,
@@ -1213,14 +1248,22 @@ sh::tensor OpBackend::BuildPermute(
     std::optional<int> final_result_index) {
   std::vector<synTensor> inputs = {syn_in};
 
-  int dims_number = sizes.size();
+  HABANA_ASSERT(
+      sizes.size() <= std::numeric_limits<int>::max(),
+      "sizes.size() too large");
+  int dims_number = static_cast<int>(sizes.size());
 
   synTransposeParamsNDims params;
-  params.tensorDim = dims_number;
+  HABANA_ASSERT(dims_number >= 0, "dims_number must be non-negative");
+  params.tensorDim = static_cast<unsigned int>(dims_number);
   // params.permute has to be populated in a reverse order for HPU FCD-LCD order
   for (int i = 0; i < dims_number; i++) {
+    HABANA_ASSERT(
+        static_cast<size_t>(i) < permutation.size(),
+        "i must be < permutation.size()");
     params.permutation[i] = static_cast<TransposePermutationDim>(
-        dims_number - permutation[permutation.size() - i - 1] - 1);
+        dims_number -
+        permutation[permutation.size() - static_cast<size_t>(i) - 1] - 1);
   }
   for (int i = dims_number; i < HABANA_DIM_MAX; i++) {
     params.permutation[i] = static_cast<TransposePermutationDim>(i);
@@ -1232,10 +1275,13 @@ sh::tensor OpBackend::BuildPermute(
         self_sizes.size() == permutation.size(),
         "Number of dims in tensor don't match in permutation");
     auto new_sizes = self_sizes.vec();
+    HABANA_ASSERT(!new_sizes.empty(), "new_sizes must not be empty");
     new_sizes[new_sizes.size() - 1] =
-        self_sizes[permutation[new_sizes.size() - 1]];
-    for (int i = new_sizes.size() - 2; i >= 0; i--) {
-      new_sizes[i] = self_sizes[permutation[i]];
+        self_sizes[static_cast<size_t>(permutation[new_sizes.size() - 1])];
+    if (new_sizes.size() >= 2) {
+      for (size_t i = new_sizes.size() - 2; i != SIZE_MAX; --i) {
+        new_sizes[i] = self_sizes[static_cast<size_t>(permutation[i])];
+      }
     }
     return new_sizes;
   };

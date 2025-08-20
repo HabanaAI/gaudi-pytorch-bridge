@@ -12,30 +12,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-// #include <ATen/native/TensorIterator.h> // TODO: fix this include
-#include <bitset>
-#include <cstdint>
-
+#include "habana_kernels/reduction_kernels.h"
 #include <absl/container/fixed_array.h>
 #include <perf_lib_layer_params.h>
 #include <torch/csrc/jit/ir/irparser.h>
 #include <torch/script.h>
-
+#include <cstdint>
 #include "backend/create_pt_tensor.h"
-#include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/helpers/create_tensor.h"
 #include "backend/helpers/lowering_util.h"
-#include "backend/helpers/tensor_utils.h"
-#include "backend/kernel/hpu_habana_launch_op_pt.h"
+#include "habana_helpers/conversion.h"
 #include "habana_helpers/logging.h"
-#include "habana_kernels/basic_kernels.h"
-#include "habana_kernels/compare_kernels.h"
-#include "habana_kernels/kernel_utils.h"
-#include "habana_kernels/reduction_kernels.h"
 #include "habana_kernels/resize.h"
 #include "habana_kernels/tensor_shape_kernels.h"
-#include "habana_lazy/hlexec.h"
-#include "habana_lazy/passes/transform_graph.h"
 
 using namespace torch;
 using namespace habana;
@@ -50,10 +39,16 @@ void allocate_reduction_result(
     ScalarType dtype,
     bool is_result_persistent) {
   auto shape = DimVector(self.sizes());
-  for (int dim = shape.size() - 1; dim >= 0; dim--) {
-    if (mask[dim]) {
+  const auto shape_size = shape.size();
+  HABANA_ASSERT(
+      shape_size <= static_cast<size_t>(std::numeric_limits<int>::max()),
+      "Shape size is too large for int conversion: ",
+      shape_size);
+  for (int dim = static_cast<int>(shape_size) - 1; dim >= 0; dim--) {
+    const auto dim_size_t = static_cast<size_t>(dim);
+    if (mask[dim_size_t]) {
       if (keepdim) {
-        shape[dim] = 1;
+        shape[dim_size_t] = 1;
       } else {
         shape.erase(shape.begin() + dim);
       }
@@ -155,16 +150,22 @@ InferOutputMetaRetType ReduceOperator::InferOutputMeta(
 
     auto flatten_size = std::accumulate(
         original_self_sizes.begin(),
-        original_self_sizes.begin() + num_dims_to_reduce,
+        original_self_sizes.begin() +
+            static_cast<ptrdiff_t>(num_dims_to_reduce),
         1,
         std::multiplies<int>());
     if (keepdim) {
-      for (unsigned i = 0; i < num_dims_to_reduce - 1; i++) {
+      for (size_t i = 0; i < num_dims_to_reduce - 1; i++) {
         reshaped_self_sizes.emplace_back(1);
       }
     }
     reshaped_self_sizes.emplace_back(flatten_size);
-    for (unsigned i = num_dims_to_reduce; i < self.dim(); i++) {
+    const auto self_dim = self.dim();
+    HABANA_ASSERT(
+        self_dim >= 0 && static_cast<size_t>(self_dim) >= num_dims_to_reduce,
+        "Invalid tensor dimensions for reduction");
+    for (size_t i = num_dims_to_reduce; i < static_cast<size_t>(self_dim);
+         i++) {
       reshaped_self_sizes.emplace_back(original_self_sizes[i]);
     }
     // reshape to "reshaped-sizes" before reduction
@@ -184,7 +185,7 @@ InferOutputMetaRetType ReduceOperator::InferOutputMeta(
       reshaped_in_dim_data[0] = 0;
     } else {
       std::copy(
-          in_dim.begin() + num_dims_to_reduce - 1,
+          in_dim.begin() + static_cast<ptrdiff_t>(num_dims_to_reduce - 1),
           in_dim.end(),
           reshaped_in_dim_data.data());
     }
@@ -293,7 +294,8 @@ void ReduceOperator::AllocateAndAddSynapseNode(
 
     auto flatten_size = std::accumulate(
         original_self_sizes.begin(),
-        original_self_sizes.begin() + num_dims_to_reduce,
+        original_self_sizes.begin() +
+            static_cast<ptrdiff_t>(num_dims_to_reduce),
         1,
         std::multiplies<int>());
     if (keepdim) {
@@ -301,7 +303,7 @@ void ReduceOperator::AllocateAndAddSynapseNode(
       // pos of "dim array", and original sizes for lower dimensions
       // example: sizes [8,3,2,2] with dim=[0,1,2] and keepdim=true becomes
       // [1,1,48,2]
-      for (unsigned i = 0; i < num_dims_to_reduce - 1; i++) {
+      for (size_t i = 0; i < num_dims_to_reduce - 1; i++) {
         reshaped_self_sizes.emplace_back(1);
       }
     }
@@ -310,7 +312,12 @@ void ReduceOperator::AllocateAndAddSynapseNode(
     // [48,2]
 
     reshaped_self_sizes.emplace_back(flatten_size);
-    for (unsigned i = num_dims_to_reduce; i < self.dim(); i++) {
+    const auto self_dim2 = self.dim();
+    HABANA_ASSERT(
+        self_dim2 >= 0 && static_cast<size_t>(self_dim2) >= num_dims_to_reduce,
+        "Invalid tensor dimensions for reduction in AllocateAndAddSynapseNode");
+    for (size_t i = num_dims_to_reduce; i < static_cast<size_t>(self_dim2);
+         i++) {
       reshaped_self_sizes.emplace_back(original_self_sizes[i]);
     }
     // reshape to "reshaped-sizes" before reduction
@@ -335,7 +342,7 @@ void ReduceOperator::AllocateAndAddSynapseNode(
       reshaped_in_dim_data[0] = 0;
     } else {
       std::copy(
-          in_dim.begin() + num_dims_to_reduce - 1,
+          in_dim.begin() + static_cast<ptrdiff_t>(num_dims_to_reduce - 1),
           in_dim.end(),
           reshaped_in_dim_data.data());
     }
@@ -424,9 +431,20 @@ ReduceOperator::CreateReductionGraph(
   synapse_helpers::tensor& synInput = syn_tensor_in;
   syn_helper_intermediate.emplace_back(synInput);
   // create syn_intermediate tensors of required shape
-  unsigned loopend = keepdim ? in_dim.size() - 1 : in_dim.size();
+  const auto in_dim_size = in_dim.size();
+  HABANA_ASSERT(
+      in_dim_size <= static_cast<size_t>(std::numeric_limits<unsigned>::max()),
+      "in_dim size is too large for unsigned conversion: ",
+      in_dim_size);
+  using namespace std::literals;
+  const unsigned loopend = keepdim
+      ? safe_convert<unsigned>(in_dim_size - 1, "loopend keepdim"sv)
+      : safe_convert<unsigned>(in_dim_size, "loopend"sv);
   for (unsigned i = 0; i < loopend; i++) {
-    pyt_shape[in_dim[i]] = 1;
+    const auto dim_index = in_dim[i];
+    HABANA_ASSERT(
+        dim_index >= 0, "Dimension index must be non-negative: ", dim_index);
+    pyt_shape[safe_convert<size_t>(dim_index, "pyt_shape index"sv)] = 1;
 
     // Modify the stride accordingly after the shape change above
     pyt_stride[pyt_shape.size() - 1] = 1;
@@ -480,12 +498,22 @@ ReduceOperator::CreateReductionGraph(
   i=7, o=9,10
   */
   // add reduction nodes corresponding to intermediate stages
-  for (unsigned i = 0, j = 0; i < num_tpc_outputs * in_dim.size();
-       i += num_tpc_outputs, j++) {
+  HABANA_ASSERT(
+      num_tpc_outputs >= 0,
+      "num_tpc_outputs must be non-negative: ",
+      num_tpc_outputs);
+  const auto num_tpc_outputs_u = static_cast<size_t>(num_tpc_outputs);
+  const auto loop_limit = num_tpc_outputs * in_dim_size;
+  for (size_t i = 0, j = 0; i < loop_limit; i += num_tpc_outputs_u, j++) {
     std::string node_type = this->guid_;
     ns_Reduction::Params params{};
-    params.reductionDimension = pyt_tensor.dim() - in_dim[j] - 1;
-    auto input_index_offset = i + (i != 0) * first_input_pos;
+    const auto tensor_dim = pyt_tensor.dim();
+    const auto reduction_dim = tensor_dim - in_dim[j] - 1;
+    params.reductionDimension =
+        safe_convert<unsigned int>(reduction_dim, "reductionDimension"sv);
+    const int offset_calc = static_cast<int>(i) + (i != 0) * first_input_pos;
+    const auto input_index_offset =
+        safe_convert<size_t>(offset_calc, "input_index_offset"sv);
     std::vector<synTensor> syn_in{
         syn_helper_intermediate[input_index_offset].ref().get()};
     std::vector<synTensor> syn_out{syn_helper_intermediate[i + 1].ref().get()};
@@ -508,15 +536,25 @@ ReduceOperator::CreateReductionGraph(
   // dims
   if (!keepdim) {
     std::string node_type = "reshape";
-    auto input_index_offset = (num_tpc_outputs > 1)
-        ? num_tpc_outputs * in_dim.size() - 1
-        : in_dim.size();
+    const auto input_index_offset = [&] {
+      if (num_tpc_outputs > 1) {
+        const auto num_tpc_outputs_u = safe_convert<size_t>(
+            num_tpc_outputs, "num_tpc_outputs for reshape"sv);
+        return num_tpc_outputs_u * in_dim_size - 1;
+      } else {
+        return in_dim_size;
+      }
+    }();
     std::vector<synTensor> syn_in{
         syn_helper_intermediate[input_index_offset].ref().get()};
     std::vector<synTensor> syn_out{
-        syn_helper_intermediate[num_tpc_outputs * in_dim.size() + 1]
-            .ref()
-            .get()};
+        syn_helper_intermediate
+            [safe_convert<size_t>(
+                 num_tpc_outputs, "num_tpc_outputs for syn_out"sv) *
+                 in_dim_size +
+             1]
+                .ref()
+                .get()};
 
     auto reshapeOp =
         make_operator<ReshapeOperator>(p_context_->device_id_, dtype);
@@ -531,7 +569,7 @@ ReduceOperator::CreateReductionGraph(
         std::move(syn_out),
         nullptr,
         0,
-        std::move(node_type),
+        node_type,
         nullptr,
         nullptr,
         nullptr,
@@ -559,7 +597,16 @@ InferOutputMetaRetType SumDimOperator::InferOutputMeta(
     // Remove duplicates in dim list
     LoweringUtil::SortAndRemoveDuplicateDims(dim, self.dim());
     // compute number of output dims
-    auto output_dims = self.dim() - (!(keepdim)*dim.size());
+    const auto self_dim = self.dim();
+    const auto dim_size = dim.size();
+    HABANA_ASSERT(
+        self_dim >= 0 && dim_size <= static_cast<size_t>(self_dim),
+        "Invalid dimensions for output_dims calculation: self.dim=",
+        self_dim,
+        ", dim.size=",
+        dim_size);
+    const auto output_dims =
+        self_dim - (!(keepdim) * static_cast<int64_t>(dim_size));
     // output follows input memory_format for all cases
     // except when output has less than 4 dims
     auto memory_format = self.suggest_memory_format();
@@ -603,7 +650,10 @@ void SumDimOperator::AllocateAndAddSynapseNode(
   // Remove duplicates in dim list
   LoweringUtil::SortAndRemoveDuplicateDims(dim, self.dim());
   // compute number of output dims
-  auto output_dims = self.dim() - (!(keepdim)*dim.size());
+  auto output_dims_signed =
+      self.dim() - (!(keepdim) * static_cast<int64_t>(dim.size()));
+  HABANA_ASSERT(output_dims_signed >= 0, "output_dims must be non-negative");
+  auto output_dims = static_cast<size_t>(output_dims_signed);
   // output follows input memory_format for all cases
   // except when output has less than 4 dims
   auto memory_format = self.suggest_memory_format();
@@ -714,7 +764,8 @@ InferOutputMetaRetType SumOperator::InferOutputMeta(torch::jit::Stack& inputs) {
     for (int i = 0; i < ndim; i++) {
       data[i] = i;
     }
-    IntArrayRef dim(data, ndim);
+    HABANA_ASSERT(ndim >= 0, "ndim must be non-negative");
+    IntArrayRef dim(data, static_cast<size_t>(ndim));
     bool keepdim = false;
 
     inputs.insert(inputs.begin(), IValue(output));
@@ -746,7 +797,8 @@ void SumOperator::AllocateAndAddSynapseNode(
   for (int i = 0; i < ndim; i++) {
     data[i] = i;
   }
-  IntArrayRef dim(data, ndim);
+  HABANA_ASSERT(ndim >= 0, "ndim must be non-negative");
+  IntArrayRef dim(data, static_cast<size_t>(ndim));
   bool keepdim = false;
 
   inputs.insert(inputs.begin(), IValue(output));
@@ -764,7 +816,8 @@ void SumOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   for (int i = 0; i < ndim; i++) {
     data[i] = i;
   }
-  IntArrayRef dim(data, ndim);
+  HABANA_ASSERT(ndim >= 0, "ndim must be non-negative");
+  IntArrayRef dim(data, static_cast<size_t>(ndim));
   bool keepdim = false;
 
   inputs.insert(inputs.begin(), IValue(output));
@@ -845,7 +898,8 @@ void MeanOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   for (int i = 0; i < ndim; i++) {
     data[i] = i;
   }
-  IntArrayRef dim(data, ndim);
+  HABANA_ASSERT(ndim >= 0, "ndim must be non-negative");
+  IntArrayRef dim(data, static_cast<size_t>(ndim));
   bool keepdim = false;
 
   inputs.insert(inputs.begin(), IValue(output));

@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 
+#include <limits>
 #include "generated/backend/_deform_conv2d_backward.h"
 #include "generated/backend/deform_conv2d.h"
 
@@ -33,19 +34,19 @@ OutputMetaDataVector DeformConv2dOutputMeta(const at::Stack& stack) {
   const auto n_offset_grps = stack[12].toInt();
   const auto use_mask = stack[13].toBool();
 
-  const int batch_sz = input.size(0);
-  const int in_channels = input.size(1);
-  const int in_h = input.size(2);
-  const int in_w = input.size(3);
+  const int64_t batch_sz = input.size(0);
+  const int64_t in_channels = input.size(1);
+  const int64_t in_h = input.size(2);
+  const int64_t in_w = input.size(3);
 
-  const int out_channels = weight.size(0);
-  const int weight_h = weight.size(2);
-  const int weight_w = weight.size(3);
+  const int64_t out_channels = weight.size(0);
+  const int64_t weight_h = weight.size(2);
+  const int64_t weight_w = weight.size(3);
 
-  int ker_h = dilation_h * (weight_h - 1) + 1;
-  int ker_w = dilation_w * (weight_w - 1) + 1;
-  int out_h = ((in_h + 2 * pad_h - ker_h) / stride_h) + 1;
-  int out_w = ((in_w + 2 * pad_w - ker_w) / stride_w) + 1;
+  int64_t ker_h = dilation_h * (weight_h - 1) + 1;
+  int64_t ker_w = dilation_w * (weight_w - 1) + 1;
+  int64_t out_h = ((in_h + 2 * pad_h - ker_h) / stride_h) + 1;
+  int64_t out_w = ((in_w + 2 * pad_w - ker_w) / stride_w) + 1;
 
   OutputMetaData meta;
   meta.shape = {batch_sz, out_channels, out_h, out_w};
@@ -157,12 +158,51 @@ void DeformConv2d::AddNode(
   std::vector<synTensor> syn_inputs{
       syn_in(0), syn_in(2), syn_in(1), syn_in(3), syn_in(4)};
   ns_DeformConv::Params params{};
-  params.strideW = stack[6].toInt();
-  params.strideH = stack[5].toInt();
-  params.padW = stack[8].toInt();
-  params.padH = stack[7].toInt();
-  params.dilationW = stack[10].toInt();
-  params.dilationH = stack[9].toInt();
+
+  const auto stride_w = stack[6].toInt();
+  const auto stride_h = stack[5].toInt();
+  const auto pad_w = stack[8].toInt();
+  const auto pad_h = stack[7].toInt();
+  const auto dilation_w = stack[10].toInt();
+  const auto dilation_h = stack[9].toInt();
+
+  HABANA_ASSERT(
+      stride_w >= std::numeric_limits<int>::min() &&
+          stride_w <= std::numeric_limits<int>::max(),
+      "stride_w out of range for int conversion: ",
+      stride_w);
+  HABANA_ASSERT(
+      stride_h >= std::numeric_limits<int>::min() &&
+          stride_h <= std::numeric_limits<int>::max(),
+      "stride_h out of range for int conversion: ",
+      stride_h);
+  HABANA_ASSERT(
+      pad_w >= std::numeric_limits<int>::min() &&
+          pad_w <= std::numeric_limits<int>::max(),
+      "pad_w out of range for int conversion: ",
+      pad_w);
+  HABANA_ASSERT(
+      pad_h >= std::numeric_limits<int>::min() &&
+          pad_h <= std::numeric_limits<int>::max(),
+      "pad_h out of range for int conversion: ",
+      pad_h);
+  HABANA_ASSERT(
+      dilation_w >= std::numeric_limits<int>::min() &&
+          dilation_w <= std::numeric_limits<int>::max(),
+      "dilation_w out of range for int conversion: ",
+      dilation_w);
+  HABANA_ASSERT(
+      dilation_h >= std::numeric_limits<int>::min() &&
+          dilation_h <= std::numeric_limits<int>::max(),
+      "dilation_h out of range for int conversion: ",
+      dilation_h);
+
+  params.strideW = static_cast<int>(stride_w);
+  params.strideH = static_cast<int>(stride_h);
+  params.padW = static_cast<int>(pad_w);
+  params.padH = static_cast<int>(pad_h);
+  params.dilationW = static_cast<int>(dilation_w);
+  params.dilationH = static_cast<int>(dilation_h);
 
   auto meta = DeformConv2dOutputMeta(stack)[0];
   syn_out(0) = std::move(BuildOp(

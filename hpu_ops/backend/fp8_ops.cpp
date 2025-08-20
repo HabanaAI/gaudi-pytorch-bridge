@@ -14,6 +14,7 @@
  */
 
 #include "hpu_ops/fp8_ops.h"
+#include <limits>
 #include "generated/backend/cast_from_fp8.h"
 #include "generated/backend/cast_to_fp8.h"
 #include "generated/backend/cast_to_fp8_v2.h"
@@ -22,6 +23,7 @@
 #include "hpu_ops/common/convolution_gen.h"
 #include "hpu_ops/custom_op_outshape.h"
 #include "hpu_ops/fp8_utils.h"
+#include "pytorch_helpers/habana_helpers/logging.h"
 
 namespace sh = synapse_helpers;
 
@@ -39,7 +41,11 @@ void ValidateScaleShape(
   if (scale.isTensor()) {
     scale_numel = scale.toTensor().numel();
   } else if (scale.isDoubleList()) {
-    scale_numel = scale.toDoubleVector().size();
+    const auto size = scale.toDoubleVector().size();
+    HABANA_ASSERT(
+        size <= static_cast<size_t>(std::numeric_limits<int64_t>::max()),
+        "size exceeds int64_t maximum value");
+    scale_numel = static_cast<int64_t>(size);
   }
   for (auto d : scale_shape.toIntVector()) {
     shape_numel *= d;
@@ -186,7 +192,11 @@ SharedMetaDataVector CastToFp8SharedMeta(
     const at::Stack& stack,
     habana_helpers::HabanaExecutionMode /*unused*/) {
   const at::Tensor& input = stack.at(0).toTensor();
-  const int inputDim = input.dim();
+  const auto inputDim_int64 = input.dim();
+  HABANA_ASSERT(
+      inputDim_int64 >= 0 && inputDim_int64 <= std::numeric_limits<int>::max(),
+      "inputDim is out of int range");
+  const int inputDim = static_cast<int>(inputDim_int64);
   const bool isCastToFp8V2 = stack.at(3).isBool();
   const bool isAmax = isCastToFp8V2 ? stack.at(3).toBool()
                                     : stack.at(4).toTensor().numel() != 0;
@@ -292,7 +302,11 @@ SharedMetaDataVector CastFromFp8SharedMeta(
     const at::Stack& stack,
     habana_helpers::HabanaExecutionMode /*unused*/) {
   const at::Tensor& input = stack.at(0).toTensor();
-  const int inputDim = input.dim();
+  const auto inputDim_int64 = input.dim();
+  HABANA_ASSERT(
+      inputDim_int64 >= 0 && inputDim_int64 <= std::numeric_limits<int>::max(),
+      "inputDim is out of int range");
+  const int inputDim = static_cast<int>(inputDim_int64);
 
   SharedMetaData sharedMeta("convert_from_fp8");
   sharedMeta.inputs_data = {
@@ -407,7 +421,7 @@ std::vector<DimT> ComputeConv2dOutputSize(
     c10::IntArrayRef padding,
     c10::IntArrayRef dilation) {
   std::vector<DimT> out_shape{shape_in[0], shape_wt[0]};
-  for (int i = 0; i < 2; ++i) {
+  for (size_t i = 0; i < 2; ++i) {
     out_shape.emplace_back(ComputeConv2dOutputDim(
         shape_in[i + 2], padding[i], dilation[i], shape_wt[i + 2], stride[i]));
   }
@@ -478,17 +492,30 @@ static synConvolutionParams FillConv2dFp8Params(
     at::IntArrayRef dilation,
     int64_t groups) {
   synConvolutionParams params{};
-  params.dH = stride[0];
-  params.dW = stride[1];
-  params.kH = weight[2];
-  params.kW = weight[3];
-  params.dilH = dilation[0];
-  params.dilW = dilation[1];
-  params.setPadT(padding[0]);
-  params.setPadB(padding[0]);
-  params.setPadL(padding[1]);
-  params.setPadR(padding[1]);
-  params.nGroups = groups;
+
+  check_range<unsigned int>(0, 1, stride);
+  params.dH = static_cast<unsigned int>(stride[0]);
+  params.dW = static_cast<unsigned int>(stride[1]);
+
+  check_range<unsigned int>(2, 3, weight);
+  params.kH = static_cast<unsigned int>(weight[2]);
+  params.kW = static_cast<unsigned int>(weight[3]);
+
+  check_range<unsigned int>(0, 1, dilation);
+  params.dilH = static_cast<unsigned int>(dilation[0]);
+  params.dilW = static_cast<unsigned int>(dilation[1]);
+
+  check_range<int>(0, 1, padding);
+  params.setPadT(static_cast<int>(padding[0]));
+  params.setPadB(static_cast<int>(padding[0]));
+  params.setPadL(static_cast<int>(padding[1]));
+  params.setPadR(static_cast<int>(padding[1]));
+
+  HABANA_ASSERT(
+      groups >= 0 && groups <= std::numeric_limits<unsigned int>::max(),
+      "groups out of valid range: ",
+      groups);
+  params.nGroups = static_cast<unsigned int>(groups);
 
   return params;
 }

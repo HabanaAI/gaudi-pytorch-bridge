@@ -26,7 +26,7 @@ class NonZeroOperator : public HabanaOperator {
               return "non_zero_fwd"sv;
             }(),
             scalarType)) {
-    this->CreateSynContext(device_id);
+    this->CreateSynContext(static_cast<synDeviceId>(device_id));
   }
 
   virtual void AllocateAndAddSynapseNode(

@@ -13,24 +13,16 @@
  * limitations under the License.
  */
 
+#include "habana_kernels/nonzero_kernel.h"
 #include <ATen/ExpandUtils.h>
 #include <ATen/InferSize.h>
 #include <ATen/WrapDimUtils.h>
 #include <perf_lib_layer_params.h>
 #include <synapse_api.h>
 #include <torch/script.h>
-
+#include <limits>
 #include "backend/create_pt_tensor.h"
-#include "backend/habana_device/hpu_cached_devices.h"
-#include "backend/helpers/tensor_utils.h"
-#include "backend/kernel/hpu_shape_inference.h"
-#include "habana_helpers/frontend_utils.h"
 #include "habana_helpers/logging.h"
-#include "habana_helpers/logging_pt.h"
-#include "habana_kernels/compare_kernels.h"
-#include "habana_kernels/index_kernels.h"
-#include "habana_kernels/kernel_utils.h"
-#include "habana_kernels/nonzero_kernel.h"
 #include "hpu_ops/hpu_op_helper.h"
 
 using namespace torch;
@@ -48,8 +40,17 @@ void NonZeroOperator::SetPTOutputs(torch::jit::Stack& inputs) {
 
   auto self = inputs[0].toTensor();
   auto input_shape = self.sizes();
-  int dimensions = input_shape.size();
-  int elements = self.numel();
+  const auto dimensions_size_t = input_shape.size();
+  HABANA_ASSERT(
+      dimensions_size_t <= static_cast<size_t>(std::numeric_limits<int>::max()),
+      "dimensions is too large for int");
+  const int dimensions = static_cast<int>(dimensions_size_t);
+
+  const auto elements_int64 = self.numel();
+  HABANA_ASSERT(
+      elements_int64 >= 0 && elements_int64 <= std::numeric_limits<int>::max(),
+      "elements is out of int range");
+  const int elements = static_cast<int>(elements_int64);
   auto output_shape = DimVector{elements, dimensions};
   auto shape_tensor_shape = DimVector{5};
   // Create PT output stage 2
@@ -75,10 +76,16 @@ void NonZeroOperator::SetPTOutputs(torch::jit::Stack& inputs) {
 float NonZeroOperator::round_dims(
     const at::Tensor& input_tensor,
     int group_size) {
-  auto group_size_f = static_cast<float>(group_size);
-  auto last_dim_rounded =
-      std::ceil(input_tensor.sizes()[input_tensor.dim() - 1] / group_size_f) *
-      group_size_f;
+  const auto group_size_f = static_cast<float>(group_size);
+  const auto dim_int64 = input_tensor.dim();
+  HABANA_ASSERT(dim_int64 >= 1, "tensor must have at least 1 dimension");
+
+  const auto last_dim_idx = static_cast<size_t>(dim_int64 - 1);
+  const auto last_dim_size_int64 = input_tensor.sizes()[last_dim_idx];
+  const auto last_dim_size_f = static_cast<float>(last_dim_size_int64);
+
+  const auto last_dim_rounded =
+      std::ceil(last_dim_size_f / group_size_f) * group_size_f;
   return last_dim_rounded;
 }
 
@@ -98,15 +105,24 @@ std::vector<int64_t> NonZeroOperator::compute_output_st_shape(
 std::vector<int64_t> NonZeroOperator::compute_output_shape(
     const at::Tensor& self) {
   auto input_shape = self.sizes();
-  int dimensions = input_shape.size();
+  const auto dimensions_size_t = input_shape.size();
+  HABANA_ASSERT(
+      dimensions_size_t <= static_cast<size_t>(std::numeric_limits<int>::max()),
+      "dimensions is too large for int");
+  const int dimensions = static_cast<int>(dimensions_size_t);
+
   auto elements = self.numel();
   if ((self.dim() <= 4) and (self.dim() > 0)) {
     elements = 1;
-    auto last_dim_rounded = round_dims(self, 64);
-    for (unsigned i = 0; i < self.sizes().size() - 1; i++) {
-      elements *= self.sizes()[i];
+    const auto last_dim_rounded = round_dims(self, 64);
+    for (size_t i = 0; i < self.sizes().size() - 1; i++) {
+      const auto size_int64 = self.sizes()[i];
+      const auto size_f = static_cast<float>(size_int64);
+      const auto elements_f = static_cast<float>(elements);
+      elements = static_cast<int64_t>(elements_f * size_f);
     }
-    elements = elements * last_dim_rounded;
+    const auto elements_f = static_cast<float>(elements);
+    elements = static_cast<int64_t>(elements_f * last_dim_rounded);
   }
   std::vector<int64_t> output_shape{elements, dimensions};
   return output_shape;

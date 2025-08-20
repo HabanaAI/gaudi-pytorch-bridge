@@ -13,15 +13,15 @@
  * limitations under the License.
  */
 
-#include "generated/backend/bernoulli.h"
+#include <limits>
 #include "generated/backend/log_normal.h"
 #include "generated/backend/normal.h"
-#include "generated/backend/poisson.h"
 #include "generated/backend/random.h"
 #include "generated/backend/uniform.h"
-#include "habana_kernels/random_gen_kernels.h"
+#include "habana_helpers/logging.h"
 #include "hpu_ops/habana_random_ops.h"
 #include "hpu_ops/shared_meta_common.h"
+
 namespace habana {
 constexpr unsigned MEAN_INDEX = 0;
 constexpr unsigned STD_INDEX = 1;
@@ -97,6 +97,7 @@ FillParamsT RandomUniformParams(
   example, torch.tensor(1, dtype=torch.double).random_() will be uniform in [0,
   2^53].
   */
+  using namespace std::literals;
   switch (type) {
     case at::ScalarType::Float: // [-(2^24), 2^24]
     case at::ScalarType::Double: // [-(2^53), 2^53]
@@ -106,28 +107,30 @@ FillParamsT RandomUniformParams(
       params->high.f = to.has_value() ? *to : 1 << 11;
       break;
     case at::ScalarType::Short:
-      params->high.i = to.has_value() ? *to : 1 << 15;
+      params->high.i = to.has_value() ? static_cast<int>(*to) : 1 << 15;
       break;
-    case at::ScalarType::Int:
-      params->high.i = to.has_value()
-          ? *to
-          : static_cast<float>(std::numeric_limits<int32_t>::max());
-      break;
+    case at::ScalarType::Int: {
+      params->high.i = to.has_value() ? static_cast<int>(*to)
+                                      : std::numeric_limits<int32_t>::max();
+    } break;
     case at::ScalarType::BFloat16: // [-(2^8), 2^8]
       params->high.f = to.has_value() ? *to : 1 << 8;
       break;
     case at::ScalarType::Byte:
-      params->high.i = to.has_value() ? *to : 1 << 8;
+      params->high.i = to.has_value() ? static_cast<int>(*to) : 1 << 8;
       break;
     case at::ScalarType::Char:
-      params->high.i = to.has_value() ? *to : 1 << 7;
+      params->high.i = to.has_value() ? static_cast<int>(*to) : 1 << 7;
       break;
     case at::ScalarType::Long: {
-      int64_t value = to.has_value()
-          ? *to
-          : static_cast<float>(std::numeric_limits<int64_t>::max());
-      params->high_low_32_Bit = value;
-      params->high_high_32_Bit = value >> 32;
+      // Use safe bounds for int64_t conversion from float
+      constexpr auto max_safe_int64_f =
+          static_cast<float>(1LL << 53); // max safe int64 value in float
+      const auto value = to.has_value()
+          ? static_cast<int64_t>(*to)
+          : static_cast<int64_t>(max_safe_int64_f);
+      params->high_low_32_Bit = static_cast<int>(value & 0xFFFFFFFF);
+      params->high_high_32_Bit = static_cast<int>(value >> 32);
     } break;
     case at::ScalarType::Bool:
       params->high.i = 2;
@@ -148,12 +151,12 @@ FillParamsT RandomUniformParams(
     case at::ScalarType::Int:
     case at::ScalarType::Byte:
     case at::ScalarType::Char:
-      params->low.i = from.has_value() ? *from : 0;
+      params->low.i = from.has_value() ? static_cast<int>(*from) : 0;
       break;
     case at::ScalarType::Long: {
-      int64_t value = from.has_value() ? *from : 0;
-      params->low_low_32_Bit = value;
-      params->low_high_32_Bit = value >> 32;
+      const int64_t value = from.has_value() ? static_cast<int64_t>(*from) : 0;
+      params->low_low_32_Bit = static_cast<int>(value & 0xFFFFFFFF);
+      params->low_high_32_Bit = static_cast<int>(value >> 32);
     } break;
     case at::ScalarType::Bool:
       params->low.i = 0;
@@ -393,7 +396,8 @@ SharedMetaDataVector NormalSharedMeta(
   else if (stack.at(1).isTensor())
     outputRank = stack.at(1).toTensor().dim();
   else
-    outputRank = stack.at(SIZE_INDEX).toIntVector().size();
+    outputRank =
+        static_cast<int64_t>(stack.at(SIZE_INDEX).toIntVector().size());
 
   std::optional<int64_t> seedTensorIndex = std::nullopt;
   if (stack.at(stack.size() - 1).isTensor())
@@ -403,8 +407,9 @@ SharedMetaDataVector NormalSharedMeta(
 
   SharedMetaTensor seedTensorMeta = {1, c10::ScalarType::Int};
   if (seedTensorIndex.has_value() &&
-      stack.at(seedTensorIndex.value()).isTensor()) {
-    auto seedTensor = stack_tensor(stack, seedTensorIndex.value());
+      stack.at(static_cast<size_t>(seedTensorIndex.value())).isTensor()) {
+    auto seedTensor =
+        stack_tensor(stack, static_cast<size_t>(seedTensorIndex.value()));
     seedTensorMeta = {seedTensor.dim(), seedTensor.scalar_type()};
   }
 

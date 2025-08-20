@@ -161,7 +161,7 @@ class OpBackend : public HabanaOperator {
     kernel_meta_data_.tpc_input_order = tpc_input_order;
   }
 
-  void SetNumOutTensors(int n) {
+  void SetNumOutTensors(size_t n) {
     m_num_out_tensors = n;
   }
 
@@ -478,7 +478,7 @@ class OpBackend : public HabanaOperator {
   bool m_promote_type = false;
   bool m_cast_bool_to_uint8 = false;
   bool m_promote_int_to_float = false;
-  int m_num_out_tensors = 1;
+  size_t m_num_out_tensors = 1;
 
   // For shape inference of outputs/intermediates
   bool m_output_inf_mode = false;

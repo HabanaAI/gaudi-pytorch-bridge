@@ -14,6 +14,7 @@
  */
 
 #include "hpu_ops/sdpa_gen.h"
+#include <limits>
 #include "generated/backend/fp8_sdpa_bwd.h"
 #include "generated/backend/sdpa_bwd.h"
 #include "generated/backend/sdpa_recomp_bwd.h"
@@ -97,7 +98,11 @@ sizes_vec_template<DimT> SDPAFwdOutputShapeCommon(
     c10::ArrayRef<DimT> k_shape,
     c10::ArrayRef<DimT> v_shape,
     double dropout_p) {
-  int64_t rank = q_shape.size();
+  const auto rank_size_t = q_shape.size();
+  HABANA_ASSERT(
+      rank_size_t <= static_cast<size_t>(std::numeric_limits<int64_t>::max()),
+      "rank is too large for int64_t");
+  const auto rank = static_cast<int64_t>(rank_size_t);
 
   // q, k, v are involved in matmuls (BatchGemm) in attention calc.
   // matmul allows broadcast for the batch dims. i.e, for dims 0, 1.. Rank - 2.
@@ -124,9 +129,10 @@ sizes_vec_template<DimT> SDPAFwdOutputShapeCommon(
   auto out_shape = infer_size_int_or_symint(qkt_shape, v_bdim_sizes);
 
   // Append the matrix dims (last 2 dims) to batch dims to get final shape.
-  int L_dim = rank - 2; // Target seq len dim
-  int S_dim = rank - 2; // Source seq len dim
-  int Ev_dim = rank - 1; // head_dim_v dim
+  HABANA_ASSERT(rank >= 2, "rank must be at least 2");
+  const auto L_dim = static_cast<size_t>(rank - 2); // Target seq len dim
+  const auto S_dim = static_cast<size_t>(rank - 2); // Source seq len dim
+  const auto Ev_dim = static_cast<size_t>(rank - 1); // head_dim_v dim
 
   out_shape.push_back(q_shape[L_dim]);
   out_shape.push_back(v_shape[Ev_dim]);
@@ -142,12 +148,13 @@ sizes_vec_template<DimT> SDPAFwdOutputShapeCommon(
 
 sizes_vec SDPAFwdOutputShape(const at::Stack& stack) {
   auto q_or_seed = stack[0].toTensor();
-  int q_index = (q_or_seed.numel() == 1) ? 1 : 0;
+  const bool seed_present = (q_or_seed.numel() == 1);
+  const size_t q_index = seed_present ? 1 : 0;
 
   auto q = stack_tensor(stack, q_index);
   auto k = stack_tensor(stack, q_index + 1);
   auto v = stack_tensor(stack, q_index + 2);
-  int drp_prob_idx = q_index + 4;
+  const size_t drp_prob_idx = q_index + 4;
   auto drp_prob = stack.at(drp_prob_idx).toDouble();
   return SDPAFwdOutputShapeCommon(q.sizes(), k.sizes(), v.sizes(), drp_prob);
 }
@@ -243,8 +250,8 @@ static void fillSdpaParams(
   } else if (softmax_mode == "fp32") {
     sfmx_mode = SdpaSoftmaxMode_t::SDPA_FP32_SOFTMAX;
   }
-  params.scale = scale;
-  params.dropout.ratio = p;
+  params.scale = static_cast<float>(scale);
+  params.dropout.ratio = static_cast<float>(p);
   params.is_causal = is_causal;
   params.is_inference = is_inference;
   params.softmax_mode = sfmx_mode;
@@ -619,7 +626,11 @@ sizes_vec_template<DimT> SDPARecompFwdOutputShapeCommon(
     c10::ArrayRef<DimT> k_shape,
     c10::ArrayRef<DimT> v_shape,
     bool requires_backward) {
-  int64_t rank = q_shape.size();
+  const auto rank_size_t = q_shape.size();
+  HABANA_ASSERT(
+      rank_size_t <= static_cast<size_t>(std::numeric_limits<int64_t>::max()),
+      "rank is too large for int64_t");
+  const auto rank = static_cast<int64_t>(rank_size_t);
 
   // q, k, v are involved in matmuls (BatchGemm) in attention calc.
   // matmul allows broadcast for the batch dims. i.e, for dims 0, 1.. Rank - 2.
@@ -649,8 +660,9 @@ sizes_vec_template<DimT> SDPARecompFwdOutputShapeCommon(
   auto out_shape = infer_size_int_or_symint(softmax_stats_shape, v_bdim_sizes);
 
   // Append the matrix dims (last 2 dims) to batch dims to get final shape.
-  int L_dim = rank - 2; // Target seq len dim
-  int Ev_dim = rank - 1; // head_dim_v dim
+  HABANA_ASSERT(rank >= 2, "rank must be at least 2");
+  const auto L_dim = static_cast<size_t>(rank - 2); // Target seq len dim
+  const auto Ev_dim = static_cast<size_t>(rank - 1); // head_dim_v dim
 
   out_shape.push_back(q_shape[L_dim]);
   out_shape.push_back(v_shape[Ev_dim]);
@@ -666,7 +678,8 @@ sizes_vec_template<DimT> SDPARecompFwdOutputShapeCommon(
 
 sizes_vec SDPARecompFwdOutputShape(const at::Stack& stack) {
   auto q_or_seed = stack_tensor(stack, 0);
-  int q_index = (q_or_seed.numel() == 1) ? 1 : 0;
+  const bool seed_present = (q_or_seed.numel() == 1);
+  const size_t q_index = seed_present ? 1 : 0;
 
   auto q = stack_tensor(stack, q_index);
   auto k = stack_tensor(stack, q_index + 1);

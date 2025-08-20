@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 
+#include <limits>
 #include "generated/backend/avg_pool3d.h"
 #include "generated/backend/avg_pool3d_backward.h"
 #include "hpu_ops/backend/pool_helpers.h"
@@ -25,9 +26,16 @@
       input_size);
 
 namespace habana {
-static int64_t GetParam(const std::vector<int64_t>& params, size_t position) {
-  return params.at(params.size() == 1 ? 0 : position);
+namespace {
+int GetParam(const std::vector<int64_t>& params, size_t position) {
+  const auto value = params.at(params.size() == 1 ? 0 : position);
+  HABANA_ASSERT(
+      value <= std::numeric_limits<int>::max() &&
+          value >= std::numeric_limits<int>::min(),
+      "Parameter value exceeds int range");
+  return static_cast<int>(value);
 }
+} // namespace
 
 static FillParamsT FillAvgPool3dParams(
     const std::vector<int64_t>& kernelSize,
@@ -37,23 +45,51 @@ static FillParamsT FillAvgPool3dParams(
     bool includePadding,
     int64_t divOverride) {
   PARAMS_STUB(ns_AveragePooling3DWithDivisorOverride::Params);
-  params->pad_w_begin = GetParam(pad, 2);
-  params->pad_w_end = GetParam(pad, 2);
-  params->pad_h_begin = GetParam(pad, 1);
-  params->pad_h_end = GetParam(pad, 1);
-  params->pad_d_begin = pad.at(0);
-  params->pad_d_end = pad.at(0);
+
+  const auto pad_w = GetParam(pad, 2);
+  params->pad_w_begin = pad_w;
+  params->pad_w_end = pad_w;
+
+  const auto pad_h = GetParam(pad, 1);
+  params->pad_h_begin = pad_h;
+  params->pad_h_end = pad_h;
+
+  HABANA_ASSERT(
+      pad.at(0) <= std::numeric_limits<int>::max() &&
+          pad.at(0) >= std::numeric_limits<int>::min(),
+      "Pad depth value exceeds int range");
+  params->pad_d_begin = static_cast<int>(pad.at(0));
+  params->pad_d_end = static_cast<int>(pad.at(0));
+
   params->kernel_w = GetParam(kernelSize, 2);
   params->kernel_h = GetParam(kernelSize, 1);
-  params->kernel_d = kernelSize.at(0);
+
+  HABANA_ASSERT(
+      kernelSize.at(0) <= std::numeric_limits<int>::max() &&
+          kernelSize.at(0) >= std::numeric_limits<int>::min(),
+      "Kernel depth value exceeds int range");
+  params->kernel_d = static_cast<int>(kernelSize.at(0));
+
   params->stride_w = GetParam(stride, 2);
   params->stride_h = GetParam(stride, 1);
-  params->stride_d = stride.at(0);
+
+  HABANA_ASSERT(
+      stride.at(0) <= std::numeric_limits<int>::max() &&
+          stride.at(0) >= std::numeric_limits<int>::min(),
+      "Stride depth value exceeds int range");
+  params->stride_d = static_cast<int>(stride.at(0));
+
   params->dilation_w = 1;
   params->dilation_h = 1;
   params->dilation_d = 1;
   params->includePadding = includePadding ? 1 : 0;
-  params->divisorOverride = divOverride;
+
+  HABANA_ASSERT(
+      divOverride <= std::numeric_limits<int>::max() &&
+          divOverride >= std::numeric_limits<int>::min(),
+      "Divisor override value exceeds int range");
+  params->divisorOverride = static_cast<int>(divOverride);
+
   params->pooling_convention = ceilMode
       ? EPoolingConvention::POOLING_CONVENTION_FULL_PYTORCH
       : EPoolingConvention::POOLING_CONVENTION_VALID;
@@ -76,7 +112,10 @@ FillParamsT FillAvgPool3dParamsFwd(const at::Stack& stack) {
 
 OutputMetaDataVector AvgPool3dMeta(const at::Stack& stack) {
   auto self = stack_tensor(stack, 0);
-  const int rank = self.dim();
+  HABANA_ASSERT(
+      self.dim() <= std::numeric_limits<int>::max(),
+      "Tensor rank exceeds int range");
+  const auto rank = static_cast<int>(self.dim());
   CHECK_DIM(rank);
 
   std::vector<int64_t> defaultPadding = {0, 0, 0};

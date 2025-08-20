@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ class CatOperator : public habana::HabanaOperator {
 
  public:
   CatOperator(int device_id, c10::ScalarType) : HabanaOperator("concat") {
-    this->CreateSynContext(device_id);
+    this->CreateSynContext(static_cast<synDeviceId>(device_id));
   }
 
   virtual habana::InferOutputMetaRetType InferOutputMeta(
@@ -39,10 +39,10 @@ class CatOperator : public habana::HabanaOperator {
       bool is_dry_run);
   static std::vector<int64_t> compute_output_shape(
       const at::TensorList tensors,
-      int64_t dim_);
+      int64_t dim);
   static void validate_cat_tensor_dim_sizes(
       const std::vector<std::vector<int64_t>>* tensors,
-      int64_t dim);
+      uint64_t dim);
 };
 
 //
@@ -79,7 +79,7 @@ class ReshapeOperator : public habana::HabanaOperator {
   ReshapeOperator(int device_id, c10::ScalarType scalarType)
       : HabanaOperator("reshape") {
     static_cast<void>(scalarType);
-    this->CreateSynContext(device_id);
+    this->CreateSynContext(static_cast<synDeviceId>(device_id));
     kernel_meta_data_.changes_dims = true;
     this->setNoComputeFlag();
   }
@@ -104,7 +104,7 @@ class TransposeOperator : public habana::HabanaOperator {
       torch::jit::Stack& inputs,
       const habana::OutputMetaDataVector& output_metadata) override;
   static std::tuple<std::vector<int64_t>, std::vector<int64_t>>
-  compute_output_shape(const at::Tensor& self, int dim0_, int dim1_);
+  compute_output_shape(const at::Tensor& self, int64_t dim0_, int64_t dim1_);
 };
 
 //
@@ -144,7 +144,7 @@ class BroadcastOperator : public habana::HabanaOperator {
   BroadcastOperator(int device_id, c10::ScalarType scalarType)
       : HabanaOperator("broadcast") {
     static_cast<void>(scalarType);
-    this->CreateSynContext(device_id);
+    this->CreateSynContext(static_cast<synDeviceId>(device_id));
   }
   virtual habana::InferOutputMetaRetType InferOutputMeta(
       torch::jit::Stack& inputs) override;

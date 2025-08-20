@@ -31,7 +31,7 @@ class AsStridedLayoutOperator : public habana::HabanaOperator {
   AsStridedLayoutOperator(int device_id, c10::ScalarType scalarType)
       : HabanaOperator("dummy") {
     static_cast<void>(scalarType);
-    this->CreateSynContext(device_id);
+    this->CreateSynContext(static_cast<synDeviceId>(device_id));
   }
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
@@ -47,7 +47,7 @@ class MemCopyOperator : public habana::HabanaOperator {
       : HabanaOperator("memcpy") {
     static_cast<void>(scalarType);
     kernel_meta_data_.tpc_input_order = {0};
-    this->CreateSynContext(device_id);
+    this->CreateSynContext(static_cast<synDeviceId>(device_id));
     this->setNoComputeFlag();
   }
   virtual habana::InferOutputMetaRetType InferOutputMeta(
@@ -66,7 +66,7 @@ class IdentityOperator : public habana::HabanaOperator {
   IdentityOperator(int device_id, c10::ScalarType scalarType)
       : HabanaOperator("identity") {
     static_cast<void>(scalarType);
-    this->CreateSynContext(device_id);
+    this->CreateSynContext(static_cast<synDeviceId>(device_id));
     this->setNoComputeFlag();
   }
   virtual habana::InferOutputMetaRetType InferOutputMeta(
@@ -82,7 +82,7 @@ class DummyOperator : public habana::HabanaOperator {
   DummyOperator(int device_id, c10::ScalarType scalarType)
       : HabanaOperator("dummy") {
     static_cast<void>(scalarType);
-    this->CreateSynContext(device_id);
+    this->CreateSynContext(static_cast<synDeviceId>(device_id));
   }
   virtual habana::InferOutputMetaRetType InferOutputMeta(
       torch::jit::Stack& inputs) override;
@@ -99,7 +99,7 @@ class AsStridedOperator : public habana::HabanaOperator {
   AsStridedOperator(int device_id, c10::ScalarType scalarType)
       : HabanaOperator("dummy") {
     static_cast<void>(scalarType);
-    this->CreateSynContext(device_id);
+    this->CreateSynContext(static_cast<synDeviceId>(device_id));
 
     kernel_meta_data_.input_layout.assign({habana::LayoutFormat::NCHW});
     kernel_meta_data_.output_layout.assign({habana::LayoutFormat::NCHW});
@@ -118,7 +118,7 @@ class SliceInsertOperator : public habana::HabanaOperator {
   SliceInsertOperator(int device_id, c10::ScalarType scalarType)
       : HabanaOperator("slice_insert") {
     static_cast<void>(scalarType);
-    this->CreateSynContext(device_id);
+    this->CreateSynContext(static_cast<synDeviceId>(device_id));
   }
 
   virtual void AllocateAndAddSynapseNode(
@@ -207,7 +207,7 @@ class StridedInsertOperator : public habana::HabanaOperator {
  public:
   StridedInsertOperator(int device_id, c10::ScalarType)
       : HabanaOperator("strided_insert") {
-    CreateSynContext(device_id);
+    CreateSynContext(static_cast<synDeviceId>(device_id));
 
     kernel_meta_data_.input_layout.assign(
         {habana::LayoutFormat::NCHW,
@@ -275,7 +275,7 @@ class StridedViewOperator : public habana::HabanaOperator {
   StridedViewOperator(int device_id, c10::ScalarType scalarType)
       : HabanaOperator("strided_view") {
     static_cast<void>(scalarType);
-    this->CreateSynContext(device_id);
+    this->CreateSynContext(static_cast<synDeviceId>(device_id));
 
     kernel_meta_data_.input_layout.assign(
         {habana::LayoutFormat::NCHW,

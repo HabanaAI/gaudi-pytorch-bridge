@@ -26,7 +26,7 @@ class ReduceOperator : public HabanaOperator {
  public:
   ReduceOperator(int device_id, const std::string& guid)
       : HabanaOperator(guid) {
-    this->CreateSynContext(device_id);
+    this->CreateSynContext(static_cast<synDeviceId>(device_id));
     kernel_meta_data_.input_layout.assign(
         {LayoutFormat::ANY, LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});

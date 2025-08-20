@@ -12,8 +12,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <limits>
 #include "generated/backend/avg_pool2d.h"
 #include "generated/backend/avg_pool2d_backward.h"
+#include "habana_helpers/conversion.h"
+#include "habana_helpers/logging.h"
 #include "hpu_ops/backend/pool_helpers.h"
 #include "hpu_ops/shared_meta_common.h"
 
@@ -32,21 +35,29 @@ static FillParamsT FillAvgpool2dParams(
     bool ceil_mode,
     bool include_pad,
     int64_t divOverride) {
+  using namespace std::literals;
   PARAMS_STUB(ns_AveragePoolingWithDivisorOverride::Params);
-  params->pad_w_begin = pad.size() == 1 ? pad.at(0) : pad.at(1);
-  params->pad_w_end = pad.size() == 1 ? pad.at(0) : pad.at(1);
-  params->pad_h_begin = pad.at(0);
-  params->pad_h_end = pad.at(0);
-  params->kernel_w =
-      kernel_size.size() == 1 ? kernel_size.at(0) : kernel_size.at(1);
-  params->kernel_h = kernel_size.at(0);
-  params->stride_w = stride.size() == 1 ? stride.at(0) : stride.at(1);
-  params->stride_h = stride.at(0);
+  params->pad_w_begin = pad.size() == 1
+      ? safe_convert<int>(pad.at(0), "pad_w_begin"sv)
+      : safe_convert<int>(pad.at(1), "pad_w_begin"sv);
+  params->pad_w_end = pad.size() == 1
+      ? safe_convert<int>(pad.at(0), "pad_w_end"sv)
+      : safe_convert<int>(pad.at(1), "pad_w_end"sv);
+  params->pad_h_begin = safe_convert<int>(pad.at(0), "pad_h_begin"sv);
+  params->pad_h_end = safe_convert<int>(pad.at(0), "pad_h_end"sv);
+  params->kernel_w = kernel_size.size() == 1
+      ? safe_convert<int>(kernel_size.at(0), "kernel_w"sv)
+      : safe_convert<int>(kernel_size.at(1), "kernel_w"sv);
+  params->kernel_h = safe_convert<int>(kernel_size.at(0), "kernel_h"sv);
+  params->stride_w = stride.size() == 1
+      ? safe_convert<int>(stride.at(0), "stride_w"sv)
+      : safe_convert<int>(stride.at(1), "stride_w"sv);
+  params->stride_h = safe_convert<int>(stride.at(0), "stride_h"sv);
   params->dilation_w = 1; // Dilation set to 1, since for AvgPool Pytorch API
                           // does not give dilation value
   params->dilation_h = 1;
   params->includePadding = include_pad ? 1 : 0;
-  params->divisorOverride = divOverride;
+  params->divisorOverride = safe_convert<int>(divOverride, "divisorOverride"sv);
   params->pooling_convention = ceil_mode
       ? EPoolingConvention::POOLING_CONVENTION_FULL_PYTORCH
       : EPoolingConvention::POOLING_CONVENTION_VALID;
@@ -81,7 +92,12 @@ FillParamsT Fillavgpool2dParamsBwd(const at::Stack& stack) {
 
 OutputMetaDataVector Avgpool2dMeta(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 0);
-  const int rank = self.dim();
+  const auto rank_int64 = self.dim();
+  HABANA_ASSERT(
+      rank_int64 >= 0 && rank_int64 <= std::numeric_limits<int>::max(),
+      "Tensor rank is out of int range: ",
+      rank_int64);
+  const int rank = static_cast<int>(rank_int64);
   CHECK_DIM(rank);
   std::vector<long int> padding = {0, 0};
   std::vector<int64_t> dilation = {1, 1};

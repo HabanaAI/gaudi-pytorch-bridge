@@ -19,6 +19,7 @@
 #include <optional>
 #include <sstream>
 #include <string>
+#include <type_traits>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -644,5 +645,5 @@ void check_range(size_t start, size_t end, TIn& arr) {
         arr[i] >= std::numeric_limits<TTarget>::min() &&
         arr[i] <= std::numeric_limits<TTarget>::max());
   }
-};
+}
 } // namespace
