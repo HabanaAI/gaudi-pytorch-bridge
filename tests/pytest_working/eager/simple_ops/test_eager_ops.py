@@ -1768,10 +1768,10 @@ def test_sag_upsample_bilinear_2d_backward_node_params():
         grad_output = torch.randn((1, 1, 4, 6), dtype=torch.bfloat16)
         grad_output_hpu = grad_output.to("hpu")
 
-        output_size = torch.Tensor([4, 6])
+        output_size = torch.tensor([4, 6], dtype=torch.int32)
         output_size_hpu = output_size.to("hpu")
 
-        input_size = torch.Tensor([1, 1, 2, 3])
+        input_size = torch.tensor([1, 1, 2, 3], dtype=torch.int32)
         input_size_hpu = input_size.to("hpu")
 
         result = torch.ops.aten.upsample_bilinear2d_backward(grad_output, output_size, input_size, align_corners)
@@ -1798,10 +1798,10 @@ def test_sag_upsample_bicubic_2d_backward_node_params():
         grad_output = torch.randn((1, 1, 4, 6), dtype=torch.bfloat16)
         grad_output_hpu = grad_output.to("hpu")
 
-        output_size = torch.Tensor([4, 6])
+        output_size = torch.tensor([4, 6], dtype=torch.int32)
         output_size_hpu = output_size.to("hpu")
 
-        input_size = torch.Tensor([1, 1, 2, 3])
+        input_size = torch.tensor([1, 1, 2, 3], dtype=torch.int32)
         input_size_hpu = input_size.to("hpu")
 
         result = torch.ops.aten.upsample_bicubic2d_backward(grad_output, output_size, input_size, align_corners)
