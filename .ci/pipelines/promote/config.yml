@@ -29,7 +29,7 @@ orchestratorConfig:
     - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_topology_group_2_u24
     - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi3_asic_topology_group_1_u24
     - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi3_asic_topology_group_2_u24
-    - testToLaunch: habana-internal/multinode_tests/Tests/Test_multinode_tests_gaudi2_sim_pt_distributed_u24
+    - testToLaunch: habana-internal/multinode_tests/Tests/Test_multinode_tests_gaudi2_asic_pt_distributed_smoke_u24
       silentMode: true
     # PyTorch full graph tests
     - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_topology_functionality_u24
