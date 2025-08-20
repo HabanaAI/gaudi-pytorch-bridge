@@ -13,8 +13,6 @@
 # limitations under the License.
 ###############################################################################
 
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 project(metrics_tests LANGUAGES CXX)
 if(DEFINED ENV{SWTOOLS_SDK_ROOT})

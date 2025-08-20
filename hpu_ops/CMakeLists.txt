@@ -12,8 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ###############################################################################
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_STANDARD 17)
 
 set(GENERATED_FILES
     ${CMAKE_BINARY_DIR}/generated/autograd/autograd_ops.cpp
@@ -359,7 +357,6 @@ target_link_libraries(
           exprtk::exprtk
           torch
           Python::Module
-          nlohmann_json::nlohmann_json
           absl::strings
           absl::str_format
           npu::hllogger
@@ -430,7 +427,6 @@ target_link_libraries(
           pytorch_synapse_utils_shim
           torch
           Python::Module
-          nlohmann_json::nlohmann_json
           absl::strings
           absl::str_format
           npu::hllogger)

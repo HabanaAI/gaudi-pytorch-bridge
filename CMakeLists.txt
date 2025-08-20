@@ -102,7 +102,7 @@ endif()
 option(CODE_COVERAGE "Allow code coverage" OFF)
 
 if(CODE_COVERAGE)
-  message(STATUS "code coverage is enabled.")
+  message(STATUS "Code coverage is enabled.")
 endif()
 
 include(PrepareDependencies)
@@ -111,7 +111,7 @@ set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
 set(CMAKE_INSTALL_RPATH "$ORIGIN")
 
 set(CMAKE_INSTALL_PREFIX "")
-message(STATUS "Installation prefix set to ${CMAKE_INSTALL_PREFIX}")
+message(STATUS "CMake installation prefix unset")
 
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})

@@ -26,8 +26,6 @@ if(BUILD_DIST)
   add_subdirectory(../third_party/pybind11 [${CMAKE_BINARY_DIR}])
 
   include(SeparateDebugSymbols)
-  set(CMAKE_CXX_STANDARD_REQUIRED ON)
-  set(CMAKE_CXX_STANDARD 17)
 
   set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
   set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})

@@ -13,9 +13,6 @@
 # limitations under the License.
 ###############################################################################
 
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_STANDARD 17)
-
 add_habana_library(
   habana_pytorch2_frontend
   OBJECT
@@ -125,7 +122,6 @@ target_link_libraries(
           npu::python_embed_shim
           npu::pytorch_synapse_utils_shim
           torch
-          nlohmann_json::nlohmann_json
           absl::strings
           absl::str_format
           npu::hllogger)
