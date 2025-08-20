@@ -47,10 +47,6 @@ testsMap:
     stages:
       Run Lightning habana unit tests:
         filter: -t all1
-  Test_pytorch_modules_gaudi_asic_lightning_habana_uts:
-    stages:
-      Run Lightning habana unit tests:
-        filter: -t all1
   Test_pytorch_modules_gaudi2_sim_lightning_habana_uts:
     dependencies:
       - CORAL_SIM
