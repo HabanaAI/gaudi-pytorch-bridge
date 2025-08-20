@@ -288,6 +288,23 @@ def reinplace_inplaceable_ops_core(graph: torch.fx.Graph) -> bool:
                 return True
         return False
 
+    def is_node_sequence(node, mutated_arg):
+        """
+        Detect if there is a node with the same operator in the argument chain ('mutated_arg').
+        Currently works for 'index_copy' only.
+        Implemented as a fix for [SW-234218].
+        """
+        search_node = aten.index_copy.default
+
+        if node.target != search_node:
+            return False
+
+        storage = nodes_to_storage.get(mutated_arg)
+        if storage is None:
+            return False
+
+        return any(item.target == search_node for item in storage_to_nodes.get(storage, []))
+
     def can_inplace(node, mutated_arg):
         if isinstance(mutated_arg, list | tuple):
             unique_storages = {nodes_to_storage[arg] for arg in mutated_arg}
@@ -329,6 +346,8 @@ def reinplace_inplaceable_ops_core(graph: torch.fx.Graph) -> bool:
             # If mutated arg is view of any of the inputs of the graph,
             # do not allow for inplacing.
             # This would require more sophisticated algorithm to handle
+            return False
+        elif is_node_sequence(node, mutated_arg):
             return False
         else:
             return not any_use_of_views_after_node(node, shared_view_nodes, copy_node=None, mutated_arg=mutated_arg)
