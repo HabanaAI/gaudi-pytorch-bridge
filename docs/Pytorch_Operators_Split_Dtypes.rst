@@ -27,6 +27,8 @@ PyTorch Operators Support Summary - Floating Point types
 adaptive_avg_pool1d                      Yes      Yes      Yes     No    torch.nn.functional
 adaptive_avg_pool2d                      Yes      Yes      Yes     No    torch.nn.functional
 adaptive_avg_pool3d                      Yes      Yes      Yes     No    torch.nn.functional
+adaptive_max_pool2d                      Yes      Yes      Yes     No    torch.nn.functional
+adaptive_max_pool3d                      Yes      Yes      Yes     No    torch.nn.functional
 avg_pool1d                               Yes      Yes      Yes     No    torch.nn.functional
 avg_pool2d                               Yes      Yes      Yes     No    torch.nn.functional
 avg_pool3d                               Yes      Yes      Yes     No    torch.nn.functional
@@ -403,7 +405,7 @@ logical_or                               Yes      Yes      Yes     No    torch
 logical_xor                              Yes      Yes      Yes     No    torch
 logit                                    Yes      Yes      Yes     No    torch
 logit\_                                  Yes      Yes      Yes     No    torch
-logspace                                 Yes      Yes      Yes     Yes   torch
+logspace                                 Yes      Yes      Yes     No    torch
 logsumexp                                Yes      Yes      No      No    torch
 lt                                       Yes      Yes      Yes     No    torch
 masked_fill                              Yes      Yes      Yes     Yes   torch
@@ -533,6 +535,8 @@ narrow_copy                              Yes      Yes      Yes     Yes   torch.o
 AdaptiveAvgPool1d                        Yes      Yes      Yes     No    torch.nn
 AdaptiveAvgPool2d                        Yes      Yes      Yes     No    torch.nn
 AdaptiveAvgPool3d                        Yes      Yes      Yes     No    torch.nn
+AverageMaxPool2d                         Yes      Yes      Yes     No    torch.nn
+AverageMaxPool3d                         Yes      Yes      Yes     No    torch.nn
 AvgPool1d                                Yes      Yes      Yes     No    torch.nn
 AvgPool2d                                Yes      Yes      Yes     No    torch.nn
 AvgPool3d                                Yes      Yes      Yes     No    torch.nn
@@ -978,6 +982,8 @@ PyTorch Operators Support Summary - Integer types
 adaptive_avg_pool1d                       No       No        No        No       No     torch.nn.functional
 adaptive_avg_pool2d                       No       No        No        No       No     torch.nn.functional
 adaptive_avg_pool3d                       No       No        No        No       No     torch.nn.functional
+adaptive_max_pool2d                       No       No        No        No       No     torch.nn.functional
+adaptive_max_pool3d                       No       No        No        No       No     torch.nn.functional
 avg_pool1d                                No       No        No        No       No     torch.nn.functional
 avg_pool2d                                No       No        No        No       No     torch.nn.functional
 avg_pool3d                                No       No        No        No       No     torch.nn.functional
@@ -1031,8 +1037,8 @@ one_hot                                   Yes      No        No        No       
 pad                                       No       No        No        No       No     torch.nn.functional
 pixel_shuffle                             Yes      Yes       Yes       Yes      Yes    torch.nn.functional
 prelu                                     No       No        No        No       No     torch.nn.functional
-relu                                      No       No        No        No       No     torch.nn.functional
-relu\_                                    No       No        No        No       No     torch.nn.functional
+relu                                      Yes      Yes       No        No       No     torch.nn.functional
+relu\_                                    Yes      Yes       No        No       No     torch.nn.functional
 rrelu                                     No       No        No        No       No     torch.nn.functional
 rrelu\_                                   No       No        No        No       No     torch.nn.functional
 sigmoid                                   Yes      Yes       Yes       Yes      Yes    torch.nn.functional
@@ -1401,8 +1407,8 @@ put                                       No       No        No        No       
 randperm                                  Yes      Yes       Yes       Yes      Yes    torch
 reciprocal                                Yes      Yes       Yes       Yes      Yes    torch
 reciprocal\_                              Yes      Yes       Yes       Yes      Yes    torch
-relu                                      No       No        No        No       No     torch
-relu\_                                    No       No        No        No       No     torch
+relu                                      Yes      Yes       No        No       No     torch
+relu\_                                    Yes      Yes       No        No       No     torch
 remainder                                 Yes      Yes       Yes       Yes      Yes    torch
 renorm                                    No       No        No        No       No     torch
 reshape                                   Yes      Yes       Yes       Yes      Yes    torch
@@ -1484,6 +1490,8 @@ narrow_copy                               Yes      Yes       Yes       Yes      
 AdaptiveAvgPool1d                         No       No        No        No       No     torch.nn
 AdaptiveAvgPool2d                         No       No        No        No       No     torch.nn
 AdaptiveAvgPool3d                         No       No        No        No       No     torch.nn
+AverageMaxPool2d                          No       No        No        No       No     torch.nn
+AverageMaxPool3d                          No       No        No        No       No     torch.nn
 AvgPool1d                                 No       No        No        No       No     torch.nn
 AvgPool2d                                 No       No        No        No       No     torch.nn
 AvgPool3d                                 No       No        No        No       No     torch.nn
@@ -1529,7 +1537,7 @@ NLLLoss                                   No       No        No        No       
 PReLU                                     No       No        No        No       No     torch.nn
 PixelShuffle                              Yes      Yes       Yes       Yes      Yes    torch.nn
 RReLU                                     No       No        No        No       No     torch.nn
-ReLU                                      No       No        No        No       No     torch.nn
+ReLU                                      Yes      Yes       No        No       No     torch.nn
 ReflectionPad1d                           Yes      Yes       Yes       Yes      Yes    torch.nn
 ReflectionPad2d                           Yes      Yes       Yes       Yes      Yes    torch.nn
 ReflectionPad3d                           Yes      Yes       Yes       Yes      Yes    torch.nn
@@ -1817,8 +1825,8 @@ put\_                                     No       No        No        No       
 random\_                                  Yes      Yes       Yes       Yes      Yes    torch.Tensor
 reciprocal                                Yes      Yes       Yes       Yes      Yes    torch.Tensor
 reciprocal\_                              Yes      Yes       Yes       Yes      Yes    torch.Tensor
-relu                                      No       No        No        No       No     torch.Tensor
-relu\_                                    No       No        No        No       No     torch.Tensor
+relu                                      Yes      Yes       No        No       No     torch.Tensor
+relu\_                                    Yes      Yes       No        No       No     torch.Tensor
 remainder                                 Yes      Yes       Yes       Yes      Yes    torch.Tensor
 remainder\_                               Yes      Yes       Yes       Yes      Yes    torch.Tensor
 repeat                                    Yes      Yes       No        Yes      Yes    torch.Tensor

@@ -85,6 +85,7 @@ fp8_sdpa_recomp_fwd                                     No       No       No    
 fp8_sdpa_recomp_fwd_dropout                             No       No       No       No        No        No       No       Yes       No       No
 fp8_sdpa_recomp_fwd_non_dropout                         No       No       No       No        No        No       No       Yes       No       No
 fused_clip_norm                                         Yes      Yes      Yes      No        No        No       No       No        No       No
+gather_csr                                              No       No       No       Yes       Yes       No       No       No        No       No
 in_place_interleave                                     No       Yes      No       No        No        No       No       Yes       No       No
 kv_reorder                                              Yes      Yes      Yes      Yes       Yes       Yes      Yes      Yes       No       No
 masked_batch_gemm                                       Yes      Yes      No       No        No        No       No       Yes       No       No
