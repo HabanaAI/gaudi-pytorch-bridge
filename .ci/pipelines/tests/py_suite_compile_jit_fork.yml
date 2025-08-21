@@ -39,7 +39,7 @@ common:
     CI_WORKSPACE_TO_TOX: "${WORKSPACE}"
     LD_PRELOAD: "/lib/x86_64-linux-gnu/libtcmalloc.so.4"
     JOB_SCENARIO: pt_ci_cpp
-    PT_HPU_USE_JIT_FORK: true
+    PT_HPU_USE_JIT_FORK: false
   preTestStages:
     Install Python test dependencies and artifacts:
       command: 'set_up_pytorch_artifacts_for_testing current'
@@ -48,11 +48,11 @@ testsMap:
     dependencies:
       - TPC_LLVM
     stages:
-      Run PY compile tests gaudi2 sim:
-        filter: -t py_tests --dut gaudi2  --pytest-mode compile -r
+      Run PY compile tests Gaudi2 sim:
+        filter: -t py_tests --dut gaudi2 --pytest-mode compile -r
   Test_pytorch_modules_gaudi3_sim_py_suite_compile_jit_fork:
     dependencies:
       - TPC_LLVM
     stages:
-      Run PY compile tests gaudi3 sim:
+      Run PY compile tests Gaudi3 sim:
         filter: -t py_tests --dut gaudi3 --pytest-mode compile -r
