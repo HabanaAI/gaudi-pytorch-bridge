@@ -274,6 +274,10 @@ class ResnetDataLoader(torch.utils.data.DataLoader):
 
         self.fallback_activated = False
         try:
+            from habana_frameworks.medialoaders.torch.media_dataloader_mediapipe import (
+                HPUMediaPipe,
+            )
+
             print("HabanaDataLoader device type ", self.DeviceType)
 
             if isGaudi2(self.DeviceType):
