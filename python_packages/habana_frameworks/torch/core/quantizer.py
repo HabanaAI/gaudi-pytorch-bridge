@@ -24,6 +24,7 @@ This module implements Habana quantizers that can be used in PT2E-Quantization.
 # However, they have been renamed and amended as per the present need.
 
 import itertools
+import warnings
 from typing import Any
 
 import habana_frameworks.torch.internal.bridge_config as bc
@@ -66,8 +67,8 @@ def is_fp8_e4m3_on_gaudi2():
         try:
             fp8_e4m3_range_on_gaudi2 = torch.finfo(torch.float8_e4m3fnuz)
             return True
-        except:
-            pass
+        except Exception as e:
+            warnings.warn(e)
     return False
 
 

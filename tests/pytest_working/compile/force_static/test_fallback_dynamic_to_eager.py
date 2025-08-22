@@ -16,6 +16,7 @@
 import glob
 import json
 import shutil
+import warnings
 
 import habana_frameworks.torch.utils.debug as htdebug
 import pytest
@@ -84,8 +85,8 @@ def test_fallback_dynamic_to_eager():
                             for _, val in stat.items():
                                 if "compilations" in val:
                                     compile_types.append(val["compilations"][0]["scope"])
-            except:
-                pass
+            except Exception as e:
+                warnings.warn(e)
             if self.fallback_dynamic_to_eager:
                 assert "STATIC" in compile_types, "No static recipes with fallback_dynamic_to_eager=True"
                 assert "DYNAMIC MIN + DYNAMIC MAX" not in compile_types, (

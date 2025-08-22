@@ -76,8 +76,8 @@ def _record_param(name, t_start, t_size, is_param=False, is_grad=False, is_optim
     if _is_available():
         try:
             _experimental_C.record_param(name, is_param, is_grad, is_optim_state, t_start, t_size)
-        except:
-            pass
+        except Exception as e:
+            warnings.warn(e)
 
 
 def _is_model_param_initialized() -> bool:
@@ -101,8 +101,8 @@ def _record_params(model=None, optimizer=None, force_model_update=False):
                             param.data.numel() * param.data.element_size(),
                             is_param=True,
                         )
-                    except:
-                        pass
+                    except Exception as e:
+                        warnings.warn(e)
                     if param.grad is not None:
                         try:
                             _record_param(
@@ -111,8 +111,8 @@ def _record_params(model=None, optimizer=None, force_model_update=False):
                                 param.grad.numel() * param.grad.element_size(),
                                 is_grad=True,
                             )
-                        except:
-                            pass
+                        except Exception as e:
+                            warnings.warn(e)
                 if optimizer is not None and not _is_optim_state_initialized():
                     try:
                         # TBD: Record other optimizer state dict also
@@ -134,8 +134,8 @@ def _record_params(model=None, optimizer=None, force_model_update=False):
                         buffer.numel() * buffer.element_size(),
                         is_param=True,
                     )
-                except:
-                    pass
+                except Exception as e:
+                    warnings.warn(e)
         _model_params_initialized = True
     _optim_state_initialized = _is_optim_recorded
 

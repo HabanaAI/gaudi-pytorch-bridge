@@ -16,6 +16,7 @@
 import glob
 import json
 import shutil
+import warnings
 
 import habana_frameworks.torch.utils.debug as htdebug
 import pytest
@@ -77,8 +78,8 @@ def test_force_static_compile():
                             for _, val in stat.items():
                                 if "compilations" in val:
                                     compile_types.append(val["compilations"][0]["scope"])
-            except:
-                pass
+            except Exception as e:
+                warnings.warn(e)
             if self.force_static_compile:
                 assert "STATIC" in compile_types, "No static recipes with force_static_compile=True"
                 assert "DYNAMIC MIN + DYNAMIC MAX" not in compile_types, (
