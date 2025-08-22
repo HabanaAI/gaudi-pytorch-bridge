@@ -19,6 +19,7 @@ import habana_frameworks.torch.internal.bridge_config as bc
 from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
 
 import torch
+from torch._dispatch.python import enable_python_dispatcher
 from torch._dynamo.utils import detect_fake_mode
 from torch._subclasses.fake_tensor import FakeTensorMode
 
@@ -562,7 +563,7 @@ class TensorInfoPropagation(torch.fx.Interpreter):
         return self.propagate_dont_convert_inputs(*fake_args)
 
     def propagate_dont_convert_inputs(self, *args):
-        with self._mode:
+        with self._mode, enable_python_dispatcher():
             return super().run(*args)
 
 
