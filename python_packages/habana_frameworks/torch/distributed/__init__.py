@@ -13,6 +13,10 @@
 # limitations under the License.
 ###############################################################################
 import habana_frameworks.torch.internal.bridge_config as bc
+from habana_frameworks.torch.utils.internal import is_lazy
 
 if bc.get_pt_hpu_override_linear_matmul_eager():
     import habana_frameworks.torch.distributed.tensor.ops.linear
+
+if not is_lazy():
+    import habana_frameworks.torch.distributed.tensor.ops.sdpa
