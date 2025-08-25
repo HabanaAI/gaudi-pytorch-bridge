@@ -136,8 +136,48 @@ Checks: '*,
  -readability-static-accessed-through-instance,
  -readability-suspicious-call-argument,
 
-
  -modernize-use-trailing-return-type,
+
+ -readability-container-contains,
+ -misc-confusable-identifiers,
+ -modernize-replace-auto-ptr,
+ -modernize-deprecated-ios-base-aliases,
+ -hicpp-use-nullptr,
+ -hicpp-uppercase-literal-suffix,
+ -hicpp-ignored-remove-result,
+ -hicpp-use-noexcept,
+ -hicpp-use-equals-default,
+ -hicpp-no-malloc,
+ -hicpp-named-parameter,
+ -hicpp-use-override,
+ -hicpp-use-equals-delete,
+ -hicpp-use-auto,
+ -hicpp-noexcept-move,
+ -hicpp-use-emplace,
+ -cert-fio38-c,
+ -cert-arr39-c,
+ -cert-dcl16-c,
  '
+
+# Some checks above suppressed as those does not make sense and significantly slow down analysis
+# -readability-container-contains,        # C++20+ only
+# -misc-confusable-identifiers,           # unpractical
+# -modernize-replace-auto-ptr,            # C++17 does not allow auto_ptr at all
+# -modernize-deprecated-ios-base-aliases, # unpractical
+# -hicpp-use-nullptr,                     # same as modernize-use-nullptr
+# -hicpp-uppercase-literal-suffix,        # same as modernize-uppercase-literal-suffix
+# -hicpp-ignored-remove-result,           # subset of bugprone-unused-return-value
+# -hicpp-use-noexcept,                    # same as modernize-use-noexcept
+# -hicpp-use-equals-default,              # same as modernize-use-equals-default
+# -hicpp-no-malloc,                       # same as cppcoreguidelines-no-malloc
+# -hicpp-named-parameter,                 # same as readability-named-parameter
+# -hicpp-use-override,                    # same as modernize-use-override
+# -hicpp-use-equals-delete,               # same as modernize-use-equals-delete
+# -hicpp-use-auto,                        # same as modernize-use-auto
+# -hicpp-noexcept-move,                   # same as performance-noexcept-move-constructor
+# -hicpp-use-emplace,                     # same as modernize-use-emplace
+# -cert-fio38-c                           # same as misc-non-copyable-objects
+# -cert-arr39-c                           # same as bugprone-sizeof-expression
+# -cert-dcl16-c                           # same as modernize-uppercase-literal-suffix
 
 WarningsAsErrors: "*,-clang-diagnostic-*"

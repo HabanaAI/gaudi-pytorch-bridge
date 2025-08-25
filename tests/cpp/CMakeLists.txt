@@ -319,7 +319,7 @@ list(
 add_habana_executable(test_pt2_integration ${HPU_OPS_TESTS_SRC} ${misc_tests_src} ${eager_tests_src})
 target_compile_definitions(test_pt2_integration PRIVATE EAGER_TESTS)
 set_target_properties(test_pt2_integration PROPERTIES COMPILE_OPTIONS "-Wno-deprecated-declarations")
-# Disable clang-tidy checks for lazy mode
+# Skip tidy checks also on pt2 to save time as there are many errors to be addressed later
 set_target_properties(test_pt2_integration PROPERTIES CXX_CLANG_TIDY "")
 
 configure_file(pattern.json ${CMAKE_BINARY_DIR}/pattern.json COPYONLY)
