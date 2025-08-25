@@ -23,6 +23,7 @@
 #include <cstdio>
 #include <cstring>
 #include <ctime>
+#include <tuple>
 #include "pytorch_helpers/habana_helpers/logging.h"
 
 namespace synapse_helpers {
@@ -129,7 +130,7 @@ std::string HlMlMemoryReporter::GetPath() const {
 
 namespace {
 const char* FillErrorMessage(char* buffer, const char* operation, int error) {
-  snprintf(
+  std::ignore = snprintf(
       buffer,
       HlMlMemoryReporter::Error::MAXLEN - 1,
       "mem_hlml failed: %s: errno %i: %s",

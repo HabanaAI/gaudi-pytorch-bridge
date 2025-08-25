@@ -362,7 +362,7 @@ void emitDefragFinished(
     addr_string += " @";
     for (auto it = region->begin_; it != region->end_; ++it) {
       char buffer[32];
-      std::snprintf(buffer, sizeof(buffer), " %zx", it->handle_);
+      std::ignore = std::snprintf(buffer, sizeof(buffer), " %zx", it->handle_);
       addr_string += buffer;
     }
   }

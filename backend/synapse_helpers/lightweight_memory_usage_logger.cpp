@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@
 #include <iostream>
 #include <memory>
 #include <mutex>
+#include <tuple>
 #include "backend/synapse_helpers/env_flags.h"
 #include "habana_helpers/logging.h"
 #include "pool_allocator/CoalescedStringentPoolAllocator.h"
@@ -76,9 +77,9 @@ class MemMonitor : public MemMonitorBase {
   static std::string GetTimeStamp() {
     std::time_t current_time = std::time(nullptr);
     std::tm current_time_tm{};
-    localtime_r(&current_time, &current_time_tm);
+    std::ignore = localtime_r(&current_time, &current_time_tm);
     std::array<char, 25> strbuf;
-    strftime(
+    std::ignore = strftime(
         strbuf.data(), strbuf.size(), "%Y-%m-%dT%H_%M_%S", &current_time_tm);
     return {strbuf.data()};
   }

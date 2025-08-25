@@ -18,6 +18,7 @@
 #include <unistd.h>
 #include <sstream>
 #include <string>
+#include <tuple>
 #include <type_traits>
 #include "backend/habana_device/HPUGuardImpl.h"
 #include "backend/habana_device/hpu_cached_devices.h"
@@ -80,7 +81,8 @@ template <size_t MaxSize>
 void safe_string_copy(const std::string& source, char* destination) {
   static const auto limited_length_string_format =
       "%." + std::to_string(MaxSize) + "s";
-  sprintf(destination, limited_length_string_format.c_str(), source.c_str());
+  std::ignore = sprintf(
+      destination, limited_length_string_format.c_str(), source.c_str());
 }
 
 detail::TensorDescr TryCastTensor(

@@ -17,6 +17,7 @@
 
 #include "backend/synapse_helpers/env_flags.h"
 #include "habana_helpers/signal_handler.h"
+#include "logging.h"
 
 #include <c10/util/Backtrace.h>
 
@@ -79,7 +80,9 @@ void HabanaSignalHandler(int signum, siginfo_t* info, void* ctx) {
   // Raise the signal again in case of a previous signal handler
   if (GetPreviousSigaction(signum)) {
     sigaction(signum, GetPreviousSigaction(signum), nullptr);
-    raise(signum);
+    if (raise(signum) != 0) {
+      PT_HABHELPER_WARN("Failed to raise signal %d: errno %d", signum, errno);
+    }
   }
 }
 

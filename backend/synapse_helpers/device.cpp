@@ -26,6 +26,7 @@
 #include <sstream>
 #include <string>
 #include <thread>
+#include <tuple>
 #include <vector>
 #include "backend/helpers/dynamic_shape_info.h"
 #include "backend/helpers/event_dispatcher.h"
@@ -172,11 +173,11 @@ uint64_t GetSystemRamInKB() {
               "MemTotal: "
               "%" SCNu64 "kB",
               &ram) == 1) {
-        fclose(meminfo);
+        std::ignore = fclose(meminfo);
         return ram;
       }
     }
-    fclose(meminfo);
+    std::ignore = fclose(meminfo);
   }
   return 0;
 }
@@ -1367,7 +1368,7 @@ synapse_error device::copy_data_to_device(
         host_cpu_data);
     submit_future(destination, std::move(copy_future));
   } else { // Continue in the same main thread
-    (void)device::copy_data_to_device_(
+    std::ignore = device::copy_data_to_device_(
         cpu_data,
         destination,
         event_addr,
