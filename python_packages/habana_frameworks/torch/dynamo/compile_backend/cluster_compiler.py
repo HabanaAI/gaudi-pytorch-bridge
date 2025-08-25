@@ -30,6 +30,7 @@ from habana_frameworks.torch.jit.csrc.jit_fork.python_passes.forked_passes impor
 import torch
 
 from ._helpers import (
+    fill_propagated_tensor_metadata_to_node,
     get_dynamic_config_value,
     jit_node_annotation_propagation,
     jit_node_shape_propagation,
@@ -133,6 +134,18 @@ class _ClusterCompiler(torch.fx.Interpreter):
         #     jit_logger.info(
         #         f"FX_GRAPH:\nNode name: {self.ctx.graph_name}\n" f"Target: {node.target}\n" f"Code: {submod.code}"
         #     )
+
+        # "_tensor_constant" nodes originally have get_attr op
+        # but when included within fused they're represented as placeholder
+        # due to that within pass_fake_propagation it's metadata propagation is being skipped
+        # Below loop is to handle such cases
+        for n in submod.graph.nodes:
+            if n.name.startswith("_tensor_constant"):
+                result = n.meta["val"]
+                assert result is not None, (
+                    f"Node {n.name} in graph {self.ctx.graph_name} expected to have val metadata assigned at this stage"
+                )
+                fill_propagated_tensor_metadata_to_node(result, n)
 
         submod_updated = copy.deepcopy(submod)
         jit_ir = self.fx_to_jit_ir(submod_updated, args)
