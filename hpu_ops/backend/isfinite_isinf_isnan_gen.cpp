@@ -34,7 +34,17 @@ SharedMetaDataVector IsInfSharedMeta(
 SharedMetaDataVector IsNanSharedMeta(
     const at::Stack& stack,
     habana_helpers::HabanaExecutionMode /*unused*/) {
-  return IsFiniteInfNanSharedMeta(stack, "isnan_fwd");
+  auto shared_meta = IsFiniteInfNanSharedMeta(stack, "isnan_fwd");
+
+  const auto& input = stack_tensor(stack, 0);
+  auto dtype = input.scalar_type();
+
+  if (dtype == at::ScalarType::Float8_e5m2 or
+      dtype == at::ScalarType::Float8_e4m3fn) {
+    shared_meta[0].inputs_data[0].second = at::ScalarType::BFloat16;
+  }
+
+  return shared_meta;
 }
 
 OutputMetaDataVector IsFiniteInfNanMeta(const at::Stack& stack) {
@@ -54,6 +64,10 @@ void _IsFiniteInfNan::AddNode(
   // use cguid autocast
   if (c10::isIntegralType(dtype, true)) {
     update_guid_dtype(guid_, c10::ScalarType::Int);
+  }
+
+  if (guid_ == "isnan_fwd_hf8" or guid_ == "isnan_fwd_f8") {
+    update_guid_dtype(guid_, c10::ScalarType::BFloat16);
   }
 
   auto result = BuildOp(
