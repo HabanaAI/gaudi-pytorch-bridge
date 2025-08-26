@@ -320,7 +320,7 @@ SharedMetaDataVector LogicalBinarySharedMeta(
     auto isOtherIntegral = c10::isIntegralType(otherDtype, false);
     if (guid == "and" && !isI16) {
       promoteToCommonType = true;
-    } else if ((guid == "or" || "xor") && !isI16orI64) {
+    } else if ((guid == "or" || guid == "xor") && !isI16orI64) {
       if (!(isSelfIntegral || isOtherIntegral) ||
           ((isSelfIntegral ^ isOtherIntegral) &&
            ((c10::elementSize(selfDtype) == 1 ||
