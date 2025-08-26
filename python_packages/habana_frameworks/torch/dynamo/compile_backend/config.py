@@ -30,14 +30,15 @@ def _get_bool_from_env(env_var: str, default: str):
 
 def _get_decomp_mode(env_var: str, default: str):
     env_str_value = os.getenv(env_var, default).lower()
-    assert env_str_value in [
+    if env_str_value not in [
         "habana",
         "inductor",
         "core_aten",
         "none",
-    ], (
-        f'Unrecognized string value in env config:\n\t{env_var}: {env_str_value}\n\tRecognized values: "habana", "core_aten", "none"\n'
-    )
+    ]:
+        raise AssertionError(
+            f'Unrecognized string value in env config:\n\t{env_var}: {env_str_value}\n\tRecognized values: "habana", "core_aten", "none"\n'
+        )
     return env_str_value
 
 

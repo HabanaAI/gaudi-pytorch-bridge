@@ -170,7 +170,8 @@ class habana_quantizer(Quantizer):
             # full --> copy
             if is_node(node, "full.default"):
                 logger.debug(f"Found full.default node: {node.name}")
-                assert len(node.users) == 1
+                if not len(node.users) == 1:
+                    raise AssertionError("Incorrect users number")
                 full_user_node = next(iter(node.users), None)
 
                 if is_node(full_user_node, "copy.default"):
@@ -178,7 +179,8 @@ class habana_quantizer(Quantizer):
 
                     input_qspec_map = {}
                     input_src = full_user_node.args[1]
-                    assert isinstance(input_src, Node)
+                    if not isinstance(input_src, Node):
+                        raise AssertionError("Not a Node instance")
                     input_qspec_map[input_src] = get_input_act_qspec(quantization_config)
 
                     full_user_node.meta["quantization_annotation"] = QuantizationAnnotation(
@@ -193,7 +195,8 @@ class habana_quantizer(Quantizer):
                 logger.debug(f"Found index_copy.default node: {node.name}")
                 input_qspec_map = {}
                 input_3 = node.args[3]
-                assert isinstance(input_3, Node)
+                if not isinstance(input_3, Node):
+                    raise AssertionError("Not a Node instance")
                 input_qspec_map[input_3] = get_input_act_qspec(quantization_config)
 
                 node.meta["quantization_annotation"] = QuantizationAnnotation(
@@ -231,11 +234,13 @@ class habana_quantizer(Quantizer):
 
             input_qspec_map = {}
             input_act = conv_node.args[0]
-            assert isinstance(input_act, Node)
+            if not isinstance(input_act, Node):
+                raise AssertionError("Not a Node instance")
             input_qspec_map[input_act] = get_input_act_qspec(quantization_config)
 
             weight = conv_node.args[1]
-            assert isinstance(weight, Node)
+            if not isinstance(weight, Node):
+                raise AssertionError("Not a Node instance")
             input_qspec_map[weight] = get_weight_qspec(quantization_config)
 
             bias = conv_node.args[2]
@@ -263,7 +268,8 @@ class habana_quantizer(Quantizer):
                 for p in partitions:
                     act_node = p.input_nodes[0]
                     output_node = p.output_nodes[0]
-                    assert output_node.op == "call_function"
+                    if not output_node.op == "call_function":
+                        raise AssertionError("Not a call function")
                     weight_node = None
                     bias_node = None
 
@@ -291,7 +297,8 @@ class habana_quantizer(Quantizer):
                             ]:
                                 transpose_node = node
                                 break
-                        assert transpose_node is not None
+                        if transpose_node is None:
+                            raise AssertionError("Missing transpose node")
                         weight_node = transpose_node.args[0]
                         for node in p.params:
                             if node.op == "get_attr" and (node != weight_node):
@@ -321,10 +328,12 @@ class habana_quantizer(Quantizer):
         output_act_qspec = get_output_act_qspec(quantization_config)
         for _, partitions in matmul_partitions.items():
             for p in partitions:
-                assert len(p.input_nodes) == 2
+                if not len(p.input_nodes) == 2:
+                    raise AssertionError("Incorrect input nodes number")
                 act_node1 = p.input_nodes[0]
                 act_node2 = p.input_nodes[1]
-                assert len(p.output_nodes) == 1
+                if not len(p.output_nodes) == 1:
+                    raise AssertionError("Incorrect output nodes number")
                 output_node = p.output_nodes[0]
 
                 _update_input_qspec_map(p, act_node1, input_act_qspec)
@@ -362,7 +371,8 @@ class habana_quantizer(Quantizer):
                 continue
 
             input_act = maxpool_node.args[0]  # type: ignore[union-attr]
-            assert isinstance(input_act, Node)
+            if not isinstance(input_act, Node):
+                raise AssertionError("Not a Node instance")
 
             act_qspec = get_input_act_qspec(quantization_config)
             maxpool_node.meta["quantization_annotation"] = QuantizationAnnotation(  # type: ignore[union-attr]
@@ -383,9 +393,11 @@ class habana_quantizer(Quantizer):
         input_act_qspec = get_input_act_qspec(quantization_config)
         for _, partitions in softmax_partitions.items():
             for p in partitions:
-                assert len(p.input_nodes) == 1
+                if not len(p.input_nodes) == 1:
+                    raise AssertionError("Incorrect input nodes number")
                 act_node = p.input_nodes[0]
-                assert len(p.output_nodes) == 1
+                if not len(p.output_nodes) == 1:
+                    raise AssertionError("Incorrect output nodes number")
                 output_node = p.output_nodes[0]
 
                 _update_input_qspec_map(p, act_node, input_act_qspec)

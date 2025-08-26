@@ -113,7 +113,8 @@ class ExprPrinter(Printer):
         # Pow() confuses triton
         base, exp = expr.args
         base = self._print(base)
-        assert exp.is_integer
+        if not exp.is_integer:
+            raise AssertionError("Not an integer")
         exp = int(exp)
         if exp > 0:
             return "*".join([self.paren(base)] * exp)
@@ -152,7 +153,8 @@ class PythonPrinter(ExprPrinter):
         return f"({x} // {div})"
 
     def _print_floor(self, expr):
-        assert len(expr.args) == 1
+        if not len(expr.args) == 1:
+            raise AssertionError("Incorrect args number")
         return f"math.floor({self.paren(self._print(expr.args[0]))})"
 
 
@@ -161,7 +163,8 @@ class HPUExprPrinter(ExprPrinterPT):
         return self.parenthesize(expr, precedence)
 
     def _print_ToFloat(self, expr):
-        assert len(expr.args) == 1
+        if not len(expr.args) == 1:
+            raise AssertionError("Incorrect args number")
         return f"({self._print(expr.args[0])})"
 
     def _print_ModularIndexing(self, expr):
@@ -210,34 +213,41 @@ class HPUExprPrinter(ExprPrinterPT):
         )
 
     def _print_floor(self, expr):
-        assert len(expr.args) == 1
+        if not len(expr.args) == 1:
+            raise AssertionError("Incorrect args number")
         return f"floor({self._print(expr.args[0])})"
 
     def _print_FloorToInt(self, expr):
-        assert len(expr.args) == 1
+        if not len(expr.args) == 1:
+            raise AssertionError("Incorrect args number")
         return f"floor({self._print(expr.args[0])})"
 
     def _print_TruncToInt(self, expr):
-        assert len(expr.args) == 1
+        if not len(expr.args) == 1:
+            raise AssertionError("Incorrect args number")
         # This also could have been int(), they'll do the same thing for float
         return f"trunc({self._print(expr.args[0])})"
 
     def _print_ceiling(self, expr):
-        assert len(expr.args) == 1
+        if not len(expr.args) == 1:
+            raise AssertionError("Incorrect args number")
         return f"ceil({self._print(expr.args[0])})"
 
     def _print_CeilToInt(self, expr):
-        assert len(expr.args) == 1
+        if not len(expr.args) == 1:
+            raise AssertionError("Incorrect args number")
         return f"ceil({self._print(expr.args[0])})"
 
     def _print_Abs(self, expr):
-        assert len(expr.args) == 1
+        if not len(expr.args) == 1:
+            raise AssertionError("Incorrect args number")
         return f"abs({self._print(expr.args[0])})"
 
     def _print_Pow(self, expr):
         base, exp = expr.args
         base = self._print(base)
-        assert exp.is_integer
+        if not exp.is_integer:
+            raise AssertionError("Not an integer")
         exp = int(exp)
         if exp > 0:
             return "*".join([self._paren(base, PRECEDENCE["Mul"])] * exp)
@@ -253,57 +263,71 @@ class HPUExprPrinter(ExprPrinterPT):
     # expression, so it doesn't matter that Python max/min doesn't perform
     # promotion
     def _print_Max(self, expr):
-        assert len(expr.args) >= 2
+        if not len(expr.args) >= 2:
+            raise AssertionError("Incorrect args number")
         return f"max({', '.join(map(self._print, expr.args))})"
 
     def _print_Min(self, expr):
-        assert len(expr.args) >= 2
+        if not len(expr.args) >= 2:
+            raise AssertionError("Incorrect args number")
         return f"min({', '.join(map(self._print, expr.args))})"
 
     def _print_OpaqueUnaryFn_cos(self, expr):
-        assert len(expr.args) == 1
+        if not len(expr.args) == 1:
+            raise AssertionError("Incorrect args number")
         return f"cos({self._print(expr.args[0])})"
 
     def _print_OpaqueUnaryFn_cosh(self, expr):
-        assert len(expr.args) == 1
+        if not len(expr.args) == 1:
+            raise AssertionError("Incorrect args number")
         return f"cosh({self._print(expr.args[0])})"
 
     def _print_OpaqueUnaryFn_acos(self, expr):
-        assert len(expr.args) == 1
+        if not len(expr.args) == 1:
+            raise AssertionError("Incorrect args number")
         return f"acos({self._print(expr.args[0])})"
 
     def _print_OpaqueUnaryFn_sin(self, expr):
-        assert len(expr.args) == 1
+        if not len(expr.args) == 1:
+            raise AssertionError("Incorrect args number")
         return f"sin({self._print(expr.args[0])})"
 
     def _print_OpaqueUnaryFn_sinh(self, expr):
-        assert len(expr.args) == 1
+        if not len(expr.args) == 1:
+            raise AssertionError("Incorrect args number")
         return f"sinh({self._print(expr.args[0])})"
 
     def _print_OpaqueUnaryFn_asin(self, expr):
-        assert len(expr.args) == 1
+        if not len(expr.args) == 1:
+            raise AssertionError("Incorrect args number")
         return f"asin({self._print(expr.args[0])})"
 
     def _print_OpaqueUnaryFn_tan(self, expr):
-        assert len(expr.args) == 1
+        if not len(expr.args) == 1:
+            raise AssertionError("Incorrect args number")
         return f"tan({self._print(expr.args[0])})"
 
     def _print_OpaqueUnaryFn_tanh(self, expr):
-        assert len(expr.args) == 1
+        if not len(expr.args) == 1:
+            raise AssertionError("Incorrect args number")
         return f"tanh({self._print(expr.args[0])})"
 
     def _print_OpaqueUnaryFn_atan(self, expr):
-        assert len(expr.args) == 1
+        if not len(expr.args) == 1:
+            raise AssertionError("Incorrect args number")
         return f"atan({self._print(expr.args[0])})"
 
     def _print_RoundToInt(self, expr):
-        assert len(expr.args) == 1
+        if not len(expr.args) == 1:
+            raise AssertionError("Incorrect args number")
         return f"round({self._print(expr.args[0])})"
 
     def _print_RoundDecimal(self, expr):
-        assert len(expr.args) == 2
+        if not len(expr.args) == 2:
+            raise AssertionError("Incorrect args number")
         number, ndigits = expr.args
-        assert isinstance(ndigits, sympy.Integer)
+        if not isinstance(ndigits, sympy.Integer):
+            raise AssertionError("Not a sympy.Integer instance")
         return f"round({self._print(number)}, {ndigits})"
 
 

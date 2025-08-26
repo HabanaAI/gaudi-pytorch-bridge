@@ -190,7 +190,8 @@ def freeze(
     if tracing_context := torch._guards.TracingContext.try_get():
         fw_metadata = tracing_context.fw_metadata
         params_flat = tracing_context.params_flat
-        assert fw_metadata is not None and params_flat is not None
+        if fw_metadata is None or params_flat is None:
+            raise AssertionError("Incorrect metadata or params")
 
         preserved_arg_indices = replace_params_with_constants(aot_autograd_gm, params_flat, fw_metadata)
     else:

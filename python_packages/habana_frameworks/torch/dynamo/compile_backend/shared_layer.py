@@ -328,11 +328,13 @@ def is_eager_fallback_required(node: torch.fx.Node, is_dynamic=False) -> bool:
 
         fallback_log = f"Node: {node} requires fallback: {do_fallback}"
         logger.debug(fallback_log)
-        assert hpu_backend_config.use_eager_fallback or do_fallback is False, fallback_log
+        if not (hpu_backend_config.use_eager_fallback or do_fallback is False):
+            raise AssertionError(fallback_log)
 
         return do_fallback
 
-    assert node.op == "call_function"
+    if not node.op == "call_function":
+        raise AssertionError("Incorrect op")
     output_device = node.meta["output_device"].type
     if output_device != "hpu":
         logger.debug(
@@ -406,7 +408,8 @@ def is_eager_fallback_required(node: torch.fx.Node, is_dynamic=False) -> bool:
             *concrete_args,
             **concrete_kwargs,
         )
-        assert str(node.meta["output_shapes"]) == output_shapes, META_SHAPE_CHANGED_EXCEPTION
+        if not str(node.meta["output_shapes"]) == output_shapes:
+            raise AssertionError(META_SHAPE_CHANGED_EXCEPTION)
         if do_fallback:
             reason = "Shared layer validation failed"
             logger.debug(reason)

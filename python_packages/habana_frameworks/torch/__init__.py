@@ -39,12 +39,13 @@ with open(REQUIRED_VERSION_FILE_PATH) as req_ver_file:
 run_time_ver = Version(torch.__version__)
 is_torch_fork = run_time_ver.local.startswith("git") or run_time_ver.local.startswith("hpu")
 
-assert run_time_ver.major == compile_time_ver.major and run_time_ver.minor == compile_time_ver.minor, (
-    f"Error: Compile-time major/minor PyTorch version {compile_time_ver} differs from run-time {run_time_ver}."
-)
+if not (run_time_ver.major == compile_time_ver.major and run_time_ver.minor == compile_time_ver.minor):
+    raise AssertionError(
+        f"Error: Compile-time major/minor PyTorch version {compile_time_ver} differs from run-time {run_time_ver}."
+    )
 
-if is_lazy():
-    assert is_torch_fork, f"Stock PyTorch version {run_time_ver} is not supported in Lazy mode."
+if is_lazy() and not is_torch_fork:
+    raise AssertionError(f"Stock PyTorch version {run_time_ver} is not supported in Lazy mode.")
 
 lib_to_load = "libhabana_pytorch{}_plugin{}.so".format("" if is_lazy() else "2", "" if is_torch_fork else ".upstream")
 ctypes.CDLL(os.path.join(os.path.dirname(__file__), "lib", lib_to_load), ctypes.RTLD_GLOBAL)

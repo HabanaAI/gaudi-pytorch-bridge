@@ -291,7 +291,8 @@ class HabanaPT2EQuantContext:
             getattr(self._model, "l_graph", ""),
             getattr(self._model, "l_print_tabular", ""),
         )
-        assert hasattr(self._model, "l_print_readable")
+        if not hasattr(self._model, "l_print_readable"):
+            raise AssertionError("Missing attribute")
 
     def get_transformed_gm(self, prepared=False, converted=False):
         gm = None
@@ -472,7 +473,8 @@ class HabanaQuantWrapperModule(torch.nn.Module):
             f"\tpreprocessed={self._preprocessed}\tprepared={self._prepared}\tconverted={self._converted}",
         )
 
-        assert self._pt2e_quant_context is not None
+        if self._pt2e_quant_context is None:
+            raise AssertionError("Missing quant context")
         if not self._preprocessed:
             self.preprocess(*args)
 
@@ -480,7 +482,8 @@ class HabanaQuantWrapperModule(torch.nn.Module):
             self._pt2e_quant_context.record_transformed_gm(self._fx_module, preprocessed=True)
             return self._fx_module(*args, **kwargs)
 
-        assert len(habana_quantization_map_queue[self._module_key]) == 1
+        if not len(habana_quantization_map_queue[self._module_key]) == 1:
+            raise AssertionError("Incorrect length")
         queue_element = habana_quantization_map_queue[self._module_key][0]
         if queue_element["task"] == "prepare_for_calibration":
             if not self._prepared:
@@ -524,7 +527,8 @@ class HabanaQuantWrapperModule(torch.nn.Module):
                 else:
                     # Get already converted fx graph
                     self._converted_module = self._pt2e_quant_context.get_transformed_gm(converted=True)
-                assert self._converted_module is not None
+                if self._converted_module is None:
+                    raise AssertionError("Missing converted module")
 
                 if bc.get_pt_hpu_pt2eq_scale_load_path() != "":
                     logger.debug("Start quantization scale loading.")
@@ -588,12 +592,8 @@ class HabanaQuantWrapperModule(torch.nn.Module):
                     replacer = PatternMatchAndReplacer(self._converted_module)
                     replacer.run()
 
-                if bc.get_pt_hpu_pt2eq_fsdpa_quant() and (not bc.get_pt_hpu_pt2eq_fx_graph_pattern_matching()):
-                    handle_fsdpa_quantization(self._converted_module)
-                else:
-                    logger.warn("Fp8 FSDPA supported only with synapse pattern matching!!!")
-
-                assert self._converted_module is not None
+                if self._converted_module is None:
+                    raise AssertionError("Missing converted module")
                 self._pt2e_quant_context.record_transformed_gm(self._converted_module, converted=True)
 
                 # Skip torch compile if quant_dtype is not fp8
@@ -698,7 +698,8 @@ def export(
     if id_model in export_model_record.keys():
         habana_pt2e_quant_context = export_model_record[id_model][1]
         model = export_model_record[id_model][0]
-        assert getattr(model, "pt2e_quant_backend", False)
+        if not getattr(model, "pt2e_quant_backend", False):
+            raise AssertionError("Missing attribute")
         if not getattr(model, "traced", False) and args is not None:
             model(*args)
             habana_pt2e_quant_context.set_misc_attributes(model)
@@ -708,7 +709,8 @@ def export(
         id_model = hash((id(f), type(f).__name__, export_type))
         if id_model in export_model_record.keys():
             model = export_model_record[id_model][0]
-            assert not getattr(model, "pt2e_quant_backend", False)
+            if getattr(model, "pt2e_quant_backend", False):
+                raise AssertionError("Missing attribute")
             return model
 
     # Now that we have reached here, we need to check if habana_quant_backend
@@ -745,7 +747,8 @@ def export(
         export_model_record[id_model] = [model, habana_pt2e_quant_context]
         return model
     else:
-        assert args, "[Native flow] input missing!"
+        if not args:
+            raise AssertionError("[Native flow] input missing!")
         export_type = "export.export_for_training"
         if kwargs:
             if "graph_break_present" in kwargs:
@@ -930,9 +933,11 @@ def convert_to_module_name(input_str):
 
 
 def create_kvcache_module_name(input_str, annotation):
-    assert input_str != "" and annotation != ""
+    if input_str == "" or annotation == "":
+        raise AssertionError("Missing input string or annotation")
     string_array = input_str.split(".")
-    assert len(string_array) >= 1
+    if not len(string_array) >= 1:
+        raise AssertionError("Incorrect string array length")
 
     kvcache_module_name = ".".join(string_array[:-1]) + ".self_attn." + annotation
     return kvcache_module_name
@@ -1067,7 +1072,8 @@ def dump_scale(module: torch.fx.GraphModule, save_to_file: bool, extra_file: str
                 logger.debug(f"Found full.default node: {node.name}")
                 from .quantize_kvcache import search_node
 
-                assert len(node.users) == 1
+                if not len(node.users) == 1:
+                    raise AssertionError("Incorrect users number")
                 full_user_node = next(iter(node.users), None)
                 if is_node(full_user_node, "copy.default") and is_node(
                     full_user_node.args[1], "quantize_per_tensor.default"
@@ -1076,10 +1082,12 @@ def dump_scale(module: torch.fx.GraphModule, save_to_file: bool, extra_file: str
                     nn_module_stack = copy_src_quant_node.meta.get("nn_module_stack", None)
 
                     result, k_proj_v_proj_node_meta = check_kcache_or_vcache(copy_src_quant_node.args[0])
-                    assert result in ("k_cache", "v_cache")
+                    if result not in ("k_cache", "v_cache"):
+                        raise AssertionError("Incorrect result")
 
                     if not nn_module_stack:
-                        assert k_proj_v_proj_node_meta
+                        if not k_proj_v_proj_node_meta:
+                            raise AssertionError("Missing node meta")
                         nn_module_stack = k_proj_v_proj_node_meta
 
                     dump_key = list(nn_module_stack.values())[-1][0]
@@ -1103,10 +1111,12 @@ def dump_scale(module: torch.fx.GraphModule, save_to_file: bool, extra_file: str
                     nn_module_stack = input3_quant_node.meta.get("nn_module_stack", None)
 
                     result, k_proj_v_proj_node_meta = check_kcache_or_vcache(input3_quant_node.args[0])
-                    assert result in ("k_cache", "v_cache")
+                    if result not in ("k_cache", "v_cache"):
+                        raise AssertionError("Incorrect result")
 
                     if not nn_module_stack:
-                        assert k_proj_v_proj_node_meta
+                        if not k_proj_v_proj_node_meta:
+                            raise AssertionError("Missing node meta")
                         nn_module_stack = k_proj_v_proj_node_meta
 
                     dump_key = list(nn_module_stack.values())[-1][0]
@@ -1158,7 +1168,8 @@ def load_scale(module: torch.fx.GraphModule, scale_info_json=None, extra_file: s
         file_path = os.getenv("PT2E_QUANT_SCALE_LOAD_PATH", "0")
         if extra_file is not None:
             file_path = extra_file
-        assert file_path is not None
+        if file_path is None:
+            raise AssertionError("Missing file path")
         with open(file_path) as file:
             scale_info_json = json.load(file)
 
@@ -1317,7 +1328,8 @@ def load_scale(module: torch.fx.GraphModule, scale_info_json=None, extra_file: s
                 logger.debug(f"Found full.default node: {node.name}")
                 from .quantize_kvcache import search_node
 
-                assert len(node.users) == 1
+                if not len(node.users) == 1:
+                    raise AssertionError("Incorrect users number")
                 full_user_node = next(iter(node.users), None)
                 if is_node(full_user_node, "copy.default") and is_node(
                     full_user_node.args[1], "quantize_per_tensor.default"
@@ -1326,10 +1338,12 @@ def load_scale(module: torch.fx.GraphModule, scale_info_json=None, extra_file: s
                     nn_module_stack = copy_src_quant_node.meta.get("nn_module_stack", None)
 
                     result, k_proj_v_proj_node_meta = check_kcache_or_vcache(copy_src_quant_node.args[0])
-                    assert result in ("k_cache", "v_cache")
+                    if result not in ("k_cache", "v_cache"):
+                        raise AssertionError("Incorrect result")
 
                     if not nn_module_stack:
-                        assert k_proj_v_proj_node_meta
+                        if not k_proj_v_proj_node_meta:
+                            raise AssertionError("Missing node meta")
                         nn_module_stack = k_proj_v_proj_node_meta
 
                     load_key = list(nn_module_stack.values())[-1][0]
@@ -1350,10 +1364,12 @@ def load_scale(module: torch.fx.GraphModule, scale_info_json=None, extra_file: s
                     nn_module_stack = input3_quant_node.meta.get("nn_module_stack", None)
 
                     result, k_proj_v_proj_node_meta = check_kcache_or_vcache(input3_quant_node.args[0])
-                    assert result in ("k_cache", "v_cache")
+                    if result not in ("k_cache", "v_cache"):
+                        raise AssertionError("Incorrect result")
 
                     if not nn_module_stack:
-                        assert k_proj_v_proj_node_meta
+                        if not k_proj_v_proj_node_meta:
+                            raise AssertionError("Missing node meta")
                         nn_module_stack = k_proj_v_proj_node_meta
 
                     load_key = list(nn_module_stack.values())[-1][0]
@@ -1371,7 +1387,8 @@ def load_scale(module: torch.fx.GraphModule, scale_info_json=None, extra_file: s
                             output_dequant_node_args[1] = scale_info_json["Nodes"][load_key]["outputs"][0]
                             user_node.args = tuple(output_dequant_node_args)
 
-        assert count == len(scale_info_json["Nodes"])
+        if not count == len(scale_info_json["Nodes"]):
+            raise AssertionError("Incorrect count")
         module.graph.lint()
         module.recompile()
 
@@ -1455,8 +1472,10 @@ def save_pt2e(
             fx_module_hashkeys = habana_pt2e_quant_context.get_hash_list()
             converted_gms = habana_pt2e_quant_context.get_all_transformed_gms(converted=True)
             args_list = habana_pt2e_quant_context.get_args_list()
-            assert len(args_list) == len(fx_module_hashkeys)
-            assert len(args_list) == len(converted_gms)
+            if not len(args_list) == len(fx_module_hashkeys):
+                raise AssertionError("Args list doesn't match")
+            if not len(args_list) == len(converted_gms):
+                raise AssertionError("Args list doesn't match")
             for hashkey, gm_2, arg in zip(fx_module_hashkeys, converted_gms, args_list, strict=False):
                 # get export program
                 exported_fx_graph = None
@@ -1464,7 +1483,8 @@ def save_pt2e(
                     exported_fx_graph = torch.export.export(gm_2, arg)
                 logger.debug(f"exported program: {exported_fx_graph}")
 
-                assert exported_fx_graph is not None
+                if exported_fx_graph is None:
+                    raise AssertionError("Missing exported fx graph")
                 # clear export program example inputs to reduce export program disk size
                 exported_fx_graph._example_inputs = ()
 
@@ -1549,7 +1569,8 @@ def load_pt2e(
             # try loading hashkeys
             hashkeys_filename = os.path.join(dir_name, "hashkeys.pt2")
             fx_module_hashkeys = torch.load(hashkeys_filename, weights_only=False)
-            assert len(fx_module_hashkeys) != 0
+            if len(fx_module_hashkeys) == 0:
+                raise AssertionError("Incorrect fx module hashkeys number")
             ep_dict = {}
             for key in fx_module_hashkeys:
                 exported_program_filename = os.path.join(dir_name, f"{key}.pt2")
@@ -1564,18 +1585,21 @@ def load_pt2e(
             pt2e_quant_info = torch.load(pt2e_quant_info_filename, weights_only=False)
             # load quantizer for original model if export use scale
             quantizer = pt2e_quant_info["quantizer"]
-            assert quantizer is not None
+            if quantizer is None:
+                raise AssertionError("Missing quantizer")
             habana_pt2e_quant_context.set_quantizer(quantizer)
             # load convert_pt2e settings
             convert_settings = pt2e_quant_info["convert_settings"]
-            assert convert_settings is not None
+            if convert_settings is None:
+                raise AssertionError("Missing convert settings")
             habana_pt2e_quant_context.set_convert_settings(
                 convert_settings["use_reference_representation"],
                 convert_settings["fold_quantize"],
             )
             # load kv-cache quant details
             kvcache_quant_details = pt2e_quant_info["kvcache_quant_details"]
-            assert kvcache_quant_details is not None
+            if kvcache_quant_details is None:
+                raise AssertionError("Missing quant details")
             habana_pt2e_quant_context.set_kvcache_quant_details(kvcache_quant_details, loaded=True)
 
         habana_quantization_map_queue[model_key].append({"task": "inference_after_load", "dir_path": dir_name})
@@ -1646,7 +1670,8 @@ def preprocess_linears(placeholder_map, model: torch.fx.GraphModule, tupled_args
                     logger.warn("Ignoring cases, where linear is decomposed into (t + bmm).")
                     continue
 
-                assert weight_node is not None
+                if weight_node is None:
+                    raise AssertionError("Missing weight node")
 
                 # Now let's follow addmm node inputs till we find nodes on partition list to get
                 # original primals. We do that to go before any view/t ops we could have here.
@@ -1659,7 +1684,8 @@ def preprocess_linears(placeholder_map, model: torch.fx.GraphModule, tupled_args
                     while True:
                         if weight_node in p.input_nodes:
                             break
-                        assert len(weight_node.args) >= 1
+                        if not len(weight_node.args) >= 1:
+                            raise AssertionError("Incorrect weight node args number")
                         weight_node_first_user = weight_node
                         weight_node = weight_node.args[0]
 
@@ -1672,7 +1698,8 @@ def preprocess_linears(placeholder_map, model: torch.fx.GraphModule, tupled_args
                         while True:
                             if bias_node in p.input_nodes:
                                 break
-                            assert len(bias_node.args) >= 1
+                            if not len(bias_node.args) >= 1:
+                                raise AssertionError("Incorrect bias node args number")
                             bias_node_first_user = bias_node
                             bias_node = bias_node.args[0]
 
@@ -1752,7 +1779,8 @@ def preprocess_convs(placeholder_map, model: torch.fx.GraphModule, tupled_args):
                         compute_node = node
                         break
 
-                assert weight_node is not None and compute_node is not None
+                if weight_node is None or compute_node is None:
+                    raise AssertionError("Incorrect weight or compute node")
 
                 # Now let's follow addmm node inputs till we find nodes on partition list to get
                 # original primals. We do that to go before any view/t ops we could have here.
@@ -1765,7 +1793,8 @@ def preprocess_convs(placeholder_map, model: torch.fx.GraphModule, tupled_args):
                     while True:
                         if weight_node in p.input_nodes:
                             break
-                        assert len(weight_node.args) >= 1
+                        if not len(weight_node.args) >= 1:
+                            raise AssertionError("Incorrect weight node args number")
                         weight_node_first_user = weight_node
                         weight_node = weight_node.args[0]
 
@@ -1777,7 +1806,8 @@ def preprocess_convs(placeholder_map, model: torch.fx.GraphModule, tupled_args):
                     while True:
                         if bias_node in p.input_nodes:
                             break
-                        assert len(bias_node.args) >= 1
+                        if not len(bias_node.args) >= 1:
+                            raise AssertionError("Incorrect args number")
                         bias_node_first_user = bias_node
                         bias_node = bias_node.args[0]
 

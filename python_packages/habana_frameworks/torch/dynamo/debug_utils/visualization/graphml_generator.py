@@ -79,22 +79,24 @@ if HAS_NETWORKX:
         def run_node(self, n: torch.fx.Node):
             with self._set_current_node(n):
                 args, kwargs = self.fetch_args_kwargs_from_env(n)
-                assert isinstance(args, tuple)
-                assert isinstance(kwargs, dict)
+                if not isinstance(args, tuple):
+                    raise AssertionError("Not a tuple instance")
+                if not isinstance(kwargs, dict):
+                    raise AssertionError("Not a dict instance")
                 return self.add_graph_node(n, args, kwargs)
 
         def add_graph_node(self, node: torch.fx.Node, inputs, kwargs):
             if node.op == "output":
-                assert isinstance(inputs, tuple)
+                if not isinstance(inputs, tuple):
+                    raise AssertionError("Not a tuple instance")
                 inputs = list(inputs)
             graph_node = self.Node(node, inputs, kwargs, self.node_coloring)
             self.digraph.add_node(graph_node.name, **graph_node.node_data)
 
             if node.op == "output" and torch.fx.Node not in [type(i) for i in inputs]:
                 inputs = list(inputs[0])
-                assert torch.fx.Node in (type(i) for i in inputs) or inputs == [], (
-                    f"Output node {node.name} has incorrect {inputs=}"
-                )
+                if not (torch.fx.Node in (type(i) for i in inputs) or inputs == []):
+                    raise AssertionError(f"Output node {node.name} has incorrect {inputs=}")
 
             def add_edges(inputs, graph_node):
                 for i in inputs:

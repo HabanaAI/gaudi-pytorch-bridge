@@ -134,7 +134,8 @@ def propagate_for_random_ops(
 ):
     # reset the 'constant' field of faketensor to avoid real computation in later meta propagation
     for ainput in additional_inputs:
-        assert isinstance(ainput, torch._subclasses.fake_tensor.FakeTensor)
+        if not isinstance(ainput, torch._subclasses.fake_tensor.FakeTensor):
+            raise AssertionError("Not a torch._subclasses.fake_tensor.FakeTensor instance")
         ainput.constant = None
 
     full_args = additional_inputs + args

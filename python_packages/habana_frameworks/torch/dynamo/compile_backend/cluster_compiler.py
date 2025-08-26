@@ -116,11 +116,14 @@ class _ClusterCompiler(torch.fx.Interpreter):
         # run_node function.
         logger.debug("Node: %s Op: %s Target: %s", n, n.op, n.target)
         with self._set_current_node(n):
-            assert "val" in n.meta.keys(), f"{n=} {n.target=} {n.meta.keys()=}"
+            if "val" not in n.meta.keys():
+                raise AssertionError(f"{n=} {n.target=} {n.meta.keys()=}")
             if n.op == "call_module":
                 args, kwargs = self.fetch_args_kwargs_from_env(n)
-                assert isinstance(args, tuple)
-                assert isinstance(kwargs, dict)
+                if not isinstance(args, tuple):
+                    raise AssertionError("Not a tuple instance")
+                if not isinstance(kwargs, dict):
+                    raise AssertionError("Not a dict instance")
                 return getattr(self, n.op)(n, args, kwargs)
             return n.meta["val"]
 

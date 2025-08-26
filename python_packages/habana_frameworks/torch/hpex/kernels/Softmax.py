@@ -41,7 +41,8 @@ def valid_counts(p, q, device):
 
 
 def triu_masked_softmax(input):
-    assert input.dim() >= 2
+    if not input.dim() >= 2:
+        raise AssertionError("Incorrect input dimension")
     size = input.size()
 
     p = np.prod(size[:-2]) if input.dim() > 2 else 1
@@ -49,5 +50,6 @@ def triu_masked_softmax(input):
     r = size[-1]
 
     lengths = valid_counts(p, q, input.device)
-    assert torch.numel(lengths) == p * q
+    if not torch.numel(lengths) == p * q:
+        raise AssertionError("Data mismatch")
     return torch.reshape(RaggedSoftmax.apply(torch.reshape(input, (p * q, 1, 1, r)), -1, False, lengths), size)

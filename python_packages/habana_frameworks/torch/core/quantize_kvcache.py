@@ -74,7 +74,8 @@ def bfs_search_node(predicate: Callable, queue=[], direction="input"):
     """
     Use BFS to find a given node.
     """
-    assert queue, "Initial queue is empty!"
+    if not queue:
+        raise AssertionError("Initial queue is empty!")
 
     while queue:
         node = queue.pop(0)
@@ -101,7 +102,8 @@ def collect_kvcache_details(pt2eq_context, gm: GraphModule):
         graph_output_nodes = []
         for node in reversed(gm.graph.nodes):
             if node.op == "output":
-                assert isinstance(node.args[0], tuple)
+                if not isinstance(node.args[0], tuple):
+                    raise AssertionError("Not a tuple instance")
                 graph_output_nodes = node.args[0]
                 break
         # For prefill / prompt stage
@@ -118,9 +120,11 @@ def collect_kvcache_details(pt2eq_context, gm: GraphModule):
                 pt2eq_context.set_kvcache_quant_details(kvcache_allocation="internal")
                 pt2eq_context.set_kvcache_quant_details(kvcache_size_prefill=kvcache_size_prefill)
                 node_meta_val = node.meta.get("val", None)
-                assert node_meta_val is not None, f"[collect_kvcache_details] Meta not found for node: {node.name}"
+                if node_meta_val is None:
+                    raise AssertionError(f"[collect_kvcache_details] Meta not found for node: {node.name}")
                 kvcache_orig_dtype = node_meta_val.dtype
-                assert kvcache_orig_dtype == node.kwargs.get("dtype", None)
+                if not kvcache_orig_dtype == node.kwargs.get("dtype", None):
+                    raise AssertionError("Dtype mismatch")
                 kvcache_quant_details["kvcache_orig_dtype"] = kvcache_orig_dtype
                 pt2eq_context.set_kvcache_quant_details(kvcache_orig_dtype=kvcache_orig_dtype)
                 break
@@ -134,9 +138,11 @@ def collect_kvcache_details(pt2eq_context, gm: GraphModule):
         index_copy_nodes = get_nodes(gm, lambda n: is_node(n, "index_copy.default"))
         for node in index_copy_nodes:
             if node.args[0] in graph_input_nodes:
-                assert any(is_node(user, "copy_.default") and user.args[0] in graph_input_nodes for user in node.users)
+                if not any(is_node(user, "copy_.default") and user.args[0] in graph_input_nodes for user in node.users):
+                    raise AssertionError("Incorrect user info")
                 index_copy_node_meta_val = node.args[0].meta.get("val", None)
-                assert index_copy_node_meta_val is not None
+                if index_copy_node_meta_val is None:
+                    raise AssertionError("Missing index copy node meta val")
                 kvcache_size = list(index_copy_node_meta_val.size())
                 pt2eq_context.set_kvcache_quant_details(kvcache_size=kvcache_size)
                 break
@@ -173,7 +179,8 @@ def verify_kvcache_quant_effect(pt2eq_context, new_graph_module):
         if node.op == "placeholder":
             meta = node.meta.get("val", None)
             if meta.dtype == kvcache_quant_dtype:
-                assert meta.size() == kvcache_size, "[PT2E-Q] Quantized graph-input not kvcache!"
+                if not meta.size() == kvcache_size:
+                    raise AssertionError("[PT2E-Q] Quantized graph-input not kvcache!")
                 return True
         return False
 
@@ -199,7 +206,8 @@ def verify_kvcache_quant_effect(pt2eq_context, new_graph_module):
         return False
 
     quant_dtype = kvcache_quant_details.get("kvcache_quant_dtype", None)
-    assert quant_dtype
+    if not quant_dtype:
+        raise AssertionError("Missing quant dtype")
     nodes_with_quantized_output = get_nodes(new_graph_module, lambda n: is_node_with_quantized_output(n, quant_dtype))
 
     allowed_list = [
@@ -221,8 +229,10 @@ def verify_kvcache_quant_effect(pt2eq_context, new_graph_module):
             node.meta["tensor_meta"] = tuple(t_meta)
         elif isinstance(meta_val, list):
             meta_tensor_meta = node.meta.get("tensor_meta", None)
-            assert isinstance(meta_tensor_meta, list)
-            assert len(meta_val) == len(meta_tensor_meta)
+            if not isinstance(meta_tensor_meta, list):
+                raise AssertionError("Not a list instance")
+            if not len(meta_val) == len(meta_tensor_meta):
+                raise AssertionError("Meta val doesn't match meta tensor meta")
             for index in range(len(meta_val)):
                 if meta_val[index].dtype == quant_dtype:
                     meta_val[index] = meta_val[index].to(orig_dtype)
@@ -234,8 +244,10 @@ def verify_kvcache_quant_effect(pt2eq_context, new_graph_module):
             node.meta["tensor_meta"] = meta_tensor_meta
         elif isinstance(meta_val, tuple):
             meta_tensor_meta = node.meta.get("tensor_meta", None)
-            assert isinstance(meta_tensor_meta, tuple)
-            assert len(meta_val) == len(meta_tensor_meta)
+            if not isinstance(meta_tensor_meta, tuple):
+                raise AssertionError("Not a tuple instance")
+            if not len(meta_val) == len(meta_tensor_meta):
+                raise AssertionError("Meta val doesn't match meta tensor meta")
             meta_val = list(meta_val)
             meta_tensor_meta = list(meta_tensor_meta)
             for index in range(len(meta_val)):
@@ -251,7 +263,8 @@ def verify_kvcache_quant_effect(pt2eq_context, new_graph_module):
     # Rectify all nodes other than those in the allowed_list.
     remaining_nodes = []
     orig_dtype = kvcache_quant_details.get("kvcache_orig_dtype", None)
-    assert orig_dtype
+    if not orig_dtype:
+        raise AssertionError("Missing orig dtype")
     for node in nodes_with_quantized_output:
         if node.target.__name__ not in allowed_list:
             rectify_node(node, quant_dtype, orig_dtype)
@@ -344,7 +357,8 @@ def replace_pattern_for_kvcache_quant(pt2eq_context, module: torch.fx.GraphModul
         new_full_node = None
         if is_node(node, "full.default"):
             logger.debug(f"Found full.default node: {node.name}")
-            assert len(node.users) == 1
+            if not len(node.users) == 1:
+                raise AssertionError("Incorrect users number")
             full_user_node = next(iter(node.users), None)
             if is_node(full_user_node, "copy.default") and is_node(
                 full_user_node.args[1], "dequantize_per_tensor.default"
@@ -413,9 +427,11 @@ def replace_pattern_for_kvcache_quant(pt2eq_context, module: torch.fx.GraphModul
                     ]
                 )
 
-                assert len(node.users) == 1
+                if not len(node.users) == 1:
+                    raise AssertionError("Incorrect users number")
                 output_quant_node = next(iter(node.users), None)
-                assert is_node(output_quant_node, "quantize_per_tensor.default")
+                if not is_node(output_quant_node, "quantize_per_tensor.default"):
+                    raise AssertionError("Not a quanitze_per_tensor.default node")
                 output_quant_node.replace_all_uses_with(output_quant_node.args[0])
                 nodes_to_remove.extend(
                     [
@@ -486,7 +502,8 @@ def replace_pattern_for_kvcache_quant(pt2eq_context, module: torch.fx.GraphModul
                 user.replace_input_with(node, immediate_neighbour)
 
     if not graph_changed:
-        assert nodes_to_remove == []
+        if not nodes_to_remove == []:
+            raise AssertionError("Nodes left to remove")
         return module
 
     global nodes_replaced
@@ -646,7 +663,8 @@ def handle_kvcache_quantization(pt2eq_context):
 
     logger.debug(f"[PT2EQ-KVCQ] length of kcache_qparams: {len(kcache_qparams)}")
     logger.debug(f"[PT2EQ-KVCQ] length of vcache_qparams: {len(vcache_qparams)}")
-    assert len(kcache_qparams) == len(vcache_qparams)
+    if not len(kcache_qparams) == len(vcache_qparams):
+        raise AssertionError("Kcache and vcache params mismatch")
 
     kcache_qparams_list_idx = 0
     vcache_qparams_list_idx = 0

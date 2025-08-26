@@ -37,7 +37,8 @@ def group_batch_as_strided(graph_module: torch.fx.GraphModule) -> list:
     """
     This pass is supposed to run partitioner that will create proposition of partitioning.
     """
-    assert graph_module is not None
+    if graph_module is None:
+        raise AssertionError("Missing graph module")
 
     habana_partitioner = HabanaPartitioner(graph_module, BatchAsStridedOperatorSupport)
     current_batch_clusters = habana_partitioner.propose_partitions()
@@ -76,7 +77,8 @@ def batch_as_strided(graph_module: torch.fx.GraphModule, current_batch_as_stride
 
         sorted_partition_nodes = list(filter(lambda node: node in partition_nodes, sorted_as_strided_nodes))
 
-        assert len(sorted_partition_nodes) == len(partition_nodes), "Mismatch between as_strideds count"
+        if not len(sorted_partition_nodes) == len(partition_nodes):
+            raise AssertionError("Mismatch between as_strideds count")
 
         # Inserting batch_as_strided node after the last as_strided node of the partition
         with graph_module.graph.inserting_after(sorted_partition_nodes[-1]):

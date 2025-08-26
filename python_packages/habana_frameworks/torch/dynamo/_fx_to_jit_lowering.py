@@ -78,8 +78,10 @@ class FxToJitLowering(torch.fx.Interpreter):
         # run_node function.
         with self._set_current_node(n):
             args, kwargs = self.fetch_args_kwargs_from_env(n)
-            assert isinstance(args, tuple)
-            assert isinstance(kwargs, dict)
+            if not isinstance(args, tuple):
+                raise AssertionError("Not a tuple instance")
+            if not isinstance(kwargs, dict):
+                raise AssertionError("Not a dict instance")
             return getattr(self, n.op)(n, args, kwargs)
 
     def call_module(self, node: torch.fx.Node, args, kwargs):
@@ -116,7 +118,8 @@ class FxToJitLowering(torch.fx.Interpreter):
             output = self._get_jit_val(arg)
             self.jit_ir.registerOutput(output)
 
-        assert not kwargs, "kwargs as output values are not supported. Please report a bug."
+        if kwargs:
+            raise AssertionError("Kwargs as output values are not supported. Please report a bug.")
 
         # Validate the graph and check if all created nodes were
         # inserted into the JIT graph.

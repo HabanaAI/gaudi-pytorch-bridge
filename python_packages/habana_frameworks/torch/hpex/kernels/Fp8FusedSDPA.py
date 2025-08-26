@@ -129,14 +129,15 @@ def fp8_sdpa_fwd_wrapper(
         scale = 1.0 / math.sqrt(q.size(-1))
 
     if requires_backward:
-        assert is_causal, "Fp8 FusedSDPA in training only supports Triangular mask"
+        if not is_causal:
+            raise AssertionError("Fp8 FusedSDPA in training only supports Triangular mask")
         if recompute is None:
             recompute = ht.recompute_sdp_enabled()
     else:
         recompute = True
 
-    if valid_seq_len is not None:
-        assert is_causal and (requires_backward is False), (
+    if valid_seq_len is not None and not is_causal and requires_backward is False:
+        raise AssertionError(
             "Valid sequence length is supported only in inference with is_causal(triangular) mask case"
         )
 

@@ -214,5 +214,6 @@ class GraphVisualizer:
         if not cls.visualizer_init_done:
             cls._initialize()
         if cls.strategy is not None:
-            assert cls.graph_dir is not None, "Graph dump directory not set"
+            if cls.graph_dir is None:
+                raise AssertionError("Graph dump directory not set")
             cls.strategy.dump_graph_to_file(graph_name, graph_module, cls.graph_dir, node_coloring=node_coloring)

@@ -168,7 +168,8 @@ def get_comm_block(comm_node: torch.fx.Node) -> CommBlock:
     nodes = collections.deque(wait_nodes)
     while nodes:
         node = nodes.popleft()
-        assert node is not None
+        if node is None:
+            raise AssertionError("Missing node")
         for user in node.users:
             if isinstance(user, torch.fx.Node) and user.name.startswith(non_end_users_nodes):
                 nodes.append(user)
@@ -356,7 +357,8 @@ def _fuse_with_cat(
         all_input_nodes.append(input_node)
         index = node_indices[input_node]
         if index >= last_input_index:
-            assert index != last_input_index
+            if not index != last_input_index:
+                raise AssertionError("Index mismatch")
             last_input_node = input_node
             last_input_index = index
 

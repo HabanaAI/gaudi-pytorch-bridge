@@ -1714,7 +1714,8 @@ def activate_hpu_custom_op_meta():
     for op_overload, fn in activate_meta_table.items():
         if isinstance(op_overload, HigherOrderOperator):
             continue
-        assert isinstance(op_overload, OpOverload)
+        if not isinstance(op_overload, OpOverload):
+            raise AssertionError("Not an OpOverload instance")
 
         if "hpu::" not in op_overload.name():
             continue

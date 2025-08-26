@@ -79,7 +79,8 @@ def get_node_args(node: torch.fx.Node):
     if "output" in node.op and isinstance(node.args, tuple):
         # Output args could be a single-element tuple containing all outputs as well,
         # so let's support that.
-        assert len(node.args) == 1
+        if not len(node.args) == 1:
+            raise AssertionError("Incorrect args number")
 
         # There are two cases, resulting unwrapped args could be again a tuple or directly a node.
         # Code assumes something iterable so if it's just a a single node, then do not unwrap it.
@@ -250,7 +251,8 @@ def fill_propagated_tensor_metadata_to_node(result: torch.Tensor, node: torch.fx
         output_offset = [None]
     else:
         devices = []
-        assert isinstance(result, Iterable), "expecting iterable at this point"
+        if not isinstance(result, Iterable):
+            raise AssertionError("Expecting iterable at this point")
 
         def collect_result(
             result,
@@ -331,9 +333,12 @@ def fill_propagated_tensor_metadata_to_node(result: torch.Tensor, node: torch.fx
                 device = devices[0]
 
     if "output" not in node.op:
-        assert device is not None
-        assert len(dtypes) != 0
-        assert len(layouts) != 0
+        if device is None:
+            raise AssertionError("Missing device")
+        if len(dtypes) == 0:
+            raise AssertionError("Missing dtypes")
+        if len(layouts) == 0:
+            raise AssertionError("Missing layouts")
     else:
         device = None
 
@@ -349,14 +354,21 @@ def fill_propagated_tensor_metadata_to_node(result: torch.Tensor, node: torch.fx
         or "output_offset" in node.meta
     ):
         if node.meta["output_device"] is not None and device is not None:
-            assert node.meta["output_device"].type == device.type
-        else:
-            assert node.meta["output_device"] == device
-        assert node.meta["output_dtypes"] == dtypes
-        assert node.meta["output_layouts"] == layouts
-        if not any(is_symbolic_shape(shape) for shape in output_shapes):
-            assert node.meta["output_shapes"] == output_shapes
-        assert node.meta["output_offset"] == output_offset
+            if not node.meta["output_device"].type == device.type:
+                raise AssertionError("Device mismatch")
+        elif node.meta["output_device"] != device:
+            raise AssertionError("Device mismatch")
+        if not node.meta["output_dtypes"] == dtypes:
+            raise AssertionError("Dtype mismatch")
+        if not node.meta["output_layouts"] == layouts:
+            raise AssertionError("Layout mismatch")
+        if (
+            not any(is_symbolic_shape(shape) for shape in output_shapes)
+            and not node.meta["output_shapes"] == output_shapes
+        ):
+            raise AssertionError("Output shape mismatch")
+        if not node.meta["output_offset"] == output_offset:
+            raise AssertionError("Output offset mismatch")
 
     node.meta["output_device"] = device
     node.meta["output_dtypes"] = dtypes  # list expected

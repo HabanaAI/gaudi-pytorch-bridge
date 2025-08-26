@@ -64,9 +64,10 @@ class YamlContext:
             all_keys |= fields
 
         for key in duplicated_keys:
-            assert key in merged.keys(), (
-                f"For fields that occurs in multiple templates require field: {key} to be defined explicitly."
-            )
+            if key not in merged.keys():
+                raise AssertionError(
+                    f"For fields that occurs in multiple templates require field: {key} to be defined explicitly."
+                )
 
 
 def yaml_context_from_files(yaml_file, template_file):

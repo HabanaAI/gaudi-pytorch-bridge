@@ -53,8 +53,10 @@ def split_embedding_codegen_lookup_function(
 ) -> torch.Tensor:
     if kernel_mode is None:
         kernel_mode = [1] * len(weights_offsets)
-    assert pooling_mode == 0, "Only PoolingMode.SUM is supported for HPU"
-    assert total_D == D_offsets[-1], f"total_D ({total_D}) must match D_offsets[-1] ({D_offsets[-1]})"
+    if not pooling_mode == 0:
+        raise AssertionError("Only PoolingMode.SUM is supported for HPU")
+    if not total_D == D_offsets[-1]:
+        raise AssertionError(f"total_D ({total_D}) must match D_offsets[-1] ({D_offsets[-1]})")
 
     indices = indices.to(torch.int32)
     offsets = offsets.to(torch.int32)
@@ -68,7 +70,8 @@ def split_embedding_codegen_lookup_function(
     for t in range(T):
         D = D_offsets[t + 1] - D_offsets[t]
 
-        assert previous_D == D, f"HPU supports only constant D_offsets' distances, but they're {D} and {previous_D}"
+        if not previous_D == D:
+            raise AssertionError(f"HPU supports only constant D_offsets' distances, but they're {D} and {previous_D}")
 
         t_weights_from = weights_offsets[t]
         if t + 1 < T:

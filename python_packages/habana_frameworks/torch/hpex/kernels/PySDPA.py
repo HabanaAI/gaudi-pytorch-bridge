@@ -860,7 +860,8 @@ def sdpa_bwd(do, q, k, v, O, is_causal, retain_exp, retain_max, with_slice):
     1. using retain tensor
     2. if slice enabled, using default size 1
     """
-    assert q.dim() == 4, " Currently support only 4D"
+    if not q.dim() == 4:
+        raise AssertionError(" Currently support only 4D")
 
     # no slice on batch heads dimensions
     batch_heads = 1
@@ -1032,7 +1033,8 @@ class PySDPAHinted(torch.autograd.Function):
     @staticmethod
     def backward(ctx, dout):
         def backward_hinted(do, q, k, v, O, is_causal, with_slice, retain_exp, retain_max):
-            assert q.dim() == 4, " Currently support only 4D"
+            if not q.dim() == 4:
+                raise AssertionError(" Currently support only 4D")
 
             # using default slice size 1
             batch_heads = q.shape[0] * q.shape[1]

@@ -130,27 +130,28 @@ def sdpa_fwd_wrapper(
         if return_attn_probs:
             recompute = False
 
-    if return_attn_probs is True:
-        assert requires_backward is False, "return_attn_probs is supported only for inference mode"
+    if return_attn_probs is True and requires_backward is not False:
+        raise AssertionError("return_attn_probs is supported only for inference mode")
 
-    if recompute and requires_backward and softmax_mode == "fast":
-        assert is_causal, (
+    if recompute and requires_backward and softmax_mode == "fast" and not is_causal:
+        raise AssertionError(
             "Optimized softmax mode is supported in recompute training mode only in causal(triangular) mask case"
         )
 
-    if valid_seq_len is not None:
-        assert is_causal and (requires_backward is False), (
+    if valid_seq_len is not None and not is_causal and (requires_backward is False):
+        raise AssertionError(
             "Valid sequence length is supported only in inference with is_causal(triangular) mask case"
         )
 
-    if recompute:
-        assert return_dropout_mask is False, "Return_dropout_mask is not supported in recompute mode"
+    if recompute and return_dropout_mask is not False:
+        raise AssertionError("Return_dropout_mask is not supported in recompute mode")
 
     if softmax_mode == "fp32":
         q_dtype = q.dtype
-        assert requires_backward is False and q_dtype == torch.bfloat16, (
-            "softmax_mode = fp32 is supported only for inference mode and when q/k/v inputs are BF16"
-        )
+        if not (requires_backward is False and q_dtype == torch.bfloat16):
+            raise AssertionError(
+                "softmax_mode = fp32 is supported only for inference mode and when q/k/v inputs are BF16"
+            )
 
     # if attention mask is 2D (Nt, Ns) expand it to Q rank
     # along with the same batch size

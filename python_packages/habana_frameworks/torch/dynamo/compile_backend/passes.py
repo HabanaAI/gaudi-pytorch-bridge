@@ -412,9 +412,8 @@ def _check_unsupported_h2d_ops(node: torch.fx.Node):
     ]
 
     node_name = node.target.__name__
-    assert node_name not in ops_not_yet_supported, (
-        f"{node_name} doesn't support H2D scales feature yet, but received CPU scales."
-    )
+    if node_name in ops_not_yet_supported:
+        raise AssertionError(f"{node_name} doesn't support H2D scales feature yet, but received CPU scales.")
 
 
 def _is_cpu_scalar_copy_required(
@@ -448,7 +447,8 @@ def _is_cpu_scalar_copy_required(
             and isinstance(node.target._schema, torch.FunctionSchema)
             and node.target._schema.arguments[arg_idx].type.annotation_str in ["number", "int"]
         ) or (node_arg.type in [int, float] and node_target in scalar_ops):
-            assert node_arg.meta["output_device"] == torch.device("cpu")
+            if not node_arg.meta["output_device"] == torch.device("cpu"):
+                raise AssertionError("Device mismatch")
             copy_required = False
         elif _is_cpu_scale_allowed(node, node_arg, h2d_scales_enabled):
             copy_required = False
@@ -459,7 +459,8 @@ def _is_cpu_scalar_copy_required(
 
 def _is_cpu_scalar_or_symbolic_scalar(node: torch.fx.Node) -> bool:
     if node.type in [int, float]:
-        assert node.meta["output_device"] == torch.device("cpu")
+        if not node.meta["output_device"] == torch.device("cpu"):
+            raise AssertionError("Device mismatch")
         return True
     else:
         return False
@@ -533,7 +534,8 @@ def is_higher_order_node(node: torch.fx.Node) -> bool:
     """
     nodes that need to be executed eagerly, while subgraph can be compiled
     """
-    assert node.op == "call_function"
+    if not node.op == "call_function":
+        raise AssertionError("Incorrect op")
     supported_higher_order_ops = ["cond", "while_loop"]
 
     return (
@@ -636,7 +638,8 @@ def optimize_graph(
 
             submodule_inputs = [node.meta.get("val") for node in submodule.graph.nodes if node.op == "placeholder"]
 
-            assert None not in submodule_inputs, "Metadata for one of subgraph inputs is not set"
+            if None in submodule_inputs:
+                raise AssertionError("Metadata for one of subgraph inputs is not set")
 
             # create new ctx for submodule
             # outer-most graph module is dynamic while sub module is static?
@@ -720,7 +723,8 @@ def pass_annotate_nodes_and_inline_submodule(ctx: OptimizerContext) -> bool:
         It aims to inline submodule wrapped by hints_wrapper node into parent
         module.
         """
-        assert is_hints_wrapper_node(node_to_replace)
+        if not is_hints_wrapper_node(node_to_replace):
+            raise AssertionError("Not a hints wrapper node")
 
         getitem_nodes_to_be_removed = []
         for u in node_to_replace.users:
@@ -763,7 +767,8 @@ def pass_annotate_nodes_and_inline_submodule(ctx: OptimizerContext) -> bool:
 
         # delete unecessary getitem nodes
         for n in getitem_nodes_to_be_removed:
-            assert isinstance(n.args[0], tuple)
+            if not isinstance(n.args[0], tuple):
+                raise AssertionError("Not a tuple instance")
             arg_idx = n.args[1]
             arg_node = n.args[0][arg_idx]
             n.replace_all_uses_with(arg_node)
@@ -890,7 +895,8 @@ def pass_graph_print(ctx: OptimizerContext) -> bool:
     if not logger.is_enabled_for(LogLevel.DEBUG):
         return False
 
-    assert ctx.graph_module is not None
+    if ctx.graph_module is None:
+        raise AssertionError("Missing graph module")
 
     logger.debug(f"Readable:\n{ctx.graph_module.print_readable(False)}")
     logger.debug(f"IR:\n{ctx.graph_module.graph}")
@@ -988,7 +994,8 @@ def pass_wa_fix_output(ctx: OptimizerContext) -> bool:
     This pass is supposed to workaround an issue with global output not being the last
     node in the graph. Details below.
     """
-    assert ctx.graph_module is not None
+    if ctx.graph_module is None:
+        raise AssertionError("Missing graph module")
     graph_changed = False
 
     # WORKAROUND BEGIN
@@ -1058,11 +1065,16 @@ def pass_propose_partitions(ctx: OptimizerContext) -> bool:
     """
     This pass is supposed to run partitioner that will create proposition of partitioning.
     """
-    assert ctx.stage == OptimizationPassPlacement.PARTITIONER
-    assert ctx.graph_module is not None
-    assert ctx.current_partitions is None
-    assert ctx.current_partitions_non_mergeable is None
-    assert ctx.habana_partitioner is None
+    if not ctx.stage == OptimizationPassPlacement.PARTITIONER:
+        raise AssertionError("Incorrect stage")
+    if ctx.graph_module is None:
+        raise AssertionError("Missing graph module")
+    if ctx.current_partitions is not None:
+        raise AssertionError("Unexpected urrent partitions")
+    if ctx.current_partitions_non_mergeable is not None:
+        raise AssertionError("Unexpected non mergeable current partitions")
+    if ctx.habana_partitioner is not None:
+        raise AssertionError("Unexpected habana partitioner")
 
     ctx.current_partitions = []
     ctx.current_partitions_non_mergeable = []
@@ -1119,11 +1131,8 @@ def post_process_partitions(
     partition, to reduce some unnecessary tensor passing between partitions.
     Currently, the post process is mainly for device memory optimization.
     """
-    assert None not in [
-        graph_module,
-        current_partitions,
-        current_partitions_non_mergeable,
-    ]
+    if None in [graph_module, current_partitions, current_partitions_non_mergeable]:
+        raise AssertionError("Unexpected None")
     from torch.fx.passes.infra.partitioner import Partition
 
     partition_changed = False
@@ -1246,11 +1255,16 @@ def pass_fuse_partitions(ctx: OptimizerContext) -> bool:
     This pass is supposed to run partitioner that will, based on current partitioning, create
     final FX module with submodules for each HPU operations cluster.
     """
-    assert ctx.stage == OptimizationPassPlacement.PARTITIONER
-    assert ctx.graph_module is not None
-    assert ctx.current_partitions is not None
-    assert ctx.current_partitions_non_mergeable is not None
-    assert ctx.habana_partitioner is not None
+    if not ctx.stage == OptimizationPassPlacement.PARTITIONER:
+        raise AssertionError("Incorrect stage")
+    if ctx.graph_module is None:
+        raise AssertionError("Missing graph module")
+    if ctx.current_partitions is None:
+        raise AssertionError("Missing current partitions")
+    if ctx.current_partitions_non_mergeable is None:
+        raise AssertionError("Missing non mergeable current partitions")
+    if ctx.habana_partitioner is None:
+        raise AssertionError("Missing habana partitioner")
 
     ctx.habana_partitioner.fuse_partitions(ctx.current_partitions + ctx.current_partitions_non_mergeable)
 
@@ -1357,9 +1371,8 @@ def pass_add_fused_op_metadata(ctx: OptimizerContext):
             args = subgraph_node.args
             if len(args) == 1 and isinstance(args[0], tuple):
                 args = args[0]
-            assert all(isinstance(x, torch.fx.Node) for x in args), (
-                "Currently we are assuming that all args of output should be Nodes"
-            )
+            if not all(isinstance(x, torch.fx.Node) for x in args):
+                raise AssertionError("Currently we are assuming that all args of output should be Nodes")
             meta_val = tuple([a.meta.get("val", None) for a in args])
 
         # it is possible to have zero graph outputs with KEEP_INPUT_MUTATIONS enabled
@@ -1380,7 +1393,8 @@ def pass_wa_mixed_devices(ctx: OptimizerContext) -> bool:
     FX graph inputs and according to device propagation they land on CPU, eventually mixing
     with HPU parameters of the model.
     """
-    assert ctx.graph_module is not None
+    if ctx.graph_module is None:
+        raise AssertionError("Missing graph module")
 
     graph_changed = False
     nodes_to_fix_list = []
@@ -1442,7 +1456,8 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
     "eager"       - such OPs will not be placed inside HPU clusters
     "hpu_cluster" - such OPs will be later placed inside HPU clusters
     """
-    assert ctx.graph_module is not None
+    if ctx.graph_module is None:
+        raise AssertionError("Missing graph module")
     h2d_scales_enabled = htexp._get_scale_attribute_hash_id() > 0 and bc.get_pt_hpu_enable_h2d_scales()
     fallback_dynamic_to_eager = is_fallback_dynamic_to_eager()
 
@@ -1465,7 +1480,8 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
                         input_node = arg
                         break
 
-                assert input_node is not None
+                if input_node is None:
+                    raise AssertionError("Missing input node")
                 args_list_with_node.append(input_node)
             else:  # foreach_copy
                 for arg in node.args:
@@ -1511,7 +1527,8 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
                     elif _is_cpu_scale_allowed(node, arg, h2d_scales_enabled):
                         logger.debug(f"Argument {arg} to node {node} is a cpu tensor for H2D optimization")
                         continue
-                    assert arg.meta["output_device"].type == "hpu"
+                    if not arg.meta["output_device"].type == "hpu":
+                        raise AssertionError("Incorrect device")
 
             placement = "hpu_cluster"
         elif node.meta["output_device"].type == "cpu":
@@ -1527,15 +1544,16 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
         else:
             logger.info(f"Node placement. Node: {node.name} op: {node.op} placement: {placement}")
 
-        assert placement is not None
+        if placement is None:
+            raise AssertionError("Missing placement")
 
         # Meta for the node should not be created yet. BUT...
         # ...it happens that placeholder nodes might be reused between FWD and BWD.
         # They are always placed in eager though, so it should not be an issue.
         if "placement" in node.meta:
             logger.debug(f"Node {node} of type {node.op} has had it's placement already set")
-            assert node.meta["placement"] == placement
-
+            if not node.meta["placement"] == placement:
+                raise AssertionError("Placement mismatch")
         node.meta["placement"] = placement
 
     return True
@@ -1550,7 +1568,8 @@ view_ops_set = {torch.ops.aten.view.default, torch.ops.aten._unsafe_view.default
 
 
 def pass_mark_collective_input(ctx: OptimizerContext) -> bool:
-    assert ctx.graph_module is not None
+    if ctx.graph_module is None:
+        raise AssertionError("Missing graph module")
 
     if not hpu_backend_config.enable_sfg:
         return False
@@ -1643,9 +1662,12 @@ def merge_paths(
 
 
 def pass_merge_paths(ctx: OptimizerContext) -> bool:
-    assert ctx.stage == OptimizationPassPlacement.PARTITIONER
-    assert ctx.graph_module is not None
-    assert ctx.current_partitions is not None
+    if not ctx.stage == OptimizationPassPlacement.PARTITIONER:
+        raise AssertionError("Incorrect stage")
+    if ctx.graph_module is None:
+        raise AssertionError("Missing graph module")
+    if ctx.current_partitions is None:
+        raise AssertionError("Missing current partitions")
 
     new_partitions = merge_paths(ctx.graph_module, ctx.current_partitions)
     graph_changed = new_partitions != ctx.current_partitions
@@ -1847,8 +1869,10 @@ def pass_eagerize_leaf_views(ctx: OptimizerContext) -> bool:
     fragmentation.
     """
 
-    assert ctx.stage == OptimizationPassPlacement.PRE_PARTITIONER
-    assert ctx.graph_module is not None
+    if not ctx.stage == OptimizationPassPlacement.PRE_PARTITIONER:
+        raise AssertionError("Incorrect stage")
+    if ctx.graph_module is None:
+        raise AssertionError("Missing graph module")
 
     graph_changed = False
 
@@ -1860,7 +1884,8 @@ def pass_eagerize_leaf_views(ctx: OptimizerContext) -> bool:
 
     # Initialize colors.
     for node in reverse_nodes_list:
-        assert "pass_meta_color" not in node.meta
+        if "pass_meta_color" in node.meta:
+            raise AssertionError("Missing pass meta color")
         node.meta["pass_meta_color"] = "none"
     # Find HPU view chains used by eager OPs ('red' color - to be eagerized).
     for node in reverse_nodes_list:
@@ -1914,7 +1939,8 @@ def pass_eagerize_leaf_views(ctx: OptimizerContext) -> bool:
 
     # Mark remaining 'red' nodes as eager. Also cleanup colors altogether.
     for node in reverse_nodes_list:
-        assert node.meta["pass_meta_color"] != "blue"
+        if node.meta["pass_meta_color"] == "blue":
+            raise AssertionError("Incorrect pass meta color")
 
         if node.meta["pass_meta_color"] == "red":
             graph_changed = True
@@ -2139,7 +2165,8 @@ def pass_compile_clusters(ctx: OptimizerContext):
         logger.debug(f"Node: {n} Op: {n.op} Target: {n.target}")
 
         if n.op == "call_module":
-            assert not n.kwargs
+            if n.kwargs:
+                raise AssertionError("Incorrect kwargs")
 
             submod = ctx.graph_module.get_submodule(n.target)
 
@@ -2183,8 +2210,10 @@ def pass_summarize_graph(ctx: OptimizerContext):
     This pass is just for debug.
     In case any FxGraphAnalyzer contexts are registered it counts ops occurring in FX Graph.
     """
-    assert ctx.stage == OptimizationPassPlacement.POST_PARTITIONER
-    assert ctx.graph_module is not None
+    if not ctx.stage == OptimizationPassPlacement.POST_PARTITIONER:
+        raise AssertionError("Incorrect stage")
+    if ctx.graph_module is None:
+        raise AssertionError("Missing graph module")
     if not FxGraphAnalyzer.registered_contexts:
         return False
 
@@ -2425,7 +2454,8 @@ def pass_detect_partition_in_to_out_duplicates(ctx: OptimizerContext):
         logger.debug(f"Node: {n} Op: {n.op} Target: {n.target}")
 
         if n.op == "call_module":
-            assert not n.kwargs
+            if n.kwargs:
+                raise AssertionError("Incorrect kwargs")
             submod = ctx.graph_module.get_submodule(n.target)
             in_to_out_dups = detect_in_to_out_duplicates(submod)
             if len(in_to_out_dups) > 0:
@@ -2486,8 +2516,10 @@ def pass_check_eager_fallbacks(ctx: OptimizerContext):
     while PT_HPU_USE_EAGER_FALLBACK env variable is set to 0
     it throws an assertion error
     """
-    assert ctx.stage == OptimizationPassPlacement.POST_PARTITIONER
-    assert ctx.graph_module is not None
+    if not ctx.stage == OptimizationPassPlacement.POST_PARTITIONER:
+        raise AssertionError("Incorrect stage")
+    if ctx.graph_module is None:
+        raise AssertionError("Missing graph module")
     if not hpu_backend_config.use_eager_fallback:
         eager_nodes = []
         for node in ctx.graph_module.graph.nodes:
@@ -2501,7 +2533,8 @@ def pass_check_eager_fallbacks(ctx: OptimizerContext):
                 and node._pretty_print_target(node.target) not in host_call_functions
             ) and node.meta["placement"] == "eager":
                 eager_nodes.append(str(node) + ":" + node._pretty_print_target(node.target))
-        assert len(eager_nodes) == 0, f"Eager fallback in nodes: {eager_nodes}"
+        if not len(eager_nodes) == 0:
+            raise AssertionError(f"Eager fallback in nodes: {eager_nodes}")
     return False
 
 

@@ -53,9 +53,12 @@ def _setup_module_id(local_rank=-1, world_size=1):
 
     if HABANA_VISIBLE_MODULES_VAR in os.environ.keys():
         visible_modules = os.environ[HABANA_VISIBLE_MODULES_VAR].split(",")
-        assert local_rank < len(visible_modules), f"""There is not enough devices
-        available for training. Please verify if {HABANA_VISIBLE_MODULES_VAR}
-        is set correctly."""
+        if not local_rank < len(visible_modules):
+            raise AssertionError(
+                f"""There is not enough devices
+            available for training. Please verify if {HABANA_VISIBLE_MODULES_VAR}
+            is set correctly."""
+            )
         os.environ[HLS_MODULE_ID_VAR] = visible_modules[local_rank]
         return
     # In all other cases strict mapping of local_rank -> module_id allows easier NUMA or MPI binding.

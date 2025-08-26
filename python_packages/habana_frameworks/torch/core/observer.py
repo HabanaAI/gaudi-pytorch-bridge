@@ -212,7 +212,8 @@ class AbsMaxObserver(UniformQuantizationObserverBase):
         if is_dynamic:
             raise NotImplementedError("AbsMaxObserver: is_dynamic is not supported.")
 
-        assert quant_min == -quant_max
+        if not quant_min == -quant_max:
+            raise AssertionError("Quant min and quant max don't match")
 
         super().__init__(
             dtype=dtype,
@@ -357,7 +358,8 @@ class SimpleAbsMaxObserver(UniformQuantizationObserverBase):
         if is_dynamic:
             raise NotImplementedError("SimpleAbsMaxObserver: is_dynamic is not supported.")
 
-        assert quant_min == -quant_max
+        if not quant_min == -quant_max:
+            raise AssertionError("Quant min and quant max don't match")
 
         super().__init__(
             dtype=dtype,

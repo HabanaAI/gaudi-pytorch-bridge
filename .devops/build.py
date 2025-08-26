@@ -175,7 +175,8 @@ def get_supported_pt_version(
             if "dev" in str(candidate):
                 return supported
             continue
-        assert isinstance(candidate, Version)
+        if not isinstance(candidate, Version):
+            raise AssertionError("Not a Version instance")
         if supported.version.significant_matches(candidate):
             log.debug(f"Matched supported version: {supported}")
             return supported
@@ -194,7 +195,8 @@ def get_similar_supported_pt_version(
         if supported.version == "nightly":
             continue
 
-        assert isinstance(candidate, Version)
+        if not isinstance(candidate, Version):
+            raise AssertionError("Not a Version instance")
 
         if supported.version != Version(
             f"{supported.version.major}.{supported.version.minor}.{supported.version.micro}"
@@ -393,7 +395,8 @@ def locate_fork_wheel(pt_ver: str | Version) -> str:
             Please download or compile a supported version of PT-fork.
             """
         )
-    assert len(wheel_paths) == 1
+    if len(wheel_paths) != 1:
+        raise AssertionError("Incorrect wheel paths number")
     return wheel_paths[0]
 
 
@@ -405,7 +408,8 @@ def resolve_pip_args(version_and_source: VersionAndSource) -> tuple[str, ...]:
     if version != "nightly" and is_wheel_version(version):
         return (version.wheel_path,)
 
-    assert source != "preinstalled"
+    if source == "preinstalled":
+        raise AssertionError("Source is preinstalled")
 
     if source == "build":
         return (locate_fork_wheel(version),)
@@ -1064,7 +1068,8 @@ class CMakeFlags:
 
     def __getitem__(self, flag: str) -> str:
         item = list(filter(lambda f: CMakeFlags._flag_name_equals(f, flag), self.flags))
-        assert len(item) < 2
+        if len(item) >= 2:
+            raise AssertionError("Incorrect items number")
         return item[0].split("=")[1:] if item else ""
 
     @staticmethod
@@ -1694,7 +1699,8 @@ def prepare_wheel_specs(
                             f" versions are {supported_pt_versions}."
                         )
                     pt_versions.add(supported)
-        assert len(pt_versions) > 0
+        if not len(pt_versions) > 0:
+            raise AssertionError("Missing pt versions")
         wheel_specs = list_wheel_specs_for_specific_pt_versions(pt_versions)
     return preinstalled_pt_version, wheel_specs
 
@@ -1707,7 +1713,8 @@ def determine_preinstalled_version_to_build_with(installed_pt_version: Version |
         )
         return recommended_pt_version
 
-    assert installed_pt_version.micro is not None  # micro is the patch version, e.g. 3 in 1.2.3
+    if not installed_pt_version.micro is not None:  # micro is the patch version, e.g. 3 in 1.2.3
+        raise AssertionError("Preinstalled pytorch version doesn't have patch number")
     supported = get_supported_pt_version(installed_pt_version, supported_pt_versions)
     if supported:
         return VersionAndSource(supported.version, "preinstalled")

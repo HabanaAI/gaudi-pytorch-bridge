@@ -100,7 +100,8 @@ def joint_fwd_bwd_hpu(fn: Callable[..., Any], args: Sequence[Any], **kwargs) -> 
         joint_graph: torch.fx.GraphModule, inputs: Sequence[Any], **kwargs: Any
     ) -> tuple[torch.fx.GraphModule, torch.fx.GraphModule]:
         nonlocal gm
-        assert not gm
+        if gm:
+            raise AssertionError("Incorrect graph module")
         gm = clone_graph(joint_graph)
         if hpu_backend_config.remove_unnecessary_clones:
             joint_graph = remove_unnecessary_clone(joint_graph)
@@ -115,7 +116,8 @@ def joint_fwd_bwd_hpu(fn: Callable[..., Any], args: Sequence[Any], **kwargs) -> 
             keep_inference_input_mutations=hpu_backend_config.keep_input_mutations,
             enable_log=False,
         )(*args)
-    assert gm
+    if not gm:
+        raise AssertionError("Missing graph module")
 
     gm.graph._codegen = torch.fx.graph.CodeGen()
     gm.graph.eliminate_dead_code()
@@ -283,7 +285,8 @@ def _get_sfdp_patterns():
             # when adding a new pattern, re-run the test with flag PYTORCH_GEN_PATTERNS=1
             # so the pattern gets serialized to a python file and does not require tracing at runtime
             # for the second time onward.
-            assert isinstance(workaround, dict)
+            if not isinstance(workaround, dict):
+                raise AssertionError("Not a dict instance")
             name = pattern.__name__
 
             if dtype != torch.float:
@@ -306,7 +309,8 @@ def _get_sfdp_patterns():
             )
 
             if workaround:
-                assert len(workaround) == 1 and "dropout_p" in workaround
+                if not len(workaround) == 1 and "dropout_p" in workaround:
+                    raise AssertionError("Workaround doesn't apply")
                 # functools.partial insufficient because we look at signature downstream
                 pattern = partialize_and_update_signature(pattern, dropout_p=0.0)
                 replacement = partialize_and_update_signature(replacement, dropout_p=0.0)

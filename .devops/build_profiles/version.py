@@ -117,7 +117,8 @@ class Version(packaging.version.Version):
         Assume git hashes in local part of version mean a CPU platform.
         """
         wildcard, candidate_ver = self.release, candidate.release
-        assert len(wildcard) <= len(candidate_ver)
+        if not len(wildcard) <= len(candidate_ver):
+            raise AssertionError("Lengths mismatch")
         release_matches = all(w == c for w, c in zip(wildcard, candidate_ver, strict=False))
 
         if not self.is_prerelease:

@@ -41,10 +41,12 @@ def addmm_like_strategy(
     mat1_strategy, mat2_strategy, *self_strategy = op_schema.args_schema
     if self_strategy == []:
         self_strategy = None
-    if self_strategy is not None:
-        assert isinstance(*self_strategy, OpStrategy)
-    assert isinstance(mat1_strategy, OpStrategy)
-    assert isinstance(mat2_strategy, OpStrategy)
+    if self_strategy is not None and not isinstance(*self_strategy, OpStrategy):
+        raise AssertionError("Not an OpStrategy instance")
+    if not isinstance(mat1_strategy, OpStrategy):
+        raise AssertionError("Not an OpStrategy instance")
+    if not isinstance(mat2_strategy, OpStrategy):
+        raise AssertionError("Not an OpStrategy instance")
     if self_strategy is not None:
         is_self_placement_replicate = self_strategy[0].strategies[0].output_specs.placements[0].is_replicate()
         self_shape = self_strategy[0].shape
@@ -61,7 +63,8 @@ def addmm_like_strategy(
     filtered_strategies = []
     for strtg in strategies:
         # construct new strategy by consider the self arg
-        assert strtg.input_specs is not None
+        if strtg.input_specs is None:
+            raise AssertionError("Missing input specs")
         mat1_spec = strtg.input_specs[0]
         mat2_spec = strtg.input_specs[1]
         out_spec = strtg.output_spec
@@ -118,10 +121,12 @@ def linear_sharding_strategy(mesh: torch.distributed.tensor.device_mesh.DeviceMe
     mat1_strategy, mat2_strategy, *self_strategy = op_schema.args_schema
     if self_strategy == []:
         self_strategy = None
-    if self_strategy is not None:
-        assert isinstance(*self_strategy, OpStrategy)
-    assert isinstance(mat1_strategy, OpStrategy)
-    assert isinstance(mat2_strategy, OpStrategy)
+    if self_strategy is not None and not isinstance(*self_strategy, OpStrategy):
+        raise AssertionError("Not an OpStrategy instance")
+    if not isinstance(mat1_strategy, OpStrategy):
+        raise AssertionError("Not an OpStrategy instance")
+    if not isinstance(mat2_strategy, OpStrategy):
+        raise AssertionError("Not an OpStrategy instance")
     # We support only a restricted number of sharding strategies as of now for linear on HPU
     is_mat1_placement_replicate_or_shard0 = mat1_strategy.strategies[0].output_specs.placements[
         0

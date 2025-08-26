@@ -84,7 +84,8 @@ def replace_pattern_quant_dequant_softmax(graph_module: torch.fx.GraphModule):
             replacement_count += 1
 
     if not graph_changed:
-        assert nodes_to_remove == []
+        if not nodes_to_remove == []:
+            raise AssertionError("Nodes left to remove")
         return
 
     global nodes_replaced
@@ -287,7 +288,8 @@ def replace_pattern_quant_dequant_bmm(module: torch.fx.GraphModule):
                 number_of_bmm_replacements_done += 1
 
     if not graph_changed:
-        assert nodes_to_remove == []
+        if not nodes_to_remove == []:
+            raise AssertionError("Nodes left to remove")
         return
 
     global nodes_replaced
@@ -485,7 +487,8 @@ def replace_pattern_view_mm_view(graph_module: torch.fx.GraphModule):
                 replacement_count += 1
 
     if not graph_changed:
-        assert nodes_to_remove == []
+        if not nodes_to_remove == []:
+            raise AssertionError("Nodes left to remove")
         return
 
     global nodes_replaced

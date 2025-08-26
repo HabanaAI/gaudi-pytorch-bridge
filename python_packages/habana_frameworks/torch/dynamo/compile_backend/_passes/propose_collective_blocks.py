@@ -25,8 +25,10 @@ def pass_propose_collective_blocks(ctx: OptimizerContext) -> bool:
     This is to ensure maximum number of collective will be merged, while preventing
     pass_fuse_collectives to merge collective ops that have dependencies to one another.
     """
-    assert ctx.stage == OptimizationPassPlacement.PRE_PLACEMENT
-    assert ctx.graph_module is not None
+    if not ctx.stage == OptimizationPassPlacement.PRE_PLACEMENT:
+        raise AssertionError("Incorrect stage")
+    if ctx.graph_module is None:
+        raise AssertionError("Missing graph module")
 
     if not config._fuse_ddp_communication:
         return False

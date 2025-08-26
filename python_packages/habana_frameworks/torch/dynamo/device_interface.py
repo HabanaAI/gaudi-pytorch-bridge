@@ -156,7 +156,8 @@ class HpuInterface(DeviceInterface):
             if device is not None:
                 if isinstance(device, str):
                     device = torch.device(device)
-                    assert device.type == "hpu"
+                    if device.type != "hpu":
+                        raise AssertionError("Incorrect device")
                 if isinstance(device, torch.device):
                     device = device.index
             if device is None:

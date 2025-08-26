@@ -74,7 +74,9 @@ def hpu_freezing_compiler_inner(
     This function will be called for each input FX graph. This will only process
     inference graphs where we run inference specific passes and parameter freezing.
     """
-    assert not is_training and not is_backward
+
+    if is_training or is_backward:
+        raise AssertionError("Incorrect mode")
 
     graph_module = copy_graph_if_backward(graph_module_org, is_backward)
 
@@ -95,7 +97,8 @@ def hpu_freezing_compiler_inner(
     if tracing_context := torch._guards.TracingContext.try_get():
         fw_metadata = tracing_context.fw_metadata
         params_flat = tracing_context.params_flat
-        assert fw_metadata is not None and params_flat is not None
+        if fw_metadata is None or params_flat is None:
+            raise AssertionError("Incorrect metadata or params")
         for i in range(len(params_flat)):
             if i not in non_param_input_ids:
                 params_flat[i] = None

@@ -775,11 +775,11 @@ def euclidean_dist(x1, x2):
 def split(self, split_size, dim=0):
     if dim < 0:
         dim += self.dim()
-    assert dim < self.dim() and dim >= 0, " given dimension value is out of range"
+    if not dim < self.dim() and dim >= 0:
+        raise AssertionError("Given dimension value is out of range")
     cur_size = self.size(dim)
-    assert type(split_size) is int or type(split_size) is list or type(split_size) is torch.SymInt, (
-        "split_size_or_sections is not a int value or list"
-    )
+    if not (type(split_size) is int or type(split_size) is list or type(split_size) is torch.SymInt):
+        raise AssertionError("Split_size_or_sections is not a int value or list")
     # create a new list based on split_size(int)
     if type(split_size) is not list:
         split_size = [split_size] * (cur_size // split_size)

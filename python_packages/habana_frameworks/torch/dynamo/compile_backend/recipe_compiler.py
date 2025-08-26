@@ -83,7 +83,8 @@ def get_input_symbolic(graph_module, inputs):
                 # expr.xreplace replaces the symbolic variables with their current values and computes the expression.
                 var_range = shape_env.var_to_range.get(expr, None) or shape_env.bound_sympy(expr)
                 var_val = shape_env.var_to_val.get(expr, None) or expr.xreplace(shape_env.var_to_val)
-                assert var_range, var_val
+                if not var_range:
+                    raise AssertionError(var_val)
                 # if range upper value is greater than MAX_UPPER_SIZE
                 # then allocate min as current val and max as 2*curr val
                 # so that in backend can create dynamic recipe in 1 shot
@@ -166,7 +167,8 @@ def get_input_symbolic(graph_module, inputs):
                         f"WARN: Input {input_node.name} does not contain metadata.  Filling {shape} as min max. Please ensure you have exported the graph correctly"
                     )
                 input_idx = input_idx + 1
-    assert len(inputs) == len(min_max_shapes)
+    if not len(inputs) == len(min_max_shapes):
+        raise AssertionError("Inputs and shapes don't match")
 
     return min_max_shapes, mark_dynamic
 
@@ -475,7 +477,8 @@ def get_symbolic_metadata(graph_module, outputs_metadata):
                         (),
                     )
                 else:
-                    assert sz_sympy.free_symbols is not None
+                    if sz_sympy.free_symbols is None:
+                        raise AssertionError("Missing free symbols")
                     symbolic_meta[sz_str] = (
                         sys.maxsize,
                         sys.maxsize,
@@ -483,7 +486,8 @@ def get_symbolic_metadata(graph_module, outputs_metadata):
                     )
                     for sym in sz_sympy.free_symbols:
                         sym_str = pexpr(sym)
-                        assert sym_str in input_symbolic_dict
+                        if sym_str not in input_symbolic_dict:
+                            raise AssertionError("Missing symbol string")
                         symbolic_meta[sym_str] = (
                             input_symbolic_dict[sym_str][0],
                             input_symbolic_dict[sym_str][1],
@@ -501,7 +505,8 @@ def get_outputs_metadata(graph_module):
     for node in graph_module.graph.nodes:
         if node.op == "output":
             for i in node.all_input_nodes:
-                assert len(i.meta["output_shapes"]) == len(i.meta["output_dtypes"])
+                if not len(i.meta["output_shapes"]) == len(i.meta["output_dtypes"]):
+                    raise AssertionError("Shapes and dtypes don't match")
                 for shape, dtype, strides in zip(
                     i.meta["output_shapes"],
                     i.meta["output_dtypes"],
@@ -531,7 +536,8 @@ def get_outputs_metadata_dynamic(graph_module):
     for node in graph_module.graph.nodes:
         if node.op == "output":
             for i in node.all_input_nodes:
-                assert len(i.meta["output_shapes"]) == len(i.meta["output_dtypes"])
+                if not len(i.meta["output_shapes"]) == len(i.meta["output_dtypes"]):
+                    raise AssertionError("Shapes don't match dtypes")
                 for shape, dtype, strides in zip(
                     i.meta["output_shapes"],
                     i.meta["output_dtypes"],
