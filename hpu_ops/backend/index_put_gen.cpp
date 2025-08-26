@@ -217,9 +217,8 @@ static synapse_helpers::tensor HandleIndexPutWithAcc(
   // red_output_shape.erase(red_output_shape.cbegin()+red_dim);
   red_output_shape[static_cast<size_t>(red_dim)] = 1;
   ns_Reduction::Params red_params{};
-  red_params.reductionDimension =
-      static_cast<unsigned int>(get_dim_in_tpc_order(
-          red_dim /*dim*/, static_cast<int64_t>(red_output_shape.size())));
+  red_params.reductionDimension = get_dim_in_tpc_order(
+      red_dim /*dim*/, static_cast<int64_t>(red_output_shape.size()));
 
   // reduce_sum_fwd_i64 causes perf drop compared to reduce_sum_fwd_i32
   auto reduce_sum_type = ((indices_scalar_type == c10::ScalarType::Long) &&

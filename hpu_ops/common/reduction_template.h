@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,6 @@
 #pragma once
 #include <ATen/core/ATen_fwd.h>
 #include <ATen/native/ReduceOpsUtils.h>
-#include "habana_helpers/logging.h"
 #include "hpu_ops/op_backend.h"
 
 namespace habana {
@@ -42,19 +41,24 @@ inline bool get_keepdim(
                                    : false;
 }
 
-inline std::pair<unsigned, int>
-getMaskWithBitPosOutInTpcOrderAndBitPosInTpcOrder(int bitPos, int ndims) {
-  int bitPosInTpcOrder = ndims - 1 - bitPos;
-  unsigned fullMask = (1 << ndims) - 1;
+inline std::pair<unsigned, int64_t>
+getMaskWithBitPosOutInTpcOrderAndBitPosInTpcOrder(
+    const size_t bitPos,
+    const size_t ndims) {
+  const auto bitPosInTpcOrder =
+      static_cast<int64_t>(ndims) - 1 - static_cast<int64_t>(bitPos);
+  unsigned fullMask = (1U << ndims) - 1;
 
   unsigned maskBitPosInTpcOrder =
-      (bitPosInTpcOrder >= 0) ? 1 << bitPosInTpcOrder : 0;
+      (bitPosInTpcOrder >= 0) ? 1U << bitPosInTpcOrder : 0;
   unsigned maskedOutBitPos = fullMask & ~maskBitPosInTpcOrder;
 
   return {maskedOutBitPos, bitPosInTpcOrder};
 }
 
-inline unsigned getMaskWithBitPosOutInTpcOrder(int bitPos, int ndims) {
+inline unsigned getMaskWithBitPosOutInTpcOrder(
+    const size_t bitPos,
+    const size_t ndims) {
   return getMaskWithBitPosOutInTpcOrderAndBitPosInTpcOrder(bitPos, ndims).first;
 }
 

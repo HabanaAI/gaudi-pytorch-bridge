@@ -66,7 +66,7 @@ hcclDataType_t getHCCLDataType(at::ScalarType type) {
 
 void getCountDatatype(
     c10::ScalarType scalar_type,
-    int64_t& numel,
+    uint64_t& numel,
     hcclDataType_t& tensor_data_type) {
   switch (scalar_type) {
     case at::kBool:
@@ -485,8 +485,8 @@ void HcclBroadcastOperator::AllocateAndAddSynapseNode(
   HABANA_ASSERT(inputs[1].isScalar(), "Input arg 1 needs to be of scalar type");
   HABANA_ASSERT(inputs[2].isScalar(), "Input arg 2 needs to be of scalar type");
 
-  root_rank_ = inputs.at(1).toInt();
-  comm_id_ = inputs.at(2).toInt();
+  root_rank_ = static_cast<int>(inputs.at(1).toInt());
+  comm_id_ = static_cast<int>(inputs.at(2).toInt());
 
   if (p_context_->pt_inputs_.empty())
     p_context_->pt_inputs_.emplace_back(inputs[0].toTensor());
@@ -526,7 +526,7 @@ void HcclBroadcastOperator::RunCollective(
           std::shared_ptr<HcclCommunicator> comm,
           synStreamHandle stream) {
         auto tensor_data_type = getHCCLDataType(scalar_type);
-        int64_t numel = input->get_numel();
+        auto numel = input->get_numel();
         getCountDatatype(scalar_type, numel, tensor_data_type);
         return hcclBroadcast(
             send_buffer,
@@ -696,7 +696,7 @@ void HcclReduceOperator::RunCollective(
               num_elements_in_current_chunk,
               getHCCLDataType(scalar_type),
               getHCCLReduceOp((RedOpType)reduce_op, scalar_type),
-              dst_rank,
+              static_cast<int>(dst_rank),
               *comm->GetHcclHandle(),
               stream);
           HABANA_ASSERT(
@@ -772,7 +772,7 @@ void HcclAllToAllOutOperator::RunCollective(
             void* recv_buffer,
             std::shared_ptr<HcclCommunicator> comm,
             synStreamHandle stream) {
-          int64_t count = CollectiveOperator::GetNumel(input);
+          auto count = static_cast<size_t>(CollectiveOperator::GetNumel(input));
           auto type = getHCCLDataType(scalar_type);
           getCountDatatype(scalar_type, count, type);
           hcclResult_t hccl_result{hcclSuccess};
@@ -807,9 +807,13 @@ void HcclAllToAllOutOperator::RunCollective(
             void* recv_buffer,
             std::shared_ptr<HcclCommunicator> comm,
             synStreamHandle stream) {
-          int numRanks = comm->GetSize();
-          c10d::checkSplitSizes(inputSplitSizes_, input_t, numRanks);
-          c10d::checkSplitSizes(outputSplitSizes_, output_t, numRanks);
+          const auto numRanks = static_cast<size_t>(comm->GetSize());
+          HABANA_ASSERT(
+              numRanks <= std::numeric_limits<int>::max(),
+              "comm size larger than int max value");
+          const auto numRanks_i = static_cast<int>(numRanks);
+          c10d::checkSplitSizes(inputSplitSizes_, input_t, numRanks_i);
+          c10d::checkSplitSizes(outputSplitSizes_, output_t, numRanks_i);
 
           std::vector<size_t> send_lengths(numRanks);
           std::vector<size_t> recv_lengths(numRanks);
@@ -820,9 +824,9 @@ void HcclAllToAllOutOperator::RunCollective(
           c10d::computeLengthsAndOffsets(
               outputSplitSizes_, output_t, &recv_lengths, &recv_offsets);
 
-          size_t ele_size = input_t.element_size();
+          auto ele_size = static_cast<size_t>(input_t.element_size());
           auto type = getHCCLDataType(scalar_type);
-          int64_t count = input_t.numel();
+          auto count = static_cast<size_t>(input_t.numel());
           getCountDatatype(scalar_type, count, type);
           adjustElementcount_int64(
               scalar_type, send_lengths, recv_lengths, ele_size);
@@ -835,7 +839,7 @@ void HcclAllToAllOutOperator::RunCollective(
                       send_offsets[r] * ele_size,
                   send_lengths[r],
                   type,
-                  r,
+                  static_cast<int>(r),
                   *comm->GetHcclHandle(),
                   stream);
               if (hccl_result != hcclSuccess)
@@ -848,7 +852,7 @@ void HcclAllToAllOutOperator::RunCollective(
                       recv_offsets[r] * ele_size,
                   recv_lengths[r],
                   type,
-                  r,
+                  static_cast<int>(r),
                   *comm->GetHcclHandle(),
                   stream);
               if (hccl_result != hcclSuccess)
@@ -916,7 +920,7 @@ void HcclAllgatherOutOperator::RunCollective(
           std::shared_ptr<HcclCommunicator> comm,
           synStreamHandle stream) {
         auto tensor_data_type = getHCCLDataType(scalar_type);
-        int64_t numel = CollectiveOperator::GetNumel(input);
+        auto numel = static_cast<size_t>(CollectiveOperator::GetNumel(input));
         getCountDatatype(scalar_type, numel, tensor_data_type);
         hcclResult_t hccl_result = hcclAllGather(
             send_buffer,
@@ -1060,7 +1064,7 @@ void HcclSendOperator::RunCollective(
           synStreamHandle stream,
           int peerRank) {
         auto tensor_data_type = getHCCLDataType(scalar_type);
-        int64_t numel = input->get_numel();
+        auto numel = input->get_numel();
         getCountDatatype(scalar_type, numel, tensor_data_type);
         return hcclSend(
             send_buff,
@@ -1070,7 +1074,7 @@ void HcclSendOperator::RunCollective(
             *comm->GetHcclHandle(),
             stream);
       },
-      dst_rank_);
+      static_cast<int>(dst_rank_));
 }
 
 void HcclRecvOperator::AllocateAndAddSynapseNode(
@@ -1125,7 +1129,7 @@ void HcclRecvOperator::RunCollective(
           synStreamHandle stream,
           int peerRank) {
         auto tensor_data_type = getHCCLDataType(scalar_type);
-        int64_t numel = input->get_numel();
+        auto numel = input->get_numel();
         getCountDatatype(scalar_type, numel, tensor_data_type);
         return hcclRecv(
             recv_buff,
@@ -1135,7 +1139,7 @@ void HcclRecvOperator::RunCollective(
             *comm->GetHcclHandle(),
             stream);
       },
-      src_rank_);
+      static_cast<int>(src_rank_));
 }
 } // namespace habana
 

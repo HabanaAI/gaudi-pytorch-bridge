@@ -12,19 +12,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "habana_kernels/norm_kernels.h"
 #include <ATen/ExpandUtils.h>
 #include <perf_lib_layer_params.h>
 #include <torch/script.h>
 #include <memory>
 #include <tuple>
-
 #include "backend/create_pt_tensor.h"
-#include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/helpers/create_tensor.h"
-#include "backend/helpers/graph.h"
 #include "backend/helpers/lowering_util.h"
-#include "backend/helpers/tensor_utils.h"
-#include "backend/kernel/hpu_habana_launch_op_pt.h"
 #include "backend/synapse_helpers/layout_utils.h"
 #include "generated/backend/ne.h"
 #include "habana_helpers/logging.h"
@@ -34,9 +30,7 @@
 #include "habana_kernels/compare_kernels.h"
 #include "habana_kernels/index_kernels.h"
 #include "habana_kernels/kernel_utils.h"
-#include "habana_kernels/norm_kernels.h"
 #include "habana_kernels/reduction_kernels.h"
-#include "habana_kernels/repeat.h"
 #include "habana_kernels/tensor_shape_kernels.h"
 #include "habana_kernels/unary_kernels.h"
 
@@ -89,15 +83,18 @@ std::vector<int64_t> NormOperator::compute_output_shape(
   if (dim.empty())
     return {};
   auto sizes = self.sizes().vec();
-  std::vector<int64_t> wrapped_dims;
+  std::vector<uint64_t> wrapped_dims;
   for (unsigned i = 0; i < dim.size(); i++)
-    wrapped_dims.emplace_back(at::maybe_wrap_dim(dim[i], self.dim()));
+    wrapped_dims.emplace_back(
+        static_cast<uint64_t>(at::maybe_wrap_dim(dim[i], self.dim())));
   unsigned removed_count = 0;
   for (unsigned i = 0; i < wrapped_dims.size(); i++) {
     if (keepdim) {
       sizes[wrapped_dims[i]] = 1;
     } else {
-      sizes.erase(sizes.cbegin() + wrapped_dims[i] - removed_count);
+      sizes.erase(
+          sizes.cbegin() + static_cast<int64_t>(wrapped_dims[i]) -
+          removed_count);
       removed_count++;
     }
   }
@@ -401,8 +398,11 @@ void LpNormOperator::AllocateAndAddSynapseNode(
 
   ns_LpNormKernel::Params params{};
   params.p = p.to<float>();
-  params.dim = self.dim() - dim - 1;
-  params.eps = 1e-5; // arbitrarily small value
+  HABANA_ASSERT(
+      self.dim() - dim - 1 <= std::numeric_limits<int>::max(),
+      "Dim outside of int range");
+  params.dim = static_cast<int>(self.dim() - dim - 1);
+  params.eps = 1e-5F; // arbitrarily small value
   std::vector<at::Tensor> outputs{lpnorm_output, retain};
   AllocateSynapseOutputs(graph, outputs, OutputMetaDataVector(2));
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
@@ -470,7 +470,7 @@ std::shared_ptr<SliceOperator> FusedNormOperator::compute_clip_coeff(
   auto gradients = inputs[0].toTensorList();
   auto max_grad_norm = inputs[1].toTensor();
   auto norm_type = inputs[2].toScalar();
-  float eps = 1e-6;
+  float eps = 1e-6F;
   auto device_id = gradients.get(0).device().index();
   auto scalar_type = gradients.get(0).scalar_type();
   auto num_params = static_cast<unsigned int>(gradients.size());
@@ -760,20 +760,44 @@ void BatchNormForwardOperator::preProcessInputs(
 
   if (training) {
     wt_hpu = create_or_return_tensor_bn(
-        graph, weight, input.sizes()[channel_dim], device, (uint)1);
+        graph,
+        weight,
+        static_cast<uint>(input.sizes()[channel_dim]),
+        device,
+        (uint)1);
     bias_hpu = create_or_return_tensor_bn(
-        graph, bias, input.sizes()[channel_dim], device, (uint)2);
+        graph,
+        bias,
+        static_cast<uint>(input.sizes()[channel_dim]),
+        device,
+        (uint)2);
   } else {
     bias_hpu = create_or_return_tensor_bn(
-        graph, bias, input.sizes()[channel_dim], device, (uint)1);
+        graph,
+        bias,
+        static_cast<uint>(input.sizes()[channel_dim]),
+        device,
+        (uint)1);
     wt_hpu = create_or_return_tensor_bn(
-        graph, weight, input.sizes()[channel_dim], device, (uint)2);
+        graph,
+        weight,
+        static_cast<uint>(input.sizes()[channel_dim]),
+        device,
+        (uint)2);
   }
 
   Tensor running_mean_hpu = create_or_return_tensor_bn(
-      graph, running_mean, input.sizes()[channel_dim], device, (uint)3);
+      graph,
+      running_mean,
+      static_cast<uint>(input.sizes()[channel_dim]),
+      device,
+      (uint)3);
   Tensor running_var_hpu = create_or_return_tensor_bn(
-      graph, running_var, input.sizes()[channel_dim], device, (uint)4);
+      graph,
+      running_var,
+      static_cast<uint>(input.sizes()[channel_dim]),
+      device,
+      (uint)4);
 
   pre_inputs = {
       std::move(input),
@@ -878,7 +902,7 @@ void BatchNormBackwardOperator::create_opt_input_tensor_bn_bwd(
     const Tensor& input,
     uint size,
     Device device,
-    int pos) {
+    const size_t pos) {
   Tensor ret_tensor;
   if (!input.defined()) {
     ret_tensor = at::empty({size}, device);
@@ -921,11 +945,11 @@ void BatchNormBackwardOperator::preProcessInputs(
   auto channel_dim = synapse_helpers::layouts::INPUT_C_IDX;
 
   create_opt_input_tensor_bn_bwd(
-      graph, mean, input.sizes()[channel_dim], device, 2);
+      graph, mean, static_cast<uint>(input.sizes()[channel_dim]), device, 2);
   create_opt_input_tensor_bn_bwd(
-      graph, invstd, input.sizes()[channel_dim], device, 3);
+      graph, invstd, static_cast<uint>(input.sizes()[channel_dim]), device, 3);
   create_opt_input_tensor_bn_bwd(
-      graph, weight, input.sizes()[channel_dim], device, 4);
+      graph, weight, static_cast<uint>(input.sizes()[channel_dim]), device, 4);
 
   SetProprocessingDone();
 }

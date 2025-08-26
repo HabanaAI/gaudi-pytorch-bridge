@@ -101,11 +101,13 @@ void scheduleAccTaskTuple(T&& lazy_op, TupleType& tuple) {
   });
 }
 
-inline at::Tensor& stack_tensor(at::Stack& stack, int index) {
+inline at::Tensor& stack_tensor(at::Stack& stack, const size_t index) {
   return stack.at(index).toTensor();
 }
 
-inline const at::Tensor& stack_tensor(const at::Stack& stack, int index) {
+inline const at::Tensor& stack_tensor(
+    const at::Stack& stack,
+    const size_t index) {
   return stack.at(index).toTensor();
 }
 
@@ -182,9 +184,12 @@ inline std::string& update_div_guid_with_precise(
   return guid;
 }
 
-inline int get_dim_in_tpc_order(int64_t dim_, int64_t max_dims) {
+inline unsigned int get_dim_in_tpc_order(
+    const int64_t dim_,
+    const int64_t max_dims) {
   auto dim = at::maybe_wrap_dim(dim_, max_dims, /*wrap_scalar=*/true);
-  return std::max(static_cast<int>(max_dims - dim - 1), 0);
+  return static_cast<unsigned int>(
+      std::max(max_dims - dim - 1, static_cast<int64_t>(0)));
 }
 
 std::vector<at::Tensor> GetMetaTensorList(
@@ -204,14 +209,14 @@ inline float& get<float>(fint_t& u) {
   return u.f;
 }
 
-template <int type_promotion_kind, bool broadcast, int... indices>
+template <int type_promotion_kind, bool broadcast, size_t... indices>
 OutputMetaDataVector PointwiseMeta(const at::Stack& stack) {
   OutputMetaData meta{};
   at::Stack inputs;
   inputs.reserve(sizeof...(indices));
 
   bool first = true;
-  for (int i : {indices...}) {
+  for (auto i : {indices...}) {
     inputs.emplace_back(stack[i]);
     if (stack[i].isTensor()) {
       if (first) {

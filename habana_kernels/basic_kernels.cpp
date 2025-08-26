@@ -638,8 +638,7 @@ void SliceInsertOperator::ComputeParams(
     int64_t step = paramsList[i * 4 + 3];
     size_t wrapped_dim{};
     FixSliceParams(self, dim, start, end, step, wrapped_dim);
-    params.axes[i] =
-        static_cast<unsigned>(get_dim_in_tpc_order(dim, self.dim()));
+    params.axes[i] = get_dim_in_tpc_order(dim, self.dim());
     params.starts[i] = static_cast<unsigned long>(start);
     params.ends[i] = static_cast<unsigned long>(end);
     params.steps[i] = static_cast<unsigned long>(step);

@@ -12,21 +12,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "habana_kernels/topk_kernels.h"
 #include <ATen/WrapDimUtils.h>
 #include <perf_lib_layer_params.h>
 #include <torch/script.h>
-
 #include "backend/create_pt_tensor.h"
-#include "backend/habana_device/hpu_cached_devices.h"
-#include "backend/helpers/tensor_utils.h"
-#include "backend/synapse_helpers/recipe.h"
 #include "habana_helpers/logging.h"
-#include "habana_kernels/index_kernels.h"
-#include "habana_kernels/kernel_utils.h"
-#include "habana_kernels/repeat.h"
 #include "habana_kernels/resize.h"
-#include "habana_kernels/tensor_shape_kernels.h"
-#include "habana_kernels/topk_kernels.h"
 #include "hpu_ops/hpu_op_helper.h"
 
 using namespace torch;
@@ -45,7 +37,7 @@ inline void _allocate_or_resize_output_with_indices(
     bool indices_persistent) {
   auto result_sizes = self.sizes().vec();
   if (!result_sizes.empty()) {
-    result_sizes[dim] = k;
+    result_sizes[static_cast<size_t>(dim)] = k;
   }
   if (values.defined()) {
     HABANA_ASSERT(
@@ -78,10 +70,17 @@ inline void _allocate_or_resize_output_with_indices(
         "output indices must be on same device as input");
     auto tht_indices = indices.unsafeGetTensorImpl();
     if (indices.numel() || indices_persistent)
-      THHTensor_resizeNd(tht_indices, self.dim(), result_sizes.data(), nullptr);
+      THHTensor_resizeNd(
+          tht_indices,
+          static_cast<size_t>(self.dim()),
+          result_sizes.data(),
+          nullptr);
     else {
       THHTensor_resizeNd_nonpersistent(
-          tht_indices, self.dim(), result_sizes.data(), nullptr);
+          tht_indices,
+          static_cast<size_t>(self.dim()),
+          result_sizes.data(),
+          nullptr);
     }
   } else {
     indices =
@@ -95,8 +94,8 @@ InferOutputMetaRetType TopkOutOperator::InferOutputMeta(
   InferOutputMetaRetType out;
 
   auto self = inputs[0].toTensor();
-  int64_t dim_ = inputs[2].toInt();
-  int64_t dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
+  const auto dim = static_cast<size_t>(
+      at::maybe_wrap_dim(inputs[2].toInt(), self.dim(), /*wrap_scalar=*/true));
   auto values = inputs[5].toTensor();
   auto indices = inputs[6].toTensor();
 
@@ -158,8 +157,8 @@ void TopkOutOperator::AllocateAndAddSynapseNode(
       "TopkOutOperator: #output_metadata should be 2");
 
   auto self = inputs[0].toTensor();
-  int64_t dim_ = inputs[2].toInt();
-  int64_t dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
+  const auto dim =
+      at::maybe_wrap_dim(inputs[2].toInt(), self.dim(), /*wrap_scalar=*/true);
   auto values = inputs[5].toTensor();
   auto indices = inputs[6].toTensor();
 
@@ -219,6 +218,10 @@ void TopkOutOperator::AllocateAndAddSynapseNode(
       output_metadata.at(0).persistent,
       output_metadata.at(1).persistent);
 
+  HABANA_ASSERT(
+      k <= std::numeric_limits<unsigned int>::max(),
+      "Too large k for unsigned type.");
+
   std::vector<at::Tensor> outputs{values, indices};
   AllocateSynapseOutputs(graph, outputs, output_metadata);
 
@@ -236,7 +239,7 @@ void TopkOutOperator::AllocateAndAddSynapseNode(
     if (graph.is_dynamic_graph()) {
       params.kType = K_TENSOR_SHAPE;
     } else {
-      params.bsw = k;
+      params.bsw = static_cast<unsigned int>(k);
       params.kType = K_TENSOR_NONE;
     }
 
@@ -254,7 +257,7 @@ void TopkOutOperator::AllocateAndAddSynapseNode(
         getContextHints());
   } else {
     synBeamParams params;
-    params.bsw = k;
+    params.bsw = static_cast<unsigned int>(k);
     params.axis = get_dim_in_tpc_order(dim, self.dim());
     params.bottomK = !largest;
 

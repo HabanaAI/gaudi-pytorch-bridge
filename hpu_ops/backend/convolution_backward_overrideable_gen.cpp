@@ -15,8 +15,8 @@
 #include "backend/helpers/lowering_util.h"
 #include "backend/synapse_helpers/layout_utils.h"
 #include "generated/backend/convolution_backward_overrideable.h"
-#include "hpu_ops/backend/reduction_template.h"
 #include "hpu_ops/common/convolution_gen.h"
+#include "hpu_ops/common/reduction_template.h"
 
 using namespace synapse_helpers::layouts;
 
@@ -30,9 +30,9 @@ static synapse_helpers::tensor ComputeBiasGradEager(
     at::Tensor& grad_output,
     std::vector<synTensor>&& syn_grad_output,
     synapse_helpers::tensor& ten_output) {
-  int channel_dim = is_conv_3d ? INPUT_3D_C_IDX : INPUT_C_IDX;
+  size_t channel_dim = is_conv_3d ? INPUT_3D_C_IDX : INPUT_C_IDX;
 
-  int ndims = grad_output.ndimension();
+  const auto ndims = static_cast<size_t>(grad_output.ndimension());
   auto [maskWithoutChannelDim, bitPosChannelDimInTpcOrder] =
       getMaskWithBitPosOutInTpcOrderAndBitPosInTpcOrder(channel_dim, ndims);
 
@@ -75,11 +75,11 @@ static synapse_helpers::tensor ComputeBiasGradGraph(
     at::Tensor& grad_output,
     std::vector<synTensor>&& syn_grad_output,
     synapse_helpers::tensor& ten_output) {
-  int channel_dim = is_conv_3d ? INPUT_3D_C_IDX : INPUT_C_IDX;
+  size_t channel_dim = is_conv_3d ? INPUT_3D_C_IDX : INPUT_C_IDX;
 
   std::vector<int64_t> dim_to_reduce;
   for (int64_t i = 0; i < grad_output.ndimension(); ++i) {
-    if (i != channel_dim) // skip C dimension
+    if (i != static_cast<int64_t>(channel_dim)) // skip C dimension
       dim_to_reduce.push_back(i);
   }
 
@@ -118,9 +118,10 @@ static synapse_helpers::tensor ComputeBiasGradGraph(
     std::vector<int64_t> pyt_shape = grad_output.sizes().vec();
     for (size_t i = 0, j = 0; i < dim_to_reduce.size(); ++i, ++j) {
       ns_Reduction::Params params{};
-      params.reductionDimension = grad_output.dim() - dim_to_reduce[j] - 1;
+      params.reductionDimension =
+          static_cast<unsigned>(grad_output.dim() - dim_to_reduce[j] - 1);
 
-      pyt_shape[dim_to_reduce[i]] = 1;
+      pyt_shape[static_cast<size_t>(dim_to_reduce[i])] = 1;
       c10::IntArrayRef shape_red(pyt_shape.data(), pyt_shape.size());
 
       std::vector<synTensor> syn_tmp_in = (i == 0)
@@ -155,17 +156,29 @@ static FillParamsT SynapseConvParamsBuilder(
     int64_t groups) {
   PARAMS_STUB(synConvolutionParams);
 
-  params->dH = stride[0];
-  params->dW = stride[1];
-  params->kH = weight[WEIGHT_KERNEL_R_IDX];
-  params->kW = weight[WEIGHT_KERNEL_S_IDX];
-  params->dilH = dilation[0];
-  params->dilW = dilation[1];
-  params->setPadT(padding[0]);
-  params->setPadB(padding[0]);
-  params->setPadL(padding[1]);
-  params->setPadR(padding[1]);
-  params->nGroups = groups;
+  check_range<unsigned int>(0, 1, stride);
+  params->dH = static_cast<unsigned int>(stride[0]);
+  params->dW = static_cast<unsigned int>(stride[1]);
+
+  check_range<unsigned int>(WEIGHT_KERNEL_R_IDX, WEIGHT_KERNEL_R_IDX, weight);
+  check_range<unsigned int>(WEIGHT_KERNEL_S_IDX, WEIGHT_KERNEL_S_IDX, weight);
+  params->kH = static_cast<unsigned int>(weight[WEIGHT_KERNEL_R_IDX]);
+  params->kW = static_cast<unsigned int>(weight[WEIGHT_KERNEL_S_IDX]);
+
+  check_range<unsigned int>(0, 1, dilation);
+  params->dilH = static_cast<unsigned int>(dilation[0]);
+  params->dilW = static_cast<unsigned int>(dilation[1]);
+
+  params->setPadT(static_cast<int>(padding[0]));
+  params->setPadB(static_cast<int>(padding[0]));
+  params->setPadL(static_cast<int>(padding[1]));
+  params->setPadR(static_cast<int>(padding[1]));
+
+  HABANA_ASSERT(
+      groups >= 0 && groups <= std::numeric_limits<unsigned int>::max(),
+      "groups out of valid range: ",
+      groups);
+  params->nGroups = static_cast<unsigned int>(groups);
 
   return paramsT;
 }
@@ -192,22 +205,37 @@ static FillParamsT SynapseConv3dParamsBuilder(
 
   PARAMS_STUB(synConvolution3DParams);
 
-  params->kernel[CONV_KERNEL_WIDTH] = filter_W;
-  params->kernel[CONV_KERNEL_HEIGHT] = filter_H;
-  params->kernel[CONV_KERNEL_DEPTH] = filter_D;
-  params->stride[CONV_STRIDE_WIDTH] = stride_W;
-  params->stride[CONV_STRIDE_HEIGHT] = stride_H;
-  params->stride[CONV_STRIDE_DEPTH] = stride_D;
-  params->dilation[CONV_DIL_WIDTH] = dilation_W;
-  params->dilation[CONV_DIL_HEIGHT] = dilation_H;
-  params->dilation[CONV_DIL_DEPTH] = dilation_D;
-  params->padding[CONV_PAD_LEFT] = padding[w_axis];
-  params->padding[CONV_PAD_RIGHT] = padding[w_axis];
-  params->padding[CONV_PAD_TOP] = padding[h_axis];
-  params->padding[CONV_PAD_BOTTOM] = padding[h_axis];
-  params->padding[CONV_PAD_FRONT] = padding[d_axis];
-  params->padding[CONV_PAD_BACK] = padding[d_axis];
-  params->nGroups = groups;
+  check_range<unsigned int>(
+      WEIGHT_KERNEL_3D_Q_IDX, WEIGHT_KERNEL_3D_Q_IDX, weight);
+  check_range<unsigned int>(
+      WEIGHT_KERNEL_3D_R_IDX, WEIGHT_KERNEL_3D_R_IDX, weight);
+  check_range<unsigned int>(
+      WEIGHT_KERNEL_3D_S_IDX, WEIGHT_KERNEL_3D_S_IDX, weight);
+  params->kernel[CONV_KERNEL_WIDTH] = static_cast<unsigned int>(filter_W);
+  params->kernel[CONV_KERNEL_HEIGHT] = static_cast<unsigned int>(filter_H);
+  params->kernel[CONV_KERNEL_DEPTH] = static_cast<unsigned int>(filter_D);
+
+  check_range<unsigned int>(0, 2, stride);
+  params->stride[CONV_STRIDE_WIDTH] = static_cast<unsigned int>(stride_W);
+  params->stride[CONV_STRIDE_HEIGHT] = static_cast<unsigned int>(stride_H);
+  params->stride[CONV_STRIDE_DEPTH] = static_cast<unsigned int>(stride_D);
+
+  check_range<unsigned int>(0, 2, dilation);
+  params->dilation[CONV_DIL_WIDTH] = static_cast<unsigned int>(dilation_W);
+  params->dilation[CONV_DIL_HEIGHT] = static_cast<unsigned int>(dilation_H);
+  params->dilation[CONV_DIL_DEPTH] = static_cast<unsigned int>(dilation_D);
+  params->padding[CONV_PAD_LEFT] = static_cast<int>(padding[w_axis]);
+  params->padding[CONV_PAD_RIGHT] = static_cast<int>(padding[w_axis]);
+  params->padding[CONV_PAD_TOP] = static_cast<int>(padding[h_axis]);
+  params->padding[CONV_PAD_BOTTOM] = static_cast<int>(padding[h_axis]);
+  params->padding[CONV_PAD_FRONT] = static_cast<int>(padding[d_axis]);
+  params->padding[CONV_PAD_BACK] = static_cast<int>(padding[d_axis]);
+
+  HABANA_ASSERT(
+      groups >= 0 && groups <= std::numeric_limits<unsigned int>::max(),
+      "groups out of valid range: ",
+      groups);
+  params->nGroups = static_cast<unsigned int>(groups);
 
   return paramsT;
 }
@@ -238,7 +266,7 @@ static FillParamsT FillConvolutionBackwardOverrideableParams(
 static OutputMetaData CreateMetaData(
     const at::Tensor& input,
     const c10::List<bool>& output_mask_in,
-    const int index) {
+    const size_t index) {
   OutputMetaData meta;
 
   meta.shape = input.sizes().vec();
@@ -287,7 +315,7 @@ SharedMetaDataVector ConvolutionBwdCommonSharedMeta(
   auto inputDtype = input.scalar_type();
   auto weightDtype = weight.scalar_type();
 
-  const int index_shift = guid == "convolution_backward" ? 1 : 0;
+  const size_t index_shift = guid == "convolution_backward" ? 1 : 0;
   const bool transposed = stack[6 + index_shift].toBool();
   const auto output_mask_in = stack[9 + index_shift].toBoolList();
 
@@ -453,7 +481,7 @@ void ConvolutionBackwardOverrideable::AddNode(
   //
   // Since it's not needed, it's just being ignored below, by shifting the rest
   // of inputs' indices.
-  const int index_shift =
+  const size_t index_shift =
       GetGuid().find("convolution_backward") != std::string::npos ? 1 : 0;
   const auto stride = stack[3 + index_shift].toIntList().vec();
   const auto padding = stack[4 + index_shift].toIntList().vec();
@@ -475,7 +503,12 @@ void ConvolutionBackwardOverrideable::AddNode(
   }
 
   const auto& params = FillConvolutionBackwardOverrideableParams(
-      input.dim(), weight.sizes().vec(), stride, padding, dilation, groups);
+      static_cast<size_t>(input.dim()),
+      weight.sizes().vec(),
+      stride,
+      padding,
+      dilation,
+      groups);
   // In case of dynamic graph and dry run check if the input and output sizes
   // are valid fix for SW-94417
   if (graph.is_dynamic_graph() && graph.is_dry_run()) {

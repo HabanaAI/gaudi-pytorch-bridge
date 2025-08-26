@@ -26,10 +26,10 @@ const auto MB = 1024 * 1024.;
 const auto GB = 1024 * MB;
 
 namespace {
-int64_t compute_size(const HbLazyTensor& tensor) {
-  int64_t size = 1;
+size_t compute_size(const HbLazyTensor& tensor) {
+  size_t size = 1;
   for (const auto& i : tensor.GetSizes()) {
-    size *= i;
+    size *= static_cast<size_t>(i);
   }
 
   return size * c10::scalarTypeToTypeMeta(tensor.dtype()).itemsize();
@@ -109,7 +109,7 @@ void log_dev_mem_stats(
     ss << " [" << name << "]";
   }
   if (size > 0) {
-    ss << ", size " << size / GB << "gb";
+    ss << ", size " << static_cast<double>(size) / GB << "gb";
   }
 
   auto& device = habana::HPUDeviceContext::get_device();
@@ -125,15 +125,18 @@ void log_dev_mem_stats(
     auto persistent = (int64_t)used - (int64_t)ws;
     auto max_cntgs_chunk = device_memory.get_max_cntgs_chunk_size();
 
-    ss << ": used " << used / GB << "gb, workspace " << ws / GB
-       << "gb, persistent " << persistent / GB << "gb, max cntgs chunk "
-       << max_cntgs_chunk / GB << "gb";
+    ss << ": used " << static_cast<double>(used) / GB << "gb, workspace "
+       << static_cast<double>(ws) / GB << "gb, persistent "
+       << static_cast<double>(persistent) / GB << "gb, max cntgs chunk "
+       << static_cast<double>(max_cntgs_chunk) / GB << "gb";
 
     auto future = get_future_memory();
-    ss << " future " << future.first / GB << "gb (" << future.second << ")";
+    ss << " future " << static_cast<double>(future.first) / GB << "gb ("
+       << future.second << ")";
   }
 
-  ss << ", last workspace " << device.get_real_workspace_size() / GB << "gb";
+  ss << ", last workspace "
+     << static_cast<double>(device.get_real_workspace_size()) / GB << "gb";
 
   PT_MEMLOG_DEBUG(ss.str());
 }

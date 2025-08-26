@@ -16,17 +16,10 @@
 #include "recalculate_batchnorm_params.h"
 #include <torch/script.h>
 #include <cmath>
-#include <iterator>
-
-#include "backend/habana_device/hpu_cached_devices.h"
+#include "backend/habana_device/HPUDevice.h"
 #include "backend/helpers/get_n_bytes.h"
-#include "backend/kernel/hpu_habana_launch_op_pt.h"
-#include "backend/synapse_helpers/env_flags.h"
 #include "habana_helpers/logging.h"
-#include "habana_lazy/aten_lazy_bridge.h"
-#include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/lazy_executor.h"
-#include "pass_utils.h"
 #include "pytorch_helpers/habana_helpers/logging.h"
 
 namespace {
@@ -41,7 +34,7 @@ size_t getValuePosInStack(
     }
     idx++;
   }
-  return -1;
+  return std::numeric_limits<size_t>::max();
 }
 } // namespace
 
@@ -57,13 +50,15 @@ GetBackEndTensorMeta(
   habana::StorageExtraMeta* smeta_ptr{nullptr};
 
   if (idx != -1) {
-    if (node->input(idx)->type() == torch::jit::NoneType::get()) {
+    HABANA_ASSERT(idx >= 0, "Index has to be -1 or greater equal 0");
+    const auto uidx = static_cast<size_t>(idx);
+    if (node->input(uidx)->type() == torch::jit::NoneType::get()) {
       return std::tie(tmeta_ptr, smeta_ptr);
     }
 
-    auto value = node->input(idx);
-    auto index = (int32_t)getValuePosInStack(graph, value);
-    if ((index >= 0) && (index < (int32_t)stack.size())) {
+    const auto* value = node->input(uidx);
+    const auto index = getValuePosInStack(graph, value);
+    if (index < stack.size()) {
       if (stack[index].isTensor()) {
         auto tensor = stack[index].toTensor();
         if (tensor.has_storage()) {
@@ -74,8 +69,11 @@ GetBackEndTensorMeta(
       }
     }
   } else {
-    auto value = node->input(0);
-    auto index = (int32_t)getValuePosInStack(graph, value);
+    const auto* value = node->input(0);
+    const auto index = getValuePosInStack(graph, value);
+    HABANA_ASSERT(
+        index != std::numeric_limits<size_t>::max(),
+        "Value not found in stack");
     if (stack[index].isTensor()) {
       auto tensor = stack[index].toTensor();
       if (tensor.has_storage()) {
@@ -104,12 +102,12 @@ bool recomputeBatchnormParams(
 
   // std::cout << "[recomputeBatchnormParams]" << std::endl << std::flush;
 
-  int co = sizes.at(0);
+  const auto co = static_cast<size_t>(sizes.at(0));
   // std::cout << "co size: " << co << std::endl << std::flush;
 
   auto& device = habana::HPUDeviceContext::get_device();
   auto device_id = device.id();
-  auto bytes = co * sizeof(float);
+  const auto bytes = co * sizeof(float);
 
   void* host_ptr{nullptr};
   auto status = synHostMalloc(device_id, bytes * 2, 0, &host_ptr);
@@ -119,14 +117,14 @@ bool recomputeBatchnormParams(
   HABANA_ASSERT(
       status == synStatus::synSuccess, Logger::synStatusToStr(status));
   auto* s = (double*)host_ptr;
-  for (auto i = 0; i < co; i++) {
+  for (size_t i = 0; i < co; i++) {
     s[i] = (1.0 / sqrt((double)v[i] + bn_eps));
     // std::cout << "s[" << i << "] = " << s[i] << std::endl << std::flush;
   }
 
   // Weight calculation [G' = G/s = new Gamma]
   // std::cout << "[Weight calculation] " << std::endl << std::flush;
-  for (auto i = 0; i < co; i++) {
+  for (size_t i = 0; i < co; i++) {
     // std::cout << "w[" << i << "] = " << w[i] << "-->";
     auto t = s[i] * (double)w[i];
     w[i] = (float)t;
@@ -135,7 +133,7 @@ bool recomputeBatchnormParams(
 
   // Bias calculation [B' = B - m.G' = B - m.G/s = new Beta]
   // std::cout << "[Bias calculation] " << std::endl << std::flush;
-  for (auto i = 0; i < co; i++) {
+  for (size_t i = 0; i < co; i++) {
     // std::cout << "b[" << i << "] = " << b[i] << "-->";
     b[i] = (float)((double)b[i] - ((double)m[i] * (double)w[i]));
     // std::cout << b[i] << std::endl << std::flush;
@@ -143,7 +141,7 @@ bool recomputeBatchnormParams(
 
   // Set running variance and running mean
   // std::cout << "[RV, RM setting] " << std::endl << std::flush;
-  for (auto i = 0; i < co; i++) {
+  for (size_t i = 0; i < co; i++) {
     v[i] = 1.0;
     m[i] = 0;
     // std::cout << "rv[" << i << "] = " << v[i] << ", " << "rm[" << i << "] = "
@@ -161,19 +159,21 @@ void* GetDataInHostBuffer(
   void* host_ptr{nullptr};
 
   if (idx != -1) {
-    if (node->input(idx)->type() == torch::jit::NoneType::get()) {
+    HABANA_ASSERT(idx >= 0, "Index has to be -1 or greater equal 0");
+    const auto uidx = static_cast<size_t>(idx);
+    if (node->input(uidx)->type() == torch::jit::NoneType::get()) {
       // std::cout << "[GetDataInHostBuffer] [" << idx << "] NoneType" <<
       // std::endl << std::flush;
       return host_ptr;
     }
 
-    auto value = node->input(idx);
-    auto index = (int32_t)getValuePosInStack(graph, value);
+    const auto value = node->input(uidx);
+    const auto index = getValuePosInStack(graph, value);
     // std::cout << "[GetDataInHostBuffer] idx := " << idx << std::endl <<
     // std::flush; std::cout << "[GetDataInHostBuffer] getValuePosInStack := "
     // << index << std::endl << std::flush;
 
-    if ((index >= 0) && (index < (int32_t)stack.size())) {
+    if (index < stack.size()) {
       if (stack[index].isTensor()) {
         // std::cout << "[GetDataInHostBuffer] [" << idx << "] isTensor" <<
         // std::endl << std::flush;
@@ -212,8 +212,9 @@ void* GetDataInHostBuffer(
       }
     }
   } else {
-    auto value = node->input(0);
-    auto index = (int32_t)getValuePosInStack(graph, value);
+    const auto* value = node->input(0);
+    const auto index = getValuePosInStack(graph, value);
+    HABANA_ASSERT(index < stack.size(), "Value does not exist in stack");
     if (stack[index].isTensor()) {
       // std::cout << "[GetDataInHostBuffer] [" << idx << "] isTensor" <<
       // std::endl << std::flush;
@@ -261,12 +262,12 @@ void UpdateDataInDeviceMem(
     void* host_ptr) {
   at::Tensor tensor;
   if (idx != -1) {
-    auto value = node->input(idx);
-    auto index = (int32_t)getValuePosInStack(graph, value);
+    const auto* value = node->input(static_cast<size_t>(idx));
+    const auto index = getValuePosInStack(graph, value);
     tensor = stack[index].toTensor();
   } else {
-    auto value = node->input(0);
-    auto index = (int32_t)getValuePosInStack(graph, value);
+    const auto* value = node->input(0);
+    const auto index = getValuePosInStack(graph, value);
     tensor = stack[index].toTensor();
   }
 

@@ -48,7 +48,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> unique_dim_eager(
   auto param_shape = std::vector<int64_t>{output_shape.at(dim)};
   std::vector<int64_t> valid_count_shape{1};
 
-  auto dim_in = get_dim_in_tpc_order(dim, self.dim());
+  auto dim_in = static_cast<int>(get_dim_in_tpc_order(dim, self.dim()));
   if (return_inverse && return_counts) {
     auto hpu_op = habana::eager::EagerOp<
         std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor>>{

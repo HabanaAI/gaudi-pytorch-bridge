@@ -180,7 +180,7 @@ class BatchNormBackwardOperator : public habana::HabanaOperator {
       const at::Tensor& input,
       uint size,
       at::Device device,
-      int syn_index);
+      const size_t syn_index);
 
   c10::ScalarType scalarType_;
   std::vector<at::Tensor> pt_inputs;

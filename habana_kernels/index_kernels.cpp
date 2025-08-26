@@ -2251,8 +2251,7 @@ void SliceOperator::AllocateAndAddSynapseNode(
     std::fill_n(params.ends, HABANA_DIM_MAX, 0);
     std::fill_n(params.steps, HABANA_DIM_MAX, 1);
     // slice triggered only on 1 dim, therefore use only index 0
-    params.axes[0] =
-        static_cast<unsigned int>(get_dim_in_tpc_order(dim, self.dim()));
+    params.axes[0] = get_dim_in_tpc_order(dim, self.dim());
     params.starts[0] = static_cast<TSize>(start);
     params.ends[0] = static_cast<TSize>(end);
     params.steps[0] = static_cast<TSize>(step);

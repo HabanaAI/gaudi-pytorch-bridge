@@ -26,16 +26,6 @@ using SynapseLayouts =
     std::vector<synapse_helpers::layouts::SynapseLayoutFormat>;
 
 namespace {
-
-template <typename TTarget, typename TIn>
-void check_range(size_t start, size_t end, TIn& arr) {
-  for (auto i = start; i <= end; ++i) {
-    HABANA_ASSERT(
-        arr[i] >= std::numeric_limits<TTarget>::min() &&
-        arr[i] <= std::numeric_limits<TTarget>::max());
-  }
-};
-
 FillParamsT ConvolutionOverrideable3dParams(
     const at::IntArrayRef& weight, // DHWCK
     const at::IntArrayRef& stride, // DHW
@@ -62,7 +52,11 @@ FillParamsT ConvolutionOverrideable3dParams(
   params->padding[CONV_PAD_BOTTOM] = static_cast<int>(padding[1]);
   params->padding[CONV_PAD_LEFT] = static_cast<int>(padding[2]);
   params->padding[CONV_PAD_RIGHT] = static_cast<int>(padding[2]);
-  params->nGroups = groups;
+  HABANA_ASSERT(
+      groups >= 0 && groups <= std::numeric_limits<unsigned int>::max(),
+      "Invalid groups value: ",
+      groups);
+  params->nGroups = static_cast<unsigned int>(groups);
 
   return paramsT;
 }
