@@ -13,8 +13,6 @@
 # limitations under the License.
 ###############################################################################
 
-import warnings
-
 import torch
 from habana_frameworks.torch.core.torch_overwrites import _name_stack
 
@@ -75,7 +73,7 @@ def test_module_hooks():
         try:
             with torch.no_grad():
                 output_hpu = model_hpu(input_hpu)
-        except Exception as e:
-            warnings.warn(e)
+        except:
+            pass
     print(_name_stack)
     assert not _name_stack, "Test failed because deque is not empty"

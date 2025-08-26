@@ -14,7 +14,6 @@
 ###############################################################################
 
 import contextlib
-import warnings
 from os import environ, getenv
 
 from habana_frameworks.torch import _core_C, hpu
@@ -26,8 +25,8 @@ from habana_frameworks.torch.utils import _experimental_C
 def _e_handler():
     try:
         yield
-    except Exception as e:
-        warnings.warn(e)
+    except Exception:
+        pass
 
 
 def _record_quant_param(name, min, max) -> None:
@@ -77,8 +76,8 @@ def _handle_quant_stats(model=None):
         for name, _ in min_calibration_data.items():
             try:
                 _record_quant_param(name, min_calibration_data[name], max_calibration_data[name])
-            except Exception as e:
-                warnings.warn(e)
+            except:
+                pass
 
 
 _const_id = -1

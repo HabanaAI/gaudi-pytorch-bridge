@@ -109,7 +109,7 @@ def _post_fwd_hook(module, input, output):
                     if isinstance(o, Tensor) and o.requires_grad and not _names_hook_already_registered(o):
                         o.register_hook(_gen_grad_hook(grad_name))
                         o.names_hook = True
-        except:  # noqa S110
+        except:
             pass
 
 

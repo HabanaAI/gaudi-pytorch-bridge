@@ -15,7 +15,6 @@
 
 
 import os
-import warnings
 
 import habana_frameworks.torch.distributed.hccl
 import habana_frameworks.torch.hpu
@@ -55,8 +54,8 @@ def no_device_init_test(rank, world_size, coalescing):
         cs = pg._end_coalescing(torch.device(device_hpu))
         cs.wait()
         assert 0, "Check HPUinit is done before _start_coalescing"
-    except Exception as e:
-        warnings.warn(e)
+    except Exception:
+        pass
 
     dist.barrier()
     cleanup()

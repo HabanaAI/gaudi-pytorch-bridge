@@ -14,7 +14,6 @@
 ###############################################################################
 
 
-import warnings
 from typing import Any
 
 import torch
@@ -83,8 +82,8 @@ class HabanaParameterWrapper(torch.nn.Parameter):
     def __del__(self):
         try:
             del HabanaParameterWrapper.db[id(self)]
-        except Exception as e:
-            warnings.warn(e)
+        except:
+            pass
 
 
 def update_habana_parameter(result):

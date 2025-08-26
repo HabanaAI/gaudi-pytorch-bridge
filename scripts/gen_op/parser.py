@@ -14,8 +14,6 @@
 ###############################################################################
 
 
-import warnings
-
 import lark
 
 _GRAMMAR = r"""
@@ -191,8 +189,8 @@ def type_core(t, recursive=True):
                     for c2 in c.children:
                         if isinstance(c2, lark.tree.Tree) and c2.data == "typelist":
                             return f"{c.children[0].value}<{type_core(c2.children[0], False)}>"
-                except Exception as e:
-                    warnings.warn(e)
+                except:
+                    pass
             return c.children[0].value
     raise RuntimeError(f"Not a type tree: {t}")
 
