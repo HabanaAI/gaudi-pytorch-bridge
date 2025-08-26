@@ -28,6 +28,14 @@ DOCKER_IMAGE_NDA ?= artifactory-kfs.habana-labs.com/devops-docker-local/habana-t
 SW_ARTIFACT_ROOT_URL ?= https://artifactory-kfs.habana-labs.com/artifactory/$(SW_META_REPO)/$(RELEASE_VERSION)/$(RELEASE_BUILD_ID)/$(subst .,,$(BUILD_OS))/binary
 
 PT_VERSION ?= $(shell cat $(SRC_DIR)/pytorch-fork/version.txt)
+PYTHON_SUFFIX ?=
+
+ifeq ($(PYTHON_SUFFIX),)
+    PT_MODULES_BASE_NAME = pytorch_modules
+else
+    PT_MODULES_BASE_NAME = pytorch_modules_$(PYTHON_SUFFIX)
+endif
+
 
 # Hide or not the calls depending of VERBOSE
 ifeq ($(VERBOSE),TRUE)
@@ -227,7 +235,7 @@ endif
 	$(DOCKER_IMAGE) \
 	/npu-stack/cd_release/scripts/hl_tree_builder/tree_builder.sh /npu-stack/pytorch-integration/.devops/cd/build/package_$(CSV_FILE_SUFFIX).csv
 	@echo archiving pytorch to tgz package
-	tar -czvf $(OUTPUT_DIR)/pytorch_modules$(PT_BUILD_TYPE)-v$(PT_VERSION)_$(RELEASE_VERSION)_$(RELEASE_BUILD_ID).tgz --directory=$(PACK_DIR) .
+	tar -czvf $(OUTPUT_DIR)/$(PT_MODULES_BASE_NAME)$(PT_BUILD_TYPE)-v$(PT_VERSION)_$(RELEASE_VERSION)_$(RELEASE_BUILD_ID).tgz --directory=$(PACK_DIR) .
 
 test-nda: validate ## run NDA tests on selected package name
 ifndef PACKAGE_NAME
