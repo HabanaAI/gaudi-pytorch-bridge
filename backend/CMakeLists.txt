@@ -91,8 +91,8 @@ target_include_directories(habana_pytorch_backend PRIVATE ${CMAKE_SOURCE_DIR} ${
 
 target_link_libraries(
   habana_pytorch_backend
-  PUBLIC npu::habana_pytorch_backend_ops npu::pytorch_synapse_helpers npu::python_embed_shim c10 exprtk::exprtk
-  PRIVATE Python::Module
+  PUBLIC npu::habana_pytorch_backend_ops npu::pytorch_synapse_helpers c10 exprtk::exprtk
+  PRIVATE Python::Python
           npu::habana_serialization
           npu::pytorch_synapse_utils_shim
           torch

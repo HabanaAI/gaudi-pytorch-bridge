@@ -50,7 +50,7 @@ endif(UPSTREAM_COMPILE)
 
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 
-find_package(Python REQUIRED COMPONENTS Interpreter Development.Module NumPy)
+find_package(Python REQUIRED COMPONENTS Interpreter Development NumPy)
 find_package(Torch REQUIRED)
 find_package(ZLIB REQUIRED)
 
@@ -210,7 +210,7 @@ set_target_properties(habana_pytorch_plugin PROPERTIES CXX_CLANG_TIDY "")
 # Link against LibTorch and synapse
 target_link_libraries(
   habana_pytorch_plugin
-  PRIVATE Python::Module npu::habana_serialization npu::python_embed_shim nlohmann_json::nlohmann_json
+  PRIVATE Python::Python npu::habana_serialization nlohmann_json::nlohmann_json
   PUBLIC npu::habana_pytorch_backend npu::habana_pytorch_frontend_ops torch absl::hash)
 
 target_include_directories(habana_pytorch_plugin PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/pytorch_helpers
@@ -317,7 +317,7 @@ target_compile_features(habana_pytorch2_plugin PRIVATE cxx_std_17)
 # Link against LibTorch and synapse
 target_link_libraries(
   habana_pytorch2_plugin
-  PRIVATE Python::Module npu::habana_serialization npu::python_embed_shim nlohmann_json::nlohmann_json
+  PRIVATE Python::Python npu::habana_serialization nlohmann_json::nlohmann_json
   PUBLIC npu::habana_pytorch_backend habana_pytorch2_frontend torch absl::hash npu::hllogger fmt::fmt-header-only)
 
 # Create symlink to latest build from tests dir

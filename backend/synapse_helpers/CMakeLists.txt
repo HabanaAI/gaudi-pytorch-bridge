@@ -71,7 +71,7 @@ target_link_libraries(
          fmt::fmt-header-only
          $<TARGET_NAME_IF_EXISTS:npu::specs_embedded>
          npu::specs_external
-  PRIVATE Python::Module torch)
+  PRIVATE Python::Python torch)
 target_compile_features(pytorch_synapse_helpers PUBLIC cxx_std_14) # still required as this is transitive
 set_target_properties(
   pytorch_synapse_helpers

@@ -356,7 +356,7 @@ target_link_libraries(
   PRIVATE habana_serialization
           exprtk::exprtk
           torch
-          Python::Module
+          Python::Python
           absl::strings
           absl::str_format
           npu::hllogger
@@ -426,7 +426,7 @@ target_link_libraries(
           exprtk::exprtk
           pytorch_synapse_utils_shim
           torch
-          Python::Module
+          Python::Python
           absl::strings
           absl::str_format
           npu::hllogger)

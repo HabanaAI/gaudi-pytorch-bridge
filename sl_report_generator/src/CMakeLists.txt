@@ -27,6 +27,6 @@ add_habana_library(
 
 target_compile_definitions(slrg_py PRIVATE TORCH_EXTENSION_NAME=slrg_py)
 set_target_properties(slrg_py PROPERTIES PREFIX "")
-target_link_libraries(slrg_py PUBLIC Python::Module torch habana_pytorch_backend habana_pytorch_plugin)
+target_link_libraries(slrg_py PUBLIC Python::Python torch habana_pytorch_backend habana_pytorch_plugin)
 install(TARGETS slrg_py LIBRARY DESTINATION habana_torch_plugin)
 add_dependencies(slrg_py slrg_gen)
