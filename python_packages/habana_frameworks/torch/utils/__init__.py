@@ -67,7 +67,7 @@ def split_tensor_batch(
                 arg_i = args[i]
                 if torch.is_tensor(arg_i):
                     continue
-                if isinstance(arg_i, (list | tuple)) and len(arg_i) > 0 and torch.is_tensor(arg_i[0]):
+                if len(arg_i) > 0 and torch.is_tensor(arg_i[0]):
                     continue
                 raise TypeError(
                     f"Argument at index {i} is neither a tensor nor a non-empty list/tuple of tensors. Got type: {type(arg_i)}"
@@ -78,10 +78,10 @@ def split_tensor_batch(
             list_of_args = list(args)
             for i in split_index_list_sorted:
                 arg_i = args[i]
-                if isinstance(arg_i, (list | tuple)):
-                    split_tensor.append(arg_i)
-                else:
+                if torch.is_tensor(arg_i):
                     split_tensor.append(torch.tensor_split(arg_i, num_splits))
+                else:
+                    split_tensor.append(arg_i)
 
             # Ensure all splits have equal number of elements
             actual_splits = len(split_tensor[0])
@@ -98,7 +98,9 @@ def split_tensor_batch(
                 all_outputs.append(func(*list_of_args, **kwargs))
 
             # Normalize outputs
-            if not isinstance(all_outputs[0], (tuple | list)):
+            output_type_list = isinstance(all_outputs[0], list)
+            output_type_tuple = isinstance(all_outputs[0], tuple)
+            if not (output_type_list or output_type_tuple):
                 all_outputs = [(out,) for out in all_outputs]
 
             num_outputs = len(all_outputs[0])
