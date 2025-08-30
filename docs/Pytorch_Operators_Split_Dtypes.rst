@@ -375,7 +375,7 @@ is_nonzero                               Yes      Yes      No      No    torch
 isfinite                                 Yes      Yes      Yes     No    torch
 isin                                     Yes      Yes      Yes     No    torch
 isinf                                    Yes      Yes      Yes     No    torch
-isnan                                    Yes      Yes      Yes     No    torch
+isnan                                    Yes      Yes      Yes     Yes   torch
 isneginf                                 Yes      Yes      Yes     No    torch
 isposinf                                 Yes      Yes      Yes     No    torch
 kl_div                                   Yes      Yes      Yes     No    torch
@@ -784,7 +784,7 @@ is_floating_point                        Yes      Yes      No      No    torch.T
 is_nonzero                               Yes      Yes      No      No    torch.Tensor
 isfinite                                 Yes      Yes      Yes     No    torch.Tensor
 isinf                                    Yes      Yes      Yes     No    torch.Tensor
-isnan                                    Yes      Yes      Yes     No    torch.Tensor
+isnan                                    Yes      Yes      Yes     Yes   torch.Tensor
 isneginf                                 Yes      Yes      Yes     No    torch.Tensor
 isposinf                                 Yes      Yes      Yes     No    torch.Tensor
 item                                     Yes      No       No      No    torch.Tensor

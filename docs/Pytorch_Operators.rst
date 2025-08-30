@@ -375,7 +375,7 @@ is_nonzero                               Yes      Yes      No      No        No 
 isfinite                                 Yes      Yes      Yes     No        Yes      Yes       Yes       Yes      Yes    torch
 isin                                     Yes      Yes      Yes     No        Yes      Yes       Yes       Yes      Yes    torch
 isinf                                    Yes      Yes      Yes     No        Yes      Yes       Yes       Yes      Yes    torch
-isnan                                    Yes      Yes      Yes     No        Yes      Yes       Yes       Yes      Yes    torch
+isnan                                    Yes      Yes      Yes     Yes       Yes      Yes       Yes       Yes      Yes    torch
 isneginf                                 Yes      Yes      Yes     No        Yes      Yes       Yes       Yes      Yes    torch
 isposinf                                 Yes      Yes      Yes     No        Yes      Yes       Yes       Yes      Yes    torch
 kl_div                                   Yes      Yes      Yes     No        No       No        No        No       No     torch
@@ -784,7 +784,7 @@ is_floating_point                        Yes      Yes      No      No        No 
 is_nonzero                               Yes      Yes      No      No        No       Yes       No        No       No     torch.Tensor
 isfinite                                 Yes      Yes      Yes     No        Yes      Yes       Yes       Yes      Yes    torch.Tensor
 isinf                                    Yes      Yes      Yes     No        Yes      Yes       Yes       Yes      Yes    torch.Tensor
-isnan                                    Yes      Yes      Yes     No        Yes      Yes       Yes       Yes      Yes    torch.Tensor
+isnan                                    Yes      Yes      Yes     Yes       Yes      Yes       Yes       Yes      Yes    torch.Tensor
 isneginf                                 Yes      Yes      Yes     No        Yes      Yes       Yes       Yes      Yes    torch.Tensor
 isposinf                                 Yes      Yes      Yes     No        Yes      Yes       Yes       Yes      Yes    torch.Tensor
 item                                     Yes      No       No      No        No       No        No        No       No     torch.Tensor
