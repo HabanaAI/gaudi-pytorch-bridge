@@ -40,7 +40,6 @@ if(CLANG_TIDY)
     ctcache
     GIT_REPOSITORY https://github.com/matus-chochlik/ctcache.git
     GIT_TAG b54f74807fc02c8897247fda6229aabbac78a560
-    GIT_SHALLOW TRUE
     EXCLUDE_FROM_ALL SYSTEM)
   FetchContent_MakeAvailable(ctcache)
 
