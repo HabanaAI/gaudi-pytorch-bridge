@@ -287,6 +287,12 @@ OutputMetaDataVector MixtureOfExpertsMeta(
   return meta;
 }
 
+OutputMetaDataVector MixtureOfExpertsMeta(const at::Stack& stack) {
+  const auto& self = stack_tensor(stack, 0);
+
+  return {{self.scalar_type(), self.sizes().vec()}};
+}
+
 OutputMetaDataVector MixtureOfExpertsFwdMeta(const at::Stack& stack) {
   at::ScalarType self_type = stack_tensor(stack, 0).scalar_type();
 
@@ -547,6 +553,13 @@ SharedMetaDataVector MixtureOfExpertsSharedMeta(
       "moe");
 }
 
+SharedMetaDataVector MixtureOfExpertsBiasSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode /*unused*/) {
+  return MixtureOfExpertsSharedMetaCommon(
+      stack, true, {getSharedMetaFromTensor(stack_tensor(stack, 0))}, "moe");
+}
+
 SharedMetaDataVector MixtureOfExpertsFp8SharedMeta(
     const at::Stack& stack,
     habana_helpers::HabanaExecutionMode /*unused*/) {
@@ -729,14 +742,18 @@ struct MixtureOfExpertsConfig {
   const bool scaled_swiglu;
   const unsigned int chunk_size;
   const unsigned int total_experts;
+  const bool gpt_swiglu = false;
+  const float alpha = 1.702;
+  const float limit = 7.0;
 };
 
 FillParamsT FillMixtureOfExpertsParams(
     const at::Stack& stack,
     const MixtureOfExpertsConfig& cfg) {
   const bool permuted_weights = stack.at(cfg.permuted_weights_idx).toBool();
-  const auto activation_mode =
-      stack.at(cfg.permuted_weights_idx + 1).to<std::string_view>();
+  const auto activation_mode = cfg.gpt_swiglu
+      ? "silu"
+      : stack.at(cfg.permuted_weights_idx + 1).to<std::string_view>();
   auto activationIterator = activationModeMap.find(activation_mode);
   HABANA_ASSERT(
       activationIterator != activationModeMap.end(),
@@ -744,13 +761,15 @@ FillParamsT FillMixtureOfExpertsParams(
       activation_mode,
       "\" not found among MoeActivationMode_t enum values.")
 
-  PARAMS_STUB(ns_MoeKernel::ParamsV4);
+  PARAMS_STUB(ns_MoeKernel::ParamsV5);
 
   params->experts.activation = activationIterator->second;
-  params->router.experts_min = static_cast<unsigned int>(
-      stack.at(cfg.permuted_weights_idx + 2).toScalar().toInt());
+  const size_t expert_min_idx = cfg.gpt_swiglu ? cfg.permuted_weights_idx + 1
+                                               : cfg.permuted_weights_idx + 2;
+  params->router.experts_min =
+      static_cast<unsigned int>(stack.at(expert_min_idx).toScalar().toInt());
   params->router.experts_max = static_cast<unsigned int>(
-      stack.at(cfg.permuted_weights_idx + 3).toScalar().toInt());
+      stack.at(expert_min_idx + 1).toScalar().toInt());
   params->flags = permuted_weights ? MoeFlags_t::MOE_FLAGS_PERMUTED_WEIGHTS : 0;
   params->flags |= (cfg.fused_gemm ? MoeFlags_t::MOE_FLAGS_FUSED_GEMM : 0);
   params->flags |= (cfg.measurement_mode ? MoeFlags_t::MOE_FLAGS_CALC_AMAX : 0);
@@ -769,11 +788,37 @@ FillParamsT FillMixtureOfExpertsParams(
   params->flags |= (cfg.hybrid_mode ? MoeFlags_t::MOE_FLAGS_FP8_HYBRID : 0);
   params->flags |=
       (cfg.scaled_swiglu ? MoeFlags_t::MOE_FLAGS_SCALED_SWIGLU : 0);
+  params->flags |= (cfg.gpt_swiglu ? MoeFlags_t::MOE_FLAGS_GPT_SWIGLU : 0);
 
   params->total_experts = cfg.total_experts;
   params->chunk_size = cfg.chunk_size;
+  params->alpha = cfg.alpha;
+  params->limit = cfg.limit;
 
   return paramsT;
+}
+
+FillParamsT FillMixtureOfExpertsBiasParams(const at::Stack& stack) {
+  const size_t stack_size = stack.size();
+
+  MixtureOfExpertsConfig cfg = {
+      7, /* permuted_weights_idx */
+      true, /* fused_gemm */
+      false, /* measurement_mode */
+      false, /* dynamic_scale */
+      false, /* blockwise_quantization */
+      false, /* first_gemm_measurement_mode */
+      false, /* hybrid_mode */
+      false, /* scaled_swiglu */
+      static_cast<unsigned int>(
+          stack.at(stack_size - 4).toInt()), /* chunk_size */
+      static_cast<unsigned int>(
+          stack.at(stack_size - 3).toInt()), /* total_experts */
+      true, /* gpt_swiglu */
+      static_cast<float>(stack.at(stack_size - 2).toDouble()), /* alpha */
+      static_cast<float>(stack.at(stack_size - 1).toDouble()), /* limit */
+  };
+  return FillMixtureOfExpertsParams(stack, cfg);
 }
 
 FillParamsT FillMixtureOfExpertsParams(const at::Stack& stack) {
@@ -785,14 +830,16 @@ FillParamsT FillMixtureOfExpertsParams(const at::Stack& stack) {
   MixtureOfExpertsConfig cfg = {
       permuted_weights_idx,
       fused_weights,
-      false,
-      false,
-      false,
-      false,
-      false,
-      false,
-      static_cast<unsigned int>(stack.at(stack_size - 2).toInt()),
-      static_cast<unsigned int>(stack.at(stack_size - 1).toInt())};
+      false, /* measurement_mode */
+      false, /* dynamic_scale */
+      false, /* blockwise_quantization */
+      false, /* first_gemm_measurement_mode */
+      false, /* hybrid_mode */
+      false, /* scaled_swiglu */
+      static_cast<unsigned int>(
+          stack.at(stack_size - 2).toInt()), /* chunk_size */
+      static_cast<unsigned int>(
+          stack.at(stack_size - 1).toInt()) /* total_experts */};
   return FillMixtureOfExpertsParams(stack, cfg);
 }
 
@@ -810,13 +857,15 @@ FillParamsT FillMixtureOfExpertsFwdFp8Params(const at::Stack& stack) {
       permuted_weights_idx,
       fused_weights,
       measurement_mode,
-      false,
-      false,
+      false, /* dynamic_scale */
+      false, /* blockwise_quantization */
       first_gemm_measurement_mode,
       hybdrid_mode,
       scaled_swiglu,
-      static_cast<unsigned int>(stack.at(stack_size - 2).toInt()),
-      static_cast<unsigned int>(stack.at(stack_size - 1).toInt())};
+      static_cast<unsigned int>(
+          stack.at(stack_size - 2).toInt()), /* chunk_size */
+      static_cast<unsigned int>(
+          stack.at(stack_size - 1).toInt()) /* total_experts */};
   return FillMixtureOfExpertsParams(stack, cfg);
 }
 
@@ -844,14 +893,16 @@ FillParamsT FillMixtureOfExpertsBwdFp8Params(const at::Stack& stack) {
   MixtureOfExpertsConfig cfg = {
       permuted_weights_idx,
       fused_weights,
-      stack.at(stack_size - 3).toBool(),
-      false,
-      false,
-      stack.at(stack_size - 4).toBool(),
-      stack.at(stack_size - 5).toBool(),
-      stack.at(stack_size - 6).toBool(),
-      static_cast<unsigned int>(stack.at(stack_size - 2).toInt()),
-      static_cast<unsigned int>(stack.at(stack_size - 1).toInt())};
+      stack.at(stack_size - 3).toBool() /* measurement_mode */,
+      false, /* dynamic_scale */
+      false, /* blockwise_quantization */
+      stack.at(stack_size - 4).toBool() /* first_gemm_measurement_mode */,
+      stack.at(stack_size - 5).toBool() /* hybrid_mode */,
+      stack.at(stack_size - 6).toBool() /* scaled_swiglu */,
+      static_cast<unsigned int>(
+          stack.at(stack_size - 2).toInt()) /* chunk_size */,
+      static_cast<unsigned int>(
+          stack.at(stack_size - 1).toInt()) /* total_experts */};
 
   return FillMixtureOfExpertsParams(stack, cfg);
 }
@@ -884,13 +935,15 @@ void MixtureOfExperts::AddNode(sh::graph& graph, const at::Stack& stack) {
       permuted_weights_idx,
       fused_weights,
       measurement_mode,
-      false,
-      false,
-      false,
-      false,
-      false,
-      static_cast<unsigned int>(stack.at(stack_size - 2).toInt()),
-      static_cast<unsigned int>(stack.at(stack_size - 1).toInt())};
+      false, /* dynamic_scale */
+      false, /* blockwise_quantization */
+      false, /* first_gemm_measurement_mode */
+      false, /* hybrid_mode */
+      false, /* scaled_swiglu */
+      static_cast<unsigned int>(
+          stack.at(stack_size - 2).toInt()) /* chunk_size */,
+      static_cast<unsigned int>(
+          stack.at(stack_size - 1).toInt()) /* total_experts */};
 
   auto params = FillMixtureOfExpertsParams(stack, cfg);
   auto meta = MixtureOfExpertsMeta(stack, measurement_mode);
@@ -956,14 +1009,16 @@ void MixtureOfExpertsFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
   MixtureOfExpertsConfig cfg = {
       permuted_weights_idx,
       fused_weights,
-      false,
-      false,
-      false,
-      false,
-      false,
-      false,
-      static_cast<unsigned int>(stack.at(stack_size - 2).toInt()),
-      static_cast<unsigned int>(stack.at(stack_size - 1).toInt())};
+      false, /* measurement_mode */
+      false, /* dynamic_scale */
+      false, /* blockwise_quantization */
+      false, /* first_gemm_measurement_mode */
+      false, /* hybrid_mode */
+      false, /* scaled_swiglu */
+      static_cast<unsigned int>(
+          stack.at(stack_size - 2).toInt()) /* chunk_size */,
+      static_cast<unsigned int>(
+          stack.at(stack_size - 1).toInt()) /* total_experts */};
 
   auto params = FillMixtureOfExpertsParams(stack, cfg);
   auto meta = MixtureOfExpertsFp8Meta(stack)[0];
@@ -1015,14 +1070,16 @@ void MixtureOfExpertsFp8Scalars::AddNode(
   MixtureOfExpertsConfig cfg = {
       permuted_weights_idx,
       fused_weights,
-      false,
-      false,
-      false,
-      false,
-      false,
-      false,
-      static_cast<unsigned int>(stack.at(stack_size - 2).toInt()),
-      static_cast<unsigned int>(stack.at(stack_size - 1).toInt())};
+      false, /* measurement_mode */
+      false, /* dynamic_scale */
+      false, /* blockwise_quantization */
+      false, /* first_gemm_measurement_mode */
+      false, /* hybrid_mode */
+      false, /* scaled_swiglu */
+      static_cast<unsigned int>(
+          stack.at(stack_size - 2).toInt()) /* chunk_size */,
+      static_cast<unsigned int>(
+          stack.at(stack_size - 1).toInt()) /* total_experts */};
 
   auto params = FillMixtureOfExpertsParams(stack, cfg);
   auto meta = MixtureOfExpertsFp8Meta(stack)[0];
@@ -1055,14 +1112,16 @@ void MixtureOfExpertsFp8Dynamic::AddNode(
   MixtureOfExpertsConfig cfg = {
       permuted_weights_idx,
       fused_weights,
-      false,
-      true,
-      false,
-      false,
-      false,
-      false,
-      static_cast<unsigned int>(stack.at(stack_size - 2).toInt()),
-      static_cast<unsigned int>(stack.at(stack_size - 1).toInt())};
+      false, /* measurement_mode */
+      true, /* dynamic_scale */
+      false, /* blockwise_quantization */
+      false, /* first_gemm_measurement_mode */
+      false, /* hybrid_mode */
+      false, /* scaled_swiglu */
+      static_cast<unsigned int>(
+          stack.at(stack_size - 2).toInt()) /* chunk_size */,
+      static_cast<unsigned int>(
+          stack.at(stack_size - 1).toInt()) /* total_experts */};
 
   auto params = FillMixtureOfExpertsParams(stack, cfg);
   auto meta = MixtureOfExpertsFp8Meta(stack)[0];
@@ -1111,14 +1170,16 @@ void MixtureOfExpertsFp8ScalarsDynamic::AddNode(
   MixtureOfExpertsConfig cfg = {
       permuted_weights_idx,
       fused_weights,
-      false,
-      true,
-      false,
-      false,
-      false,
-      false,
-      static_cast<unsigned int>(stack.at(stack_size - 2).toInt()),
-      static_cast<unsigned int>(stack.at(stack_size - 1).toInt())};
+      false, /* measurement_mode */
+      true, /* dynamic_scale */
+      false, /* blockwise_quantization */
+      false, /* first_gemm_measurement_mode */
+      false, /* hybrid_mode */
+      false, /* scaled_swiglu */
+      static_cast<unsigned int>(
+          stack.at(stack_size - 2).toInt()) /* chunk_size */,
+      static_cast<unsigned int>(
+          stack.at(stack_size - 1).toInt()) /* total_experts */};
 
   auto params = FillMixtureOfExpertsParams(stack, cfg);
   auto meta = MixtureOfExpertsFp8Meta(stack)[0];
@@ -1152,14 +1213,16 @@ void MixtureOfExpertsFp8BlockwiseQuantization::AddNode(
   MixtureOfExpertsConfig cfg = {
       permuted_weights_idx,
       fused_weights,
-      false,
-      false,
-      true,
-      false,
-      false,
-      false,
-      static_cast<unsigned int>(stack.at(stack_size - 2).toInt()),
-      static_cast<unsigned int>(stack.at(stack_size - 1).toInt())};
+      false, /* measurement_mode */
+      false, /* dynamic_scale */
+      true, /* blockwise_quantization */
+      false, /* first_gemm_measurement_mode */
+      false, /* hybrid_mode */
+      false, /* scaled_swiglu */
+      static_cast<unsigned int>(
+          stack.at(stack_size - 2).toInt()) /* chunk_size */,
+      static_cast<unsigned int>(
+          stack.at(stack_size - 1).toInt()) /* total_experts */};
 
   auto params = FillMixtureOfExpertsParams(stack, cfg);
   auto meta = MixtureOfExpertsFp8Meta(stack)[0];
@@ -1193,14 +1256,14 @@ void MixtureOfExpertsBwd::AddNode(sh::graph& graph, const at::Stack& stack) {
   MixtureOfExpertsConfig cfg = {
       permuted_weights_idx,
       fused_weights,
-      false,
-      false,
-      false,
-      false,
-      false,
-      false,
-      0,
-      0};
+      false, /* measurement_mode */
+      false, /* dynamic_scale */
+      false, /* blockwise_quantization */
+      false, /* first_gemm_measurement_mode */
+      false, /* hybrid_mode */
+      false, /* scaled_swiglu */
+      0 /* chunk_size */,
+      0 /* total_experts */};
 
   auto params = FillMixtureOfExpertsParams(stack, cfg);
   auto meta = OutputMeta(stack);
@@ -1237,14 +1300,16 @@ void MixtureOfExpertsRecompBwd::AddNode(
   MixtureOfExpertsConfig cfg = {
       permuted_weights_idx,
       fused_weights,
-      false,
-      false,
-      false,
-      false,
-      false,
-      false,
-      static_cast<unsigned int>(stack.at(stack_size - 2).toInt()),
-      static_cast<unsigned int>(stack.at(stack_size - 1).toInt())};
+      false, /* measurement_mode */
+      false, /* dynamic_scale */
+      false, /* blockwise_quantization */
+      false, /* first_gemm_measurement_mode */
+      false, /* hybrid_mode */
+      false, /* scaled_swiglu */
+      static_cast<unsigned int>(
+          stack.at(stack_size - 2).toInt()) /* chunk_size */,
+      static_cast<unsigned int>(
+          stack.at(stack_size - 1).toInt()) /* total_experts */};
 
   auto params = FillMixtureOfExpertsParams(stack, cfg);
   auto meta = MixtureOfExpertsBwdMeta(stack);

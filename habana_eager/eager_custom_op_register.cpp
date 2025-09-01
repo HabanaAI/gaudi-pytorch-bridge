@@ -1655,6 +1655,9 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
       "hpu::mixture_of_experts.fused_weights",
       mixture_of_experts_fused_weights);
   m.impl(
+      "hpu::mixture_of_experts.bias_fused_weights",
+      mixture_of_experts_bias_fused_weights);
+  m.impl(
       "hpu::mixture_of_experts.fp8_measurement",
       mixture_of_experts_fp8_measurement);
   m.impl(

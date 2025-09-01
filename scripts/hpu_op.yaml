@@ -8856,6 +8856,17 @@ mixture_of_experts.fused_weights:
   namespaces: [torch.hpu]
   skip_slrg: true # Exception - mixed input dtypes
 
+mixture_of_experts.bias_fused_weights:
+  custom_op_schema: "hpu::mixture_of_experts.bias_fused_weights(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, Tensor[] w12_bias, Tensor[] w3_bias, *, bool permuted_weights, int experts_min, int experts_max, int chunk_size=0, int total_experts=0, float alpha=1.702, float limit=7.0) -> Tensor"
+  op_validator: MixtureOfExpertsBiasSharedMeta
+  output_meta: MixtureOfExpertsMeta
+  custom_fill_params: FillMixtureOfExpertsBiasParams
+  guid: moe
+  out_ids: [0]
+  frontend_blocklist: [eager]
+  namespaces: [torch.hpu]
+  skip_slrg: true # Exception - mixed input dtypes
+
 mixture_of_experts_fp8_measurement:
   custom_op_schema: "hpu::mixture_of_experts_fp8_measurement(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, bool measurement_mode, *, int chunk_size=0, int total_experts=0) -> (Tensor, Tensor)"
   op_validator: MixtureOfExpertsSharedMeta

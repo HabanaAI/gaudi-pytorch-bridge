@@ -1082,6 +1082,7 @@ def meta_rotary_pos_embedding(input, sin, cos, position_ids, offset, mode):
         torch.ops.hpu.mixture_of_experts.fused_weights,
         torch.ops.hpu.mixture_of_experts_recomp_fwd.default,
         torch.ops.hpu.mixture_of_experts_recomp_fwd.fused_weights,
+        torch.ops.hpu.mixture_of_experts.bias_fused_weights,
     ]
 )
 def meta_mixture_of_experts_common(
