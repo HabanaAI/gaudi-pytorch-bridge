@@ -21,46 +21,23 @@ from .unfold_tuple_on_output import pass_unfold_tuple_on_output
 logger = get_compile_backend_logger()
 
 
-# todo rename file name, dir name and the functions' names defined here https://jira.habana-labs.com/browse/SW-199903
-
-
 def get_jit_fork_passes():
     passes_list = [
         pass_unfold_tuple_on_output,
         jit.getitem_folding_pass,
         jit.remove_duplicate_const_pass,
-        jit.remove_mutation_pass,  # same as torch._C._jit_pass_remove_mutation
+        jit.remove_mutation_pass,
     ]
     return passes_list
 
 
 def run_jit_fork_passes(jit_ir: jit.Graph):
-    # todo use proper logging https://jira.habana-labs.com/browse/SW-200787
-    # if config.dump_graph:
-    #     logger.info(
-    #         "### JIT IR graph before running passes: ###\n%s",
-    #         jit_ir.str(print_source_info=True),
-    #     )
-
     logger.debug("running run_jit_fork_passes")
     for jit_pass in get_jit_fork_passes():
-        logger.debug(f"jit_pass = {jit_pass.__name__}")
         graph_changed = jit_pass(jit_ir)
-        # if graph_changed:
-        #     print(f"graph changed, so printing after pass:\n{jit_ir}", flush=True)
-        #     logger.debug("graph changed:")
-        #     logger.debug(f"{str(jit_ir).replace('%', '%%')}")
-        # todo use proper logging https://jira.habana-labs.com/browse/SW-200787
-        # if graph_changed and config.dump_graph:
-        #     logger.debug(
-        #         "### JIT Graph after %s pass: ###\n%s",
-        #         jit_pass.__qualname__,
-        #         jit_ir.str(print_source_info=True),
-        #     )
-
-    # todo use proper logging https://jira.habana-labs.com/browse/SW-200787
-    # if config.dump_graph:
-    # logger.info(
-    #     "### Final JIT IR graph passed to backend: ###\n%s",
-    #     jit_ir.str(print_source_info=True),
-    # )
+        if graph_changed:
+            logger.debug(
+                "####PyTorch-generated JIT IR graph after jit passes: %s ####\n%s",
+                jit_pass.__name__,
+                jit_ir,
+            )

@@ -274,9 +274,6 @@ def fill_propagated_tensor_metadata_to_node(result: torch.Tensor, node: torch.fx
             if hasattr(result, "shape"):
                 output_shapes.append(result.shape)
                 output_contiguous.append(result.is_contiguous())
-                # todo https://jira.habana-labs.com/browse/SW-199903:
-                #  this must be a bug!
-                # output_strides.append(res.storage_offset())
                 output_offset.append(result.storage_offset())
                 output_strides.append(result.stride())
                 logger.debug("    result shape: %s", result.shape)

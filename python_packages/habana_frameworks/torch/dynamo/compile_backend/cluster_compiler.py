@@ -32,6 +32,7 @@ import torch
 from ._helpers import (
     fill_propagated_tensor_metadata_to_node,
     get_dynamic_config_value,
+    is_module_dynamic,
     jit_node_annotation_propagation,
     jit_node_shape_propagation,
     remove_duplicated_outputs,
@@ -41,29 +42,6 @@ from ._passes.random import propagate_for_random_ops, wrap_random_ops
 from .recipe_compiler import get_callable_recipe
 
 logger = get_compile_backend_logger()
-
-
-# below is repeated to avoid cross includes... todo: fix me https://jira.habana-labs.com/browse/SW-199903
-def is_module_dynamic(input_module: torch.fx.GraphModule) -> bool:
-    """
-    This function dynamicity per graph module.
-    """
-
-    from torch._subclasses.fake_tensor import FakeTensor
-    from torch.fx.experimental.proxy_tensor import py_sym_types
-
-    is_dynamic = False
-    for node in input_module.graph.nodes:
-        if node.op == "placeholder":
-            meta_val = node.meta.get("val", node.meta.get("tensor_meta", None))
-            if (isinstance(meta_val, FakeTensor) and meta_val._has_symbolic_sizes_strides) or isinstance(
-                meta_val, py_sym_types
-            ):
-                is_dynamic = True
-                break
-
-    logger.debug("Module dynamicity %s", is_dynamic)
-    return is_dynamic
 
 
 class _ClusterCompiler(torch.fx.Interpreter):
@@ -97,7 +75,7 @@ class _ClusterCompiler(torch.fx.Interpreter):
 
         run_jit_fork_passes(fx_to_jit_lowering.jit_ir)
         logger.debug(
-            "####PyTorch-generated JIT IR graph after jit passes:####\n%s",
+            "####PyTorch-generated JIT IR graph after run_jit_fork_passes:####\n%s",
             fx_to_jit_lowering.jit_ir,
         )
 
@@ -130,13 +108,6 @@ class _ClusterCompiler(torch.fx.Interpreter):
     def call_module(self, node: torch.fx.Node, args, kwargs):
         target = node.target
         submod = self.graph_module.get_submodule(target)
-
-        # todo  sync with jan's dumping https://jira.habana-labs.com/browse/SW-200868
-        # if config.dump_graph:
-        #     jit_logger = get_jit_graph_logger()
-        #     jit_logger.info(
-        #         f"FX_GRAPH:\nNode name: {self.ctx.graph_name}\n" f"Target: {node.target}\n" f"Code: {submod.code}"
-        #     )
 
         # "_tensor_constant" nodes originally have get_attr op
         # but when included within fused they're represented as placeholder
@@ -174,20 +145,6 @@ class _ClusterCompiler(torch.fx.Interpreter):
             has_random_ops=self._has_random_ops,
             is_reusables=is_reusables,
         )
-        # todo https://jira.habana-labs.com/browse/SW-201169:
-        # in our case compilation:
-        # - fails with jit forked lowering
-        # - is done later - it doesn't seem to be a problem
-        # ir Graph converter should solve the issue
-
-        # todo: integrate with our graph dumping https://jira.habana-labs.com/browse/SW-200868
-        # if config.dump_graph:
-        #     dump_fx_submodule(syngraph_module)
-
-        # todo https://jira.habana-labs.com/browse/SW-199903
-        #  do we have it handled elsewhere?:
-        # if not syngraph_module.compilation_successful:
-        #     self.ctx.fallback_required = True
 
         self.ctx.graph_module.delete_submodule(target)
         self.ctx.graph_module.add_submodule(target, syngraph_module)
@@ -209,9 +166,6 @@ class _ClusterCompiler(torch.fx.Interpreter):
         return self.subgraph_cnt != 0
 
 
-# todo https://jira.habana-labs.com/browse/SW-199903
-# don't neeed measurement now, later use bridge solution (I assume there is available one)
-# @dynamo_timed(phase_name="POST_PARTITIONER")
 def pass_compile_clusters_jit_fork_version(ctx: OptimizerContext):
     """
     This pass goes through each node in the main module. For each generated XPU cluster

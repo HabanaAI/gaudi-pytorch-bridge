@@ -17,9 +17,6 @@
 from collections import namedtuple
 from typing import Any
 
-# todo https://jira.habana-labs.com/browse/SW-199903
-# is it better to import here the C module directly
-# or implement all functions calling c module in py module?
 from habana_frameworks.torch._torch_jit_C import jit
 from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
 
@@ -54,9 +51,9 @@ def propagate_node_module_name(fx_node: torch.fx.Node, jit_val: jit.Value):
 #      JIT IR live in a different namespace than the original ones,
 #      so they are different classes from compiler's perspective.
 #      The torch.script generates torch::jit::Graph and we need
-#      torch_ipex::jit::Graph, so even if we use the torch.script,
+#      habana_torch::jit::Graph, so even if we use the torch.script,
 #      we would need a way to cast the original torch Graph to the
-#      forked torch_ipex Graph.
+#      forked habana_torch Graph.
 # The lowering below fulfill two functions:
 #   1. Generates a JIT IR graph based on the graph described in FX.
 #   2. Rewrites metadata from FX graph nodes to JIT graph nodes.
@@ -134,9 +131,7 @@ class FxToJitLowering(torch.fx.Interpreter):
         # Rewrite the metadata from the FakeTensorProp execution.
         self._apply_meta(node.meta["val"], input_val)
 
-        # todo https://jira.habana-labs.com/browse/SW-200868
-        # if config.dump_graph:
-        #     input_val.setDebugName(str(node))
+        input_val.setDebugName(str(node))
 
         return input_val
 
@@ -352,8 +347,7 @@ class FxToJitLowering(torch.fx.Interpreter):
     ) -> jit.Value:
         emitted_nodes: list[jit.Node] = []
         returned_val = None
-        # todo: fix me https://jira.habana-labs.com/browse/SW-199903
-        # return_name = str(fx_node)
+        return_name = str(fx_node)
 
         if not schema:
             # The 'insert' function checks the correctness of the opcode
@@ -373,25 +367,20 @@ class FxToJitLowering(torch.fx.Interpreter):
             emitted_nodes.append(jit_node)
 
             for i, return_arg in enumerate(schema.returns):
-                # todo use proper logging https://jira.habana-labs.com/browse/SW-200787
-                # if config.dump_graph and num_returns > 1:
-                #     arg_name = (
-                #         return_arg.name if return_arg.name else return_name + f".{i}"
-                #     )
-                #   jit_node.outputsAt(i).setDebugName(arg_name)
+                if num_returns > 1:
+                    arg_name = return_arg.name if return_arg.name else return_name + f".{i}"
+                    jit_node.outputsAt(i).setDebugName(arg_name)
                 jit_node.outputsAt(i).setType(return_arg.type)
 
             returned_val = self.jit_ir.packValues(list(jit_node.outputs())) if num_returns > 1 else jit_node.output()
             emitted_nodes.append(returned_val.node())
 
-        # todo use proper logging https://jira.habana-labs.com/browse/SW-200787
-        # if config.dump_graph:
-        #     returned_val.setDebugName(return_name)
+        returned_val.setDebugName(return_name)
 
-        #     stack_trace = self._get_stack_trace(fx_node)
-        #     if stack_trace:
-        #         for jit_node in emitted_nodes:
-        #             jit_node.setStackTrace(stack_trace)
+        stack_trace = self._get_stack_trace(fx_node)
+        if stack_trace:
+            for jit_node in emitted_nodes:
+                jit_node.setStackTrace(stack_trace)
 
         return returned_val
 

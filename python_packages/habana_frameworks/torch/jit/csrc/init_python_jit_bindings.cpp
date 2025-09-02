@@ -13,10 +13,6 @@
  * limitations under the License.
  */
 
-// todo cleanup https://jira.habana-labs.com/browse/SW-199903
-// probably should be moved to other place, optionally change file name
-// to sth more appropriate
-
 #include "init_python_jit_bindings.h"
 
 #include <pybind11/stl.h>
