@@ -21,6 +21,7 @@ FetchContent_Declare(
   GIT_TAG 0.0.3-cmake
   GIT_SHALLOW TRUE
   SYSTEM EXCLUDE_FROM_ALL)
+FetchContent_MakeAvailable(exprtk)
 
 FetchContent_Declare(
   xxhash
@@ -28,6 +29,7 @@ FetchContent_Declare(
   GIT_TAG v0.8.3
   GIT_SHALLOW TRUE
   SYSTEM EXCLUDE_FROM_ALL)
+FetchContent_MakeAvailable(xxhash)
 
 FetchContent_Declare(
   nlohmann_json
@@ -35,37 +37,42 @@ FetchContent_Declare(
   GIT_TAG v3.12.0
   GIT_SHALLOW TRUE
   SYSTEM EXCLUDE_FROM_ALL)
+FetchContent_MakeAvailable(nlohmann_json)
 
 FetchContent_Declare(
   fmt
   GIT_REPOSITORY https://github.com/fmtlib/fmt.git
   GIT_TAG 9.1.0
   GIT_SHALLOW TRUE
-  SOURCE_DIR ${FETCHCONTENT_BASE_DIR}/fmt-9.1.0 SYSTEM EXCLUDE_FROM_ALL)
+  SYSTEM EXCLUDE_FROM_ALL)
 set(FMT_INSTALL ON)
+FetchContent_MakeAvailable(fmt)
 
 FetchContent_Declare(
   magic_enum
   GIT_REPOSITORY https://github.com/Neargye/magic_enum.git
   GIT_TAG v0.9.7
   GIT_SHALLOW TRUE
-  SOURCE_DIR ${FETCHCONTENT_BASE_DIR}/magic_enum-0.9.7 SYSTEM EXCLUDE_FROM_ALL)
+  SYSTEM EXCLUDE_FROM_ALL)
+FetchContent_MakeAvailable(magic_enum)
 
 FetchContent_Declare(
   devscripts
   URL https://snapshot.debian.org/archive/debian/20250412T205410Z/pool/main/d/devscripts/devscripts_2.25.9.tar.xz
       SYSTEM EXCLUDE_FROM_ALL)
+FetchContent_MakeAvailable(devscripts)
 
 add_executable(hardening-check IMPORTED)
-
-FetchContent_MakeAvailable(devscripts exprtk xxhash fmt nlohmann_json magic_enum)
-
 set_target_properties(hardening-check PROPERTIES IMPORTED_LOCATION ${devscripts_SOURCE_DIR}/scripts/hardening-check.pl)
 
 add_library(hllogger SHARED IMPORTED)
 set_target_properties(hllogger PROPERTIES IMPORTED_LOCATION "$ENV{BUILD_ROOT_LATEST}/libhl_logger.so")
 target_link_libraries(hllogger INTERFACE magic_enum::magic_enum fmt::fmt-header-only)
 target_include_directories(hllogger INTERFACE "$ENV{SWTOOLS_SDK_ROOT}/hl_logger/include" "${FETCHCONTENT_BASE_DIR}")
+execute_process(
+  COMMAND ${CMAKE_COMMAND} -E create_symlink ${fmt_SOURCE_DIR} ${FETCHCONTENT_BASE_DIR}/fmt-9.1.0
+  COMMAND ${CMAKE_COMMAND} -E create_symlink ${magic_enum_SOURCE_DIR} ${FETCHCONTENT_BASE_DIR}/magic_enum-0.9.7
+          COMMAND_ERROR_IS_FATAL ANY)
 add_library(npu::hllogger ALIAS hllogger)
 
 add_library(Synapse INTERFACE IMPORTED)

@@ -1290,6 +1290,8 @@ def get_cmake_configurations(args) -> dict[str, list[str]]:
         args.release = False
         args.build_all = False
         log.info("Enforcing build type to debug, since code coverage is enabled.")
+    if args.offline_dependencies_directory:
+        cmake_flags.set_if_missing("OFFLINE_DEPENDENCIES_PATH", args.offline_dependencies_directory)
     cmake_flags.set_if_missing("BUILD_PKGS", "OFF")  # wheel builds are now handled in multi-build Makefile
 
     build_type = "CMAKE_BUILD_TYPE"
@@ -1542,13 +1544,18 @@ def parse_args():
         "script, double -vv additionally enables printing of compilation "
         "command lines.",
     )
-
     parser.add_argument(
         "--cmake-flag",
         action="append",
         help="Args forwarded to CMake. "
         "Unless otherwise noted, when conflicting with flags imposed by other"
         "arguments, the effective setting is the one given explicitly.",
+    )
+    parser.add_argument(
+        "--offline-dependencies-directory",
+        action="store",
+        help="Provide path to directory where pre-downloaded dependencies are stored. "
+        "<repository_root>/scripts/predownload_dependencies.sh can be used to download and prepare it.",
     )
     parser.add_argument(
         "--build-tool-flag",

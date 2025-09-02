@@ -15,6 +15,30 @@
 
 cmake_minimum_required(VERSION 4.0 FATAL_ERROR)
 
+set(OFFLINE_DEPENDENCIES_PATH
+    ""
+    CACHE STRING "Location of pre-downloaded dependencies")
+
+if(NOT "${OFFLINE_DEPENDENCIES_PATH}" STREQUAL "")
+  if(NOT IS_ABSOLUTE "${OFFLINE_DEPENDENCIES_PATH}")
+    set(extra_path_warning " Notice: Relative path is resolved with path(${CMAKE_SOURCE_DIR}) as its root path.")
+  endif()
+  file(REAL_PATH "${OFFLINE_DEPENDENCIES_PATH}" absolute_dependencies_path EXPAND_TILDE)
+  if(IS_READABLE ${absolute_dependencies_path})
+    if(IS_DIRECTORY ${absolute_dependencies_path})
+      message(STATUS "User provided directory with pre-downloaded dependencies: ${absolute_dependencies_path}.")
+      set(CMAKE_PROJECT_TOP_LEVEL_INCLUDES ${CMAKE_SOURCE_DIR}/cmake/ProvideOfflineDependencies.cmake)
+    else()
+      message(
+        WARNING "User provided pre-download directory is a file: ${absolute_dependencies_path}.${extra_path_warning}")
+    endif()
+  else()
+    message(
+      WARNING
+        "User provided pre-downloaded directory is unreachable: ${absolute_dependencies_path}.${extra_path_warning}")
+  endif()
+endif()
+
 if(POLICY CMP0076)
   set(ORIGINAL_CMAKE_WARN_DEPRECATED ${CMAKE_WARN_DEPRECATED})
   set(CMAKE_WARN_DEPRECATED OFF)
