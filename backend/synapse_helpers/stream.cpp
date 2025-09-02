@@ -38,12 +38,7 @@ constexpr uint32_t STREAM_EMPTY_FLAGS = 0;
 
 namespace synapse_helpers {
 stream::stream(class device& device, bool is_compute_stream)
-    : pending_cleanups_{},
-      device_{device},
-      mut_{},
-      cond_var_{},
-      is_compute_stream_{is_compute_stream},
-      handle_{nullptr} {
+    : device_{device}, is_compute_stream_{is_compute_stream}, handle_{nullptr} {
   pending_cleanups_.push({});
   gc_worker_ = std::thread(&stream::gc_thread_proc, this);
   auto status =

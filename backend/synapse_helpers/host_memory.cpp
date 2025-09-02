@@ -86,8 +86,7 @@ size_t compute_huge_pages_limit() {
 } // namespace
 
 host_memory::host_memory(device_interface& device)
-    : mutex_{},
-      device_{device},
+    : device_{device},
       available_(BlockComparator),
       available_huge_pages_mb_for_worker_{compute_huge_pages_limit()},
       remaining_huge_pages_mb_(available_huge_pages_mb_for_worker_) {}

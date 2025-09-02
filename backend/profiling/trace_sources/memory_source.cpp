@@ -121,7 +121,7 @@ struct MemoryLogger : public TraceSource {
           total_reserved(total_reserved) {}
   };
   std::unordered_map<uint64_t, uint64_t> ptrs_;
-  std::mutex m{};
+  std::mutex m;
   std::deque<Event> events_;
   bool enabled_{false};
   unsigned offset_{};

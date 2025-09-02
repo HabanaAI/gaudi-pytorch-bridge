@@ -495,8 +495,6 @@ const habana_helpers::HabanaFrontendTypes& OptimizedJITGraphAndMetaData::
 
 // JitGraphCache Functions
 //==========================
-JitGraphCache::JitGraphCache() : m_mutex{} {}
-
 std::shared_ptr<habana::OptimizedJITGraphAndMetaData> JitGraphCache::
     GetOptimizedJITGraphAndMetaData(size_t key) {
   std::shared_lock<std::shared_mutex> lck(m_mutex);
@@ -547,8 +545,6 @@ JitGraphCache::~JitGraphCache() {
 
 // OptimizedJitGraphCache Functions
 //==========================
-OptimizedJitGraphCache::OptimizedJitGraphCache() : m_mutex{} {}
-
 std::shared_ptr<habana::OptimizedJITGraphAndMetaData> OptimizedJitGraphCache::
     GetOptimizedJITGraphAndMetaData(size_t key) {
   std::shared_lock<std::shared_mutex> lck(m_mutex);

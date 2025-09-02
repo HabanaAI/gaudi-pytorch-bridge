@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 
 namespace synapse_helpers {
 recipe_handle_cache::recipe_handle_cache(device& device)
-    : mutex_{}, device_{device}, evict_strategy_{NumberLimit(MAX_CACHE_SIZE)} {
+    : device_{device}, evict_strategy_{NumberLimit(MAX_CACHE_SIZE)} {
   static_cast<void>(device_);
   enable_hit_count_ = (GET_ENV_FLAG_NEW(PT_HABANA_MAX_RECIPE_HIT_COUNT) != 0);
 }

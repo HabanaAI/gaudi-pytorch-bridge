@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,7 +36,6 @@ event::event(
       handle_{event_handle_cache_.get_free_handle()},
       done_cb_{std::move(done_cb)},
       device_ptrs_{std::move(device_ptrs)},
-      event_ids_{},
       stream_recorded_{stream} {
   if (!event_id.empty()) {
     event_ids_.emplace_back(std::move(event_id));

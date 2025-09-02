@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@ namespace synapse_helpers {
 size_t event_handle_cache::events_count_{0};
 
 event_handle_cache::event_handle_cache(device& device, uint32_t event_flag)
-    : event_flag_(event_flag), mutex_{}, cond_var_{}, device_{device} {
+    : event_flag_(event_flag), device_{device} {
   free_handles_.reserve(NUM_EVENTS_MAX);
 }
 

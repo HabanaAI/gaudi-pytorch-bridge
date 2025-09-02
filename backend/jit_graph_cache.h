@@ -630,7 +630,7 @@ class JitGraphCache {
   void Clear();
 
  private:
-  explicit JitGraphCache();
+  explicit JitGraphCache() = default;
 
   std::shared_mutex m_mutex;
   // Cache stores a JIT graph shared_ptr and meta data for a given hash key
@@ -674,7 +674,7 @@ class OptimizedJitGraphCache {
   };
 
  private:
-  explicit OptimizedJitGraphCache();
+  explicit OptimizedJitGraphCache() = default;
 
   void swap(OptimizedJitGraphCache& cache) noexcept {
     std::swap(m_cache_map, cache.m_cache_map);

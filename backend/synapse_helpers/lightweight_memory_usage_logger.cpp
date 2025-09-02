@@ -106,7 +106,7 @@ class MemMonitor : public MemMonitorBase {
   std::tuple<DataSource...> data_sources_;
   std::mutex mtx_;
   std::condition_variable cv_;
-  thread thread_{};
+  thread thread_;
 };
 
 template <typename... DataSource>
@@ -247,8 +247,8 @@ class InitMemMonitor {
   }
 
  private:
-  unique_ptr<DeviceStatistics> devstats_{};
-  unique_ptr<MemMonitorBase> mem_monitor_{};
+  unique_ptr<DeviceStatistics> devstats_;
+  unique_ptr<MemMonitorBase> mem_monitor_;
 };
 
 InitMemMonitor& get_mem_monitor() {

@@ -100,8 +100,7 @@ synStatus memory_mapper::fixed_size_entries::unmap_all() {
   return retStatus;
 }
 
-memory_mapper::memory_mapper(device& device)
-    : device_{device}, mapped_locations_{} {}
+memory_mapper::memory_mapper(device& device) : device_{device} {}
 
 memory_mapper::acquired_entry memory_mapper::map(mapping_size_t size) {
   lock_t lock(locations_access_);

@@ -192,10 +192,10 @@ struct BridgeLogsSourceImpl : public TraceSource {
   std::unordered_set<std::string> mandatory_events_;
   struct {
     std::unordered_map<const char*, bool> go;
-    std::mutex m{};
+    std::mutex m;
   } checked_;
   unsigned offset_{};
-  std::mutex m{};
+  std::mutex m;
   std::unordered_map<int64_t, std::string> threadNames;
 };
 
