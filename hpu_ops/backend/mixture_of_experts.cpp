@@ -269,6 +269,23 @@ OutputMetaDataVector MixtureOfExpertsMeasurementMeta(const at::Stack& stack) {
   return result;
 }
 
+OutputMetaDataVector MixtureOfExpertsMeasurementBiasMeta(
+    const at::Stack& stack) {
+  const at::Tensor& hidden_states = stack_tensor(stack, 0);
+  const int64_t numExperts = stack.at(3).toTensorList().size();
+  const int64_t numTokens = hidden_states.size(0);
+  const bool measurePerToken = stack.at(10).toBool();
+
+  std::vector<int64_t> measurementOutputShape = measurePerToken
+      ? std::vector<int64_t>{numExperts, numTokens}
+      : std::vector<int64_t>{numExperts};
+
+  OutputMetaDataVector result = {
+      {hidden_states.scalar_type(), hidden_states.sizes().vec()},
+      {torch::kFloat32, measurementOutputShape}};
+  return result;
+}
+
 OutputMetaDataVector MixtureOfExpertsMeta(
     const at::Stack& stack,
     bool measurement_mode) {
@@ -804,7 +821,7 @@ FillParamsT FillMixtureOfExpertsBiasParams(const at::Stack& stack) {
   MixtureOfExpertsConfig cfg = {
       7, /* permuted_weights_idx */
       true, /* fused_gemm */
-      false, /* measurement_mode */
+      stack_size == 15, /* measurement_mode */
       false, /* dynamic_scale */
       false, /* blockwise_quantization */
       false, /* first_gemm_measurement_mode */

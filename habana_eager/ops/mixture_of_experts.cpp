@@ -525,7 +525,27 @@ static at::Tensor prepare_routing_weights(
       .unsqueeze(-1);
 }
 
-static at::Tensor mixture_of_experts_common_with_bias(
+static at::Tensor calculate_amax(
+    const at::Tensor& input,
+    const at::Tensor& routing_weights_all,
+    const std::optional<bool>& measure_per_token) {
+  if (!measure_per_token.has_value()) {
+    return {};
+  }
+
+  at::Tensor mask = routing_weights_all != 0;
+  at::Tensor amax =
+      std::get<0>(torch::max(torch::abs(input.to(torch::kFloat32)), -1));
+  amax = amax * mask.squeeze(-1);
+
+  if (!measure_per_token.value()) {
+    amax = std::get<0>(torch::max(amax, -1));
+  }
+
+  return amax;
+}
+
+static std::tuple<at::Tensor, at::Tensor> mixture_of_experts_common_with_bias(
     const at::Tensor& hidden_states,
     const at::Tensor& expert_routing_table,
     const at::Tensor& router_weights,
@@ -534,6 +554,7 @@ static at::Tensor mixture_of_experts_common_with_bias(
     const at::TensorList w3,
     const at::TensorList w3_bias,
     bool permuted_weights,
+    std::optional<bool> measure_per_token,
     double alpha,
     double limit) {
   TORCH_CHECK(!w12.empty(), "Number of experts must be greater than zero");
@@ -569,7 +590,8 @@ static at::Tensor mixture_of_experts_common_with_bias(
 
   at::Tensor glu = gate * torch::sigmoid(gate * alpha);
 
-  at::Tensor next_states = torch::bmm((up + 1) * glu, w3_stacked);
+  at::Tensor hidden_states_w12 = (up + 1) * glu;
+  at::Tensor next_states = torch::bmm(hidden_states_w12, w3_stacked);
   next_states = next_states + w3_bias_stacked.unsqueeze(-2);
   next_states = next_states.view({num_experts, -1, hidden_size});
 
@@ -578,7 +600,10 @@ static at::Tensor mixture_of_experts_common_with_bias(
 
   next_states = next_states * routing_weights_scattered;
 
-  return next_states.sum(0);
+  return {
+      next_states.sum(0),
+      calculate_amax(
+          hidden_states_w12, routing_weights_scattered, measure_per_token)};
 }
 
 at::Tensor mixture_of_experts(
@@ -706,7 +731,7 @@ at::Tensor mixture_of_experts_bias_fused_weights(
           alpha,
           limit));
 
-  return mixture_of_experts_common_with_bias(
+  return std::get<0>(mixture_of_experts_common_with_bias(
       hidden_states,
       expert_routing_table,
       router_weights,
@@ -715,8 +740,9 @@ at::Tensor mixture_of_experts_bias_fused_weights(
       w3,
       w3_bias,
       permuted_weights,
+      std::nullopt,
       alpha,
-      limit);
+      limit));
 }
 
 std::tuple<at::Tensor, at::Tensor> mixture_of_experts_fp8_measurement(
@@ -805,6 +831,57 @@ mixture_of_experts_fp8_measurement_fused_weights(
       permuted_weights,
       activation,
       measurement_mode);
+}
+
+std::tuple<at::Tensor, at::Tensor>
+mixture_of_experts_measurement_bias_fused_weights(
+    const at::Tensor& hidden_states,
+    const at::Tensor& expert_routing_table,
+    const at::Tensor& router_weights,
+    const at::TensorList w12,
+    const at::TensorList w3,
+    const at::TensorList w12_bias,
+    const at::TensorList w3_bias,
+    const bool permuted_weights,
+    const int64_t experts_min,
+    const int64_t experts_max,
+    const bool measure_per_token,
+    const int64_t chunk_size,
+    const int64_t total_experts,
+    const double alpha,
+    const double limit) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "mixture_of_experts.measurement_bias_fused_weights :",
+      DUMP_15ARGS(
+          hidden_states,
+          expert_routing_table,
+          router_weights,
+          w12,
+          w3,
+          w12_bias,
+          w3_bias,
+          permuted_weights,
+          experts_min,
+          experts_max,
+          measure_per_token,
+          chunk_size,
+          total_experts,
+          alpha,
+          limit));
+
+  return mixture_of_experts_common_with_bias(
+      hidden_states,
+      expert_routing_table,
+      router_weights,
+      w12,
+      w12_bias,
+      w3,
+      w3_bias,
+      permuted_weights,
+      measure_per_token,
+      alpha,
+      limit);
 }
 
 template <typename Scale>

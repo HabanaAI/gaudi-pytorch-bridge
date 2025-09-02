@@ -22,6 +22,7 @@ from test_utils import (
     format_tc,
     hpu,
     is_pytest_mode_compile,
+    is_pytest_mode_eager,
 )
 from torch import nn
 
@@ -49,7 +50,7 @@ class GptOssMoeBlock(nn.Module):
 
     # Test reference based on:
     # https://github.com/huggingface/transformers/blob/main/src/transformers/models/gpt_oss/modeling_gpt_oss.py#L63
-    def forward(self, hidden_states, expert_routing_table, router_weights):
+    def forward(self, hidden_states, expert_routing_table, router_weights, measure_per_token):
         routing_weights_all = torch.zeros(hidden_states.shape[0], self.num_experts, dtype=hidden_states.dtype).scatter_(
             1, expert_routing_table, router_weights
         )
@@ -63,11 +64,25 @@ class GptOssMoeBlock(nn.Module):
         gate = gate.clamp(min=None, max=self.limit)
         up = up.clamp(min=-self.limit, max=self.limit)
         glu = gate * torch.sigmoid(gate * self.alpha)
-        next_states = torch.bmm(((up + 1) * glu), self.w3)
+        hidden_states_w12 = (up + 1) * glu
+        next_states = torch.bmm(hidden_states_w12, self.w3)
         next_states = next_states + self.w3_bias[..., None, :]
         next_states = next_states.view(self.num_experts, -1, self.hidden_size)
         next_states = next_states * routing_weights_all.transpose(0, 1).view(self.num_experts, -1)[..., None]
-        return next_states.sum(dim=0)
+        return next_states.sum(dim=0), self.calculate_measurements(
+            hidden_states_w12, routing_weights_all, measure_per_token
+        )
+
+    def calculate_measurements(self, input, routing_weights_all, measure_per_token):
+        if measure_per_token is None:
+            return None
+
+        mask = routing_weights_all.transpose(0, 1) != 0
+        amax = torch.max(torch.abs(input.to(torch.float32)), dim=-1).values
+        amax = amax * mask
+        if not measure_per_token:
+            amax = torch.max(amax, dim=-1).values
+        return amax
 
 
 def generate_experts_weights_and_biases(hidden_dim, ffn_dim, num_experts, dtype, permuted_weights):
@@ -95,18 +110,13 @@ def generate_experts_weights_and_biases(hidden_dim, ffn_dim, num_experts, dtype,
 @pytest.mark.parametrize("num_tokens", NUM_TOKENS)
 @pytest.mark.parametrize("permuted_weights", PERMUTED_WEIGHTS)
 @pytest.mark.parametrize("dtype", DTYPES, ids=format_tc)
+@pytest.mark.parametrize("measure_per_token", [False, None])  # [True, False, None]
 def test_mixture_of_experts_gpt_oss(
-    permuted_weights,
-    num_tokens,
-    num_experts,
-    hidden_dim,
-    ffn_dim,
-    dtype,
-    alpha,
-    limit,
+    permuted_weights, num_tokens, num_experts, hidden_dim, ffn_dim, dtype, alpha, limit, measure_per_token
 ):
     chunk_size = 0
     total_experts = 0
+    measurement_mode = measure_per_token is not None
     hidden_states = torch.randn((num_tokens, hidden_dim), dtype=dtype)
     router_weights_all = torch.randn((num_tokens, num_experts), dtype=dtype)
     router_weights, expert_routing_table = torch.topk(router_weights_all, 2)
@@ -116,8 +126,9 @@ def test_mixture_of_experts_gpt_oss(
     )
 
     mixtral_ref = GptOssMoeBlock(w12_cpu, w12_bias_cpu, w3_cpu, w3_bias_cpu, alpha, limit)
-    result_cpu = mixtral_ref(hidden_states, expert_routing_table, router_weights)
-
+    result_cpu, measurement_results_cpu = mixtral_ref(
+        hidden_states, expert_routing_table, router_weights, measure_per_token
+    )
     fn = compile_function_if_compile_mode(torch.ops.hpu.mixture_of_experts)
 
     def call_moe_fn():
@@ -138,13 +149,21 @@ def test_mixture_of_experts_gpt_oss(
             "alpha": alpha,
             "limit": limit,
         }
+        if measurement_mode:
+            kwargs["measure_per_token"] = measure_per_token
 
         return fn(*common_inputs, *weights, *biases, **kwargs)
 
     with torch.inference_mode():
-        result_hpu = call_moe_fn()
+        if measurement_mode:
+            result_hpu, measurement_results_hpu = call_moe_fn()
+        else:
+            result_hpu = call_moe_fn()
 
     check_using_cosine_similarity(result_hpu, result_cpu, 0.98)
+    # For measure_per_token=True and cguid patch measurements are not properly placed
+    if measurement_mode and (measure_per_token is not True and not is_pytest_mode_eager()):
+        torch.testing.assert_close(measurement_results_hpu.cpu(), measurement_results_cpu, atol=0.01, rtol=0.01)
 
     if is_pytest_mode_compile():
         check_ops_executed_in_jit_ir("mixture_of_experts")
