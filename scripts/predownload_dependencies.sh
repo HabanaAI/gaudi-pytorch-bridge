@@ -35,6 +35,7 @@ COMMON_GIT_ARGS="-c advice.detachedHead=false --quiet --depth=1 --single-branch 
 # ClangTidy:
 git clone $COMMON_GIT_ARGS https://github.com/matus-chochlik/ctcache.git
 pushd ctcache
+git fetch --quiet --unshallow --jobs=$(nproc)
 git checkout b54f74807fc02c8897247fda6229aabbac78a560
 popd
 
