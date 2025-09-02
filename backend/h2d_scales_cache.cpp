@@ -132,6 +132,12 @@ at::Tensor H2dScalesCache::CreateH2dTensorScale(
     // cache of H2D scales tensors created at startup. Set the host and compile
     // pointer from preallocated chunk and increment the h2d_pointer to point to
     // end of current H2D.
+    HABANA_ASSERT(
+        alloc_pointer != nullptr and h2d_pointer != nullptr,
+        "Expected alloc_pointer and h2d_pointer to be both null or not-null, got: ",
+        alloc_pointer,
+        " and ",
+        h2d_pointer);
     const auto host_total_elem = 2 * scale_value_size;
 
     tmeta->set_host_size(1);
