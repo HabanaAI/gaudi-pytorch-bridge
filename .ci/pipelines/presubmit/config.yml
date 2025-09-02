@@ -139,10 +139,6 @@ orchestratorConfig:
       gitHubOrg: habana-internal
       forbiddenFiles:
       - docs/*
-  - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi2_asic_lightning_habana_uts
-    triggerMap:
-    - repository: lightning-habana-fork
-      gitHubOrg: habana-internal
   - testToLaunch: habana-internal/pt_next/Test_dependent_Build_pt_next_u22
     triggerMap:
     - repository: pytorch-integration
