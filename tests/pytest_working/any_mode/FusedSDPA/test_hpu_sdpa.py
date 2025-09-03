@@ -1059,6 +1059,85 @@ fp32_softmax_list = [
         False,  # use_sink
     ),
 ]
+fp32_softmax_training_list = [
+    (  # Non-Recomp; causal
+        4,  # batch_size,
+        4,  # n_heads,
+        32,  # seq_len_N_t, i.e. Target seq len (i.e, of q)
+        32,  # seq_len_N_s, i.e. Source seq len (i.e, of k and v)
+        8,  # head_dim_qk, i.e. head_dim of q and k
+        8,  # head_dim_v,  i.e. head_dim of v
+        0.0,  # dropout_p,
+        False,  # use_attn_mask,
+        True,  # use_float_mask,
+        True,  # enable_autocast
+        True,  # is_causal
+        False,  # recompute
+        True,  # rhslice
+        False,  # inference
+        "fp32",  # softmax_mode
+        False,  # return_attn_probs
+        False,  # use_sink
+    ),
+    (  # Non-Recomp; Non-causal + Mask
+        4,  # batch_size,
+        4,  # n_heads,
+        32,  # seq_len_N_t, i.e. Target seq len (i.e, of q)
+        32,  # seq_len_N_s, i.e. Source seq len (i.e, of k and v)
+        8,  # head_dim_qk, i.e. head_dim of q and k
+        8,  # head_dim_v,  i.e. head_dim of v
+        0.0,  # dropout_p,
+        True,  # use_attn_mask,
+        True,  # use_float_mask,
+        True,  # enable_autocast
+        False,  # is_causal
+        False,  # recompute
+        True,  # rhslice
+        False,  # inference
+        "fp32",  # softmax_mode
+        False,  # return_attn_probs
+        False,  # use_sink
+    ),
+    (  # Non-Recomp; causal
+        4,  # batch_size,
+        4,  # n_heads,
+        32,  # seq_len_N_t, i.e. Target seq len (i.e, of q)
+        32,  # seq_len_N_s, i.e. Source seq len (i.e, of k and v)
+        8,  # head_dim_qk, i.e. head_dim of q and k
+        8,  # head_dim_v,  i.e. head_dim of v
+        0.0,  # dropout_p,
+        False,  # use_attn_mask,
+        True,  # use_float_mask,
+        True,  # enable_autocast
+        True,  # is_causal
+        True,  # recompute
+        True,  # rhslice
+        False,  # inference
+        "fp32",  # softmax_mode
+        False,  # return_attn_probs
+        False,  # use_sink
+    ),
+    (  # Recomp; Non-causal + Mask
+        4,  # batch_size,
+        4,  # n_heads,
+        32,  # seq_len_N_t, i.e. Target seq len (i.e, of q)
+        32,  # seq_len_N_s, i.e. Source seq len (i.e, of k and v)
+        8,  # head_dim_qk, i.e. head_dim of q and k
+        8,  # head_dim_v,  i.e. head_dim of v
+        0.0,  # dropout_p,
+        True,  # use_attn_mask,
+        True,  # use_float_mask,
+        True,  # enable_autocast
+        False,  # is_causal
+        True,  # recompute
+        True,  # rhslice
+        False,  # inference
+        "fp32",  # softmax_mode
+        False,  # return_attn_probs
+        False,  # use_sink
+    ),
+]
+
 tc_list_sink = [
     (
         4,  # batch_size,
@@ -1087,7 +1166,8 @@ tc_list_sink = [
 # For now disable additional tests
 total_tc_list_last = (
     tc_list + tc_list_recompute + tc_list_rhslice + tc_list_rhslice_inf_attn_mask + fast_list + fp32_softmax_list
-    # tc_list_sink Add once sink suppport in CGUID is merged
+    # + tc_list_sink Add once sink suppport in CGUID is merged
+    # + fp32_softmax_training_list # test disabled for now so as not to increase CI time
 )
 current_dir = os.path.dirname(__file__)
 csv_file_path = os.path.join(current_dir, "sdpa_config.csv")
@@ -1133,19 +1213,16 @@ def is_param_combo_valid(
         # return_attn_probs supported only for inference
         if return_attn_probs:
             return False
-        # softmax_mode == "fp32" is not supported in training
-        if softmax_mode == "fp32":
-            return False
         # sink is supported only in inference
         if use_sink:
             return False
 
-    if inference:
-        if dropout_p > 0.0:
-            return False
-        # softmax_mode == "fp32" is supported only when q/k/v are BF16
-        if softmax_mode == "fp32" and not enable_autocast:
-            return False
+    if inference and dropout_p > 0.0:
+        return False
+
+    # softmax_mode == "fp32" is supported only when q/k/v are BF16
+    if softmax_mode == "fp32" and not enable_autocast:
+        return False
 
     # sink is not supported in 3D case
     if use_sink and n_heads == 0:

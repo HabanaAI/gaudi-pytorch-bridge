@@ -831,12 +831,18 @@ void SDPARecompFwd::AddNode(
   output_attrs.push_back({out_shapes[0], q.pt_t.scalar_type(), 0});
   if (requires_backward) {
     auto linvType = c10::ScalarType::Float;
+    auto mType = q.pt_t.scalar_type();
 
     if ((softmax_mode == "fast") &&
         (q.pt_t.scalar_type() == c10::ScalarType::BFloat16)) {
       linvType = c10::ScalarType::BFloat16;
-    } // TODO: handle fp32 softmax mode in training
-    output_attrs.push_back({out_shapes[1], q.pt_t.scalar_type(), 1});
+    }
+
+    if (softmax_mode == "fp32") {
+      mType = c10::ScalarType::Float;
+    }
+
+    output_attrs.push_back({out_shapes[1], mType, 1});
     output_attrs.push_back({out_shapes[2], linvType, 2});
     if (p > 0.0) {
       output_attrs.push_back({out_shapes[3], at::ScalarType::Int, 3});
@@ -1011,6 +1017,10 @@ void Fp8SDPARecompFwd::AddNode(
 
     if (q.pt_t.scalar_type() == at::ScalarType::Float8_e4m3fn) {
       mType = c10::ScalarType::BFloat16;
+    }
+
+    if (softmax_mode == "fp32") {
+      mType = c10::ScalarType::Float;
     }
   }
   output_attrs.push_back({out_shapes[0], fwdOutType, 0});

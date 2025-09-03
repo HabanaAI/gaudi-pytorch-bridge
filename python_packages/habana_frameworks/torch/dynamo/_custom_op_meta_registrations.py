@@ -587,9 +587,12 @@ def meta_sdpa_recomp_fwd_helper(q, k, v, requires_backward, softmax_mode):
     out_shapes = _hpu_C.custom_op_calc_out_shape_params_int("sdpa_recomp_fwd", [q, k, v], [requires_backward])
 
     linv_dtype = torch.float32
+    m_dtype = q.dtype
     if softmax_mode.lower() == "fast" and q.dtype == torch.bfloat16:
         linv_dtype = torch.bfloat16
-    out_types = [q.dtype, q.dtype, linv_dtype, seed_dtype]  # dtypes of [fwd_out, m, Linv, seed]
+    if softmax_mode.lower() == "fp32":
+        m_dtype = torch.float32
+    out_types = [q.dtype, m_dtype, linv_dtype, seed_dtype]  # dtypes of [fwd_out, m, Linv, seed]
 
     out_tensors = []
     for i in range(len(out_shapes)):
@@ -906,6 +909,8 @@ def meta_fp8_sdpa_recomp_fwd_helper(q, k, v, q_scale_o, softmax_mode, requires_b
         linv_type = torch.bfloat16
     if q.dtype in [torch.torch.float8_e4m3fn, torch.float8_e5m2]:
         m_type = torch.bfloat16
+    if softmax_mode.lower() == "fp32":
+        m_type = torch.float32
 
     out_tensors = [q.new_empty(out_shapes[0], dtype=fwd_out_type)]
     out_tensors.append(q.new_empty(out_shapes[1], dtype=m_type))

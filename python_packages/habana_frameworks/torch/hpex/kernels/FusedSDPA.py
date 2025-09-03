@@ -148,10 +148,8 @@ def sdpa_fwd_wrapper(
 
     if softmax_mode == "fp32":
         q_dtype = q.dtype
-        if not (requires_backward is False and q_dtype == torch.bfloat16):
-            raise AssertionError(
-                "softmax_mode = fp32 is supported only for inference mode and when q/k/v inputs are BF16"
-            )
+        if not (q_dtype == torch.bfloat16):
+            raise AssertionError("softmax_mode = fp32 is supported only when q/k/v inputs are BF16")
 
     # if attention mask is 2D (Nt, Ns) expand it to Q rank
     # along with the same batch size

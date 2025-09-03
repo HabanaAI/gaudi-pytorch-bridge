@@ -527,13 +527,16 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_fwd(
              sink},
             habana::SDPARecompFwdOutputShape};
     auto linvType = c10::ScalarType::Float;
+    auto mType = q.scalar_type();
 
     if ((softmax_mode == "fast") &&
         (q.scalar_type() == c10::ScalarType::BFloat16)) {
       linvType = c10::ScalarType::BFloat16;
+    } else if (softmax_mode == "fp32") {
+      mType = c10::ScalarType::Float;
     }
     hpu_op.set_scalar_types(
-        {q.scalar_type(), q.scalar_type(), linvType, c10::ScalarType::Int});
+        {q.scalar_type(), mType, linvType, c10::ScalarType::Int});
     return hpu_op.call();
   }
 }
@@ -802,6 +805,9 @@ fp8_sdpa_recomp_fwd_common(
   auto mType = q.scalar_type();
   if (q.scalar_type() == at::ScalarType::Float8_e4m3fn) {
     mType = c10::ScalarType::BFloat16;
+  }
+  if (softmax_mode == "fp32") {
+    mType = c10::ScalarType::Float;
   }
 
   if (p > 0.0) {
