@@ -356,6 +356,9 @@ void ProfilerEngine::flush() {
   uint64_t jit_cache_hit_count_threshold =
       GET_ENV_FLAG_NEW(PT_HPU_LOP_JIT_WARM_UP_STEPS);
   const char* base_dir_path = std::getenv("HABANA_LOGS");
+  if (!base_dir_path) {
+    base_dir_path = "";
+  }
   std::string dir_path = "/";
   const char* rank = std::getenv("RANK");
   if (rank != nullptr && rank[0] != '\0') {

@@ -27,7 +27,8 @@ TEST(EnvFlags, GetEnv) {
       "PT_HPU_LAZY_MODE ",
       (IS_ENV_FLAG_DEFINED_NEW(PT_HPU_LAZY_MODE) ? "defined" : "not defined"));
 
-  auto is_env_val_org_defined = IS_ENV_FLAG_DEFINED_NEW(PT_HPU_LAZY_MODE);
+  [[maybe_unused]] bool is_env_val_org_defined =
+      IS_ENV_FLAG_DEFINED_NEW(PT_HPU_LAZY_MODE);
   auto env_val_org = GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE);
 
   // Unset env variable

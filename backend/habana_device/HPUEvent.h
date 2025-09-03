@@ -108,8 +108,8 @@ struct HPUEvent {
   bool was_recorded_ = false;
   DeviceIndex device_index_ = -1;
   synapse_helpers::hpuEvent_t id_ = 0;
-  synapse_helpers::hpuStream_t recorded_stream_;
-  synapse_helpers::hpuStream_t created_with_stream_;
+  synapse_helpers::hpuStream_t recorded_stream_ = 0;
+  synapse_helpers::hpuStream_t created_with_stream_ = 0;
 
   void createEvent([[maybe_unused]] DeviceIndex device_index);
 

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -63,7 +63,8 @@ TEST_F(EagerPipelineTest, PipelineThrottling) {
       GET_ENV_FLAG_NEW(PT_HPU_THREAD_POOL_QUEUE_CAPACITY);
 
   // make sure the thread pools are initialized
-  at::Device device = habana::HPUDeviceContext::get_or_create_aten_device();
+  [[maybe_unused]] at::Device device =
+      habana::HPUDeviceContext::get_or_create_aten_device();
 
   auto& lowering_thread = habana::HPUDeviceContext::lowering_thread();
   auto& compile_thread_pool = habana::HPUDeviceContext::compile_thread_pool();
@@ -87,7 +88,8 @@ TEST_F(EagerPipelineTest, PipelineThrottling) {
 
 TEST_F(EagerPipelineTest, CompileError) {
   // make sure the thread pools are initialized
-  at::Device device = habana::HPUDeviceContext::get_or_create_aten_device();
+  [[maybe_unused]] at::Device device =
+      habana::HPUDeviceContext::get_or_create_aten_device();
   auto default_queue_capacity_ =
       GET_ENV_FLAG_NEW(PT_HPU_THREAD_POOL_QUEUE_CAPACITY);
   SET_ENV_FLAG_NEW(PT_HPU_THREAD_POOL_QUEUE_CAPACITY, 1, 1);
@@ -100,7 +102,8 @@ TEST_F(EagerPipelineTest, CompileError) {
 
 TEST_F(EagerPipelineTest, ExecError) {
   // make sure the thread pools are initialized
-  at::Device device = habana::HPUDeviceContext::get_or_create_aten_device();
+  [[maybe_unused]] at::Device device =
+      habana::HPUDeviceContext::get_or_create_aten_device();
   auto default_queue_capacity_ =
       GET_ENV_FLAG_NEW(PT_HPU_THREAD_POOL_QUEUE_CAPACITY);
   SET_ENV_FLAG_NEW(PT_HPU_THREAD_POOL_QUEUE_CAPACITY, 1, 1);

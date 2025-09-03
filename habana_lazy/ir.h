@@ -389,7 +389,7 @@ struct Value final {
   // This keeps track of the version of the data this IR points to
   // helps us track view scenarios where we have RAW or WAR kind of ops on
   // different sections of the same tensor
-  uint64_t version_;
+  uint64_t version_ = 0;
 
  protected:
   // OutInfo

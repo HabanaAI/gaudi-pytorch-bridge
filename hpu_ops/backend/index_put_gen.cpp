@@ -963,7 +963,7 @@ void IndexPutCompile::AddNode(
   auto self = stack_tensor(stack, 0);
   std::vector<at::Tensor> indices;
   std::vector<synTensor> indices_synin;
-  bool indices_are_bool = false;
+  [[maybe_unused]] bool indices_are_bool = false;
   int i = 0;
   if (stack.at(1).isOptionalTensorList()) {
     PT_KERNEL_DEBUG(

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,8 +30,9 @@ using Patterns = std::vector<Pattern>;
 Patterns internal_patts = {};
 
 std::string get_transform_graph_file() {
-  if (std::getenv("HABANA_TRANSFORM_GRAPH_FILE")) {
-    return static_cast<std::string>(std::getenv("HABANA_TRANSFORM_GRAPH_FILE"));
+  const char* graph_file = std::getenv("HABANA_TRANSFORM_GRAPH_FILE");
+  if (graph_file) {
+    return static_cast<std::string>(graph_file);
   } else {
     return {};
   }

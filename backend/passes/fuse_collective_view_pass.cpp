@@ -230,7 +230,7 @@ void FuseCollectiveViewPass::GetExternalParams(
     auto dim_sizes = sizes[dim];
     auto dim_strides = strides[dim];
     if (ndim.has_value() &&
-        ndim.value() > uint64_t(dim = at::maybe_wrap_dim(dim, ndim.value())) &&
+        ndim.value() > uint64_t(at::maybe_wrap_dim(dim, ndim.value())) &&
         dim_sizes.has_value() && dim_strides.has_value()) {
       auto normalize_func = [](int64_t idx, int64_t size) -> int64_t {
         if (size <= 0) {

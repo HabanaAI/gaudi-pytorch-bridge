@@ -34,7 +34,8 @@ deviceMallocData::deviceMallocData() {
   iteration_number = 0;
   running_memory = iteration_high_watermark = overall_high_watermark = 0;
   bt_depth = 40;
-  std::string node_id = std::getenv("RANK") ? std::getenv("RANK") : "0";
+  const char* rank_str = std::getenv("RANK");
+  std::string node_id = rank_str ? rank_str : "0";
   filename = absl::StrFormat(
       "%s_%s", GET_ENV_FLAG_NEW(PT_HABANA_MEM_LOG_FILENAME), node_id);
   memory_reporter_name = absl::StrFormat("memory.reporter_%s.json", node_id);
