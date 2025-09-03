@@ -22,6 +22,7 @@
 #include "backend/helpers/tensor_utils.h"
 #include "ir.h"
 #include "ir_utils.h"
+#include "jit_fork/ir/ir.h"
 #include "view.h"
 
 namespace habana {
@@ -414,7 +415,7 @@ class HbLazyTensor {
 
   static void ExecuteCachedGraph(
       std::shared_ptr<habana::RecipeArgumentSpec> cached_rarg_psh,
-      std::shared_ptr<torch::jit::Graph> graph,
+      std::shared_ptr<habana_torch::jit::Graph> graph,
       size_t hash,
       size_t graphKey,
       std::string opStrs,

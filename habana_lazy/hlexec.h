@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,26 +22,21 @@
 #include "backend/jit_graph_cache.h"
 #include "hpu_lazy_tensors.h"
 #include "ir.h"
+#include "jit_fork/ir/ir.h"
 #include "lazy_executor.h"
 #include "torch/csrc/jit/ir/ir.h"
 
 namespace habana_lazy::exec {
 
-using Graph = torch::jit::Graph;
-using JitValue = torch::jit::Value;
 using HabanaLazyValue = habana_lazy::ir::Value;
 using HabanaLazyOutput = habana_lazy::ir::Output;
-using JitIValue = torch::jit::IValue;
-using GraphPtr = std::shared_ptr<Graph>;
 using OptimizedJITGraphAndMetaDataPtr =
     std::shared_ptr<habana::OptimizedJITGraphAndMetaData>;
-using JitValuePtr = std::shared_ptr<JitValue>;
-using ScopePtr = torch::jit::ScopePtr;
 using HabanaLazyTensorPtr = habana_lazy::HbLazyTensor*;
 using HabanaLazyTensorPtrList = std::vector<HabanaLazyTensorPtr>;
 using LazyOutputToJitValueMap = std::unordered_map<
     HabanaLazyOutput,
-    JitValue*,
+    torch::jit::Value*,
     habana_lazy::ir::OutputHash,
     habana_lazy::ir::OutputEqual>;
 
@@ -220,7 +215,7 @@ class OptPassCfg {
 class HlExec {
  public:
   HlExec();
-  HlExec(ScopePtr scope);
+  HlExec(torch::jit::ScopePtr scope);
 
   virtual ~HlExec() {}
 
@@ -300,13 +295,21 @@ class HlExec {
       std::shared_ptr<habana::RecipeArgumentSpec> cached_rarg_psh = nullptr,
       bool dry_run = false);
 
-  GraphPtr get_graph() {
+  std::shared_ptr<habana_torch::jit::Graph> get_graph() {
+    return mp_g_jitfork_;
+  }
+
+  std::shared_ptr<torch::jit::Graph> get_upstream_graph() {
+    if (mp_g_->inputs().size() == 0 && mp_g_jitfork_->inputs().size() != 0) {
+      // This happens when JIT Cache hit
+      mp_g_ = mp_g_jitfork_->copyToUpstreamGraph();
+    }
     return mp_g_;
   }
 
   static size_t GetGraphIndex(
       size_t hash,
-      at::ArrayRef<torch::jit::IValue> input_refs);
+      at::ArrayRef<habana_torch::jit::IValue> input_refs);
 
   static size_t GetGraphIndex(
       size_t hash,
@@ -317,11 +320,11 @@ class HlExec {
     return m_g_hash_;
   }
 
-  void set_graph(GraphPtr p_g) {
-    mp_g_ = p_g;
+  void set_graph(std::shared_ptr<habana_torch::jit::Graph> p_g_jitfork) {
+    mp_g_jitfork_ = p_g_jitfork;
     mp_g_and_meta_data_ =
         std::make_shared<habana::OptimizedJITGraphAndMetaData>();
-    mp_g_and_meta_data_->set_cached_graph(mp_g_);
+    mp_g_and_meta_data_->set_cached_graph(mp_g_jitfork_);
   }
 
   void set_hash(size_t p_h) {
@@ -389,7 +392,8 @@ class HlExec {
   void IdentifyAndSetGraphNodes(const ir::NodePtrList& nodes);
   void CollectAdjacentCastFp8Nodes(const ir::NodePtrList& nodes);
   void MarkNonReciprocalH2dScales(const ir::NodePtrList& nodes);
-  GraphPtr mp_g_;
+  std::shared_ptr<torch::jit::Graph> mp_g_;
+  std::shared_ptr<habana_torch::jit::Graph> mp_g_jitfork_;
   OptimizedJITGraphAndMetaDataPtr mp_g_and_meta_data_{nullptr};
   size_t m_g_hash_;
   size_t m_fwd_graph_hash_ = 0;

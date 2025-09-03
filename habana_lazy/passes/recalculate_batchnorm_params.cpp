@@ -24,7 +24,7 @@
 
 namespace {
 size_t getValuePosInStack(
-    std::shared_ptr<Graph>& graph,
+    std::shared_ptr<torch::jit::Graph>& graph,
     const torch::jit::Value* value) {
   auto graph_ins = graph->inputs();
   size_t idx = 0;
@@ -42,7 +42,7 @@ namespace habana_lazy {
 
 ::std::tuple<habana::TensorExtraMeta*, habana::StorageExtraMeta*>
 GetBackEndTensorMeta(
-    std::shared_ptr<Graph>& graph,
+    std::shared_ptr<torch::jit::Graph>& graph,
     torch::jit::Stack& stack,
     torch::jit::Node* node,
     const int idx) {
@@ -152,7 +152,7 @@ bool recomputeBatchnormParams(
 }
 
 void* GetDataInHostBuffer(
-    std::shared_ptr<Graph>& graph,
+    std::shared_ptr<torch::jit::Graph>& graph,
     torch::jit::Stack& stack,
     torch::jit::Node* node,
     const int idx) {
@@ -255,7 +255,7 @@ void* GetDataInHostBuffer(
 }
 
 void UpdateDataInDeviceMem(
-    std::shared_ptr<Graph>& graph,
+    std::shared_ptr<torch::jit::Graph>& graph,
     torch::jit::Stack& stack,
     torch::jit::Node* node,
     const int idx,
@@ -296,7 +296,7 @@ void UpdateDataInDeviceMem(
    Ref:https://jira.habana-labs.com/browse/SW-116081 */
 
 void RecalculateBatchnormParams(
-    std::shared_ptr<Graph>& graph,
+    std::shared_ptr<torch::jit::Graph>& graph,
     torch::jit::Stack& stack) {
   for (auto node : graph->nodes()) {
     auto node_name = node->kind().toQualString();

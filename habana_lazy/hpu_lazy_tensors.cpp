@@ -844,15 +844,6 @@ void HbLazyTensor::SyncLiveTensorsGraph(
   }
 }
 
-std::string DumpGraph(std::shared_ptr<torch::jit::Graph> jit_graph) {
-  std::stringstream strbuff;
-  std::streambuf* oldbuff = std::cout.rdbuf(strbuff.rdbuf());
-  jit_graph->dump();
-  std::string str = strbuff.str();
-  std::cout.rdbuf(oldbuff);
-  return str;
-}
-
 std::vector<ir::NodePtr> GetNodePtrRoots(
     std::vector<HbLazyTensor>* tensors,
     std::vector<int>& indices) {
@@ -1507,7 +1498,7 @@ void HbLazyTensor::SyncTensorsGraphInternal(
 
 void HbLazyTensor::ExecuteCachedGraph(
     std::shared_ptr<habana::RecipeArgumentSpec> cached_rarg_psh,
-    GraphPtr graph,
+    std::shared_ptr<habana_torch::jit::Graph> graph,
     size_t hash,
     size_t graphKey,
     std::string opStrs,

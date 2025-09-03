@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -52,8 +52,10 @@ TEST(DS_CacheTest, JIT_IR_GraphKeyTest) {
       %5 : Tensor = aten::add[deterministic=0](%2, %4, %12)
       return (%5))IR";
 
-  auto jit_ir_graph = std::make_shared<torch::jit::Graph>();
-  torch::jit::parseIR(graph_string, jit_ir_graph.get());
+  auto upstream_graph = std::make_shared<torch::jit::Graph>();
+  torch::jit::parseIR(graph_string, upstream_graph.get());
+  auto jit_ir_graph = std::make_shared<habana_torch::jit::Graph>();
+  habana_torch::jit::cloneFromUpstreamGraph(upstream_graph, jit_ir_graph);
 
   jit_ir_graph->lint();
   // std::cout << "PTF_DBG :: "

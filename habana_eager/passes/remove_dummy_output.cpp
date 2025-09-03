@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,18 +12,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <torch/csrc/jit/ir/ir.h>
 #include "habana_helpers/logging_pt.h"
+#include "jit_fork/ir/ir.h"
 
 namespace habana::graph::pass {
 struct RemoveDummyOutputPass {
-  explicit RemoveDummyOutputPass(std::shared_ptr<torch::jit::Graph> graph)
+  explicit RemoveDummyOutputPass(
+      std::shared_ptr<habana_torch::jit::Graph> graph)
       : m_graph(std::move(graph)) {}
   bool run() {
     auto outputs = m_graph->outputs();
     if (outputs.size() == 1) {
       auto output_node = outputs[0]->node();
-      if (output_node->kind() == torch::jit::prim::Constant) {
+      if (output_node->kind() == habana_torch::jit::prim::Constant) {
         HABANA_ASSERT(
             outputs[0]->uses().size() == 1,
             "Output node can be removed when it is not used elsewhere.");
@@ -36,10 +37,10 @@ struct RemoveDummyOutputPass {
   }
 
  private:
-  std::shared_ptr<torch::jit::Graph> m_graph;
+  std::shared_ptr<habana_torch::jit::Graph> m_graph;
 };
 
-bool RemoveDummyOutput(std::shared_ptr<torch::jit::Graph> graph) {
+bool RemoveDummyOutput(std::shared_ptr<habana_torch::jit::Graph> graph) {
   PT_EAGER_TRACE;
   RemoveDummyOutputPass pass{graph};
   bool changed{pass.run()};

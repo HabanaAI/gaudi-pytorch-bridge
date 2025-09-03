@@ -31,14 +31,13 @@
 
 #include <ATen/Tensor.h>
 
-#include <torch/csrc/jit/ir/ir.h>
 #include <torch/csrc/jit/runtime/argument_spec.h>
-#include <torch/csrc/jit/runtime/interpreter.h>
 
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
 #include "backend/passes/hpu_habana_pass_interface.h"
 
 #include "habana_helpers/logging.h"
+#include "jit_fork/ir/ir.h"
 
 namespace habana {
 // Pass data
@@ -79,7 +78,7 @@ class PersistenceMarkerPass : public JITGraphPass<PersistenceMarkerPassData> {
   PersistenceMarkerPass(HabanaLaunchOpPT* habana_launch_op_ptr)
       : habana_launch_op_ptr_(habana_launch_op_ptr) {}
   std::unique_ptr<PersistenceMarkerPassData> VisitGraph(
-      const std::shared_ptr<torch::jit::Graph> graph);
+      const std::shared_ptr<habana_torch::jit::Graph> graph);
 
  private:
   std::string pass_name_ = "persistence_marker_pass";
@@ -91,16 +90,17 @@ class PersistenceMarkerPass : public JITGraphPass<PersistenceMarkerPassData> {
 
   /* Guideline: Accessors and mutators (get and set functions) may be named like
    * variables. */
-  void set_persistence_input(torch::jit::Node*, int inputId);
-  void set_persistence_output(torch::jit::Node*, int outputId);
-  void set_external_input(torch::jit::Node*);
+  void set_persistence_input(habana_torch::jit::Node*, int inputId);
+  void set_persistence_output(habana_torch::jit::Node*, int outputId);
+  void set_external_input(habana_torch::jit::Node*);
 
-  void MarkPersistenceNodes(torch::jit::graph_node_list graph_nodes);
-  void MarkProducerExternal(torch::jit::Value* val);
-  void ExternalMarkingPass(torch::jit::graph_node_list graph_nodes);
-  void RunMetaDataAdjustmentPasses(torch::jit::graph_node_list graph_nodes);
+  void MarkPersistenceNodes(habana_torch::jit::graph_node_list graph_nodes);
+  void MarkProducerExternal(habana_torch::jit::Value* val);
+  void ExternalMarkingPass(habana_torch::jit::graph_node_list graph_nodes);
+  void RunMetaDataAdjustmentPasses(
+      habana_torch::jit::graph_node_list graph_nodes);
   void HandleSpecialOps(
-      torch::jit::Node*,
+      habana_torch::jit::Node*,
       const std::vector<std::string>& ignoreOpsList,
       int inputId);
 };

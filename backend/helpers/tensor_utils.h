@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,15 +28,16 @@
 #include "backend/habana_device/HPUStream.h"
 #include "backend/synapse_helpers/device_types.h"
 #include "backend/synapse_helpers/habana_tensor.h"
+#include "jit_fork/ir/ir.h"
 
 // set to 5 considering tensors upto 5d are most common case where we would like
 // to use SmallVector to avoid heap allocation
 constexpr uint32_t NUM_TENSOR_DIMS = 5;
-using IVal = torch::jit::IValue;
+using IVal = habana_torch::jit::IValue;
 using IValPtrShared = std::shared_ptr<IVal>;
 using VecOfIValPtrSh = std::vector<IValPtrShared>;
-using ValPtr = torch::jit::Value*;
-using CValPtr = const torch::jit::Value*;
+using ValPtr = habana_torch::jit::Value*;
+using CValPtr = const habana_torch::jit::Value*;
 using SmallSizeVec = c10::SmallVector<int64_t, NUM_TENSOR_DIMS>;
 using CValuePtrToIValuePtrMap = std::unordered_map<CValPtr, IValPtrShared>;
 using SynTensorOrRefList = std::vector<synapse_helpers::tensor_or_ref>;
@@ -112,7 +113,7 @@ void copy_scalars_to_device(
 
 size_t hash_combine_scalars(
     size_t hash_code,
-    at::ArrayRef<torch::jit::IValue> input_refs);
+    at::ArrayRef<habana_torch::jit::IValue> input_refs);
 
 void recalc_strides(
     std::vector<int64_t>& self_strides,

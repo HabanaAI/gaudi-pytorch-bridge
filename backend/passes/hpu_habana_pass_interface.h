@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@
 #include <string>
 #include <unordered_set>
 
-#include <torch/csrc/jit/ir/ir.h>
+#include "jit_fork/ir/ir.h"
 
 namespace habana {
 
@@ -40,7 +40,7 @@ class JITGraphPass {
  public:
   // pure virtual function providing interface framework.
   virtual std::unique_ptr<R> VisitGraph(
-      const std::shared_ptr<torch::jit::Graph> graph) = 0;
+      const std::shared_ptr<habana_torch::jit::Graph> graph) = 0;
 
  protected:
   // Should overwrite this with particular pass name everytime.

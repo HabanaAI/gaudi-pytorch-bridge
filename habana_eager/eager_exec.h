@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 #include "backend/jit_graph_cache.h"
 
 namespace habana::eager {
-using MetaDataMap = std::unordered_map<size_t, torch::jit::IValue>;
+using MetaDataMap = std::unordered_map<size_t, habana_torch::jit::IValue>;
 using SmallTensorVector = c10::SmallVector<at::Tensor, 8>;
 
 struct OutputSpec {
@@ -198,7 +198,7 @@ class EagerExec {
   MetaDataMap m_metadata;
   EagerOpMetaData m_eager_op_meta_data;
 
-  std::shared_ptr<torch::jit::Graph> create_eager_graph(
+  std::shared_ptr<habana_torch::jit::Graph> create_eager_graph(
       torch::jit::Stack& stack,
       CValPtrMap& jit_val_map);
   size_t calculate_operator_key(
@@ -211,13 +211,13 @@ class EagerExec {
       const UniqueIdxVec& parent_vec);
   void prune_duplicate_graph_inputs(
       const UniqueIdxVec& parent_vec,
-      std::shared_ptr<torch::jit::Graph>& graph);
+      std::shared_ptr<habana_torch::jit::Graph>& graph);
   torch::jit::Stack prepare_input_stack(const torch::jit::Stack& stack);
   void post_process_eager_graph(
-      std::shared_ptr<torch::jit::Graph>& graph,
+      std::shared_ptr<habana_torch::jit::Graph>& graph,
       CValPtrMap& params_jit_val_map);
   bool is_eager_compiler_supported_for_graph(
-      std::shared_ptr<torch::jit::Graph>& graph);
+      std::shared_ptr<habana_torch::jit::Graph>& graph);
   void mark_maybe_grad_view();
   bool m_is_pipeline_supported = true;
   const c10::hpu::HPUStream m_stream;

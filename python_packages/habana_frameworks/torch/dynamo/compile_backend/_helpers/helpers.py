@@ -588,7 +588,7 @@ def propagate_meta(graph_module: torch.fx.GraphModule, example_inputs: list[torc
             propagator_class(graph_module, fake_mode).propagate_dont_convert_inputs(*example_inputs)
 
 
-def jit_node_annotation_propagation(jit_ir, fx_module):
+def jit_node_annotation_propagation(jit_graph, fx_module):
     """
     This pass aims to directly manipulate JIT IR to set hints to node's
     attribute.
@@ -603,10 +603,6 @@ def jit_node_annotation_propagation(jit_ir, fx_module):
         )
     )
 
-    if bc.get_pt_hpu_use_jit_fork():
-        jit_graph = jit_ir
-    else:
-        jit_graph = jit_ir.graph
     # Filter prim nodes, as they are not present in fx
     jit_graph_nodes = list(
         filter(
@@ -679,12 +675,8 @@ def get_dynamic_config_value():
 # have same ops order. Otherwise, the shape propagation may fail. However,
 # the _jit_pass_remove_mutation pass has possiblity to change the jit graph
 # ops order, and may break the assumption.
-def jit_node_shape_propagation(jit_ir, fx_module):
-    if bc.get_pt_hpu_use_jit_fork():
-        Jit_graph = jit_ir
-    else:
-        Jit_graph = jit_ir.graph
-    logger.debug("JIT processing shape propagation JIT graph:", Jit_graph)
+def jit_node_shape_propagation(jit_graph, fx_module):
+    logger.debug("JIT processing shape propagation JIT graph:", jit_graph)
     logger.debug("JIT processing shape propagation FX graph:", fx_module.print_readable(False))
     fx_nodes = list(fx_module.graph.nodes)
     jit_node_skip_list = ["prim::Constant", "prim::ListConstruct"]
@@ -754,7 +746,7 @@ def jit_node_shape_propagation(jit_ir, fx_module):
         logger.debug("create_output_size output_size_str:", output_size_str)
         return output_size_str
 
-    for node in Jit_graph.nodes():
+    for node in jit_graph.nodes():
         if node.kind() in jit_node_skip_list:
             continue
 

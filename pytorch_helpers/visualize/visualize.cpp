@@ -79,37 +79,44 @@ std::string GetGraphFilename(
   return ss.str();
 }
 
-void DumpGraph(const GraphPtr& graph, const std::string& filename) {
+void DumpUpstreamGraph(
+    const UpstreamGraphPtr& graph,
+    const std::string& filename) {
   std::ofstream ostrm(filename, std::ios::trunc);
-  ostrm << serialize::GraphToProtoString(graph);
+  ostrm << serialize::UpstreamGraphToProtoString(graph);
 }
 
-void DumpPreGraph(const GraphPtr& graph, size_t hash) {
+void DumpUpstreamPreGraph(const UpstreamGraphPtr& graph, size_t hash) {
   if (GET_ENV_FLAG_NEW(PT_HPU_GRAPH_DUMP) >= 1) {
-    DumpGraph(
+    DumpUpstreamGraph(
         graph,
         GetGraphFilename("pre-graph", GetGraphIndex(hash), ResetPassIndex()));
   }
 }
 
-void DumpPostGraph(const GraphPtr& graph, size_t hash) {
+void DumpUpstreamPostGraph(const UpstreamGraphPtr& graph, size_t hash) {
   if (GET_ENV_FLAG_NEW(PT_HPU_GRAPH_DUMP) >= 1) {
-    DumpGraph(
+    DumpUpstreamGraph(
         graph,
         GetGraphFilename("post-graph", GetGraphIndex(hash), NextPassIndex()));
   }
 }
 
-void DumpOptimizedGraph(
-    const GraphPtr& graph,
+void DumpUpstreamOptimizedGraph(
+    const UpstreamGraphPtr& graph,
     size_t hash,
     const std::string& pass) {
   if (GET_ENV_FLAG_NEW(PT_HPU_GRAPH_DUMP) >= 2) {
-    DumpGraph(
+    DumpUpstreamGraph(
         graph,
         GetGraphFilename(
             "after-" + pass, GetGraphIndex(hash), NextPassIndex()));
   }
+}
+
+void DumpGraph(const GraphPtr& graph, const std::string& filename) {
+  std::ofstream ostrm(filename, std::ios::trunc);
+  ostrm << serialize::GraphToProtoString(graph);
 }
 
 void DumpCachedGraph(const GraphPtr& graph, size_t hash) {

@@ -31,14 +31,13 @@
 
 #include <ATen/Tensor.h>
 
-#include <torch/csrc/jit/ir/ir.h>
 #include <torch/csrc/jit/runtime/argument_spec.h>
-#include <torch/csrc/jit/runtime/interpreter.h>
 
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
 #include "backend/passes/hpu_habana_pass_interface.h"
 
 #include "habana_helpers/logging.h"
+#include "jit_fork/ir/ir.h"
 
 namespace habana {
 class HabanaLaunchOpPT;
@@ -67,17 +66,17 @@ class FuseCollectiveViewPass : public JITGraphPass<FuseCollectiveViewPassData> {
     return output_valptr_to_params_map_;
   }
 
-  std::shared_ptr<torch::jit::Graph>& getOriginalGraph();
+  std::shared_ptr<habana_torch::jit::Graph>& getOriginalGraph();
 
-  std::shared_ptr<torch::jit::Graph>& getClonedGraph() {
+  std::shared_ptr<habana_torch::jit::Graph>& getClonedGraph() {
     return cloned_graph_;
   }
 
   std::unique_ptr<FuseCollectiveViewPassData> VisitGraph(
-      const std::shared_ptr<torch::jit::Graph> graph);
+      const std::shared_ptr<habana_torch::jit::Graph> graph);
 
   void PostRunFuseOpsPasses(
-      torch::jit::Node* node,
+      habana_torch::jit::Node* node,
       habana_helpers::CollectiveKernelInfos::Info& kernel_info);
 
  private:
@@ -88,44 +87,44 @@ class FuseCollectiveViewPass : public JITGraphPass<FuseCollectiveViewPassData> {
       input_valptr_to_params_map_;
   std::unordered_map<CValPtr, std::shared_ptr<ExternalParams>>
       output_valptr_to_params_map_;
-  std::shared_ptr<torch::jit::Graph> original_graph_;
-  std::shared_ptr<torch::jit::Graph> cloned_graph_;
+  std::shared_ptr<habana_torch::jit::Graph> original_graph_;
+  std::shared_ptr<habana_torch::jit::Graph> cloned_graph_;
 
-  void RunFuseOpsPasses(const std::shared_ptr<torch::jit::Graph> graph);
-  void RunFuseOps(torch::jit::Node* collective_node, int index);
+  void RunFuseOpsPasses(const std::shared_ptr<habana_torch::jit::Graph> graph);
+  void RunFuseOps(habana_torch::jit::Node* collective_node, int index);
   bool RunFuseOps(
-      torch::jit::graph_node_list graph_nodes,
+      habana_torch::jit::graph_node_list graph_nodes,
       bool is_check_mode = false);
   void FuseSliceInsertOps(
-      torch::jit::Node* collective_node,
-      torch::jit::Value* output,
-      torch::jit::Node* slice_insert_node,
-      std::vector<torch::jit::Node*>& const_node_vec);
-  void FuseSliceOps(torch::jit::Node* slice_node);
-  void FuseSqueezeViewOps(torch::jit::Node* node);
+      habana_torch::jit::Node* collective_node,
+      habana_torch::jit::Value* output,
+      habana_torch::jit::Node* slice_insert_node,
+      std::vector<habana_torch::jit::Node*>& const_node_vec);
+  void FuseSliceOps(habana_torch::jit::Node* slice_node);
+  void FuseSqueezeViewOps(habana_torch::jit::Node* node);
 
-  torch::jit::Value* GetInputValue(
-      torch::jit::Node* node,
+  habana_torch::jit::Value* GetInputValue(
+      habana_torch::jit::Node* node,
       bool is_node_output = true);
   void RelocateJITStack(
       CValuePtrToIValuePtrMap& value_to_ivalue,
-      std::shared_ptr<torch::jit::Graph>& graph);
+      std::shared_ptr<habana_torch::jit::Graph>& graph);
   void PrepareJITStack(CValuePtrToIValuePtrMap& value_to_ivalue);
   void RestoreJITStack(CValuePtrToIValuePtrMap& value_to_ivalue);
   bool CanFuse(CValPtr value, int64_t dim = 0, int64_t step = 1);
   bool IsGraphInputOutput(
-      torch::jit::Value* value,
+      habana_torch::jit::Value* value,
       bool is_graph_output = false);
-  bool CanFuse(torch::jit::Node* node, bool is_node_output = false);
-  bool NeedCheck(std::shared_ptr<torch::jit::Graph> graph);
+  bool CanFuse(habana_torch::jit::Node* node, bool is_node_output = false);
+  bool NeedCheck(std::shared_ptr<habana_torch::jit::Graph> graph);
   void GetExternalParams(
       CValPtr value,
       int64_t dim,
       int64_t start,
       int64_t end,
       ExternalParams& params);
-  std::shared_ptr<torch::jit::Graph> CreateClonedGraph(
-      std::shared_ptr<torch::jit::Graph> graph);
+  std::shared_ptr<habana_torch::jit::Graph> CreateClonedGraph(
+      std::shared_ptr<habana_torch::jit::Graph> graph);
   void PatchPTTensorInfo(
       CValPtr value,
       size_t item_size,
@@ -135,12 +134,12 @@ class FuseCollectiveViewPass : public JITGraphPass<FuseCollectiveViewPassData> {
   void ProcessInputPTTensorInfo(
       std::unordered_map<CValPtr, std::shared_ptr<ExternalParams>>&
           valptr_to_params_map,
-      torch::jit::Node* node,
+      habana_torch::jit::Node* node,
       habana_helpers::CollectiveKernelInfos::Info& kernel_info);
   void ProcessOutputPTTensorInfo(
       std::unordered_map<CValPtr, std::shared_ptr<ExternalParams>>&
           valptr_to_params_map,
-      torch::jit::Node* node,
+      habana_torch::jit::Node* node,
       habana_helpers::CollectiveKernelInfos::Info& kernel_info);
 };
 
@@ -160,16 +159,16 @@ class FuseCollectiveViewPassData {
     return pass_->getOutputValPtrToParamsMap();
   }
 
-  std::shared_ptr<torch::jit::Graph>& getOriginalGraph() {
+  std::shared_ptr<habana_torch::jit::Graph>& getOriginalGraph() {
     return pass_->getOriginalGraph();
   }
 
-  std::shared_ptr<torch::jit::Graph>& getClonedGraph() {
+  std::shared_ptr<habana_torch::jit::Graph>& getClonedGraph() {
     return pass_->getClonedGraph();
   }
 
   void PostRunFuseOpsPasses(
-      torch::jit::Node* node,
+      habana_torch::jit::Node* node,
       habana_helpers::CollectiveKernelInfos::Info& kernel_info) {
     pass_->PostRunFuseOpsPasses(node, kernel_info);
   }

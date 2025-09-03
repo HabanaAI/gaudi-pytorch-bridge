@@ -23,11 +23,11 @@
 #include "habana_lazy/ir.h"
 #include "habana_lazy/tensor_impl.h"
 #include "habana_lazy/view_utils.h"
-#include "torch/csrc/jit/ir/ir.h"
+#include "jit_fork/ir/ir.h"
 
 enum LazyExecutionMode { kLAZY, kLOWERING };
 
-using Graph = torch::jit::Graph;
+using Graph = habana_torch::jit::Graph;
 using GraphPtr = std::shared_ptr<Graph>;
 
 namespace habana_lazy {
@@ -208,12 +208,12 @@ class HbExecutionContext {
     }
   }
 
-  void saveGraph(GraphPtr p_g) {
-    mp_g = p_g;
+  void saveGraph(GraphPtr p_g_jitfork) {
+    mp_g_jitfork = p_g_jitfork;
   }
 
   GraphPtr getGraph() {
-    return mp_g;
+    return mp_g_jitfork;
   }
 
   void saveHash(size_t p_h) {
@@ -443,7 +443,7 @@ class HbExecutionContext {
   std::uint64_t GetUniqueJobId();
 
  private:
-  GraphPtr mp_g;
+  GraphPtr mp_g_jitfork;
   size_t mp_g_hash{0};
   std::shared_ptr<habana::OptimizedJITGraphAndMetaData> g_mt_ptr{nullptr};
   std::shared_ptr<habana::RecipeArgumentSpec> m_graph_rarg_psh{nullptr};

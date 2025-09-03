@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,14 +20,14 @@
 
 namespace habana::graph::pass {
 
-void SanitizeGraphInput(std::shared_ptr<torch::jit::Graph> graph) {
+void SanitizeGraphInput(std::shared_ptr<habana_torch::jit::Graph> graph) {
   PT_EAGER_TRACE;
   if (graph->inputs().empty()) {
     // No input to sanitize...
     return;
   }
 
-  torch::jit::Value* first_graph_input{*graph->inputs().begin()};
+  habana_torch::jit::Value* first_graph_input{*graph->inputs().begin()};
   if (!first_graph_input->hasUses() &&
       "self" == first_graph_input->debugName()) {
     graph->eraseInput(0);

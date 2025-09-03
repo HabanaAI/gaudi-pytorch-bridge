@@ -79,14 +79,7 @@ class _ClusterCompiler(torch.fx.Interpreter):
             fx_to_jit_lowering.jit_ir,
         )
 
-        converted_jit_ir = fx_to_jit_lowering.jit_ir.copyToUpstreamGraph()
-        logger.debug(
-            "####PyTorch-generated JIT IR graph after copyToUpstreamGraph():####\n%s",
-            converted_jit_ir,
-        )
-
-        # todo cleanup [199903] - temporarily working on reconverted
-        return converted_jit_ir
+        return fx_to_jit_lowering.jit_ir
 
     def run_node(self, n: torch.fx.Node):
         # This function has been overwritten because we need

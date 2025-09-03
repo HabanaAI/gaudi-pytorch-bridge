@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,10 +21,10 @@
 namespace habana::graph::pass {
 
 struct ListUnpackDesc {
-  explicit ListUnpackDesc(torch::jit::Node* list_unpack_node)
+  explicit ListUnpackDesc(habana_torch::jit::Node* list_unpack_node)
       : m_node(list_unpack_node) {}
 
-  void add_output(size_t idx, torch::jit::Value* out) {
+  void add_output(size_t idx, habana_torch::jit::Value* out) {
     if (m_output_list.size() < idx + 1) {
       m_output_list.resize(idx + 1);
     }
@@ -34,7 +34,7 @@ struct ListUnpackDesc {
 
   void update_node_outputs() {
     HABANA_ASSERT(!m_output_list.empty());
-    for (torch::jit::Value* out : m_output_list) {
+    for (habana_torch::jit::Value* out : m_output_list) {
       if (nullptr != out) {
         auto new_out = m_node->addOutput()->copyMetadata(out);
         out->replaceAllUsesWith(new_out);
@@ -44,13 +44,13 @@ struct ListUnpackDesc {
     }
   }
 
-  std::vector<torch::jit::Value*> m_output_list;
-  torch::jit::Node* m_node;
+  std::vector<habana_torch::jit::Value*> m_output_list;
+  habana_torch::jit::Node* m_node;
 };
 
 struct ReplaceGetItemWithListUnpackPass {
   explicit ReplaceGetItemWithListUnpackPass(
-      std::shared_ptr<torch::jit::Graph> graph)
+      std::shared_ptr<habana_torch::jit::Graph> graph)
       : m_graph(std::move(graph)) {}
   bool run() {
     bool changed{processBlocks(m_graph->block())};
@@ -58,7 +58,7 @@ struct ReplaceGetItemWithListUnpackPass {
   }
 
  private:
-  bool processBlocks(at::ArrayRef<torch::jit::Block*> blocks) {
+  bool processBlocks(at::ArrayRef<habana_torch::jit::Block*> blocks) {
     bool changed{false};
     for (auto block : blocks) {
       changed |= processBlock(block);
@@ -66,7 +66,7 @@ struct ReplaceGetItemWithListUnpackPass {
     return changed;
   }
 
-  bool processBlock(torch::jit::Block* block) {
+  bool processBlock(habana_torch::jit::Block* block) {
     static const auto getitem_symbol{
         c10::Symbol::fromQualString("aten::__getitem__")};
     static const auto constant_symbol{
@@ -74,9 +74,10 @@ struct ReplaceGetItemWithListUnpackPass {
     static const auto list_unpack_symbol{
         c10::Symbol::fromQualString("prim::ListUnpack")};
 
-    std::map<torch::jit::Value*, ListUnpackDesc> list_unpack_desc_map;
-    std::map<torch::jit::Value*, torch::jit::Node*> output_to_const_map;
-    std::set<torch::jit::Node*> nodes_to_remove;
+    std::map<habana_torch::jit::Value*, ListUnpackDesc> list_unpack_desc_map;
+    std::map<habana_torch::jit::Value*, habana_torch::jit::Node*>
+        output_to_const_map;
+    std::set<habana_torch::jit::Node*> nodes_to_remove;
 
     bool changed{false};
     // First step is collecting all prim::Constatnt in block.
@@ -84,7 +85,7 @@ struct ReplaceGetItemWithListUnpackPass {
     // All const nodes are mapped by output for further usage.
     for (auto it = block->nodes().begin(); it != block->nodes().end(); ++it) {
       if (constant_symbol == it->kind()) {
-        torch::jit::Node* node{*it};
+        habana_torch::jit::Node* node{*it};
         HABANA_ASSERT(1 == node->outputs().size());
         output_to_const_map[node->output(0)] = node;
       }
@@ -96,7 +97,7 @@ struct ReplaceGetItemWithListUnpackPass {
     // ListUnpack node that will replace all aten::__getitem__ nodes.
     for (auto it = block->nodes().begin(); it != block->nodes().end(); ++it) {
       if (getitem_symbol == it->kind()) {
-        torch::jit::Node* node{*it};
+        habana_torch::jit::Node* node{*it};
         HABANA_ASSERT(2 == node->inputs().size());
         auto list_unpack_input{node->input(0)};
         HABANA_ASSERT(
@@ -104,7 +105,7 @@ struct ReplaceGetItemWithListUnpackPass {
             "Unsupported aten::__getitem__ in compiled graph");
         if (list_unpack_desc_map.find(list_unpack_input) ==
             list_unpack_desc_map.end()) {
-          torch::jit::WithInsertPoint insert_guard{node};
+          habana_torch::jit::WithInsertPoint insert_guard{node};
           auto graph{node->owningGraph()};
           auto list_unpack_node{
               graph->insertNode(graph->create(list_unpack_symbol, 0))};
@@ -122,9 +123,9 @@ struct ReplaceGetItemWithListUnpackPass {
             output_to_const_map.find(getitem_idx_input) !=
                 output_to_const_map.end(),
             "Unable to determine input index");
-        torch::jit::Node* const_node_with_idx{
+        habana_torch::jit::Node* const_node_with_idx{
             output_to_const_map.at(getitem_idx_input)};
-        static const auto value_attr{torch::jit::Symbol::attr("value")};
+        static const auto value_attr{habana_torch::jit::Symbol::attr("value")};
         long out_idx{const_node_with_idx->i(value_attr)};
         // Adding information about output value and index on list to descriptor
         desc.add_output(out_idx, node->output(0));
@@ -149,7 +150,7 @@ struct ReplaceGetItemWithListUnpackPass {
     // prim::Constant nodes might remain if there are still used elsewhere in
     // graph
     for (auto it = block->nodes().begin(); it != block->nodes().end(); ++it) {
-      torch::jit::Node* node{*it};
+      habana_torch::jit::Node* node{*it};
       if (nodes_to_remove.end() != nodes_to_remove.find(node)) {
         HABANA_ASSERT(node->outputs().size() == 1);
         if (!node->output(0)->hasUses()) {
@@ -162,10 +163,11 @@ struct ReplaceGetItemWithListUnpackPass {
     return changed;
   }
 
-  std::shared_ptr<torch::jit::Graph> m_graph;
+  std::shared_ptr<habana_torch::jit::Graph> m_graph;
 };
 
-bool ReplaceGetItemWithListUnpack(std::shared_ptr<torch::jit::Graph> graph) {
+bool ReplaceGetItemWithListUnpack(
+    std::shared_ptr<habana_torch::jit::Graph> graph) {
   PT_EAGER_TRACE;
   ReplaceGetItemWithListUnpackPass pass{graph};
   bool changed{pass.run()};

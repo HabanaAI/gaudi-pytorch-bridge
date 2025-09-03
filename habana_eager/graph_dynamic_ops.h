@@ -19,51 +19,51 @@
 #include <string>
 #include <vector>
 
-#include <torch/csrc/jit/ir/ir.h>
 #include "backend/helpers/dynamic_shape_infer.h"
 #include "backend/synapse_helpers/layout_utils.h"
 #include "habana_eager/graph_dynamic.h"
 #include "habana_lazy/tensor_impl.h"
+#include "jit_fork/ir/ir.h"
 
 namespace habana::graph {
 
 using GraphInputIndexMap = std::unordered_map<std::string, int64_t>;
 void GetValueAndScalarIndexFromInput(
-    torch::jit::Value* input,
+    habana_torch::jit::Value* input,
     torch::jit::Stack& in_stack,
     GraphInputIndexMap& org_stack_index_map,
     int64_t& value,
     int64_t& index,
     const bool setIndexWhenNegativeConstant = true);
 void GetValuesAndScalarIndexesFromListConst(
-    torch::jit::Node* node,
+    habana_torch::jit::Node* node,
     std::vector<int64_t>& values,
     std::vector<int64_t>& scalar_indexes);
 void GetValuesAndScalarIndexesFromListConstruct(
-    torch::jit::Node* node,
+    habana_torch::jit::Node* node,
     torch::jit::Stack& in_stack,
     GraphInputIndexMap& org_stack_index_map,
     std::vector<int64_t>& values,
     std::vector<int64_t>& scalar_indexes);
 std::string GetRangeInfoExprFromInput(
-    torch::jit::Value* input,
+    habana_torch::jit::Value* input,
     GraphInputIndexMap& org_stack_index_map,
     std::vector<habana_helpers::RangeInfo>* range_infos);
 std::vector<std::string> GetRangeInfoExprFromListConstruct(
-    torch::jit::Node* node,
+    habana_torch::jit::Node* node,
     GraphInputIndexMap& org_stack_index_map,
     std::vector<habana_helpers::RangeInfo>* range_infos);
 std::vector<std::string> GetRangeInfoExprFromListConst(
-    torch::jit::Node* node,
+    habana_torch::jit::Node* node,
     GraphInputIndexMap& org_stack_index_map,
     std::vector<habana_helpers::RangeInfo>* range_infos);
 std::string GetExprFromString(std::vector<std::string> inputs);
 
-torch::jit::Node* CreateAndInsertDynamicNodeToGraph(
-    torch::jit::Graph* graph,
-    torch::jit::Node* aten_view_node,
+habana_torch::jit::Node* CreateAndInsertDynamicNodeToGraph(
+    habana_torch::jit::Graph* graph,
+    habana_torch::jit::Node* aten_view_node,
     const c10::Symbol& hpu_view_symbol,
-    c10::ArrayRef<torch::jit::Value*> inputs,
+    c10::ArrayRef<habana_torch::jit::Value*> inputs,
     ValueIvalueMap& value_ivalue_map);
 
 void UpdateShapeTensorSize(
@@ -73,7 +73,7 @@ void UpdateShapeTensorSize(
     LaunchDynamicShapes& launch_shapes);
 
 int64_t UpdateDynamicTensorDSStack(
-    torch::jit::IValue& iv_tensor,
+    habana_torch::jit::IValue& iv_tensor,
     const std::vector<int64_t>& scalar_indexes,
     const std::vector<int64_t>& tensor_indexes,
     const std::vector<std::pair<int64_t, int64_t>>& mixed_indexes,
@@ -138,20 +138,20 @@ int64_t CreateH2DAndInsertToDSStack(
 class DynamicOp {
  public:
   virtual bool ReplaceWithDynamicHPUOp(
-      torch::jit::Node* node,
+      habana_torch::jit::Node* node,
       torch::jit::Stack& org_stack,
       GraphInputIndexMap& org_stack_index_map,
       ValueIvalueMap& value_ivalue_map,
       std::shared_ptr<DynamicGraphMetaData> m_dmeta) = 0;
 
   virtual void ResolveNegativeSizes(
-      [[maybe_unused]] torch::jit::Node* node,
-      [[maybe_unused]] std::unordered_map<CValPtr, torch::jit::IValue>&
+      [[maybe_unused]] habana_torch::jit::Node* node,
+      [[maybe_unused]] std::unordered_map<CValPtr, habana_torch::jit::IValue>&
           value_ivalue_map,
       [[maybe_unused]] LaunchDynamicShapes& launch_shapes) {}
 
   static void UpdateDynamicInputs(
-      c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
+      c10::SmallVectorImpl<habana_torch::jit::IValue*>& dtensor_list,
       c10::SmallVectorImpl<habana::graph::SymIntData>& scalar_list,
       c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
       c10::SmallVectorImpl<std::vector<std::pair<int64_t, int64_t>>>&
@@ -160,12 +160,13 @@ class DynamicOp {
       LaunchDynamicShapes& launch_shapes);
 
   std::vector<at::Tensor> getInputTensors(
-      const torch::jit::Node* node,
+      const habana_torch::jit::Node* node,
       ValueIvalueMap& value_ivalue_map) {
     std::vector<at::Tensor> in_tensors;
     for (const auto& input : node->inputs()) {
       PT_EAGER_DEBUG("Node input name = ", input->debugName());
-      auto ivalue = value_ivalue_map[const_cast<torch::jit::Value*>(input)];
+      auto ivalue =
+          value_ivalue_map[const_cast<habana_torch::jit::Value*>(input)];
       HABANA_ASSERT(
           ivalue != nullptr,
           "Node = ",
@@ -181,12 +182,13 @@ class DynamicOp {
   }
 
   std::vector<at::Tensor> getOutputTensers(
-      const torch::jit::Node* node,
+      const habana_torch::jit::Node* node,
       ValueIvalueMap& value_ivalue_map) {
     std::vector<at::Tensor> out_tensors;
     for (const auto& output : node->outputs()) {
       PT_EAGER_DEBUG("Node output name = ", output->debugName());
-      auto ivalue = value_ivalue_map[const_cast<torch::jit::Value*>(output)];
+      auto ivalue =
+          value_ivalue_map[const_cast<habana_torch::jit::Value*>(output)];
       HABANA_ASSERT(
           ivalue != nullptr,
           "Node = ",
@@ -244,17 +246,17 @@ class ViewOperatorDS : public DynamicOp {
  public:
   ViewOperatorDS() : DynamicOp() {}
   bool ReplaceWithDynamicHPUOp(
-      torch::jit::Node*,
+      habana_torch::jit::Node*,
       torch::jit::Stack& org_stack,
       GraphInputIndexMap& org_stack_index_map,
       ValueIvalueMap& value_ivalue_map,
       std::shared_ptr<DynamicGraphMetaData> m_dmeta) override;
   void ResolveNegativeSizes(
-      torch::jit::Node* node,
-      std::unordered_map<CValPtr, torch::jit::IValue>& value_ivalue_map,
+      habana_torch::jit::Node* node,
+      std::unordered_map<CValPtr, habana_torch::jit::IValue>& value_ivalue_map,
       LaunchDynamicShapes& launch_shapes) override;
   static void UpdateDynamicInputs(
-      c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
+      c10::SmallVectorImpl<habana_torch::jit::IValue*>& dtensor_list,
       c10::SmallVectorImpl<habana::graph::SymIntData>& symint_list,
       c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
       c10::SmallVectorImpl<std::vector<std::pair<int64_t, int64_t>>>&
@@ -267,7 +269,7 @@ class SelectScatterOperatorDS : public DynamicOp {
  public:
   SelectScatterOperatorDS() : DynamicOp() {}
   bool ReplaceWithDynamicHPUOp(
-      torch::jit::Node*,
+      habana_torch::jit::Node*,
       torch::jit::Stack& org_stack,
       GraphInputIndexMap& org_stack_index_map,
       ValueIvalueMap& value_ivalue_map,
@@ -278,7 +280,7 @@ class SliceScatterOperatorDS : public DynamicOp {
  public:
   SliceScatterOperatorDS() : DynamicOp() {}
   bool ReplaceWithDynamicHPUOp(
-      torch::jit::Node*,
+      habana_torch::jit::Node*,
       torch::jit::Stack& org_stack,
       GraphInputIndexMap& org_stack_index_map,
       ValueIvalueMap& value_ivalue_map,
@@ -289,13 +291,13 @@ class AsStridedScatterOperatorDS : public DynamicOp {
  public:
   AsStridedScatterOperatorDS() : DynamicOp() {}
   bool ReplaceWithDynamicHPUOp(
-      torch::jit::Node*,
+      habana_torch::jit::Node*,
       torch::jit::Stack& org_stack,
       GraphInputIndexMap& org_stack_index_map,
       ValueIvalueMap& value_ivalue_map,
       std::shared_ptr<DynamicGraphMetaData> m_dmeta) override;
   static void UpdateDynamicInputs(
-      c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
+      c10::SmallVectorImpl<habana_torch::jit::IValue*>& dtensor_list,
       c10::SmallVectorImpl<habana::graph::SymIntData>& symint_list,
       c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
       c10::SmallVectorImpl<std::vector<std::pair<int64_t, int64_t>>>&
@@ -308,13 +310,13 @@ class ArangeOperatorDS : public DynamicOp {
  public:
   ArangeOperatorDS() : DynamicOp() {}
   bool ReplaceWithDynamicHPUOp(
-      torch::jit::Node*,
+      habana_torch::jit::Node*,
       torch::jit::Stack& org_stack,
       GraphInputIndexMap& org_stack_index_map,
       ValueIvalueMap& value_ivalue_map,
       std::shared_ptr<DynamicGraphMetaData> m_dmeta) override;
   static void UpdateDynamicInputs(
-      c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
+      c10::SmallVectorImpl<habana_torch::jit::IValue*>& dtensor_list,
       c10::SmallVectorImpl<habana::graph::SymIntData>& symint_list,
       c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
       c10::SmallVectorImpl<std::vector<std::pair<int64_t, int64_t>>>&
@@ -327,13 +329,13 @@ class ConstantPad2dOperatorDS : public DynamicOp {
  public:
   ConstantPad2dOperatorDS() : DynamicOp() {}
   bool ReplaceWithDynamicHPUOp(
-      torch::jit::Node*,
+      habana_torch::jit::Node*,
       torch::jit::Stack& org_stack,
       GraphInputIndexMap& org_stack_index_map,
       ValueIvalueMap& value_ivalue_map,
       std::shared_ptr<DynamicGraphMetaData> m_dmeta) override;
   static void UpdateDynamicInputs(
-      c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
+      c10::SmallVectorImpl<habana_torch::jit::IValue*>& dtensor_list,
       c10::SmallVectorImpl<habana::graph::SymIntData>& symint_list,
       c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
       c10::SmallVectorImpl<std::vector<std::pair<int64_t, int64_t>>>&
@@ -346,13 +348,13 @@ class RepeatOperatorDS : public DynamicOp {
  public:
   RepeatOperatorDS() : DynamicOp() {}
   bool ReplaceWithDynamicHPUOp(
-      torch::jit::Node*,
+      habana_torch::jit::Node*,
       torch::jit::Stack& org_stack,
       GraphInputIndexMap& org_stack_index_map,
       ValueIvalueMap& value_ivalue_map,
       std::shared_ptr<DynamicGraphMetaData> m_dmeta) override;
   static void UpdateDynamicInputs(
-      c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
+      c10::SmallVectorImpl<habana_torch::jit::IValue*>& dtensor_list,
       c10::SmallVectorImpl<habana::graph::SymIntData>& symint_list,
       c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
       c10::SmallVectorImpl<std::vector<std::pair<int64_t, int64_t>>>&
@@ -365,13 +367,13 @@ class TopkOperatorDS : public DynamicOp {
  public:
   TopkOperatorDS() : DynamicOp() {}
   bool ReplaceWithDynamicHPUOp(
-      torch::jit::Node*,
+      habana_torch::jit::Node*,
       torch::jit::Stack& org_stack,
       GraphInputIndexMap& org_stack_index_map,
       ValueIvalueMap& value_ivalue_map,
       std::shared_ptr<DynamicGraphMetaData> m_dmeta) override;
   static void UpdateDynamicInputs(
-      c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
+      c10::SmallVectorImpl<habana_torch::jit::IValue*>& dtensor_list,
       c10::SmallVectorImpl<habana::graph::SymIntData>& symint_list,
       c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
       c10::SmallVectorImpl<std::vector<std::pair<int64_t, int64_t>>>&
@@ -384,13 +386,13 @@ class AsStridedOperatorDS : public DynamicOp {
  public:
   AsStridedOperatorDS() : DynamicOp() {}
   bool ReplaceWithDynamicHPUOp(
-      torch::jit::Node*,
+      habana_torch::jit::Node*,
       torch::jit::Stack& in_stack,
       GraphInputIndexMap& org_stack_index_map,
       ValueIvalueMap& value_ivalue_map,
       std::shared_ptr<DynamicGraphMetaData> m_dmeta) override;
   static void UpdateDynamicInputs(
-      c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
+      c10::SmallVectorImpl<habana_torch::jit::IValue*>& dtensor_list,
       c10::SmallVectorImpl<habana::graph::SymIntData>& symint_list,
       c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
       c10::SmallVectorImpl<std::vector<std::pair<int64_t, int64_t>>>&
@@ -403,13 +405,13 @@ class StridedInsertOperatorDS : public DynamicOp {
  public:
   StridedInsertOperatorDS() : DynamicOp() {}
   bool ReplaceWithDynamicHPUOp(
-      torch::jit::Node*,
+      habana_torch::jit::Node*,
       torch::jit::Stack& in_stack,
       GraphInputIndexMap& org_stack_index_map,
       ValueIvalueMap& value_ivalue_map,
       std::shared_ptr<DynamicGraphMetaData> m_dmeta) override;
   static void UpdateDynamicInputs(
-      c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
+      c10::SmallVectorImpl<habana_torch::jit::IValue*>& dtensor_list,
       c10::SmallVectorImpl<habana::graph::SymIntData>& symint_list,
       c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
       c10::SmallVectorImpl<std::vector<std::pair<int64_t, int64_t>>>&
@@ -422,13 +424,13 @@ class SliceOperatorDS : public DynamicOp {
  public:
   SliceOperatorDS() : DynamicOp() {}
   bool ReplaceWithDynamicHPUOp(
-      torch::jit::Node*,
+      habana_torch::jit::Node*,
       torch::jit::Stack& in_stack,
       GraphInputIndexMap& org_stack_index_map,
       ValueIvalueMap& value_ivalue_map,
       std::shared_ptr<DynamicGraphMetaData> m_dmeta) override;
   static void UpdateDynamicInputs(
-      c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
+      c10::SmallVectorImpl<habana_torch::jit::IValue*>& dtensor_list,
       c10::SmallVectorImpl<habana::graph::SymIntData>& symint_list,
       c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
       c10::SmallVectorImpl<std::vector<std::pair<int64_t, int64_t>>>&
@@ -441,13 +443,13 @@ class RandpermGeneratorOperatorDS : public DynamicOp {
  public:
   RandpermGeneratorOperatorDS() : DynamicOp() {}
   bool ReplaceWithDynamicHPUOp(
-      torch::jit::Node*,
+      habana_torch::jit::Node*,
       torch::jit::Stack& org_stack,
       GraphInputIndexMap& org_stack_index_map,
       ValueIvalueMap& value_ivalue_map,
       std::shared_ptr<DynamicGraphMetaData> m_dmeta) override;
   static void UpdateDynamicInputs(
-      c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
+      c10::SmallVectorImpl<habana_torch::jit::IValue*>& dtensor_list,
       c10::SmallVectorImpl<habana::graph::SymIntData>& symint_list,
       c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
       c10::SmallVectorImpl<std::vector<std::pair<int64_t, int64_t>>>&
@@ -460,13 +462,13 @@ class EmptyOpDS : public DynamicOp {
  public:
   EmptyOpDS() : DynamicOp() {}
   bool ReplaceWithDynamicHPUOp(
-      torch::jit::Node*,
+      habana_torch::jit::Node*,
       torch::jit::Stack& org_stack,
       GraphInputIndexMap& org_stack_index_map,
       ValueIvalueMap& value_ivalue_map,
       std::shared_ptr<DynamicGraphMetaData> m_dmeta) override;
   static void UpdateDynamicInputs(
-      c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
+      c10::SmallVectorImpl<habana_torch::jit::IValue*>& dtensor_list,
       c10::SmallVectorImpl<habana::graph::SymIntData>& symint_list,
       c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
       c10::SmallVectorImpl<std::vector<std::pair<int64_t, int64_t>>>&
@@ -479,13 +481,13 @@ class FullOpDS : public DynamicOp {
  public:
   FullOpDS() : DynamicOp() {}
   bool ReplaceWithDynamicHPUOp(
-      torch::jit::Node*,
+      habana_torch::jit::Node*,
       torch::jit::Stack& org_stack,
       GraphInputIndexMap& org_stack_index_map,
       ValueIvalueMap& value_ivalue_map,
       std::shared_ptr<DynamicGraphMetaData> m_dmeta) override;
   static void UpdateDynamicInputs(
-      c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
+      c10::SmallVectorImpl<habana_torch::jit::IValue*>& dtensor_list,
       c10::SmallVectorImpl<habana::graph::SymIntData>& symint_list,
       c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
       c10::SmallVectorImpl<std::vector<std::pair<int64_t, int64_t>>>&
@@ -498,13 +500,13 @@ class ExpandOperatorDS : public DynamicOp {
  public:
   ExpandOperatorDS() : DynamicOp() {}
   bool ReplaceWithDynamicHPUOp(
-      torch::jit::Node*,
+      habana_torch::jit::Node*,
       torch::jit::Stack& in_stack,
       GraphInputIndexMap& org_stack_index_map,
       ValueIvalueMap& value_ivalue_map,
       std::shared_ptr<DynamicGraphMetaData> m_dmeta) override;
   static void UpdateDynamicInputs(
-      c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
+      c10::SmallVectorImpl<habana_torch::jit::IValue*>& dtensor_list,
       c10::SmallVectorImpl<habana::graph::SymIntData>& symint_list,
       c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
       c10::SmallVectorImpl<std::vector<std::pair<int64_t, int64_t>>>&
@@ -517,13 +519,13 @@ class RandOperatorDS : public DynamicOp {
  public:
   RandOperatorDS() : DynamicOp() {}
   bool ReplaceWithDynamicHPUOp(
-      torch::jit::Node*,
+      habana_torch::jit::Node*,
       torch::jit::Stack& org_stack,
       GraphInputIndexMap& org_stack_index_map,
       ValueIvalueMap& value_ivalue_map,
       std::shared_ptr<DynamicGraphMetaData> m_dmeta) override;
   static void UpdateDynamicInputs(
-      c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
+      c10::SmallVectorImpl<habana_torch::jit::IValue*>& dtensor_list,
       c10::SmallVectorImpl<habana::graph::SymIntData>& symint_list,
       c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
       c10::SmallVectorImpl<std::vector<std::pair<int64_t, int64_t>>>&
@@ -536,13 +538,13 @@ class RandnOperatorDS : public DynamicOp {
  public:
   RandnOperatorDS() : DynamicOp() {}
   bool ReplaceWithDynamicHPUOp(
-      torch::jit::Node*,
+      habana_torch::jit::Node*,
       torch::jit::Stack& org_stack,
       GraphInputIndexMap& org_stack_index_map,
       ValueIvalueMap& value_ivalue_map,
       std::shared_ptr<DynamicGraphMetaData> m_dmeta) override;
   static void UpdateDynamicInputs(
-      c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
+      c10::SmallVectorImpl<habana_torch::jit::IValue*>& dtensor_list,
       c10::SmallVectorImpl<habana::graph::SymIntData>& symint_list,
       c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
       c10::SmallVectorImpl<std::vector<std::pair<int64_t, int64_t>>>&
@@ -555,13 +557,13 @@ class RandintOperatorDS : public DynamicOp {
  public:
   RandintOperatorDS() : DynamicOp() {}
   bool ReplaceWithDynamicHPUOp(
-      torch::jit::Node*,
+      habana_torch::jit::Node*,
       torch::jit::Stack& org_stack,
       GraphInputIndexMap& org_stack_index_map,
       ValueIvalueMap& value_ivalue_map,
       std::shared_ptr<DynamicGraphMetaData> m_dmeta) override;
   static void UpdateDynamicInputs(
-      c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
+      c10::SmallVectorImpl<habana_torch::jit::IValue*>& dtensor_list,
       c10::SmallVectorImpl<habana::graph::SymIntData>& symint_list,
       c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
       c10::SmallVectorImpl<std::vector<std::pair<int64_t, int64_t>>>&

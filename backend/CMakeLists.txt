@@ -100,7 +100,8 @@ target_link_libraries(
           absl::strings
           absl::str_format
           stdc++fs
-          npu::hllogger)
+          npu::hllogger
+  PUBLIC npu::jit_fork)
 
 target_include_directories(
   habana_pytorch_backend

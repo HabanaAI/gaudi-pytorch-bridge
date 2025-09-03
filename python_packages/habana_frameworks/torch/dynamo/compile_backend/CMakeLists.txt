@@ -16,7 +16,7 @@
 add_habana_library(_recipe_compiler_C SHARED recipe_compiler.cpp)
 target_compile_definitions(_recipe_compiler_C PRIVATE TORCH_EXTENSION_NAME=_recipe_compiler_C)
 set_target_properties(_recipe_compiler_C PROPERTIES PREFIX "")
-target_link_libraries(_recipe_compiler_C PUBLIC bindings torch absl::hash ${TORCH_PYTHON_LIBRARY})
+target_link_libraries(_recipe_compiler_C PUBLIC bindings torch absl::hash npu::jit_fork ${TORCH_PYTHON_LIBRARY})
 install(TARGETS _recipe_compiler_C LIBRARY DESTINATION habana_torch_plugin/${PYBIND_INSTALL_DIRNAME})
 
 include(GenOp)
@@ -32,5 +32,5 @@ target_include_directories(
                           ${CMAKE_SOURCE_DIR}/python_packages/habana_frameworks/torch/dynamo/compile_backend)
 target_compile_definitions(_shared_layer_C PRIVATE TORCH_EXTENSION_NAME=_shared_layer_C)
 set_target_properties(_shared_layer_C PROPERTIES PREFIX "")
-target_link_libraries(_shared_layer_C PUBLIC bindings torch absl::hash ${TORCH_PYTHON_LIBRARY})
+target_link_libraries(_shared_layer_C PUBLIC bindings torch absl::hash npu::jit_fork ${TORCH_PYTHON_LIBRARY})
 install(TARGETS _shared_layer_C LIBRARY DESTINATION habana_torch_plugin/${PYBIND_INSTALL_DIRNAME})

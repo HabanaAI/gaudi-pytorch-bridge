@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,8 @@
 namespace habana::graph::pass {
 
 struct HandleTupleOnOutputPass {
-  explicit HandleTupleOnOutputPass(std::shared_ptr<torch::jit::Graph> graph)
+  explicit HandleTupleOnOutputPass(
+      std::shared_ptr<habana_torch::jit::Graph> graph)
       : m_graph(std::move(graph)) {}
 
   bool run() {
@@ -29,7 +30,7 @@ struct HandleTupleOnOutputPass {
   }
 
  private:
-  bool processBlocks(at::ArrayRef<torch::jit::Block*> blocks) {
+  bool processBlocks(at::ArrayRef<habana_torch::jit::Block*> blocks) {
     bool changed{false};
     // We are only interested in last block
     auto last_block_iter{blocks.rbegin()};
@@ -39,13 +40,14 @@ struct HandleTupleOnOutputPass {
     return changed;
   }
 
-  bool processBlock(torch::jit::Block* block) {
+  bool processBlock(habana_torch::jit::Block* block) {
     auto* return_node = block->return_node();
     if (return_node == nullptr || return_node->inputs().size() != 1)
       return false;
 
     auto* node = return_node->inputs()[0]->node();
-    if (node == nullptr || node->kind() != torch::jit::prim::TupleConstruct)
+    if (node == nullptr ||
+        node->kind() != habana_torch::jit::prim::TupleConstruct)
       return false;
 
     block->removeAllOutputs();
@@ -58,10 +60,10 @@ struct HandleTupleOnOutputPass {
     return true;
   }
 
-  std::shared_ptr<torch::jit::Graph> m_graph;
+  std::shared_ptr<habana_torch::jit::Graph> m_graph;
 };
 
-bool HandleTupleOnOutput(std::shared_ptr<torch::jit::Graph> graph) {
+bool HandleTupleOnOutput(std::shared_ptr<habana_torch::jit::Graph> graph) {
   PT_EAGER_TRACE;
   HandleTupleOnOutputPass pass{graph};
   bool changed{pass.run()};

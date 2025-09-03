@@ -54,10 +54,10 @@
 // temporary for graphs conversion
 #include <torch/csrc/jit/ir/ir.h>
 
-#include "ir_block.h"
-#include "ir_graph.h"
-#include "ir_node.h"
-#include "ir_value.h"
+#include "jit_fork/ir/ir_block.h"
+#include "jit_fork/ir/ir_graph.h"
+#include "jit_fork/ir/ir_node.h"
+#include "jit_fork/ir/ir_value.h"
 
 // Forward declare, the real meat is in python_ir.cpp
 // todo: caution - it is declared in torch::jit - upstream version, correct it?
@@ -293,6 +293,17 @@ struct TORCH_API PythonOp : public Node {
 };
 
 TORCH_API void LintGraph(const std::shared_ptr<Graph>& graph);
+
+TORCH_API std::shared_ptr<Graph> createFromUpstreamGraph(
+    std::shared_ptr<::torch::jit::Graph> src_graph);
+
+TORCH_API void copyAttributesFromUpstreamNode(
+    ::torch::jit::Node* src_node,
+    Node* dst_node);
+
+TORCH_API void cloneFromUpstreamGraph(
+    std::shared_ptr<::torch::jit::Graph>& src_graph,
+    std::shared_ptr<Graph>& dst_graph);
 
 TORCH_API at::ArrayRef<Value*> createTupleUnpack(Value* v);
 

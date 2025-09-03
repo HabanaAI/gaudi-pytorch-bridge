@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,17 +28,17 @@ bool is_symbolic_expr(const std::string& expr_str);
 bool is_output_shape_empty(const std::string& expr_str);
 
 bool nodeHasScalarGraphInput(
-    torch::jit::Node* node,
+    habana_torch::jit::Node* node,
     GraphInputIndexMap& org_stack_index_map,
     CValuePtrToIValuePtrMap& value_ivalue_map);
 
 bool isNodeDynamic(
-    torch::jit::Node* node,
+    habana_torch::jit::Node* node,
     GraphInputIndexMap& org_stack_index_map,
     CValuePtrToIValuePtrMap& value_ivalue_map);
 
 void createGraphInputStackIndexMap(
-    const std::shared_ptr<torch::jit::Graph>& graph,
+    const std::shared_ptr<habana_torch::jit::Graph>& graph,
     GraphInputIndexMap& org_stack_index_map);
 
 size_t CalculateSymbolValuesHash(InputSymbolMap& symbol_value_map);

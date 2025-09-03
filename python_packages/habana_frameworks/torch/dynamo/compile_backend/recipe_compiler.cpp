@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -98,7 +98,7 @@ std::size_t calculate_symval_hashcode(
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def(
       "graph_compile",
-      [](std::shared_ptr<torch::jit::Graph> graph,
+      [](py::object graph_obj,
          const std::string& parent_graph_name,
          const py::tuple& inputs,
          const py::tuple& is_reusable,
@@ -120,6 +120,31 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
         for (auto& obj : is_reusable) {
           is_reusable_vec.push_back(obj.cast<bool>());
         }
+
+        if (graph_obj.is_none()) {
+          throw std::invalid_argument("Graph object is None");
+        }
+        std::shared_ptr<habana_torch::jit::Graph> graph;
+        try {
+          // get raw_ptr
+          auto* raw_ptr = graph_obj.cast<habana_torch::jit::Graph*>();
+          if (raw_ptr) {
+            graph = std::shared_ptr<habana_torch::jit::Graph>(
+                raw_ptr, [](habana_torch::jit::Graph*) {});
+          } else {
+            throw std::invalid_argument("All cast methods failed");
+          }
+        } catch (const py::cast_error& e3) {
+          throw std::invalid_argument(
+              "Unable to convert graph object to expected type");
+        }
+
+        if (!graph) {
+          HABANA_ASSERT(0, "Received null graph pointer in graph_compile");
+          throw std::invalid_argument(
+              "Graph conversion resulted in null pointer");
+        }
+
         auto& graph_storage{habana::graph::GraphStorage::get()};
         return graph_storage.add_new_recipe(
             graph,

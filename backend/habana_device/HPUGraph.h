@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,14 +17,14 @@
 #include "backend/habana_device/HPUStream.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/ir.h"
-#include "torch/csrc/jit/ir/ir.h"
+#include "jit_fork/ir/ir.h"
 
 namespace at::hpu {
 
 struct SingleHPUGraph {
   SingleHPUGraph(
       std::shared_ptr<habana::RecipeArgumentSpec> cached_rarg_psh,
-      std::shared_ptr<torch::jit::Graph> graph,
+      std::shared_ptr<habana_torch::jit::Graph> graph,
       habana_lazy::ir::ValueList input_vals,
       habana_lazy::ir::ValueList output_vals,
       std::vector<habana_lazy::HbLazyTensor> hblazy_tensors,
@@ -57,7 +57,7 @@ struct SingleHPUGraph {
   void replayGraph(habana_lazy::ir::ValueList& input_vals, bool async = false);
 
   std::shared_ptr<habana::RecipeArgumentSpec> cached_rarg_psh_{nullptr};
-  std::shared_ptr<torch::jit::Graph> graph_;
+  std::shared_ptr<habana_torch::jit::Graph> graph_;
   habana_lazy::ir::ValueList input_vals_;
   habana_lazy::ir::ValueList output_vals_;
   std::vector<habana_lazy::HbLazyTensor> hblazy_tensors_in_;

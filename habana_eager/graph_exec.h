@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,11 +20,11 @@
 #include <string>
 #include <vector>
 
-#include <torch/csrc/jit/ir/ir.h>
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
 #include "backend/synapse_helpers/layout_utils.h"
 #include "habana_eager/graph_dynamic.h"
 #include "habana_eager/graph_dynamic_ops.h"
+#include "jit_fork/ir/ir.h"
 
 namespace habana::graph {
 
@@ -36,7 +36,7 @@ class GraphExec {
  public:
   GraphExec(
       size_t recipe_id,
-      std::shared_ptr<torch::jit::Graph> graph,
+      std::shared_ptr<habana_torch::jit::Graph> graph,
       const std::string& parent_graph_name,
       torch::jit::Stack& example_inputs,
       bool dynamic,
@@ -96,7 +96,7 @@ class GraphExec {
   };
 
   size_t m_graph_index;
-  std::shared_ptr<torch::jit::Graph> m_graph;
+  std::shared_ptr<habana_torch::jit::Graph> m_graph;
   std::string m_graph_name;
   bool m_dynamic;
   std::vector<bool> m_is_reusable;

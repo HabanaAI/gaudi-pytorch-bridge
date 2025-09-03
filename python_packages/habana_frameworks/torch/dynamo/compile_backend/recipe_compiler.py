@@ -229,8 +229,6 @@ class HabanaGraphModule(torch.nn.Module):
             for md in self._outputs_metadata:
                 self._outputs_batch_data.append(EmptyBatchData(md[0], md[1], md[2]))
 
-        self._get_pt_hpu_use_jit_fork = bc.get_pt_hpu_use_jit_fork()
-
         # We won't allocate tensors for outputs who duplicate inputs
         if self._in_to_out_dups is not None:
             self._out_to_in_dups = {v: k for k, v in self._in_to_out_dups.items()}
@@ -320,13 +318,8 @@ class HabanaGraphModule(torch.nn.Module):
                 if len(is_reusable) > 0:
                     is_reusable = (False, False) + is_reusable
 
-            if self._get_pt_hpu_use_jit_fork:
-                graph = self._jit_ir
-            else:
-                graph = self._jit_ir.graph
-
             self._recipe_id = graph_compile(
-                graph=graph,
+                graph=self._jit_ir,
                 parent_graph_name=self._name,
                 inputs=inputs,
                 is_reusable=is_reusable,
@@ -343,7 +336,7 @@ class HabanaGraphModule(torch.nn.Module):
             if curr_symval_hash is not None:
                 self._symval_recipe_id_map[curr_symval_hash] = self._recipe_id
 
-            dump_fx_graph(self._fx_module, graph, self._recipe_id)
+            dump_fx_graph(self._fx_module, self._jit_ir, self._recipe_id)
 
         elif self._has_randoms:
             inputs = (None, None) + inputs

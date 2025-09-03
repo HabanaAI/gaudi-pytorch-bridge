@@ -17,5 +17,5 @@ add_habana_library(_experimental_C SHARED bindings.cpp)
 target_compile_definitions(_experimental_C PRIVATE TORCH_EXTENSION_NAME=_experimental_C)
 
 set_target_properties(_experimental_C PROPERTIES PREFIX "")
-target_link_libraries(_experimental_C PUBLIC bindings torch absl::strings ${TORCH_PYTHON_LIBRARY})
+target_link_libraries(_experimental_C PUBLIC bindings torch npu::jit_fork absl::strings ${TORCH_PYTHON_LIBRARY})
 install(TARGETS _experimental_C LIBRARY DESTINATION habana_torch_plugin/${PYBIND_INSTALL_DIRNAME})

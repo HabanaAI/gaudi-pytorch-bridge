@@ -13,7 +13,6 @@
  * limitations under the License.
  */
 
-#include <torch/csrc/jit/ir/ir.h>
 #include <memory>
 #include <string>
 #include <vector>
@@ -23,6 +22,7 @@
 #include "backend/synapse_helpers/layout_utils.h"
 #include "habana_eager/graph_dynamic.h"
 #include "habana_eager/graph_dynamic_ops.h"
+#include "jit_fork/ir/ir.h"
 
 namespace habana::graph {
 std::vector<std::string> string_tokenizer(std::string s) {
@@ -37,7 +37,7 @@ std::vector<std::string> string_tokenizer(std::string s) {
   return exprs;
 }
 bool ViewOperatorDS::ReplaceWithDynamicHPUOp(
-    torch::jit::Node* aten_view_node,
+    habana_torch::jit::Node* aten_view_node,
     torch::jit::Stack& org_stack,
     GraphInputIndexMap& org_stack_index_map,
     ValueIvalueMap& value_ivalue_map,
@@ -93,7 +93,7 @@ bool ViewOperatorDS::ReplaceWithDynamicHPUOp(
   }
 
   // Step3: Create hpu::view node and insert to the graph
-  torch::jit::Node* hpu_view_node;
+  habana_torch::jit::Node* hpu_view_node;
   if (has_neg_size) {
     static const auto hpu_view_symbol{
         c10::Symbol::fromQualString("hpu::view_neg")};
@@ -124,7 +124,7 @@ bool ViewOperatorDS::ReplaceWithDynamicHPUOp(
 }
 
 void ViewOperatorDS::UpdateDynamicInputs(
-    c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
+    c10::SmallVectorImpl<habana_torch::jit::IValue*>& dtensor_list,
     c10::SmallVectorImpl<habana::graph::SymIntData>& scalar_idx_list,
     [[maybe_unused]] c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
     [[maybe_unused]] c10::SmallVectorImpl<
@@ -154,8 +154,8 @@ void ViewOperatorDS::UpdateDynamicInputs(
 }
 
 void ViewOperatorDS::ResolveNegativeSizes(
-    torch::jit::Node* node,
-    std::unordered_map<CValPtr, torch::jit::IValue>& value_ivalue_map,
+    habana_torch::jit::Node* node,
+    std::unordered_map<CValPtr, habana_torch::jit::IValue>& value_ivalue_map,
     LaunchDynamicShapes& launch_shapes) {
   auto view_st_value = node->inputs().at(1);
   auto view_out_value = node->outputs().at(0);
@@ -178,7 +178,7 @@ int64_t get_arange_depth_ds_1(
 }
 
 bool IssetToIntegralDType(
-    std::vector<torch::jit::Value*> start_end_step,
+    std::vector<habana_torch::jit::Value*> start_end_step,
     torch::jit::Stack& in_stack,
     GraphInputIndexMap& org_stack_index_map) {
   bool isitInger = true;
@@ -209,7 +209,7 @@ bool IssetToIntegralDType(
 }
 
 bool ArangeOperatorDS::ReplaceWithDynamicHPUOp(
-    torch::jit::Node* aten_arange_node,
+    habana_torch::jit::Node* aten_arange_node,
     torch::jit::Stack& org_stack,
     GraphInputIndexMap& org_stack_index_map,
     ValueIvalueMap& value_ivalue_map,
@@ -218,13 +218,13 @@ bool ArangeOperatorDS::ReplaceWithDynamicHPUOp(
       c10::Symbol::fromQualString("hpu::arange")};
   auto arange_shape = aten_arange_node->inputs().at(0);
   auto graph{aten_arange_node->owningGraph()};
-  torch::jit::Value* start = nullptr;
-  torch::jit::Value* end = nullptr;
-  torch::jit::Value* step = nullptr;
-  torch::jit::Value* out_dtype_node_val = nullptr;
-  torch::jit::Value* out_layout_node_val = nullptr;
-  torch::jit::Value* out_device_node_val = nullptr;
-  torch::jit::Value* out_pin_mem_node_val = nullptr;
+  habana_torch::jit::Value* start = nullptr;
+  habana_torch::jit::Value* end = nullptr;
+  habana_torch::jit::Value* step = nullptr;
+  habana_torch::jit::Value* out_dtype_node_val = nullptr;
+  habana_torch::jit::Value* out_layout_node_val = nullptr;
+  habana_torch::jit::Value* out_device_node_val = nullptr;
+  habana_torch::jit::Value* out_pin_mem_node_val = nullptr;
   if (aten_arange_node->inputs().size() == 5) {
     end = aten_arange_node->inputs().at(0);
     out_dtype_node_val = aten_arange_node->inputs().at(1);
@@ -305,7 +305,7 @@ bool ArangeOperatorDS::ReplaceWithDynamicHPUOp(
 
     SetH2DTensorHostData<int32_t>(
         h2d_tensor, h2d_values, HostDataType::INT32_T, true);
-    auto iv_h2d_tensor = torch::jit::IValue(h2d_tensor);
+    auto iv_h2d_tensor = habana_torch::jit::IValue(h2d_tensor);
     int64_t stack_index = UpdateDynamicTensorDSStack(
         iv_h2d_tensor, scalar_indexes, {}, {}, m_dmeta);
     auto v_h2d_tensor = graph->addInput(arange_h2d_name);
@@ -365,7 +365,7 @@ bool ArangeOperatorDS::ReplaceWithDynamicHPUOp(
 }
 
 void ArangeOperatorDS::UpdateDynamicInputs(
-    c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
+    c10::SmallVectorImpl<habana_torch::jit::IValue*>& dtensor_list,
     [[maybe_unused]] c10::SmallVectorImpl<habana::graph::SymIntData>&
         scalar_idx_list,
     [[maybe_unused]] c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
@@ -418,7 +418,7 @@ void ArangeOperatorDS::UpdateDynamicInputs(
 }
 
 bool ConstantPad2dOperatorDS::ReplaceWithDynamicHPUOp(
-    torch::jit::Node* aten_pad_node,
+    habana_torch::jit::Node* aten_pad_node,
     torch::jit::Stack& org_stack,
     GraphInputIndexMap& org_stack_index_map,
     [[maybe_unused]] ValueIvalueMap& value_ivalue_map,
@@ -544,7 +544,7 @@ bool ConstantPad2dOperatorDS::ReplaceWithDynamicHPUOp(
 }
 
 void ConstantPad2dOperatorDS::UpdateDynamicInputs(
-    c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
+    c10::SmallVectorImpl<habana_torch::jit::IValue*>& dtensor_list,
     c10::SmallVectorImpl<habana::graph::SymIntData>& scalar_idx_list,
     [[maybe_unused]] c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
     [[maybe_unused]] c10::SmallVectorImpl<
@@ -617,7 +617,7 @@ bool IsStridedRatioUndefined(
 }
 
 bool AsStridedOperatorDS::ReplaceWithDynamicHPUOp(
-    torch::jit::Node* aten_as_strided_node,
+    habana_torch::jit::Node* aten_as_strided_node,
     torch::jit::Stack& in_stack,
     GraphInputIndexMap& org_stack_index_map,
     ValueIvalueMap& value_ivalue_map,
@@ -654,10 +654,11 @@ bool AsStridedOperatorDS::ReplaceWithDynamicHPUOp(
   // Collect ST shape and symlnt pos using ListConstruct values for sizes
   std::vector<int64_t> values_shapes;
   std::vector<int64_t> scalar_indexes_shape;
-  if (shape_construct_node->kind() == torch::jit::prim::Constant) {
+  if (shape_construct_node->kind() == habana_torch::jit::prim::Constant) {
     GetValuesAndScalarIndexesFromListConst(
         shape_construct_node, values_shapes, scalar_indexes_shape);
-  } else if (shape_construct_node->kind() == torch::jit::prim::ListConstruct) {
+  } else if (
+      shape_construct_node->kind() == habana_torch::jit::prim::ListConstruct) {
     GetValuesAndScalarIndexesFromListConstruct(
         shape_construct_node,
         in_stack,
@@ -711,12 +712,13 @@ bool AsStridedOperatorDS::ReplaceWithDynamicHPUOp(
   std::vector<int64_t> values_strides;
   std::vector<std::string> expr_strides;
   auto self_strides = self.strides().vec();
-  if (stride_construct_node->kind() == torch::jit::prim::Constant) {
+  if (stride_construct_node->kind() == habana_torch::jit::prim::Constant) {
     GetValuesAndScalarIndexesFromListConst(
         stride_construct_node, values_strides, scalar_indexes_strides);
     expr_strides = GetRangeInfoExprFromListConst(
         stride_construct_node, org_stack_index_map, m_range_infos);
-  } else if (stride_construct_node->kind() == torch::jit::prim::ListConstruct) {
+  } else if (
+      stride_construct_node->kind() == habana_torch::jit::prim::ListConstruct) {
     GetValuesAndScalarIndexesFromListConstruct(
         stride_construct_node,
         in_stack,
@@ -761,7 +763,7 @@ bool AsStridedOperatorDS::ReplaceWithDynamicHPUOp(
       {static_cast<int64_t>(h2d_values.size()) * 2}, HOST_TO_DEVICE_TENSOR);
   SetH2DTensorHostData<uint64_t>(
       h2d_tensor_strides, h2d_values, HostDataType::UINT64_T, false);
-  auto iv_st_strides_tensor = torch::jit::IValue(h2d_tensor_strides);
+  auto iv_st_strides_tensor = habana_torch::jit::IValue(h2d_tensor_strides);
   int64_t stack_index_strides = UpdateDynamicTensorDSStack(
       iv_st_strides_tensor, scalar_indexes, tensor_indexes, {}, m_dmeta);
   auto v_st_strides_tensor = graph->addInput(as_strided_stride_st_name);
@@ -815,7 +817,7 @@ bool AsStridedOperatorDS::ReplaceWithDynamicHPUOp(
         stride_sizes);
     PT_DYNAMIC_SHAPE_DEBUG(
         "Setting stride ratio = ", stride_ratios, " offset = ", offset_value);
-    auto iv_st_offset_tensor = torch::jit::IValue(st_tensor_offset);
+    auto iv_st_offset_tensor = habana_torch::jit::IValue(st_tensor_offset);
     std::vector<int64_t> scalar_indexes_offset;
     scalar_indexes_offset.push_back(offset_idx);
     int64_t stack_index_offset = UpdateDynamicTensorDSStack(
@@ -849,7 +851,7 @@ bool AsStridedOperatorDS::ReplaceWithDynamicHPUOp(
 }
 
 void AsStridedOperatorDS::UpdateDynamicInputs(
-    c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
+    c10::SmallVectorImpl<habana_torch::jit::IValue*>& dtensor_list,
     c10::SmallVectorImpl<habana::graph::SymIntData>& scalar_idx_list,
     c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
     [[maybe_unused]] c10::SmallVectorImpl<
@@ -945,7 +947,7 @@ void AsStridedOperatorDS::UpdateDynamicInputs(
 
 // Dynamic shape (DS) support for as_strided_scatter op
 bool AsStridedScatterOperatorDS::ReplaceWithDynamicHPUOp(
-    torch::jit::Node* as_strided_scatter_node,
+    habana_torch::jit::Node* as_strided_scatter_node,
     torch::jit::Stack& in_stack,
     GraphInputIndexMap& org_stack_index_map,
     ValueIvalueMap& value_ivalue_map,
@@ -1057,7 +1059,7 @@ bool AsStridedScatterOperatorDS::ReplaceWithDynamicHPUOp(
       {static_cast<int64_t>(h2d_values.size()) * 2}, HOST_TO_DEVICE_TENSOR);
   SetH2DTensorHostData<uint64_t>(
       h2d_tensor_strides, h2d_values, HostDataType::UINT64_T, false);
-  auto iv_st_strides_tensor = torch::jit::IValue(h2d_tensor_strides);
+  auto iv_st_strides_tensor = habana_torch::jit::IValue(h2d_tensor_strides);
   int64_t stack_index_strides = UpdateDynamicTensorDSStack(
       iv_st_strides_tensor, scalar_indexes, {}, {}, m_dmeta);
   auto v_st_strides_tensor = graph->addInput(as_strided_scatter_stride_st_name);
@@ -1109,7 +1111,7 @@ bool AsStridedScatterOperatorDS::ReplaceWithDynamicHPUOp(
     PT_DYNAMIC_SHAPE_DEBUG(
         "Setting stride ratio = ", stride_ratios, " offset = ", offset_value);
 
-    auto iv_st_offset_tensor = torch::jit::IValue(st_tensor_offset);
+    auto iv_st_offset_tensor = habana_torch::jit::IValue(st_tensor_offset);
     std::vector<int64_t> scalar_indexes_offset;
     scalar_indexes_offset.push_back(offset_idx);
     int64_t stack_index_offset = UpdateDynamicTensorDSStack(
@@ -1145,7 +1147,7 @@ bool AsStridedScatterOperatorDS::ReplaceWithDynamicHPUOp(
 
 // Update DS input for as_strided_scatter DS op
 void AsStridedScatterOperatorDS::UpdateDynamicInputs(
-    c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
+    c10::SmallVectorImpl<habana_torch::jit::IValue*>& dtensor_list,
     c10::SmallVectorImpl<habana::graph::SymIntData>& scalar_idx_list,
     [[maybe_unused]] c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
     [[maybe_unused]] c10::SmallVectorImpl<
@@ -1187,7 +1189,7 @@ void AsStridedScatterOperatorDS::UpdateDynamicInputs(
 }
 
 bool StridedInsertOperatorDS::ReplaceWithDynamicHPUOp(
-    torch::jit::Node* strided_insert_node,
+    habana_torch::jit::Node* strided_insert_node,
     torch::jit::Stack& in_stack,
     GraphInputIndexMap& org_stack_index_map,
     ValueIvalueMap& value_ivalue_map,
@@ -1278,7 +1280,7 @@ bool StridedInsertOperatorDS::ReplaceWithDynamicHPUOp(
       {static_cast<int64_t>(h2d_values.size()) * 2}, HOST_TO_DEVICE_TENSOR);
   SetH2DTensorHostData<uint64_t>(
       h2d_tensor_strides, h2d_values, HostDataType::UINT64_T, false);
-  auto iv_st_strides_tensor = torch::jit::IValue(h2d_tensor_strides);
+  auto iv_st_strides_tensor = habana_torch::jit::IValue(h2d_tensor_strides);
   int64_t stack_index_strides = UpdateDynamicTensorDSStack(
       iv_st_strides_tensor, scalar_indexes, {}, {}, m_dmeta);
   auto v_st_strides_tensor = graph->addInput(strided_insert_stride_st_name);
@@ -1318,7 +1320,7 @@ bool StridedInsertOperatorDS::ReplaceWithDynamicHPUOp(
     tmeta_offset->get_shape_struct().set_stride_ratio(stride_ratios);
     PT_DYNAMIC_SHAPE_DEBUG(
         "Setting stride ratio = ", stride_ratios, " offset = ", offset_value);
-    auto iv_st_offset_tensor = torch::jit::IValue(st_tensor_offset);
+    auto iv_st_offset_tensor = habana_torch::jit::IValue(st_tensor_offset);
     std::vector<int64_t> scalar_indexes_offset;
     scalar_indexes_offset.push_back(offset_idx);
     int64_t stack_index_offset = UpdateDynamicTensorDSStack(
@@ -1348,7 +1350,7 @@ bool StridedInsertOperatorDS::ReplaceWithDynamicHPUOp(
 }
 
 void StridedInsertOperatorDS::UpdateDynamicInputs(
-    c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
+    c10::SmallVectorImpl<habana_torch::jit::IValue*>& dtensor_list,
     c10::SmallVectorImpl<habana::graph::SymIntData>& scalar_idx_list,
     [[maybe_unused]] c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
     [[maybe_unused]] c10::SmallVectorImpl<
@@ -1396,7 +1398,7 @@ void StridedInsertOperatorDS::UpdateDynamicInputs(
 }
 
 void RandpermGeneratorOperatorDS::UpdateDynamicInputs(
-    c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
+    c10::SmallVectorImpl<habana_torch::jit::IValue*>& dtensor_list,
     c10::SmallVectorImpl<habana::graph::SymIntData>& scalar_idx_list,
     [[maybe_unused]] c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
     [[maybe_unused]] c10::SmallVectorImpl<
@@ -1429,7 +1431,7 @@ void RandpermGeneratorOperatorDS::UpdateDynamicInputs(
 }
 
 bool RandpermGeneratorOperatorDS::ReplaceWithDynamicHPUOp(
-    torch::jit::Node* aten_randperm_node,
+    habana_torch::jit::Node* aten_randperm_node,
     torch::jit::Stack& org_stack,
     GraphInputIndexMap& org_stack_index_map,
     ValueIvalueMap& value_ivalue_map,
@@ -1530,7 +1532,7 @@ bool RandpermGeneratorOperatorDS::ReplaceWithDynamicHPUOp(
 
 // Dynamic shape (DS) support for `rand` using shape tensor
 bool RandOperatorDS::ReplaceWithDynamicHPUOp(
-    torch::jit::Node* aten_rand_node,
+    habana_torch::jit::Node* aten_rand_node,
     torch::jit::Stack& org_stack,
     GraphInputIndexMap& org_stack_index_map,
     ValueIvalueMap& value_ivalue_map,
@@ -1603,7 +1605,7 @@ bool RandOperatorDS::ReplaceWithDynamicHPUOp(
 }
 
 void RandOperatorDS::UpdateDynamicInputs(
-    c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
+    c10::SmallVectorImpl<habana_torch::jit::IValue*>& dtensor_list,
     c10::SmallVectorImpl<habana::graph::SymIntData>& scalar_idx_list,
     [[maybe_unused]] c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
     [[maybe_unused]] c10::SmallVectorImpl<
@@ -1620,7 +1622,7 @@ void RandOperatorDS::UpdateDynamicInputs(
 
 // Dynamic shape (DS) support for `rand` using shape tensor
 bool RandnOperatorDS::ReplaceWithDynamicHPUOp(
-    torch::jit::Node* aten_rand_node,
+    habana_torch::jit::Node* aten_rand_node,
     torch::jit::Stack& org_stack,
     GraphInputIndexMap& org_stack_index_map,
     ValueIvalueMap& value_ivalue_map,
@@ -1693,7 +1695,7 @@ bool RandnOperatorDS::ReplaceWithDynamicHPUOp(
 }
 
 void RandnOperatorDS::UpdateDynamicInputs(
-    c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
+    c10::SmallVectorImpl<habana_torch::jit::IValue*>& dtensor_list,
     c10::SmallVectorImpl<habana::graph::SymIntData>& scalar_idx_list,
     [[maybe_unused]] c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
     [[maybe_unused]] c10::SmallVectorImpl<
@@ -1710,7 +1712,7 @@ void RandnOperatorDS::UpdateDynamicInputs(
 
 // Dynamic shape (DS) support for `randint` using shape tensor
 bool RandintOperatorDS::ReplaceWithDynamicHPUOp(
-    torch::jit::Node* aten_rand_node,
+    habana_torch::jit::Node* aten_rand_node,
     torch::jit::Stack& org_stack,
     GraphInputIndexMap& org_stack_index_map,
     ValueIvalueMap& value_ivalue_map,
@@ -1785,7 +1787,7 @@ bool RandintOperatorDS::ReplaceWithDynamicHPUOp(
 }
 
 void RandintOperatorDS::UpdateDynamicInputs(
-    c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
+    c10::SmallVectorImpl<habana_torch::jit::IValue*>& dtensor_list,
     c10::SmallVectorImpl<habana::graph::SymIntData>& scalar_idx_list,
     [[maybe_unused]] c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
     [[maybe_unused]] c10::SmallVectorImpl<
@@ -1802,7 +1804,7 @@ void RandintOperatorDS::UpdateDynamicInputs(
 
 // Dynamic shape (DS) support for `full` using shape tensor
 bool FullOpDS::ReplaceWithDynamicHPUOp(
-    torch::jit::Node* aten_full_node,
+    habana_torch::jit::Node* aten_full_node,
     torch::jit::Stack& org_stack,
     GraphInputIndexMap& org_stack_index_map,
     ValueIvalueMap& value_ivalue_map,
@@ -1874,7 +1876,7 @@ bool FullOpDS::ReplaceWithDynamicHPUOp(
 }
 
 void FullOpDS::UpdateDynamicInputs(
-    c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
+    c10::SmallVectorImpl<habana_torch::jit::IValue*>& dtensor_list,
     c10::SmallVectorImpl<habana::graph::SymIntData>& scalar_idx_list,
     [[maybe_unused]] c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
     [[maybe_unused]] c10::SmallVectorImpl<
@@ -1891,7 +1893,7 @@ void FullOpDS::UpdateDynamicInputs(
 
 // Dynamic shape (DS) support for `empty` using shape tensor
 bool EmptyOpDS::ReplaceWithDynamicHPUOp(
-    torch::jit::Node* aten_empty_node,
+    habana_torch::jit::Node* aten_empty_node,
     torch::jit::Stack& org_stack,
     GraphInputIndexMap& org_stack_index_map,
     ValueIvalueMap& value_ivalue_map,
@@ -1962,7 +1964,7 @@ bool EmptyOpDS::ReplaceWithDynamicHPUOp(
 }
 
 void EmptyOpDS::UpdateDynamicInputs(
-    c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
+    c10::SmallVectorImpl<habana_torch::jit::IValue*>& dtensor_list,
     c10::SmallVectorImpl<habana::graph::SymIntData>& scalar_idx_list,
     [[maybe_unused]] c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
     [[maybe_unused]] c10::SmallVectorImpl<

@@ -14,11 +14,11 @@
  */
 #pragma once
 #include <nlohmann/json.hpp>
-#include <torch/csrc/jit/ir/ir.h>
 #include <atomic>
 #include <memory>
 #include "dynamic_bucket_info.h"
 #include "dynamic_bucket_info_utils.h"
+#include "jit_fork/ir/ir.h"
 
 using InputSymbolMap = std::unordered_map<std::string, std::shared_ptr<double>>;
 
@@ -64,7 +64,7 @@ class CompilationStatistics {
       uint64_t step = 0);
 
   virtual void LogShapes(
-      std::shared_ptr<torch::jit::Graph> jit_ir_graph,
+      std::shared_ptr<habana_torch::jit::Graph> jit_ir_graph,
       InpTensorShapes&,
       uint64_t step = 0);
   /**
@@ -82,7 +82,7 @@ class CompilationStatistics {
    */
   virtual void LogCompilation(
       const std::string& jit_ir,
-      std::shared_ptr<torch::jit::Graph> jit_ir_graph,
+      std::shared_ptr<habana_torch::jit::Graph> jit_ir_graph,
       DynamicDimsPolicy min_policy,
       DynamicDimsPolicy max_policy,
       ResultShapes ranges,
@@ -102,7 +102,7 @@ class CompilationStatistics {
    */
   virtual void LogUsedBucket(
       int id,
-      std::shared_ptr<torch::jit::Graph> jit_ir_graph,
+      std::shared_ptr<habana_torch::jit::Graph> jit_ir_graph,
       ResultShapes ranges,
       bool refine_candidate,
       uint64_t step = 0);
@@ -149,7 +149,7 @@ class CompilationStatistics {
    */
   virtual void LogRefineCompilation(
       ResultShapes ranges,
-      std::shared_ptr<torch::jit::Graph> jit_ir_graph,
+      std::shared_ptr<habana_torch::jit::Graph> jit_ir_graph,
       uint64_t signature,
       uint64_t bucket,
       const std::string& result_str,
@@ -218,7 +218,7 @@ class CompilationStatistics {
   std::string GetStep(uint64_t step);
   nlohmann::json GetRanges(
       habana_helpers::ResultShapes ranges,
-      std::shared_ptr<torch::jit::Graph> jit_ir_graph);
+      std::shared_ptr<habana_torch::jit::Graph> jit_ir_graph);
   CompilationStatistics(std::string path, uint64_t global_count);
   CompilationStatistics(const CompilationStatistics&) = delete;
   void operator=(const CompilationStatistics&) = delete;

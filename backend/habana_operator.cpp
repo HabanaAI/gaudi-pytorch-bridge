@@ -801,7 +801,7 @@ habana::RegisterKernel& habana::KernelRegistry() {
 habana::HabanaOperator::~HabanaOperator() = default;
 
 void habana::HabanaOperator::dump(
-    torch::jit::Node* node,
+    habana_torch::jit::Node* node,
     const at::Stack& stack) {
   PT_OP_DEBUG([&]() {
     auto stack_printer = [](const at::Stack& stack) {
@@ -841,7 +841,7 @@ void habana::HabanaOperator::dump(
       return ss.str();
     };
 
-    auto node_io_printer = [](at::ArrayRef<torch::jit::Value*> vals) {
+    auto node_io_printer = [](at::ArrayRef<habana_torch::jit::Value*> vals) {
       std::ostringstream ss;
       for (auto val : vals) {
         ss << " " << *val->type();

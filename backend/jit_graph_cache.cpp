@@ -25,8 +25,8 @@
 namespace habana {
 
 size_t GetWeightHash(
-    const at::ArrayRef<torch::jit::IValue>& input_refs,
-    const std::shared_ptr<torch::jit::Graph>& irgraph) {
+    const at::ArrayRef<habana_torch::jit::IValue>& input_refs,
+    const std::shared_ptr<habana_torch::jit::Graph>& irgraph) {
   std::set<size_t> graph_weights;
   habana::backend::passes::DetectWeightTensors(irgraph, graph_weights);
   size_t hash_code = 0;
@@ -54,9 +54,9 @@ size_t GetDataChecksum(void* data, size_t dataSize) {
 }
 
 void ComputeGraphHashCode(
-    const std::shared_ptr<torch::jit::Graph>& irgraph,
+    const std::shared_ptr<habana_torch::jit::Graph>& irgraph,
     const std::string& id,
-    at::ArrayRef<torch::jit::IValue> input_refs,
+    at::ArrayRef<habana_torch::jit::IValue> input_refs,
     std::string& op_strs,
     size_t& graphHashCode,
     size_t& shapelessWithDimsHash,
@@ -68,11 +68,11 @@ void ComputeGraphHashCode(
     std::vector<bool> is_reusable) {
   std::hash<std::string> str_hash;
   op_strs.append((id.empty() ? std::string("UNNAMED") : id) + "::\n");
-  std::unordered_map<torch::jit::Node*, size_t> node_idx_map;
+  std::unordered_map<habana_torch::jit::Node*, size_t> node_idx_map;
   std::unordered_map<size_t, std::string> idx_const_map;
   size_t idx{0};
   for (auto node : irgraph->nodes()) {
-    if (node->kind() != torch::jit::prim::Constant) {
+    if (node->kind() != habana_torch::jit::prim::Constant) {
       std::string s(node->kind().toQualString());
       s.append("(");
       bool is_start{true};
@@ -152,11 +152,11 @@ void ComputeGraphHashCode(
   // Adding node connection hash
   size_t node_connection_hash{0};
   for (auto node : irgraph->nodes()) {
-    if (node->kind() != torch::jit::prim::Constant) {
+    if (node->kind() != habana_torch::jit::prim::Constant) {
       for (auto value_in : node->inputs()) {
         auto in_node = value_in->node();
         if (in_node) {
-          if (in_node->kind() != torch::jit::prim::Constant) {
+          if (in_node->kind() != habana_torch::jit::prim::Constant) {
             node_connection_hash =
                 at::hash_combine(node_connection_hash, node_idx_map[in_node]);
           } else {
@@ -252,15 +252,15 @@ void ComputeGraphHashCode(
 }
 
 size_t ComputeNodeSymOutputHashCode(
-    const std::shared_ptr<torch::jit::Graph>& jit_graph) {
+    const std::shared_ptr<habana_torch::jit::Graph>& jit_graph) {
   std::hash<std::string> str_hash;
   size_t sym_output_hash_code = 0;
   bool all_nodes_have_attr = true;
   bool is_any_node_symbolic = false;
 
   for (auto node : jit_graph->nodes()) {
-    if ((torch::jit::prim::Constant != node->kind()) &&
-        (torch::jit::prim::ListConstruct != node->kind())) {
+    if ((habana_torch::jit::prim::Constant != node->kind()) &&
+        (habana_torch::jit::prim::ListConstruct != node->kind())) {
       auto outputshapes_attr = c10::Symbol::attr("output_shapes");
       std::string shape_str;
       if (node->hasAttribute(outputshapes_attr)) {
@@ -284,7 +284,8 @@ size_t ComputeNodeSymOutputHashCode(
   return sym_output_hash_code;
 }
 
-size_t ComputePermutationHashCode(at::ArrayRef<torch::jit::IValue> input_refs) {
+size_t ComputePermutationHashCode(
+    at::ArrayRef<habana_torch::jit::IValue> input_refs) {
   size_t perm_hash_code = 0;
   uint32_t cnt = 0;
   for (auto& input : input_refs) {
@@ -305,7 +306,8 @@ size_t ComputePermutationHashCode(at::ArrayRef<torch::jit::IValue> input_refs) {
   return perm_hash_code;
 }
 
-size_t ComputeSymSizeHashCode(at::ArrayRef<torch::jit::IValue> input_refs) {
+size_t ComputeSymSizeHashCode(
+    at::ArrayRef<habana_torch::jit::IValue> input_refs) {
   size_t sym_hash_code = 0;
   uint32_t cnt = 0;
   for (auto& input : input_refs) {
@@ -363,8 +365,8 @@ size_t ComputeSymSizeHashCode(at::ArrayRef<torch::jit::IValue> input_refs) {
 OptimizedJITGraphAndMetaData::OptimizedJITGraphAndMetaData() = default;
 
 OptimizedJITGraphAndMetaData::OptimizedJITGraphAndMetaData(
-    const std::shared_ptr<torch::jit::Graph> JitGraphToLowering,
-    const at::ArrayRef<torch::jit::IValue>& input_refs,
+    const std::shared_ptr<habana_torch::jit::Graph> JitGraphToLowering,
+    const at::ArrayRef<habana_torch::jit::IValue>& input_refs,
     uint64_t ug_cntr,
     std::vector<bool> bcast_details,
     const std::string& id,
@@ -385,8 +387,8 @@ OptimizedJITGraphAndMetaData::OptimizedJITGraphAndMetaData(
 }
 
 void OptimizedJITGraphAndMetaData::ComputeGraphHashCode(
-    const std::shared_ptr<torch::jit::Graph> JitGraphToLowering,
-    const at::ArrayRef<torch::jit::IValue>& input_refs,
+    const std::shared_ptr<habana_torch::jit::Graph> JitGraphToLowering,
+    const at::ArrayRef<habana_torch::jit::IValue>& input_refs,
     const std::string& id,
     const std::map<int64_t, std::vector<int64_t>> m_input_new_base_sizes) {
   set_cached_graph_key(0);

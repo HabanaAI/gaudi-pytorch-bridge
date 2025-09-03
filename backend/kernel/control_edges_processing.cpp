@@ -62,7 +62,8 @@ inline bool IsControlEdgeTypeInplace(const ControlEdgeType cet) {
  *
  * @return Detected control edge type.
  */
-ControlEdgeType NodeRequiresControlEdge(const torch::jit::Node* const node) {
+ControlEdgeType NodeRequiresControlEdge(
+    const habana_torch::jit::Node* const node) {
   using namespace std::literals;
   if (habana::control_edges::IsControlEdgeNode(node)) {
     return ControlEdgeType::Default;
@@ -83,7 +84,8 @@ ControlEdgeType NodeRequiresControlEdge(const torch::jit::Node* const node) {
  *
  * @return Results of the check.
  */
-bool IsValidBlockingOrBlockedNode(const torch::jit::Node* const blocking_node) {
+bool IsValidBlockingOrBlockedNode(
+    const habana_torch::jit::Node* const blocking_node) {
   using namespace std::literals;
   // exclude control edges
   auto node_str = std::string_view{blocking_node->kind().toQualString()};
@@ -102,8 +104,8 @@ bool IsValidBlockingOrBlockedNode(const torch::jit::Node* const blocking_node) {
  */
 void AddSynNodes(
     std::vector<synNodeId>& syn_node_vec,
-    torch::jit::Node* const node,
-    const std::unordered_map<torch::jit::Node*, std::vector<synNodeId>>&
+    habana_torch::jit::Node* const node,
+    const std::unordered_map<habana_torch::jit::Node*, std::vector<synNodeId>>&
         jit_to_synapse_node_idx_map) {
   auto iter = jit_to_synapse_node_idx_map.find(node);
   if (iter != jit_to_synapse_node_idx_map.end()) {
@@ -151,7 +153,7 @@ namespace habana::control_edges {
  *
  * @return Result of the check.
  */
-bool IsControlEdgeNode(const torch::jit::Node* const node) {
+bool IsControlEdgeNode(const habana_torch::jit::Node* const node) {
   const auto node_str = std::string_view{node->kind().toQualString()};
   using namespace std::literals;
 
@@ -169,14 +171,14 @@ bool IsControlEdgeNode(const torch::jit::Node* const node) {
  */
 class GraphAffinityAnalyzer {
  public:
-  using ArrayOfNodes = at::ArrayRef<torch::jit::Value*>;
+  using ArrayOfNodes = at::ArrayRef<habana_torch::jit::Value*>;
 
   /**
    * Construct analyzer and preprocesses graph.
    *
    * @param graph
    */
-  GraphAffinityAnalyzer(const torch::jit::Graph& graph);
+  GraphAffinityAnalyzer(const habana_torch::jit::Graph& graph);
 
   GraphAffinityAnalyzer(const GraphAffinityAnalyzer&) = delete;
   GraphAffinityAnalyzer& operator=(const GraphAffinityAnalyzer&) = delete;
@@ -190,8 +192,8 @@ class GraphAffinityAnalyzer {
    * @param blocking_nodes_vec Vector of nodes to check against for cycle.
    */
   bool IsControlEdgeCycle(
-      const torch::jit::Node* blocked_node,
-      const std::vector<torch::jit::Node*>& blocking_nodes_vec) const;
+      const habana_torch::jit::Node* blocked_node,
+      const std::vector<habana_torch::jit::Node*>& blocking_nodes_vec) const;
 
   /**
    * Check if there is upstream or downstream affinity between two nodes.
@@ -202,8 +204,8 @@ class GraphAffinityAnalyzer {
    * return Result of the check.
    */
   bool IsAncestorOrDescendant(
-      const torch::jit::Node* node1,
-      const torch::jit::Node* node2) const;
+      const habana_torch::jit::Node* node1,
+      const habana_torch::jit::Node* node2) const;
 
  private:
   /**
@@ -223,7 +225,8 @@ class GraphAffinityAnalyzer {
   /**
    * Node order storage for each node in the forest of graphs.
    */
-  std::unordered_map<const torch::jit::Node*, DfsNodeOrder> dfs_time_map_;
+  std::unordered_map<const habana_torch::jit::Node*, DfsNodeOrder>
+      dfs_time_map_;
 
   /**
    * Current order.
@@ -235,7 +238,7 @@ class GraphAffinityAnalyzer {
   // ancestor-descendant relationship between any pair of nodes. This
   // relationship helps to avoid control edges induced graph cycles Specifically
   // the blocked node should NOT be an ancestor of blocking node
-  void PreprocessControlEdges(const torch::jit::Graph& graph);
+  void PreprocessControlEdges(const habana_torch::jit::Graph& graph);
 
   /**
    * Traversing the graph using DFS algorithm.
@@ -244,22 +247,24 @@ class GraphAffinityAnalyzer {
    *
    * @param node Currently traversed node.
    */
-  void Dfs(const torch::jit::Node* node);
+  void Dfs(const habana_torch::jit::Node* node);
 
   /**
    * Checks if node 1 is an ancestor of node2.
    */
-  bool IsAncestor(const torch::jit::Node* node1, const torch::jit::Node* node2)
-      const;
+  bool IsAncestor(
+      const habana_torch::jit::Node* node1,
+      const habana_torch::jit::Node* node2) const;
 };
 
-GraphAffinityAnalyzer::GraphAffinityAnalyzer(const torch::jit::Graph& graph) {
+GraphAffinityAnalyzer::GraphAffinityAnalyzer(
+    const habana_torch::jit::Graph& graph) {
   PreprocessControlEdges(graph);
 }
 
 bool GraphAffinityAnalyzer::IsControlEdgeCycle(
-    const torch::jit::Node* const blocked_node,
-    const std::vector<torch::jit::Node*>& blocking_nodes_vec) const {
+    const habana_torch::jit::Node* const blocked_node,
+    const std::vector<habana_torch::jit::Node*>& blocking_nodes_vec) const {
   for (auto& blocking_node : blocking_nodes_vec) {
     // check if blocked node is an ancestor of blocking node
     HABANA_ASSERT(
@@ -284,13 +289,13 @@ bool GraphAffinityAnalyzer::IsControlEdgeCycle(
 }
 
 bool GraphAffinityAnalyzer::IsAncestorOrDescendant(
-    const torch::jit::Node* const node1,
-    const torch::jit::Node* const node2) const {
+    const habana_torch::jit::Node* const node1,
+    const habana_torch::jit::Node* const node2) const {
   return (IsAncestor(node1, node2) || IsAncestor(node2, node1));
 }
 
 void GraphAffinityAnalyzer::PreprocessControlEdges(
-    const torch::jit::Graph& graph) {
+    const habana_torch::jit::Graph& graph) {
   PT_LAZY_TRACE;
 
   for (auto input_val : graph.inputs()) {
@@ -314,7 +319,7 @@ void GraphAffinityAnalyzer::PreprocessControlEdges(
   }
 }
 
-void GraphAffinityAnalyzer::Dfs(const torch::jit::Node* node) {
+void GraphAffinityAnalyzer::Dfs(const habana_torch::jit::Node* node) {
   dfs_time_map_[node].in = dfs_cnt_++;
 
   for (auto& out : node->outputs()) {
@@ -330,8 +335,8 @@ void GraphAffinityAnalyzer::Dfs(const torch::jit::Node* node) {
 }
 
 bool GraphAffinityAnalyzer::IsAncestor(
-    const torch::jit::Node* const node1,
-    const torch::jit::Node* const node2) const {
+    const habana_torch::jit::Node* const node1,
+    const habana_torch::jit::Node* const node2) const {
   return (dfs_time_map_.at(node1).in < dfs_time_map_.at(node2).in) &&
       (dfs_time_map_.at(node1).out > dfs_time_map_.at(node2).out);
 }
@@ -356,10 +361,11 @@ class ControlEdgesProcessor {
    processing relates to.
    */
   ControlEdgesProcessor(
-      torch::jit::Graph& jit_ir_graph,
-      std::unordered_map<torch::jit::Node*, std::vector<synNodeId>>&
+      habana_torch::jit::Graph& jit_ir_graph,
+      std::unordered_map<habana_torch::jit::Node*, std::vector<synNodeId>>&
           jit_to_synapse_node_idx_map,
-      std::vector<std::pair<torch::jit::Value*, torch::jit::Node*>>&
+      std::vector<
+          std::pair<habana_torch::jit::Value*, habana_torch::jit::Node*>>&
           memory_reuse_pairs,
       synapse_helpers::graph* const syn_graph_ptr)
       : jit_ir_graph_{jit_ir_graph},
@@ -380,7 +386,7 @@ class ControlEdgesProcessor {
    * JIT Graph to process.
    * TODO: Make sure it is protected against concurrent accesses.
    */
-  torch::jit::Graph&
+  habana_torch::jit::Graph&
       jit_ir_graph_; // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)
   /**
    *  bool to store whether the control edges have been added or not
@@ -390,14 +396,14 @@ class ControlEdgesProcessor {
   /**
    * Synapse node IDs for each JIT node.
    */
-  std::unordered_map<torch::jit::Node*, std::vector<synNodeId>>&
+  std::unordered_map<habana_torch::jit::Node*, std::vector<synNodeId>>&
       jit_to_synapse_node_idx_map_; // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)
 
   /**
    * List of mappings between values and nodes that can be used for memory
    * reuse.
    */
-  std::vector<std::pair<torch::jit::Value*, torch::jit::Node*>>&
+  std::vector<std::pair<habana_torch::jit::Value*, habana_torch::jit::Node*>>&
       memory_reuse_pairs_; // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)
 
   /**
@@ -410,7 +416,7 @@ class ControlEdgesProcessor {
    * Optimization: Single field to save on allocations between usages. Passed
    * explicitly if used as out parameter.
    */
-  std::vector<torch::jit::Node*> blocking_nodes_vec_;
+  std::vector<habana_torch::jit::Node*> blocking_nodes_vec_;
 
   /**
    * Optimization: Single field to save on allocations between usages. Passed
@@ -435,9 +441,9 @@ class ControlEdgesProcessor {
    * to.
    */
   void PrepareBlockingNodeList(
-      torch::jit::Node* node,
+      habana_torch::jit::Node* node,
       ControlEdgeType control_type,
-      std::vector<torch::jit::Node*>& blocking_nodes_vec,
+      std::vector<habana_torch::jit::Node*>& blocking_nodes_vec,
       std::vector<synNodeId>& blocking_syn_nodes_vec);
 
   /**
@@ -453,7 +459,7 @@ class ControlEdgesProcessor {
    */
   void ProcessControlEdgesForMemoryReuse(
       const habana::control_edges::GraphAffinityAnalyzer& affinity_analysis,
-      std::vector<torch::jit::Node*>& blocking_nodes_vec);
+      std::vector<habana_torch::jit::Node*>& blocking_nodes_vec);
 
   /**
    * Processes control edges related to custom ops.
@@ -468,13 +474,14 @@ class ControlEdgesProcessor {
    *
    * @param graph_nodes List of graph nodes to process.
    */
-  void ProcessCustomOptControlEdges(torch::jit::graph_node_list& graph_nodes);
+  void ProcessCustomOptControlEdges(
+      habana_torch::jit::graph_node_list& graph_nodes);
 };
 
 void ControlEdgesProcessor::PrepareBlockingNodeList(
-    torch::jit::Node* node,
+    habana_torch::jit::Node* node,
     ControlEdgeType control_type,
-    std::vector<torch::jit::Node*>& blocking_nodes_vec,
+    std::vector<habana_torch::jit::Node*>& blocking_nodes_vec,
     std::vector<synNodeId>& blocking_syn_nodes_vec) {
   const int first_input =
       control_type == ControlEdgeType::InplaceInput1 ? 1 : 0;
@@ -546,7 +553,7 @@ void ControlEdgesProcessor::PrepareBlockingNodeList(
 }
 
 void ControlEdgesProcessor::ProcessCustomOptControlEdges(
-    torch::jit::graph_node_list& graph_nodes) {
+    habana_torch::jit::graph_node_list& graph_nodes) {
   // Find the custom optimizer node.
   for (auto node : graph_nodes) {
     auto node_str = node->kind().toQualString();
@@ -600,7 +607,7 @@ bool ControlEdgesProcessor::ProcessControlEdges() {
 
   ProcessControlEdgesForMemoryReuse(affinity_analysis, blocking_nodes_vec_);
 
-  torch::jit::graph_node_list graph_nodes = jit_ir_graph_.nodes();
+  habana_torch::jit::graph_node_list graph_nodes = jit_ir_graph_.nodes();
 
   for (auto* const node : graph_nodes) {
     auto c_edge = NodeRequiresControlEdge(node);
@@ -687,7 +694,7 @@ bool ControlEdgesProcessor::ProcessControlEdges() {
 
 void ControlEdgesProcessor::ProcessControlEdgesForMemoryReuse(
     const habana::control_edges::GraphAffinityAnalyzer& affinity_analysis,
-    std::vector<torch::jit::Node*>& blocking_nodes_vec) {
+    std::vector<habana_torch::jit::Node*>& blocking_nodes_vec) {
   for (const auto& p : memory_reuse_pairs_) {
     auto blocked_node = p.second;
     for (auto& u : p.first->uses()) {
@@ -735,12 +742,12 @@ bool IsNodeStridedInsertOrSliceInsert(const std::string_view node_qual_str) {
 }
 
 void ProcessStridedInsertAtOutput(
-    torch::jit::Node* node,
+    habana_torch::jit::Node* node,
     HabanaOperatorPtr habana_kernel,
     torch::jit::Stack& input_stack,
     synapse_helpers::graph& syn_graph,
     const OutputMetaDataVector& outputs_metadata,
-    std::vector<std::pair<torch::jit::Value*, torch::jit::Node*>>&
+    std::vector<std::pair<habana_torch::jit::Value*, habana_torch::jit::Node*>>&
         memory_reuse_pairs,
     const CValuePtrToIValuePtrMap& value_to_ivalue,
     const std::unordered_map<IValPtrShared, SharedSynTensorOrRefListPtr>&
@@ -751,7 +758,7 @@ void ProcessStridedInsertAtOutput(
   auto node_qual_str = std::string_view{node->kind().toQualString()};
 
   // Check for unbroken chain of strided inserts from graph output to input.
-  torch::jit::Node* input_node = node;
+  habana_torch::jit::Node* input_node = node;
   using namespace std::literals;
   while (node_qual_str != "prim::Param"sv) {
     input_node = val_ins[0]->node();
@@ -806,10 +813,10 @@ void ProcessStridedInsertAtOutput(
 }
 
 bool ProcessControlEdges(
-    torch::jit::Graph& jit_ir_graph,
-    std::unordered_map<torch::jit::Node*, std::vector<synNodeId>>&
+    habana_torch::jit::Graph& jit_ir_graph,
+    std::unordered_map<habana_torch::jit::Node*, std::vector<synNodeId>>&
         jit_to_synapse_node_idx_map,
-    std::vector<std::pair<torch::jit::Value*, torch::jit::Node*>>&
+    std::vector<std::pair<habana_torch::jit::Value*, habana_torch::jit::Node*>>&
         memory_reuse_pairs,
     synapse_helpers::graph* const syn_graph_ptr) {
   return ControlEdgesProcessor{

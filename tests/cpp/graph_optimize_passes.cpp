@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -73,7 +73,7 @@ TEST_F(GraphOptimizeTest, PeepholeOptimTest) {
 
   torch::jit::testing::FileCheck()
       .check_not("= aten::t")
-      ->run(*hlexec->get_graph());
+      ->run(*hlexec->get_upstream_graph());
 }
 
 TEST_F(GraphOptimizeTest, SubGraphRewriteTest) {
@@ -148,7 +148,7 @@ TEST_F(GraphOptimizeTest, SubGraphRewriteTest) {
   torch::jit::testing::FileCheck()
       .check_not("= aten::mm")
       ->check_not("= aten::relu")
-      ->run(*hlexec->get_graph());
+      ->run(*hlexec->get_upstream_graph());
 
   unsetenv("HABANA_TRANSFORM_GRAPH_FILE");
   remove(fpath);
@@ -200,7 +200,7 @@ TEST_F(GraphOptimizeTest, FuseMmTransposeTest) {
       .check_count("= hpu::mm_t", 2)
       ->check_not("= aten::t")
       ->check_not("= aten::mm")
-      ->run(*hlexec->get_graph());
+      ->run(*hlexec->get_upstream_graph());
 
   torch::Tensor out_hpu = result.to(torch::kCPU);
   EXPECT_EQ(allclose(out_cpu, out_hpu), true);
@@ -252,7 +252,7 @@ TEST_F(GraphOptimizeTest, BnReluOptTest) {
       .check_count("= hpu::mm_t", 2)
       ->check_not("= aten::t")
       ->check_not("= aten::mm")
-      ->run(*hlexec->get_graph());
+      ->run(*hlexec->get_upstream_graph());
 
   torch::Tensor out_hpu = result.to(torch::kCPU);
   EXPECT_EQ(allclose(out_cpu, out_hpu), true);
@@ -571,7 +571,7 @@ TEST_F(GraphOptimizeTest, RemoveInplaceOps_pass1) {
 
   torch::jit::testing::FileCheck()
       .check_not("= aten::add_")
-      ->run(*hlexec->get_graph());
+      ->run(*hlexec->get_upstream_graph());
 
   Tensor Out = h_Out.to(kCPU);
 }
@@ -608,7 +608,7 @@ TEST_F(GraphOptimizeTest, RemoveInplaceOps_pass2) {
 
   torch::jit::testing::FileCheck()
       .check_count("= hpu::add_", 1)
-      ->run(*hlexec->get_graph());
+      ->run(*hlexec->get_upstream_graph());
 
   Tensor Out = h_Out.to(kCPU);
 }
@@ -645,7 +645,7 @@ TEST_F(GraphOptimizeTest, RemoveInplaceOps_pass3) {
 
   torch::jit::testing::FileCheck()
       .check_count("= hpu::add", 1)
-      ->run(*hlexec->get_graph());
+      ->run(*hlexec->get_upstream_graph());
 
   Tensor Out = h_Out.to(kCPU);
 }

@@ -98,12 +98,16 @@ std::unordered_map<size_t, size_t> HlExec::s_graphIndexMap;
 size_t HlExec::s_graphIndex;
 
 HlExec::HlExec() {
-  mp_g_ = std::make_shared<Graph>();
+  mp_g_ = std::make_shared<torch::jit::Graph>();
+  mp_g_jitfork_ = std::make_shared<habana_torch::jit::Graph>();
   m_g_hash_ = 0;
 }
 
-HlExec::HlExec(ScopePtr scope) {
-  mp_g_ = std::make_shared<Graph>(scope);
+HlExec::HlExec(torch::jit::ScopePtr scope) {
+  mp_g_ = std::make_shared<torch::jit::Graph>(scope);
+  habana_torch::jit::ScopePtr jitfork_scope =
+      habana_torch::jit::ConvertUpstreamScopeToJITForkScope(scope);
+  mp_g_jitfork_ = std::make_shared<habana_torch::jit::Graph>(jitfork_scope);
   m_g_hash_ = 0;
 }
 
@@ -138,7 +142,7 @@ void HlExec::Launch(
 
   if (context->getCapturing()) {
     // save the graph for perf mode
-    context->saveGraph(mp_g_);
+    context->saveGraph(mp_g_jitfork_);
 
     // save the hash for perf mode
     context->saveHash(m_g_hash_);
@@ -156,9 +160,9 @@ void HlExec::Launch(
   }
 
   size_t sym_hash_code = habana::ComputeSymSizeHashCode(
-      torch::jit::last(stack, mp_g_->inputs().size()));
+      torch::jit::last(stack, mp_g_jitfork_->inputs().size()));
   size_t perm_hash_code = habana::ComputePermutationHashCode(
-      torch::jit::last(stack, mp_g_->inputs().size()));
+      torch::jit::last(stack, mp_g_jitfork_->inputs().size()));
 
   auto graphIndex = GetGraphIndex(m_g_hash_, sym_hash_code, perm_hash_code);
   bool isDynamic = habana_helpers::GetRefineDynamicShapeStatus();
@@ -195,7 +199,7 @@ void HlExec::Launch(
 
   if (context->getCapturing()) {
     // save the graph for perf mode
-    context->saveGraph(mp_g_);
+    context->saveGraph(mp_g_jitfork_);
 
     // save the hash for perf mode
     context->saveHash(m_g_hash_);
@@ -213,9 +217,9 @@ void HlExec::Launch(
   }
 
   size_t sym_hash_code = habana::ComputeSymSizeHashCode(
-      torch::jit::last(stack, mp_g_->inputs().size()));
+      torch::jit::last(stack, mp_g_jitfork_->inputs().size()));
   size_t perm_hash_code = habana::ComputePermutationHashCode(
-      torch::jit::last(stack, mp_g_->inputs().size()));
+      torch::jit::last(stack, mp_g_jitfork_->inputs().size()));
 
   auto graphIndex = GetGraphIndex(m_g_hash_, sym_hash_code, perm_hash_code);
   bool isDynamic = habana_helpers::GetRefineDynamicShapeStatus();
@@ -680,7 +684,7 @@ void HlExec::GetOrCreate(ir::PostOrderData& po_data, torch::jit::Stack& stack) {
       // Optimization is done during Create() itself
       [&]() -> void {
         std::vector<torch::jit::Value*> redundant_inputs;
-        mp_g_ = std::make_shared<Graph>();
+        mp_g_ = std::make_shared<torch::jit::Graph>();
         Create(
             po_data.post_order,
             po_data.inputs,
@@ -693,12 +697,22 @@ void HlExec::GetOrCreate(ir::PostOrderData& po_data, torch::jit::Stack& stack) {
           SearchAndDeleteRedundantInputs(po_data, stack, redundant_inputs);
         }
 
-        at::ArrayRef<torch::jit::IValue> input_refs =
-            torch::jit::last(stack, mp_g_->inputs().size());
+        // Graph Conversion
+        // From torch::jit namespace to habana_torch::jit namespace
+        mp_g_jitfork_ = std::make_shared<habana_torch::jit::Graph>();
+        cloneFromUpstreamGraph(mp_g_, mp_g_jitfork_);
+
+        at::ArrayRef<habana_torch::jit::IValue> input_refs =
+            torch::jit::last(stack, mp_g_jitfork_->inputs().size());
         const bool isDynamic = habana_helpers::GetRefineDynamicShapeStatus();
         mp_g_and_meta_data_ =
             std::make_shared<habana::OptimizedJITGraphAndMetaData>(
-                mp_g_, input_refs, unique_cntr, node_bcast_map_, "", isDynamic);
+                mp_g_jitfork_,
+                input_refs,
+                unique_cntr,
+                node_bcast_map_,
+                "",
+                isDynamic);
         mp_g_and_meta_data_->set_fwd_graph_builder_stack_map(
             m_fwd_graph_stack_map_);
         IdentifyAndSetGraphNodes(po_data.post_order);
@@ -741,7 +755,7 @@ void HlExec::GetOrCreate(ir::PostOrderData& po_data, torch::jit::Stack& stack) {
         m_g_hash_,
         ", graph_index ",
         GetGraphIndex(
-            m_g_hash_, torch::jit::last(stack, mp_g_->inputs().size())),
+            m_g_hash_, torch::jit::last(stack, mp_g_jitfork_->inputs().size())),
         ", bcast_map = ",
         node_bcast_map_.size());
     PT_IRGRAPH_DEBUG("JIT Cache miss");
@@ -754,28 +768,28 @@ void HlExec::GetOrCreate(ir::PostOrderData& po_data, torch::jit::Stack& stack) {
         m_g_hash_,
         ", graph_index ",
         GetGraphIndex(
-            m_g_hash_, torch::jit::last(stack, mp_g_->inputs().size())),
+            m_g_hash_, torch::jit::last(stack, mp_g_jitfork_->inputs().size())),
         ", bcast_map = ",
         node_bcast_map_.size());
     PT_IRGRAPH_DEBUG("JIT Cache hit");
-    mp_g_ = mp_g_and_meta_data_->get_cached_graph();
-    HABANA_ASSERT(mp_g_ != nullptr);
+    mp_g_jitfork_ = mp_g_and_meta_data_->get_cached_graph();
+    HABANA_ASSERT(mp_g_jitfork_ != nullptr);
 
-    if (mp_g_->inputs().size() != stack.size()) {
+    if (mp_g_jitfork_->inputs().size() != stack.size()) {
       deleteRedundantInputsFromInputStack(stack);
     }
 
     if (habana_helpers::GetRefineDynamicShapeStatus()) {
       mp_g_and_meta_data_->SetDynamicGraph(true);
-      at::ArrayRef<torch::jit::IValue> input_refs =
-          torch::jit::last(stack, mp_g_->inputs().size());
-      mp_g_and_meta_data_->ComputeGraphHashCode(mp_g_, input_refs);
+      at::ArrayRef<habana_torch::jit::IValue> input_refs =
+          torch::jit::last(stack, mp_g_jitfork_->inputs().size());
+      mp_g_and_meta_data_->ComputeGraphHashCode(mp_g_jitfork_, input_refs);
     }
     if (habana_helpers::is_h2d_scales_enabled() and
         GET_ENV_FLAG_NEW(PT_HPU_MARK_NON_RECIPROCAL_CASTS)) {
       MarkNonReciprocalH2dScales(po_data.post_order);
     }
-    visualize::DumpCachedGraph(mp_g_, m_g_hash_);
+    visualize::DumpCachedGraph(mp_g_jitfork_, m_g_hash_);
   }
 
   if (optimized_lazy_eager_key != 0) {
@@ -845,7 +859,7 @@ size_t HlExec::GetGraphIndex(
 
 size_t HlExec::GetGraphIndex(
     size_t hash,
-    at::ArrayRef<torch::jit::IValue> input_refs) {
+    at::ArrayRef<habana_torch::jit::IValue> input_refs) {
   if (GET_ENV_FLAG_NEW(PT_HPU_VISUALIZE_GRAPH_INDEX)) {
     return visualize::GetGraphIndex(hash);
   }
@@ -942,13 +956,13 @@ void HlExec::Create(
       // Its a tensor, should already be there in the value maps
       HABANA_ASSERT(ir_map.find(node->GetOutput(0)) != ir_map.end());
     } else {
-      std::vector<JitValue*> args_vector;
+      std::vector<torch::jit::Value*> args_vector;
       auto node_input_vals = node->GetInputs();
       std::transform(
           node_input_vals.begin(),
           node_input_vals.end(),
           std::back_inserter(args_vector),
-          [&](const HabanaLazyValue& inp) -> JitValue* {
+          [&](const HabanaLazyValue& inp) -> torch::jit::Value* {
             auto it = ir_map.find(ir::Output(inp));
             HABANA_ASSERT(it != ir_map.end());
             return it->second;
@@ -956,7 +970,7 @@ void HlExec::Create(
 
       // Total inputs to a node is size of meta data + size of inputs
       // Allocate vector with nulllptr with inputs_size
-      std::vector<JitValue*> node_inputs(
+      std::vector<torch::jit::Value*> node_inputs(
           args_vector.size() + node->GetMetaData().size(), nullptr);
 
       // Iterate thru each of the metadata and create constant node and
@@ -988,7 +1002,7 @@ void HlExec::Create(
                 torch::jit::ScopePtr(),
                 c10::Symbol::fromQualString("debug::" + scope_name)));
       }
-      at::ArrayRef<JitValue*> args(node_inputs);
+      at::ArrayRef<torch::jit::Value*> args(node_inputs);
       auto jit_node = mp_g_->create(node->op(), args, node->GetNumOutputs());
       // if (AccThread::IsAccThreadEnabled()) {
       //   jit_node->setScope(c10::make_intrusive<torch::jit::Scope>(
@@ -1080,21 +1094,23 @@ void HlExec::Optimize(
     torch::jit::Stack& stack,
     std::vector<torch::jit::Value*>& redundant_inputs) {
   PT_LAZY_TRACE;
-  visualize::DumpPreGraph(mp_g_, m_g_hash_);
+  visualize::DumpUpstreamPreGraph(mp_g_, m_g_hash_);
 
   if (OptPassCfg::GetInstance()->IsEnabledFuseTMM()) {
     fuse_mm_transpose(mp_g_);
-    visualize::DumpOptimizedGraph(mp_g_, m_g_hash_, "fuse_mm_transpose");
+    visualize::DumpUpstreamOptimizedGraph(
+        mp_g_, m_g_hash_, "fuse_mm_transpose");
   }
 
   if (OptPassCfg::GetInstance()->IsEnabledFuseBnRelu()) {
     fuse_bn_relu(mp_g_);
-    visualize::DumpOptimizedGraph(mp_g_, m_g_hash_, "fuse_bn_relu");
+    visualize::DumpUpstreamOptimizedGraph(mp_g_, m_g_hash_, "fuse_bn_relu");
   }
 
   if (OptPassCfg::GetInstance()->IsEnabledReplaceInplaceOps()) {
     replace_inplace_ops(mp_g_);
-    visualize::DumpOptimizedGraph(mp_g_, m_g_hash_, "replace_inplace_ops");
+    visualize::DumpUpstreamOptimizedGraph(
+        mp_g_, m_g_hash_, "replace_inplace_ops");
     OptPassCfg::GetInstance()->SetDeadCodeElimination(true);
   }
 
@@ -1102,33 +1118,35 @@ void HlExec::Optimize(
       OptPassCfg::GetInstance()->IsEnabledDeadCodeElimination() ||
       OptPassCfg::GetInstance()->IsEnabledFuseBnRelu()) {
     torch::jit::EliminateDeadCode(mp_g_);
-    visualize::DumpOptimizedGraph(mp_g_, m_g_hash_, "eliminate_dead_code");
+    visualize::DumpUpstreamOptimizedGraph(
+        mp_g_, m_g_hash_, "eliminate_dead_code");
   }
 
   if (OptPassCfg::GetInstance()->IsEnabledCSEElimination()) {
     torch::jit::EliminateCommonSubexpression(mp_g_);
-    visualize::DumpOptimizedGraph(
+    visualize::DumpUpstreamOptimizedGraph(
         mp_g_, m_g_hash_, "eliminate_common_subexpression");
   }
 
   if (OptPassCfg::GetInstance()->IsEnabledConstPooling()) {
     torch::jit::ConstantPooling(mp_g_);
-    visualize::DumpOptimizedGraph(mp_g_, m_g_hash_, "constant_pooling");
+    visualize::DumpUpstreamOptimizedGraph(mp_g_, m_g_hash_, "constant_pooling");
   }
 
   if (OptPassCfg::GetInstance()->IsEnabledPeepholeOpt()) {
     torch::jit::PeepholeOptimize(mp_g_);
-    visualize::DumpOptimizedGraph(mp_g_, m_g_hash_, "peephole_optimize");
+    visualize::DumpUpstreamOptimizedGraph(
+        mp_g_, m_g_hash_, "peephole_optimize");
   }
 
   if (OptPassCfg::GetInstance()->IsEnabledSubgraphRewrite()) {
     transform_graph(mp_g_);
-    visualize::DumpOptimizedGraph(mp_g_, m_g_hash_, "transform_graph");
+    visualize::DumpUpstreamOptimizedGraph(mp_g_, m_g_hash_, "transform_graph");
   }
 
   if (OptPassCfg::GetInstance()->IsEnabledReplaceViews()) {
     replace_views_with_reshapes(mp_g_);
-    visualize::DumpOptimizedGraph(
+    visualize::DumpUpstreamOptimizedGraph(
         mp_g_, m_g_hash_, "replace_views_with_reshapes");
   }
 
@@ -1136,7 +1154,7 @@ void HlExec::Optimize(
     PT_LAZY_DEBUG("[Inference] FoldConvBatchnorm called!");
     FoldConvBatchnorm(mp_g_, stack, redundant_inputs);
     PT_LAZY_DEBUG("[Inference] FoldConvBatchnorm applied!");
-    visualize::DumpOptimizedGraph(mp_g_, m_g_hash_, "fold_conv_bn");
+    visualize::DumpUpstreamOptimizedGraph(mp_g_, m_g_hash_, "fold_conv_bn");
   }
 
   if (!redundant_inputs.empty()) {
@@ -1148,10 +1166,11 @@ void HlExec::Optimize(
     PT_LAZY_DEBUG("[Inference] RecalculateBatchnormParams called!");
     RecalculateBatchnormParams(mp_g_, stack);
     PT_LAZY_DEBUG("[Inference] RecalculateBatchnormParams applied!");
-    visualize::DumpOptimizedGraph(mp_g_, m_g_hash_, "recalculate_bn_params");
+    visualize::DumpUpstreamOptimizedGraph(
+        mp_g_, m_g_hash_, "recalculate_bn_params");
   }
   fuse_strided_views(mp_g_);
-  visualize::DumpPostGraph(mp_g_, m_g_hash_);
+  visualize::DumpUpstreamPostGraph(mp_g_, m_g_hash_);
 }
 
 } // namespace habana_lazy::exec

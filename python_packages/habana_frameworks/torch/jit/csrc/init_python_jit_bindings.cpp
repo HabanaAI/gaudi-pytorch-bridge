@@ -953,6 +953,15 @@ void defineJitPasses(pybind11::module& m) {
       py::arg("graph"));
 }
 
+void defineFromUpsteamJITtoJITFork(pybind11::module& m) {
+  m.def(
+      "createFromUpstreamGraph",
+      [](std::shared_ptr<::torch::jit::Graph>& g) {
+        return habana_torch::jit::createFromUpstreamGraph(g);
+      },
+      py::arg("graph"));
+}
+
 void InitBindings(py::module& m) {
   auto m_jit = m.def_submodule("jit");
 
@@ -963,5 +972,6 @@ void InitBindings(py::module& m) {
   defineNamedValueClass(m_jit);
   defineRealTypeClasses(m_jit);
   defineJitPasses(m_jit);
+  defineFromUpsteamJITtoJITFork(m_jit);
 }
 } // namespace habana_torch::jit

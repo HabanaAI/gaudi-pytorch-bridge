@@ -68,25 +68,25 @@ class HbCas {
 //   compute the hash directly from the subgraph within the constructor
 struct RecipeArgumentSpec {
   RecipeArgumentSpec(
-      at::ArrayRef<torch::jit::IValue> input_refs,
+      at::ArrayRef<habana_torch::jit::IValue> input_refs,
       const size_t& graphKey,
       const std::string& op_strs);
 
   RecipeArgumentSpec(
-      at::ArrayRef<torch::jit::IValue> input_refs,
+      at::ArrayRef<habana_torch::jit::IValue> input_refs,
       const size_t& graphKey,
       const std::string& op_strs,
       const uint64_t token);
 
   RecipeArgumentSpec(
-      at::ArrayRef<torch::jit::IValue> input_refs,
+      at::ArrayRef<habana_torch::jit::IValue> input_refs,
       const size_t& graphKey,
       const size_t& graph_sym_hash,
       const size_t& graph_perm_hash,
       const std::string& op_strs);
 
   RecipeArgumentSpec(
-      at::ArrayRef<torch::jit::IValue> input_refs,
+      at::ArrayRef<habana_torch::jit::IValue> input_refs,
       const size_t& graphKey,
       const size_t& graph_sym_hash,
       const size_t& graph_perm_hash,
@@ -95,8 +95,8 @@ struct RecipeArgumentSpec {
 
   RecipeArgumentSpec(
       bool with_grad,
-      at::ArrayRef<torch::jit::IValue> input_refs,
-      const std::shared_ptr<torch::jit::Graph>& irgraph,
+      at::ArrayRef<habana_torch::jit::IValue> input_refs,
+      const std::shared_ptr<habana_torch::jit::Graph>& irgraph,
       const size_t& graphKey,
       const std::string& op_strs,
       size_t symhash,
@@ -213,7 +213,7 @@ struct RecipeArgumentSpec {
 // subgraph
 struct RecipeValueSpec {
   RecipeValueSpec(
-      std::shared_ptr<torch::jit::Graph> g = nullptr,
+      std::shared_ptr<habana_torch::jit::Graph> g = nullptr,
       size_t hash = 0)
       : id(++count), jit_graph_(g), curr_symval_hash_(hash) {}
 
@@ -243,7 +243,7 @@ struct RecipeValueSpec {
       std::optional<uint64_t> tensor_offset_opt = std::nullopt,
       std::optional<PtTensorInfoShared> tinfo_opt = std::nullopt) const;
   void update_patching_table(
-      at::ArrayRef<torch::jit::IValue>& input_refs,
+      at::ArrayRef<habana_torch::jit::IValue>& input_refs,
       std::shared_ptr<VecOfIValPtrSh>& intermediate_tensors_ptr,
       VecOfIValPtrSh& dma_inputs,
       VecOfIValPtrSh& aten_outputs,
@@ -408,7 +408,7 @@ struct RecipeValueSpec {
   // graph, so the runtime improvement condition is not applicable for the first
   // refinement.
   bool is_refined_wirt{false};
-  std::shared_ptr<torch::jit::Graph> jit_graph_{nullptr};
+  std::shared_ptr<habana_torch::jit::Graph> jit_graph_{nullptr};
   std::unique_ptr<synapse_helpers::graph> shape_agnostic_synapse_graph_{
       nullptr};
   size_t curr_symval_hash_{0};
@@ -441,7 +441,7 @@ struct RecipeLauncher {
       synRecipeHandle recipe);
   void Launch(
       synapse_helpers::hpuStream_t hpu_stream,
-      const at::ArrayRef<torch::jit::IValue>& input_refs,
+      const at::ArrayRef<habana_torch::jit::IValue>& input_refs,
       std::shared_ptr<VecOfIValPtrSh>& intermediate_tensors_ptr,
       const VecOfIValPtrSh& aten_outputs,
       std::vector<synLaunchTensorInfo>& syn_launch_info,

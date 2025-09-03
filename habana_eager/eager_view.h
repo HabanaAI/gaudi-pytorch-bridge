@@ -14,18 +14,18 @@
  */
 #pragma once
 
-#include <torch/csrc/jit/ir/ir.h>
 #include "backend/helpers/get_n_bytes.h"
 #include "habana_eager/eager_exec.h"
 #include "habana_kernels/kernel_utils.h"
+#include "jit_fork/ir/ir.h"
 
 using SmallTensorVector = c10::SmallVector<at::Tensor, 8>;
 
 namespace habana::eager {
 
-using JitGraph = torch::jit::Graph;
-using JitNode = torch::jit::Node;
-using JitValue = torch::jit::Value;
+using JitGraph = habana_torch::jit::Graph;
+using JitNode = habana_torch::jit::Node;
+using JitValue = habana_torch::jit::Value;
 
 class ViewParam {
  public:

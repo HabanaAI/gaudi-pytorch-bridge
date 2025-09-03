@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,25 +17,26 @@
 
 #include <c10/util/ArrayRef.h>
 
-#include <torch/csrc/jit/ir/ir.h>
 #include "backend/jitgraph_utils.h"
 #include "habana_eager/graph_exec.h"
 #include "habana_helpers/logging_pt.h"
+#include "jit_fork/ir/ir.h"
 
 namespace habana::graph::pass {
 
 struct GetOutputsOrderInGraphPass {
-  explicit GetOutputsOrderInGraphPass(std::shared_ptr<torch::jit::Graph> graph)
+  explicit GetOutputsOrderInGraphPass(
+      std::shared_ptr<habana_torch::jit::Graph> graph)
       : m_graph(std::move(graph)) {}
 
   void run() {
     auto graph_outputs = m_graph->outputs();
 
     for (auto* node : m_graph->nodes()) {
-      c10::ArrayRef<torch::jit::Value*> node_outputs = node->outputs();
+      c10::ArrayRef<habana_torch::jit::Value*> node_outputs = node->outputs();
       for (auto* node_output : node_outputs) {
         if (jitgraph_utils::isInGraphOutputs(node_output)) {
-          at::ArrayRef<torch::jit::Value*>::iterator itr = std::find(
+          at::ArrayRef<habana_torch::jit::Value*>::iterator itr = std::find(
               graph_outputs.begin(), graph_outputs.end(), node_output);
           if (itr != graph_outputs.cend()) {
             int index = std::distance(graph_outputs.begin(), itr);
@@ -52,12 +53,12 @@ struct GetOutputsOrderInGraphPass {
   }
 
  private:
-  std::shared_ptr<torch::jit::Graph> m_graph;
+  std::shared_ptr<habana_torch::jit::Graph> m_graph;
   std::vector<size_t> m_outputs_order;
 };
 
 bool GetOutputsOrderInGraph(
-    std::shared_ptr<torch::jit::Graph> graph,
+    std::shared_ptr<habana_torch::jit::Graph> graph,
     std::vector<size_t>& outputs_order) {
   PT_EAGER_TRACE;
   GetOutputsOrderInGraphPass pass{graph};

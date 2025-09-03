@@ -18,10 +18,6 @@
 
 namespace habana_lazy {
 
-using Graph = torch::jit::Graph;
-using Value = torch::jit::Value;
-using Node = torch::jit::Node;
-
 static const std::unordered_map<std::string, std::string> inPlaceToOutOfPlace =
     {
         {"aten::add_", "aten::add"},
@@ -39,26 +35,30 @@ static const std::unordered_map<std::string, std::string> inPlaceToOutOfPlace =
         {"aten::index_copy_", "aten::index_copy"},
 };
 
-bool isInplaceOp(const Node* node) {
+bool isInplaceOp(const torch::jit::Node* node) {
   return node ? inPlaceToOutOfPlace.count(node->kind().toQualString()) != 0
               : false;
 }
 
-bool isControlNode(const Node* node) {
+bool isControlNode(const torch::jit::Node* node) {
   return node
       ? (node->kind().toQualString() == std::string("hpu::control_edge_"))
       : false;
 }
 
-bool isInList(const std::vector<Value*>& l, const Value* v) {
+bool isInList(
+    const std::vector<torch::jit::Value*>& l,
+    const torch::jit::Value* v) {
   return std::find(l.begin(), l.end(), v) != l.end();
 }
 
-bool checkOps(const Node* n) {
+bool checkOps(const torch::jit::Node* n) {
   return isInplaceOp(n) || isControlNode(n);
 }
 
-bool isGraphInput(const std::shared_ptr<Graph>& graph, const Value* v) {
+bool isGraphInput(
+    const std::shared_ptr<torch::jit::Graph>& graph,
+    const torch::jit::Value* v) {
   auto inputs = graph->inputs().vec();
   if (isInList(inputs, v)) {
     return true;
@@ -75,7 +75,9 @@ bool isGraphInput(const std::shared_ptr<Graph>& graph, const Value* v) {
   return false;
 }
 
-bool isGraphOutput(const std::shared_ptr<Graph>& graph, const Value* v) {
+bool isGraphOutput(
+    const std::shared_ptr<torch::jit::Graph>& graph,
+    const torch::jit::Value* v) {
   auto outputs = graph->outputs().vec();
   if (isInList(outputs, v)) {
     return true;
@@ -106,7 +108,9 @@ bool isGraphOutput(const std::shared_ptr<Graph>& graph, const Value* v) {
 If below conditions are satisfied, then check for graph output is avoided.
 1. Node not connected to input
  */
-bool canReplaceOp(const std::shared_ptr<Graph>& graph, const Node* node) {
+bool canReplaceOp(
+    const std::shared_ptr<torch::jit::Graph>& graph,
+    const torch::jit::Node* node) {
   if ((nullptr == node) || (node->outputs().size() > 1) ||
       node->inputs().empty()) {
     return false;
@@ -120,8 +124,8 @@ bool canReplaceOp(const std::shared_ptr<Graph>& graph, const Node* node) {
 }
 
 void replace_inplace_ops(
-    std::shared_ptr<Graph>& graph,
-    const std::vector<Node*>& nodes) {
+    std::shared_ptr<torch::jit::Graph>& graph,
+    const std::vector<torch::jit::Node*>& nodes) {
   for (auto& node : nodes) {
     if (nullptr == node) {
       continue;
@@ -145,8 +149,8 @@ void replace_inplace_ops(
   }
 }
 
-void replace_inplace_ops(std::shared_ptr<Graph>& graph) {
-  std::vector<Node*> inplace_ops;
+void replace_inplace_ops(std::shared_ptr<torch::jit::Graph>& graph) {
+  std::vector<torch::jit::Node*> inplace_ops;
 
   for (auto node : graph->nodes()) {
     if (canReplaceOp(graph, node)) {

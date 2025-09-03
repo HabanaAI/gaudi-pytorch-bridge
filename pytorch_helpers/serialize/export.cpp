@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,21 @@ namespace serialize {
 
 constexpr int64_t kONNXOpsetVersion = 8;
 std::string GraphToProtoString(const GraphPtr& graph) {
-  return torch::jit::pretty_print_onnx(
+  auto upstream_graph = graph->copyToUpstreamGraph();
+  return ::torch::jit::pretty_print_onnx(
+      upstream_graph,
+      {},
+      kONNXOpsetVersion,
+      true,
+      ::torch::onnx::OperatorExportTypes::ONNX_ATEN_FALLBACK,
+      true,
+      true,
+      {},
+      true);
+}
+
+std::string UpstreamGraphToProtoString(const UpstreamGraphPtr& graph) {
+  return ::torch::jit::pretty_print_onnx(
       graph,
       {},
       kONNXOpsetVersion,

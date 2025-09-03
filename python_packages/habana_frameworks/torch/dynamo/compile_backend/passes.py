@@ -2156,7 +2156,48 @@ def pass_compile_clusters(ctx: OptimizerContext):
 
         logger.debug(f"####PyTorch-generated JIT IR graph for this HPU graph:####\n{f.graph}")
 
-        return f, module, has_random_ops
+        from habana_frameworks.torch._torch_jit_C import jit
+
+        converted_jitfork_ir = jit.createFromUpstreamGraph(f.graph)
+        logger.debug(
+            "####PyTorch-generated JIT IR graph after createFromUpstreamGraph():####\n%s",
+            converted_jitfork_ir,
+        )
+        """
+        For torch.compile mode, the reverse converter is used to transfer Upstream JIT graph
+        to JITFork graph for the legacy pass (torch.jit.script).
+        So now PT_HPU_USE_JIT_FORK=false still works.
+
+        Here specifically `converted_jitfork_ir = jit.createFromUpstreamGraph(f.graph)` is used.
+        But after the conversion, the input sizes mismatch. And the converted JITFork graph
+        need to remove the first useless input (torch.fx.graph_module.GraphModule)
+
+        For example,
+        Upstream JIT IR:
+            graph(%self : __torch__.torch.fx.graph_module.GraphModule,
+                %primals_1.1 : Tensor):
+              %3 : int = prim::Constant[value=2]() # <eval_with_key>.15:5:40
+              %mul.1 : Tensor = aten::mul(%primals_1.1, %3) # <eval_with_key>.15:5:10
+              return (%mul.1)
+        JIT Fork IR after createFromUpstreamGraph():
+            graph(%0 : __torch__.torch.fx.graph_module.GraphModule,
+                %1 : Tensor):
+              %2 : int = prim::Constant[value=2]()
+              %mul.1 : Tensor = aten::mul(%1, %2)
+              return (%mul.1)
+        JIT Fork IR after eraseInput(0):
+            graph(%1 : Tensor):
+              %2 : int = prim::Constant[value=2]()
+              %mul.1 : Tensor = aten::mul(%1, %2)
+              return (%mul.1)
+        """
+        converted_jitfork_ir.eraseInput(0)
+        logger.debug(
+            "####PyTorch-generated JIT IR graph after eraseInput():####\n%s",
+            converted_jitfork_ir,
+        )
+
+        return converted_jitfork_ir, module, has_random_ops
 
     num_subgraphs = 0
     refine_dynamic = bc.get_pt_hpu_enable_refine_dynamic_shapes()

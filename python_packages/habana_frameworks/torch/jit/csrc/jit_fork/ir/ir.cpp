@@ -2171,12 +2171,14 @@ void Node::copyAttributesIntoUpstreamNode(::torch::jit::Node* dst_node) {
         // to 'shared_ptr<torch::jit::Graph>'
         // auto gotAttr = this->getAttr<GraphAttr>(src_attr_name);
         // dst_node->g_(src_attr_name, gotAttr);
+        // TODO: Implement full support for GraphsAttr if needed.
         LOG(WARNING) << "GraphAttr needs support";
         break;
       }
       case AttributeKind ::gs: {
         // auto gotAttr = this->getAttr<GraphsAttr>(src_attr_name);
         // dst_node->gs_(src_attr_name, gotAttr);
+        // TODO: Implement full support for GraphsAttr if needed.
         LOG(WARNING) << "GraphsAttr needs support";
         break;
       }
@@ -2196,9 +2198,7 @@ void Node::copyAttributesIntoUpstreamNode(::torch::jit::Node* dst_node) {
         break;
       }
       default: {
-        std::cout //<< toString(type)
-            << "\nCannnot convert attribute\n\n"
-            << std::flush;
+        LOG(WARNING) << "\nCannnot convert attribute\n\n";
         break;
       }
     }
@@ -2245,6 +2245,171 @@ void Graph::cloneToUpstreamGraph(
 
     dst_graph->insertNode(dst_node);
     src_node->copyAttributesIntoUpstreamNode(dst_node);
+
+    auto src_node_outputs = src_node->outputs();
+    auto src_node_outputs_iterator = src_node_outputs.begin();
+    auto dst_node_outputs = dst_node->outputs();
+    auto dst_node_outputs_iterator = dst_node_outputs.begin();
+
+    for (; src_node_outputs_iterator != src_node_outputs.end() and
+         dst_node_outputs_iterator != dst_node_outputs.end();
+         ++src_node_outputs_iterator, ++dst_node_outputs_iterator) {
+      value_map[*src_node_outputs_iterator] = *dst_node_outputs_iterator;
+    }
+  }
+
+  // register outputs phase
+  for (auto src_graph_output : src_graph->outputs()) {
+    dst_graph->registerOutput(value_map[src_graph_output]);
+  }
+}
+
+std::shared_ptr<Graph> createFromUpstreamGraph(
+    std::shared_ptr<::torch::jit::Graph> src_graph) {
+  auto new_graph = std::make_shared<Graph>();
+  cloneFromUpstreamGraph(src_graph, new_graph);
+  return new_graph;
+}
+
+void copyAttributesFromUpstreamNode(
+    ::torch::jit::Node* src_node,
+    Node* dst_node) {
+  std::vector<::c10::Symbol> src_attr_names = src_node->attributeNames();
+  for (const ::c10::Symbol src_attr_name : src_attr_names) {
+    auto type = src_node->kindOf(src_attr_name);
+    switch (type) {
+      case ::torch::jit::AttributeKind::f: {
+        auto gotAttr = src_node->f(src_attr_name);
+        dst_node->f_(src_attr_name, gotAttr);
+        break;
+      }
+      case ::torch::jit::AttributeKind ::fs: {
+        auto gotAttr = src_node->fs(src_attr_name);
+        dst_node->fs_(src_attr_name, gotAttr);
+        break;
+      }
+      case ::torch::jit::AttributeKind ::c: {
+        auto gotAttr = src_node->c(src_attr_name);
+        dst_node->c_(src_attr_name, gotAttr);
+        break;
+      }
+      case ::torch::jit::AttributeKind ::cs: {
+        auto gotAttr = src_node->cs(src_attr_name);
+        dst_node->cs_(src_attr_name, gotAttr);
+
+        break;
+      }
+      case ::torch::jit::AttributeKind::i: {
+        auto gotAttr = src_node->i(src_attr_name);
+        dst_node->i_(src_attr_name, gotAttr);
+        break;
+      }
+      case ::torch::jit::AttributeKind ::is: {
+        auto gotAttr = src_node->is(src_attr_name);
+        dst_node->is_(src_attr_name, gotAttr);
+
+        break;
+      }
+      case ::torch::jit::AttributeKind ::s: {
+        auto gotAttr = src_node->s(src_attr_name);
+        dst_node->s_(src_attr_name, gotAttr);
+
+        break;
+      }
+      case ::torch::jit::AttributeKind ::ss: {
+        auto gotAttr = src_node->ss(src_attr_name);
+        dst_node->ss_(src_attr_name, gotAttr);
+
+        break;
+      }
+      case ::torch::jit::AttributeKind ::t: {
+        auto gotAttr = src_node->t(src_attr_name);
+        dst_node->t_(src_attr_name, gotAttr);
+        break;
+      }
+      case ::torch::jit::AttributeKind ::ts: {
+        auto gotAttr = src_node->ts(src_attr_name);
+        dst_node->ts_(src_attr_name, gotAttr);
+        break;
+      }
+      case ::torch::jit::AttributeKind ::g: {
+        // cannot convert 'shared_ptr<habana_torch::jit::Graph>'
+        // to 'shared_ptr<torch::jit::Graph>'
+        // auto gotAttr = this->getAttr<GraphAttr>(src_attr_name);
+        // dst_node->g_(src_attr_name, gotAttr);
+        // TODO: Implement full support for GraphAttr if needed.
+        LOG(WARNING) << "GraphAttr needs support";
+        break;
+      }
+      case ::torch::jit::AttributeKind ::gs: {
+        // auto gotAttr = this->getAttr<GraphsAttr>(src_attr_name);
+        // dst_node->gs_(src_attr_name, gotAttr);
+        // TODO: Implement full support for GraphsAttr if needed.
+        LOG(WARNING) << "GraphsAttr needs support";
+        break;
+      }
+      case ::torch::jit::AttributeKind ::ty: {
+        auto gotAttr = src_node->ty(src_attr_name);
+        dst_node->ty_(src_attr_name, gotAttr);
+        break;
+      }
+      case ::torch::jit::AttributeKind ::tys: {
+        auto gotAttr = src_node->tys(src_attr_name);
+        dst_node->tys_(src_attr_name, gotAttr);
+        break;
+      }
+      case ::torch::jit::AttributeKind ::ival: {
+        auto gotAttr = src_node->ival(src_attr_name);
+        dst_node->ival_(src_attr_name, gotAttr);
+        break;
+      }
+      default: {
+        LOG(WARNING) << "\nCannnot convert attribute\n\n";
+        break;
+      }
+    }
+  }
+}
+
+void cloneFromUpstreamGraph(
+    std::shared_ptr<::torch::jit::Graph>& src_graph,
+    std::shared_ptr<Graph>& dst_graph) {
+  std::unordered_map<::torch::jit::Value*, Value*> value_map;
+
+  auto src_inputs = src_graph->inputs();
+  auto src_inputs_count = src_inputs.size();
+
+  for (auto i = 0U; i < src_inputs_count; i++) {
+    auto new_input = dst_graph->addInput();
+    auto src_type = src_inputs[i]->type();
+    new_input->setType(src_type);
+
+    value_map[src_inputs[i]] = new_input;
+  }
+
+  for (auto src_node : src_graph->nodes()) {
+    auto kind = src_node->kind();
+    auto src_node_inputs = src_node->inputs();
+    std::vector<Value*> dst_inputs;
+    for (auto src_node_input : src_node_inputs) {
+      dst_inputs.emplace_back(value_map[src_node_input]);
+    }
+
+    ::c10::ArrayRef<Value*> dst_node_inputs_ref(
+        dst_inputs.data(), dst_inputs.size());
+    auto num_outputs = src_node->outputs().size();
+    auto dst_node = dst_graph->create(kind, dst_node_inputs_ref, num_outputs);
+    for (auto i = 0U; i < num_outputs; i++) {
+      auto dst_output = dst_node->outputs()[i];
+      auto src_output = src_node->outputs()[i];
+      dst_output->setType(src_output->type());
+      if (!isNumber(src_output->debugName())) {
+        dst_output->setDebugName(src_output->debugName());
+      }
+    }
+
+    dst_graph->insertNode(dst_node);
+    copyAttributesFromUpstreamNode(src_node, dst_node);
 
     auto src_node_outputs = src_node->outputs();
     auto src_node_outputs_iterator = src_node_outputs.begin();

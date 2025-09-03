@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@
 namespace habana::graph::pass {
 
 struct HandleInputViewsPass {
-  explicit HandleInputViewsPass(std::shared_ptr<torch::jit::Graph> graph)
+  explicit HandleInputViewsPass(std::shared_ptr<habana_torch::jit::Graph> graph)
       : m_graph(std::move(graph)) {}
 
   bool run(
@@ -46,12 +46,12 @@ struct HandleInputViewsPass {
 
  private:
   bool processInputs(
-      at::ArrayRef<torch::jit::Value*> inputs,
+      at::ArrayRef<habana_torch::jit::Value*> inputs,
       torch::jit::Stack& example_inputs,
       std::vector<habana_helpers::RangeInfo>& range_infos) {
     bool changed{false};
     for (size_t input_idx = 0; input_idx < inputs.size(); input_idx++) {
-      torch::jit::Value* input{inputs.at(input_idx)};
+      habana_torch::jit::Value* input{inputs.at(input_idx)};
       if (!example_inputs[input_idx].isTensor()) {
         continue;
       }
@@ -67,9 +67,9 @@ struct HandleInputViewsPass {
           !input_tensor.is_contiguous()) {
         auto& uses = input->uses();
         auto& first_use = uses[0];
-        torch::jit::Node* first_user = first_use.user;
+        habana_torch::jit::Node* first_user = first_use.user;
         auto& last_use = uses.back();
-        torch::jit::Node* last_user = last_use.user;
+        habana_torch::jit::Node* last_user = last_use.user;
 
         static const std::array<c10::Symbol, 4> view_ops_symbols{
             c10::Symbol::fromQualString("aten::as_strided"),
@@ -161,21 +161,21 @@ struct HandleInputViewsPass {
 
   void insert_strided_view_node(
       at::Tensor input_tensor,
-      torch::jit::Node* node,
-      torch::jit::Value* value_in,
+      habana_torch::jit::Node* node,
+      habana_torch::jit::Value* value_in,
       const habana::eager::ViewParam& p,
       std::vector<int64_t>& base_sizes_to_set,
       std::string output_shape) {
     PT_EAGER_TRACE;
-    torch::jit::WithInsertPoint insert_point(node);
+    habana_torch::jit::WithInsertPoint insert_point(node);
 
     auto op_strided_view = c10::Symbol::fromQualString("aten::as_strided");
     auto value_sizes =
-        m_graph->insertConstant(torch::jit::IValue(p.getViewSizes()));
+        m_graph->insertConstant(habana_torch::jit::IValue(p.getViewSizes()));
     auto value_strides =
-        m_graph->insertConstant(torch::jit::IValue(p.getViewStrides()));
+        m_graph->insertConstant(habana_torch::jit::IValue(p.getViewStrides()));
     auto value_offset =
-        m_graph->insertConstant(torch::jit::IValue(p.getViewOffset()));
+        m_graph->insertConstant(habana_torch::jit::IValue(p.getViewOffset()));
 
     auto jit_node = m_graph->create(
         op_strided_view,
@@ -209,8 +209,8 @@ struct HandleInputViewsPass {
 
   void insert_strided_insert_node(
       at::Tensor input_tensor,
-      torch::jit::Value* value_in,
-      torch::jit::Value* value_out,
+      habana_torch::jit::Value* value_in,
+      habana_torch::jit::Value* value_out,
       const habana::eager::ViewParam& p,
       std::string output_shape) {
     PT_EAGER_TRACE;
@@ -218,9 +218,9 @@ struct HandleInputViewsPass {
     auto op_strided_insert =
         c10::Symbol::fromQualString("hpu::strided_insert_");
     auto value_strides =
-        m_graph->insertConstant(torch::jit::IValue(p.getViewStrides()));
+        m_graph->insertConstant(habana_torch::jit::IValue(p.getViewStrides()));
     auto value_offset =
-        m_graph->insertConstant(torch::jit::IValue(p.getViewOffset()));
+        m_graph->insertConstant(habana_torch::jit::IValue(p.getViewOffset()));
 
     auto jit_node = m_graph->create(
         op_strided_insert,
@@ -256,9 +256,9 @@ struct HandleInputViewsPass {
     value_out->replaceAllUsesAfterNodeWith(jit_node, jit_node->output(0));
   }
 
-  void replace_with_out_of_place_op(torch::jit::Node* node) {
+  void replace_with_out_of_place_op(habana_torch::jit::Node* node) {
     PT_EAGER_TRACE;
-    torch::jit::WithInsertPoint insert_point(node);
+    habana_torch::jit::WithInsertPoint insert_point(node);
 
     std::string_view inplace_name = node->kind().toQualString();
     std::string_view new_name = inplace_name;
@@ -290,12 +290,12 @@ struct HandleInputViewsPass {
     node->destroy();
   }
 
-  std::shared_ptr<torch::jit::Graph> m_graph;
+  std::shared_ptr<habana_torch::jit::Graph> m_graph;
   std::map<int64_t, std::vector<int64_t>> m_input_base_sizes_to_set;
 };
 
 bool HandleInputViews(
-    std::shared_ptr<torch::jit::Graph> graph,
+    std::shared_ptr<habana_torch::jit::Graph> graph,
     torch::jit::Stack& example_inputs,
     std::map<int64_t, std::vector<int64_t>>& input_base_sizes_map,
     std::vector<habana_helpers::RangeInfo>& range_infos) {

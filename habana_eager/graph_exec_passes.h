@@ -15,26 +15,27 @@
 
 #pragma once
 
-#include <torch/csrc/jit/ir/ir.h>
 #include "backend/helpers/dynamic_shape_infer.h"
 #include "habana_eager/graph_dynamic.h"
 #include "habana_eager/graph_exec.h"
+#include "jit_fork/ir/ir.h"
 
 namespace habana::graph::pass {
-void SanitizeGraphInput(std::shared_ptr<torch::jit::Graph> graph);
-bool HandleTupleOnOutput(std::shared_ptr<torch::jit::Graph> graph);
-bool AddDeterministicAttribute(std::shared_ptr<torch::jit::Graph> graph);
+void SanitizeGraphInput(std::shared_ptr<habana_torch::jit::Graph> graph);
+bool HandleTupleOnOutput(std::shared_ptr<habana_torch::jit::Graph> graph);
+bool AddDeterministicAttribute(std::shared_ptr<habana_torch::jit::Graph> graph);
 bool HandleH2dScales(
-    std::shared_ptr<torch::jit::Graph> graph,
+    std::shared_ptr<habana_torch::jit::Graph> graph,
     torch::jit::Stack& stack,
     H2dScalesIndicesNames& h2d_scales_idx_names,
     AdjacentCastFp8Indices& adjacent_cast_fp8_indices);
 bool GetOutputsOrderInGraph(
-    std::shared_ptr<torch::jit::Graph> graph,
+    std::shared_ptr<habana_torch::jit::Graph> graph,
     std::vector<size_t>& outputs_order);
-bool ReplaceGetItemWithListUnpack(std::shared_ptr<torch::jit::Graph> graph);
+bool ReplaceGetItemWithListUnpack(
+    std::shared_ptr<habana_torch::jit::Graph> graph);
 void HandleDynamicOps(
-    std::shared_ptr<torch::jit::Graph> graph,
+    std::shared_ptr<habana_torch::jit::Graph> graph,
     torch::jit::Stack& stack,
     std::shared_ptr<DynamicGraphMetaData> dgraph_meta,
     std::map<int64_t, std::vector<int64_t>>* input_new_base_sizes,
@@ -48,19 +49,19 @@ void HandleDynamicInputPatching(
     LaunchDynamicShapes& launch_shapes,
     bool is_first_launch);
 void ResolveNegativeSTSizes(
-    std::shared_ptr<torch::jit::Graph> graph,
+    std::shared_ptr<habana_torch::jit::Graph> graph,
     torch::jit::Stack& stack,
     std::shared_ptr<DynamicGraphMetaData> dmeta,
     LaunchDynamicShapes& launch_shapes);
-bool RemoveDetachOp(std::shared_ptr<torch::jit::Graph> graph);
+bool RemoveDetachOp(std::shared_ptr<habana_torch::jit::Graph> graph);
 bool HandleInputViews(
-    std::shared_ptr<torch::jit::Graph> graph,
+    std::shared_ptr<habana_torch::jit::Graph> graph,
     torch::jit::Stack& example_inputs,
     std::map<int64_t, std::vector<int64_t>>& input_base_sizes_map,
     std::vector<habana_helpers::RangeInfo>& range_infos);
-bool RemoveDummyOutput(std::shared_ptr<torch::jit::Graph> graph);
+bool RemoveDummyOutput(std::shared_ptr<habana_torch::jit::Graph> graph);
 bool MarkParamsAsConst(
-    std::shared_ptr<torch::jit::Graph> graph,
+    std::shared_ptr<habana_torch::jit::Graph> graph,
     torch::jit::Stack& example_inputs,
     std::vector<int64_t>& const_indexes);
 } // namespace habana::graph::pass

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -265,27 +265,27 @@ TEST_F(LazyConvKernelGraphTest, ConvolutionBackward) {
 
   torch::jit::testing::FileCheck()
       .check("= prim::Constant[value=[1, 1]]")
-      ->run(*hlexec->get_graph());
+      ->run(*hlexec->get_upstream_graph());
 
   torch::jit::testing::FileCheck()
       .check("= prim::Constant[value=[0, 0]]")
-      ->run(*hlexec->get_graph());
+      ->run(*hlexec->get_upstream_graph());
 
   torch::jit::testing::FileCheck()
       .check("= prim::Constant[value=0]")
-      ->run(*hlexec->get_graph());
+      ->run(*hlexec->get_upstream_graph());
 
   torch::jit::testing::FileCheck()
       .check("= prim::Constant[value=1]")
-      ->run(*hlexec->get_graph());
+      ->run(*hlexec->get_upstream_graph());
 
   torch::jit::testing::FileCheck()
       .check("= prim::Constant[value=[True, True, True]]")
-      ->run(*hlexec->get_graph());
+      ->run(*hlexec->get_upstream_graph());
 
   torch::jit::testing::FileCheck()
       .check_count("= aten::convolution_backward_overrideable", 1)
-      ->run(*hlexec->get_graph());
+      ->run(*hlexec->get_upstream_graph());
   UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 

@@ -19,8 +19,6 @@
 #include <unordered_map>
 
 #include <ATen/record_function.h>
-#include <torch/csrc/jit/ir/constants.h>
-#include <torch/csrc/jit/runtime/interpreter.h>
 
 #include <torch/csrc/api/include/torch/version.h>
 
@@ -34,12 +32,14 @@
 #include "backend/helpers/tensor_info.h"
 #include "backend/jitgraph_utils.h"
 #include "habana_helpers/misc_utils.h"
+#include "jit_fork/ir/constants.h"
 
-using namespace torch::jit;
+using namespace habana_torch::jit;
 using namespace jitgraph_utils;
 using namespace habana;
 
-static std::tuple<int, int> GetInputOutputIndices(torch::jit::Node* node) {
+static std::tuple<int, int> GetInputOutputIndices(
+    habana_torch::jit::Node* node) {
   if (strcmp(node->kind().toQualString(), "hccl::alltoall_out") == 0) {
     return std::make_tuple(0, 4);
   } else if (strcmp(node->kind().toQualString(), "hccl::allgather_out") == 0) {
@@ -48,8 +48,8 @@ static std::tuple<int, int> GetInputOutputIndices(torch::jit::Node* node) {
   return std::make_tuple(-1, -1);
 }
 
-torch::jit::Value* FuseCollectiveViewPass::GetInputValue(
-    torch::jit::Node* node,
+habana_torch::jit::Value* FuseCollectiveViewPass::GetInputValue(
+    habana_torch::jit::Node* node,
     bool is_node_output) {
   auto indices = GetInputOutputIndices(node);
   int index;
@@ -64,14 +64,15 @@ torch::jit::Value* FuseCollectiveViewPass::GetInputValue(
   return nullptr;
 }
 
-std::shared_ptr<torch::jit::Graph>& FuseCollectiveViewPass::getOriginalGraph() {
+std::shared_ptr<habana_torch::jit::Graph>& FuseCollectiveViewPass::
+    getOriginalGraph() {
   RestoreJITStack(habana_launch_op_ptr_->value_to_ivalue_);
   return original_graph_;
 }
 
 void FuseCollectiveViewPass::RelocateJITStack(
     CValuePtrToIValuePtrMap& value_to_ivalue,
-    std::shared_ptr<torch::jit::Graph>& graph) {
+    std::shared_ptr<habana_torch::jit::Graph>& graph) {
   std::unordered_map<size_t, IValPtrShared> unique_to_ivalue;
 
   std::for_each(value_to_ivalue.begin(), value_to_ivalue.end(), [&](auto it) {
@@ -138,7 +139,7 @@ bool FuseCollectiveViewPass::CanFuse(CValPtr value, int64_t dim, int64_t step) {
 }
 
 bool FuseCollectiveViewPass::IsGraphInputOutput(
-    torch::jit::Value* value,
+    habana_torch::jit::Value* value,
     bool is_node_output) {
   bool ret = false;
 
@@ -159,7 +160,7 @@ bool FuseCollectiveViewPass::IsGraphInputOutput(
 }
 
 bool FuseCollectiveViewPass::CanFuse(
-    torch::jit::Node* node,
+    habana_torch::jit::Node* node,
     bool is_node_output) {
   if (node == nullptr) {
     return false;
@@ -174,8 +175,8 @@ bool FuseCollectiveViewPass::CanFuse(
     if (strcmp(node->kind().toQualString(), "aten::slice") == 0) {
       auto input = node->input(0);
 
-      auto dim = torch::jit::toIValue(node->input(1));
-      auto step = torch::jit::toIValue(node->input(4));
+      auto dim = habana_torch::jit::toIValue(node->input(1));
+      auto step = habana_torch::jit::toIValue(node->input(4));
 
       if (dim.has_value() && step.has_value()) {
         bool can_fuse =
@@ -256,10 +257,10 @@ void FuseCollectiveViewPass::GetExternalParams(
 }
 
 void FuseCollectiveViewPass::FuseSliceInsertOps(
-    torch::jit::Node* collective_node,
-    torch::jit::Value* output,
-    torch::jit::Node* slice_insert_node,
-    std::vector<torch::jit::Node*>& const_node_vec) {
+    habana_torch::jit::Node* collective_node,
+    habana_torch::jit::Value* output,
+    habana_torch::jit::Node* slice_insert_node,
+    std::vector<habana_torch::jit::Node*>& const_node_vec) {
   auto input = GetInputValue(collective_node, true);
   HABANA_ASSERT(input != nullptr, "Input value can not be null");
   torch::jit::Stack inputs =
@@ -267,12 +268,13 @@ void FuseCollectiveViewPass::FuseSliceInsertOps(
   auto it = std::find_if(
       const_node_vec.begin(),
       const_node_vec.end(),
-      [&](torch::jit::Node* node) {
+      [&](habana_torch::jit::Node* node) {
         return node->output()->unique() ==
             slice_insert_node->input(2)->unique();
       });
   bool have_shape_tensor = const_node_vec.empty() || const_node_vec.end() == it;
-  auto opt_param_list = torch::jit::toIValue(slice_insert_node->input(2));
+  auto opt_param_list =
+      habana_torch::jit::toIValue(slice_insert_node->input(2));
   if (!have_shape_tensor && opt_param_list.has_value()) {
     auto paramsList = opt_param_list.value().toIntList();
     if (paramsList.size() == 4) {
@@ -306,11 +308,11 @@ void FuseCollectiveViewPass::FuseSliceInsertOps(
   }
 }
 
-void FuseCollectiveViewPass::FuseSliceOps(torch::jit::Node* slice_node) {
-  auto dim = torch::jit::toIValue(slice_node->input(1));
-  auto start = torch::jit::toIValue(slice_node->input(2));
-  auto end = torch::jit::toIValue(slice_node->input(3));
-  auto step = torch::jit::toIValue(slice_node->input(4));
+void FuseCollectiveViewPass::FuseSliceOps(habana_torch::jit::Node* slice_node) {
+  auto dim = habana_torch::jit::toIValue(slice_node->input(1));
+  auto start = habana_torch::jit::toIValue(slice_node->input(2));
+  auto end = habana_torch::jit::toIValue(slice_node->input(3));
+  auto step = habana_torch::jit::toIValue(slice_node->input(4));
 
   if (dim.has_value() && start.has_value() && end.has_value() &&
       step.has_value()) {
@@ -336,7 +338,7 @@ void FuseCollectiveViewPass::FuseSliceOps(torch::jit::Node* slice_node) {
   }
 }
 
-void FuseCollectiveViewPass::FuseSqueezeViewOps(torch::jit::Node* node) {
+void FuseCollectiveViewPass::FuseSqueezeViewOps(habana_torch::jit::Node* node) {
   auto input = node->input(0);
   auto output = node->output(0);
 
@@ -369,7 +371,7 @@ void FuseCollectiveViewPass::FuseSqueezeViewOps(torch::jit::Node* node) {
 }
 
 void FuseCollectiveViewPass::RunFuseOps(
-    torch::jit::Node* collective_node,
+    habana_torch::jit::Node* collective_node,
     int index) {
   auto* input = collective_node->input(index);
   if (input != nullptr) {
@@ -389,10 +391,10 @@ void FuseCollectiveViewPass::RunFuseOps(
 }
 
 bool FuseCollectiveViewPass::RunFuseOps(
-    torch::jit::graph_node_list graph_nodes,
+    habana_torch::jit::graph_node_list graph_nodes,
     bool is_check_mode) {
-  std::vector<torch::jit::Node*> collective_node_vec;
-  std::vector<torch::jit::Node*> const_node_vec;
+  std::vector<habana_torch::jit::Node*> collective_node_vec;
+  std::vector<habana_torch::jit::Node*> const_node_vec;
 
   for (auto* node : graph_nodes) {
     if (habana_helpers::IsCollective(node->kind()) &&
@@ -400,7 +402,7 @@ bool FuseCollectiveViewPass::RunFuseOps(
       collective_node_vec.emplace_back(node);
     }
 
-    if (node->kind() == torch::jit::prim::Constant) {
+    if (node->kind() == habana_torch::jit::prim::Constant) {
       const_node_vec.emplace_back(node);
     }
   }
@@ -438,8 +440,8 @@ bool FuseCollectiveViewPass::RunFuseOps(
 }
 
 void FuseCollectiveViewPass::RunFuseOpsPasses(
-    const std::shared_ptr<torch::jit::Graph> graph) {
-  torch::jit::graph_node_list graph_nodes = graph->nodes();
+    const std::shared_ptr<habana_torch::jit::Graph> graph) {
+  habana_torch::jit::graph_node_list graph_nodes = graph->nodes();
   RunFuseOps(graph_nodes);
 }
 
@@ -468,7 +470,7 @@ void FuseCollectiveViewPass::PatchPTTensorInfo(
 void FuseCollectiveViewPass::ProcessInputPTTensorInfo(
     std::unordered_map<CValPtr, std::shared_ptr<ExternalParams>>&
         valptr_to_params_map,
-    torch::jit::Node* node,
+    habana_torch::jit::Node* node,
     habana_helpers::CollectiveKernelInfos::Info& kernel_info) {
   auto node_inputs = node->inputs();
   for (size_t i = 0; i < node_inputs.size(); i++) {
@@ -494,7 +496,7 @@ void FuseCollectiveViewPass::ProcessInputPTTensorInfo(
 void FuseCollectiveViewPass::ProcessOutputPTTensorInfo(
     std::unordered_map<CValPtr, std::shared_ptr<ExternalParams>>&
         valptr_to_params_map,
-    torch::jit::Node* node,
+    habana_torch::jit::Node* node,
     habana_helpers::CollectiveKernelInfos::Info& kernel_info) {
   auto node_outputs = node->outputs();
   for (size_t i = 0; i < node_outputs.size(); i++) {
@@ -519,20 +521,20 @@ void FuseCollectiveViewPass::ProcessOutputPTTensorInfo(
 }
 
 void FuseCollectiveViewPass::PostRunFuseOpsPasses(
-    torch::jit::Node* node,
+    habana_torch::jit::Node* node,
     habana_helpers::CollectiveKernelInfos::Info& kernel_info) {
   ProcessInputPTTensorInfo(getInputValPtrToParamsMap(), node, kernel_info);
   ProcessOutputPTTensorInfo(getOutputValPtrToParamsMap(), node, kernel_info);
 }
 
 bool FuseCollectiveViewPass::NeedCheck(
-    std::shared_ptr<torch::jit::Graph> graph) {
-  torch::jit::graph_node_list graph_nodes = graph->nodes();
+    std::shared_ptr<habana_torch::jit::Graph> graph) {
+  habana_torch::jit::graph_node_list graph_nodes = graph->nodes();
   return RunFuseOps(graph_nodes, true);
 }
 
-std::shared_ptr<torch::jit::Graph> FuseCollectiveViewPass::CreateClonedGraph(
-    std::shared_ptr<torch::jit::Graph> graph) {
+std::shared_ptr<habana_torch::jit::Graph> FuseCollectiveViewPass::
+    CreateClonedGraph(std::shared_ptr<habana_torch::jit::Graph> graph) {
   if (NeedCheck(graph)) {
     original_graph_ = graph;
     cloned_graph_ = graph->copy();
@@ -544,7 +546,7 @@ std::shared_ptr<torch::jit::Graph> FuseCollectiveViewPass::CreateClonedGraph(
 }
 
 std::unique_ptr<FuseCollectiveViewPassData> FuseCollectiveViewPass::VisitGraph(
-    const std::shared_ptr<torch::jit::Graph> graph) {
+    const std::shared_ptr<habana_torch::jit::Graph> graph) {
   HABANA_ASSERT(nullptr != habana_launch_op_ptr_);
   HABANA_ASSERT(nullptr != graph.get());
   auto cloned_graph_ptr_sh = CreateClonedGraph(graph);

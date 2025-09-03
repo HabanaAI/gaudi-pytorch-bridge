@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -68,7 +68,7 @@ TEST_F(LazyJITTest, CreateGraph) {
   torch::jit::testing::FileCheck()
       .check("= prim::Constant[value=1.]")
       ->check_count("= hpu::add", 2)
-      ->run(*hlexec->get_graph());
+      ->run(*hlexec->get_upstream_graph());
 
   auto result2_cpu = result2.to(torch::kCPU);
 }

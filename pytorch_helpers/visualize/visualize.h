@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,33 +16,40 @@
 #pragma once
 #include <torch/csrc/jit/ir/ir.h>
 #include <string>
+#include "jit_fork/ir/ir.h"
 
 namespace visualize {
 
-using GraphPtr = std::shared_ptr<torch::jit::Graph>;
+using GraphPtr = std::shared_ptr<habana_torch::jit::Graph>;
+using UpstreamGraphPtr = std::shared_ptr<::torch::jit::Graph>;
 
 // Gets or creates a hash to index mapping; use hash itself if map too big
 size_t GetGraphIndex(size_t hash);
 
-// Dumps a JIT IR before optimizations
-void DumpPreGraph(const GraphPtr& graph, size_t hash);
+// Dumps a JIT IR before optimizations (Upstream JIT)
+void DumpUpstreamPreGraph(const UpstreamGraphPtr& graph, size_t hash);
 
-// Dumps a JIT IR after all optimizations
-void DumpPostGraph(const GraphPtr& graph, size_t hash);
+// Dumps a JIT IR after all optimizations (Upstream JIT)
+void DumpUpstreamPostGraph(const UpstreamGraphPtr& graph, size_t hash);
 
-// Dumps an JIT IR after an optimization pass
-void DumpOptimizedGraph(
-    const GraphPtr& graph,
+// Dumps an JIT IR after an optimization pass (Upstream JIT)
+void DumpUpstreamOptimizedGraph(
+    const UpstreamGraphPtr& graph,
     size_t hash,
     const std::string& pass);
 
-// Dumps a cached JIT IR
-void DumpCachedGraph(const GraphPtr& graph, size_t hash);
+// Generic JIT IR dump function (Upstream JIT)
+void DumpUpstreamGraph(
+    const UpstreamGraphPtr& graph,
+    const std::string& filename);
 
-// Generic JIT IR dump function
+// Generic JIT IR dump function (JIT Fork)
 void DumpGraph(const GraphPtr& graph, const std::string& filename);
 
-// Dump JIT IR eager graph
+// Dumps a cached JIT IR (JIT Fork)
+void DumpCachedGraph(const GraphPtr& graph, size_t hash);
+
+// Dump JIT IR eager graph (JIT Fork)
 void DumpEagerOrCompileGraph(
     const GraphPtr& graph,
     const std::string& graph_name);

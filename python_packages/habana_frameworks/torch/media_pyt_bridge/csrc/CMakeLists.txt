@@ -18,6 +18,7 @@ add_habana_library(_media_pyt_bridge_C SHARED media_pyt_bridge.cpp pyt_media_pro
 target_compile_definitions(_media_pyt_bridge_C PRIVATE TORCH_EXTENSION_NAME=_media_pyt_bridge_C)
 
 set_target_properties(_media_pyt_bridge_C PROPERTIES PREFIX "")
-target_link_libraries(_media_pyt_bridge_C PUBLIC bindings torch absl::variant ${TORCH_PYTHON_LIBRARY} Media)
+target_link_libraries(_media_pyt_bridge_C PUBLIC bindings torch npu::jit_fork absl::variant ${TORCH_PYTHON_LIBRARY}
+                                                 Media)
 
 install(TARGETS _media_pyt_bridge_C LIBRARY DESTINATION habana_torch_plugin/${PYBIND_INSTALL_DIRNAME})

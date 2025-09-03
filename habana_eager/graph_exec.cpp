@@ -221,7 +221,7 @@ void GraphExec::LaunchRecipeTask(
 
 GraphExec::GraphExec(
     size_t recipe_id,
-    std::shared_ptr<torch::jit::Graph> graph,
+    std::shared_ptr<habana_torch::jit::Graph> graph,
     const std::string& parent_graph_name,
     torch::jit::Stack& example_inputs,
     bool dynamic,
@@ -253,7 +253,7 @@ GraphExec::GraphExec(
   m_is_pipeline_supported = GET_ENV_FLAG_NEW(PT_HPU_EAGER_PIPELINE_ENABLE);
 
   // Temporailly record the original jit graph input to reusable info map
-  std::unordered_map<torch::jit::Value*, bool> input_reusable_pairs;
+  std::unordered_map<habana_torch::jit::Value*, bool> input_reusable_pairs;
   if (!is_reusable.empty()) {
     size_t jit_graph_inputs_size = m_graph->inputs().size();
     HABANA_ASSERT(jit_graph_inputs_size == is_reusable.size());
@@ -322,7 +322,7 @@ GraphExec::GraphExec(
         adjacent_cast_fp8_indices);
   }
 
-  at::ArrayRef<torch::jit::IValue> input_refs =
+  at::ArrayRef<habana_torch::jit::IValue> input_refs =
       torch::jit::last(in_stack, m_graph->inputs().size());
 
   std::string jit_graph_name;
@@ -536,7 +536,7 @@ void GraphExec::PatchScaleH2dTensors(torch::jit::Stack& orig_stack) {
       std::string_view caching_message;
       if (maybe_h2d_scale.has_value()) {
         // Update the original stack with the H2D tensor.
-        orig_stack[idx] = torch::jit::IValue(maybe_h2d_scale.value());
+        orig_stack[idx] = habana_torch::jit::IValue(maybe_h2d_scale.value());
         habana::get_tensor_extra_meta(orig_stack[idx].toTensor())
             ->set_h2d_not_reciprocal(false);
         caching_message = "from cache ";
@@ -584,7 +584,7 @@ void GraphExec::PatchScaleH2dTensors(torch::jit::Stack& orig_stack) {
   for (const auto non_hw_idx : non_hw_scales_indices) {
     const auto& cpu_scale = orig_stack[non_hw_idx].toTensor();
     orig_stack[non_hw_idx] =
-        torch::jit::IValue(h2d_scales_cache.CreateH2dTensorScale(
+        habana_torch::jit::IValue(h2d_scales_cache.CreateH2dTensorScale(
             cpu_scale.data_ptr(),
             cpu_scale.scalar_type(),
             &alloc_pointer,
@@ -835,7 +835,7 @@ torch::jit::Stack GraphExec::LaunchRecipe(
 
   const c10::hpu::HPUStream& stream{c10::hpu::getCurrentHPUStream()};
 
-  at::ArrayRef<torch::jit::IValue> input_refs =
+  at::ArrayRef<habana_torch::jit::IValue> input_refs =
       torch::jit::last(stack, m_graph->inputs().size());
 
   for (auto& input_base_sizes_pair : m_input_new_base_sizes) {

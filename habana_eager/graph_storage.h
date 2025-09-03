@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,8 +15,8 @@
 
 #include <vector>
 
-#include <torch/csrc/jit/ir/ir.h>
 #include "habana_eager/graph_execs_group.h"
+#include "jit_fork/ir/ir.h"
 
 namespace habana::graph {
 
@@ -25,7 +25,7 @@ class GraphStorage {
   static GraphStorage& get();
 
   size_t add_new_recipe(
-      std::shared_ptr<torch::jit::Graph> graph,
+      std::shared_ptr<habana_torch::jit::Graph> graph,
       const std::string& parent_graph_name,
       torch::jit::Stack& example_inputs,
       const std::vector<bool>& is_reusable,

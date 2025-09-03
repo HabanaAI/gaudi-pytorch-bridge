@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -73,15 +73,15 @@ TEST_F(LazyCustomKernelTest, OptSparseSgdCustomOp) {
 
   torch::jit::testing::FileCheck()
       .check("= prim::Constant[value=0.10000000149011612]")
-      ->run(*hlexec->get_graph());
+      ->run(*hlexec->get_upstream_graph());
 
   torch::jit::testing::FileCheck()
       .check("= prim::Constant[value=0]")
-      ->run(*hlexec->get_graph());
+      ->run(*hlexec->get_upstream_graph());
 
   torch::jit::testing::FileCheck()
       .check_count("= hpu::habanaOptimizerSparseSgd", 1)
-      ->run(*hlexec->get_graph());
+      ->run(*hlexec->get_upstream_graph());
 }
 
 TEST_F(LazyCustomKernelTest, OptSgdMomentumCustomOp) {
@@ -281,7 +281,7 @@ TEST_F(LazyCustomKernelTest, OptAdagradCustomOp) {
 
   torch::jit::testing::FileCheck()
       .check_count("= hpu::habanaOptimizerSparseAdagrad", 1)
-      ->run(*hlexec->get_graph());
+      ->run(*hlexec->get_upstream_graph());
 }
 
 ADAMW_OPT_TEST(LazyCustomKernelTest, true)

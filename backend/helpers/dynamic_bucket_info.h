@@ -26,7 +26,7 @@
 #include "backend/helpers/dynamic_bucket_info_utils.h"
 #include "backend/helpers/dynamic_shape_infer.h"
 #include "backend/synapse_helpers/time_slot.h"
-#include "torch/csrc/jit/ir/ir.h"
+#include "jit_fork/ir/ir.h"
 
 namespace habana {
 struct RecipeValueSpec;
@@ -656,10 +656,10 @@ class DynamicBucketInfo {
   DynamicDimsPolicy GetMaxPolicy() {
     return max_policy_;
   }
-  std::shared_ptr<torch::jit::Graph> GetJitIRGraphPtr() {
+  std::shared_ptr<habana_torch::jit::Graph> GetJitIRGraphPtr() {
     return jitirpwk_.lock();
   }
-  void SetJitIRGraphPtr(std::shared_ptr<torch::jit::Graph> jirpsh) {
+  void SetJitIRGraphPtr(std::shared_ptr<habana_torch::jit::Graph> jirpsh) {
     jitirpwk_ = jirpsh;
   }
   size_t EvictBucket(std::shared_ptr<habana::RecipeValueSpec>& dropped_recipe) {
@@ -965,7 +965,7 @@ class DynamicBucketInfo {
 
   // Corresponding JIT IR graph
   size_t graph_key_{};
-  std::weak_ptr<torch::jit::Graph> jitirpwk_;
+  std::weak_ptr<habana_torch::jit::Graph> jitirpwk_;
 
   // TimeStat across all buckets
   TimeStat cumu_run_time_stat_;

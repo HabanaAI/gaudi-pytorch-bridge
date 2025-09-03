@@ -357,6 +357,7 @@ target_link_libraries(
           exprtk::exprtk
           torch
           Python::Python
+          npu::jit_fork
           absl::strings
           absl::str_format
           npu::hllogger
@@ -427,6 +428,7 @@ target_link_libraries(
           pytorch_synapse_utils_shim
           torch
           Python::Python
+          npu::jit_fork
           absl::strings
           absl::str_format
           npu::hllogger)

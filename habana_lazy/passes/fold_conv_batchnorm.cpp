@@ -153,7 +153,7 @@ bool computeUpdatedConvWeightAndBias(
 }
 
 void CheckIfAutoCastNodePresent(
-    std::shared_ptr<Graph>& graph,
+    std::shared_ptr<torch::jit::Graph>& graph,
     torch::jit::Node* conv,
     std::vector<torch::jit::Node*>& w_auto_cast,
     std::vector<torch::jit::Node*>& b_auto_cast) {
@@ -182,7 +182,7 @@ void CheckIfAutoCastNodePresent(
    with some tailoring to suit our need */
 
 bool FuseConvBatchnorm(
-    std::shared_ptr<Graph>& graph,
+    std::shared_ptr<torch::jit::Graph>& graph,
     torch::jit::Stack& stack,
     std::vector<torch::jit::Value*>& redundant_inputs) {
   std::vector<torch::jit::Node*> nodes_for_deletion;
@@ -382,7 +382,7 @@ bool FuseConvBatchnorm(
 
 namespace habana_lazy {
 bool FoldConvBatchnorm(
-    std::shared_ptr<Graph>& graph,
+    std::shared_ptr<torch::jit::Graph>& graph,
     torch::jit::Stack& stack,
     std::vector<torch::jit::Value*>& redundant_inputs) {
   bool graph_modified = FuseConvBatchnorm(graph, stack, redundant_inputs);

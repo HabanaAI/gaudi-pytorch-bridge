@@ -22,7 +22,6 @@
 using json = nlohmann::json;
 
 namespace habana_lazy {
-using Graph = torch::jit::Graph;
 using SubgraphRewriter = torch::jit::SubgraphRewriter;
 using Pattern = std::tuple<std::string, std::string>;
 using Patterns = std::vector<Pattern>;
@@ -78,7 +77,7 @@ void get_patterns(Patterns& patterns) {
   }
 }
 
-void transform_graph(std::shared_ptr<Graph>& graph) {
+void transform_graph(std::shared_ptr<torch::jit::Graph>& graph) {
   // Get all the patterns to be proccessed
   Patterns patterns;
   get_patterns(patterns);

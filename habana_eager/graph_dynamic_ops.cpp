@@ -19,11 +19,12 @@
 #include "habana_eager/graph_dynamic.h"
 #include "habana_helpers/logging.h"
 #include "habana_kernels/index_kernels.h"
+#include "jit_fork/ir/constants.h"
 
 namespace habana::graph {
 
 void GetValueAndScalarIndexFromInput(
-    torch::jit::Value* input,
+    habana_torch::jit::Value* input,
     torch::jit::Stack& in_stack,
     GraphInputIndexMap& org_stack_index_map,
     int64_t& value,
@@ -33,7 +34,7 @@ void GetValueAndScalarIndexFromInput(
     return;
   static const auto constant_symbol{
       c10::Symbol::fromQualString("prim::Constant")};
-  static const auto value_attr{torch::jit::Symbol::attr("value")};
+  static const auto value_attr{habana_torch::jit::Symbol::attr("value")};
   auto in_name = input->debugName();
   if (input->node()->kind() == constant_symbol) {
     try {
@@ -64,7 +65,7 @@ void GetValueAndScalarIndexFromInput(
 }
 
 void GetValuesAndScalarIndexesFromListConst(
-    torch::jit::Node* node,
+    habana_torch::jit::Node* node,
     std::vector<int64_t>& values,
     std::vector<int64_t>& scalar_indexes) {
   static const auto list_const_symbol{
@@ -77,7 +78,8 @@ void GetValuesAndScalarIndexesFromListConst(
       *node);
 
   auto value = node->output(0);
-  auto opt_const_ivalue = torch::jit::toIValue(value);
+  auto opt_const_ivalue = habana_torch::jit::toIValue(value);
+
   if (opt_const_ivalue.has_value() && opt_const_ivalue.value().isIntList()) {
     int64_t input_idx = LONG_MAX;
     auto vec = opt_const_ivalue.value().toIntVector();
@@ -91,7 +93,7 @@ void GetValuesAndScalarIndexesFromListConst(
 }
 
 std::string GetRangeInfoExprFromInput(
-    torch::jit::Value* input,
+    habana_torch::jit::Value* input,
     GraphInputIndexMap& org_stack_index_map,
     std::vector<habana_helpers::RangeInfo>* range_infos) {
   std::string value = "0";
@@ -99,7 +101,7 @@ std::string GetRangeInfoExprFromInput(
     return value;
   static const auto constant_symbol{
       c10::Symbol::fromQualString("prim::Constant")};
-  static const auto value_attr{torch::jit::Symbol::attr("value")};
+  static const auto value_attr{habana_torch::jit::Symbol::attr("value")};
   auto in_name = input->debugName();
   if (input->node()->kind() == constant_symbol) {
     try {
@@ -132,7 +134,7 @@ std::string GetRangeInfoExprFromInput(
 }
 
 std::vector<std::string> GetRangeInfoExprFromListConstruct(
-    torch::jit::Node* node,
+    habana_torch::jit::Node* node,
     GraphInputIndexMap& org_stack_index_map,
     std::vector<habana_helpers::RangeInfo>* range_infos) {
   static const auto list_construct_symbol{
@@ -152,7 +154,7 @@ std::vector<std::string> GetRangeInfoExprFromListConstruct(
 }
 
 std::vector<std::string> GetRangeInfoExprFromListConst(
-    torch::jit::Node* node,
+    habana_torch::jit::Node* node,
     GraphInputIndexMap& org_stack_index_map,
     std::vector<habana_helpers::RangeInfo>* range_infos) {
   static_cast<void>(range_infos);
@@ -168,7 +170,7 @@ std::vector<std::string> GetRangeInfoExprFromListConst(
 
   auto value = node->output(0);
   std::vector<std::string> expr_values;
-  auto opt_const_ivalue = torch::jit::toIValue(value);
+  auto opt_const_ivalue = habana_torch::jit::toIValue(value);
   if (opt_const_ivalue.has_value() && opt_const_ivalue.value().isIntList()) {
     auto vec = opt_const_ivalue.value().toIntVector();
     for (auto v : vec) {
@@ -193,7 +195,7 @@ std::string GetExprFromString(std::vector<std::string> inputs) {
 }
 
 void GetValuesAndScalarIndexesFromListConstruct(
-    torch::jit::Node* node,
+    habana_torch::jit::Node* node,
     torch::jit::Stack& in_stack,
     GraphInputIndexMap& org_stack_index_map,
     std::vector<int64_t>& values,
@@ -215,13 +217,13 @@ void GetValuesAndScalarIndexesFromListConstruct(
   }
 }
 
-torch::jit::Node* CreateAndInsertDynamicNodeToGraph(
-    torch::jit::Graph* graph,
-    torch::jit::Node* aten_node,
+habana_torch::jit::Node* CreateAndInsertDynamicNodeToGraph(
+    habana_torch::jit::Graph* graph,
+    habana_torch::jit::Node* aten_node,
     const c10::Symbol& hpu_symbol,
-    c10::ArrayRef<torch::jit::Value*> inputs,
+    c10::ArrayRef<habana_torch::jit::Value*> inputs,
     ValueIvalueMap& value_ivalue_map) {
-  torch::jit::WithInsertPoint insert_guard{aten_node};
+  habana_torch::jit::WithInsertPoint insert_guard{aten_node};
   auto hpu_node{graph->insertNode(graph->create(hpu_symbol, inputs, 0))};
   int output_count = 0;
   for (auto output : aten_node->outputs()) {
@@ -244,8 +246,8 @@ torch::jit::Node* CreateAndInsertDynamicNodeToGraph(
   }
 
   hpu_node->i_(
-      torch::jit::attr::deterministic,
-      aten_node->i(torch::jit::attr::deterministic));
+      habana_torch::jit::attr::deterministic,
+      aten_node->i(habana_torch::jit::attr::deterministic));
 
   return hpu_node;
 }
@@ -287,7 +289,7 @@ void UpdateH2DPatchingData(
 }
 
 int64_t UpdateDynamicTensorDSStack(
-    torch::jit::IValue& iv_tensor,
+    habana_torch::jit::IValue& iv_tensor,
     const std::vector<int64_t>& scalar_indexes,
     const std::vector<int64_t>& tensor_indexes,
     const std::vector<std::pair<int64_t, int64_t>>& mixed_indexes,
@@ -316,7 +318,7 @@ int64_t CreateSTAndInsertToDSStack(
     std::shared_ptr<DynamicGraphMetaData> dmeta,
     const c10::SmallVector<int64_t, 8>& lookup_data) {
   auto iv_st_tensor =
-      torch::jit::IValue(createDynamicTensor(st_size, SHAPE_TENSOR));
+      habana_torch::jit::IValue(createDynamicTensor(st_size, SHAPE_TENSOR));
   int64_t stack_index = UpdateDynamicTensorDSStack(
       iv_st_tensor,
       scalar_indexes,
@@ -341,14 +343,14 @@ int64_t CreateH2DAndInsertToDSStack(
       {static_cast<int64_t>(h2d_values.size())}, HOST_TO_DEVICE_TENSOR);
   SetH2DTensorHostData<T>(h2d_tensor, h2d_values, dt_type, true);
 
-  auto iv_h2d_tensor = torch::jit::IValue(h2d_tensor);
+  auto iv_h2d_tensor = habana_torch::jit::IValue(h2d_tensor);
   int64_t stack_index =
       UpdateDynamicTensorDSStack(iv_h2d_tensor, scalar_indexes, {}, {}, dmeta);
   return stack_index;
 }
 
 void DynamicOp::UpdateDynamicInputs(
-    c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
+    c10::SmallVectorImpl<habana_torch::jit::IValue*>& dtensor_list,
     c10::SmallVectorImpl<habana::graph::SymIntData>& scalar_list,
     [[maybe_unused]] c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
     [[maybe_unused]] c10::SmallVectorImpl<
@@ -367,7 +369,7 @@ void DynamicOp::UpdateDynamicInputs(
 }
 
 bool RepeatOperatorDS::ReplaceWithDynamicHPUOp(
-    torch::jit::Node* aten_repeat_node,
+    habana_torch::jit::Node* aten_repeat_node,
     torch::jit::Stack& org_stack,
     GraphInputIndexMap& org_stack_index_map,
     ValueIvalueMap& value_ivalue_map,
@@ -419,7 +421,7 @@ bool RepeatOperatorDS::ReplaceWithDynamicHPUOp(
 }
 
 void RepeatOperatorDS::UpdateDynamicInputs(
-    c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
+    c10::SmallVectorImpl<habana_torch::jit::IValue*>& dtensor_list,
     c10::SmallVectorImpl<habana::graph::SymIntData>& scalar_idx_list,
     [[maybe_unused]] c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
     [[maybe_unused]] c10::SmallVectorImpl<
@@ -454,7 +456,7 @@ void RepeatOperatorDS::UpdateDynamicInputs(
 }
 
 bool TopkOperatorDS::ReplaceWithDynamicHPUOp(
-    torch::jit::Node* aten_topk_node,
+    habana_torch::jit::Node* aten_topk_node,
     torch::jit::Stack& org_stack,
     GraphInputIndexMap& org_stack_index_map,
     ValueIvalueMap& value_ivalue_map,
@@ -504,7 +506,7 @@ bool TopkOperatorDS::ReplaceWithDynamicHPUOp(
 
 // Dynamic shape (DS) support for select_scatter using shape tensor
 bool SelectScatterOperatorDS::ReplaceWithDynamicHPUOp(
-    torch::jit::Node* aten_select_scatter_node,
+    habana_torch::jit::Node* aten_select_scatter_node,
     torch::jit::Stack& org_stack,
     GraphInputIndexMap& org_stack_index_map,
     ValueIvalueMap& value_ivalue_map,
@@ -576,7 +578,7 @@ bool SelectScatterOperatorDS::ReplaceWithDynamicHPUOp(
 }
 
 bool SliceOperatorDS::ReplaceWithDynamicHPUOp(
-    torch::jit::Node* slice_node,
+    habana_torch::jit::Node* slice_node,
     torch::jit::Stack& in_stack,
     GraphInputIndexMap& org_stack_index_map,
     ValueIvalueMap& value_ivalue_map,
@@ -715,7 +717,7 @@ bool SliceOperatorDS::ReplaceWithDynamicHPUOp(
     m_range_infos->emplace_back(
         habana_helpers::RangeInfo(
             {}, {}, GetExprFromString(expr_sizes), "INVALID", -2));
-    auto slice_h2d_tensor = torch::jit::IValue(h2d_tensor);
+    auto slice_h2d_tensor = habana_torch::jit::IValue(h2d_tensor);
     int64_t h2d_stack_index = UpdateDynamicTensorDSStack(
         slice_h2d_tensor, {}, {}, mixed_scalar_indexes, m_dmeta);
     auto gip_slice_h2d_tensor = graph->addInput(slice_h2d_name);
@@ -779,7 +781,7 @@ bool SliceOperatorDS::ReplaceWithDynamicHPUOp(
 }
 
 void SliceOperatorDS::UpdateDynamicInputs(
-    c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
+    c10::SmallVectorImpl<habana_torch::jit::IValue*>& dtensor_list,
     [[maybe_unused]] c10::SmallVectorImpl<habana::graph::SymIntData>&
         scalar_idx_list,
     [[maybe_unused]] c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
@@ -851,15 +853,15 @@ void SliceOperatorDS::UpdateDynamicInputs(
 }
 
 bool ExpandOperatorDS::ReplaceWithDynamicHPUOp(
-    torch::jit::Node* node,
+    habana_torch::jit::Node* node,
     torch::jit::Stack& stack,
     GraphInputIndexMap& stack_index_map,
     ValueIvalueMap& value_ivalue_map,
     std::shared_ptr<DynamicGraphMetaData> dmeta) {
   static const auto hpu_expand_ds_symbol{
       c10::Symbol::fromQualString("hpu::expand_ds")};
-  torch::jit::Graph* graph = node->owningGraph();
-  torch::jit::Value* sizes = node->input(1);
+  habana_torch::jit::Graph* graph = node->owningGraph();
+  habana_torch::jit::Value* sizes = node->input(1);
   std::vector<int64_t> values;
   std::vector<int64_t> scalar_ids;
   GetValuesAndScalarIndexesFromListConstruct(
@@ -940,7 +942,7 @@ void ExpandOperatorDS::UpdateDynamicInputs(
 // but hpu::slice_insert_ds cannot be used directly to avoid graph
 // loops in case of inplace ops.
 bool SliceScatterOperatorDS::ReplaceWithDynamicHPUOp(
-    torch::jit::Node* aten_slice_scatter_node,
+    habana_torch::jit::Node* aten_slice_scatter_node,
     torch::jit::Stack& org_stack,
     GraphInputIndexMap& org_stack_index_map,
     ValueIvalueMap& value_ivalue_map,

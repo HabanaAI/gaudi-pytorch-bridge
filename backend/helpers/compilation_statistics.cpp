@@ -75,12 +75,12 @@ class CompilationStatisticsNoOp : public CompilationStatistics {
       const std::string& /*kind*/,
       uint64_t /*step*/) override {};
   void LogShapes(
-      std::shared_ptr<torch::jit::Graph> /*jit_ir_graph*/,
+      std::shared_ptr<habana_torch::jit::Graph> /*jit_ir_graph*/,
       InpTensorShapes& /*unused*/,
       uint64_t /*step*/) override {};
   void LogCompilation(
       const std::string& /*jit_ir*/,
-      std::shared_ptr<torch::jit::Graph> /*jit_ir_graph*/,
+      std::shared_ptr<habana_torch::jit::Graph> /*jit_ir_graph*/,
       DynamicDimsPolicy /*min_policy*/,
       DynamicDimsPolicy /*max_policy*/,
       ResultShapes /*ranges*/,
@@ -90,7 +90,7 @@ class CompilationStatisticsNoOp : public CompilationStatistics {
       uint64_t /*step*/) override {};
   void LogUsedBucket(
       int /*id*/,
-      std::shared_ptr<torch::jit::Graph> /*jit_ir_graph*/,
+      std::shared_ptr<habana_torch::jit::Graph> /*jit_ir_graph*/,
       ResultShapes /*ranges*/,
       bool /*refine_candidate*/,
       uint64_t /*step*/) override {};
@@ -109,7 +109,7 @@ class CompilationStatisticsNoOp : public CompilationStatistics {
       override {};
   void LogRefineCompilation(
       ResultShapes /*ranges*/,
-      std::shared_ptr<torch::jit::Graph> /*jit_ir_graph*/,
+      std::shared_ptr<habana_torch::jit::Graph> /*jit_ir_graph*/,
       uint64_t /*signature*/,
       uint64_t /*bucket*/,
       const std::string& /*result_str*/,
@@ -185,7 +185,7 @@ void CompilationStatistics::LogShape(
 }
 
 void CompilationStatistics::LogShapes(
-    std::shared_ptr<torch::jit::Graph> jit_ir_graph,
+    std::shared_ptr<habana_torch::jit::Graph> jit_ir_graph,
     InpTensorShapes& shapes,
     uint64_t step) {
   for (size_t j = 0; j < jit_ir_graph->inputs().size(); j++) {
@@ -203,7 +203,7 @@ void CompilationStatistics::LogShapes(
 
 void CompilationStatistics::LogCompilation(
     const std::string& jit_ir,
-    std::shared_ptr<torch::jit::Graph> jit_ir_graph,
+    std::shared_ptr<habana_torch::jit::Graph> jit_ir_graph,
     DynamicDimsPolicy min_policy,
     DynamicDimsPolicy max_policy,
     ResultShapes ranges,
@@ -237,7 +237,7 @@ void CompilationStatistics::LogCompilation(
 
 void CompilationStatistics::LogUsedBucket(
     int id,
-    std::shared_ptr<torch::jit::Graph> jit_ir_graph,
+    std::shared_ptr<habana_torch::jit::Graph> jit_ir_graph,
     ResultShapes ranges,
     bool refine_candidate,
     uint64_t step) {
@@ -311,7 +311,7 @@ void CompilationStatistics::LogLaunchPerf(
 
 void CompilationStatistics::LogRefineCompilation(
     ResultShapes ranges,
-    std::shared_ptr<torch::jit::Graph> jit_ir_graph,
+    std::shared_ptr<habana_torch::jit::Graph> jit_ir_graph,
     uint64_t signature,
     uint64_t bucket,
     const std::string& result_str,
@@ -396,7 +396,7 @@ std::string CompilationStatistics::GetStep(uint64_t step) {
 
 nlohmann::json CompilationStatistics::GetRanges(
     ResultShapes ranges,
-    std::shared_ptr<torch::jit::Graph> jit_ir_graph) {
+    std::shared_ptr<habana_torch::jit::Graph> jit_ir_graph) {
   json result;
   for (size_t j = 0; j < jit_ir_graph->inputs().size(); j++) {
     if (ranges.min_shapes.find(j) != ranges.min_shapes.end()) {

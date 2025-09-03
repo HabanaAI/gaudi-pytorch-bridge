@@ -35,7 +35,7 @@
 
 namespace {
 [[nodiscard]] size_t ComputeOffsetHashCode(
-    at::ArrayRef<torch::jit::IValue> input_refs) {
+    at::ArrayRef<habana_torch::jit::IValue> input_refs) {
   size_t offset_hash_code = 0;
   for (auto& input : input_refs) {
     if (input.isTensor()) {
@@ -52,7 +52,7 @@ namespace {
 }
 
 [[nodiscard]] size_t ComputeH2DHashCode(
-    at::ArrayRef<torch::jit::IValue> input_refs) {
+    at::ArrayRef<habana_torch::jit::IValue> input_refs) {
   size_t h2d_hash_code = 0;
   for (auto& input : input_refs) {
     if (input.isTensor()) {
@@ -147,7 +147,7 @@ HbCas::HbCas(bool with_grad, at::ArrayRef<c10::IValue> inputs) {
 }
 
 RecipeArgumentSpec::RecipeArgumentSpec(
-    at::ArrayRef<torch::jit::IValue> input_refs,
+    at::ArrayRef<habana_torch::jit::IValue> input_refs,
     const size_t& graphKey,
     const std::string& op_strs)
     : cas(false, input_refs),
@@ -162,7 +162,7 @@ RecipeArgumentSpec::RecipeArgumentSpec(
       graph_with_permute_hash_code(hash_code) {}
 
 RecipeArgumentSpec::RecipeArgumentSpec(
-    at::ArrayRef<torch::jit::IValue> input_refs,
+    at::ArrayRef<habana_torch::jit::IValue> input_refs,
     const size_t& graphKey,
     const std::string& op_strs,
     const uint64_t token)
@@ -184,7 +184,7 @@ RecipeArgumentSpec::RecipeArgumentSpec(
       dynamic_hash_code(hash_code) {}
 
 RecipeArgumentSpec::RecipeArgumentSpec(
-    at::ArrayRef<torch::jit::IValue> input_refs,
+    at::ArrayRef<habana_torch::jit::IValue> input_refs,
     const size_t& graphKey,
     const size_t& graph_sym_hash,
     const size_t& graph_perm_hash,
@@ -199,7 +199,7 @@ RecipeArgumentSpec::RecipeArgumentSpec(
       graph_with_permute_hash_code(hash_code) {}
 
 RecipeArgumentSpec::RecipeArgumentSpec(
-    at::ArrayRef<torch::jit::IValue> input_refs,
+    at::ArrayRef<habana_torch::jit::IValue> input_refs,
     const size_t& graphKey,
     const size_t& graph_sym_hash,
     const size_t& graph_perm_hash,
@@ -224,8 +224,8 @@ RecipeArgumentSpec::RecipeArgumentSpec(
 
 RecipeArgumentSpec::RecipeArgumentSpec(
     bool with_grad,
-    at::ArrayRef<torch::jit::IValue> input_refs,
-    const std::shared_ptr<torch::jit::Graph>& irgraph,
+    at::ArrayRef<habana_torch::jit::IValue> input_refs,
+    const std::shared_ptr<habana_torch::jit::Graph>& irgraph,
     const size_t& graphKey,
     const std::string& op_strs,
     size_t symhash,
@@ -261,7 +261,7 @@ RecipeArgumentSpec::RecipeArgumentSpec(
 
     hash_code = at::hash_combine(
         hash_code,
-        static_cast<uint64_t>(node->i(torch::jit::attr::deterministic)));
+        static_cast<uint64_t>(node->i(habana_torch::jit::attr::deterministic)));
   }
 }
 
@@ -670,7 +670,7 @@ inline void RecipeValueSpec::update_new_tensor(
 }
 
 void RecipeValueSpec::update_patching_table(
-    at::ArrayRef<torch::jit::IValue>& input_refs,
+    at::ArrayRef<habana_torch::jit::IValue>& input_refs,
     std::shared_ptr<VecOfIValPtrSh>& intermediate_tensors_ptr,
     VecOfIValPtrSh& dma_inputs,
     VecOfIValPtrSh& aten_outputs,
@@ -1516,7 +1516,7 @@ void RecipeValueSpec::patch_launch_info(
 
 namespace {
 void MaybePrintDebugInfo(
-    const at::ArrayRef<torch::jit::IValue>& input_refs,
+    const at::ArrayRef<habana_torch::jit::IValue>& input_refs,
     const std::shared_ptr<VecOfIValPtrSh>& intermediate_tensors_ptr,
     const VecOfIValPtrSh& aten_outputs,
     const RecipeLauncher& rl) {
@@ -1609,7 +1609,7 @@ RecipeLauncher::RecipeLauncher(
 
 void RecipeLauncher::Launch(
     synapse_helpers::hpuStream_t hpu_stream,
-    const at::ArrayRef<torch::jit::IValue>& input_refs,
+    const at::ArrayRef<habana_torch::jit::IValue>& input_refs,
     std::shared_ptr<VecOfIValPtrSh>& intermediate_tensors_ptr,
     const VecOfIValPtrSh& aten_outputs,
     std::vector<synLaunchTensorInfo>& syn_launch_info,

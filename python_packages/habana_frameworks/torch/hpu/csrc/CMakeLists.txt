@@ -24,6 +24,13 @@ add_habana_library(
 target_compile_definitions(_hpu_C PRIVATE TORCH_EXTENSION_NAME=_hpu_C)
 
 set_target_properties(_hpu_C PROPERTIES PREFIX "")
-target_link_libraries(_hpu_C PUBLIC bindings torch absl::variant absl::flat_hash_map absl::strings
-                                    ${TORCH_PYTHON_LIBRARY})
+target_link_libraries(
+  _hpu_C
+  PUBLIC bindings
+         torch
+         npu::jit_fork
+         absl::variant
+         absl::flat_hash_map
+         absl::strings
+         ${TORCH_PYTHON_LIBRARY})
 install(TARGETS _hpu_C LIBRARY DESTINATION habana_torch_plugin/${PYBIND_INSTALL_DIRNAME})

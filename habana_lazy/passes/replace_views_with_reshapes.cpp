@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,11 +15,7 @@
 #include <torch/csrc/jit/ir/irparser.h>
 #include <torch/csrc/jit/ir/subgraph_matcher.h>
 
-using namespace torch::jit;
-
 namespace habana_lazy {
-
-using Graph = torch::jit::Graph;
 
 /* */
 bool is_inplace_or_views(torch::jit::Node* node) {
@@ -38,9 +34,9 @@ bool is_inplace_or_views(torch::jit::Node* node) {
   return is_inplace;
 }
 
-void replace_views_with_reshapes(std::shared_ptr<Graph>& graph) {
+void replace_views_with_reshapes(std::shared_ptr<torch::jit::Graph>& graph) {
   torch::jit::graph_node_list graph_nodes = graph->nodes();
-  std::vector<Node*> as_strided_node_vec;
+  std::vector<torch::jit::Node*> as_strided_node_vec;
 
   // collect candidate as_strided nodes
   // TODO add other ops like view, slice etc once strided memcpy is available
@@ -94,7 +90,7 @@ void replace_views_with_reshapes(std::shared_ptr<Graph>& graph) {
   for (auto* node : as_strided_node_vec) {
     auto op = c10::Symbol::fromQualString("hpu::reshape");
 
-    WithInsertPoint insert_point(node);
+    torch::jit::WithInsertPoint insert_point(node);
     auto new_reshape = graph->create(op, {node->input(0), node->input(1)}, 1);
     new_reshape->copyAttributes(*node);
     graph->insertNode(new_reshape);

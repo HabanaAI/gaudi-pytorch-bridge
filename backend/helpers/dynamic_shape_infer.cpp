@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -80,7 +80,7 @@ void IShape::UpdateScalar(at::Scalar scalar) {
 c10::ScalarType IShape::toScalarType() const {
   if (type == IShapeType::SCALAR) {
     auto scalar_data = std::get<at::Scalar>(data);
-    return torch::jit::IValue(scalar_data).toScalarType();
+    return habana_torch::jit::IValue(scalar_data).toScalarType();
   } else {
     throw std::runtime_error("To Scalar failed!!!");
   }

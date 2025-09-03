@@ -68,6 +68,7 @@ target_link_libraries(
          absl::raw_hash_set
          exprtk::exprtk
          npu::hllogger
+         npu::jit_fork
          fmt::fmt-header-only
          $<TARGET_NAME_IF_EXISTS:npu::specs_embedded>
          npu::specs_external

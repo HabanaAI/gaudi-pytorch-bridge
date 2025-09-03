@@ -29,7 +29,8 @@ namespace habana::graph::pass {
 uint32_t const_id = 0;
 
 struct MarkParamsAsConstPass {
-  explicit MarkParamsAsConstPass(std::shared_ptr<torch::jit::Graph> graph)
+  explicit MarkParamsAsConstPass(
+      std::shared_ptr<habana_torch::jit::Graph> graph)
       : m_graph(std::move(graph)) {}
 
   bool run(
@@ -101,11 +102,11 @@ struct MarkParamsAsConstPass {
   }
 
  private:
-  std::shared_ptr<torch::jit::Graph> m_graph;
+  std::shared_ptr<habana_torch::jit::Graph> m_graph;
 };
 
 bool MarkParamsAsConst(
-    std::shared_ptr<torch::jit::Graph> graph,
+    std::shared_ptr<habana_torch::jit::Graph> graph,
     torch::jit::Stack& example_inputs,
     std::vector<int64_t>& const_indexes) {
   PT_EAGER_TRACE;

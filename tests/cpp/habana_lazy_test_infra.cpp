@@ -82,11 +82,11 @@ std::vector<torch::jit::IValue> CreateInputs(
   return input_ivalues;
 }
 
-std::shared_ptr<torch::jit::Graph> CreateJITGraph() {
+std::shared_ptr<habana_torch::jit::Graph> CreateJITGraph() {
   // Create a JIT IR graph corresponding to the 3 nodes
   // This is similar to the JT graph that will be created
   // first time from the post order nodes.
-  auto g = std::make_shared<torch::jit::Graph>();
+  auto upstream_graph = std::make_shared<torch::jit::Graph>();
   const auto graph_string = R"IR(
     graph(%a : Tensor,
           %b : Tensor):
@@ -96,8 +96,10 @@ std::shared_ptr<torch::jit::Graph> CreateJITGraph() {
       %6 : Tensor = aten::mul(%d, %a)
       return (%6))IR";
   // Create a JIT graph
-  torch::jit::parseIR(graph_string, g.get());
-  return g;
+  torch::jit::parseIR(graph_string, upstream_graph.get());
+  auto jitfork_graph = std::make_shared<habana_torch::jit::Graph>();
+  habana_torch::jit::cloneFromUpstreamGraph(upstream_graph, jitfork_graph);
+  return jitfork_graph;
 }
 
 torch::jit::Stack createStack(std::vector<at::Tensor>&& list) {
@@ -162,19 +164,6 @@ at::Tensor create_empty_tensor(
   }
   auto pt_tensor = at::empty(tshape, tensor_options);
   return pt_tensor;
-}
-
-std::map<std::string, c10::ScalarType> create_tensor_dtype_map(
-    const at::ArrayRef<torch::jit::Value*>& inputs) {
-  std::map<std::string, c10::ScalarType> tensor_dtype_map;
-  for (int i = 0; i < inputs.size(); i++) {
-    auto tp = inputs[i]->type()->cast<torch::jit::TensorType>();
-    std::string name = std::to_string(i) + "_" + inputs[i]->debugName();
-    if (tp->scalarType().has_value()) {
-      tensor_dtype_map[name] = *tp->scalarType();
-    }
-  }
-  return tensor_dtype_map;
 }
 
 std::vector<at::Tensor> get_input_tensors(

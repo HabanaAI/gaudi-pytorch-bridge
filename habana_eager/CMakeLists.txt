@@ -123,7 +123,8 @@ target_link_libraries(
           torch
           absl::strings
           absl::str_format
-          npu::hllogger)
+          npu::hllogger
+  PUBLIC npu::jit_fork)
 
 # this is to make sure that run_gen_op.py is invoked before habana_pytorch2_frontend
 # Custom command is specified in CMake there, so we cannot otherwise ensure proper order

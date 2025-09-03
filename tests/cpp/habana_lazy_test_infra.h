@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -276,7 +276,7 @@ std::vector<torch::jit::IValue> CreateInputs(
     std::vector<std::vector<int64_t>> tensor_shapes,
     std::vector<float> scalars);
 
-std::shared_ptr<torch::jit::Graph> CreateJITGraph();
+std::shared_ptr<habana_torch::jit::Graph> CreateJITGraph();
 torch::jit::Stack createStack(std::vector<at::Tensor>&& list);
 
 } // namespace habana_lazy_test
@@ -288,8 +288,6 @@ at::Tensor create_empty_tensor(
     const std::vector<int64_t>& tshape,
     c10::TensorOptions& tensor_options,
     bool is_shape_tensor = false);
-std::map<std::string, c10::ScalarType> create_tensor_dtype_map(
-    const at::ArrayRef<torch::jit::Value*>& inputs);
 std::vector<at::Tensor> get_input_tensors(
     const std::map<std::string, std::string>& shapes_map,
     std::map<std::string, c10::ScalarType> tensor_dtype_map);

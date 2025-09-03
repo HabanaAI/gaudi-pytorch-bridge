@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,20 +14,19 @@
  */
 
 #include <c10/util/ArrayRef.h>
-#include <torch/csrc/jit/ir/ir.h>
 #include "habana_eager/graph_exec.h"
 #include "habana_helpers/logging_pt.h"
 
 namespace habana::graph::pass {
 
-bool RemoveDetachOp(std::shared_ptr<torch::jit::Graph> graph) {
+bool RemoveDetachOp(std::shared_ptr<habana_torch::jit::Graph> graph) {
   PT_EAGER_TRACE;
   auto nodes = graph->nodes();
 
-  std::unordered_set<torch::jit::Node*> detach_nodes;
+  std::unordered_set<habana_torch::jit::Node*> detach_nodes;
   for (auto it = nodes.begin(); it != nodes.end(); ++it) {
     auto node = *it;
-    if (node->kind() != torch::jit::aten::detach) {
+    if (node->kind() != habana_torch::jit::aten::detach) {
       continue;
     }
 

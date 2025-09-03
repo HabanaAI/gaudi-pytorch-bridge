@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,15 +15,15 @@
 
 #include <ATen/Context.h>
 #include <c10/util/ArrayRef.h>
-#include <torch/csrc/jit/ir/ir.h>
 #include "backend/habana_device/hpu_cached_devices.h"
 #include "habana_helpers/logging_pt.h"
+#include "jit_fork/ir/ir.h"
 
 namespace habana::graph::pass {
 
 struct AddDeterministicAttributePass {
   explicit AddDeterministicAttributePass(
-      std::shared_ptr<torch::jit::Graph> graph)
+      std::shared_ptr<habana_torch::jit::Graph> graph)
       : m_graph(std::move(graph)) {}
 
   bool run() {
@@ -31,7 +31,7 @@ struct AddDeterministicAttributePass {
   }
 
  private:
-  bool processBlocks(at::ArrayRef<torch::jit::Block*> blocks) {
+  bool processBlocks(at::ArrayRef<habana_torch::jit::Block*> blocks) {
     bool changed{false};
     const auto deterministic = at::globalContext().deterministicAlgorithms();
 
@@ -44,17 +44,18 @@ struct AddDeterministicAttributePass {
     return changed;
   }
 
-  bool processNode(torch::jit::Node* node, bool deterministic) {
-    constexpr auto attr = torch::jit::attr::deterministic;
+  bool processNode(habana_torch::jit::Node* node, bool deterministic) {
+    constexpr auto attr = habana_torch::jit::attr::deterministic;
     const bool maybe_already_set = node->hasAttribute(attr) and node->i(attr);
     node->i_(attr, deterministic or maybe_already_set);
     return true;
   }
 
-  std::shared_ptr<torch::jit::Graph> m_graph;
+  std::shared_ptr<habana_torch::jit::Graph> m_graph;
 };
 
-bool AddDeterministicAttribute(std::shared_ptr<torch::jit::Graph> graph) {
+bool AddDeterministicAttribute(
+    std::shared_ptr<habana_torch::jit::Graph> graph) {
   PT_EAGER_TRACE;
   AddDeterministicAttributePass pass{graph};
   bool changed{pass.run()};

@@ -57,7 +57,7 @@ std::vector<size_t> get_scales_indices(std::string_view node_name) {
  */
 struct HandleH2dScalesPass {
   explicit HandleH2dScalesPass(
-      std::shared_ptr<torch::jit::Graph> graph,
+      std::shared_ptr<habana_torch::jit::Graph> graph,
       H2dScalesIndicesNames& h2d_scales_idx_names,
       AdjacentCastFp8Indices& adjacent_cast_fp8_indices)
       : m_graph(std::move(graph)),
@@ -71,7 +71,7 @@ struct HandleH2dScalesPass {
 
  private:
   void collectScaleIndices(
-      const torch::jit::Value* input,
+      const habana_torch::jit::Value* input,
       const torch::jit::Stack& org_stack,
       const GraphInputIndexMap& org_stack_index_map,
       const std::string& node_name,
@@ -97,7 +97,7 @@ struct HandleH2dScalesPass {
   }
 
   void collectIndicesOfAdjacentScales(
-      const torch::jit::Node* node,
+      const habana_torch::jit::Node* node,
       const GraphInputIndexMap& org_stack_index_map) {
     static const std::unordered_set<c10::Symbol> m_logical_ops{
         c10::Symbol::fromQualString("aten::reshape"),
@@ -150,7 +150,7 @@ struct HandleH2dScalesPass {
   }
 
   void processBlock(
-      const torch::jit::Block* block,
+      const habana_torch::jit::Block* block,
       const torch::jit::Stack& org_stack) {
     PT_EAGER_TRACE;
     HABANA_ASSERT(m_graph->inputs().size() == org_stack.size());
@@ -182,7 +182,7 @@ struct HandleH2dScalesPass {
 
       for (const size_t idx : scale_indices) {
         const auto scale = node->inputs().at(idx);
-        if (scale->node()->kind() == torch::jit::prim::ListConstruct) {
+        if (scale->node()->kind() == habana_torch::jit::prim::ListConstruct) {
           for (const auto& input : scale->node()->inputs()) {
             collectScaleIndices(
                 input,
@@ -215,7 +215,7 @@ struct HandleH2dScalesPass {
   }
 
   void processBlocks(
-      const at::ArrayRef<torch::jit::Block*> blocks,
+      const at::ArrayRef<habana_torch::jit::Block*> blocks,
       const torch::jit::Stack& org_stack) {
     PT_EAGER_TRACE;
     for (auto block : blocks) {
@@ -223,13 +223,13 @@ struct HandleH2dScalesPass {
     }
   }
 
-  std::shared_ptr<torch::jit::Graph> m_graph;
+  std::shared_ptr<habana_torch::jit::Graph> m_graph;
   H2dScalesIndicesNames& m_h2d_scales_idx_names;
   AdjacentCastFp8Indices& m_adjacent_cast_fp8_indices;
 };
 
 void HandleH2dScales(
-    std::shared_ptr<torch::jit::Graph> graph,
+    std::shared_ptr<habana_torch::jit::Graph> graph,
     torch::jit::Stack& stack,
     H2dScalesIndicesNames& h2d_scales_idx_names,
     AdjacentCastFp8Indices& adjacent_cast_fp8_indices) {

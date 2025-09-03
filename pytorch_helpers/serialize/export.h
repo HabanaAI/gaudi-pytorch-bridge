@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,13 +16,19 @@
 #pragma once
 #include <torch/csrc/jit/ir/ir.h>
 #include <string>
+#include "jit_fork/ir/ir.h"
 
 namespace serialize {
 
-using Graph = torch::jit::Graph;
+using Graph = habana_torch::jit::Graph;
 using GraphPtr = std::shared_ptr<Graph>;
+using UpstreamGraph = ::torch::jit::Graph;
+using UpstreamGraphPtr = std::shared_ptr<UpstreamGraph>;
 
 // Converts a JIT IR to a serializable protobuf string (i.e. pbtxt).
 std::string GraphToProtoString(const GraphPtr& graph);
+
+// Converts a JIT IR to a serializable protobuf string (i.e. pbtxt).
+std::string UpstreamGraphToProtoString(const UpstreamGraphPtr& graph);
 
 } // namespace serialize

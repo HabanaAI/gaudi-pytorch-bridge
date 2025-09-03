@@ -13,18 +13,20 @@
  * limitations under the License.
  */
 #include <gtest/gtest.h>
-#include <torch/csrc/jit/frontend/source_range.h>
 #include <torch/csrc/jit/ir/ir.h>
 #include <torch/csrc/jit/ir/irparser.h>
 #include <memory>
 #include <string_view>
 #include "backend/jit_graph_cache.h"
+#include "jit_fork/frontend/source_range.h"
 
 namespace {
-std::shared_ptr<torch::jit::Graph> Parse(const std::string& code) {
-  auto graph = std::make_shared<torch::jit::Graph>();
-  torch::jit::parseIR(code, graph.get());
-  return graph;
+std::shared_ptr<habana_torch::jit::Graph> Parse(const std::string& code) {
+  auto upstream_graph = std::make_shared<torch::jit::Graph>();
+  torch::jit::parseIR(code, upstream_graph.get());
+  auto jitfork_graph = std::make_shared<habana_torch::jit::Graph>();
+  habana_torch::jit::cloneFromUpstreamGraph(upstream_graph, jitfork_graph);
+  return jitfork_graph;
 }
 
 std::string createFakeCode(std::size_t lines = 78, std::size_t cols = 9) {
@@ -65,8 +67,8 @@ TEST(JitGraphCacheTest, HashIgnoresIrComments) {
   torch::Tensor t1 = torch::empty({512, 1}, torch::dtype(torch::kBFloat16));
   torch::Tensor t2 = torch::empty({32, 1}, torch::dtype(torch::kBFloat16));
 
-  std::vector<torch::jit::IValue> inputs_vec = {t0, t1, t2};
-  at::ArrayRef<torch::jit::IValue> input_refs(inputs_vec);
+  std::vector<habana_torch::jit::IValue> inputs_vec = {t0, t1, t2};
+  at::ArrayRef<habana_torch::jit::IValue> input_refs(inputs_vec);
 
   const std::string id = "test_graph";
   uint64_t unique_graph_cntr = 1;
@@ -75,10 +77,10 @@ TEST(JitGraphCacheTest, HashIgnoresIrComments) {
   std::map<int64_t, std::vector<int64_t>> new_base_sizes;
 
   std::string fake_code = createFakeCode();
-  auto src = std::make_shared<torch::jit::Source>(
+  auto src = std::make_shared<habana_torch::jit::Source>(
       std::string_view(fake_code), std::string("<eval_with_key>"));
 
-  torch::jit::SourceRange range(src, (77 * 10) + 5, 0);
+  habana_torch::jit::SourceRange range(src, (77 * 10) + 5, 0);
 
   // set comments to each node
   for (auto node : g_with_comments->nodes()) {

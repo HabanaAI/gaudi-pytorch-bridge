@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -85,7 +85,7 @@ void GraphExecsGroup::CopyGraphAndEmplace(
 
 GraphExecsGroup::GraphExecsGroup(
     size_t recipe_id,
-    std::shared_ptr<torch::jit::Graph> graph,
+    std::shared_ptr<habana_torch::jit::Graph> graph,
     const std::string& parent_graph_name,
     torch::jit::Stack& example_inputs,
     const std::vector<bool>& is_reusable,

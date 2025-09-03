@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@ namespace habana::control_edges {
  *
  * @return Result of the check.
  */
-bool IsControlEdgeNode(const torch::jit::Node* const node);
+bool IsControlEdgeNode(const habana_torch::jit::Node* const node);
 
 /**
  * Determines whether given node is one of StridedInsert or SliceInsert.
@@ -55,12 +55,12 @@ bool IsNodeStridedInsertOrSliceInsert(const std::string_view node_qual_str);
  * representations
  */
 void ProcessStridedInsertAtOutput(
-    torch::jit::Node* node,
+    habana_torch::jit::Node* node,
     HabanaOperatorPtr habana_kernel,
     torch::jit::Stack& input_stack,
     synapse_helpers::graph& syn_graph,
     const OutputMetaDataVector& outputs_metadata,
-    std::vector<std::pair<torch::jit::Value*, torch::jit::Node*>>&
+    std::vector<std::pair<habana_torch::jit::Value*, habana_torch::jit::Node*>>&
         memory_reuse_pairs,
     const CValuePtrToIValuePtrMap& value_to_ivalue,
     const std::unordered_map<IValPtrShared, SharedSynTensorOrRefListPtr>&
@@ -90,10 +90,10 @@ void ProcessStridedInsertAtOutput(
  *
  */
 bool ProcessControlEdges(
-    torch::jit::Graph& jit_ir_graph,
-    std::unordered_map<torch::jit::Node*, std::vector<synNodeId>>&
+    habana_torch::jit::Graph& jit_ir_graph,
+    std::unordered_map<habana_torch::jit::Node*, std::vector<synNodeId>>&
         jit_to_synapse_node_idx_map,
-    std::vector<std::pair<torch::jit::Value*, torch::jit::Node*>>&
+    std::vector<std::pair<habana_torch::jit::Value*, habana_torch::jit::Node*>>&
         memory_reuse_pairs,
     synapse_helpers::graph* const syn_graph_ptr);
 

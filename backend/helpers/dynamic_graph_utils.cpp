@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,16 +35,17 @@ bool is_output_shape_empty(const std::string& expr_str) {
 }
 
 bool nodeHasScalarGraphInput(
-    torch::jit::Node* node,
+    habana_torch::jit::Node* node,
     GraphInputIndexMap& org_stack_index_map,
     CValuePtrToIValuePtrMap& value_ivalue_map) {
   for (const auto& input : node->inputs()) {
-    torch::jit::Node* producer_node = input->node();
-    if (producer_node->kind() == torch::jit::prim::ListConstruct)
+    habana_torch::jit::Node* producer_node = input->node();
+    if (producer_node->kind() == habana_torch::jit::prim::ListConstruct)
       return nodeHasScalarGraphInput(
           producer_node, org_stack_index_map, value_ivalue_map);
     else {
-      auto ivalue = value_ivalue_map[const_cast<torch::jit::Value*>(input)];
+      auto ivalue =
+          value_ivalue_map[const_cast<habana_torch::jit::Value*>(input)];
       if (!ivalue->isTensor()) {
         if (org_stack_index_map.count(input->debugName())) {
           auto node_name = node->kind().toQualString();
@@ -61,7 +62,7 @@ bool nodeHasScalarGraphInput(
 }
 
 bool isNodeDynamic(
-    torch::jit::Node* node,
+    habana_torch::jit::Node* node,
     GraphInputIndexMap& org_stack_index_map,
     CValuePtrToIValuePtrMap& value_ivalue_map) {
   // Assuming node is dynamic by default
@@ -97,7 +98,7 @@ bool isNodeDynamic(
 }
 
 void createGraphInputStackIndexMap(
-    const std::shared_ptr<torch::jit::Graph>& graph,
+    const std::shared_ptr<habana_torch::jit::Graph>& graph,
     GraphInputIndexMap& org_stack_index_map) {
   for (size_t idx = 0; idx < graph->inputs().size(); ++idx) {
     auto input = graph->inputs().at(idx);

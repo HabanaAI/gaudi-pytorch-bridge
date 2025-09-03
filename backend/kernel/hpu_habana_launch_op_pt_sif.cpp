@@ -13,7 +13,6 @@
  * limitations under the License.
  */
 
-#include <torch/csrc/jit/ir/constants.h>
 #include <unordered_map>
 #include "backend/helpers/graph.h"
 #include "backend/jit_graph_cache.h"
@@ -25,8 +24,9 @@
 #include "backend/kernel/hpu_shape_inference.h"
 #include "habana_helpers/logging.h"
 #include "hpu_ops/op_backend.h"
+#include "jit_fork/ir/constants.h"
 
-using namespace torch::jit;
+using namespace habana_torch::jit;
 
 namespace habana {
 
@@ -50,7 +50,7 @@ synapse_helpers::tensor& allocate_synapse_tensor(
 } // namespace
 
 torch::jit::Stack HabanaLaunchOpPT::create_stack_for_node(
-    const torch::jit::Node* node,
+    const habana_torch::jit::Node* node,
     bool& flag,
     CValPtrtoIValueMap& val_to_ival_map) {
   torch::jit::Stack node_stack;
@@ -102,7 +102,7 @@ void create_synapse_input(
 }
 
 void create_synapse_inputs(
-    torch::jit::Node* node,
+    habana_torch::jit::Node* node,
     const HabanaOperatorPtr& habana_op,
     synapse_helpers::graph& syn_graph,
     CValPtrtoIValueMap& val_to_ival_map) {
@@ -114,7 +114,7 @@ void create_synapse_inputs(
       PT_DYNAMIC_SHAPE_DEBUG("Input coming from %", value_in->debugName());
       create_synapse_input(value_in, habana_op, syn_graph, val_to_ival_map);
     } else if (
-        (value_in->node()->kind() == torch::jit::prim::ListConstruct) &&
+        (value_in->node()->kind() == habana_torch::jit::prim::ListConstruct) &&
         (ivalue.isTensorList())) {
       PT_DYNAMIC_SHAPE_DEBUG(
           "Input coming from ListConstruct output %", value_in->debugName());
@@ -177,7 +177,7 @@ int64_t HabanaLaunchOpPT::get_output_tensors_count(
 
 namespace {
 OutputMetaDataVector populate_node_output_metadata(
-    const torch::jit::Node* node) {
+    const habana_torch::jit::Node* node) {
   OutputMetaDataVector output_metadata{};
   // If node output is tensor list
   // tensorList and Unpack pair is supported
@@ -247,7 +247,7 @@ void process_shape_tensors(
 
 void HabanaLaunchOpPT::process_outputs(
     const HabanaOperatorPtr& habana_op,
-    torch::jit::Node* node,
+    habana_torch::jit::Node* node,
     CValPtrtoIValueMap& val_to_ival_map,
     std::unordered_map<int64_t, at::Tensor>& tidx_to_tensor_map) {
   auto output_nodes = node->outputs();
@@ -267,7 +267,7 @@ void HabanaLaunchOpPT::process_outputs(
   auto currentSifTensorIdx = habana::ShapeInference::GetSifTensorId();
   for (auto& out_tensor_pt : habana_op->GetOutputs()) {
     val_to_ival_map.emplace(
-        output_nodes[output_idx], torch::jit::IValue(out_tensor_pt));
+        output_nodes[output_idx], habana_torch::jit::IValue(out_tensor_pt));
     tidx_to_tensor_map.insert({currentSifTensorIdx, out_tensor_pt});
     PT_DYNAMIC_SHAPE_DEBUG(
         "For node output, adding to tidx_to_tensor_map: ",
@@ -282,7 +282,7 @@ void HabanaLaunchOpPT::process_outputs(
        habana_op->GetSynImplicitOutputs()) {
     val_to_ival_map.emplace(
         node->inputs()[pt_input_idx_and_sh_tensor.pt_input_idx],
-        torch::jit::IValue(
+        habana_torch::jit::IValue(
             habana_op->GetInputs()[pt_input_idx_and_sh_tensor.syn_input_idx]));
     tidx_to_tensor_map.insert(
         {currentSifTensorIdx,
@@ -299,12 +299,12 @@ void HabanaLaunchOpPT::process_outputs(
 }
 
 void HabanaLaunchOpPT::visit_prim_node(
-    const torch::jit::Node* node,
+    const habana_torch::jit::Node* node,
     CValPtrtoIValueMap& val_to_ival_map) {
-  if (torch::jit::prim::Constant == node->kind()) {
+  if (habana_torch::jit::prim::Constant == node->kind()) {
     for (const auto value : node->outputs()) {
       HABANA_ASSERT(val_to_ival_map.count(value) == 0);
-      auto opt_val = torch::jit::toIValue(value);
+      auto opt_val = habana_torch::jit::toIValue(value);
       HABANA_ASSERT(
           opt_val.has_value(), "Optional variable opt_val has no value");
       val_to_ival_map[value] = opt_val.value();
@@ -325,7 +325,7 @@ void HabanaLaunchOpPT::visit_prim_node(
             " w.r.t. node params");
       }
     }
-  } else if (torch::jit::prim::ListConstruct == node->kind()) {
+  } else if (habana_torch::jit::prim::ListConstruct == node->kind()) {
     std::vector<at::Tensor> tensorList;
     for (const auto input : node->inputs()) {
       HABANA_ASSERT(val_to_ival_map.count(input));
@@ -347,10 +347,10 @@ void HabanaLaunchOpPT::visit_prim_node(
 
 namespace {
 void mapOutputTensors(
-    const torch::jit::Node* node,
+    const habana_torch::jit::Node* node,
     const HabanaOperatorPtr& habana_op,
     const InferOutputMetaRetType& output_shape_info,
-    std::unordered_map<CValPtr, torch::jit::IValue>& val_to_ival_map) {
+    std::unordered_map<CValPtr, habana_torch::jit::IValue>& val_to_ival_map) {
   auto op_backend = std::dynamic_pointer_cast<OpBackend>(habana_op);
   size_t nr_of_excluded_outputs = 0;
   if (op_backend) {
@@ -392,12 +392,12 @@ void mapOutputTensors(
 }
 
 auto propagateShape(
-    torch::jit::Node* node,
+    habana_torch::jit::Node* node,
     torch::jit::Stack& op_input_stack,
     const HabanaOperatorPtr& habana_op,
     synapse_helpers::graph& syn_graph,
     OutputMetaDataVector& outputs_metadata,
-    std::unordered_map<CValPtr, torch::jit::IValue>& val_to_ival_map) {
+    std::unordered_map<CValPtr, habana_torch::jit::IValue>& val_to_ival_map) {
   PT_BRIDGE_BEGIN;
 
   // Create the synapse inputs from aten tensors
@@ -423,7 +423,7 @@ auto propagateShape(
   size_t output_idx = 0;
   for (auto& out_tensor_pt : habana_op->GetOutputs()) {
     val_to_ival_map.emplace(
-        output_nodes[output_idx], torch::jit::IValue(out_tensor_pt));
+        output_nodes[output_idx], habana_torch::jit::IValue(out_tensor_pt));
     output_idx++;
   }
 
@@ -431,7 +431,7 @@ auto propagateShape(
        habana_op->GetSynImplicitOutputs()) {
     val_to_ival_map.emplace(
         node->inputs()[pt_input_idx_and_sh_tensor.pt_input_idx],
-        torch::jit::IValue(
+        habana_torch::jit::IValue(
             habana_op->GetInputs()[pt_input_idx_and_sh_tensor.syn_input_idx]));
   }
 
@@ -440,7 +440,7 @@ auto propagateShape(
 } // namespace
 
 void HabanaLaunchOpPT::RunHybridSif(
-    std::shared_ptr<torch::jit::Graph> graph,
+    std::shared_ptr<habana_torch::jit::Graph> graph,
     torch::jit::Stack& inputs,
     CValPtrtoIValueMap& val_to_ival_map) {
   using namespace sif_utils;
@@ -488,7 +488,8 @@ void HabanaLaunchOpPT::RunHybridSif(
     HABANA_ASSERT(habana_op, op, " isn't registered in KernelRegistry!");
 
     // Set the deterministic val
-    habana_op->setDeterministic(node->i(torch::jit::attr::deterministic));
+    habana_op->setDeterministic(
+        node->i(habana_torch::jit::attr::deterministic));
 
     auto op_input_stack = createInputStackForNode(node, val_to_ival_map);
 
@@ -631,7 +632,8 @@ bool HabanaLaunchOpPT::RunHybridSif(
     HABANA_ASSERT(habana_op, op, " isn't registered in KernelRegistry!");
 
     // Set the deterministic val
-    habana_op->setDeterministic(node->i(torch::jit::attr::deterministic));
+    habana_op->setDeterministic(
+        node->i(habana_torch::jit::attr::deterministic));
 
     // Set kernel execution mode
     habana_op->SetExecutionMode(execution_mode_);
@@ -648,7 +650,7 @@ bool HabanaLaunchOpPT::RunHybridSif(
     // If there is a "meta attribute" marked with attr::arg1, add the meta attr
     // value to stack for the ops to work with. At this point, only StridedView
     // ops in eager mode uses it.
-    auto meta = torch::jit::attr::arg1;
+    auto meta = habana_torch::jit::attr::arg1;
     if (node->hasAttribute(meta)) {
       HABANA_ASSERT(
           !strcmp("aten::as_strided", node->kind().toQualString()),

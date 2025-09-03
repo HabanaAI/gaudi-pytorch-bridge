@@ -19,8 +19,6 @@
 #include <unordered_map>
 
 #include <ATen/record_function.h>
-#include <torch/csrc/jit/ir/constants.h>
-#include <torch/csrc/jit/runtime/interpreter.h>
 
 #include <torch/csrc/api/include/torch/version.h>
 
@@ -34,12 +32,14 @@
 #include "backend/jitgraph_utils.h"
 #include "habana_helpers/misc_utils.h"
 
-using namespace torch::jit;
+#include "jit_fork/ir/constants.h"
+
+using namespace habana_torch::jit;
 using namespace jitgraph_utils;
 using namespace habana;
 
 void PersistenceMarkerPass::set_persistence_input(
-    torch::jit::Node* node,
+    habana_torch::jit::Node* node,
     int inputId) {
   auto val = node->input(inputId);
 
@@ -61,7 +61,7 @@ void PersistenceMarkerPass::set_persistence_input(
 }
 
 void PersistenceMarkerPass::set_persistence_output(
-    torch::jit::Node* node,
+    habana_torch::jit::Node* node,
     int outputId) {
   auto val = node->output(outputId);
 
@@ -71,7 +71,7 @@ void PersistenceMarkerPass::set_persistence_output(
 }
 
 void PersistenceMarkerPass::HandleSpecialOps(
-    torch::jit::Node* node,
+    habana_torch::jit::Node* node,
     const std::vector<std::string>& ignoreOpsList,
     int inputId) {
   auto inp_node = node;
@@ -97,7 +97,7 @@ void PersistenceMarkerPass::HandleSpecialOps(
 }
 
 void PersistenceMarkerPass::MarkPersistenceNodes(
-    torch::jit::graph_node_list graph_nodes) {
+    habana_torch::jit::graph_node_list graph_nodes) {
   for (auto* node : graph_nodes) {
     if (node->kind().is_prim()) {
       continue;
@@ -112,7 +112,8 @@ void PersistenceMarkerPass::MarkPersistenceNodes(
       continue;
 
     // Set the deterministic val
-    HabanaKernel->setDeterministic(node->i(torch::jit::attr::deterministic));
+    HabanaKernel->setDeterministic(
+        node->i(habana_torch::jit::attr::deterministic));
 
     // override the persistence logic if any kernel sets it as persistent
     // We assume that first index for output will be the persistent.
@@ -156,7 +157,7 @@ void PersistenceMarkerPass::MarkPersistenceNodes(
   } // for (auto* node : graph_nodes)
 } // function end
 
-void PersistenceMarkerPass::set_external_input(torch::jit::Node* node) {
+void PersistenceMarkerPass::set_external_input(habana_torch::jit::Node* node) {
   for (auto& val : node->inputs()) {
     if (val->type()->kind() == c10::TypeKind::TensorType) {
       MarkProducerExternal(val);
@@ -171,7 +172,8 @@ void PersistenceMarkerPass::set_external_input(torch::jit::Node* node) {
   }
 }
 
-void PersistenceMarkerPass::MarkProducerExternal(torch::jit::Value* val) {
+void PersistenceMarkerPass::MarkProducerExternal(
+    habana_torch::jit::Value* val) {
   while (habana::control_edges::IsControlEdgeNode(val->node())) {
     val = val->node()->inputs().at(0);
   }
@@ -187,7 +189,7 @@ void PersistenceMarkerPass::MarkProducerExternal(torch::jit::Value* val) {
 }
 
 void PersistenceMarkerPass::ExternalMarkingPass(
-    torch::jit::graph_node_list graph_nodes) {
+    habana_torch::jit::graph_node_list graph_nodes) {
   for (auto* node : graph_nodes) {
     if (node->kind().is_prim()) {
       continue;
@@ -211,7 +213,7 @@ void PersistenceMarkerPass::ExternalMarkingPass(
 } // function end
 
 void PersistenceMarkerPass::RunMetaDataAdjustmentPasses(
-    torch::jit::graph_node_list graph_nodes) {
+    habana_torch::jit::graph_node_list graph_nodes) {
   // This pass marks tensors persistent if they are nt persistent from graph
   // but are made persistent due to synapse limitations
   MarkPersistenceNodes(graph_nodes);
@@ -225,7 +227,7 @@ void PersistenceMarkerPass::RunMetaDataAdjustmentPasses(
 }
 
 std::unique_ptr<PersistenceMarkerPassData> PersistenceMarkerPass::VisitGraph(
-    const std::shared_ptr<torch::jit::Graph> graph) {
+    const std::shared_ptr<habana_torch::jit::Graph> graph) {
   HABANA_ASSERT(nullptr != habana_launch_op_ptr_);
   HABANA_ASSERT(nullptr != graph.get());
   RunMetaDataAdjustmentPasses(graph->nodes());

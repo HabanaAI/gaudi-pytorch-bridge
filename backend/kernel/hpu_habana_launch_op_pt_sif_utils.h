@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,21 +15,21 @@
 #pragma once
 
 #include <backend/helpers/tensor_utils.h>
-#include <torch/csrc/jit/ir/ir.h>
 #include <memory>
 #include <unordered_map>
+#include "jit_fork/ir/ir.h"
 
 namespace habana::sif_utils {
 void mapGraphInputsToInputsOnStack(
-    const std::shared_ptr<torch::jit::Graph>& graph,
+    const std::shared_ptr<habana_torch::jit::Graph>& graph,
     const torch::jit::Stack&,
-    std::unordered_map<CValPtr, torch::jit::IValue>&);
+    std::unordered_map<CValPtr, habana_torch::jit::IValue>&);
 
 c10::ScalarType getNodeScalarTypeFromInputs(
-    const torch::jit::Node*,
-    const std::unordered_map<CValPtr, torch::jit::IValue>&);
+    const habana_torch::jit::Node*,
+    const std::unordered_map<CValPtr, habana_torch::jit::IValue>&);
 
 torch::jit::Stack createInputStackForNode(
-    const torch::jit::Node*,
-    const std::unordered_map<CValPtr, torch::jit::IValue>&);
+    const habana_torch::jit::Node*,
+    const std::unordered_map<CValPtr, habana_torch::jit::IValue>&);
 } // namespace habana::sif_utils

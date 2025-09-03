@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -88,7 +88,7 @@ TEST_F(LazyMiscTest, CloneIRTest) {
 
   torch::jit::testing::FileCheck()
       .check_count("habana_d2d_memcpy", 0, true)
-      ->run(*hlexec->get_graph());
+      ->run(*hlexec->get_upstream_graph());
 }
 
 TEST_F(LazyMiscTest, SliceInsertTest) {
@@ -134,7 +134,7 @@ TEST_F(LazyMiscTest, SliceInsertIRTest) {
 
     torch::jit::testing::FileCheck()
         .check_count("hpu::slice_insert", 1)
-        ->run(*hlexec->get_graph());
+        ->run(*hlexec->get_upstream_graph());
   }
 
   if (org_state) {

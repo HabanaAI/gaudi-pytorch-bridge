@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,11 +21,11 @@
 #include <unordered_map>
 #include <vector>
 
-#include <torch/csrc/jit/ir/ir.h>
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
 #include "backend/synapse_helpers/layout_utils.h"
 #include "habana_eager/graph_dynamic.h"
 #include "habana_eager/graph_exec.h"
+#include "jit_fork/ir/ir.h"
 
 namespace habana::graph {
 
@@ -34,7 +34,7 @@ using InputSymbolIndexMap = std::unordered_map<std::string, int64_t>;
 struct GraphExecsGroup {
   GraphExecsGroup(
       size_t recipe_id,
-      std::shared_ptr<torch::jit::Graph> graph,
+      std::shared_ptr<habana_torch::jit::Graph> graph,
       const std::string& parent_graph_name,
       torch::jit::Stack& example_inputs,
       const std::vector<bool>& is_reusable,
@@ -60,7 +60,7 @@ struct GraphExecsGroup {
 
  private:
   size_t m_graph_group_index;
-  std::shared_ptr<torch::jit::Graph> m_original_graph;
+  std::shared_ptr<habana_torch::jit::Graph> m_original_graph;
   std::string m_parent_graph_name;
   std::string m_graphs_group_name;
   bool m_dynamic;

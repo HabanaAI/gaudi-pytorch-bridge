@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,19 +15,19 @@
 
 #include <c10/util/ArrayRef.h>
 
-#include <torch/csrc/jit/passes/dead_code_elimination.h>
 #include "backend/helpers/dynamic_graph_utils.h"
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
 #include "backend/passes/replace_inplace_ops_ds.h"
 #include "habana_eager/graph_dynamic.h"
 #include "habana_eager/graph_dynamic_ops.h"
+#include "jit_fork/passes/dead_code_elimination.h"
 
 namespace habana::graph::pass {
 #define PT_MAX_SHAPETENSOR_INPUT 10
 
 struct HandleDynamicOpsPass {
   explicit HandleDynamicOpsPass(
-      std::shared_ptr<torch::jit::Graph> graph,
+      std::shared_ptr<habana_torch::jit::Graph> graph,
       std::shared_ptr<DynamicGraphMetaData> dmeta,
       std::map<int64_t, std::vector<int64_t>>* input_new_base_sizes,
       std::vector<habana_helpers::RangeInfo>* range_infos)
@@ -43,11 +43,11 @@ struct HandleDynamicOpsPass {
   }
 
  private:
-  void eliminateUnusedInputs(torch::jit::Block* block) {
-    c10::ArrayRef<torch::jit::Value*> inputs = block->inputs();
+  void eliminateUnusedInputs(habana_torch::jit::Block* block) {
+    c10::ArrayRef<habana_torch::jit::Value*> inputs = block->inputs();
     size_t i = inputs.size() - 1;
     for (auto it = inputs.rbegin(); it != inputs.rend(); ++it) {
-      torch::jit::Value* input = *it;
+      habana_torch::jit::Value* input = *it;
       if (!input->hasUses()) {
         std::string inputName = input->debugName();
         PT_EAGER_DEBUG("Removing unused Input = ", inputName);
@@ -74,7 +74,7 @@ struct HandleDynamicOpsPass {
   }
 
   void propagateShape(torch::jit::Stack& org_stack) {
-    std::unordered_map<CValPtr, torch::jit::IValue> value_ivalue_map;
+    std::unordered_map<CValPtr, habana_torch::jit::IValue> value_ivalue_map;
     // Before running SIF, keeping track of all tensors that were
     // zero-dimensional since during HybridSIF run for some ops,
     // InferOutputMeta is invoked, where all
@@ -108,7 +108,7 @@ struct HandleDynamicOpsPass {
   }
 
   bool maxTensorDimsCheck(
-      torch::jit::Node* node,
+      habana_torch::jit::Node* node,
       const std::string& node_name) {
     // Checks that all input tensor sizes in the node
     // do not exceed "SYN_MAX_TENSOR_DIM" dimensions.
@@ -123,8 +123,8 @@ struct HandleDynamicOpsPass {
 
     if (strided_view_ops.find(node_name) != strided_view_ops.end()) {
       if (node_name == "aten::as_strided") {
-        auto ivalue =
-            m_value_ivalue_map[const_cast<torch::jit::Value*>(node->input(2))];
+        auto ivalue = m_value_ivalue_map[const_cast<habana_torch::jit::Value*>(
+            node->input(2))];
         if (ivalue->isIntList()) {
           const auto strides = ivalue->toIntList();
           if (!strides.empty()) {
@@ -136,8 +136,8 @@ struct HandleDynamicOpsPass {
           }
         }
       } else if (node_name == "aten::slice_scatter") {
-        auto ivalue =
-            m_value_ivalue_map[const_cast<torch::jit::Value*>(node->input(1))];
+        auto ivalue = m_value_ivalue_map[const_cast<habana_torch::jit::Value*>(
+            node->input(1))];
         if (ivalue->isTensor()) {
           auto sizes = ivalue->toTensor().sizes();
           // Dim expansion does not happen
@@ -150,7 +150,8 @@ struct HandleDynamicOpsPass {
     }
 
     for (const auto& input : node->inputs()) {
-      auto ivalue = m_value_ivalue_map[const_cast<torch::jit::Value*>(input)];
+      auto ivalue =
+          m_value_ivalue_map[const_cast<habana_torch::jit::Value*>(input)];
       if (ivalue->isTensor()) {
         auto size = ivalue->toTensor().dim();
         if (size > max_dim) {
@@ -167,7 +168,9 @@ struct HandleDynamicOpsPass {
     return true;
   }
 
-  bool processBlock(torch::jit::Block* block, torch::jit::Stack& org_stack) {
+  bool processBlock(
+      habana_torch::jit::Block* block,
+      torch::jit::Stack& org_stack) {
     GraphInputIndexMap org_stack_index_map;
     habana_helpers::createGraphInputStackIndexMap(m_graph, org_stack_index_map);
     HABANA_ASSERT(m_graph->inputs().size() == org_stack.size());
@@ -175,7 +178,7 @@ struct HandleDynamicOpsPass {
     // First Pass: Repace all dynamic shape ops with hpu implementation.
     for (auto it = block->nodes().begin(); it != block->nodes().end(); ++it) {
       std::string node_name = it->kind().toQualString();
-      torch::jit::Node* node{*it};
+      habana_torch::jit::Node* node{*it};
 
       if (!maxTensorDimsCheck(node, node_name))
         m_dmeta->static_fallback = true;
@@ -202,7 +205,7 @@ struct HandleDynamicOpsPass {
     }
 
     // Second pass: remove all nodes that are no longer necessary.
-    torch::jit::EliminateDeadCode(m_graph);
+    habana_torch::jit::EliminateDeadCode(m_graph);
 
     //  Last pass: Remove all the unused graph inputs as well.
     eliminateUnusedInputs(block);
@@ -210,7 +213,7 @@ struct HandleDynamicOpsPass {
   }
 
   bool processBlocks(
-      at::ArrayRef<torch::jit::Block*> blocks,
+      at::ArrayRef<habana_torch::jit::Block*> blocks,
       torch::jit::Stack& org_stack) {
     bool changed{true};
     m_dmeta->static_fallback = false;
@@ -219,7 +222,7 @@ struct HandleDynamicOpsPass {
     return changed;
   }
 
-  std::shared_ptr<torch::jit::Graph> m_graph;
+  std::shared_ptr<habana_torch::jit::Graph> m_graph;
   std::shared_ptr<DynamicGraphMetaData> m_dmeta;
   CValuePtrToIValuePtrMap m_value_ivalue_map;
   std::map<int64_t, std::vector<int64_t>>* m_input_new_base_sizes;
@@ -227,7 +230,7 @@ struct HandleDynamicOpsPass {
 };
 
 void HandleDynamicOps(
-    std::shared_ptr<torch::jit::Graph> graph,
+    std::shared_ptr<habana_torch::jit::Graph> graph,
     torch::jit::Stack& stack,
     std::shared_ptr<DynamicGraphMetaData> dmeta,
     std::map<int64_t, std::vector<int64_t>>* input_new_base_sizes,
@@ -272,18 +275,18 @@ void HandlePostDynamic(
 }
 
 void ResolveNegativeSTSizes(
-    std::shared_ptr<torch::jit::Graph> graph,
+    std::shared_ptr<habana_torch::jit::Graph> graph,
     torch::jit::Stack& stack,
     std::shared_ptr<DynamicGraphMetaData> dmeta,
     LaunchDynamicShapes& launch_shapes) {
   PT_EAGER_TRACE;
-  std::unordered_map<CValPtr, torch::jit::IValue> m_value_ivalue_map;
+  std::unordered_map<CValPtr, habana_torch::jit::IValue> m_value_ivalue_map;
   HabanaLaunchOpPT::RunHybridSif(graph, stack, m_value_ivalue_map);
 
   for (auto it = dmeta->negative_size_nodes.begin();
        it != dmeta->negative_size_nodes.end();
        it++) {
-    torch::jit::Node* node{*it};
+    habana_torch::jit::Node* node{*it};
     std::string node_name = node->kind().toQualString();
     DynamicOpPtr dsOp = DSOpsRegistry().get(node_name);
     if (!dsOp)
@@ -307,7 +310,7 @@ void ReplaceInUseH2D(torch::jit::Stack& ds_stack, int index) {
     new_tmeta->set_host_total_elem(old_tmeta->get_host_total_elem());
     if (old_tmeta->peek_H2D_data_for_bucketing())
       new_tmeta->set_H2D_data_for_bucketing();
-    ds_stack[index] = torch::jit::IValue(new_h2d_tensor);
+    ds_stack[index] = habana_torch::jit::IValue(new_h2d_tensor);
   }
 }
 
@@ -323,7 +326,8 @@ void HandleDynamicInputPatching(
       dmeta->ds_input_patching_list.size());
   // Combine the original input stack and dynamic stack created at the runtime
   // into a single stack.
-  c10::SmallVector<torch::jit::IValue*, PT_MAX_SHAPETENSOR_INPUT> dtensor_list;
+  c10::SmallVector<habana_torch::jit::IValue*, PT_MAX_SHAPETENSOR_INPUT>
+      dtensor_list;
   c10::SmallVector<habana::graph::SymIntData, PT_MAX_SHAPETENSOR_INPUT>
       scalar_list;
   c10::SmallVector<std::vector<int64_t>, PT_MAX_SHAPETENSOR_INPUT> tensor_list;

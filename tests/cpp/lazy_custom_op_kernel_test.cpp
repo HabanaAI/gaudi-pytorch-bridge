@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -206,7 +206,7 @@ TEST_F(LazyCustomKernelKernelTest, BinaryOp) {
 
   torch::jit::testing::FileCheck()
       .check("custom_op::custom_add")
-      ->run(*hlexec->get_graph());
+      ->run(*hlexec->get_upstream_graph());
 
   bool equal = results_cpu.allclose(result.to(torch::kCPU), 0, 0);
   EXPECT_TRUE(equal);
@@ -241,7 +241,7 @@ TEST_F(LazyCustomKernelKernelTest, MultipleOutputs) {
 
   torch::jit::testing::FileCheck()
       .check("custom_op::custom_gelu")
-      ->run(*hlexec->get_graph());
+      ->run(*hlexec->get_upstream_graph());
 
   bool equal = results_cpu.allclose(result.to(torch::kCPU), 0.5, 0.5);
   EXPECT_TRUE(equal);

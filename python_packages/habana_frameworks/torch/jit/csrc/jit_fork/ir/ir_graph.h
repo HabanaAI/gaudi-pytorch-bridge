@@ -353,10 +353,6 @@ struct Graph : std::enable_shared_from_this<Graph> {
   void cloneToUpstreamGraph(
       std::shared_ptr<::torch::jit::Graph>& destination_graph);
 
-  ::torch::jit::Node* createUpstreamClone(
-      Node* src_node,
-      std::function<::torch::jit::Value*(Value*)>);
-
  public:
   std::shared_ptr<::torch::jit::Graph> copyToUpstreamGraph();
 };

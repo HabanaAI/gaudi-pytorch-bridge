@@ -17,7 +17,6 @@
 #include <absl/strings/str_cat.h>
 #include <absl/strings/str_join.h>
 #include <c10/util/hash.h>
-#include <torch/csrc/jit/ir/ir.h>
 #include <memory>
 #include "backend/habana_device/HPUStream.h"
 #include "backend/habana_device/hpu_cached_devices.h"
@@ -26,6 +25,7 @@
 #include "backend/scalar_cache.h"
 #include "habana_eager/eager_tensor.h"
 #include "habana_eager/eager_view.h"
+#include "jit_fork/ir/ir.h"
 #include "pytorch_helpers/habana_helpers/logging.h"
 #include "pytorch_helpers/visualize/visualize.h"
 
@@ -63,7 +63,7 @@ void traversing_ivalues(const std::vector<at::IValue>& ivalues, T&& visitor) {
       if (t.defined()) {
         std::forward<T>(visitor)(t);
       } else {
-        std::forward<T>(visitor)(torch::jit::IValue());
+        std::forward<T>(visitor)(habana_torch::jit::IValue());
       }
     } else if (ivalue.isList()) {
       const auto& list = ivalue.toListRef();
@@ -167,7 +167,7 @@ std::vector<at::IValue> convert_ivalues_to_backend_tensors(
       ivalues,
       overloaded{
           // metadata
-          [&stack](const torch::jit::IValue& v) { stack.push_back(v); },
+          [&stack](const habana_torch::jit::IValue& v) { stack.push_back(v); },
           // scalars
           [&stack](const at::Scalar& s) { stack.emplace_back(s); },
           // tensors
@@ -205,7 +205,7 @@ std::vector<at::IValue> convert_ivalues_to_backend_tensors(
             }
             HABANA_ASSERT(t.device().type() == c10::DeviceType::HPU)
           },
-          [&stack](const c10::ArrayRef<torch::jit::IValue>& list) {
+          [&stack](const c10::ArrayRef<habana_torch::jit::IValue>& list) {
             c10::List<at::Tensor> backend_tensor_list;
             backend_tensor_list.reserve(list.size());
             for (auto& v : list) {
@@ -278,18 +278,18 @@ void process_node_params(
         impl = input.toTensor().unsafeGetTensorImpl();
       }
 
-      torch::jit::IValue iVal;
+      habana_torch::jit::IValue iVal;
       switch (param_type) {
         case NodeParamType::VIEW_SIZES:
-          iVal = torch::jit::IValue(impl->sizes());
+          iVal = habana_torch::jit::IValue(impl->sizes());
           break;
 
         case NodeParamType::VIEW_STRIDES:
-          iVal = torch::jit::IValue(impl->strides());
+          iVal = habana_torch::jit::IValue(impl->strides());
           break;
 
         case NodeParamType::VIEW_OFFSET:
-          iVal = torch::jit::IValue(impl->storage_offset());
+          iVal = habana_torch::jit::IValue(impl->storage_offset());
           break;
 
         default:
@@ -404,7 +404,7 @@ void EagerExec::launch() {
           graph,
           m_graph_name + "_" + std::to_string(key) + "_eager_postprocess");
 
-    at::ArrayRef<torch::jit::IValue> input_refs =
+    at::ArrayRef<habana_torch::jit::IValue> input_refs =
         torch::jit::last(stack, graph->inputs().size());
     graph_and_meta = std::make_shared<habana::OptimizedJITGraphAndMetaData>(
         graph,
@@ -513,12 +513,12 @@ void EagerExec::launch() {
       jit_cache_hit_count_for_event);
 }
 
-std::shared_ptr<torch::jit::Graph> EagerExec::create_eager_graph(
+std::shared_ptr<habana_torch::jit::Graph> EagerExec::create_eager_graph(
     torch::jit::Stack& stack,
     CValPtrMap& jit_val_map) {
   PT_EAGER_TRACE;
-  using JitValue = torch::jit::Value;
-  auto graph = std::make_shared<torch::jit::Graph>();
+  using JitValue = habana_torch::jit::Value;
+  auto graph = std::make_shared<habana_torch::jit::Graph>();
   std::vector<JitValue*> node_inputs;
   node_inputs.reserve(stack.size());
   size_t idx = 0;
@@ -529,7 +529,7 @@ std::shared_ptr<torch::jit::Graph> EagerExec::create_eager_graph(
       overloaded{
           // metadata
           [&node_inputs, &graph, &add_val_flag, &jit_val_map](
-              const torch::jit::IValue& c) {
+              const habana_torch::jit::IValue& c) {
             node_inputs.push_back(graph->insertConstant(c));
             if (add_val_flag) {
               int idx = node_inputs.size() - 1;
@@ -562,7 +562,7 @@ std::shared_ptr<torch::jit::Graph> EagerExec::create_eager_graph(
           },
           // list tensors input
           [&node_inputs,
-           &graph](const c10::ArrayRef<torch::jit::IValue>& list) {
+           &graph](const c10::ArrayRef<habana_torch::jit::IValue>& list) {
             std::vector<JitValue*> list_inp_args;
             for (const auto& item : list) {
               auto& tensor = item.toTensor();
@@ -577,7 +577,8 @@ std::shared_ptr<torch::jit::Graph> EagerExec::create_eager_graph(
                 list_inp_args,
                 1);
             // Do we need to handle Optional ?
-            jit_node->output()->setType(torch::jit::ListType::ofTensors());
+            jit_node->output()->setType(
+                habana_torch::jit::ListType::ofTensors());
             graph->insertNode(jit_node);
             node_inputs.push_back(jit_node->output(0));
           }});
@@ -586,11 +587,11 @@ std::shared_ptr<torch::jit::Graph> EagerExec::create_eager_graph(
 
   /*Need to set this node if the deterministic mode is ON*/
   jit_node->i_(
-      torch::jit::attr::deterministic,
+      habana_torch::jit::attr::deterministic,
       at::globalContext().deterministicAlgorithms());
   PT_BRIDGE_DEBUG(
       "Deterministic val during Jit Node creation: ",
-      jit_node->i(torch::jit::attr::deterministic));
+      jit_node->i(habana_torch::jit::attr::deterministic));
 
   graph->insertNode(jit_node);
 
@@ -631,7 +632,7 @@ size_t EagerExec::calculate_operator_key(
       stack,
       overloaded{
           [&optimized_key, &inp_index, &skip_ivalue_hash_flag](
-              const torch::jit::IValue& input) {
+              const habana_torch::jit::IValue& input) {
             optimized_key = at::hash_combine(optimized_key, inp_index++);
             if (!skip_ivalue_hash_flag) {
               if (input.isList()) {
@@ -869,7 +870,7 @@ void EagerExec::prune_duplicate_stack_inputs(
 
 void EagerExec::prune_duplicate_graph_inputs(
     const UniqueIdxVec& parent_vec,
-    std::shared_ptr<torch::jit::Graph>& graph) {
+    std::shared_ptr<habana_torch::jit::Graph>& graph) {
   PT_EAGER_TRACE;
 
   auto jit_ir_graph_inputs = graph->inputs();
@@ -922,7 +923,7 @@ torch::jit::Stack EagerExec::prepare_input_stack(
       inputs,
       overloaded{
           // metadata
-          [](const torch::jit::IValue&) {},
+          [](const habana_torch::jit::IValue&) {},
           // scalars
           [&stack](const at::Scalar& s) { stack.emplace_back(s); },
           // tensors

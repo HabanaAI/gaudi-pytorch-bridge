@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,14 +20,14 @@
 #include <string>
 #include <vector>
 
-#include <torch/csrc/jit/ir/ir.h>
 #include "backend/synapse_helpers/layout_utils.h"
+#include "jit_fork/ir/ir.h"
 
 namespace habana::graph {
 
-using IVal = torch::jit::IValue;
+using IVal = habana_torch::jit::IValue;
 using IValPtrShared = std::shared_ptr<IVal>;
-using CValPtr = const torch::jit::Value*;
+using CValPtr = const habana_torch::jit::Value*;
 using ValueIvalueMap = std::unordered_map<CValPtr, IValPtrShared>;
 
 struct SymIntData {
@@ -44,7 +44,7 @@ struct DynamicPatchingData {
   std::queue<LaunchDynamicShapes> launch_shapes;
 };
 using InputPatchFnPtr = std::function<void(
-    c10::SmallVectorImpl<torch::jit::IValue*>&,
+    c10::SmallVectorImpl<habana_torch::jit::IValue*>&,
     c10::SmallVectorImpl<habana::graph::SymIntData>&,
     c10::SmallVectorImpl<std::vector<int64_t>>&,
     c10::SmallVectorImpl<std::vector<std::pair<int64_t, int64_t>>>&,
@@ -60,7 +60,7 @@ struct DynamicGraphMetaData {
   std::map<int64_t, std::vector<std::pair<int64_t, int64_t>>> ds_mixed_map;
   std::vector<InputPatchPair> ds_input_patching_list;
   std::vector<size_t> remove_input_indexes;
-  std::vector<torch::jit::Node*> negative_size_nodes;
+  std::vector<habana_torch::jit::Node*> negative_size_nodes;
   bool static_fallback;
   size_t h2d_data_size;
 };

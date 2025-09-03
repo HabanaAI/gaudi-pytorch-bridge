@@ -16,7 +16,6 @@
 #include <ATen/Tensor.h>
 #include <c10/util/ArrayRef.h>
 #include <synapse_api_types.h>
-#include <torch/csrc/jit/ir/ir.h>
 #include <functional>
 #include <memory>
 #include <string_view>
@@ -35,6 +34,7 @@
 #include "habana_helpers/logging.h"
 #include "include/habanalabs/hpu_custom_op.h"
 #include "include/habanalabs/hpu_custom_op_pt2.h"
+#include "jit_fork/ir/ir.h"
 
 using OptionalIntArrayRef = at::OptionalIntArrayRef;
 
@@ -285,7 +285,8 @@ class OutputMetaData {
   std::optional<at::Tensor> allocated_tensor{};
   bool undefined{false};
 
-  OutputMetaData(const torch::jit::Value& value) : name(value.debugName()) {};
+  OutputMetaData(const habana_torch::jit::Value& value)
+      : name(value.debugName()) {};
   OutputMetaData(
       at::ScalarType dtype,
       std::vector<int64_t> shape,
@@ -407,7 +408,7 @@ class HabanaOperator {
     return guid_;
   }
 
-  void dump(torch::jit::Node* node, const at::Stack& stack);
+  void dump(habana_torch::jit::Node* node, const at::Stack& stack);
 
   // Executes the synapse graph
   virtual void Compile(synapse_helpers::graph& graph);

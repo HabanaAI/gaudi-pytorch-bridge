@@ -119,6 +119,18 @@ std::string Scope::namesFromRoot(const std::string& separator) const {
   return out;
 }
 
+// Conversion function from torch::jit::ScopePtr to habana_torch::jit::ScopePtr
+ScopePtr ConvertUpstreamScopeToJITForkScope(
+    ::torch::jit::ScopePtr torch_scope) {
+  Symbol name = torch_scope->name();
+  ScopePtr parent;
+  if (!torch_scope->isRoot()) {
+    // Recursively convert parent
+    parent = ConvertUpstreamScopeToJITForkScope(torch_scope->parent());
+  }
+  return c10::make_intrusive<Scope>(parent, name);
+}
+
 InlinedCallStackPtr InlinedCallStack::intrusive_from_this() {
   c10::raw::intrusive_ptr::incref(this); // we are creating a new pointer
                                          // from a raw `this` pointer

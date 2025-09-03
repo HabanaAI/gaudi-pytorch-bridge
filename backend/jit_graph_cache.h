@@ -14,7 +14,6 @@
  */
 #pragma once
 #include <synapse_api.h>
-#include <torch/csrc/jit/ir/ir.h>
 #include <torch/csrc/jit/runtime/argument_spec.h>
 #include <mutex>
 #include <string_view>
@@ -23,20 +22,23 @@
 #include "backend/helpers/habana_types.h"
 #include "backend/kernel/hpu_habana_cache.h"
 #include "backend/synapse_helpers/device.h"
+#include "jit_fork/ir/ir.h"
 
 namespace habana {
 using namespace std::literals;
 
-size_t ComputePermutationHashCode(at::ArrayRef<torch::jit::IValue> input_refs);
-size_t ComputeSymSizeHashCode(at::ArrayRef<torch::jit::IValue> input_refs);
+size_t ComputePermutationHashCode(
+    at::ArrayRef<habana_torch::jit::IValue> input_refs);
+size_t ComputeSymSizeHashCode(
+    at::ArrayRef<habana_torch::jit::IValue> input_refs);
 size_t ComputeNodeSymOutputHashCode(
-    const std::shared_ptr<torch::jit::Graph>& jit_graph);
+    const std::shared_ptr<habana_torch::jit::Graph>& jit_graph);
 
 // Functionality to calculate the graph hash on the JIT graph
 void ComputeGraphHashCode(
-    const std::shared_ptr<torch::jit::Graph>& irgraph,
+    const std::shared_ptr<habana_torch::jit::Graph>& irgraph,
     const std::string& id,
-    at::ArrayRef<torch::jit::IValue> input_refs,
+    at::ArrayRef<habana_torch::jit::IValue> input_refs,
     std::string& op_strs,
     size_t& graphHashCode, /**[in,out]*/
     size_t& shapelessWithDimsHash, /**[in,out]*/
@@ -118,10 +120,11 @@ enum class NodeParamType {
   VIEW_OFFSET = 3,
 };
 
-using CValPtr = const torch::jit::Value*;
+using CValPtr = const habana_torch::jit::Value*;
 using CValPtrMap =
     std::unordered_map<CValPtr, std::tuple<NodeParamType, size_t, size_t>>;
-using CValPtrtoIValueMap = std::unordered_map<CValPtr, torch::jit::IValue>;
+using CValPtrtoIValueMap =
+    std::unordered_map<CValPtr, habana_torch::jit::IValue>;
 using AdjacentCastFp8Indices = std::vector<std::pair<size_t, size_t>>;
 
 inline bool is_eager_caching_supported() {
@@ -197,8 +200,8 @@ struct OptimizedJITGraphAndMetaData {
   OptimizedJITGraphAndMetaData();
 
   OptimizedJITGraphAndMetaData(
-      const std::shared_ptr<torch::jit::Graph> JitGraphToLowering,
-      const at::ArrayRef<torch::jit::IValue>& input_refs,
+      const std::shared_ptr<habana_torch::jit::Graph> JitGraphToLowering,
+      const at::ArrayRef<habana_torch::jit::IValue>& input_refs,
       uint64_t ug_cntr = 0,
       std::vector<bool> node_bcast_details = {},
       const std::string& id = "",
@@ -209,17 +212,17 @@ struct OptimizedJITGraphAndMetaData {
       std::vector<bool> is_reusable = {});
 
   void ComputeGraphHashCode(
-      const std::shared_ptr<torch::jit::Graph> JitGraphToLowering,
-      const at::ArrayRef<torch::jit::IValue>& input_refs,
+      const std::shared_ptr<habana_torch::jit::Graph> JitGraphToLowering,
+      const at::ArrayRef<habana_torch::jit::IValue>& input_refs,
       const std::string& id = "",
       const std::map<int64_t, std::vector<int64_t>> m_input_new_base_sizes =
           {});
 
-  std::shared_ptr<torch::jit::Graph> get_cached_graph() const {
+  std::shared_ptr<habana_torch::jit::Graph> get_cached_graph() const {
     return jit_graph_to_lowering;
   }
 
-  void set_cached_graph(std::shared_ptr<torch::jit::Graph> graph) {
+  void set_cached_graph(std::shared_ptr<habana_torch::jit::Graph> graph) {
     jit_graph_to_lowering = graph;
   }
 
@@ -513,7 +516,7 @@ struct OptimizedJITGraphAndMetaData {
   }
 
  private:
-  std::shared_ptr<torch::jit::Graph> jit_graph_to_lowering = nullptr;
+  std::shared_ptr<habana_torch::jit::Graph> jit_graph_to_lowering = nullptr;
   std::string opstrs = std::string();
   size_t graphKey = 0;
   size_t shapelessGraphWithDimsHash{0};

@@ -21,12 +21,12 @@
 
 namespace jitgraph_utils {
 
-int64_t isInGraphInputs(const torch::jit::Value* value) {
+int64_t isInGraphInputs(const habana_torch::jit::Value* value) {
   auto graph_ins = value->owningGraph()->inputs();
   auto it = std::find_if(
       graph_ins.cbegin(),
       graph_ins.cend(),
-      [&](const torch::jit::Value* value_in) {
+      [&](const habana_torch::jit::Value* value_in) {
         return (value->unique() == value_in->unique());
       });
 
@@ -37,8 +37,8 @@ int64_t isInGraphInputs(const torch::jit::Value* value) {
   return -1;
 }
 
-torch::jit::Node* returnNodeUsesValue(
-    const torch::jit::Value* value,
+habana_torch::jit::Node* returnNodeUsesValue(
+    const habana_torch::jit::Value* value,
     std::list<std::string> Opslist) {
   auto uses = value->uses();
   for (auto u : uses) {
@@ -52,30 +52,32 @@ torch::jit::Node* returnNodeUsesValue(
   return nullptr;
 }
 
-bool IsOutputToRestride(const torch::jit::Value* value) {
+bool IsOutputToRestride(const habana_torch::jit::Value* value) {
   return returnNodeUsesValue(value, {"hpu::restride_cl", "hpu::restride"})
       ? true
       : false;
 }
 
-torch::jit::Value* GetRestridedOutvalue(const torch::jit::Value* val) {
+habana_torch::jit::Value* GetRestridedOutvalue(
+    const habana_torch::jit::Value* val) {
   auto restride_node =
       returnNodeUsesValue(val, {"hpu::restride_cl", "hpu::restride"});
   return restride_node ? restride_node->output(0) : nullptr;
 }
 
-torch::jit::Node* GetUnpackNodeFromTensorList(const torch::jit::Value* val) {
+habana_torch::jit::Node* GetUnpackNodeFromTensorList(
+    const habana_torch::jit::Value* val) {
   return returnNodeUsesValue(val, {"prim::ListUnpack"});
 }
 
-bool isInGraphOutputs(const torch::jit::Node* node, size_t index) {
+bool isInGraphOutputs(const habana_torch::jit::Node* node, size_t index) {
   auto node_outs = node->outputs();
   HABANA_ASSERT(index <= node_outs.size());
 
   return isInGraphOutputs(node_outs[index]);
 }
 
-bool isOutputCollective(const torch::jit::Node* node) {
+bool isOutputCollective(const habana_torch::jit::Node* node) {
   for (auto node_outs : node->outputs()) {
     for (auto& u : node_outs->uses()) {
       if (habana_helpers::IsCollective(u.user->kind())) {
@@ -86,16 +88,16 @@ bool isOutputCollective(const torch::jit::Node* node) {
   return false;
 }
 
-bool isInGraphOutputs(const torch::jit::Node* node) {
+bool isInGraphOutputs(const habana_torch::jit::Node* node) {
   return std::any_of(
       node->outputs().begin(),
       node->outputs().end(),
-      [](const torch::jit::Value* node_outs) {
+      [](const habana_torch::jit::Value* node_outs) {
         return isInGraphOutputs(node_outs);
       });
 }
 
-bool isInGraphOutputs(const torch::jit::Value* value) {
+bool isInGraphOutputs(const habana_torch::jit::Value* value) {
   auto graph_outs = value->owningGraph()->outputs();
   for (auto value_out : graph_outs) {
     if (value->unique() == value_out->unique()) {
@@ -116,7 +118,7 @@ bool isInGraphOutputs(const torch::jit::Value* value) {
   return false;
 }
 
-bool isListNode(const torch::jit::Node* node) {
+bool isListNode(const habana_torch::jit::Node* node) {
   auto node_str = node->kind().toQualString();
   bool is_list_node = false;
   if ((strcmp(node_str, "prim::ListUnpack") == 0) ||
@@ -126,7 +128,7 @@ bool isListNode(const torch::jit::Node* node) {
   return is_list_node;
 }
 
-int inplaceInputId(const torch::jit::Node* node) {
+int inplaceInputId(const habana_torch::jit::Node* node) {
   auto node_name = node->kind().toQualString();
   size_t len = strlen(node_name);
   char endch = node_name[len - 1];
@@ -144,9 +146,10 @@ int inplaceInputId(const torch::jit::Node* node) {
   return inputId;
 }
 
-c10::ArrayRef<torch::jit::Value*> getNodeOutputs(torch::jit::Node* node) {
+c10::ArrayRef<habana_torch::jit::Value*> getNodeOutputs(
+    habana_torch::jit::Node* node) {
   auto node_outs = node->outputs();
-  if (*node->output(0)->type() == *torch::jit::ListType::ofTensors() &&
+  if (*node->output(0)->type() == *habana_torch::jit::ListType::ofTensors() &&
       node->outputs().size() == 1) {
     auto unpack_node = GetUnpackNodeFromTensorList(node->output(0));
     HABANA_ASSERT(
@@ -159,18 +162,19 @@ c10::ArrayRef<torch::jit::Value*> getNodeOutputs(torch::jit::Node* node) {
 }
 
 void visit_prim_node(
-    const torch::jit::Node* node,
-    std::unordered_map<const torch::jit::Value*, torch::jit::IValue>&
-        val_to_ival_map) {
-  if (torch::jit::prim::Constant == node->kind()) {
+    const habana_torch::jit::Node* node,
+    std::unordered_map<
+        const habana_torch::jit::Value*,
+        habana_torch::jit::IValue>& val_to_ival_map) {
+  if (habana_torch::jit::prim::Constant == node->kind()) {
     for (const auto value : node->outputs()) {
       HABANA_ASSERT(val_to_ival_map.count(value) == 0);
-      auto opt_val = torch::jit::toIValue(value);
+      auto opt_val = habana_torch::jit::toIValue(value);
       HABANA_ASSERT(
           opt_val.has_value(), "Optional variable opt_val has no value");
       val_to_ival_map[value] = opt_val.value();
     }
-  } else if (torch::jit::prim::ListConstruct == node->kind()) {
+  } else if (habana_torch::jit::prim::ListConstruct == node->kind()) {
     auto node_outputs = node->outputs();
     HABANA_ASSERT(node_outputs.size() == 1);
     auto value{node_outputs[0]};
@@ -178,7 +182,7 @@ void visit_prim_node(
 
     // Handle empty list
     if (node_ins.empty()) {
-      val_to_ival_map[value] = torch::jit::IValue(c10::List<int64_t>());
+      val_to_ival_map[value] = habana_torch::jit::IValue(c10::List<int64_t>());
       return;
     }
 
@@ -193,7 +197,7 @@ void visit_prim_node(
         HABANA_ASSERT(input_ival.isTensor());
         tensorList.emplace_back(input_ival.toTensor());
       }
-      val_to_ival_map[value] = torch::jit::IValue(tensorList);
+      val_to_ival_map[value] = habana_torch::jit::IValue(tensorList);
     } else if (in_ivalue_0.isInt()) {
       //  Handle construction of list consisting ints only
       c10::List<int64_t> intList;
@@ -203,7 +207,7 @@ void visit_prim_node(
         HABANA_ASSERT(ivalue.isInt());
         intList.emplace_back(ivalue.toInt());
       }
-      val_to_ival_map[value] = torch::jit::IValue(intList);
+      val_to_ival_map[value] = habana_torch::jit::IValue(intList);
     } else if (in_ivalue_0.isBool()) {
       //  Handle construction of list consisting bools only
       c10::List<bool> boolList;
@@ -213,7 +217,7 @@ void visit_prim_node(
         HABANA_ASSERT(ivlaue.isBool());
         boolList.emplace_back(ivlaue.toBool());
       }
-      val_to_ival_map[value] = torch::jit::IValue(boolList);
+      val_to_ival_map[value] = habana_torch::jit::IValue(boolList);
     }
   }
 }

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,9 +22,8 @@
 namespace habana_lazy {
 void fuse_strided_views(std::shared_ptr<torch::jit::Graph>& graph) {
   torch::jit::graph_node_list graph_nodes = graph->nodes().reverse();
-  using Node = torch::jit::Node;
   using namespace std::literals;
-  std::vector<Node*> strided_view_nodes;
+  std::vector<torch::jit::Node*> strided_view_nodes;
   for (auto* node : graph_nodes) {
     auto node_qual_str = std::string_view{node->kind().toQualString()};
     if (node_qual_str == "hpu::strided_view"sv) {
@@ -36,8 +35,8 @@ void fuse_strided_views(std::shared_ptr<torch::jit::Graph>& graph) {
     auto child_node_qual_str =
         std::string_view{node->input(0)->node()->kind().toQualString()};
     if (child_node_qual_str == "hpu::strided_view"sv) {
-      Node* parent = node;
-      Node* child = node->input(0)->node();
+      torch::jit::Node* parent = node;
+      torch::jit::Node* child = node->input(0)->node();
       // keep sizes and strides
       child->input(1)->replaceAllUsesWith(parent->input(1));
       child->input(2)->replaceAllUsesWith(parent->input(2));

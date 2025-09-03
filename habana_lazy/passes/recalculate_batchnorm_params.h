@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,30 +23,28 @@
 #include <tuple>
 
 namespace habana_lazy {
-using Graph = torch::jit::Graph;
-using Node = torch::jit::Node;
 
 ::std::tuple<habana::TensorExtraMeta*, habana::StorageExtraMeta*>
 GetBackEndTensorMeta(
-    std::shared_ptr<Graph>& graph,
+    std::shared_ptr<torch::jit::Graph>& graph,
     torch::jit::Stack& stack,
-    Node* node,
+    torch::jit::Node* node,
     const int idx);
 
 void* GetDataInHostBuffer(
-    std::shared_ptr<Graph>& graph,
+    std::shared_ptr<torch::jit::Graph>& graph,
     torch::jit::Stack& stack,
-    Node* node,
+    torch::jit::Node* node,
     const int idx);
 
 void UpdateDataInDeviceMem(
-    std::shared_ptr<Graph>& graph,
+    std::shared_ptr<torch::jit::Graph>& graph,
     torch::jit::Stack& stack,
-    Node* node,
+    torch::jit::Node* node,
     const int idx,
     void* host_ptr);
 
 void RecalculateBatchnormParams(
-    std::shared_ptr<Graph>& graph,
+    std::shared_ptr<torch::jit::Graph>& graph,
     torch::jit::Stack& stack);
 }; // namespace habana_lazy

@@ -71,11 +71,11 @@ void insert_cast_node(
     JitNode* node,
     JitNode* insert_after_node,
     c10::ScalarType dtype) {
-  torch::jit::WithInsertPoint insert_point(node);
+  habana_torch::jit::WithInsertPoint insert_point(node);
   auto value_in = insert_after_node->output(0);
   auto op_copy = c10::Symbol::fromQualString("aten::_to_copy");
   auto dst_dtype = graph.insertConstant(dtype);
-  auto dummy_args = graph.insertConstant(torch::jit::IValue());
+  auto dummy_args = graph.insertConstant(habana_torch::jit::IValue());
   auto non_blocking = graph.insertConstant(false);
   auto copy_node = graph.create(
       op_copy,
@@ -103,13 +103,14 @@ JitNode* insert_strided_view_node(
     size_t tensor_idx) {
   ViewParam p;
   p.setParam(input);
-  torch::jit::WithInsertPoint insert_point(node);
+  habana_torch::jit::WithInsertPoint insert_point(node);
   auto op_strided_view = c10::Symbol::fromQualString("aten::as_strided");
-  auto value_sizes = graph.insertConstant(torch::jit::IValue(p.getViewSizes()));
+  auto value_sizes =
+      graph.insertConstant(habana_torch::jit::IValue(p.getViewSizes()));
   auto value_strides =
-      graph.insertConstant(torch::jit::IValue(p.getViewStrides()));
+      graph.insertConstant(habana_torch::jit::IValue(p.getViewStrides()));
   auto value_offset =
-      graph.insertConstant(torch::jit::IValue(p.getViewOffset()));
+      graph.insertConstant(habana_torch::jit::IValue(p.getViewOffset()));
   auto jit_node = graph.create(
       op_strided_view,
       {jitval_in, value_sizes, value_strides, value_offset},
@@ -158,7 +159,7 @@ JitNode* replace_with_out_of_place_op(
     JitGraph& graph,
     JitNode* node,
     const EagerOpMetaData& eager_op_meta_data) {
-  torch::jit::WithInsertPoint insert_point(node);
+  habana_torch::jit::WithInsertPoint insert_point(node);
   const auto old_kind = node->kind().toQualString();
   // Make sure to use consistent operator name as aten but in hpu namespace
   auto aten_op_symbol =
@@ -210,9 +211,9 @@ JitNode* insert_strided_insert_node(
 
   auto op_strided_insert = c10::Symbol::fromQualString("hpu::strided_insert");
   auto value_strides =
-      graph.insertConstant(torch::jit::IValue(p.getViewStrides()));
+      graph.insertConstant(habana_torch::jit::IValue(p.getViewStrides()));
   auto value_offset =
-      graph.insertConstant(torch::jit::IValue(p.getViewOffset()));
+      graph.insertConstant(habana_torch::jit::IValue(p.getViewOffset()));
 
   auto jit_node = graph.create(
       op_strided_insert,
@@ -255,12 +256,12 @@ JitNode* replace_copy_with_strided_insert(
     std::vector<at::IValue>& inputs) {
   ViewParam p{};
   p.setParam(input_tensor);
-  torch::jit::WithInsertPoint insert_point(node);
+  habana_torch::jit::WithInsertPoint insert_point(node);
   auto op_strided_insert = c10::Symbol::fromQualString("hpu::strided_insert");
   auto value_strides =
-      graph.insertConstant(torch::jit::IValue(p.getViewStrides()));
+      graph.insertConstant(habana_torch::jit::IValue(p.getViewStrides()));
   auto value_offset =
-      graph.insertConstant(torch::jit::IValue(p.getViewOffset()));
+      graph.insertConstant(habana_torch::jit::IValue(p.getViewOffset()));
   auto jit_node = graph.create(
       op_strided_insert,
       {node->input(1), node->input(0), value_strides, value_offset},
@@ -449,18 +450,18 @@ void AssertNumInputs(
 } // namespace
 
 void set_as_strided_meta(JitNode* node) {
-  auto meta = torch::jit::attr::arg1;
+  auto meta = habana_torch::jit::attr::arg1;
   node->i_(meta, 1);
   PT_EAGER_DEBUG("as_strided node set for meta attribute");
 }
 
 void set_deterministic(JitNode* node) {
   node->i_(
-      torch::jit::attr::deterministic,
+      habana_torch::jit::attr::deterministic,
       at::globalContext().deterministicAlgorithms());
   PT_EAGER_DEBUG(
       "Deterministic val during Jit Node creation: ",
-      node->i(torch::jit::attr::deterministic));
+      node->i(habana_torch::jit::attr::deterministic));
 }
 
 void HandleOutputInsert(

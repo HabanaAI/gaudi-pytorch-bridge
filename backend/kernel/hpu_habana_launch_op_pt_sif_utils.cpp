@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@
 
 namespace habana::sif_utils {
 void mapGraphInputsToInputsOnStack(
-    const std::shared_ptr<torch::jit::Graph>& graph,
+    const std::shared_ptr<habana_torch::jit::Graph>& graph,
     const torch::jit::Stack& inputs,
-    std::unordered_map<CValPtr, torch::jit::IValue>& val_to_ival_map) {
+    std::unordered_map<CValPtr, habana_torch::jit::IValue>& val_to_ival_map) {
   auto stackIter = 0;
   for (const auto input : graph->inputs()) {
     val_to_ival_map[input] = inputs[stackIter++];
@@ -27,8 +27,9 @@ void mapGraphInputsToInputsOnStack(
 }
 
 c10::ScalarType getNodeScalarTypeFromInputs(
-    const torch::jit::Node* node,
-    const std::unordered_map<CValPtr, torch::jit::IValue>& val_to_ival_map) {
+    const habana_torch::jit::Node* node,
+    const std::unordered_map<CValPtr, habana_torch::jit::IValue>&
+        val_to_ival_map) {
   // Default value is Float if no tensor is found
   auto node_type = c10::ScalarType::Float;
   for (auto input : node->inputs()) {
@@ -42,8 +43,9 @@ c10::ScalarType getNodeScalarTypeFromInputs(
 }
 
 torch::jit::Stack createInputStackForNode(
-    const torch::jit::Node* node,
-    const std::unordered_map<CValPtr, torch::jit::IValue>& val_to_ival_map) {
+    const habana_torch::jit::Node* node,
+    const std::unordered_map<CValPtr, habana_torch::jit::IValue>&
+        val_to_ival_map) {
   torch::jit::Stack stack;
   for (auto input : node->inputs()) {
     if (auto inputIter = val_to_ival_map.find(input);

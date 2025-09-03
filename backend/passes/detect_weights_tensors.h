@@ -15,13 +15,13 @@
 
 #pragma once
 
-#include <torch/csrc/jit/ir/ir.h>
 #include <memory>
 #include <set>
+#include "jit_fork/ir/ir.h"
 
 namespace habana::backend::passes {
 
 void DetectWeightTensors(
-    std::shared_ptr<torch::jit::Graph> graph,
+    std::shared_ptr<habana_torch::jit::Graph> graph,
     std::set<size_t>& indices_to_permute);
 } // namespace habana::backend::passes

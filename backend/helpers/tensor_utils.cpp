@@ -601,7 +601,7 @@ void habana_helpers::copy_data_within_device(
 
 size_t habana_helpers::hash_combine_scalars(
     size_t hash_code,
-    at::ArrayRef<torch::jit::IValue> input_refs) {
+    at::ArrayRef<habana_torch::jit::IValue> input_refs) {
   auto num_inputs = input_refs.size();
   for (unsigned i = 0; i < num_inputs; i++) {
     if (!input_refs[i].isTensor()) {
