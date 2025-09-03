@@ -247,6 +247,12 @@ def overwrite_torch_functions():
         if cache_enable and hpu_backend_invoke:
             ranks_cache[backend] = {}
             if len(ranks_cache[backend]) == 0:
+                # Ensure device_id always has a valid index (e.g., hpu:0 instead of just hpu).
+                # This is required because later checks explicitly validate that device_id.index is not None.
+                # Without setting a default index, the following sanity check would raise a ValueError.
+                if device_id is not None and device_id.type == "hpu" and device_id.index is None:
+                    device_id = torch.device(device_id.type, 0)
+
                 init_process_group_orig(
                     backend,
                     init_method,
