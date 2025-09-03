@@ -212,11 +212,10 @@ struct RecipeArgumentSpec {
 // The order of the outputs will match the order they appears within the
 // subgraph
 struct RecipeValueSpec {
-  RecipeValueSpec(std::shared_ptr<torch::jit::Graph> g = nullptr)
-      : collective_kernels_info(
-            std::make_shared<habana_helpers::CollectiveKernelInfos>()),
-        id(++count),
-        jit_graph_(g) {}
+  RecipeValueSpec(
+      std::shared_ptr<torch::jit::Graph> g = nullptr,
+      size_t hash = 0)
+      : id(++count), jit_graph_(g), curr_symval_hash_(hash) {}
 
   RecipeValueSpec(std::istream& is);
 
@@ -369,7 +368,8 @@ struct RecipeValueSpec {
 
   std::vector<PtTensorInfoShared> dtensorinfos;
   std::shared_ptr<habana_helpers::CollectiveKernelInfos>
-      collective_kernels_info;
+      collective_kernels_info =
+          std::make_shared<habana_helpers::CollectiveKernelInfos>();
   std::unordered_map<uint64_t, PtTensorInfoShared> sif_tidx_to_tinfo_map;
   std::unordered_map<uint64_t, uint64_t> st_to_tensor_idx_map;
   std::unordered_set<uint32_t> dynamic_nodes_with_backend_STs;

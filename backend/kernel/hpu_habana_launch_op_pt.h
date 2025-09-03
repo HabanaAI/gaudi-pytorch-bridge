@@ -15,6 +15,7 @@
 #pragma once
 
 #include <c10/util/Backtrace.h>
+#include <memory>
 #include "backend/cache/permute_cache.h"
 #include "backend/helpers/dynamic_bucket_info.h"
 #include "backend/helpers/dynamic_bucket_info_utils.h"
@@ -26,6 +27,7 @@
 #include "backend/kernel/constant_information.h"
 #include "backend/kernel/hpu_shape_inference.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
+#include "hpu_habana_cache.h"
 #include "pytorch_helpers/low_overhead_profiler/profiler.h"
 
 namespace habana {
@@ -295,7 +297,11 @@ class HabanaLaunchOpPT {
       std::shared_ptr<habana_lazy::HbLazyFrontEndInfoToBackend> info);
   bool is_hccl_send_mark_step();
   void CompileSynapse();
-  std::shared_ptr<RecipeValueSpec> CompileSynapseGraphAndPatchTable();
+  void CompileSynapseGraphAndPatchTable(
+      std::shared_ptr<RecipeValueSpec>& rvs /**[in,out]*/);
+  void CreatePatchTable(
+      std::shared_ptr<RecipeValueSpec>& rvs /**[in,out]*/,
+      const std::shared_ptr<synapse_helpers::graph::recipe_handle>& recipe);
   std::shared_ptr<RecipeValueSpec> CreateRVSAndPatchTable(
       const std::shared_ptr<synapse_helpers::graph::recipe_handle>& recipe);
   std::shared_ptr<synapse_helpers::graph::recipe_handle> CompileSynapseGraph();
