@@ -1032,6 +1032,6 @@ PT_HPU_MARK_NON_RECIPROCAL_CASTS:
 
 PT_HPU_ENABLE_FUSED_SDPA_SINK:
   type: bool
-  default: false
+  default: true
   settable: true
   doc: "This flag enables attention sink feature in FusedSDPA"
