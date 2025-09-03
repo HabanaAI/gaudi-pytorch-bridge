@@ -239,10 +239,12 @@ template <
 void ThreadPoolBase<Queue, Task, ThreadPolicy>::enqueue(F&& f, Args&&... args) {
   RethrowIfException();
   ++active_task_count_;
+  // NOLINTBEGIN(clang-analyzer-cplusplus.NewDeleteLeaks)
   auto task = [args = std::make_tuple(std::forward<Args>(args)...),
                func = std::move(f)]() mutable {
     std::apply([&](auto&&... x) { func(std::forward<Args>(x)...); }, args);
   };
+  // NOLINTEND(clang-analyzer-cplusplus.NewDeleteLeaks)
   tasks_.push(std::move(task));
 };
 

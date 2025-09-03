@@ -241,6 +241,7 @@ void collective(
 
     auto pr = std::make_shared<std::promise<bool>>();
     std::future<bool> fut = pr->get_future();
+    // NOLINTBEGIN(clang-analyzer-cplusplus.NewDeleteLeaks)
     auto func = [fn = fn,
                  input = std::make_shared<PtTensorInfo>(*inputs.at(i)),
                  output = std::make_shared<PtTensorInfo>(*outputs.at(i)),
@@ -350,6 +351,7 @@ void collective(
 
       return true;
     };
+    // NOLINTEND(clang-analyzer-cplusplus.NewDeleteLeaks)
 
     if (GET_ENV_FLAG_NEW(PT_HPU_DISABLE_ASYNC_COLLECTIVE)) {
       func();

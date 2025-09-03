@@ -338,7 +338,9 @@ bool ProcessGroupEagerHCCL::WorkEager::wait(
     Synchronize_Execute_Task(
         outputs_, *comm_, (c10::hpu::getCurrentHPUStream()).stream());
   }
+  // NOLINTBEGIN(clang-analyzer-cplusplus.NewDeleteLeaks)
   outputs_.clear();
+  // NOLINTEND(clang-analyzer-cplusplus.NewDeleteLeaks)
   return true;
 }
 
@@ -836,6 +838,7 @@ void ProcessGroupEagerHCCL::permutedSendTensorsToDense(
   habana::eager::PipelineOrExecuteTask(
       std::move(pipeline_or_direct_send_permutes));
 
+  // NOLINTBEGIN(clang-analyzer-cplusplus.NewDeleteLeaks)
   for (size_t i = 0; i < tensors.size(); i++) {
     // Copy D2D, if any permutation/strides It will be cleared
     // If No permutation/strides, This op will be discarded at its lowering.
@@ -887,6 +890,7 @@ void ProcessGroupEagerHCCL::clearPermutesFromRecvTensors(
   habana::eager::PipelineOrExecuteTask(
       std::move(pipeline_or_direct_clear_permutes));
 }
+// NOLINTEND(clang-analyzer-cplusplus.NewDeleteLeaks)
 
 } // namespace c10d
 

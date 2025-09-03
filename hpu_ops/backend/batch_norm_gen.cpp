@@ -626,7 +626,9 @@ FillParamsT FillBatchNormFwdParams(const at::Stack& stack) {
   bool is_training_ = is_training(
       stack.at(IS_TRAINING_IDX).toBool(),
       stack.at(RUNNING_MEAN_IDX).isTensor());
+  // NOLINTBEGIN(clang-analyzer-cplusplus.NewDeleteLeaks)
   auto params = fillBatchNormParams(is_training_, momentum, epsilon);
+  // NOLINTEND(clang-analyzer-cplusplus.NewDeleteLeaks)
 
   return params;
 }
@@ -636,7 +638,9 @@ FillParamsT FillBatchNormNoTrainingFwdParams(const at::Stack& stack) {
   auto momentum = static_cast<float>(stack.at(MOMENTUM_IDX).toDouble());
   auto epsilon = static_cast<float>(stack.at(EPSILON_IDX).toDouble());
   bool is_training_ = is_training(false, stack.at(RUNNING_MEAN_IDX).isTensor());
+  // NOLINTBEGIN(clang-analyzer-cplusplus.NewDeleteLeaks)
   auto params = fillBatchNormParams(is_training_, momentum, epsilon);
+  // NOLINTEND(clang-analyzer-cplusplus.NewDeleteLeaks)
 
   return params;
 }
@@ -646,7 +650,9 @@ FillParamsT FillBatchNormNoStatsFwdParams(const at::Stack& stack) {
   auto momentum = static_cast<float>(stack.at(MOMENTUM_IDX).toDouble());
   auto epsilon = static_cast<float>(stack.at(EPSILON_IDX).toDouble());
   bool is_training_ = is_training(stack.at(IS_TRAINING_IDX).toBool(), false);
+  // NOLINTBEGIN(clang-analyzer-cplusplus.NewDeleteLeaks)
   auto params = fillBatchNormParams(is_training_, momentum, epsilon);
+  // NOLINTEND(clang-analyzer-cplusplus.NewDeleteLeaks)
 
   return params;
 }

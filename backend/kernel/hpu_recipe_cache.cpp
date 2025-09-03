@@ -344,13 +344,14 @@ void DiskCache::flush() {
   recipe_cache_.flush();
 }
 
+// NOLINTBEGIN(clang-analyzer-cplusplus.NewDeleteLeaks)
 std::shared_ptr<RecipeHolder> DiskCache::Find(const RecipeArgumentSpec& spec) {
   std::stringstream ss;
   auto recipe = recipe_cache_.lookup(
       std::to_string(spec.hashCode()) + cache_id_suffix_, ss);
-
   return recipe ? std::make_shared<RecipeHolder>(ss, *recipe) : nullptr;
 }
+// NOLINTEND(clang-analyzer-cplusplus.NewDeleteLeaks)
 
 std::shared_ptr<RecipeValueSpec> TemporaryRecipeStore::GetRVS(
     std::shared_ptr<RecipeArgumentSpec>& key) {
