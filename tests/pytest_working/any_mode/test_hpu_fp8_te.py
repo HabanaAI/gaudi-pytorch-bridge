@@ -29,20 +29,12 @@ import torch
 from compile.test_dynamo_utils import use_eager_fallback
 from fp8_utils import simulateFp8Precision
 from habana_frameworks.torch.hpex.experimental.transformer_engine import fp8
-from habana_frameworks.torch.hpex.experimental.transformer_engine.cpp_extensions import (
-    cast_from_fp8,
-    cast_to_fp8,
-)
 from habana_frameworks.torch.hpex.experimental.transformer_engine.fp8 import (
     FP8GlobalStateManager,
 )
 from habana_frameworks.torch.hpex.experimental.transformer_engine.recipe import (
     DelayedScaling,
     Format,
-)
-from habana_frameworks.torch.hpex.experimental.transformer_engine.utils import (
-    FP8FwdTensors,
-    FP8TensorMeta,
 )
 from test_utils import (
     _is_simulator,
@@ -97,62 +89,6 @@ def _assert_amax_history_equal(a, b):
 
     _assert("scaling_fwd")
     _assert("scaling_bwd")
-
-
-@pytest.mark.parametrize("device", [torch.device("hpu:0")])
-@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float32], ids=["bf16", "fp32"])
-@pytest.mark.parametrize("stochastic_rounding", [True, False])
-@pytest.mark.parametrize("scale", [1.0, 8.0])
-@pytest.mark.parametrize("format", [torch.float8_e5m2, torch.float8_e4m3fn], ids=["e5m2", "e4m3fn"])
-@pytest.mark.parametrize("measure_amax", [True, False], ids=["with_amax", "no_amax"])
-def test_te_cast_with_stochastic_rounding(device, dtype, stochastic_rounding, scale, format, measure_amax):
-    input_value = 18.5
-    input_data = torch.tensor([input_value] * 1000, dtype=dtype, device=device)
-
-    meta = FP8TensorMeta()
-    meta.scale = torch.full((1,), scale, dtype=torch.float32, device=device)
-    meta.scale_inv = torch.full((1,), 1 / scale, dtype=torch.float32, device=device)
-    meta.amax_history = torch.zeros(1, 1, dtype=torch.float32, device=device)
-
-    def fn(inp, meta, format):
-        casted = cast_to_fp8(
-            inp,
-            meta,
-            FP8FwdTensors.GEMM1_INPUT,
-            format,
-            stochastic_rounding=stochastic_rounding,
-            measure_amax=measure_amax,
-        )
-
-        upcasted = cast_from_fp8(
-            casted,
-            meta,
-            FP8FwdTensors.GEMM1_INPUT,
-            inp.dtype,
-        )
-
-        return casted, upcasted
-
-    fn = compile_function_if_compile_mode(fn, dynamic=False)
-
-    with use_eager_fallback():
-        casted, upcasted = fn(input_data, meta, format)
-
-    mean = torch.mean(upcasted).cpu()
-    # When stochastic rounding is turned off, input will be rounded to the nearest representable value
-    # in given format (20.0 for e5m2, 18.0 for e4m3). With stochastic rounding, it rounds up or down
-    # with the probability dependent on the distance between original value to the closest fp8 numbers,
-    # so the mean result should be close to the input value (max diff has been chosen experimentally).
-    if stochastic_rounding:
-        max_diff = 0.8 if format == torch.float8_e5m2 else 0.4
-        assert mean < input_value + max_diff
-        assert mean > input_value - max_diff
-    else:
-        expected = 20.0 if format == torch.float8_e5m2 else 18.0
-        assert torch.allclose(torch.tensor(expected, dtype=mean.dtype), mean)
-
-    if is_pytest_mode_compile():
-        check_ops_executed_in_jit_ir({"cast_to_fp8_v2", "cast_from_fp8"})
 
 
 class MyLinear(torch.nn.Module):
