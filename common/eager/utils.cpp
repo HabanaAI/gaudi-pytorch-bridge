@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,9 +31,6 @@ bool IsInt64Supported() {
   // because it is the default value for eager mode.
   // Until issues with failing tests are resolved result shall remain false
   auto result = true;
-
-  if (habana::HPUDeviceContext::get_device().name() == "GAUDI")
-    result = false;
 
   if (IS_ENV_FLAG_DEFINED_NEW(PT_ENABLE_INT64_SUPPORT)) {
     result = GET_ENV_FLAG_NEW(PT_ENABLE_INT64_SUPPORT);

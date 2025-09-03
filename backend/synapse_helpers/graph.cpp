@@ -148,7 +148,7 @@ graph graph::create(
   if (not syn_graph.is_dry_run()) {
     synStatus status = synSuccess;
     const auto device_type = syn_graph.device_.type();
-    if (syn_graph.eager_mode_ && device_type != synDeviceGaudi &&
+    if (syn_graph.eager_mode_ &&
         GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EAGER_COMPILER)) {
       status = synGraphCreateEager(&syn_graph.graph_handle_, device_type);
     } else {

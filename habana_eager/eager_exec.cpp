@@ -961,9 +961,6 @@ void EagerExec::post_process_eager_graph(
 
 bool EagerExec::is_eager_compiler_supported_for_graph(
     std::shared_ptr<JitGraph>& graph) {
-  if (habana::HPUDeviceContext::get_device().type() == synDeviceGaudi) {
-    return false;
-  }
   if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EAGER_COMPILER)) {
     return false;
   }

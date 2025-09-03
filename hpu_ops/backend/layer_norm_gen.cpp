@@ -120,8 +120,6 @@ void LayerNormHabanaOperator::AddNode(
   // Kernel layer_norm, instead of the HabanaNorm flow
 
   const bool shouldCallTPCLayerNorm =
-      habana::HPUDeviceContext::get_device().type() ==
-          synDeviceType::synDeviceGaudi ||
       input.pt_t.scalar_type() == torch::kFloat16 ||
       GetExecutionMode() == habana_helpers::HabanaFrontendTypes::EAGER;
 

@@ -34,43 +34,6 @@ CastStage get_cast_stage(CastTypes cast_types, synDeviceType syn_device_type) {
   // tpc_kernels/src/kernel_factory_gaudi.cpp
   // CastKernel::SRC_to_DST
   //
-  // ======== gaudi ========
-
-  // cast
-  // fr/to f32 bf16 i8 i16 i32 i64 u8
-  // f32     *    X  X   -   X   -  -
-  // bf16    X    *  -   -   -   -  -
-  // i8      X    X  *   X   X   -  -
-  // i16     -    -  X   *   X   -  -
-  // i32     X    X  X   X   *   X  X
-  // i64     -    -  -   -   X   *  -
-  // u8      X    -  -   -   X   -  *
-
-  // clang-format off
-#define OK  CastStage {}
-#define F32 CastStage { CastType::f32 }
-#define I32 CastStage { CastType::i32 }
-  // clang-format on
-
-  // TODO: SW-35847 Remove indirect casting
-  using LineT = EnumMappingTable<CastType, CastStage>;
-  static const EnumMappingTable<CastType, LineT> cast_stage_matrix_gaudi = {
-      // clang-format off
-      //              to:    f32  bf16   i8  i16  i32  i64   u8
-      /* from  f32 */ LineT{  OK,   OK,  OK, I32,  OK, I32, I32 },
-      /* from bf16 */ LineT{  OK,   OK, F32, F32, F32, F32, F32 },
-      /* from   i8 */ LineT{  OK,   OK,  OK,  OK,  OK, I32, I32 },
-      /* from  i16 */ LineT{ I32,  I32,  OK,  OK,  OK, I32, I32 },
-      /* from  i32 */ LineT{  OK,   OK,  OK,  OK,  OK,  OK,  OK },
-      /* from  i64 */ LineT{ I32,  I32, I32, I32,  OK,  OK, I32 },
-      /* from   u8 */ LineT{  OK,  F32, I32, I32,  OK, I32,  OK },
-      // clang-format on
-  };
-
-#undef I32
-#undef F32
-#undef OK
-
   // ======== gaudi2 ========
 
   // cast
@@ -163,9 +126,6 @@ CastStage get_cast_stage(CastTypes cast_types, synDeviceType syn_device_type) {
 
   EnumMappingTable<CastType, LineT> cast_stage_matrix;
   switch (syn_device_type) {
-    case synDeviceType::synDeviceGaudi:
-      cast_stage_matrix = cast_stage_matrix_gaudi;
-      break;
     case synDeviceType::synDeviceGaudi2:
       cast_stage_matrix = cast_stage_matrix_gaudi2;
       break;

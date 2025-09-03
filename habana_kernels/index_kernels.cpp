@@ -336,8 +336,7 @@ void ScatterAddOperator::AllocateAndAddSynapseNode(
   params.axis = get_dim_in_tpc_order(dim, self.dim());
 
   if (GET_ENV_FLAG_NEW(PT_HPU_USE_UNSORTED_SCATTER_ADD) &&
-      at::globalContext().deterministicAlgorithms() == false &&
-      HPUDeviceContext::get_device().type() != synDeviceType::synDeviceGaudi) {
+      at::globalContext().deterministicAlgorithms() == false) {
     if (self.scalar_type() == c10::ScalarType::BFloat16) {
       // Special handling if the length of indices is 1
       if (index.sizes() == 1) {

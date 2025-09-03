@@ -263,8 +263,7 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
   enable_caching_ = enable_graph_caching_ || enable_eager_caching_;
 
   // Eager compiler is supported for Gaudi2 device.
-  const auto& device = HPUDeviceContext::get_device();
-  const bool is_eager_compiler_enabled = device.type() != synDeviceGaudi &&
+  const bool is_eager_compiler_enabled =
       jit_graph_and_meta_data_->get_is_eager_compiler_supported() &&
       GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EAGER_COMPILER);
 
