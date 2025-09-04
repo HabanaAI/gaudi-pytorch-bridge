@@ -505,9 +505,6 @@ void IndexHabanaOperator::AddNode(
 
     auto cat_out_shape = catop.pt_shape();
     auto self_sizes = self.sizes().vec();
-    HABANA_ASSERT(
-        cat_out_shape[0] <= std::numeric_limits<int64_t>::max(),
-        "Cat indices count exceeds int64_t range");
     auto cat_indices_count = static_cast<int64_t>(cat_out_shape[0]);
     std::vector<int64_t> shape = {cat_out_shape[1]};
     // If index tensors index only upper dimensions, then the result's lower

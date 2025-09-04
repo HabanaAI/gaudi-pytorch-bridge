@@ -49,9 +49,8 @@ To safe_convert(From value, const std::string_view context) {
   const auto is_unsigned_to_signed_and_in_range =
       is_unsigned_to_signed && value <= static_cast<From>(to_max);
 
-  const auto is_not_unsigned_to_signed_and_in_range = !is_unsigned_to_signed &&
-      value >= static_cast<From>(to_min) &&
-      static_cast<uint64_t>(value) <= static_cast<uint64_t>(to_max);
+  const auto is_not_unsigned_to_signed_and_in_range =
+      !is_unsigned_to_signed && value >= static_cast<From>(to_min);
 
   HABANA_ASSERT(
       is_larger_target || is_same_sign_and_in_range ||
