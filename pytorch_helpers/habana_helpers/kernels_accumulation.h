@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -85,7 +85,9 @@ class NoAccThread {
  public:
   NoAccThread(bool sync_acc_thread = true);
   NoAccThread(const NoAccThread&) = delete;
+  NoAccThread& operator=(const NoAccThread&) = delete;
   NoAccThread(NoAccThread&&) = delete;
+  NoAccThread& operator=(NoAccThread&&) = delete;
   ~NoAccThread();
 
  private:
