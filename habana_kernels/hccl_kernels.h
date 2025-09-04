@@ -85,8 +85,8 @@ class HcclBroadcastOperator : public CollectiveOperator {
       synapse_helpers::event_done_callback cleanup_callback) const override;
 
  private:
-  int64_t comm_id_;
-  int root_rank_;
+  int64_t comm_id_{0};
+  int root_rank_{0};
 };
 
 class HcclAllreduceOperator : public CollectiveOperator {

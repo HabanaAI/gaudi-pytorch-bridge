@@ -569,7 +569,7 @@ class Node {
   size_t post_order_pos = ULLONG_MAX;
   c10::SmallVector<at::Tensor, 8> m_input_pt_tensors;
   std::shared_ptr<std::string> m_scope;
-  uint64_t m_id;
+  uint64_t m_id{0};
   bool deterministic = 0;
   std::unordered_map<size_t, size_t> m_pt_vec_to_input_ival;
   std::string module_name = std::string();
