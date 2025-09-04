@@ -62,6 +62,7 @@ hpu_backend_decompositions_list = [
     aten.deg2rad.default,
     aten.deg2rad_.default,
     aten.detach.default,
+    aten.diagonal_copy.default,
     aten.diag_embed.default,
     aten.diag_embed.out,
     aten.dot.default,

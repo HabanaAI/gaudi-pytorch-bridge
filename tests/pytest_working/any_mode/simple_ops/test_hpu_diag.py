@@ -20,9 +20,6 @@ from test_utils import compile_function_if_compile_mode, format_tc
 @pytest.mark.parametrize("shape_and_diag", [((24,), 0), ((8, 8), 0), ((8, 8), 1)], ids=format_tc)
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16, torch.int], ids=format_tc)
 def test_hpu_diag(shape_and_diag, dtype):
-    if pytest.mode == "compile" and shape_and_diag in [((8, 8), 0), ((8, 8), 1)]:
-        pytest.skip(reason="https://jira.habana-labs.com/browse/SW-167770")
-
     def fn(input):
         return torch.diag(input, diagonal=diagonal)
 
