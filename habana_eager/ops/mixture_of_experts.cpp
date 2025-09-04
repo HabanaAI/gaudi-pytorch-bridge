@@ -545,6 +545,23 @@ static at::Tensor calculate_amax(
   return amax;
 }
 
+static void check_inputs(
+    const at::TensorList w12,
+    const at::TensorList w12_bias,
+    const at::TensorList w3,
+    const at::TensorList w3_bias) {
+  TORCH_CHECK(!w12.empty(), "Number of experts must be greater than zero");
+  TORCH_CHECK(
+      w12.size() == w12_bias.size(),
+      "w12 and w12_bias must have the same number of experts");
+  TORCH_CHECK(
+      w3.size() == w3_bias.size(),
+      "w3 and w3_bias must have the same number of experts");
+  TORCH_CHECK(
+      w12.size() == w3.size(),
+      "w12 and w3 must have the same number of experts");
+}
+
 static std::tuple<at::Tensor, at::Tensor> mixture_of_experts_common_with_bias(
     const at::Tensor& hidden_states,
     const at::Tensor& expert_routing_table,
@@ -557,16 +574,7 @@ static std::tuple<at::Tensor, at::Tensor> mixture_of_experts_common_with_bias(
     std::optional<bool> measure_per_token,
     double alpha,
     double limit) {
-  TORCH_CHECK(!w12.empty(), "Number of experts must be greater than zero");
-  TORCH_CHECK(
-      w12.size() == w12_bias.size(),
-      "w12 and w12_bias must have the same number of experts");
-  TORCH_CHECK(
-      w3.size() == w3_bias.size(),
-      "w3 and w3_bias must have the same number of experts");
-  TORCH_CHECK(
-      w12.size() == w3.size(),
-      "w12 and w3 must have the same number of experts");
+  check_inputs(w12, w12_bias, w3, w3_bias);
 
   auto [w12_maybe_transposed, w3_maybe_transposed] =
       prepare_expert_weights(w12, w3, permuted_weights);
@@ -1232,6 +1240,143 @@ at::Tensor mixture_of_experts_fp8_fused_weights_scalars(
       d_scale_w3,
       permuted_weights,
       activation);
+}
+
+static inline at::Tensor handle_scale_tensorlist(
+    const at::TensorList& d_scale_list) {
+  at::Tensor scales = torch::stack(d_scale_list, 0);
+  return scales.view({scales.size(0), 1, 1});
+}
+
+static at::Tensor mixture_of_experts_common_fp8_with_bias(
+    const at::Tensor& hidden_states,
+    const at::Tensor& expert_routing_table,
+    const at::Tensor& router_weights,
+    const at::TensorList w12,
+    const at::TensorList w12_bias,
+    const at::TensorList w3,
+    const at::TensorList w3_bias,
+    const at::Tensor& d_scale_hidden_states,
+    const at::TensorList d_scale_intermediate_hidden_states,
+    const at::TensorList d_scale_w12,
+    const at::TensorList d_scale_w3,
+    bool permuted_weights,
+    double alpha,
+    double limit) {
+  check_inputs(w12, w12_bias, w3, w3_bias);
+
+  auto [w12_maybe_transposed, w3_maybe_transposed] =
+      prepare_expert_weights(w12, w3, permuted_weights);
+
+  const int64_t hidden_size = w3_maybe_transposed[0].size(1);
+  const int64_t num_experts = w12.size();
+
+  at::Tensor w12_stacked = torch::stack(w12_maybe_transposed, 0);
+  at::Tensor w12_bias_stacked = torch::stack(w12_bias, 0);
+  at::Tensor w3_stacked = torch::stack(w3_maybe_transposed, 0);
+  at::Tensor w3_bias_stacked = torch::stack(w3_bias, 0);
+
+  at::Tensor d_scale_intermediate_hidden_states_stacked =
+      handle_scale_tensorlist(d_scale_intermediate_hidden_states);
+  at::Tensor d_scale_w12_stacked = handle_scale_tensorlist(d_scale_w12);
+  at::Tensor d_scale_w3_stacked = handle_scale_tensorlist(d_scale_w3);
+
+  at::Tensor hidden_states_repeated = hidden_states.repeat({num_experts, 1});
+  hidden_states_repeated =
+      hidden_states_repeated.view({num_experts, -1, hidden_size});
+  at::Tensor gate_up = moe_fp8_gemm_v2(
+                           hidden_states_repeated,
+                           w12_stacked,
+                           torch::kBFloat16,
+                           d_scale_hidden_states,
+                           d_scale_w12_stacked) +
+      w12_bias_stacked.unsqueeze(-2);
+
+  auto [gate, up] = split_gate_and_up(gate_up, limit);
+
+  at::Tensor glu = gate * torch::sigmoid(gate * alpha);
+
+  at::Tensor hidden_states_w12 = (up + 1) * glu;
+
+  hidden_states_w12 = moe_cast_to_fp8_v2(
+      hidden_states_w12,
+      d_scale_intermediate_hidden_states_stacked,
+      hidden_states.scalar_type());
+
+  at::Tensor next_states = moe_fp8_gemm_v2(
+      hidden_states_w12,
+      w3_stacked,
+      torch::kBFloat16,
+      d_scale_intermediate_hidden_states_stacked,
+      d_scale_w3_stacked);
+  next_states = next_states + w3_bias_stacked.unsqueeze(-2);
+  next_states = next_states.view({num_experts, -1, hidden_size});
+
+  const at::Tensor routing_weights_scattered = prepare_routing_weights(
+      expert_routing_table, router_weights, num_experts, hidden_states.size(0));
+
+  next_states = next_states * routing_weights_scattered;
+
+  return next_states.sum(0);
+}
+
+at::Tensor mixture_of_experts_bias_fp8_fused_weights(
+    const at::Tensor& hidden_states,
+    const at::Tensor& expert_routing_table,
+    const at::Tensor& router_weights,
+    const at::TensorList w12,
+    const at::TensorList w3,
+    const at::TensorList w12_bias,
+    const at::TensorList w3_bias,
+    const at::Tensor& d_scale_hidden_states,
+    const at::TensorList d_scale_intermediate_hidden_states,
+    const at::TensorList d_scale_w12,
+    const at::TensorList d_scale_w3,
+    const bool permuted_weights,
+    const int64_t experts_min,
+    const int64_t experts_max,
+    const int64_t chunk_size,
+    const int64_t total_experts,
+    const double alpha,
+    const double limit) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "mixture_of_experts.bias_fp8_fused_weights :",
+      DUMP_18ARGS(
+          hidden_states,
+          expert_routing_table,
+          router_weights,
+          w12,
+          w3,
+          w12_bias,
+          w3_bias,
+          d_scale_hidden_states,
+          d_scale_intermediate_hidden_states,
+          d_scale_w12,
+          d_scale_w3,
+          permuted_weights,
+          experts_min,
+          experts_max,
+          chunk_size,
+          total_experts,
+          alpha,
+          limit));
+
+  return mixture_of_experts_common_fp8_with_bias(
+      hidden_states,
+      expert_routing_table,
+      router_weights,
+      w12,
+      w12_bias,
+      w3,
+      w3_bias,
+      d_scale_hidden_states,
+      d_scale_intermediate_hidden_states,
+      d_scale_w12,
+      d_scale_w3,
+      permuted_weights,
+      alpha,
+      limit);
 }
 
 template <typename Scale, typename Scales>

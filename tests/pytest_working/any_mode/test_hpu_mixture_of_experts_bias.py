@@ -167,3 +167,87 @@ def test_mixture_of_experts_gpt_oss(
 
     if is_pytest_mode_compile():
         check_ops_executed_in_jit_ir("mixture_of_experts")
+
+
+@pytest.mark.parametrize("hidden_dim", HIDDEN_DIMS)
+@pytest.mark.parametrize("alpha, limit", [(1.702, 7.0)])
+@pytest.mark.parametrize("ffn_dim", FFN_DIMS)
+@pytest.mark.parametrize("num_experts", NUM_EXPERTS)
+@pytest.mark.parametrize("num_tokens", NUM_TOKENS)
+@pytest.mark.parametrize("permuted_weights", PERMUTED_WEIGHTS)
+@pytest.mark.parametrize("dtype", [torch.float8_e4m3fn, torch.float8_e5m2], ids=format_tc)
+def test_mixture_of_experts_fp8_gpt_oss(
+    permuted_weights, num_tokens, num_experts, hidden_dim, ffn_dim, dtype, alpha, limit
+):
+    chunk_size = 0
+    total_experts = 0
+    measure_per_token = None
+
+    d_scale_hidden_states_cpu = torch.randn(1)
+    d_scale_w12 = torch.randn(num_experts)
+    d_scale_w3 = torch.randn(num_experts)
+
+    hidden_states = torch.randn((num_tokens, hidden_dim), dtype=torch.bfloat16)
+    router_weights_all = torch.randn((num_tokens, num_experts), dtype=torch.bfloat16)
+    router_weights, expert_routing_table = torch.topk(router_weights_all, 2)
+
+    w12_cpu, w12_bias_cpu, w3_cpu, w3_bias_cpu, w12_hpu, w12_bias_hpu, w3_hpu, w3_bias_hpu = (
+        generate_experts_weights_and_biases(hidden_dim, ffn_dim, num_experts, torch.bfloat16, permuted_weights)
+    )
+
+    hidden_states_cpu = hidden_states.to(dtype).to(torch.bfloat16) * d_scale_hidden_states_cpu.to(torch.bfloat16)
+    w12_cpu *= d_scale_w12.view(-1, 1, 1)
+    w3_cpu *= d_scale_w3.view(-1, 1, 1)
+
+    mixtral_ref = GptOssMoeBlock(
+        w12_cpu.to(dtype).to(torch.bfloat16),
+        w12_bias_cpu.to(dtype).to(torch.bfloat16),
+        w3_cpu.to(dtype).to(torch.bfloat16),
+        w3_bias_cpu.to(dtype).to(torch.bfloat16),
+        alpha,
+        limit,
+    )
+    result_cpu, _ = mixtral_ref(hidden_states_cpu, expert_routing_table, router_weights, measure_per_token)
+
+    w12_hpu = [w.to(dtype) for w in w12_hpu]
+    w3_hpu = [w.to(dtype) for w in w3_hpu]
+
+    fn = compile_function_if_compile_mode(torch.ops.hpu.mixture_of_experts)
+
+    def call_moe_fn():
+        common_inputs = (
+            hidden_states.to(dtype).to(hpu),
+            expert_routing_table.to(hpu),
+            router_weights.to(hpu),
+        )
+        weights = (w12_hpu, w3_hpu)
+        biases = (w12_bias_hpu, w3_bias_hpu)
+
+        d_scale_hidden_states_hpu = d_scale_hidden_states_cpu.to("hpu")
+        d_scale_intermediate_hidden_states_hpu = [
+            torch.tensor(1.0).to("hpu").to(torch.float32) for _ in range(num_experts)
+        ]
+        d_scale_w12_hpu = [scale.to("hpu") for scale in d_scale_w12]
+        d_scale_w3_hpu = [scale.to("hpu") for scale in d_scale_w3]
+
+        scales = (d_scale_hidden_states_hpu, d_scale_intermediate_hidden_states_hpu, d_scale_w12_hpu, d_scale_w3_hpu)
+
+        kwargs = {
+            "permuted_weights": permuted_weights,
+            "experts_min": 0,
+            "experts_max": num_experts - 1,
+            "chunk_size": chunk_size,
+            "total_experts": total_experts,
+            "alpha": alpha,
+            "limit": limit,
+        }
+
+        return fn(*common_inputs, *weights, *biases, *scales, **kwargs)
+
+    with torch.inference_mode():
+        result_hpu = call_moe_fn()
+
+    check_using_cosine_similarity(result_hpu, result_cpu, 0.98)
+
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir("mixture_of_experts")

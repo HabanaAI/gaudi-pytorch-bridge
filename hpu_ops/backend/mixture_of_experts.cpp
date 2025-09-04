@@ -860,6 +860,29 @@ FillParamsT FillMixtureOfExpertsParams(const at::Stack& stack) {
   return FillMixtureOfExpertsParams(stack, cfg);
 }
 
+FillParamsT FillMixtureOfExpertsBiasFp8Params(const at::Stack& stack) {
+  const size_t stack_size = stack.size();
+
+  MixtureOfExpertsConfig cfg = {
+      11, /* permuted_weights_idx */
+      true, /* fused_weights */
+      false, /* measurement_mode */
+      false, /* dynamic_scale */
+      false, /* blockwise_quantization */
+      false, /* first_gemm_measurement_mode */
+      false, /* hybrid_mode */
+      false, /* scaled_swiglu */
+      static_cast<unsigned int>(
+          stack.at(stack_size - 4).toInt()), /* chunk_size */
+      static_cast<unsigned int>(
+          stack.at(stack_size - 3).toInt()), /* total_experts */
+      true, /* gpt_swiglu */
+      static_cast<float>(stack.at(stack_size - 2).toDouble()), /* alpha */
+      static_cast<float>(stack.at(stack_size - 1).toDouble()), /* limit */
+  };
+  return FillMixtureOfExpertsParams(stack, cfg);
+}
+
 FillParamsT FillMixtureOfExpertsFwdFp8Params(const at::Stack& stack) {
   const bool fused_weights = !stack.at(9).isTensorList();
   const size_t permuted_weights_idx = fused_weights ? 9 : 11;
