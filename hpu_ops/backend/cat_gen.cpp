@@ -14,6 +14,7 @@
  */
 
 #include <shared_layer_api.hpp>
+#include "backend/habana_operator.h"
 #include "common/utils.h"
 #include "generated/backend/cat.h"
 
@@ -60,9 +61,13 @@ OutputMetaDataVector CatMeta(const at::Stack& stack) {
   }
   auto dtype = habana_helpers::DTypeHelper::get_compute_dtype(
       {tensors_},
-      std::nullopt,
+      (stack.size() > 2) ? std::make_optional<at::Tensor>(stack[2].toTensor())
+                         : std::nullopt,
       habana_helpers::DTypeHelper::DtypePromoteVariant::kPromoteToCommon,
-      false);
+      false,
+      (stack.size() > 2) ? std::make_optional<c10::ScalarType>(
+                               stack[2].toTensor().scalar_type())
+                         : std::nullopt);
   return {OutputMetaData{
       dtype,
       out_size,
@@ -85,9 +90,13 @@ SharedMetaDataVector CatSharedMeta(
       [](const at::Tensor& tensor) { return tensor.dim(); });
   auto dtype = habana_helpers::DTypeHelper::get_compute_dtype(
       {inputs},
-      std::nullopt,
+      (stack.size() > 2) ? std::make_optional<at::Tensor>(stack[2].toTensor())
+                         : std::nullopt,
       habana_helpers::DTypeHelper::DtypePromoteVariant::kPromoteToCommon,
-      false);
+      false,
+      (stack.size() > 2) ? std::make_optional<c10::ScalarType>(
+                               stack[2].toTensor().scalar_type())
+                         : std::nullopt);
   auto firstNon1DElement = std::find_if(
       std::begin(ranks), std::end(ranks), [](int rank) { return rank > 1; });
   bool isAll1D = firstNon1DElement == std::end(ranks);
