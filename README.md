@@ -19,8 +19,6 @@ Follow the below steps once to configure your environment for the repository bui
 sudo apt update && sudo apt install -y curl gnupg pciutils wget
 wget 'https://vault.habana.ai/artifactory/gaudi-installer/latest/habanalabs-installer.sh'
 bash habanalabs-installer.sh install -t base -y
-
-sudo ln -s /usr/lib/habanalabs/libaeon.so.1 /usr/lib/habanalabs/libaeon.so
 ```
 
 2. Prepare the Intel Gaudi PyTorch bridge repository and install a proper version of the Gaudi-enabled `torch` wheel:
