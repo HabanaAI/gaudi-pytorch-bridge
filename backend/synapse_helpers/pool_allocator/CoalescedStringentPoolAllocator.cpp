@@ -1307,11 +1307,15 @@ void CoalescedStringentPooling::get_stats(MemoryStats* mem_stats) const {
         pool_status << "\n";
       }
     }
-    stats.fragmentation_percent = static_cast<uint64_t>(
-        100. *
-        (1. -
-         (static_cast<double>(max_cntgs_free_chunks_size) /
-          static_cast<double>(available_chunks_size))));
+    if (available_chunks_size == 0) {
+      stats.fragmentation_percent = 0;
+    } else {
+      stats.fragmentation_percent = static_cast<uint64_t>(
+          100. *
+          (1. -
+           (static_cast<double>(max_cntgs_free_chunks_size) /
+            static_cast<double>(available_chunks_size))));
+    }
     stats.total_chunks = total_chunks;
     stats.total_size = total_size;
     stats.occupied_chunks = occupied_chunks;
