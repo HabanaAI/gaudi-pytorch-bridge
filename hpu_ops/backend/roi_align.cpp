@@ -14,6 +14,7 @@
  */
 
 #include "hpu_ops/roi_align.h"
+#include "hpu_ops/hpu_op_helper.h"
 
 namespace habana {
 
@@ -55,9 +56,9 @@ void RoiAlign::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto input = stackGetter.getNextInput<TensorsPair>();
   auto rois = stackGetter.getNextInput<TensorsPair>();
   auto spatial_scale = stackGetter.getNextInput<double>();
-  stackGetter.getNextInput<int>();
-  stackGetter.getNextInput<int>();
-  auto sampling_ratio = stackGetter.getNextInput<int>();
+  stackGetter.getNextInput<long>();
+  stackGetter.getNextInput<long>();
+  auto sampling_ratio = stackGetter.getNextInput<long>();
   auto aligned = stackGetter.getNextInput<bool>();
 
   const auto output_meta = ComputeRoiAlignMetadata(stack)[0];
@@ -69,8 +70,11 @@ void RoiAlign::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
   ns_RoiAlignKernel::ParamsAlignment roi_params{};
   roi_params.mode = RoiAlignMode_t::ROI_ALIGN_AVG;
-  roi_params.sampling_ratio = sampling_ratio;
-  roi_params.spatial_scale = spatial_scale;
+  HABANA_ASSERT(
+      sampling_ratio <= std::numeric_limits<int>::max(),
+      "Sampling ratio exceeds maximum value for int.");
+  roi_params.sampling_ratio = static_cast<int>(sampling_ratio);
+  roi_params.spatial_scale = static_cast<float>(spatial_scale);
   roi_params.aligned = aligned;
 
   SetSynapseLayouts(
@@ -117,13 +121,13 @@ void RoiAlignBackward::AddNode(
   auto grad = stackGetter.getNextInput<TensorsPair>();
   auto rois = stackGetter.getNextInput<TensorsPair>();
   auto spatial_scale = stackGetter.getNextInput<double>();
-  stackGetter.getNextInput<int>();
-  stackGetter.getNextInput<int>();
-  auto batch_size = stackGetter.getNextInput<int>();
-  stackGetter.getNextInput<int>();
-  stackGetter.getNextInput<int>();
-  stackGetter.getNextInput<int>();
-  auto sampling_ratio = stackGetter.getNextInput<int>();
+  stackGetter.getNextInput<long>();
+  stackGetter.getNextInput<long>();
+  auto batch_size = stackGetter.getNextInput<long>();
+  stackGetter.getNextInput<long>();
+  stackGetter.getNextInput<long>();
+  stackGetter.getNextInput<long>();
+  auto sampling_ratio = stackGetter.getNextInput<long>();
   auto aligned = stackGetter.getNextInput<bool>();
 
   const auto rois_shape = rois.pt_t.sizes().vec();
@@ -134,48 +138,55 @@ void RoiAlignBackward::AddNode(
 
   auto rois_outputs = PrepareRois(this, graph, rois.syn_t, rois_shape, dtype);
 
-  std::vector<int64_t> quad_tree_output_shape{
-      batch_size, 256, rois_shape[0] + 1};
-  auto quad_shape_tensor =
-      BuildOp(graph, "memset", {}, {{output_shape, dtype}});
-  std::vector<synTensor> quad_tree_inputs = {
-      rois_outputs[0].get(), rois_outputs[1].get(), quad_shape_tensor[0].get()};
-  CreateShapeTensorInput(
-      graph, dtype, quad_tree_output_shape, quad_tree_inputs);
-
-  ns_QuadTree::ParamsTorchVersion quad_tree_params{};
-  quad_tree_params.segments = 256;
-  quad_tree_params.isValidCount = false;
-  quad_tree_params.enableAbsoluteCoords = true;
-  quad_tree_params.levelScalarFactor = spatial_scale;
-  quad_tree_params.enableTorchVersion = true;
-
-  SetSynapseLayouts(
-      {synapse_helpers::layouts::SynapseLayoutFormat::AB,
-       synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
-       synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
-       synapse_helpers::layouts::SynapseLayoutFormat::BSN},
-      {synapse_helpers::layouts::SynapseLayoutFormat::BSN});
-
-  auto quad_tree = BuildOp(
-      graph,
-      "quad_tree_fwd_f32",
-      std::move(quad_tree_inputs),
-      {{quad_tree_output_shape, c10::ScalarType::Short}},
-      &quad_tree_params,
-      sizeof(quad_tree_params));
-
   std::vector<synTensor> inputs = {
-      grad.syn_t,
-      rois_outputs[0].get(),
-      rois_outputs[1].get(),
-      quad_tree[0].get()};
+      grad.syn_t, rois_outputs[0].get(), rois_outputs[1].get()};
+  std::vector<synapse_helpers::tensor> quad_tree;
+
+  if (habana::HPUDeviceContext::get_device().type() == synDeviceGaudi) {
+    std::vector<int64_t> quad_tree_output_shape{
+        batch_size, 256, rois_shape[0] + 1};
+    auto quad_shape_tensor =
+        BuildOp(graph, "memset", {}, {{output_shape, dtype}});
+    std::vector<synTensor> quad_tree_inputs = {
+        rois_outputs[0].get(),
+        rois_outputs[1].get(),
+        quad_shape_tensor[0].get()};
+    CreateShapeTensorInput(
+        graph, dtype, quad_tree_output_shape, quad_tree_inputs);
+
+    ns_QuadTree::ParamsTorchVersion quad_tree_params{};
+    quad_tree_params.segments = 256;
+    quad_tree_params.isValidCount = false;
+    quad_tree_params.enableAbsoluteCoords = true;
+    quad_tree_params.levelScalarFactor = static_cast<float>(spatial_scale);
+    quad_tree_params.enableTorchVersion = true;
+
+    SetSynapseLayouts(
+        {synapse_helpers::layouts::SynapseLayoutFormat::AB,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+         synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
+         synapse_helpers::layouts::SynapseLayoutFormat::BSN},
+        {synapse_helpers::layouts::SynapseLayoutFormat::BSN});
+
+    quad_tree = BuildOp(
+        graph,
+        "quad_tree_fwd_f32",
+        std::move(quad_tree_inputs),
+        {{quad_tree_output_shape, c10::ScalarType::Short}},
+        &quad_tree_params,
+        sizeof(quad_tree_params));
+
+    inputs.push_back(quad_tree[0].get());
+  }
   CreateShapeTensorInput(graph, dtype, output_shape, inputs);
 
   ns_RoiAlignBwdKernel::ParamsIsValidCount roi_params{};
   roi_params.mode = RoiAlignMode_t::ROI_ALIGN_AVG;
-  roi_params.sampling_ratio = sampling_ratio;
-  roi_params.spatial_scale = spatial_scale;
+  HABANA_ASSERT(
+      sampling_ratio <= std::numeric_limits<int>::max(),
+      "Sampling ratio exceeds maximum value for int.");
+  roi_params.sampling_ratio = static_cast<int>(sampling_ratio);
+  roi_params.spatial_scale = static_cast<float>(spatial_scale);
   roi_params.aligned = aligned;
   roi_params.isValidCount = false;
 
@@ -202,7 +213,7 @@ void RoiAlignBackward::AddNode(
 
 static const auto& RoiAlignKernelRegistry =
     habana::KernelRegistry()
-        .add("torchvision::roi_align", KERNEL_FN_GLOBAL(habana::RoiAlign))
-        .add(
+        .REGISTER_HPU_BACKEND("torchvision::roi_align", habana::RoiAlign)
+        .REGISTER_HPU_BACKEND(
             "torchvision::_roi_align_backward",
-            KERNEL_FN_GLOBAL(habana::RoiAlignBackward));
+            habana::RoiAlignBackward);

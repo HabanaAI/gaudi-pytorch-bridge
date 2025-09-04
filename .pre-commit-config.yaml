@@ -13,15 +13,13 @@ repos:
     hooks:
       - id: cmake-format
         additional_dependencies: ["pyyaml"]
-  #       - id: cmake-lint
-  #         additional_dependencies: ["pyyaml"]
   - repo: https://github.com/aostrowski/pre-commit-mirror-git-clang-format
-    rev: v10.0.1
+    rev: v16.0.6
     hooks:
       - id: git-clang-format
         exclude: ^(scripts/tests/files/|.devops/patches/)
   - repo: https://github.com/PyCQA/flake8
-    rev: 7.1.1
+    rev: 7.2.0
     hooks:
       - id: flake8
         name: TorchFix
@@ -43,22 +41,18 @@ repos:
         exclude: "python_packages/habana_frameworks/torch/jit/csrc/jit_fork/|\
           ^tests/user_custom_op/|\
           ^pytorch_helpers/habana_helpers/tensor_comparator/synapse/src/infra/(float16|sim_fp16).cpp$|\
-          ^scripts/tests/files/|\
-          ^sl_report_generator/src/executor.cpp"
+          ^scripts/tests/files/"
   - repo: https://github.com/jumanjihouse/pre-commit-hooks
     rev: 3.0.0
     hooks:
       - id: forbid-binary
       - id: script-must-have-extension
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.9.6
+    rev: v0.11.12
     hooks:
       - id: ruff
         args: [--fix]
-  - repo: https://github.com/psf/black
-    rev: 25.1.0
-    hooks:
-      - id: black
+      - id: ruff-format
   - repo: https://github.com/Lucas-C/pre-commit-hooks
     rev: v1.5.5
     hooks:
@@ -88,13 +82,10 @@ repos:
   #             - --fuzzy-match-generates-todo
   #             - --use-current-year
   - repo: https://github.com/adrienverge/yamllint.git
-    rev: v1.29.0
+    rev: v1.37.0
     hooks:
       - id: yamllint
         files: \.ya?ml$
-        # TODO: fix issues and stop excluding .ci when time allows:
-        # https://jira.habana-labs.com/browse/SW-121821
-        exclude: ^.ci/
   - repo: local
     hooks:
       - id: deprecated-namespaces

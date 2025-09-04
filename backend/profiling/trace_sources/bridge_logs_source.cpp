@@ -29,25 +29,23 @@ namespace {
 uint64_t nowNanos() {
   return static_cast<uint64_t>(
       std::chrono::duration_cast<std::chrono::nanoseconds>(
-          std::chrono::system_clock::now().time_since_epoch())
+          std::chrono::high_resolution_clock::now().time_since_epoch())
           .count());
 }
 } // namespace
 
-namespace habana {
-namespace profile {
+namespace habana::profile {
 
 struct BridgeLogsSourceImpl : public TraceSource {
   BridgeLogsSourceImpl() = default;
   ~BridgeLogsSourceImpl() override = default;
   void log(std::string_view id, bool is_begin) {
     if (enabled(id)) {
-      int64_t dtime = nowNanos();
-      pid_t tid = syscall(__NR_gettid);
-      std::string event_id{id};
+      const auto dtime = nowNanos();
+      const auto tid = static_cast<pid_t>(syscall(__NR_gettid));
       std::lock_guard<std::mutex> lg{m};
       updateThreadNames(tid);
-      events_.emplace_back(std::move(event_id), dtime, tid, is_begin);
+      events_.emplace_back(std::string{id}, dtime, tid, is_begin);
     }
   }
   void set_mandatory_events(
@@ -109,7 +107,7 @@ struct BridgeLogsSourceImpl : public TraceSource {
   void extract(TraceSink& output) override {
     if (events_.empty())
       return;
-    pid_t pid = getpid() + offset_;
+    pid_t pid = static_cast<pid_t>(getpid()) + offset_;
     std::lock_guard<std::mutex> lg{m};
     for (const auto& event : events_) {
       output.addActivity(
@@ -123,7 +121,6 @@ struct BridgeLogsSourceImpl : public TraceSource {
           "thread " + std::to_string(entry.first) + " (" + entry.second + ")";
       output.addResource(name, pid, entry.first);
     }
-    output.addDevice("Bridge Logs", pid);
     events_.clear();
   }
   TraceSourceVariant get_variant() override {
@@ -142,10 +139,10 @@ struct BridgeLogsSourceImpl : public TraceSource {
   }
   struct Event {
     std::string name;
-    int64_t time;
+    uint64_t time;
     pid_t tid;
     bool begin;
-    Event(std::string&& name, int64_t time, pid_t tid, bool begin)
+    Event(std::string&& name, uint64_t time, pid_t tid, bool begin)
         : name(std::move(name)), time(time), tid(tid), begin(begin) {}
   };
   std::deque<Event> events_;
@@ -199,5 +196,4 @@ bool is_enabled(std::string_view name) {
   return BridgeLogsSourceImpl::instance().enabled(name);
 }
 }; // namespace bridge
-}; // namespace profile
-}; // namespace habana
+}; // namespace habana::profile

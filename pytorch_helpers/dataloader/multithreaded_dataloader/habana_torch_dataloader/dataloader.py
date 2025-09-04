@@ -32,7 +32,7 @@ from collections.abc import Callable, Sequence
 from typing import Any, Generic, Optional, TypeVar
 
 import torch
-import torch.multiprocessing as multiprocessing
+from torch import multiprocessing
 from torch._utils import ExceptionWrapper
 from torch.utils.data import _utils
 from torch.utils.data.dataset import Dataset, IterableDataset
@@ -201,9 +201,7 @@ class DataLoader(Generic[T_co]):
         torch._C._log_api_usage_once("python.data_loader")  # type: ignore
 
         if num_workers < 0:
-            raise ValueError(
-                "num_workers option should be non-negative; " "use num_workers=0 to disable multiprocessing."
-            )
+            raise ValueError("num_workers option should be non-negative; use num_workers=0 to disable multiprocessing.")
 
         if timeout < 0:
             raise ValueError("timeout option should be non-negative")
@@ -259,14 +257,12 @@ class DataLoader(Generic[T_co]):
             # specific workers.
             if shuffle is not False:
                 raise ValueError(
-                    "DataLoader with IterableDataset: expected unspecified "
-                    f"shuffle option, but got shuffle={shuffle}"
+                    f"DataLoader with IterableDataset: expected unspecified shuffle option, but got shuffle={shuffle}"
                 )
             elif sampler is not None:
                 # See NOTE [ Custom Samplers and IterableDataset ]
                 raise ValueError(
-                    "DataLoader with IterableDataset: expected unspecified "
-                    f"sampler option, but got sampler={sampler}"
+                    f"DataLoader with IterableDataset: expected unspecified sampler option, but got sampler={sampler}"
                 )
             elif batch_sampler is not None:
                 # See NOTE [ Custom Samplers and IterableDataset ]
@@ -278,13 +274,13 @@ class DataLoader(Generic[T_co]):
             self._dataset_kind = _DatasetKind.Map
 
         if sampler is not None and shuffle:
-            raise ValueError("sampler option is mutually exclusive with " "shuffle")
+            raise ValueError("sampler option is mutually exclusive with shuffle")
 
         if batch_sampler is not None:
             # auto_collation with custom batch_sampler
             if batch_size != 1 or shuffle or sampler is not None or drop_last:
                 raise ValueError(
-                    "batch_sampler option is mutually exclusive " "with batch_size, shuffle, sampler, and " "drop_last"
+                    "batch_sampler option is mutually exclusive with batch_size, shuffle, sampler, and drop_last"
                 )
             batch_size = None
             drop_last = False
@@ -292,20 +288,19 @@ class DataLoader(Generic[T_co]):
             # no auto_collation
             if drop_last:
                 raise ValueError(
-                    "batch_size=None option disables auto-batching " "and is mutually exclusive with drop_last"
+                    "batch_size=None option disables auto-batching and is mutually exclusive with drop_last"
                 )
 
         if sampler is None:  # give default samplers
             if self._dataset_kind == _DatasetKind.Iterable:
                 # See NOTE [ Custom Samplers and IterableDataset ]
                 sampler = _InfiniteConstantSampler()
-            else:  # map-style
-                if shuffle:
-                    # Cannot statically verify that dataset is Sized
-                    # Somewhat related: see NOTE [ Lack of Default `__len__` in Python Abstract Base Classes ]
-                    sampler = RandomSampler(dataset, generator=generator)  # type: ignore
-                else:
-                    sampler = SequentialSampler(dataset)
+            elif shuffle:
+                # Cannot statically verify that dataset is Sized
+                # Somewhat related: see NOTE [ Lack of Default `__len__` in Python Abstract Base Classes ]
+                sampler = RandomSampler(dataset, generator=generator)  # type: ignore
+            else:
+                sampler = SequentialSampler(dataset)
 
         if batch_size is not None and batch_sampler is None:
             # auto_collation without custom batch_sampler
@@ -347,7 +342,7 @@ class DataLoader(Generic[T_co]):
             if self.num_workers > 0:
                 if not multiprocessing._supports_context:
                     raise ValueError(
-                        "multiprocessing_context relies on Python >= 3.4, with " "support for different start methods"
+                        "multiprocessing_context relies on Python >= 3.4, with support for different start methods"
                     )
 
                 if not isinstance(multiprocessing_context, python_multiprocessing.context.BaseContext):
@@ -374,7 +369,7 @@ class DataLoader(Generic[T_co]):
             "dataset",
             "persistent_workers",
         ):
-            raise ValueError(f"{attr} attribute should not be set after {self.__class__.__name__} is " "initialized")
+            raise ValueError(f"{attr} attribute should not be set after {self.__class__.__name__} is initialized")
 
         super().__setattr__(attr, val)
 
@@ -518,7 +513,11 @@ class _SingleProcessDataLoaderIter(_BaseDataLoaderIter):
         assert self._num_workers == 0
 
         self._dataset_fetcher = _DatasetKind.create_fetcher(
-            self._dataset_kind, self._dataset, self._auto_collation, self._collate_fn, self._drop_last
+            self._dataset_kind,
+            self._dataset,
+            self._auto_collation,
+            self._collate_fn,
+            self._drop_last,
         )
 
     def _next_data(self):
@@ -1095,9 +1094,8 @@ class _MultiProcessingDataLoaderIter(_BaseDataLoaderIter):
                 success, data = self._try_get_data()
                 if success:
                     return data
-            else:
-                # while condition is false, i.e., pin_memory_thread died.
-                raise RuntimeError("Pin memory thread exited unexpectedly")
+            # while condition is false, i.e., pin_memory_thread died.
+            raise RuntimeError("Pin memory thread exited unexpectedly")
             # In this case, `self._data_queue` is a `queue.Queue`,. But we don't
             # need to call `.task_done()` because we don't use `.join()`.
         else:
@@ -1138,15 +1136,14 @@ class _MultiProcessingDataLoaderIter(_BaseDataLoaderIter):
             assert not self._shutdown and self._tasks_outstanding > 0
             idx, data = self._get_data()
             self._tasks_outstanding -= 1
-            if self._dataset_kind == _DatasetKind.Iterable:
+            if self._dataset_kind == _DatasetKind.Iterable and isinstance(data, worker._IterableDatasetStopIteration):
                 # Check for _IterableDatasetStopIteration
-                if isinstance(data, worker._IterableDatasetStopIteration):
-                    if self._persistent_workers:
-                        self._workers_status[data.worker_id] = False
-                    else:
-                        self._mark_worker_as_unavailable(data.worker_id)
-                    self._try_put_index()
-                    continue
+                if self._persistent_workers:
+                    self._workers_status[data.worker_id] = False
+                else:
+                    self._mark_worker_as_unavailable(data.worker_id)
+                self._try_put_index()
+                continue
 
             if idx != self._rcvd_idx:
                 # store out-of-order samples

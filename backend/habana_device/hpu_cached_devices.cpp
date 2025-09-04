@@ -22,7 +22,7 @@
 namespace habana {
 
 std::unique_ptr<HPURegistrar> HPURegistrar::instance_{nullptr};
-std::once_flag HPURegistrar::initialize_once_flag_{};
+std::once_flag HPURegistrar::initialize_once_flag_;
 
 void HPURegistrar::create_instance() {
   // create session to force a call to synInitialize.

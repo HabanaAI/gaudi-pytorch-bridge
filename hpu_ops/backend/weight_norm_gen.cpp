@@ -48,7 +48,7 @@ OutputMetaDataVector WeightNormMeta(const at::Stack& stack) {
   const torch::Tensor& v_in = stack_tensor(stack, 0);
   const torch::Tensor& g_in = stack_tensor(stack, 1);
   auto dim = stack.at(2).toInt();
-  const auto keepdim = g_in.sizes().vec().size() == v_in.sizes().vec().size();
+  const auto keepdim = g_in.sizes().size() == v_in.sizes().size();
 
   c10::DimVector dims_to_norm = getDimsToNorm(v_in.ndimension(), dim);
 
@@ -154,15 +154,13 @@ OutputMetaDataVector WeightNormBwdMeta(const at::Stack& stack) {
   metaVec[1].dtype = saved_g.scalar_type();
   return metaVec;
 }
-std::shared_ptr<void> FillWeightNormBwdParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillWeightNormBwdParams(const at::Stack& stack) {
   auto input = stack.at(0).toTensor();
   auto dim = at::maybe_wrap_dim(stack.at(4).toInt(), input.dim());
 
   PARAMS_STUB(ns_Reduction::Params);
   params->reductionDimension = dim;
-  return params;
+  return paramsT;
 }
 
 } // namespace habana

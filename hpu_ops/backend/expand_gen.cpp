@@ -80,6 +80,7 @@ ExpandOp::ExpandOp(int device_id, c10::ScalarType scalar_type)
 }
 } // namespace habana
 
-static const auto& ExpandKernelRegistry = habana::KernelRegistry().add(
-    "aten::expand",
-    KERNEL_FN_GLOBAL(habana::ExpandOp));
+static const auto& ExpandKernelRegistry =
+    habana::KernelRegistry().REGISTER_HPU_BACKEND(
+        "aten::expand",
+        habana::ExpandOp);

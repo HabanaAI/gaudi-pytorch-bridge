@@ -101,7 +101,7 @@ class LazyCustomKernelKernelTest : public habana_lazy_test::LazyTest {
       auto k = inputs[1].toInt(); // k
       auto dim = inputs[2].toInt(); // dim
       std::vector<int64_t> result_sizes = self.sizes().vec();
-      if (result_sizes.size() > 0) {
+      if (!result_sizes.empty()) {
         result_sizes[dim] = k;
       }
       return result_sizes;
@@ -201,7 +201,7 @@ TEST_F(LazyCustomKernelKernelTest, BinaryOp) {
       std::make_move_iterator(input_list.begin()),
       std::make_move_iterator(input_list.end()));
 
-  exec::HlExec* hlexec = new exec::HlExec();
+  auto hlexec = std::make_unique<exec::HlExec>();
   hlexec->GetOrCreate(po_data, stack);
 
   torch::jit::testing::FileCheck()
@@ -236,7 +236,7 @@ TEST_F(LazyCustomKernelKernelTest, MultipleOutputs) {
       std::make_move_iterator(input_list.begin()),
       std::make_move_iterator(input_list.end()));
 
-  exec::HlExec* hlexec = new exec::HlExec();
+  auto hlexec = std::make_unique<exec::HlExec>();
   hlexec->GetOrCreate(po_data, stack);
 
   torch::jit::testing::FileCheck()

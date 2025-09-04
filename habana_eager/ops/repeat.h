@@ -16,8 +16,6 @@
 #include <ATen/ATen.h>
 #include <ATen/core/Tensor.h>
 
-namespace habana {
-namespace eager {
+namespace habana::eager {
 at::Tensor repeat_hpu(const at::Tensor& self, at::SymIntArrayRef _repeats);
-}
-} // namespace habana
+} // namespace habana::eager

@@ -19,7 +19,10 @@
 import datetime
 import io
 import os
-import subprocess as sp
+
+# We use secure versions of Popen and check_output with command lists
+# and avoid shell mode to prevent command injection risks.
+import subprocess as sp  # nosec B404
 import sys
 
 import click
@@ -63,9 +66,9 @@ def prepare_copyright(created, modified, formatting):
 def propose_formatting(f):
     _, ext = os.path.splitext(f)
     formatting = formats["cpp"] if ext in (".c", ".cpp", ".h", ".hpp") else formats["script"]
-    created = sp.check_output(
-        f"git log --follow --format=%cs --date default {f} | tail -1", shell=True, encoding="ascii"
-    )
+    command = ["git", "log", "--follow", r"--format=%cs", "--date", "default", f]
+    result = sp.check_output(command, encoding="ascii")  # noqa S603
+    created = result.strip().split("\n")[-1]
     created = int(created[:4])
     modified = current_year
     cpr = prepare_copyright(created, modified, formatting)
@@ -180,7 +183,7 @@ def patch_file(f, prefix, verbose):
 
 
 def sp_output_lines(cmd):
-    proc = sp.Popen(cmd, stdout=sp.PIPE)
+    proc = sp.Popen(cmd, stdout=sp.PIPE)  # noqa S603
     for line in io.TextIOWrapper(proc.stdout, encoding="utf-8"):
         yield line.strip()
 

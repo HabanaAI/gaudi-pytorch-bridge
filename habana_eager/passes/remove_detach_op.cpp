@@ -18,9 +18,7 @@
 #include "habana_eager/graph_exec.h"
 #include "habana_helpers/logging_pt.h"
 
-namespace habana {
-namespace graph {
-namespace pass {
+namespace habana::graph::pass {
 
 bool RemoveDetachOp(std::shared_ptr<torch::jit::Graph> graph) {
   PT_EAGER_TRACE;
@@ -48,6 +46,4 @@ bool RemoveDetachOp(std::shared_ptr<torch::jit::Graph> graph) {
   return !detach_nodes.empty();
 }
 
-} // namespace pass
-} // namespace graph
-} // namespace habana
+} // namespace habana::graph::pass

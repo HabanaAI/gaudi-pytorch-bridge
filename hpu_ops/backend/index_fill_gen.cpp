@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,14 +16,23 @@
 
 namespace habana {
 
-std::shared_ptr<void> FillIndexFillParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillIndexFillParams(const at::Stack& stack) {
   const auto dim =
       at::maybe_wrap_dim(stack.at(1).toInt(), stack.at(0).toTensor().dim());
-  PARAMS_STUB(ns_IndexCopy::Params);
-  params->axis = dim;
-  return params;
+  bool is_value_scalar = stack.at(3).isScalar();
+
+  PARAMS_STUB(ns_IndexFill::Params);
+  params->dim = dim;
+  params->isValueScalar = is_value_scalar;
+  if (is_value_scalar) {
+    const auto selDtype = stack_tensor(stack, 0).scalar_type();
+    const float paramVal = stack.at(3).toScalar().toFloat();
+    params->value = selDtype == c10::ScalarType::Bool
+        ? static_cast<float>(static_cast<bool>(paramVal))
+        : paramVal;
+  }
+
+  return paramsT;
 }
 
 OutputMetaDataVector IndexFillMeta(const at::Stack& stack) {
@@ -40,76 +49,65 @@ SharedMetaDataVector IndexFillSharedMeta(
     habana_helpers::HabanaExecutionMode) {
   const auto& self = stack_tensor(stack, 0);
   const auto selfRank = self.dim();
-  const auto computeDtype = self.scalar_type();
+  auto computeDtype = self.scalar_type();
   const auto& index = stack_tensor(stack, 2);
   const auto indexRank = index.dim();
   const auto indexDtype = index.scalar_type();
   const auto& value = stack.at(3);
 
-  SharedMetaDataVector metaVec;
+  SharedMetaData indexFillSharedMeta{"index_fill"};
+  indexFillSharedMeta.options.allowLongType = true;
+
+  computeDtype = computeDtype == c10::ScalarType::Long ? c10::ScalarType::Int
+                                                       : computeDtype;
+
+  indexFillSharedMeta.inputs_data = {
+      {selfRank, computeDtype}, {indexRank, indexDtype}};
+
   if (value.isTensor()) {
-    auto valueTensor = value.toTensor();
+    const auto valueTensor = value.toTensor();
+    const auto valueRank = valueTensor.dim();
     auto valueDtype = valueTensor.scalar_type();
-    SharedMetaData broadcastSharedMeta{"broadcast"};
-    broadcastSharedMeta.inputs_data.emplace_back(1, valueDtype);
-    broadcastSharedMeta.outputs_data.emplace_back(selfRank, valueDtype);
-    metaVec.push_back(broadcastSharedMeta);
-  } else if (selfRank > 1) {
-    SharedMetaData constantSharedMeta{"constant"};
-    constantSharedMeta.outputs_data.emplace_back(selfRank, computeDtype);
-    metaVec.push_back(constantSharedMeta);
+
+    valueDtype =
+        valueDtype == c10::ScalarType::Long ? c10::ScalarType::Int : valueDtype;
+
+    indexFillSharedMeta.inputs_data.emplace_back(valueRank, valueDtype);
+  } else {
+    indexFillSharedMeta.inputs_data.push_back(
+        createOptionalNotPresentSharedMetaTensor());
   }
 
-  SharedMetaData indexFillSharedMeta{"index_copy_fwd"};
-  indexFillSharedMeta.inputs_data = {
-      {selfRank, computeDtype},
-      {indexRank, indexDtype},
-      {selfRank, computeDtype}};
   indexFillSharedMeta.outputs_data.emplace_back(selfRank, computeDtype);
-  metaVec.push_back(indexFillSharedMeta);
-  return metaVec;
+
+  return {indexFillSharedMeta};
 }
 
 void IndexFill::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   const auto& input = stack.at(0).toTensor();
-  const auto& dim = stack.at(1).toInt();
   const auto& indexes = stack.at(2).toTensor();
-  bool is_value_scalar = stack.at(3).isScalar();
-
+  const bool is_value_scalar = stack.at(3).isScalar();
   const auto meta = IndexFillMeta(stack)[0];
 
-  auto valueTensorShape = input.sizes().vec();
-  if (!valueTensorShape.empty()) {
-    valueTensorShape[dim] = indexes.numel();
-  } else {
+  if (input.sizes().vec().empty()) {
     HABANA_ASSERT(
         indexes.numel() == 1,
         "For input 0-D tensor, number of elements in indices tensor should be 1.");
   }
 
-  synapse_helpers::tensor valueTensor = is_value_scalar
-      ? OpBackend::BuildConstant(
-            this,
-            graph,
-            stack.at(3).toScalar().toFloat(),
-            meta.dtype,
-            valueTensorShape)
-      : BroadcastHelper(
-            graph,
-            syn_in(2),
-            valueTensorShape,
-            stack.at(3).toTensor().scalar_type());
+  std::vector<synTensor> inputs = {syn_in(0), syn_in(1)};
+  if (!is_value_scalar)
+    inputs.push_back(syn_in(2));
 
-  size_t size = 0;
-  const auto params = FillIndexFillParams(stack, size);
+  const auto params = FillIndexFillParams(stack);
 
   auto indexCopyResult = BuildOp(
       graph,
       guid_,
-      {syn_in(0), syn_in(1), valueTensor.get()},
+      {std::move(inputs)},
       {{meta.shape, meta.dtype, 0}},
-      params.get(),
-      size);
+      params.ptr(),
+      params.size());
 
   syn_out(0) = std::move(indexCopyResult[0]);
 }

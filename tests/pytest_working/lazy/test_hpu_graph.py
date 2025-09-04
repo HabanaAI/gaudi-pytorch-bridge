@@ -26,7 +26,7 @@ from habana_frameworks.torch.hpex.experimental.transformer_engine.recipe import 
     DelayedScaling,
     Format,
 )
-from test_utils import _kernel_copy_to_device, compare_tensors
+from test_utils import _kernel_copy_to_device, compare_tensors, is_gaudi1
 
 g = ht.hpu.HPUGraph()
 s = ht.hpu.Stream()
@@ -149,7 +149,10 @@ def test_multiple_graph_capture_memoptimization(asynchronous=False, dry_run=Fals
     module1_hpu = _kernel_copy_to_device(module1_cpu, "hpu")
     loss_fn = torch.nn.MSELoss()
     module1_hpu = ht.hpu.wrap_in_hpu_graph(
-        module1_hpu, asynchronous=asynchronous, disable_tensor_cache=True, dry_run=dry_run
+        module1_hpu,
+        asynchronous=asynchronous,
+        disable_tensor_cache=True,
+        dry_run=dry_run,
     )
     x_cpu = torch.randn(N, D_in, device="cpu")
     ITERATION = 10
@@ -279,7 +282,9 @@ def test_graph_capture_scalar(asynchronous=False, disable_tensor_cache=False):
     module1_hpu = _kernel_copy_to_device(module1_cpu, "hpu")
     loss_fn = torch.nn.MSELoss()
     module1_hpu = ht.hpu.wrap_in_hpu_graph(
-        module1_hpu, asynchronous=asynchronous, disable_tensor_cache=disable_tensor_cache
+        module1_hpu,
+        asynchronous=asynchronous,
+        disable_tensor_cache=disable_tensor_cache,
     )
     x_cpu = torch.randn(N, D_in, device="cpu")
     ITERATION = 5
@@ -439,6 +444,7 @@ def test_wrap_hpugraphs_max_graphs(max_graphs=10):
     compare_tensors(loss_hpu_vec, loss_cpu_vec, atol=0.001, rtol=1.0e-3)
 
 
+@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported dtype")
 @pytest.mark.parametrize("disable_tensor_cache", [True])
 def test_cached_module_training_fp8(disable_tensor_cache):
     torch.manual_seed(12345)
@@ -461,7 +467,19 @@ def test_cached_module_training_fp8(disable_tensor_cache):
     torch.manual_seed(12345)
     my_linear_test = te.Linear(4, 3, bias=True)
 
-    inputs = [input1, input2, input3, input2, input1, input2, input3, input3, input1, input1, input3]
+    inputs = [
+        input1,
+        input2,
+        input3,
+        input2,
+        input1,
+        input2,
+        input3,
+        input3,
+        input1,
+        input1,
+        input3,
+    ]
     with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
         # Run one iteration before capturing, because scales are not computed during first iteration (it's a different graph)
         out_ref = my_linear_ref(input0)
@@ -480,12 +498,12 @@ def test_cached_module_training_fp8(disable_tensor_cache):
             out_ref.cpu().to(torch.float).detach().numpy(),
             equal_nan=True,
         ), "Out data mismatch at init run"
-        assert np.array_equal(
-            grad_w_test.numpy(), grad_w_ref.numpy(), equal_nan=True
-        ), "Grad weight data mismatch at init run"
-        assert np.array_equal(
-            grad_b_test.numpy(), grad_b_ref.numpy(), equal_nan=True
-        ), "Grad bias data mismatch at init run"
+        assert np.array_equal(grad_w_test.numpy(), grad_w_ref.numpy(), equal_nan=True), (
+            "Grad weight data mismatch at init run"
+        )
+        assert np.array_equal(grad_b_test.numpy(), grad_b_ref.numpy(), equal_nan=True), (
+            "Grad bias data mismatch at init run"
+        )
         my_linear_ref.zero_grad(set_to_none=False)
         my_linear_test.zero_grad(set_to_none=False)
 
@@ -493,14 +511,17 @@ def test_cached_module_training_fp8(disable_tensor_cache):
         fp8_meta = my_linear_test.save_fp8_meta()
         x = torch.zeros_like(input1)
         my_linear_test = ht.hpu.ModuleCacher(max_graphs=10)(
-            have_grad_accumulation=True, model=my_linear_test, inplace=True, disable_tensor_cache=disable_tensor_cache
+            have_grad_accumulation=True,
+            model=my_linear_test,
+            inplace=True,
+            disable_tensor_cache=disable_tensor_cache,
         )
         out_x = my_linear_test(x).cpu()
         my_linear_test.load_fp8_meta(fp8_meta)
         my_linear_test.zero_grad()
 
         # Run recorded graph n times
-        for i in range(0, len(inputs)):
+        for i in range(len(inputs)):
             my_linear_test.set_iteration_count(i)
             out_test = my_linear_test(inputs[i])
             loss_test = out_test.sum()
@@ -519,12 +540,12 @@ def test_cached_module_training_fp8(disable_tensor_cache):
                 out_ref.cpu().to(torch.float).detach().numpy(),
                 equal_nan=True,
             ), f"Out data mismatch at {i}"
-            assert np.array_equal(
-                grad_w_test.numpy(), grad_w_ref.numpy(), equal_nan=True
-            ), f"Grad weight data mismatch at {i}"
-            assert np.array_equal(
-                grad_b_test.numpy(), grad_b_ref.numpy(), equal_nan=True
-            ), f"Grad bias data mismatch at {i}"
+            assert np.array_equal(grad_w_test.numpy(), grad_w_ref.numpy(), equal_nan=True), (
+                f"Grad weight data mismatch at {i}"
+            )
+            assert np.array_equal(grad_b_test.numpy(), grad_b_ref.numpy(), equal_nan=True), (
+                f"Grad bias data mismatch at {i}"
+            )
 
 
 def test_module_cacher_no_requires_grad():
@@ -740,7 +761,11 @@ def test_module_cacher_propnet_rand():
         outputs_target_hpu.append(o.to("hpu"))
 
     module1_hpu = ht.hpu.ModuleCacher()(
-        have_grad_accumulation=True, model=module1_hpu, inplace=True, allow_unused_input=True, dry_run=True
+        have_grad_accumulation=True,
+        model=module1_hpu,
+        inplace=True,
+        allow_unused_input=True,
+        dry_run=True,
     )
     loss_fn = torch.nn.MSELoss()
     optim_y_hpu_ref = torch.optim.SGD(module1_hpu_ref.parameters(), lr=0.1)
@@ -785,3 +810,132 @@ def test_module_cacher_propnet_rand():
 
     for i in range(6):
         assert torch.allclose(outputs_hpu[i], outputs_hpu_ref[i])
+
+
+class SimpleModelWithIndexPut(torch.nn.Module):
+    def __init__(self, inp_size, out_size):
+        super().__init__()
+        self.Linear1 = torch.nn.Linear(inp_size, out_size)
+        self.indices = torch.tensor([True, True, True, True, True, True, True])
+        self.value = torch.tensor([1, 2, 3, 128256, 128256, 4, 5], dtype=torch.float32)
+
+    def forward(self, input_ids):
+        output = self.Linear1(input_ids)
+        output.index_put([self.indices.to(input_ids.device)], self.value.to(input_ids.device))
+        return output
+
+
+class SimpleModelWithMaskedSelect(torch.nn.Module):
+    def __init__(self, inp_size, out_size):
+        super().__init__()
+        self.Linear1 = torch.nn.Linear(inp_size, out_size)
+        self.indices = torch.tensor([True, False, True, False, True, False, False])
+
+    def forward(self, input_ids):
+        output = self.Linear1(input_ids)
+        output = torch.masked_select(output, self.indices.to(input_ids.device))
+        return output
+
+
+class SimpleModelWithIndexAdd(torch.nn.Module):
+    def __init__(self, inp_size, out_size):
+        super().__init__()
+        self.Linear1 = torch.nn.Linear(inp_size, out_size)
+        self.indices = torch.tensor([0, 2, 4])
+        self.value = torch.tensor([10, 20, 30], dtype=torch.float32)
+
+    def forward(self, input_ids):
+        output = self.Linear1(input_ids)
+        output = torch.index_add(
+            output,
+            0,
+            self.indices.to(input_ids.device),
+            self.value.to(input_ids.device),
+        )
+        return output
+
+
+class SimpleModelWithIndexSelect(torch.nn.Module):
+    def __init__(self, inp_size, out_size):
+        super().__init__()
+        self.Linear1 = torch.nn.Linear(inp_size, out_size)
+        self.indices = torch.tensor([1])
+
+    def forward(self, input_ids):
+        output = self.Linear1(input_ids)
+        output = output.index_select(dim=-1, index=self.indices.to(input_ids.device))
+        return output
+
+
+class SimpleModelWithNonZero(torch.nn.Module):
+    def __init__(self, inp_size, out_size):
+        super().__init__()
+        self.Linear1 = torch.nn.Linear(inp_size, out_size)
+
+    def forward(self, input_ids):
+        output = self.Linear1(input_ids)
+        output = torch.nonzero(output)
+        return output
+
+
+class SimpleModelWithArange(torch.nn.Module):
+    def __init__(self, inp_size, out_size):
+        super().__init__()
+        self.Linear1 = torch.nn.Linear(inp_size, out_size)
+
+    def forward(self, input_ids):
+        output = self.Linear1(input_ids)
+        output = torch.arange(1, 8, 1, device=input_ids.device)
+        return output
+
+
+def wrap_in_model(model):
+    model_cpu = model(7, 7).to("cpu")
+    model_hpu = _kernel_copy_to_device(model_cpu, "hpu")
+    model_hpu = ht.hpu.wrap_in_hpu_graph(model_hpu, disable_tensor_cache=True, dry_run=False)
+    return model_cpu, model_hpu
+
+
+# warnings will be displayed on the console for incompatible ops with HPU Graphs
+@pytest.mark.parametrize(
+    "model",
+    [
+        SimpleModelWithIndexPut,
+        SimpleModelWithMaskedSelect,
+        SimpleModelWithIndexAdd,
+        SimpleModelWithIndexSelect,
+        SimpleModelWithNonZero,
+        SimpleModelWithArange,
+    ],
+)
+def test_with_hpu_ops(model):
+    model_cpu, model_hpu = wrap_in_model(model)
+    for _ in range(5):
+        input_cpu = torch.randint(1, 7, (7,), dtype=torch.float32)
+        output_cpu = model_cpu(input_cpu)
+        output_hpu = model_hpu(input_cpu.to("hpu")).to("cpu")
+        compare_tensors(output_hpu, output_cpu, atol=0.001, rtol=1.0e-3)
+
+
+def test_inplace_view_test():
+    class InplaceOpNet(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+
+        def forward(self, x=None):
+            x.add_(1)
+            x = x * x.mean()
+            return x
+
+    model = InplaceOpNet()
+    model.to("hpu")
+
+    model_hpugraph = ht.hpu.wrap_in_hpu_graph(model, disable_tensor_cache=True, free_inplace=False)
+
+    for _ in range(4):
+        x = torch.randn(4, 1).to("hpu")
+        y = torch.randn(4, 1).to("hpu")
+        x = y[: len(y)]
+        z_hpu = model_hpugraph(x.clone())
+        z = model(x)
+        assert torch.allclose(z_hpu, z)

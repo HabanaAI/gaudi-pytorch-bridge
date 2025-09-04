@@ -20,7 +20,7 @@ class HpuOpTest : public HpuOpTestUtil {};
 
 TEST_F(HpuOpTest, lt_scalar_) {
   GenerateInputs(1, torch::kInt);
-  float compVal = -0.1f;
+  float compVal = -0.1F;
 
   GetCpuInput(0).lt_(compVal);
   GetHpuInput(0).lt_(compVal);

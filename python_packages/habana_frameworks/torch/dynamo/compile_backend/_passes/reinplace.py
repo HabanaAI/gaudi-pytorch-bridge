@@ -154,6 +154,11 @@ def reinplace_add_extra_check(node) -> bool:
     if src0_val.numel() == 0:
         return False
 
+    # condition 5: src0 and output shold have same shape
+    out_val = node.meta["val"]
+    if src0_val.shape != out_val.shape:
+        return False
+
     return True
 
 
@@ -174,7 +179,6 @@ except AttributeError:
     # _c10d_functional ops are only available when torch
     # is built with USE_DISTRIBUTED=1.
     inplaceable_collective_ops = {}
-    pass
 
 
 def construct_inplaceable_ops():

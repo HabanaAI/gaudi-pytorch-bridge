@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,9 +34,7 @@ static std::vector<int64_t> get_dims_from_stack(const at::Stack& stack) {
   return dims;
 }
 
-std::shared_ptr<void> FillCountNonzeroParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillCountNonzeroParams(const at::Stack& stack) {
   PARAMS_STUB(ns_CountNonZero::Params);
   params->dims = 0;
 
@@ -49,7 +47,7 @@ std::shared_ptr<void> FillCountNonzeroParams(
     }
   }
 
-  return params;
+  return paramsT;
 }
 
 OutputMetaDataVector CountNonzeroMeta(const at::Stack& stack) {

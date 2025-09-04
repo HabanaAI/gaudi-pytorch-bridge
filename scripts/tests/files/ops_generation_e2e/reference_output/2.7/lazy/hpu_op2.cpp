@@ -8,14 +8,13 @@
 #include "habana_kernels/lazy_kernels.h"
 #include "habana_lazy/hpu_stage_submission.h"
 using habana_lazy::LazyOp;
-using habana_lazy::GraphHashBuilder;
 
 #include "addbmm.h"
 #include "as_strided.h"
 
 
-using habana_helpers::DTypeHelper;
-using synapse_helpers::graph;
+using habana_helpers::DTypeHelper; // NOLINT(misc-unused-using-decls)
+using synapse_helpers::graph; // NOLINT(misc-unused-using-decls)
 using torch::jit::Stack;
 
 
@@ -58,8 +57,8 @@ static const auto& kr_gen_2 = KernelRegistry()
 ;
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {
-  m.impl("as_strided", static_cast<at::Tensor (*)(const at::Tensor &, c10::SymIntArrayRef, c10::SymIntArrayRef, ::std::optional<c10::SymInt>)>(&habana::as_strided));
-  m.impl("addbmm", static_cast<at::Tensor (*)(const at::Tensor &, const at::Tensor &, const at::Tensor &, const at::Scalar &, const at::Scalar &)>(&habana::addbmm));
+  m.impl("as_strided", habana::as_strided);
+  m.impl("addbmm", habana::addbmm);
 
 }
 

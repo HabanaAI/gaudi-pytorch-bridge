@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 ###############################################################################
 #
 #  Copyright (c) 2021-2025 Intel Corporation
@@ -60,7 +59,7 @@ def test_version_equal_to_same_version():
 
 def test_version_unequal_to_different_git_sha():
     assert Version("1.12.0a0+git7315ac") != Version("1.12.0a0+git7890abc")
-    assert not Version("1.12.0a0+git7315ac") == Version("1.12.0a0+git7890abc")
+    assert not Version("1.12.0a0+git7315ac") == Version("1.12.0a0+git7890abc")  # noqa SIM201
 
 
 def test_version_losslessly_converts_to_and_from_string():

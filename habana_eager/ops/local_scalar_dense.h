@@ -16,8 +16,6 @@
 
 #include <ATen/core/TensorBody.h>
 
-namespace habana {
-namespace eager {
+namespace habana::eager {
 at::Scalar _local_scalar_dense_hpu(const at::Tensor& self);
-} // namespace eager
-} // namespace habana
+} // namespace habana::eager

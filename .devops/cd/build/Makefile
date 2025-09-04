@@ -1,4 +1,4 @@
-# get VEBOSE from env var or default to false
+# get VERBOSE from env var or default to false
 ifeq ($(VERBOSE),)
 	VERBOSE = FALSE
 endif
@@ -27,7 +27,7 @@ DOCKER_IMAGE_NDA ?= artifactory-kfs.habana-labs.com/devops-docker-local/habana-t
 
 SW_ARTIFACT_ROOT_URL ?= https://artifactory-kfs.habana-labs.com/artifactory/$(SW_META_REPO)/$(RELEASE_VERSION)/$(RELEASE_BUILD_ID)/$(subst .,,$(BUILD_OS))/binary
 
-PT_VERSION ?= $(shell jq -rj '.pt_versions.current.version' $(SRC_DIR)/pytorch-integration/.devops/build_profiles/profiles.json)
+PT_VERSION ?= $(shell cat $(SRC_DIR)/pytorch-fork/version.txt)
 
 # Hide or not the calls depending of VERBOSE
 ifeq ($(VERBOSE),TRUE)
@@ -66,7 +66,7 @@ ifndef SRC_DIR
 	$(error SRC_DIR is not set)
 endif
 
-init: ## init the environemnt - pull image and create folders
+init: ## init the environment - pull image and create folders
 	@if [ ! -d "$(BUILDS_DIR)" ]; then \
 		echo "builds folder '$(BUILDS_DIR)' does not exists, creating it ..."; \
 		mkdir -p $(BUILDS_DIR); \
@@ -101,7 +101,7 @@ init: ## init the environemnt - pull image and create folders
 	$(HIDE)docker pull -q $(DOCKER_IMAGE)
 
 init-sw-deps: validate init ## download and install sw build dependencies
-	@echo download and install sw depenedencies sw_release_build for $(BUILD_OS)
+	@echo download and install sw dependencies sw_release_build for $(BUILD_OS)
 	$(HIDE)docker run -t --rm --network=host --user $(shell id -u):$(shell id -g) --ulimit memlock=-1:-1 \
 	--tmpfs /tmp:rw,exec,nosuid,mode=777,size=40G \
 	-v /etc/localtime:/etc/localtime:ro \
@@ -156,9 +156,23 @@ install-fork: validate init ## install the PT fork whl
 	$(DOCKER_IMAGE) \
 	'pip3 install -U $${PYTORCH_FORK_RELEASE_BUILD}/pkgs/*torch*.whl'
 
-collect-pt-versions: validate init ## extract versions from build_profiles.json and save them in .env file
+compare-pt-versions: pytorch_fork_version=$(shell cat $(SRC_DIR)/pytorch-fork/version.txt)
+compare-pt-versions: pytorch_next_version=$(shell cat $(SRC_DIR)/pytorch-next/version.txt)
+
+compare-pt-versions: validate
+	@echo Comparing versions.txt between pytorch-fork and pytorch-next...
+	@echo pytorch-fork version: $(pytorch_fork_version)
+	@echo pytorch-next version: $(pytorch_next_version)
+	@if [ "$(pytorch_fork_version)" = "$(pytorch_next_version)" ]; then \
+		echo "pytorch-next/version.txt is the same as pytorch-fork/version.txt - skipping pytorch_next build"; \
+		exit 1; \
+	else \
+		echo "pytorch-next/version.txt is different than pytorch-fork/version.txt - building pytorch_next"; \
+	fi
+
+collect-pt-versions: validate ## extract versions from build_profiles.json and save them in .env file
 	@echo Collect versions from build_profiles.json into .env file
-	echo "TORCH_VERSION=$(shell jq -rj '.pt_versions.current.version' $(SRC_DIR)/pytorch-integration/.devops/build_profiles/profiles.json | cut -d- -f1)" >> $(SRC_DIR)/pytorch-integration/.devops/cd/scripts/.env
+	echo "TORCH_VERSION=$(shell cat $(SRC_DIR)/pytorch-fork/version.txt)" >> $(SRC_DIR)/pytorch-integration/.devops/cd/scripts/.env
 	echo "TORCHVISION_VERSION=$(shell jq -rj '.pt_versions.current.extras.torchvision' $(SRC_DIR)/pytorch-integration/.devops/build_profiles/profiles.json | cut -d- -f1)" >> $(SRC_DIR)/pytorch-integration/.devops/cd/scripts/.env
 	echo "TORCHAUDIO_VERSION=$(shell jq -rj '.pt_versions.current.extras.torchaudio' $(SRC_DIR)/pytorch-integration/.devops/build_profiles/profiles.json | cut -d- -f1)" >> $(SRC_DIR)/pytorch-integration/.devops/cd/scripts/.env
 	echo "TORCHTEXT_VERSION=$(shell jq -rj '.pt_versions.current.extras.torchtext' $(SRC_DIR)/pytorch-integration/.devops/build_profiles/profiles.json | cut -d- -f1)" >> $(SRC_DIR)/pytorch-integration/.devops/cd/scripts/.env
@@ -189,7 +203,7 @@ build-%: validate init
 	'source /npu-stack/cd_release/scripts/build/compile.sh $*'
 
 archive-next: CSV_FILE_SUFFIX = next
-archive-next: PT_VERSION = $(shell jq -rj '.pt_versions.next.version' $(SRC_DIR)/pytorch-integration/.devops/build_profiles/profiles.json)
+archive-next: PT_VERSION = $(shell cat $(SRC_DIR)/pytorch-next/version.txt)
 archive-next: archive
 
 archive: validate init ## archive all whls to tgz package

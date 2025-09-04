@@ -18,17 +18,17 @@
 #include "backend/habana_device/HPUStream.h"
 #include "backend/habana_device/PinnedMemoryAllocator.h"
 #include "backend/habana_device/hpu_cached_devices.h"
-#include "backend/helpers/generic_resource_holder.h"
+#include "backend/helpers/copy_operation.h"
 #include "backend/helpers/tensor_utils.h"
 #include "common/utils.h"
 #include "habana_eager/eager_context.h"
 #include "habana_eager/eager_pipeline_utils.h"
 #include "habana_eager/ops/eager_op.h"
 #include "habana_eager/ops/view.h"
+#include "habana_helpers/towl.h"
 #include "habana_kernels/tensor_shape_kernels.h"
 #include "hpu_ops/op_logger.h"
 #include "pytorch_helpers/habana_helpers/thread_pool/thread_pool.h"
-
 namespace {
 
 std::vector<int64_t> translateSynapsePermuteToPt(
@@ -75,8 +75,7 @@ void unpackData(const at::Tensor& t) {
 }
 } // namespace
 
-namespace habana {
-namespace eager {
+namespace habana::eager {
 
 at::Tensor _copy_from_and_resize(
     const at::Tensor& self,
@@ -161,7 +160,7 @@ at::Tensor _copy_from_d2h(
   std::tie(permutation, std::ignore) =
       habana_helpers::get_tensor_memory_permutation(self_);
   auto tmeta{habana::get_tensor_extra_meta(self_)};
-  if (permutation.size() != 0) {
+  if (!permutation.empty()) {
     // translate synapse permtue to pt permute
     auto pt_permute = translateSynapsePermuteToPt(permutation);
     // if view tensor and not grad view tensor, then get the base tensor
@@ -236,7 +235,7 @@ static void clear_permutation_info(const at::Tensor& tensor) {
   auto smeta{get_storage_extra_meta(tensor)};
   if (smeta) {
     auto synapse_permute = smeta->get_memory_permutation();
-    if (synapse_permute.size() != 0) {
+    if (!synapse_permute.empty()) {
       PT_LAYOUTS_DEBUG("clearing memory permute ", VecToString(synapse_permute))
       smeta->set_memory_permutation({});
     }
@@ -252,9 +251,10 @@ void Register_Copy_In_Pipeline(
   auto dst_hb_tmeta{habana::get_tensor_extra_meta(dst)};
   dst_hb_tmeta->set_tensor_pipelined();
 
-  void* host_ptr;
+  void* host_ptr = nullptr;
   // Set cpu host memory metadata on the src cpu tensor (if non-pinned memory)
-  if (!habana::PinnedMemoryAllocator_is_pinned(src.data_ptr())) {
+  if (non_blocking and
+      !habana::PinnedMemoryAllocator_is_pinned(src.data_ptr())) {
     // Allocate host memory and do std::copy in the main thread
     // host memory will be freed after dma memcopy at copy_data_to_device
     const size_t total_bytes = habana_helpers::GetNBytes(src);
@@ -273,39 +273,45 @@ void Register_Copy_In_Pipeline(
         reinterpret_cast<uint8_t*>(host_ptr));
   }
 
-  auto resource_holder = std::make_shared<GenericResourceHolder>(
-      src, dst, non_blocking, stream, host_ptr);
+  auto copy_operation =
+      std::make_shared<CopyOperation>(src, dst, non_blocking, stream, host_ptr);
 
   PipelineTaskAllThreads(
-      std::move(resource_holder),
-      [](std::shared_ptr<GenericResourceHolder> rs) {
-        clear_permutation_info(rs->dst());
+      std::move(copy_operation),
+      [](std::shared_ptr<CopyOperation>& copy_op) {
+        clear_permutation_info(copy_op->dst());
       },
-      [](std::shared_ptr<GenericResourceHolder>) {},
-      [](std::shared_ptr<GenericResourceHolder> rs) {
+      [](std::shared_ptr<CopyOperation>&) {},
+      [](std::shared_ptr<CopyOperation>& copy_op) {
         habana_helpers::copy_data_to_device(
-            rs->src(),
-            rs->dst(),
-            rs->non_blocking(),
-            rs->stream(),
-            rs->host_ptr());
+            copy_op->src(),
+            copy_op->dst(),
+            copy_op->non_blocking(),
+            copy_op->stream(),
+            copy_op->host_ptr());
+        copy_op->release();
       });
+
+  if (not non_blocking) {
+    habana::eager::JoinPendingPipelineThreads();
+  }
 }
 
 void Pipeline_Or_Direct_Copy(
     const at::Tensor& src,
     const at::Tensor& dst,
     bool non_blocking) {
-  bool pipeline_flag =
-      GET_ENV_FLAG_NEW(PT_HPU_EAGER_PIPELINE_ENABLE) && non_blocking;
-  if (pipeline_flag) {
+  bool use_pipeline = GET_ENV_FLAG_NEW(PT_HPU_EAGER_PIPELINE_ENABLE);
+  if (use_pipeline and non_blocking) {
     // Check if the CPU src tensor is allocated at the pinned memory.
     // non-blocking copy with pinned memory allocation should not be pipelined.
     // as there can be a race condition with CPU tensor inplace operation.
-    pipeline_flag &= (!habana::PinnedMemoryAllocator_is_pinned(src.data_ptr()));
+    non_blocking &= (!habana::PinnedMemoryAllocator_is_pinned(src.data_ptr()));
+    PT_EAGER_DEBUG(
+        "Ignoring non-blocking flag in copy operation due to pinned memory");
   }
 
-  if (pipeline_flag) {
+  if (use_pipeline) {
     auto src_backend = HbEagerTensorPool::get_backend_tensor(src);
     auto dst_backend = HbEagerTensorPool::get_backend_tensor(dst);
 
@@ -404,7 +410,7 @@ at::Tensor _copy_from_d2d(const at::Tensor& self, const at::Tensor& dst) {
         {habana::eager::eagerOpKind::InplaceOut,
          "hpu::_copy_from_strided_insert",
          decltype(eager::EagerOpMetaData::out_indices_){0}});
-    result = hpu_op.call(const_cast<at::Tensor&>(self_));
+    result = hpu_op.call(self_);
   } else {
     // Since _copy_from is neither inplace nor an out variant but pytorch
     // expects to copy to dst, we treat _copy_from as an out variant in the
@@ -480,5 +486,4 @@ TORCH_LIBRARY_FRAGMENT(hpu, m) {
   m.def(
       "strided_insert_(Tensor(a!) self, Tensor other, int[] stride, int offset) -> (Tensor(a!))");
 }
-} // namespace eager
-} // namespace habana
+} // namespace habana::eager

@@ -18,8 +18,7 @@
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/ir.h"
 #include "torch/csrc/jit/ir/ir.h"
-namespace habana_lazy {
-namespace ir {
+namespace habana_lazy::ir {
 class EmbeddingBagSum : public ir::Node {
  public:
   enum class EmbeddingBagSumParams { KERNEL_MODE_INDEX = 4 };
@@ -115,5 +114,4 @@ class EmbeddingBagSumBwd : public ir::Node {
     return ss.str();
   } // std::string ToString()
 }; // class EmbeddingBagSumBwd : public ir::Node
-} // namespace ir
-}; // namespace habana_lazy
+} // namespace habana_lazy::ir

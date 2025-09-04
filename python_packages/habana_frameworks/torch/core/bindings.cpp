@@ -29,13 +29,13 @@ int GetCurrentThreadDevice() {
 class SharedTensorExtraMeta {
  public:
   auto set_is_const_tensor(bool is_const_tensor) {
-    return tmeta_.set_is_const_tensor(is_const_tensor);
+    tmeta_.set_is_const_tensor(is_const_tensor);
   }
   auto get_is_const_tensor() const {
     return get().is_const_tensor();
   }
   auto set_const_id(int id) {
-    return tmeta_.set_const_id(id);
+    tmeta_.set_const_id(id);
   }
   auto get_const_id() const {
     return get().get_const_id();
@@ -64,8 +64,7 @@ class SharedTensorExtraMeta {
         "Got BackendMeta ",
         meta.get(),
         " but it is not habana::TensorExtraMeta");
-    return std::optional<SharedTensorExtraMeta>(
-        SharedTensorExtraMeta(meta, *tmeta_ptr));
+    return {SharedTensorExtraMeta(meta, *tmeta_ptr)};
   }
   static std::optional<SharedTensorExtraMeta> create_new(at::Tensor& tensor) {
     auto impl{tensor.unsafeGetTensorImpl()};
@@ -96,8 +95,7 @@ class SharedTensorExtraMeta {
         " storage address : ",
         tensor.data_ptr());
 
-    return std::optional<SharedTensorExtraMeta>(
-        SharedTensorExtraMeta(meta, *tmeta_ptr));
+    return {SharedTensorExtraMeta(meta, *tmeta_ptr)};
   }
 
  private:

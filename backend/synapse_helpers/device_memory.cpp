@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,7 +38,7 @@ void device_memory::init_hlml_memory() {
 #ifdef PT_HLML_ENABLED
   try {
     m_hlml_memory_reporter =
-        std::make_shared<HlMlMemoryReporter>(synDeviceId(device_.id()));
+        std::make_shared<HlMlMemoryReporter>(device_.id());
 
     auto get_used_memory = [&] {
       MemoryStats stats;
@@ -170,7 +170,7 @@ size_t device_memory::get_max_cntgs_chunk_size() const {
 
 #define DEFAULT_RECIPE_COUNT 0
 
-// warapper for malloc/free for pool startegy not equal to 5
+// wrapper for malloc/free for pool strategy not equal to 5
 synStatus device_memory::alloc(void** v_ptr, uint64_t size, bool is_workspace) {
   uint64_t ptr{0};
   synStatus status{synStatus::synSuccess};
@@ -181,6 +181,7 @@ synStatus device_memory::alloc(void** v_ptr, uint64_t size, bool is_workspace) {
     if ((void*)ptr == nullptr) {
       memory_reporter_event_create(device_, MEM_REPORTER_ALLOC_FAILS);
       PT_DEVMEM_DEBUG("pooling allocator failed, requested size ", size);
+      towl::emitDeviceMemoryAllocFailed(size, is_workspace);
       status = synFail;
     }
     log_synDeviceMemStats(*this);
@@ -190,6 +191,7 @@ synStatus device_memory::alloc(void** v_ptr, uint64_t size, bool is_workspace) {
         to_hexstring(ptr),
         " aligned size::",
         block_align(size));
+    towl::emitDeviceMemoryAllocSuccess(*v_ptr, size, is_workspace);
   } else {
     status = synDeviceMalloc(device_.id(), size, 0, 0, &ptr);
 
@@ -198,9 +200,11 @@ synStatus device_memory::alloc(void** v_ptr, uint64_t size, bool is_workspace) {
           Logger::formatStatusMsg(status),
           "synDeviceMalloc failed, requested size ",
           size);
+      towl::emitDeviceMemoryAllocFailed(size, is_workspace);
     } else {
       *v_ptr = reinterpret_cast<void*>(ptr);
       log_synDeviceMemStats(*this);
+      towl::emitDeviceMemoryAllocSuccess(*v_ptr, size, is_workspace);
     }
   }
 
@@ -383,9 +387,6 @@ void device_memory::recordStream(void* ptr, hpuStream_t stream) {
       common::IsRecordStreamEnabled()) {
     auto h =
         mem_handle::reinterpret_from_pointer(reinterpret_cast<uint64_t>(ptr));
-    if (h.offset() != 0) {
-      PT_DEVMEM_FATAL("Cannot free offseted handle ", h);
-    }
     std::unique_lock<std::mutex> lock(mutex_);
     const auto id = h.id();
     auto ptr_and_size = handle2pointer_.GetPtrSize(id);
@@ -704,6 +705,8 @@ bool device_memory::defragment_memory(
   using namespace std::chrono_literals;
   auto timestamp_init = std::chrono::high_resolution_clock::now();
 
+  towl::emitDefragLaunch("Defragmenter launch");
+
   PT_DEVMEM_DEBUG("Waiting for HPU execution to finish");
   if (synStatus::synSuccess != synDeviceSynchronize(device_.id())) {
     PT_DEVMEM_FATAL("Waiting for HPU execution failed");
@@ -716,6 +719,7 @@ bool device_memory::defragment_memory(
     PT_DEVMEM_FATAL(
         "Defragmentation cannot be started. Some allocated buffers are in use.",
         "It may be caused by device memory leak");
+    towl::emitDefragFinished("Some allocated buffers are in use");
     return false;
   }
 
@@ -734,6 +738,7 @@ bool device_memory::defragment_memory(
     if (!defragmenter.CollectMemoryInformation(memory_blocks)) {
       PT_DEVMEM_WARN(
           "Defragmentation cannot be started. Invalid memory information.");
+      towl::emitDefragFinished("Invalid memory information");
       return false;
     }
   } catch (const std::exception& e) {
@@ -753,6 +758,7 @@ bool device_memory::defragment_memory(
           is_v2)) {
     PT_DEVMEM_WARN(
         "Defragmentation cannot be started. No region that can be defragmented was found.");
+    towl::emitDefragFinished("No region to defragment");
     return false;
   }
 
@@ -768,6 +774,7 @@ bool device_memory::defragment_memory(
           allocation_size,
           "B. Running defragmentation may indicate a bug");
     }
+    towl::emitDefragFinished("Has enough memory");
     return true;
   }
 
@@ -778,6 +785,7 @@ bool device_memory::defragment_memory(
     habana_helpers::EmitEvent(
         habana_helpers::EventDispatcher::Topic::MEMORY_DEFRAGMENTATION,
         habana_helpers::EventParams({{"success", std::to_string(0)}}));
+    towl::emitDefragFinished("Not enough memory");
     return false;
   }
 
@@ -827,9 +835,8 @@ bool device_memory::defragment_memory(
               "Defragmentation: New and old resource memory location is overlapping. Cannot move allocation");
         }
       }
-      uint64_t src_base_addr = reinterpret_cast<uint64_t>(mover.GetSource());
-      uint64_t dst_base_addr =
-          reinterpret_cast<uint64_t>(mover.GetDestination());
+      auto src_base_addr = reinterpret_cast<uint64_t>(mover.GetSource());
+      auto dst_base_addr = reinterpret_cast<uint64_t>(mover.GetDestination());
       size_t size = mover.ActualSize();
       uint64_t src_end_addr = src_base_addr + size;
       uint64_t dst_end_addr = dst_base_addr + size;
@@ -878,6 +885,8 @@ bool device_memory::defragment_memory(
             {{"success", std::to_string(1)},
              {"milliseconds", std::to_string(milliseconds_metric)}}));
   }
+
+  towl::emitDefragFinished("defragmentation Done", region);
   PT_DEVMEM_DEBUG("defragmentation Done");
   if (device_.IsMemorydefragmentationInfoEnabled()) {
     auto total_duration =
@@ -914,6 +923,8 @@ bool device_memory::defragment_memory(
         std::chrono::high_resolution_clock::now());
     log_defragmentation_warning_if_needed();
   }
+
+  towl::emitDefragFinished("end");
 
   return true;
 }
@@ -997,14 +1008,14 @@ device_ptr_lock device_memory::lock_addresses(
       }
     }
     update_on_defragment_ = false;
-    return device_ptr_lock(absl::make_unique<defragment::Lock>(
-        threads_in_defragmenter_critical_section_, std::move(out)));
+    return {absl::make_unique<defragment::Lock>(
+        threads_in_defragmenter_critical_section_, std::move(out))};
   } else {
     for (const auto address : addresses) {
       out.emplace_back(address);
     }
-    return device_ptr_lock(absl::make_unique<defragment::Lock>(
-        threads_in_defragmenter_critical_section_, std::move(out)));
+    return {absl::make_unique<defragment::Lock>(
+        threads_in_defragmenter_critical_section_, std::move(out))};
   }
 }
 

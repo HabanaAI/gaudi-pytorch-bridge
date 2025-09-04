@@ -36,33 +36,18 @@ EOF
 "${PYTORCH_MODULES_ROOT_PATH}"/scripts/install_torch_fork.sh "$VERSION" "$BUILD"
 ```
 
-3. Set up the required 3rd party code:
-```bash
-mkdir 3rd-parties
-pushd 3rd-parties
-
-git clone --depth 1 https://github.com/abseil/abseil-cpp.git
-git clone --depth 1 --branch 9.1.0 https://github.com/fmtlib/fmt fmt-9.1.0
-git clone --depth 1 --branch 3.3.9 https://gitlab.com/libeigen/eigen.git
-git clone --depth 1 --branch v0.8.1 https://github.com/Neargye/magic_enum.git magic_enum-0.8.1
-git clone --depth 1 --branch v1.13.0 https://github.com/google/googletest.git googletest_1_13
-
-git clone --depth 1 --branch v3.4.0 https://github.com/nlohmann/json.git
-sed -i 's/namespace nlohmann/namespace nlohmannV340/; s/nlohmann::/nlohmannV340::/g' json/single_include/nlohmann/json.hpp
-
-popd
-```
-
-4. Install the requirements:
+3. Install the requirements:
 ```bash
 pip install -r "$PYTORCH_MODULES_ROOT_PATH"/requirements.txt
 pip install habana-media-loader==$VERSION.$BUILD
 ```
 
-5. Allow the build command to install artifacts:
+4. Allow the build command to install artifacts:
 
 ```bash
-sudo chmod +w /usr/lib/habanalabs/
+sudo chmod +xw /usr/lib/habanalabs
+sudo ln -s /usr/include/habanalabs/hl_logger /usr/include/habanalabs/hl_logger/include
+
 ```
 
 ### Code Build
@@ -72,18 +57,18 @@ Once the one-time setup is complete, you can configure the necessary environment
 1. Set up source and binary directories used for building the Intel Gaudi PyTorch bridge:
 ```bash
 export HABANA_SOFTWARE_STACK="$(pwd)"
-export THIRD_PARTIES_ROOT="$HABANA_SOFTWARE_STACK/3rd-parties"
 
 export HCL_INCLUDE_DIR=/usr/include/habanalabs/
-export HL_LOGGER_INCLUDE_DIRS=/usr/include/habanalabs/hl_logger
 export MEDIA_ROOT=$(python -c "import habana_frameworks.mediapipe, os;print(os.path.dirname(habana_frameworks.mediapipe.__file__))")
 export SPECS_EXT_ROOT=/usr/include/habanalabs/
 export SYNAPSE_INCLUDE_DIR=/usr/include/habanalabs/
 export SYNAPSE_UTILS_INCLUDE_DIR=/usr/include/habanalabs/
+export SWTOOLS_SDK_ROOT=/usr/include/habanalabs/
 
 export BUILD_ROOT="$HOME/builds"
 export BUILD_ROOT_LATEST=/usr/lib/habanalabs/
 export PYTORCH_MODULES_RELEASE_BUILD="$BUILD_ROOT/pytorch_modules_release"  # the release build artifact directory
+export PYTORCH_MODULES_DEBUG_BUILD="$BUILD_ROOT/pytorch_modules_debug"  # the debug build artifact directory
 export PYTORCH_MODULES_ROOT_PATH="$HABANA_SOFTWARE_STACK/gaudi-pytorch-bridge"
 ```
 
@@ -95,3 +80,26 @@ export PYTORCH_MODULES_ROOT_PATH="$HABANA_SOFTWARE_STACK/gaudi-pytorch-bridge"
 - The `-i` flag installs the wheels after they are built.
 - It is recommended to leverage CCache and Icecream for faster compilation. Icecream (icecc) allows using a much larger parallel job count (`-j N`). The `N` depends on your compute cluster size.
 - Sometimes the final build command is interrupted while preparing the environment. In this case you can add `--recreate-venv force` to resolve any potential issues.
+
+### Running tests
+After building the code, you can run tests to validate functionality.
+
+1. Load the commands to run the tests:
+```bash
+source $PYTORCH_MODULES_ROOT_PATH/.ci/scripts/build.sh
+```
+
+2. Install the test requirements:
+```bash
+pip install -r $PYTORCH_MODULES_ROOT_PATH/.ci/requirements/requirements-test.txt
+```
+These are required in case you want to run Python-based tests in addition to C++ tests.
+
+3. Run the tests:
+```bash
+run_pytorch_modules_tests
+```
+To run tests on a specific device, use the --dut flag (e.g., --dut gaudi3).
+You can also specify subsets using --pytest-mode - to select the desired test mode, and --suite-type - to choose the specific test suite to run.
+
+A device is required to execute the tests.

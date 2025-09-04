@@ -69,9 +69,8 @@ OutputMetaDataVector GridSamplerBwdMeta(const at::Stack& stack) {
   return metaVec;
 }
 
-static std::shared_ptr<void> FillGridSamplerParamsCommon(
+static FillParamsT FillGridSamplerParamsCommon(
     const at::Stack& stack,
-    size_t& size,
     int numInputTensors) {
   PARAMS_STUB(ns_GridSample::Params);
   const int INTERP_MODE_POS = numInputTensors;
@@ -111,19 +110,15 @@ static std::shared_ptr<void> FillGridSamplerParamsCommon(
   }
   auto align_corners = stack.at(ALIGN_COR_POS).toBool();
   params->alignCorners = align_corners;
-  return params;
+  return paramsT;
 }
 
-std::shared_ptr<void> FillGridSamplerParams(
-    const at::Stack& stack,
-    size_t& size) {
-  return FillGridSamplerParamsCommon(stack, size, 2);
+FillParamsT FillGridSamplerParams(const at::Stack& stack) {
+  return FillGridSamplerParamsCommon(stack, 2);
 }
 
-std::shared_ptr<void> FillGridSamplerBwdParams(
-    const at::Stack& stack,
-    size_t& size) {
-  return FillGridSamplerParamsCommon(stack, size, 3);
+FillParamsT FillGridSamplerBwdParams(const at::Stack& stack) {
+  return FillGridSamplerParamsCommon(stack, 3);
 }
 
 void GridSamplerBwd::AddNode(sh::graph& graph, const at::Stack& stack) {
@@ -132,8 +127,7 @@ void GridSamplerBwd::AddNode(sh::graph& graph, const at::Stack& stack) {
   auto input = stackGetter.getNextInput<TensorsPair>();
   auto grid = stackGetter.getNextInput<TensorsPair>();
   auto metas = OutputMeta(stack);
-  size_t size = 0;
-  auto params = FillParams(stack, size);
+  auto params = FillParams(stack);
 
   auto InputPermutation = [this, &graph](const TensorsPair& tp) {
     return PermuteHelper(
@@ -156,8 +150,8 @@ void GridSamplerBwd::AddNode(sh::graph& graph, const at::Stack& stack) {
       GetGuid(),
       {grad_output_permuted.get(), input_permuted.get(), grid.syn_t},
       {{shape, metas[0].dtype}, {metas[1].shape, metas[1].dtype, 1}},
-      params.get(),
-      size);
+      params.ptr(),
+      params.size());
 
   auto grad_input = PermuteHelper(
       graph, grads[0].get(), shape, {0, 3, 1, 2}, metas[0].dtype, 0);

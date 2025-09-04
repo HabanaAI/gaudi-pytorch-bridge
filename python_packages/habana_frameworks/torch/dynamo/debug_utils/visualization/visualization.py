@@ -53,7 +53,7 @@ class SvgVisualizer(VisualizationStrategy):
 
         available = HAS_PYDOT
         if not available:
-            logger.error("Dumping graph to SVG requires `pydot` package to be installed. " "Graphs will not be dumped!")
+            logger.error("Dumping graph to SVG requires `pydot` package to be installed. Graphs will not be dumped!")
         return available
 
     @staticmethod
@@ -83,7 +83,7 @@ class GraphmlVisualizer(VisualizationStrategy):
         available = HAS_NETWORKX
         if not available:
             logger.error(
-                "Dumping graph to GraphML requires `networkx` package to be installed. " "Graphs will not be dumped!"
+                "Dumping graph to GraphML requires `networkx` package to be installed. Graphs will not be dumped!"
             )
         return available
 
@@ -165,10 +165,10 @@ def get_node_coloring_strategy(stage=None, graph_pass=None):
             return "#eee3cb"
         return "#967e76"
 
-    if stage == "PRE_PARTITIONER" and graph_pass == "pass_mark_placement":
+    if stage == "PRE_PARTITIONER" and graph_pass == "pass_mark_placement":  # noqa S105
         return color_by_placement
 
-    if stage == "POST_PARTITIONER" and graph_pass == "pass_color_same_buffer":
+    if stage == "POST_PARTITIONER" and graph_pass == "pass_color_same_buffer":  # noqa: S105
         return color_by_buffer
 
     return color_by_op

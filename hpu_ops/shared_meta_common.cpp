@@ -16,6 +16,7 @@
 #include "hpu_ops/shared_meta_common.h"
 #include <unordered_set>
 #include "backend/helpers/runtime_config.h"
+#include "hpu_ops/backend/foreach.h"
 
 namespace habana {
 
@@ -108,14 +109,14 @@ SharedMetaDataVector FillCumSumProdSharedMeta(
   at::ScalarType dtype =
       stack.at(2).isNone() ? input.scalar_type() : stack.at(2).toScalarType();
 
-  if (habana_helpers::is_downcast_to_int_needed(dtype))
+  if (habana_helpers::is_downcast_to_int_needed(dtype) ||
+      dtype == at::ScalarType::Bool ||
+      dtype == at::ScalarType::Char ||
+      dtype == at::ScalarType::Byte) {
     dtype = at::ScalarType::Int;
-  else if (dtype == at::ScalarType::Double)
+  } else if (dtype == at::ScalarType::Double) {
     dtype = at::ScalarType::Float;
-  else if (
-      dtype == at::ScalarType::Bool || dtype == at::ScalarType::Char ||
-      dtype == at::ScalarType::Byte)
-    dtype = at::ScalarType::Int;
+  }
 
   SharedMetaData meta{guid};
   meta.inputs_data = {{input.dim(), dtype}};
@@ -135,7 +136,13 @@ SharedMetaDataVector IsFiniteInfNanSharedMeta(
     dtype = c10::ScalarType::Int;
 
   SharedMetaData meta{guid};
-  meta.inputs_data = {{rank, dtype}};
+  if (guid == "isnan_fwd" and
+      (dtype == at::ScalarType::Float8_e5m2 or
+       dtype == at::ScalarType::Float8_e4m3fn)) {
+    meta.inputs_data = {{rank, at::ScalarType::BFloat16}};
+  } else {
+    meta.inputs_data = {{rank, dtype}};
+  }
   meta.outputs_data = {{rank, torch::kBool}};
 
   return {meta};
@@ -240,8 +247,7 @@ SharedMetaDataVector ForeachCompoundSharedMeta(
     const auto selfDtype = self.scalar_type();
     at::ScalarType dtype =
         at::promote_types(selfDtype, at::result_type(tensor1, tensor2));
-    const int outputRank =
-        std::max(selfRank, std::max(tensor1Rank, tensor2Rank));
+    const int outputRank = std::max({selfRank, tensor1Rank, tensor2Rank});
     bool isAddcdiv = guid == "addcdiv_fwd";
     const bool isOutputIntegral = c10::isIntegralType(dtype, true);
     dtype = (isAddcdiv && isOutputIntegral) ? torch::kFloat32 : dtype;
@@ -448,7 +454,6 @@ SharedMetaDataVector BinaryWithAlphaSharedMeta(
     // This node will only appear in eager mode but there is no way to
     // distinguish mode here so both possibilities should be added to
     // verification
-    std::string opName;
     SharedMetaData binaryKernelMeta;
     binaryKernelMeta.inputs_data = {
         {selfRank, outputType}, {otherRank, outputType}};
@@ -647,30 +652,10 @@ SharedMetaDataVector MaxPoolWithIndicesBwdSharedMeta(
   SharedMetaData maxPoolWithIndicesSharedMeta{guid};
   maxPoolWithIndicesSharedMeta.inputs_data.emplace_back(
       grad.dim(), grad.scalar_type());
-  bool isMaxPool3d = guid.find("maxpool_3d") != std::string::npos;
-  if (isMaxPool3d) {
-    switch (dtype) {
-      case c10::ScalarType::BFloat16:
-      case c10::ScalarType::Half:
-        indexType = c10::ScalarType::Short;
-        break;
-      default:
-        indexType = c10::ScalarType::Byte;
-        break;
-    }
-
-    // optional not present tensors required for non TF version
-    auto optionalNotPresentTensor = createOptionalNotPresentSharedMetaTensor();
-    maxPoolWithIndicesSharedMeta.inputs_data.push_back(
-        optionalNotPresentTensor);
-    maxPoolWithIndicesSharedMeta.inputs_data.push_back(
-        optionalNotPresentTensor);
-  } else {
-    maxPoolWithIndicesSharedMeta.inputs_data.emplace_back(rank, dtype);
-    maxPoolWithIndicesSharedMeta.options.allowLongType = true;
-  }
+  maxPoolWithIndicesSharedMeta.inputs_data.emplace_back(rank, dtype);
   maxPoolWithIndicesSharedMeta.inputs_data.emplace_back(
       indices.dim(), indexType);
+  maxPoolWithIndicesSharedMeta.options.allowLongType = true;
   maxPoolWithIndicesSharedMeta.outputs_data = {{rank, dtype}};
 
   return {maxPoolWithIndicesSharedMeta};
@@ -875,6 +860,41 @@ SharedMetaDataVector OneHotSharedMeta(
   oneHotSharedMeta.inputs_data.emplace_back(rank, dtype);
   oneHotSharedMeta.outputs_data.emplace_back(rank + 1, dtype);
   return {oneHotSharedMeta};
+}
+
+SharedMetaDataVector CommonForeachCopyMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode executionMode,
+    SharedMetaCreateFunction sharedMetaCreator) {
+  SharedMetaDataVector metaVec;
+  const auto& selfs = stack[0].toList();
+  auto selfsSize = selfs.size();
+  metaVec.reserve(selfsSize);
+  const auto& others = stack[1].toList();
+  for (size_t i = 0; i < selfsSize; i++) {
+    at::Stack oneIterationStack = {selfs[i], others[i]};
+
+    auto oneIterationSharedMeta =
+        sharedMetaCreator(oneIterationStack, executionMode);
+    metaVec.insert(
+        std::end(metaVec),
+        std::begin(oneIterationSharedMeta),
+        std::end(oneIterationSharedMeta));
+  }
+
+  return metaVec;
+}
+
+SharedMetaDataVector ForeachCopySharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode executionMode) {
+  SharedMetaCreateFunction sharedMetaCreator =
+      [](const at::Stack& stack,
+         habana_helpers::HabanaExecutionMode executionMode) {
+        return CopySharedMeta(stack, executionMode);
+      };
+
+  return CommonForeachCopyMeta(stack, executionMode, sharedMetaCreator);
 }
 
 } // namespace habana

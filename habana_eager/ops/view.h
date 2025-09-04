@@ -18,8 +18,7 @@
 #include <ATen/core/TensorBody.h>
 #include "pytorch_helpers/habana_helpers/logging.h"
 
-namespace habana {
-namespace eager {
+namespace habana::eager {
 template <typename Vec>
 at::Tensor alias_with_sizes_and_strides(
     const at::Tensor& self,
@@ -50,5 +49,4 @@ void view_propagate_permutation(at::Tensor base_t, at::Tensor view_t);
 
 at::Tensor create_base(const at::Tensor& self);
 
-} // namespace eager
-} // namespace habana
+} // namespace habana::eager

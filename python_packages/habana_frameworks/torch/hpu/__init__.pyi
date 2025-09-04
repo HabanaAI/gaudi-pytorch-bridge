@@ -57,7 +57,7 @@ class _HpuStreamBase(Stream):
     priority: _int
 
     def __new__(
-        self,
+        cls,
         priority: _int = 0,
         stream_id: _int = 0,
         device_index: _int = 0,

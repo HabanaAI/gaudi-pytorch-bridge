@@ -13,20 +13,19 @@
  * limitations under the License.
  */
 
+#include "common/warning_suppress.h"
 #include "generated/backend/scaled_triangular_softmax.h"
 #include "generated/backend/scaled_triangular_softmax_retain.h"
 
 namespace habana {
 
-std::shared_ptr<void> FillScaledTriangularSoftmaxParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillScaledTriangularSoftmaxParams(const at::Stack& stack) {
   PARAMS_STUB(ns_ScaledMaskedSoftmax::Params);
   params->invScaleAttn = stack.at(1).toScalar().toDouble();
   params->groupedBatchSize = 1;
   params->isUseMax = 1;
   params->expMode = USE_LUT;
-  return params;
+  return paramsT;
 }
 
 void ScaledTriangularSoftmax::AddNode(
@@ -53,21 +52,18 @@ void ScaledTriangularSoftmax::AddNode(
         "exp_sum_recpr and max inputs must have the same shape.");
 
     auto expected_shape = self.pt_t.sizes().vec();
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Warray-bounds"
-    // There is already an assert that checks that self.pt_t is 3D tensor.
-    // Unfortunately GCC does not recognize it, requiring to manually supress
-    // the warning.
-    expected_shape.back() = 1;
-#pragma GCC diagnostic pop
+    SUPPRESS_WARRAY_BOUNDS_WSTRINGOP_OVERFLOW(
+        // There is already an assert that checks that self.pt_t is 3D tensor.
+        // Unfortunately GCC does not recognize it, requiring to manually
+        // suppress the warning.
+        expected_shape.back() = 1;)
 
     HABANA_ASSERT(
         exp_sum_recpr_shape == expected_shape,
         "exp_sum_recpr and max inputs must have shape [self_shape[0], self_shape[1], 1].");
   }
 
-  size_t size = 0;
-  auto params = FillScaledTriangularSoftmaxParams(stack, size);
+  auto params = FillScaledTriangularSoftmaxParams(stack);
 
   std::vector<synTensor> syn_inputs{self.syn_t};
   if (exp_sum_recpr_opt) {
@@ -81,8 +77,8 @@ void ScaledTriangularSoftmax::AddNode(
       {GetGuid(),
        syn_inputs,
        {{self.pt_t.sizes().vec(), ScalarType(), 0}},
-       params.get(),
-       size});
+       params.ptr(),
+       params.size()});
 
   syn_out(0) = std::move(output[0]);
 }
@@ -102,6 +98,26 @@ OutputMetaDataVector ScaledTriangularSoftmaxRetainMeta(const at::Stack& stack) {
   meta[2].shape = retain_output_shape;
   meta[2].dtype = self.scalar_type();
   return {meta};
+}
+
+SharedMetaDataVector ScaledTriangularSoftmaxSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  const at::Tensor& input = stack_tensor(stack, 0);
+
+  SharedMetaData sharedMeta("scaled_masked_triangular_softmax_fwd");
+
+  sharedMeta.inputs_data = {
+      getSharedMetaFromTensor(input),
+      createOptionalNotPresentSharedMetaTensor(),
+      getSharedMetaFromOptionalTensor(
+          stack.at(2).to<std::optional<at::Tensor>>()),
+      getSharedMetaFromOptionalTensor(
+          stack.at(3).to<std::optional<at::Tensor>>())};
+
+  sharedMeta.outputs_data = {getSharedMetaFromTensor(input)};
+
+  return {sharedMeta};
 }
 
 } // namespace habana

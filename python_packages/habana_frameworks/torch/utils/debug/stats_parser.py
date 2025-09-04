@@ -178,7 +178,7 @@ def strToList(val):
         val = val[0:-13]
     val = val[1:-1]
     val = val.split(",")
-    for j in range(0, len(val)):
+    for j in range(len(val)):
         val[j] = int(val[j])
     return val
 
@@ -317,17 +317,17 @@ def dumpShapes(path, file_name):
         writer.writerow(header)
         for i in range(max_range):
             temp = []
-            for sid in shape_dict:
-                if i < len(shape_dict[sid]) and not isinstance(shape_dict[sid][i], int):
-                    for item in shape_dict[sid][i]:
+            for sid, shape_dict_sid in shape_dict.items():
+                if i < len(shape_dict_sid) and not isinstance(shape_dict_sid[i], int):
+                    for item in shape_dict_sid[i]:
                         temp.append(item)
-                elif i < len(shape_dict[sid]) and isinstance(shape_dict[sid][i], int):
+                elif i < len(shape_dict_sid) and isinstance(shape_dict_sid[i], int):
                     temp.append("")
-                elif i >= len(shape_dict[sid]):
-                    if isinstance(shape_dict[sid][0], int):
+                elif i >= len(shape_dict_sid):
+                    if isinstance(shape_dict_sid[0], int):
                         temp.append("")
                     else:
-                        for _ in shape_dict[sid][0]:
+                        for _ in shape_dict_sid[0]:
                             temp.append("")
                 else:
                     print("Exception: ", sid)  # DEBUG

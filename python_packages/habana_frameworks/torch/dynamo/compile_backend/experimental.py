@@ -31,6 +31,10 @@ def enable_compiled_autograd(is_dynamic=False, **kwargs):
         https://github.com/pytorch/pytorch/pull/103822
 
     This should be called before any invocations of torch.compile
+
+    This function is deprecated and should be set according to
+    the following docs:
+    https://pytorch.org/tutorials/intermediate/compiled_autograd_tutorial.html
     """
 
     logger.warn("Enabling CompiledAutograd for hpu_backend with torch.compile")
@@ -38,10 +42,11 @@ def enable_compiled_autograd(is_dynamic=False, **kwargs):
     def compiler_fn(gm):
         return torch.compile(gm, backend="hpu_backend", options={"inference": False}, **kwargs)
 
+    torch._dynamo.reset()
+
     torch._C._dynamo.compiled_autograd.set_autograd_compiler(
         functools.partial(compiled_autograd.AutogradCompilerInstance, compiler_fn), is_dynamic
     )
 
-    torch._dynamo.reset()
     torch._dynamo.config.optimize_ddp = "python_reducer"
     torch._C._set_autograd_fallback_mode("nothing")

@@ -22,9 +22,7 @@ namespace habana {
 
 namespace sh = synapse_helpers;
 
-std::shared_ptr<void> FillNativeLayerNormPtParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillNativeLayerNormPtParams(const at::Stack& stack) {
   const auto eps = stack.at(4).toDouble();
   const auto normalized_ndim = stack.at(1).toIntList().size();
   PARAMS_STUB(ns_LayerNormKernel::ParamsPt);
@@ -32,18 +30,16 @@ std::shared_ptr<void> FillNativeLayerNormPtParams(
   params->epsValid = true;
   params->normalizedShapeDims = normalized_ndim;
 
-  return params;
+  return paramsT;
 }
 
-std::shared_ptr<void> FillNativeLayerNormParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillNativeLayerNormParams(const at::Stack& stack) {
   const auto eps = stack.at(4).toDouble();
   PARAMS_STUB(ns_LayerNormKernel::Params);
   params->eps = static_cast<float>(eps);
   params->epsValid = true;
 
-  return params;
+  return paramsT;
 }
 
 sizes_vec LayerNormOutputShape(const at::Stack& stack) {
@@ -155,8 +151,7 @@ void LayerNormHabanaOperator::AddNode(
            sh::layouts::SynapseLayoutFormat::WHN});
     }
 
-    size_t size = 0;
-    const auto params = FillParams(stack, size);
+    const auto params = FillParams(stack);
 
     std::vector<NodeAttr::NodeOutputAttr> node_output_attr;
 
@@ -171,8 +166,8 @@ void LayerNormHabanaOperator::AddNode(
          weightOpt ? weightOpt.value().syn_t : nullptr,
          biasOpt ? biasOpt.value().syn_t : nullptr},
         node_output_attr,
-        params.get(),
-        size);
+        params.ptr(),
+        params.size());
 
     for (size_t i = 0; i < ln.size(); ++i) {
       syn_out(i) = std::move(ln[i]);
@@ -200,7 +195,7 @@ void LayerNormHabanaOperator::AddNode(
         storage,
         weightOpt,
         weightOrBias_constant_shape,
-        1.0f,
+        1.0F,
         weightOrBias_shape);
 
     synTensor synBias = CreateLayerNormBiasWeightTensor(
@@ -209,7 +204,7 @@ void LayerNormHabanaOperator::AddNode(
         storage,
         biasOpt,
         weightOrBias_constant_shape,
-        0.0f,
+        0.0F,
         weightOrBias_shape);
 
     if (input_ndim < normalized_ndim ||
@@ -243,16 +238,15 @@ void LayerNormHabanaOperator::AddNode(
           {i == 0 ? input_reshaped_shape : mean_rstd_shape, outputType});
     }
 
-    size_t size = 0;
-    const auto params = FillNativeLayerNormParams(stack, size);
+    const auto params = FillNativeLayerNormParams(stack);
 
     auto ln = BuildOp(
         graph,
         get_guid_with_precision("layer_norm_fwd"sv, metas[0].dtype),
         {reshapedInput.get(), synBias, synWeight},
         std::move(node_output_attr),
-        params.get(),
-        size);
+        params.ptr(),
+        params.size());
 
     for (size_t i = 0; i < ln.size(); ++i) {
       auto reshaped =
@@ -262,14 +256,12 @@ void LayerNormHabanaOperator::AddNode(
   }
 }
 
-std::shared_ptr<void> FillNativeLayerNormBwdParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillNativeLayerNormBwdParams(const at::Stack& stack) {
   const auto normalized_ndim = stack.at(2).toIntList().size();
   PARAMS_STUB(ns_LayerNormKernel::ParamsPt);
   params->epsValid = false;
   params->normalizedShapeDims = normalized_ndim;
-  return params;
+  return paramsT;
 }
 
 sizes_vec LayerNormBwdOutputShape(const at::Stack& stack) {
@@ -340,8 +332,7 @@ void LayerNormBwdHabanaOperator::AddNode(
            sh::layouts::SynapseLayoutFormat::DONT_CARE});
     }
 
-    size_t size = 0;
-    const auto params = FillParams(stack, size);
+    const auto params = FillParams(stack);
 
     std::vector<NodeAttr::NodeOutputAttr> node_output_attr;
     for (size_t i = 0; i < metas.size(); ++i) {
@@ -357,8 +348,8 @@ void LayerNormBwdHabanaOperator::AddNode(
          rstd.syn_t,
          weightOpt ? weightOpt.value().syn_t : nullptr},
         {node_output_attr},
-        params.get(),
-        size);
+        params.ptr(),
+        params.size());
 
     for (size_t i = 0; i < lnbwd.size(); ++i) {
       syn_out(i) = std::move(lnbwd[i]);
@@ -397,7 +388,7 @@ void LayerNormBwdHabanaOperator::AddNode(
         weightOpt,
         {c10::multiply_integers(
             normalized_shape.cbegin(), normalized_shape.cend())},
-        1.0f,
+        1.0F,
         weightShape);
 
     std::array<int64_t, 4> mean_rstd_as_4D = {1, 1, m, 1};

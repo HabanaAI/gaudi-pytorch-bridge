@@ -31,6 +31,7 @@ add_habana_library(
   ${CMAKE_SOURCE_DIR}/hpu_ops/eager/convolution_backward_overrideable_gen.cpp
   ${CMAKE_SOURCE_DIR}/hpu_ops/eager/convolution_overrideable_gen.cpp
   ${CMAKE_SOURCE_DIR}/hpu_ops/eager/fill_gen.cpp
+  ${CMAKE_SOURCE_DIR}/hpu_ops/eager/layer_norm_bwd_gen.cpp
   ${CMAKE_SOURCE_DIR}/hpu_ops/eager/random_gen.cpp
   ${CMAKE_SOURCE_DIR}/hpu_ops/eager/topk_gen.cpp
   ${CMAKE_SOURCE_DIR}/hpu_ops/eager/optimizer_lamb_gen.cpp
@@ -57,9 +58,9 @@ add_habana_library(
   ops/set.cpp
   ops/unique.cpp
   ops/unique2.cpp
+  ops/unique_dim.cpp
   ops/view.cpp
-  passes/add_attribute_alpha.cpp
-  passes/detect_weights_tensors.cpp
+  passes/add_deterministic_attribute.cpp
   passes/get_outputs_order_in_graph.cpp
   passes/handle_h2d_scales.cpp
   passes/handle_input_views.cpp
@@ -99,6 +100,7 @@ add_habana_library(
   ${CMAKE_BINARY_DIR}/generated/eager/hpu_op9.cpp
   ${CMAKE_BINARY_DIR}/generated/eager/hpu_op_custom.cpp
   ${CMAKE_BINARY_DIR}/generated/eager/hpu_op_quant.cpp
+  ${CMAKE_BINARY_DIR}/generated/eager/hpu_op_torch_sparse.cpp
   ${CMAKE_BINARY_DIR}/generated/eager/hpu_op_torchvision.cpp
   ${CMAKE_BINARY_DIR}/generated/eager/wrap_kernels_registrations.cpp)
 
@@ -120,6 +122,7 @@ target_include_directories(habana_pytorch2_frontend PRIVATE ${CMAKE_BINARY_DIR})
 target_link_libraries(
   habana_pytorch2_frontend
   PRIVATE Python::Python
+          exprtk::exprtk
           habana_serialization
           pytorch_synapse_utils_shim
           torch

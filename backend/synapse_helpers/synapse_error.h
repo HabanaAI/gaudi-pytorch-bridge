@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -46,7 +46,7 @@ class tensor;
 // should extract the tensor to somewhere instead of just getting a reference.
 // When the variant goes out of scope, the tensor would get destroyed.
 template <>
-inline tensor& get_value(synapse_error_v<tensor>& variant) = delete;
+tensor& get_value(synapse_error_v<tensor>& variant) = delete;
 
 template <typename T>
 inline const T& get_value(const synapse_error_v<T>& variant) {
@@ -106,13 +106,13 @@ inline synapse_error& get_error(bool /*success*/) {
 } // namespace synapse_helpers
 
 #define SYNAPSE_SUCCESS_CHECK(error, status)                   \
-  if (ABSL_PREDICT_FALSE(status != synStatus::synSuccess)) {   \
+  if (ABSL_PREDICT_FALSE((status) != synStatus::synSuccess)) { \
     PT_SYNHELPER_WARN(Logger::formatStatusMsg(status), error); \
     return synapse_helpers::synapse_error{error, status};      \
   }
 
 #define SYNAPSE_SUCCESS_CHECK_WITH_OP(error, status, op)       \
-  if (ABSL_PREDICT_FALSE(status != synStatus::synSuccess)) {   \
+  if (ABSL_PREDICT_FALSE((status) != synStatus::synSuccess)) { \
     PT_SYNHELPER_WARN(Logger::formatStatusMsg(status), error); \
     op;                                                        \
     return synapse_helpers::synapse_error{error, status};      \

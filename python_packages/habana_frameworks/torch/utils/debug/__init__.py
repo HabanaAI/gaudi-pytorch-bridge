@@ -207,3 +207,23 @@ def _towl_configure(flag: bool, config=""):
 
 def _towl_print(text: str):
     _debug_C.towl_print(text)
+
+
+def _towl_emit_metrics(name: str, value: float):
+    _debug_C.towl_emit_metrics(name, value)
+
+
+def _towl_emit_time_duration_fx(name: str, value: float):
+    _debug_C.towl_emit_time_duration_fx(name, value)
+
+
+def get_permute_cache_size() -> int:
+    return _debug_C.get_permute_cache_size()
+
+
+def is_permute_cache_empty() -> bool:
+    return _debug_C.is_permute_cache_empty()
+
+
+def flush_permute_cache() -> None:
+    return _debug_C.flush_permute_cache()

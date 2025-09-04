@@ -107,9 +107,8 @@ def replace_quantize_with_cast(module: torch.fx.GraphModule):
     replacement_count = 0
 
     for node in graph.nodes:
-        # Check if the node is a bmm.default operation
+        # Check if the node is a quantize_per_tensor.default operation
         if is_node(node, "quantize_per_tensor.default"):
-
             with graph.inserting_before(node):
                 invert_scale_node = 1 / node.args[1]
                 cast_node = graph.call_function(
@@ -119,7 +118,7 @@ def replace_quantize_with_cast(module: torch.fx.GraphModule):
                         invert_scale_node,
                         False,
                         False,
-                        torch.float8_e4m3fn,
+                        node.args[5],
                     ),
                 )
                 quant_out = module.graph.call_function(operator.getitem, args=(cast_node, 0))
@@ -205,10 +204,16 @@ def replace_pattern_quant_dequant_bmm(module: torch.fx.GraphModule):
                 buffer_counter = len(module.state_dict())
                 input0_scale_attr = f"__param_constant_{buffer_counter}"
                 buffer_counter = buffer_counter + 1
-                module.register_buffer(input0_scale_attr, torch.tensor(input0_dequant_node.args[1], device="hpu"))
+                module.register_buffer(
+                    input0_scale_attr,
+                    torch.tensor(input0_dequant_node.args[1], device="hpu"),
+                )
                 input1_scale_attr = f"__param_constant_{buffer_counter}"
                 buffer_counter = buffer_counter + 1
-                module.register_buffer(input1_scale_attr, torch.tensor(input1_dequant_node.args[1], device="hpu"))
+                module.register_buffer(
+                    input1_scale_attr,
+                    torch.tensor(input1_dequant_node.args[1], device="hpu"),
+                )
 
                 is_trans_B = False
                 trans_node = getNodeBetweenCurrentAndDeQuant(node.args[1], "transpose.int")
@@ -247,6 +252,7 @@ def replace_pattern_quant_dequant_bmm(module: torch.fx.GraphModule):
                     logger.debug(
                         f"replace_bmm_quant_dequant_nodes: input0_scale={input0_dequant_node.args[1]}, input1_scale={input1_dequant_node.args[1]}"
                     )
+                    tensor_meta = node.meta.get("tensor_meta", None)
                     gemm_fp8_node = graph.call_function(
                         torch.ops.hpu.fp8_gemm_v2,
                         args=(
@@ -255,7 +261,7 @@ def replace_pattern_quant_dequant_bmm(module: torch.fx.GraphModule):
                             node.args[1],
                             is_trans_B,
                             None,
-                            torch.bfloat16,
+                            tensor_meta.dtype,
                             input0_scale_node,
                             input1_scale_node,
                             None,
@@ -315,7 +321,10 @@ def replace_pattern_quant_dequant_mm_addmm(module: torch.fx.GraphModule):
 
         gemm_node = node
         source_fn_stack = node.meta.get("source_fn_stack", None)
-        weight_transpose = source_fn_stack and source_fn_stack[-1][1] in [torch.nn.Linear, torch.nn.functional.linear]
+        weight_transpose = source_fn_stack and source_fn_stack[-1][1] in [
+            torch.nn.Linear,
+            torch.nn.functional.linear,
+        ]
 
         gemm_users_node = next(iter(gemm_node.users), None)
         output_view_node = (
@@ -377,6 +386,7 @@ def replace_pattern_quant_dequant_mm_addmm(module: torch.fx.GraphModule):
             weight_scale_node = graph.get_attr(weight_scale_attr)
 
         # input_quant_node.args = (input_quant_node.args[0], ) + (input_scale_node, ) + input_scale_node.args[2:]
+        tensor_meta = node.meta.get("tensor_meta", None)
         with graph.inserting_before(insertion_node):
             graph_changed = True
             gemm_fp8_node = graph.call_function(
@@ -387,7 +397,7 @@ def replace_pattern_quant_dequant_mm_addmm(module: torch.fx.GraphModule):
                     weight_quant_node,
                     weight_transpose,
                     None,
-                    torch.bfloat16,
+                    tensor_meta.dtype,
                     input_scale_node,
                     weight_scale_node,
                     bias,
@@ -495,10 +505,22 @@ def replace_pattern_view_mm_view(graph_module: torch.fx.GraphModule):
 # Match patterns and replace with fp8 ops
 # ======================================================================================
 class PatternMatchAndReplacer:
-    def __init__(self, graph_module: torch.fx.GraphModule):
+    def __init__(self, graph_module: torch.fx.GraphModule, quant_dtype_checked=True):
         self._graph_module = graph_module
+        self._quant_dtype_is_fp8 = True
+
+        if not quant_dtype_checked:
+            quant_dtype = None
+            for node in graph_module.graph.nodes:
+                if is_node(node, "quantize_per_tensor.default"):
+                    quant_dtype = node.args[5]
+                    break
+            self._quant_dtype_is_fp8 = quant_dtype in [torch.float8_e4m3fn, torch.float8_e5m2]
 
     def run(self):
+        if not self._quant_dtype_is_fp8:
+            return
+
         logger.debug("=================BEFORE PASS================")
         logger.debug(self._graph_module.graph)
         logger.debug("============================================")

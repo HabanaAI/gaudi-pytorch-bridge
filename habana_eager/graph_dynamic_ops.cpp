@@ -20,8 +20,7 @@
 #include "habana_helpers/logging.h"
 #include "habana_kernels/index_kernels.h"
 
-namespace habana {
-namespace graph {
+namespace habana::graph {
 
 void GetValueAndScalarIndexFromInput(
     torch::jit::Value* input,
@@ -46,7 +45,7 @@ void GetValueAndScalarIndexFromInput(
     }
   } else if (org_stack_index_map.count(in_name)) {
     index = static_cast<int64_t>(org_stack_index_map[in_name]);
-    value = static_cast<int64_t>(in_stack[index].toScalar().toLong());
+    value = in_stack[index].toScalar().toLong();
   } else {
     HABANA_ASSERT(
         false,
@@ -269,8 +268,7 @@ void UpdateShapeTensorSize(
       new_shape.resize(0);
       break;
     } else {
-      new_shape[idx] =
-          static_cast<int64_t>(GetSymintValue(orig_stack, stack_index));
+      new_shape[idx] = GetSymintValue(orig_stack, stack_index);
     }
   }
 
@@ -286,7 +284,6 @@ void UpdateH2DPatchingData(
   PT_EAGER_DEBUG("UpdateH2DPatchingData for updating H2D tensor:", data);
   launch_shapes.ds_tensors.push_back(dtensor);
   launch_shapes.patch_values.push_back(data);
-  return;
 }
 
 int64_t UpdateDynamicTensorDSStack(
@@ -603,6 +600,9 @@ bool SliceOperatorDS::ReplaceWithDynamicHPUOp(
       self_size,
       scalar_indexes);
 
+  if(self_size.size() > SYN_MAX_TENSOR_DIM){
+    return false;
+  }
   std::vector<std::pair<int64_t, int64_t>> mixed_indexes;
   std::vector<std::pair<int64_t, int64_t>> mixed_scalar_indexes;
   for (size_t i = 0; i < self_size.size(); i++)
@@ -615,8 +615,6 @@ bool SliceOperatorDS::ReplaceWithDynamicHPUOp(
   int64_t dim = 0, start = 0, end = 0, step = 0;
   GetValueAndScalarIndexFromInput(
       slice_node->inputs().at(1), in_stack, org_stack_index_map, dim, dim_idx);
-  auto dim_expr = GetRangeInfoExprFromInput(
-      slice_node->inputs().at(1), org_stack_index_map, m_range_infos);
   // get start
   GetValueAndScalarIndexFromInput(
       slice_node->inputs().at(2),
@@ -629,8 +627,6 @@ bool SliceOperatorDS::ReplaceWithDynamicHPUOp(
   // get end
   GetValueAndScalarIndexFromInput(
       slice_node->inputs().at(3), in_stack, org_stack_index_map, end, end_idx);
-  auto end_expr = GetRangeInfoExprFromInput(
-      slice_node->inputs().at(3), org_stack_index_map, m_range_infos);
   // get step
   GetValueAndScalarIndexFromInput(
       slice_node->inputs().at(4),
@@ -980,8 +976,6 @@ bool SliceScatterOperatorDS::ReplaceWithDynamicHPUOp(
   int64_t dim_value = 0;
   GetValueAndScalarIndexFromInput(
       dim, org_stack, org_stack_index_map, dim_value, dim_idx);
-  auto dim_expr =
-      GetRangeInfoExprFromInput(step, org_stack_index_map, m_range_infos);
   PT_EAGER_DEBUG("ST dim data:", dim_value);
 
   // Handle negative dimension
@@ -1060,7 +1054,7 @@ bool SliceScatterOperatorDS::ReplaceWithDynamicHPUOp(
 }
 
 habana::graph::RegisterDSOps& DSOpsRegistry() {
-  static habana::graph::RegisterDSOps* Registry =
+  static auto* Registry =
       new habana::graph::RegisterDSOps();
   return *Registry;
 }
@@ -1096,5 +1090,4 @@ static const auto& BasicDSOpsRegistry =
             FullOpDS) // we are adding original schema name
         .DSOP_MID_BACKEND(aten::empty, EmptyOpDS)
         .DSOP_MID_BACKEND(hpu::constant_pad_nd_ds, ConstantPad2dOperatorDS);
-} // namespace graph
-} // namespace habana
+} // namespace habana::graph

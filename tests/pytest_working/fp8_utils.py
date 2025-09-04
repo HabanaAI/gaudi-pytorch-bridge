@@ -82,3 +82,12 @@ def convertExpBiasToScale(exp_bias_list, dtype=torch.float8_e4m3fn):
     assert dtype in fp8_dtypes, f"ExpBias is applicable to fp8 dtypes, got {dtype}"
     default_bias = 7 if dtype == torch.float8_e4m3fn else 15
     return tuple((1.0 / torch.pow(2.0, default_bias - torch.tensor(exp_bias_list))).numpy())
+
+
+def maxFp8Val(dtype, is_gaudi2):
+    if dtype == torch.float8_e4m3fn and is_gaudi2:
+        max_val = 240.0
+    else:
+        max_val = torch.finfo(dtype).max
+
+    return max_val

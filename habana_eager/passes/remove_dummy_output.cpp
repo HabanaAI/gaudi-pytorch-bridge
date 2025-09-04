@@ -15,9 +15,7 @@
 #include <torch/csrc/jit/ir/ir.h>
 #include "habana_helpers/logging_pt.h"
 
-namespace habana {
-namespace graph {
-namespace pass {
+namespace habana::graph::pass {
 struct RemoveDummyOutputPass {
   explicit RemoveDummyOutputPass(std::shared_ptr<torch::jit::Graph> graph)
       : m_graph(std::move(graph)) {}
@@ -51,6 +49,4 @@ bool RemoveDummyOutput(std::shared_ptr<torch::jit::Graph> graph) {
   return changed;
 }
 
-} // namespace pass
-} // namespace graph
-} // namespace habana
+} // namespace habana::graph::pass

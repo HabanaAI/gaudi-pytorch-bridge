@@ -118,24 +118,22 @@ RT<T> getenv_by_type(const char* name, const T def_val);
 template <class E>
 struct has_min_max_methods {
   using value_type = decltype(E::default_value);
-  using value_type_decay = typename std::decay<value_type>::type;
+  using value_type_decay = typename std::decay_t<value_type>;
   using base_class = std::numeric_limits<value_type_decay>;
-  static constexpr bool value = std::is_base_of<base_class, E>::value;
+  static constexpr bool value = std::is_base_of_v<base_class, E>;
 };
 
 template <class E>
-typename std::enable_if<
-    has_min_max_methods<E>::value,
-    RT<decltype(E::default_value)>>::type
-getenv_by_E(const char* name) {
+typename std::
+    enable_if_t<has_min_max_methods<E>::value, RT<decltype(E::default_value)>>
+    getenv_by_E(const char* name) {
   return getenv_by_type(name, E::default_value, E::min(), E::max());
 }
 
 template <class E>
-typename std::enable_if<
-    !has_min_max_methods<E>::value,
-    RT<decltype(E::default_value)>>::type
-getenv_by_E(const char* name) {
+typename std::
+    enable_if_t<!has_min_max_methods<E>::value, RT<decltype(E::default_value)>>
+    getenv_by_E(const char* name) {
   return getenv_by_type(name, E::default_value);
 }
 
@@ -264,7 +262,7 @@ void setenv_by_type_new(
 
 template <class E>
 typename std::
-    enable_if<!has_min_max_methods<E>::value, decltype(E::default_value)>::type
+    enable_if_t<!has_min_max_methods<E>::value, decltype(E::default_value)>
     getenv_E_new(const char* name, const bool& skip_cache) {
   return getenv_by_type_new(
       name,
@@ -277,7 +275,7 @@ typename std::
 
 template <class E>
 typename std::
-    enable_if<has_min_max_methods<E>::value, decltype(E::default_value)>::type
+    enable_if_t<has_min_max_methods<E>::value, decltype(E::default_value)>
     getenv_E_new(const char* name, const bool& skip_cache) {
   return getenv_by_type_new(
       name,

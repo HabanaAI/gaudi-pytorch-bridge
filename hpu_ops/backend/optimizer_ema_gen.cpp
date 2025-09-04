@@ -12,6 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "hpu_ops/hpu_op_helper.h"
 #include "hpu_ops/op_backend.h"
 #include "hpu_ops/stack_getter.h"
 #include "perf_lib_layer_params.h"
@@ -19,6 +20,58 @@
 namespace sh = synapse_helpers;
 
 namespace habana {
+
+SharedMetaDataVector OptimizerEmaSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  const auto& model_inputs = stack.at(0).toTensorVector();
+  const auto& updated_ema = stack.at(1).toTensorVector();
+  const auto& decay = stack.at(2).toTensor();
+  const auto precision_type = model_inputs[0].scalar_type();
+  const auto decay_rank = decay.dim();
+
+  SharedMetaTensor constant_tensor{1, precision_type};
+  SharedMetaDataVector shared_meta_vec;
+  SharedMetaData one_minus_decay_shared_meta{"sub_fwd"};
+  one_minus_decay_shared_meta.inputs_data = {
+      constant_tensor, {decay_rank, precision_type}};
+  one_minus_decay_shared_meta.outputs_data.emplace_back(
+      decay_rank, precision_type);
+  shared_meta_vec.push_back(one_minus_decay_shared_meta);
+
+  size_t vec_size = model_inputs.size();
+  for (size_t i = 0; i < vec_size; ++i) {
+    const auto& input = model_inputs[i];
+    const auto& ema = updated_ema[i];
+    const auto input_rank = input.dim();
+
+    SharedMetaData ema_times_decay_shared_meta{"mult_fwd"};
+    ema_times_decay_shared_meta.inputs_data.emplace_back(
+        ema.dim(), precision_type);
+    ema_times_decay_shared_meta.inputs_data.emplace_back(
+        decay_rank, precision_type);
+    ema_times_decay_shared_meta.outputs_data.emplace_back(
+        input_rank, precision_type);
+    shared_meta_vec.push_back(ema_times_decay_shared_meta);
+
+    SharedMetaData one_minus_decay_times_input_shared_meta{"mult_fwd"};
+    one_minus_decay_times_input_shared_meta.inputs_data = {
+        ema_times_decay_shared_meta.outputs_data[0],
+        {input_rank, precision_type}};
+    one_minus_decay_times_input_shared_meta.outputs_data =
+        ema_times_decay_shared_meta.outputs_data;
+    shared_meta_vec.push_back(one_minus_decay_times_input_shared_meta);
+
+    SharedMetaData new_ema_shared_meta{"add_fwd"};
+    new_ema_shared_meta.inputs_data = {
+        ema_times_decay_shared_meta.outputs_data[0],
+        one_minus_decay_times_input_shared_meta.outputs_data[0]};
+    new_ema_shared_meta.outputs_data =
+        one_minus_decay_times_input_shared_meta.outputs_data;
+    shared_meta_vec.push_back(new_ema_shared_meta);
+  }
+  return shared_meta_vec;
+}
 
 class OptimizerFusedEmaOperator : public OpBackend {
  public:
@@ -56,7 +109,7 @@ void OptimizerFusedEmaOperator::AddNode(
   std::string mul_node = get_guid_with_precision("mult_fwd"sv, ScalarType());
 
   int64_t scalar_shape[] = {1};
-  auto c_one = ConstantHelper(graph, 1.0f, ScalarType(), scalar_shape);
+  auto c_one = ConstantHelper(graph, 1.0F, ScalarType(), scalar_shape);
 
   const auto dtype = ScalarType();
   const auto& decay_shape = decay.pt_t.sizes();
@@ -91,6 +144,7 @@ void OptimizerFusedEmaOperator::AddNode(
 
 } // namespace habana
 
-static auto& OptimizerKernelsKernelRegistry = habana::KernelRegistry().add(
-    "hpu::optimizer_ema",
-    KERNEL_FN(OptimizerFusedEmaOperator));
+static auto& OptimizerKernelsKernelRegistry =
+    habana::KernelRegistry().REGISTER_HPU_BACKEND(
+        "hpu::optimizer_ema",
+        habana::OptimizerFusedEmaOperator);

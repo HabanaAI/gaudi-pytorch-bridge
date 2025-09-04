@@ -77,7 +77,10 @@ def helper_post_pass_placement_update(input_module: torch.fx.GraphModule):
 
 
 @torch.utils._python_dispatch._disable_current_modes()
-def constant_fold(gm: torch.fx.GraphModule, constraint_fn: Callable[[torch.fx.Node], bool] | None = None):
+def constant_fold(
+    gm: torch.fx.GraphModule,
+    constraint_fn: Callable[[torch.fx.Node], bool] | None = None,
+):
     """
     Based on the constant_fold method present in torch/_inductor/constant_folding.py - cannot use the original method due to
     additional meta data handling which is HPU backend specific
@@ -212,11 +215,14 @@ def freeze(
     )
 
     try:
-        with torch.autocast(enabled=False, device_type="hpu"), torch.autocast(enabled=False, device_type="cpu"):
-            with mock.patch.object(fake_mode, "allow_non_fake_inputs", True):
-                # Disabling autocast in fake tensor propagation as autocasting has been
-                # already done and all dtypes has been already deduced.
-                constant_fold(gm=aot_autograd_gm)
+        with (
+            torch.autocast(enabled=False, device_type="hpu"),
+            torch.autocast(enabled=False, device_type="cpu"),
+            mock.patch.object(fake_mode, "allow_non_fake_inputs", True),
+        ):
+            # Disabling autocast in fake tensor propagation as autocasting has been
+            # already done and all dtypes has been already deduced.
+            constant_fold(gm=aot_autograd_gm)
     except Exception as e:
         logger.warn(
             "Got exception in constant folding:\n%s",

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,17 +16,16 @@
 #include "backend/profiling/trace_sources/trace_parser.h"
 #include <sys/time.h>
 #include <sys/types.h>
-#include <time.h>
 #include <unistd.h>
 #include <chrono>
 #include <cmath>
+#include <ctime>
 #include <list>
 #include <string_view>
 #include <unordered_set>
 #include <vector>
 
-namespace habana {
-namespace profile {
+namespace habana::profile {
 
 using namespace std::chrono;
 
@@ -194,7 +193,7 @@ struct EngineDatabase {
 };
 
 HpuTraceParser::HpuTraceParser(unsigned offset)
-    : hpu_start_time_{0.0}, wall_start_time_{0.0}, offset_{offset} {
+    : hpu_start_time_{0.0}, wall_start_time_{0.0} {
   engine_type_database_ = std::make_unique<EngineDatabase>(offset);
 }
 
@@ -318,7 +317,7 @@ void HpuTraceParser::convertEventsToActivities(
   };
   using ActiveEventsMap = std::unordered_map<
       uint32_t,
-      std::unordered_map<uint32_t, std::list<ActiveEvent>>>;
+      std::unordered_map<uint64_t, std::list<ActiveEvent>>>;
   using ActiveEnqueueEventsMap = std::unordered_map<uint32_t, synTraceEvent*>;
   ActiveEventsMap activeEvents;
   ActiveEnqueueEventsMap activeEnqueueEvents;
@@ -437,5 +436,4 @@ std::unordered_map<std::string, std::string> HpuTraceParser::getExtraArgs(
   }
   return extraArgs;
 }
-}; // namespace profile
-}; // namespace habana
+}; // namespace habana::profile

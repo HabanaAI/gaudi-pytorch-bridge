@@ -23,7 +23,6 @@ import habana_frameworks.torch.hpu as hthpu
 import numpy as np
 import pytest
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 from habana_frameworks.torch.utils.experimental.detect_recompilation import (
     const_shape_dataloader,
@@ -31,6 +30,7 @@ from habana_frameworks.torch.utils.experimental.detect_recompilation import (
     detect_recompilation_auto_model,
     get_shape,
 )
+from torch import nn
 from torch.utils.data import DataLoader, Dataset
 
 
@@ -104,7 +104,6 @@ class Net(nn.Module):
 
 
 def train(start_bs, dyn_inp, dyn_ops, reuse_relu=False, wrap_inner=False):
-
     random.seed(0)
     np.random.seed(0)
     device = "hpu"
@@ -285,14 +284,13 @@ def match_fl1(fl1, dyn_inps, dyn_ops, reuse_relu, wrap_inner):
                 return (idx + 1) if wrap_inner else (idx // 2 + 1)
 
             passed = passed and helper2(fl1lines[1 + len(modules) :], fn)
+    elif dyn_inps:
+        passed = passed and len(fl1lines) == 1 + len(modules) * 2
+        # step 3 will see all modules recompile because of dyn inps
+        passed = passed and helper1(fl1lines[1 + len(modules) :], 3)
     else:
-        if dyn_inps:
-            passed = passed and len(fl1lines) == 1 + len(modules) * 2
-            # step 3 will see all modules recompile because of dyn inps
-            passed = passed and helper1(fl1lines[1 + len(modules) :], 3)
-        else:
-            pass
-            # recompiles only on step 0, which have already been checked before
+        pass
+        # recompiles only on step 0, which have already been checked before
     return passed
 
 
@@ -321,11 +319,10 @@ def gen_expected2(dyn_inps, dyn_ops, reuse_relu, wrap_inner):
                 return (5 if x == "InnerNet" else 2) if wrap_inner else (5 if x == "Net" or x == "Net/innernet" else 2)
             else:
                 return 2
+        elif dyn_ops:
+            return (5 if x == "InnerNet" else 1) if wrap_inner else (5 if x == "Net" or x == "Net/innernet" else 1)
         else:
-            if dyn_ops:
-                return (5 if x == "InnerNet" else 1) if wrap_inner else (5 if x == "Net" or x == "Net/innernet" else 1)
-            else:
-                return 1
+            return 1
 
     num_recompiles = [mapper(k) for k in lst]
     if reuse_relu:
@@ -448,7 +445,10 @@ class SampleDatasetComplex(SampleDataset):
 def test_dataloader_basic_fns():
     assert get_shape(torch.tensor([1, 2])) == (2,)
     assert get_shape([torch.tensor([1, 2]), torch.tensor([1, 2, 3])]) == ((2,), (3,))
-    assert get_shape([torch.tensor([1, 2]), {1: torch.tensor([1, 2, 3])}]) == ((2,), ((1, 3),))
+    assert get_shape([torch.tensor([1, 2]), {1: torch.tensor([1, 2, 3])}]) == (
+        (2,),
+        ((1, 3),),
+    )
 
 
 def test_dataloader_simple():

@@ -20,10 +20,6 @@
 #pragma once
 
 namespace habana {
-std::vector<int64_t> ComputeIndexOperatorOutputShape(
-    const at::Tensor& input,
-    at::TensorList indices);
-
 std::vector<int64_t> ComputeGatherOperatorOutputShape(
     const at::Tensor& self,
     int64_t dim_,

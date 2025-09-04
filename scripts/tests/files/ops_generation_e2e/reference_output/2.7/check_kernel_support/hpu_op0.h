@@ -34,7 +34,7 @@ bool func(torch::jit::Stack &stack, bool is_dynamic) {
 }
 private:
 bool impl(at::Tensor & self, const at::Scalar & other, bool is_dynamic) {
-  HPU_SUPPORTED_DTYPES(({{-1, {at::kInt, at::kChar, at::kByte, at::kShort, at::kBool}}}))
+  HPU_SUPPORTED_DTYPES(({at::kInt, at::kChar, at::kByte, at::kShort, at::kBool}))
   RETURN_IF_UNSUPPORTED_DTYPE2(self, __ilshift__, is_dynamic, Scalar, self, other)
 
   return true;
@@ -69,8 +69,7 @@ bool func(torch::jit::Stack &stack, bool is_dynamic) {
 }
 private:
 bool impl(at::TensorList self, const at::Scalar & scalar, bool is_dynamic) {
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kLong, at::kInt, at::kShort, at::kChar, at::kHalf, at::kDouble, at::kBool}},
-   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kLong, at::kInt, at::kShort, at::kChar, at::kHalf, at::kDouble, at::kBool}}}))
+  HPU_SUPPORTED_DTYPES(({at::kBFloat16, at::kFloat, at::kLong, at::kInt, at::kShort, at::kChar, at::kHalf, at::kDouble, at::kBool}))
 
   return true;
 }

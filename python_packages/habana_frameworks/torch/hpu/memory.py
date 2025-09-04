@@ -19,8 +19,7 @@
 import warnings
 from typing import Any
 
-import habana_frameworks.torch.hpu as hpu
-from habana_frameworks.torch import _hpu_C
+from habana_frameworks.torch import _hpu_C, hpu
 
 import torch
 
@@ -148,6 +147,44 @@ def _get_hlml_shared_object_name(device: _device_t | None = None) -> str:
     if device is None:
         device = 0
     return _hpu_C.get_hlml_shared_object_name(device)
+
+
+def formatted_memory_stats(device: _device_t | None = None) -> str:
+    r"""This API returns string of HPU memory statics.
+    Below sample memory stats printout and details
+    Limit:- 135960424448 : amount of total reserved memory on HPU device
+    InUse:- 7340288 : amount of allocated memory at any instance. ( starting point after reset_peak_memroy_stats() )
+    MaxInUse:- 7340288 : amount of total active memory allocated
+    NumAllocs:- 11 : number of allocations
+    NumFrees:- 2 : number of freed chunks
+    ActiveAllocs:- 9 : number of active allocations
+    MaxAllocSize:- 4194304 : maximum allocated size
+    TotalSystemAllocs:- 12 : total number of system allocations
+    TotalSystemFrees:- 2 : total number of system frees
+    TotalActiveAllocs:- 10 : total number of active allocations"""
+
+    def format_memory(key, value):
+        if key in ["Limit", "InUse", "MaxInUse", "MaxAllocSize"]:
+            formatted_values = [f"{value}"]
+
+            if value >= 1024:  # 1 KB
+                formatted_values.append(f"{value / 1024:.2f}KB")
+
+            if value >= 1_048_576:  # 1 MB
+                formatted_values.append(f"{value / (1024 * 1024):.2f}MB")
+
+            if value >= 1_073_741_824:  # 1 GB
+                formatted_values.append(f"{value / (1024 * 1024 * 1024):.2f}GB")
+
+            return " / ".join(formatted_values)
+        else:
+            return str(value)
+
+    stats = memory_stats(device)
+    device_index = _get_device_index(device, optional=True)
+    header = f"    Memory Statistics (Device ID) {' ' * 9} :- {device_index:<3}"
+    stats_text = "\n".join(f"    {k:<39} :- {format_memory(k, v)}" for k, v in stats.items())
+    return f"{header}\n{stats_text}"
 
 
 def memory_reserved(device: _device_t | None = None) -> int:

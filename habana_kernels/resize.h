@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,8 +28,7 @@
 
 #define THMin(X, Y) ((X) < (Y) ? (X) : (Y))
 
-namespace at {
-namespace native {
+namespace at::native {
 inline StorageImpl* THTensor_getStoragePtr(const TensorImpl* tensor) {
   // Within PyTorch, the invariant is that storage_ is always
   // initialized; we never have tensors that don't have any storage.
@@ -50,19 +49,21 @@ inline StorageImpl* THTensor_getStoragePtr(const TensorImpl* tensor) {
 // inline void THStorage_resizeBytes(THStorage* self, ptrdiff_t size_bytes) {
 inline void THStorage_resizeBytes(
     c10::StorageImpl* self,
-    ptrdiff_t size_bytes,
+    size_t size_bytes,
     const caffe2::TypeMeta dtype,
     bool is_tensor_pipelined = false) {
-  HABANA_ASSERT(size_bytes >= 0, "invalid size");
   HABANA_ASSERT(self->allocator() != nullptr);
-  int device_id = habana::HPUDeviceAllocator::allocator_active_device_id;
+  const auto device_id = habana::HPUDeviceAllocator::allocator_active_device_id;
 
   HABANA_ASSERT(
       self->resizable(), "Trying to resize storage that is not resizable");
 
   if (size_bytes == 0) {
     self->set_data_ptr(
-        at::DataPtr(nullptr, at::Device(at::DeviceType::HPU, device_id)));
+        at::DataPtr(
+            nullptr,
+            at::Device(
+                at::DeviceType::HPU, static_cast<at::DeviceIndex>(device_id))));
     self->set_nbytes(0);
   } else {
     if (is_tensor_pipelined) {
@@ -103,7 +104,7 @@ inline void THStorage_resizeBytes(
 // These functions are called by native::resize_ as well as (legacy) THC resize.
 // They are not in THC/THCTensor.cpp because the at namespace is easier
 // to benchmark than THC; I can't get gbenchmark to call fns from THTensor.cpp
-inline void maybe_resize_storage_hpu(TensorImpl* self, int64_t new_size) {
+inline void maybe_resize_storage_hpu(TensorImpl* self, size_t new_size) {
   // It does not make sense to try to resize a storage
   // to hold 0 elements, and this can break
   // if storage_offset is positive but
@@ -114,7 +115,9 @@ inline void maybe_resize_storage_hpu(TensorImpl* self, int64_t new_size) {
       AT_ERROR("Tensor: invalid null storage");
     }
     uint64_t new_size_bytes =
-        (new_size + self->storage_offset()) * self->dtype().itemsize();
+        static_cast<size_t>(
+            (static_cast<int64_t>(new_size) + self->storage_offset())) *
+        self->dtype().itemsize();
     if (new_size_bytes > habana_helpers::GetNBytes(self)) {
       auto is_tensor_pipelined = false;
       if (auto tmeta = self->get_backend_meta()) {
@@ -140,6 +143,7 @@ inline TensorImpl* resize_impl_hpu_(
       self != nullptr, "Trying to resize tensor with non-existing TensorImpl");
   if (auto tmeta = self->get_backend_meta()) {
     auto hb_tmeta = dynamic_cast<habana::TensorExtraMeta*>(tmeta);
+    HABANA_ASSERT(hb_tmeta, "TensorImpl does not have Habana meta");
     if (hb_tmeta->is_tensor_pipelined()) {
       habana::TryJoinPendingEagerPipelineThreads();
     }
@@ -172,23 +176,21 @@ inline TensorImpl* resize_impl_hpu_(
     self->set_sizes_contiguous(size);
     storage_size = self->numel();
   }
-  maybe_resize_storage_hpu(self, storage_size);
+  maybe_resize_storage_hpu(self, static_cast<size_t>(storage_size));
 
   return self;
 }
 
-} // namespace native
-} // namespace at
+} // namespace at::native
 
 // THH = TorcH Habana
 // TODO: put it in proper namespace
 inline void THHTensor_resizeNd(
     // THTensor* self,
     c10::TensorImpl* self,
-    int nDimension,
+    size_t nDimension,
     const int64_t* size,
     const int64_t* stride) {
-  HABANA_ASSERT(nDimension >= 0, "resizeNd nDimension must be non-negative");
   at::IntArrayRef sizes(size, nDimension);
   at::optional<at::IntArrayRef> strides;
   if (stride) {
@@ -204,10 +206,9 @@ inline void THHTensor_resizeNd(
 inline void THHTensor_resizeNd_nonpersistent(
     // THTensor* self,
     c10::TensorImpl* self,
-    int nDimension,
+    size_t nDimension,
     const int64_t* size,
     const int64_t* stride) {
-  HABANA_ASSERT(nDimension >= 0, "resizeNd nDimension must be non-negative");
   at::IntArrayRef sizes(size, nDimension);
   at::optional<at::IntArrayRef> strides;
   if (stride) {
@@ -216,7 +217,7 @@ inline void THHTensor_resizeNd_nonpersistent(
   if (self->sizes() == sizes && (!stride || self->strides() == strides)) {
     return;
   }
-  if (stride) {
+  if (strides) {
     self->set_sizes_and_strides(sizes, *strides);
   } else {
     self->set_sizes_contiguous(sizes);

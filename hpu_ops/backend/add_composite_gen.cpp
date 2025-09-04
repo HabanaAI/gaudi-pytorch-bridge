@@ -45,8 +45,7 @@ static SharedMetaDataVector AddCompositeSharedMeta(
   const auto& other1 = stack_tensor(stack, 1);
   const auto& other2 = stack_tensor(stack, 2);
   const bool tensor_value = stack.at(3).isTensor();
-  const auto output_rank =
-      std::max(std::max(self.dim(), other1.dim()), other2.dim());
+  const auto output_rank = std::max({self.dim(), other1.dim(), other2.dim()});
   const at::ScalarType dtype =
       at::promote_types(self.scalar_type(), at::result_type(other1, other2));
 
@@ -101,10 +100,9 @@ SharedMetaDataVector ForeachAddcmulSharedMeta(
   return ForeachCompoundSharedMeta(stack, "addcmul_fwd");
 }
 
-std::shared_ptr<void> FillAddCompositeParams(
+FillParamsT FillAddCompositeParams(
     const at::Stack& stack,
-    BinaryWithAlphaMode_t mode,
-    size_t& size) {
+    BinaryWithAlphaMode_t mode) {
   PARAMS_STUB(ns_BinaryWithAlphaKernel::Params);
 
   params->mode = mode;
@@ -123,17 +121,17 @@ std::shared_ptr<void> FillAddCompositeParams(
         scalar.isFloatingPoint() ? scalar.to<float>() : scalar.to<int>();
   }
 
-  return params;
+  return paramsT;
 }
 
-std::shared_ptr<void> FillAddcmulParams(const at::Stack& stack, size_t& size) {
+FillParamsT FillAddcmulParams(const at::Stack& stack) {
   return FillAddCompositeParams(
-      stack, BinaryWithAlphaMode_t::BINARY_WITH_ALPHA_MODE_CMUL, size);
+      stack, BinaryWithAlphaMode_t::BINARY_WITH_ALPHA_MODE_CMUL);
 }
 
-std::shared_ptr<void> FillAddcdivParams(const at::Stack& stack, size_t& size) {
+FillParamsT FillAddcdivParams(const at::Stack& stack) {
   return FillAddCompositeParams(
-      stack, BinaryWithAlphaMode_t::BINARY_WITH_ALPHA_MODE_CDIV, size);
+      stack, BinaryWithAlphaMode_t::BINARY_WITH_ALPHA_MODE_CDIV);
 }
 
 void ForeachCompound::AddNode(

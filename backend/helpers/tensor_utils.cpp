@@ -25,6 +25,7 @@
 #include "backend/helpers/generic_resource_holder.h"
 #include "backend/helpers/get_n_bytes.h"
 #include "backend/helpers/tensor_info.h"
+#include "backend/synapse_helpers/device.h"
 #include "backend/synapse_helpers/device_helpers.h"
 #include "common/utils.h"
 #include "habana_helpers/dtype_helpers.h"
@@ -104,14 +105,14 @@ void PtTensorInferenceData::update_entry(
   } else {
     PT_BRIDGE_DEBUG(" Add new entry for Key: ", name);
   }
-  SetInferenceTensorRange(name.c_str(), min, max);
+  SetInferenceTensorRange(name, min, max);
 }
 
 std::string habana_helpers::DebugString(const at::Tensor& t, bool print_data) {
   std::stringstream O;
 
   if (t.has_storage()) {
-    O << " @ " << (void*)t.storage().data_ptr().get() << " : " << t.data_ptr();
+    O << " @ " << t.storage().data_ptr().get() << " : " << t.data_ptr();
   } else {
     O << " STORAGE_LESS";
   }
@@ -242,7 +243,8 @@ void habana_helpers::copy_scalar_to_device(
  * @param[in] tensor_list - list of tensor pairs i.e. src and dst
  *****************************************************************************/
 void habana_helpers::copy_scalars_to_device(
-    const std::vector<std::pair<at::Tensor, at::Tensor>>& tensors_list) {
+    const std::vector<std::pair<at::Tensor, at::Tensor>>& tensors_list,
+    const c10::hpu::HPUStream stream) {
   if (tensors_list.empty()) {
     return;
   }
@@ -273,15 +275,11 @@ void habana_helpers::copy_scalars_to_device(
     // operating on to prevent it from being deallocated while the
     // operation is still in flight.
     habana::HPUDeviceContext::copy_data_to_device(
-        manifest,
-        [src_list, dst_list]() { return; },
-        c10::hpu::getCurrentHPUStream());
+        manifest, [src_list, dst_list]() { return; }, stream);
   } else {
     std::atomic<bool> copyDone{false};
     habana::HPUDeviceContext::copy_data_to_device(
-        manifest,
-        [&copyDone]() { copyDone = true; },
-        c10::hpu::getCurrentHPUStream());
+        manifest, [&copyDone]() { copyDone = true; }, stream);
 
     // Release GIL if going to wait
     habana_helpers::AutoNoGIL gil_release;
@@ -360,8 +358,7 @@ void habana_helpers::copy_data_to_host(
     const at::Tensor& src,
     const at::Tensor& dst,
     bool non_blocking) {
-  return copy_data_to_host(
-      src, dst, non_blocking, c10::hpu::getCurrentHPUStream());
+  copy_data_to_host(src, dst, non_blocking, c10::hpu::getCurrentHPUStream());
 }
 
 void habana_helpers::copy_data_to_host(
@@ -411,11 +408,21 @@ void habana_helpers::copy_data_to_host(
   }
 
   if (non_blocking && device.IsStreamASyncEnabled()) {
-    // keeps a reference to the tensor it is
-    // operating on to prevent it from being deallocated while the
-    // operation is still in flight.
-    auto callback = [rh = std::make_shared<GenericResourceHolder>(
-                         src, dst)]() mutable { rh->release_resources(); };
+    std::function<void()> callback = nullptr;
+    if (common::IsRecordStreamEnabled() &&
+        GET_ENV_FLAG_NEW(PT_HPU_USE_LAUNCH_RECORD_STREAM)) {
+      synapse_helpers::hpuStream_t dma_stream = device.get_dma_pt_stream(
+          hpu_stream, synapse_helpers::default_stream_type::DMA_D2H);
+      device.get_device_memory().recordStream(src.data_ptr(), dma_stream);
+      callback = [rh = std::make_shared<GenericResourceHolder>(dst)]() mutable {
+        rh->release_resources();
+      };
+    } else {
+      // keeps a reference to the tensor it is operating on to prevent it
+      // from being deallocated while the operation is still in flight.
+      callback = [rh = std::make_shared<GenericResourceHolder>(
+                      src, dst)]() mutable { rh->release_resources(); };
+    }
 
     habana::HPUDeviceContext::copy_data_to_host(
         reinterpret_cast<synapse_helpers::device_ptr>(src_data_ptr),
@@ -451,8 +458,7 @@ void habana_helpers::copy_data_to_device(
     const at::Tensor& src,
     const at::Tensor& dst,
     bool non_blocking) {
-  return copy_data_to_device(
-      src, dst, non_blocking, c10::hpu::getCurrentHPUStream());
+  copy_data_to_device(src, dst, non_blocking, c10::hpu::getCurrentHPUStream());
 }
 
 /******************************************************************************
@@ -485,11 +491,21 @@ void habana_helpers::copy_data_to_device(
       }
     }
 
-    // keeps a reference to the tensor it is
-    // operating on to prevent it from being deallocated while the
-    // operation is still in flight.
-    auto callback = [rh = std::make_shared<GenericResourceHolder>(
-                         src, dst)]() mutable { rh->release_resources(); };
+    std::function<void()> callback = nullptr;
+    if (common::IsRecordStreamEnabled() &&
+        GET_ENV_FLAG_NEW(PT_HPU_USE_LAUNCH_RECORD_STREAM)) {
+      synapse_helpers::hpuStream_t dma_stream = device.get_dma_pt_stream(
+          hpu_stream, synapse_helpers::default_stream_type::DMA_H2D);
+      device.get_device_memory().recordStream(dst.data_ptr(), dma_stream);
+      callback = [rh = std::make_shared<GenericResourceHolder>(src)]() mutable {
+        rh->release_resources();
+      };
+    } else {
+      // keeps a reference to the tensor it is operating on to prevent it
+      // from being deallocated while the operation is still in flight.
+      callback = [rh = std::make_shared<GenericResourceHolder>(
+                      src, dst)]() mutable { rh->release_resources(); };
+    }
 
     habana::HPUDeviceContext::copy_data_to_device(
         src.data_ptr(),
@@ -535,13 +551,22 @@ void habana_helpers::copy_data_within_device(
     bool non_blocking) {
   auto device_id = dst.device().index();
   auto& device = habana::HPUDeviceContext::get_device(device_id);
+  synapse_helpers::hpuStream_t current_stream = c10::hpu::getCurrentHPUStream();
 
   if (non_blocking && device.IsStreamASyncEnabled()) {
-    // keeps a reference to the tensor it is
-    // operating on to prevent it from being deallocated while the
-    // operation is still in flight.
-    auto callback = [rh = std::make_shared<GenericResourceHolder>(
-                         src, dst)]() mutable { rh->release_resources(); };
+    std::function<void()> callback = nullptr;
+    if (common::IsRecordStreamEnabled() &&
+        GET_ENV_FLAG_NEW(PT_HPU_USE_LAUNCH_RECORD_STREAM)) {
+      synapse_helpers::hpuStream_t dma_stream = device.get_dma_pt_stream(
+          current_stream, synapse_helpers::default_stream_type::DMA_D2D);
+      device.get_device_memory().recordStream(src.data_ptr(), dma_stream);
+      device.get_device_memory().recordStream(dst.data_ptr(), dma_stream);
+    } else {
+      // keeps a reference to the tensor it is operating on to prevent it
+      // from being deallocated while the operation is still in flight.
+      callback = [rh = std::make_shared<GenericResourceHolder>(
+                      src, dst)]() mutable { rh->release_resources(); };
+    }
 
     habana::HPUDeviceContext::copy_data_within_device(
         reinterpret_cast<synapse_helpers::device_ptr>(src.data_ptr()),
@@ -552,7 +577,7 @@ void habana_helpers::copy_data_within_device(
             dst.storage().data_ptr().get()),
         habana_helpers::GetNBytes(src),
         callback,
-        c10::hpu::getCurrentHPUStream());
+        current_stream);
   } else {
     std::atomic<bool> copyDone{false};
     habana::HPUDeviceContext::copy_data_within_device(
@@ -564,7 +589,7 @@ void habana_helpers::copy_data_within_device(
             dst.storage().data_ptr().get()),
         habana_helpers::GetNBytes(src),
         [&copyDone]() { copyDone = true; },
-        c10::hpu::getCurrentHPUStream());
+        current_stream);
 
     // Release GIL if going to wait
     habana_helpers::AutoNoGIL gil_release;
@@ -618,7 +643,7 @@ size_t habana_helpers::hash_combine_scalars(
 void habana_helpers::recalc_strides(
     std::vector<int64_t>& self_strides,
     const std::vector<int64_t>& self_sizes) {
-  if (self_strides.size() == 0) {
+  if (self_strides.empty()) {
     return;
   }
   int k;
@@ -626,7 +651,6 @@ void habana_helpers::recalc_strides(
   for (k = self_strides.size() - 2; k >= 0; k--) {
     self_strides[k] = self_strides[k + 1] * self_sizes[k + 1];
   }
-  return;
 }
 
 bool habana_helpers::is_supported_type(c10::ScalarType type) {

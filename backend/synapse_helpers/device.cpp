@@ -15,12 +15,12 @@
 #include "backend/synapse_helpers/device.h"
 #include <absl/types/variant.h>
 #include <hl_logger/hllog_core.hpp>
-#include <inttypes.h>
-#include <stdlib.h>
 #include <synapse_api.h>
 #include <algorithm>
 #include <chrono>
+#include <cinttypes>
 #include <cmath>
+#include <cstdlib>
 #include <iomanip>
 #include <ostream>
 #include <sstream>
@@ -161,9 +161,9 @@ void CheckDynamicMinMaxPolicyOrder() {
   }
 }
 
-uint64_t GetSystemRamInKB(void) {
+uint64_t GetSystemRamInKB() {
   FILE* meminfo = fopen("/proc/meminfo", "r");
-  if (meminfo != NULL) {
+  if (meminfo != nullptr) {
     char line[256];
     while (fgets(line, sizeof(line), meminfo)) {
       uint64_t ram;
@@ -232,7 +232,7 @@ void dumpEnvSettings() {
         << "---------------------------: System Configuration :---------------------------\n";
     std::clog << "Num CPU Cores : " << std::thread::hardware_concurrency()
               << "\n";
-    auto ram_size = GetSystemRamInKB() / (1024 * 1024);
+    auto ram_size = GetSystemRamInKB() / static_cast<uint64_t>(1024 * 1024);
     std::clog << "CPU RAM       : " << ram_size << " GB\n";
     std::clog
         << "------------------------------------------------------------------------------\n";
@@ -254,7 +254,7 @@ device::device(
       device_memory_{*this},
       recipe_handle_cache_{*this} {
   // create default stream
-  create_default_stream();
+  create_default_streams();
   ReleaseFreeMemory();
   dumpEnvSettings();
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SFG)) {
@@ -277,7 +277,7 @@ device::device(
     size_t prealloc_size = 2ULL * 1024 * 1024 * 1024; // 2GByte
     void* v_ptr{nullptr};
     device_memory_.malloc(&v_ptr, prealloc_size);
-    device_ptr prealloc_addr = reinterpret_cast<device_ptr>(v_ptr);
+    auto prealloc_addr = reinterpret_cast<device_ptr>(v_ptr);
     device_memory_.fix_address(reinterpret_cast<void*>(prealloc_addr));
     HABANA_ASSERT(prealloc_addr != device_nullptr);
     preallocated_reduction_buffer_ = absl::make_optional<owned_device_ptr>(
@@ -290,7 +290,7 @@ device::device(
   // Set initial size of workspace buffer to 4MB in case of
   // PT_HPU_INITIAL_WORKSPACE is equal to 0
   if (init_size == 0) {
-    init_size = 4 * 1024 * 1024;
+    init_size = static_cast<size_t>(4 * 1024 * 1024);
   }
   if (init_size > 0) {
     workspace_buffer_ = get_workspace_buffer(init_size);
@@ -611,7 +611,9 @@ void device::cleanup() {
 
   flush_stream_events();
 
-  if (is_hcl_same_addr_enabled_ && (std::getenv("HLS_MODULE_ID") != nullptr)) {
+  if (is_hcl_same_addr_enabled_ &&
+     (std::getenv("HLS_MODULE_ID") != nullptr) &&
+     preallocated_reduction_buffer_.has_value()) {
     device_ptr prealloc_addr = preallocated_reduction_buffer_->get();
     device_memory_.free((void*)prealloc_addr);
   }
@@ -661,12 +663,11 @@ uint64_t device::get_compute_stream_count() {
 // situations only use few user streams. CUDA has a limiation
 // of 32 and later stream are assigned in round robin fashion.
 //
-#define GENERIC_STREAM_LIMIT 32
 void device::create_stream(hpuStream_t& hpu_stream, bool high_priority) {
   std::unique_lock<std::mutex> lock(stream_mutex_);
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM)) {
     hpu_stream = ++stream_index_;
-    if (stream_index_ <= GENERIC_STREAM_LIMIT) {
+    if (stream_index_ <= generic_stream_limit) {
       uint64_t availAffinity;
       auto status = synDeviceGetNextStreamAffinity(id_, &availAffinity);
       if (synStatus::synSuccess != status) {
@@ -709,7 +710,7 @@ synapse_helpers::hpuEvent_t device::create_event(bool flags) {
   std::unique_lock<std::mutex> lock(usr_event_mutex_);
   synapse_helpers::hpuEvent_t id = get_event_index();
   PT_SYNHELPER_DEBUG("Create_event for id::", id, " flags::", flags);
-  std::array<synEventHandle, END_TYPE_> event_array;
+  std::array<synEventHandle, END_TYPE_> event_array{};
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM)) {
     for (size_t i = 0; i < END_TYPE_; ++i) {
       if (flags) {
@@ -949,7 +950,7 @@ void device::synchronize_default_stream() {
   }
 }
 
-void device::create_default_stream() {
+void device::create_default_streams() {
   std::unique_lock<std::mutex> lock(stream_mutex_);
   uint64_t availAffinity;
   auto status = synDeviceGetNextStreamAffinity(id_, &availAffinity);
@@ -958,35 +959,25 @@ void device::create_default_stream() {
         Logger::formatStatusMsg(status),
         "synDeviceGetNextStreamAffinity failed.");
   }
-  default_streams_[COMPUTE] = absl::make_unique<stream>(*this, true);
+  create_default_stream(COMPUTE, availAffinity, true);
+  create_default_stream(DMA_D2D, availAffinity, false);
+  create_default_stream(DMA_H2D, availAffinity, false);
+  create_default_stream(DMA_D2H, availAffinity, false);
 
+  dma_streams_mapper[DMA_D2D] = generic_stream_limit + 1;
+  dma_streams_mapper[DMA_H2D] = generic_stream_limit + 2;
+  dma_streams_mapper[DMA_D2H] = generic_stream_limit + 3;
+}
+
+void device::create_default_stream(
+    default_stream_type type,
+    uint64_t availAffinity,
+    bool is_compute_stream) {
+  default_streams_[type] = absl::make_unique<stream>(*this, is_compute_stream);
   PT_SYNHELPER_DEBUG(
-      "STREAM:: compute stream handle", *default_streams_[COMPUTE]);
-  status = synStreamSetAffinity(id_, *default_streams_[COMPUTE], availAffinity);
-  if (synStatus::synSuccess != status) {
-    PT_SYNHELPER_FATAL(
-        Logger::formatStatusMsg(status), "synStreamSetAffinity failed.");
-  }
-  default_streams_[DMA_D2D] = absl::make_unique<stream>(*this);
-  PT_SYNHELPER_DEBUG(
-      "STREAM:: DMA_D2D stream handle", *default_streams_[DMA_D2D]);
-  status = synStreamSetAffinity(id_, *default_streams_[DMA_D2D], availAffinity);
-  if (synStatus::synSuccess != status) {
-    PT_SYNHELPER_FATAL(
-        Logger::formatStatusMsg(status), "synStreamSetAffinity failed.");
-  }
-  default_streams_[DMA_H2D] = absl::make_unique<stream>(*this);
-  PT_SYNHELPER_DEBUG(
-      "STREAM:: DMA_H2D stream handle", *default_streams_[DMA_H2D]);
-  status = synStreamSetAffinity(id_, *default_streams_[DMA_H2D], availAffinity);
-  if (synStatus::synSuccess != status) {
-    PT_SYNHELPER_FATAL(
-        Logger::formatStatusMsg(status), "synStreamSetAffinity failed.");
-  }
-  default_streams_[DMA_D2H] = absl::make_unique<stream>(*this);
-  PT_SYNHELPER_DEBUG(
-      "STREAM:: DMA_D2H stream handle", *default_streams_[DMA_D2H]);
-  status = synStreamSetAffinity(id_, *default_streams_[DMA_D2H], availAffinity);
+      "STREAM:: default stream", type, "handle", *default_streams_[type]);
+  auto status =
+      synStreamSetAffinity(id_, *default_streams_[type], availAffinity);
   if (synStatus::synSuccess != status) {
     PT_SYNHELPER_FATAL(
         Logger::formatStatusMsg(status), "synStreamSetAffinity failed.");
@@ -1001,26 +992,31 @@ stream& device::get_stream(hpuStream_t id, default_stream_type stream_type) {
   }
 
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM)) {
+    stream* stream = nullptr;
     if (id == 0) { // default stream any type stream
-      auto& stream = *default_streams_[stream_type];
-      PT_SYNHELPER_DEBUG(
-          "STREAM:: get stream handle ", stream, " for id::", id);
-      return stream;
+      stream = &(*default_streams_[stream_type]);
+    } else if (id == dma_streams_mapper[DMA_D2D]) {
+      stream = &(*default_streams_[DMA_D2D]);
+    } else if (id == dma_streams_mapper[DMA_H2D]) {
+      stream = &(*default_streams_[DMA_H2D]);
+    } else if (id == dma_streams_mapper[DMA_D2H]) {
+      stream = &(*default_streams_[DMA_D2H]);
     } else {
       auto index = id;
-      if (id >= GENERIC_STREAM_LIMIT) {
-        index = (id % GENERIC_STREAM_LIMIT);
+      if (id >= generic_stream_limit) {
+        index = (id % generic_stream_limit);
         if (index == 0)
           index = 1; // start round robin from the 1 as 0 is default.
-        else if (index < GENERIC_STREAM_LIMIT)
+        else if (index < generic_stream_limit)
           index += 1;
       }
       auto it = streams_.find(index);
       HABANA_ASSERT(it != streams_.end());
-
-      auto& stream = *it->second;
-      return stream;
+      stream = &(*it->second);
     }
+
+    PT_SYNHELPER_DEBUG("STREAM:: get stream handle ", *stream, " for id::", id);
+    return *stream;
   } else {
     if (id == 0 || stream_type != COMPUTE) { // any type stream
       auto& stream = *default_streams_[stream_type];
@@ -1061,11 +1057,55 @@ stream& device::get_stream(hpuStream_t id, default_stream_type stream_type) {
   }
 }
 
+hpuStream_t device::get_dma_pt_stream(
+    hpuStream_t id,
+    default_stream_type stream_type) {
+  HABANA_ASSERT(
+      stream_type == DMA_D2D || stream_type == DMA_D2H ||
+          stream_type == DMA_H2D,
+      "Invalid DMA stream type::",
+      stream_type);
+
+  if (id == 0) {
+    return dma_streams_mapper[stream_type];
+  }
+  return id;
+}
+
 void device::delete_stream(hpuStream_t id) {
   std::unique_lock<std::mutex> lock(stream_mutex_);
   auto it = streams_.find(id);
   HABANA_ASSERT(it != streams_.end());
   streams_.erase(id);
+}
+void device::flush_host_events_on_stream(hpuStream_t stream) {
+  habana_helpers::AutoNoGIL gil_release;
+  std::vector<uint64_t> addrs;
+  {
+    std::unique_lock<std::mutex> lock(host_event_mutex_);
+    for (auto& p : addr_host_event_map_) {
+      if (p.second->stream() == stream) {
+        addrs.push_back(p.first);
+      }
+    }
+  }
+  for (auto addr : addrs) {
+    wait_for_host_event(addr);
+  }
+}
+
+void device::flush_host_events() {
+  habana_helpers::AutoNoGIL gil_release;
+  std::vector<uint64_t> addrs;
+  {
+    std::unique_lock<std::mutex> lock(host_event_mutex_);
+    for (auto& p : addr_host_event_map_) {
+      addrs.push_back(p.first);
+    }
+  }
+  for (auto addr : addrs) {
+    wait_for_host_event(addr);
+  }
 }
 
 void device::flush_stream_events() {
@@ -1115,7 +1155,7 @@ std::ostream& operator<<(std::ostream& stream, const device& syn_device) {
   return stream;
 }
 
-void device::register_host_event(uint64_t addr) {
+void device::register_host_event(hpuStream_t stream, uint64_t addr) {
   std::unique_lock<std::mutex> lock(host_event_mutex_);
   auto it = addr_host_event_map_.find(addr);
   if (it != addr_host_event_map_.end()) {
@@ -1123,7 +1163,7 @@ void device::register_host_event(uint64_t addr) {
     wait_for_host_event(addr);
     lock.lock();
   }
-  std::shared_ptr<host_event> event = std::make_shared<host_event>();
+  std::shared_ptr<host_event> event = std::make_shared<host_event>(stream);
   addr_host_event_map_[addr] = event;
 }
 
@@ -1170,10 +1210,12 @@ inline bool device::copy_data_to_device_(
       ", total_bytes=",
       total_bytes);
   synStatus status;
+  synchronize_substreams(hpu_stream, DMA_H2D);
 
   void* mapped_cpu_data = cpu_data;
   synapse_helpers::stream& stream_handle = get_stream(hpu_stream, DMA_H2D);
-  uint8_t* dst_ptr;
+  uint8_t* dst_ptr = nullptr;
+
   if (!is_pinned) {
     if (host_cpu_data) {
       // host memory already allocated in the main thread
@@ -1237,8 +1279,9 @@ inline bool device::copy_data_to_device_(
       {event_addr},
       stream_handle,
       [this, dst_ptr, is_pinned, done_cb, locked]() mutable {
-        if (!is_pinned)
+        if (!is_pinned) {
           host_memory_.free((void*)dst_ptr);
+        }
         done_cb();
         towl::emitCopyFinished(
             "h2d", dst_ptr, reinterpret_cast<void*>(locked->at(0)));
@@ -1252,6 +1295,26 @@ inline bool device::copy_data_to_device_(
   return true;
 }
 
+/**
+ * Helper used to synchronize stream if it is break-down into more substreams
+ * internally. For example, we can use extra-synapse streams to delegate copies.
+ */
+void device::synchronize_substreams(
+    hpuStream_t hpu_stream,
+    default_stream_type tp) {
+  if (not common::IsStreamAllocatorEnabled()) {
+    return;
+  }
+  synapse_helpers::stream& compute_handle = get_stream(hpu_stream, COMPUTE);
+  synapse_helpers::stream& substream_handle = get_stream(hpu_stream, tp);
+  // Nothing to do
+  if (&compute_handle == &substream_handle) {
+    return;
+  }
+
+  record_and_wait_for_event(compute_handle, substream_handle, [] {});
+}
+
 synapse_error device::copy_data_to_device(
     void* cpu_data,
     device_ptr destination,
@@ -1262,6 +1325,7 @@ synapse_error device::copy_data_to_device(
     bool is_pinned,
     synapse_helpers::hpuStream_t hpu_stream,
     void* host_cpu_data) {
+  synchronize_substreams(hpu_stream, DMA_H2D);
   /* in case of write, we can invoke a fill (compute)
    * stream or via DMA. if we have a fill and a copy
    * Need to wait for the fill compute stream to complete
@@ -1321,6 +1385,7 @@ synapse_error device::copy_data_to_device(
     event_done_callback unref_cb,
     synapse_helpers::hpuStream_t hpu_stream) {
   synStatus status;
+  synchronize_substreams(hpu_stream, DMA_H2D);
 
   synapse_helpers::stream& stream_handle = get_stream(hpu_stream, DMA_H2D);
   for (std::size_t i = 0; i < transfers.size(); ++i) {
@@ -1435,13 +1500,14 @@ synapse_error device::copy_data_to_host(
       " total_bytes=",
       total_bytes);
 
+  synchronize_substreams(hpu_stream, DMA_D2H);
   synStatus status;
   synapse_helpers::stream& stream_handle = get_stream(hpu_stream, DMA_D2H);
   PT_SYNHELPER_DEBUG("Used stream handle: ", stream_handle);
   sem_.enqueue_wait_event(event_addr, stream_handle);
 
   void* mapped_destination = destination;
-  uint8_t* dst_ptr;
+  uint8_t* dst_ptr = nullptr;
   if (!is_pinned) {
     status = host_memory_.malloc((void**)&dst_ptr, total_bytes);
     if (status != synStatus::synSuccess) {
@@ -1490,7 +1556,7 @@ synapse_error device::copy_data_to_host(
   if (!is_pinned) {
     PT_SYNHELPER_DEBUG(
         "register host event for addr ", reinterpret_cast<void*>(destination));
-    register_host_event(reinterpret_cast<uint64_t>(destination));
+    register_host_event(hpu_stream, reinterpret_cast<uint64_t>(destination));
   }
   sem_.add_producer(
       {reinterpret_cast<uint64_t>(destination)},
@@ -1534,6 +1600,7 @@ synapse_error device::copy_data_within_device(
     synapse_helpers::hpuStream_t hpu_stream) {
   synStatus status;
 
+  synchronize_substreams(hpu_stream, DMA_D2D);
   synapse_helpers::stream& stream_handle = get_stream(hpu_stream, DMA_D2D);
   sem_.enqueue_wait_event(src_event_addr, stream_handle);
   auto locked =
@@ -1570,6 +1637,7 @@ synapse_error device::copy_data_within_device(
     stream* const next_operation_stream,
     synapse_helpers::hpuStream_t hpu_stream) {
   synStatus status;
+  synchronize_substreams(hpu_stream, DMA_D2D);
 
   std::vector<std::uint64_t> all_addresses(2 * transfers.size());
   std::vector<std::uint64_t> dsts(transfers.size());
@@ -1820,6 +1888,11 @@ void device::synchronize() {
     PT_SYNHELPER_FATAL(
         Logger::formatStatusMsg(status), "synDeviceSynchronize failed.");
   }
+  if (GET_ENV_FLAG_NEW(PT_WAIT_FOR_ALL_FUTURES_IN_CLEANUP)) {
+    sem_.wait_for_all_futures();
+  }
+  flush_stream_events();
+  flush_host_events();
 }
 
 void device::release() {
@@ -1837,7 +1910,7 @@ std::string device::get_device_capability() {
     PT_SYNHELPER_FATAL(
         Logger::formatStatusMsg(status), "synDriverGetVersion failed.");
   }
-  return std::string(pDriverVersion);
+  return {pDriverVersion};
 }
 
 std::string device::get_device_properties(unsigned id) {
@@ -1848,8 +1921,7 @@ std::string device::get_device_properties(unsigned id) {
         Logger::formatStatusMsg(status), "synDeviceGetInfo failed.");
   }
 
-  std::string properties = "";
-  properties = properties +
+  std::string properties =
       "(sramBaseAddress=" + std::to_string(device_info.sramBaseAddress) +
       ", dramBaseAddress=" + std::to_string(device_info.dramBaseAddress) +
       ", sramSize=" + std::to_string(device_info.sramSize) +

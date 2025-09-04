@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 
+#include "hpu_ops/hpu_op_helper.h"
 #include "hpu_ops/kv_reorder.h"
 
 namespace habana {
@@ -28,6 +29,24 @@ struct KvReorder : KvReorderCommon {
             {},
             false) {}
 };
+
+SharedMetaDataVector KvReorderSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  const auto& self = stack.at(0).toTensor();
+  const auto& start = stack.at(1).toTensor();
+  const auto& end = stack.at(2).toTensor();
+  const auto& beam_idx = stack.at(3).toTensor();
+  SharedMetaData selective_gather_shared_meta{"selective_gather_fwd"};
+  selective_gather_shared_meta.inputs_data = {
+      getSharedMetaFromTensor(self),
+      getSharedMetaFromTensor(start),
+      getSharedMetaFromTensor(end),
+      getSharedMetaFromTensor(beam_idx)};
+  selective_gather_shared_meta.outputs_data = {getSharedMetaFromTensor(self)};
+
+  return {selective_gather_shared_meta};
+}
 
 void KvReorderCommon::AddNode(
     synapse_helpers::graph& graph,
@@ -69,4 +88,6 @@ void KvReorderCommon::AddNode(
 } // namespace habana
 
 static auto& KvReorderKernelRegistry =
-    habana::KernelRegistry().add("hpu::kv_reorder", KERNEL_FN(KvReorder));
+    habana::KernelRegistry().REGISTER_HPU_BACKEND(
+        "hpu::kv_reorder",
+        habana::KvReorder);

@@ -31,10 +31,9 @@ static std::tuple<at::Tensor, at::DimVector, bool> ParseSignature(
   const bool is_dim_none = stack.size() == 1 || stack.at(1).isNone();
   const bool keepdim = stack.size() >= 3 && stack.at(2).toBool();
 
-  at::DimVector dim_vec = is_dim_none
-      ? at::DimVector{}
-      : stack.at(1).isInt() ? at::DimVector{stack.at(1).toInt()}
-                            : stack.at(1).toDimVector();
+  at::DimVector dim_vec = is_dim_none ? at::DimVector{}
+      : stack.at(1).isInt()           ? at::DimVector{stack.at(1).toInt()}
+                                      : stack.at(1).toDimVector();
   return {self, dim_vec, keepdim};
 }
 
@@ -48,7 +47,9 @@ static OutputMetaDataVector AminmaxMetaCommon(
   OutputMetaData meta;
   meta.shape = shapes[0];
   meta.dtype = self.scalar_type();
-  return OutputMetaDataVector(count, meta);
+  OutputMetaDataVector outputmeta(count);
+  std::fill(outputmeta.begin(), outputmeta.end(), meta);
+  return outputmeta;
 }
 
 OutputMetaDataVector AminmaxMeta(const at::Stack& stack) {
@@ -85,20 +86,19 @@ SharedMetaDataVector AminmaxSharedMeta(
   return aminmaxSharedMeta;
 }
 
-std::shared_ptr<void> FillAminAmaxParams(const at::Stack& stack, size_t& size) {
+FillParamsT FillAminAmaxParams(const at::Stack& stack) {
   const auto [self, dim_vec, keepdim] = ParseSignature(stack);
   auto rank = self.dim();
 
   PARAMS_STUB(ns_Reduction::ParamsV2);
   *params = FillReductionParams(rank, dim_vec, keepdim);
 
-  return params;
+  return paramsT;
 }
 
 void Aminmax::AddNode(sh::graph& graph, const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
-  size_t paramsSize = 0;
-  auto params = FillParams(stack, paramsSize);
+  auto params = FillParams(stack);
   const auto meta = OutputMeta(stack)[0];
 
   std::optional<sh::tensor> castedInput{};
@@ -126,16 +126,15 @@ void Aminmax::AddNode(sh::graph& graph, const at::Stack& stack) {
         guids[i],
         {input},
         {{meta.shape, meta.dtype, i}},
-        params.get(),
-        paramsSize);
+        params.ptr(),
+        params.size());
     syn_out(i) = std::move(op[0]);
   }
 }
 
 void AminAmax::AddNode(sh::graph& graph, const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
-  size_t paramsSize = 0;
-  auto params = FillParams(stack, paramsSize);
+  auto params = FillParams(stack);
   const auto meta = OutputMeta(stack)[0];
 
   // Leverage autocast feature from CGUID to support integer inputs
@@ -156,8 +155,8 @@ void AminAmax::AddNode(sh::graph& graph, const at::Stack& stack) {
       GetGuid(),
       {input},
       {{meta.shape, meta.dtype, 0}},
-      params.get(),
-      paramsSize);
+      params.ptr(),
+      params.size());
   syn_out(0) = std::move(op[0]);
 }
 } // namespace habana

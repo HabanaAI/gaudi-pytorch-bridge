@@ -1,9 +1,9 @@
 auditwheel>=6
-cmake>=3.26.3,<4
+cmake==4.0.3
 cython
 lark
 ninja>=1.11.1
-numpy<2
+numpy==2.1.0  # aligned with https://github.com/pytorch/pytorch/blob/cb9b479f4f799eea058de9be3a0e09f977fc82da/.ci/manywheel/build_common.sh#L105
 packaging>=24.1
 pandas
 pip>=24.1.2
@@ -11,7 +11,6 @@ pkginfo>=1.11.1
 pre-commit
 pybind11>=2.12
 requests
-setuptools>=67.7.2,<=77.0.1 # 77.0.1 is last known working version, TODO investigate why
-symengine>=0.14.0 ; python_version != '3.11'
-symengine<0.10.0 ; python_version == '3.11'
+setuptools==78.1.1
+symengine>=0.14.0
 wheel>=0.40

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,8 +21,7 @@
 
 #include <utility>
 
-namespace at {
-namespace hpu {
+namespace at::hpu {
 
 /*
  * HPUEvents are movable not copyable wrappers around HPU's events.
@@ -45,10 +44,10 @@ struct HPUEvent {
   HPUEvent(const HPUEvent&) = delete;
   HPUEvent& operator=(const HPUEvent&) = delete;
 
-  HPUEvent(HPUEvent&& other) {
+  HPUEvent(HPUEvent&& other) noexcept {
     moveHelper(std::move(other));
   }
-  HPUEvent& operator=(HPUEvent&& other) {
+  HPUEvent& operator=(HPUEvent&& other) noexcept {
     moveHelper(std::move(other));
     return *this;
   }
@@ -71,7 +70,7 @@ struct HPUEvent {
   }
 
   Device device() const {
-    return Device(DeviceType::HPU, device_index_);
+    return {DeviceType::HPU, device_index_};
   }
 
   DeviceIndex device_index() const {
@@ -117,5 +116,4 @@ struct HPUEvent {
   void moveHelper(HPUEvent&& other);
 }; // namespace hpu
 
-} // namespace hpu
-} // namespace at
+} // namespace at::hpu

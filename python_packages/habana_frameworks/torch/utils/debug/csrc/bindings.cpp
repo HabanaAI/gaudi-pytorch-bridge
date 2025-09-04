@@ -15,7 +15,9 @@
 #include <hl_logger/hllog_core.hpp>
 #include <synapse_api.h>
 #include <torch/extension.h>
+#include <cstdint>
 #include <map>
+#include "backend/cache/permute_cache.h"
 #include "backend/habana_device/HPUAllocator.h"
 #include "backend/habana_device/HPUGuardImpl.h"
 #include "backend/helpers/dynamic_bucket_info.h"
@@ -30,7 +32,7 @@
 #include "pytorch_helpers/habana_helpers/logging.h"
 #include "pytorch_helpers/habana_helpers/misc_utils.h"
 
-enum log_level {
+enum log_level : std::uint8_t {
   TRACE = HLLOG_LEVEL_TRACE,
   DEBUG = HLLOG_LEVEL_DEBUG,
   INFO = HLLOG_LEVEL_INFO,
@@ -59,7 +61,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   });
   m.def("clear_jit_cache", []() {
     habana::TryJoinPendingEagerPipelineThreads();
-    return habana::HpuShapeAgnosticHelper::get()->clear_jit_cache();
+    habana::HpuShapeAgnosticHelper::get()->clear_jit_cache();
   });
   m.def("set_dynamic_mode", []() {
     habana_lazy::HbLazyTensor::SetDynamicMode();
@@ -189,6 +191,12 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("towl_print", [](const std::string& msg) {
     towl::emitPythonString(msg);
   });
+  m.def("towl_emit_metrics", [](const std::string& name, float value) {
+    towl::emitMetrics(name, value);
+  });
+  m.def("towl_emit_time_duration_fx", [](const std::string& name, float value) {
+    towl::emitTimeDurationFX(name, value);
+  });
   m.def("towl_configure", [](bool flag, std::string config) {
     towl::configure(flag, config);
   });
@@ -196,7 +204,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def(
       "mem_log", [](std::string msg) { habana_lazy::log_dev_mem_stats(msg); });
   m.def("dump_memory_reporter", []() {
-    return habana::HPUDeviceAllocator::dump_memory_reporter();
+    habana::HPUDeviceAllocator::dump_memory_reporter();
   });
   m.def("_disk_cache_flush", []() {
     habana::HPUDeviceContext::flush_disk_cache();
@@ -246,7 +254,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("get_pt_logging_levels", []() {
     std::map<std::string, int> result;
     for (int i = 0; i < static_cast<int>(HlLogger::LoggerType::LOG_MAX); i++) {
-      HlLogger::LoggerType logger = static_cast<HlLogger::LoggerType>(i);
+      auto logger = static_cast<HlLogger::LoggerType>(i);
       result.insert(std::pair<std::string, int>(
           hl_logger::getLoggerEnumItemName(logger),
           hl_logger::getLoggingLevel(logger)));
@@ -259,4 +267,9 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("dump_state_and_terminate", [](const char* msg, uint64_t flags) {
     synDumpStateAndTerminate(msg, flags);
   });
+  m.def(
+      "get_permute_cache_size", []() { return habana::PermuteCache::Size(); });
+  m.def(
+      "is_permute_cache_empty", []() { return habana::PermuteCache::Empty(); });
+  m.def("flush_permute_cache", []() { return habana::PermuteCache::Flush(); });
 }

@@ -39,7 +39,7 @@ using namespace at;
 
 
 TORCH_LIBRARY_IMPL(hpu, AutogradHPU, m) {
-  m.impl("cast_to_fp8_v2", static_cast<::std::tuple<at::Tensor,at::Tensor> (*)(const at::Tensor &, const ::std::optional<at::Tensor> &, bool, bool, at::ScalarType, at::OptionalIntArrayRef)>(&cast_to_fp8_v2_autograd));
+  m.impl("cast_to_fp8_v2", cast_to_fp8_v2_autograd);
 }
 
 }  // namespace habana

@@ -16,15 +16,13 @@
 #include <absl/strings/str_join.h>
 #include <absl/types/optional.h>
 #include <absl/types/variant.h>
+#include <bits/fs_fwd.h>
 #include <perf_lib_layer_params.h>
 #include <synapse_api.h>
 #include <sys/stat.h>
-#include <algorithm>
-#include <cstdlib>
-#include <iostream>
-#include <iterator>
+#include <mutex>
 #include <ostream>
-#include <type_traits>
+#include <string>
 
 #include "absl/container/flat_hash_set.h"
 #include "absl/memory/memory.h"
@@ -43,49 +41,58 @@
 #include "habana_lazy/memlog.h"
 #include "util/time_measure.h"
 
+#if !defined __GNUC__ || __GNUC__ >= 8
+#include <filesystem>
+namespace fs = std::filesystem;
+#else
+#include <experimental/filesystem>
+namespace fs = std::experimental::filesystem;
+#endif
+
 namespace synapse_helpers {
 
+std::once_flag create_dir_flag;
+
+std::string check_and_prepare_graph_dump_dir() {
+  static std::string dir;
+  std::call_once(create_dir_flag, [&]() {
+    std::error_code err_code;
+    dir = GET_ENV_FLAG_NEW(PT_HPU_GRAPH_DUMP_PREFIX);
+    dir += '/';
+    bool is_new = fs::create_directories(dir, err_code);
+
+    if (!err_code) {
+      if (is_new) {
+#if !defined __GNUC__ || __GNUC__ >= 8
+        fs::permissions(
+            dir,
+            fs::perms::owner_all | fs::perms::group_all,
+            fs::perm_options::add);
+#else
+            fs::permissions(
+                dir,
+                fs::perms::add_perms | fs::perms::owner_all | fs::perms::group_all);
+#endif
+      }
+    } else {
+      PT_SYNHELPER_WARN("Cannot create graph dump directory ", dir);
+      dir = "";
+    }
+  });
+  return dir;
+}
 namespace {
 
-const std::string graph_prefix = ".graph_dumps/";
 std::string get_unique_recipe_name(const std::string& name, bool eager_mode) {
-  static uint64_t suffix = -1;
+  static uint64_t suffix = 0;
+  static std::string graph_dump_dir = check_and_prepare_graph_dump_dir();
+
   if (eager_mode && !(IS_SYNHELPER_DEBUG_ENABLED)) {
-    return std::to_string(++suffix);
+    return graph_dump_dir + std::to_string(suffix++);
   }
 
-  char* env_graph_prefix{getenv("HBN_TF_GRAPH_PREFIX")};
-  if (env_graph_prefix != nullptr) {
-    return absl::StrFormat(
-        "%s%s_%s_%d", graph_prefix, env_graph_prefix, name, ++suffix);
-  }
-
-  return absl::StrFormat("%s%s_%d", graph_prefix, name, ++suffix);
+  return absl::StrFormat("%s%s_%d", graph_dump_dir, name, ++suffix);
 }
-
-bool check_and_prepare_graph_dir() {
-  if (mkdir(graph_prefix.c_str(), S_IRWXU | S_IRWXG) ==
-      0) { // NOLINT(hicpp-signed-bitwise)
-    return true;
-  }
-
-  struct stat info {};
-  if (stat(graph_prefix.c_str(), &info) != 0 ||
-      !(info.st_mode & S_IFDIR)) { // NOLINT(hicpp-signed-bitwise))
-    PT_SYNHELPER_WARN("Cannot create graph dump directory ", graph_prefix);
-    return false;
-  }
-  return true;
-}
-
-class GraphDirStaticMaker {
- public:
-  GraphDirStaticMaker() {
-    check_and_prepare_graph_dir();
-  }
-};
-
-GraphDirStaticMaker graph_dir_maker;
 
 std::unordered_map<std::string, std::string> ParseHintsFromString(
     const std::string& hints_str) {
@@ -114,7 +121,7 @@ std::unordered_map<std::string, std::string> ParseHintsFromString(
 
 #define CHECK_KPARAMS_SIZE(name, size) \
   static_assert(                       \
-      sizeof(name::Params) == size,    \
+      sizeof(name::Params) == (size),  \
       #name "::Params size has changed. Update TF code.");
 
 CHECK_KPARAMS_SIZE(ns_ConstantKernel, 4)
@@ -158,7 +165,7 @@ graph graph::create(
     if (habana_helpers::IsInferenceMode()) {
       synStatus status = synSuccess;
       bool quantizationEnabled = habana_helpers::IsQuantizationEnabled();
-      synGraphAttributeVal values[] = {true, quantizationEnabled};
+      synGraphAttributeVal values[] = {{true}, {quantizationEnabled}};
       synGraphAttribute att[] = {
           GRAPH_ATTRIBUTE_INFERENCE, GRAPH_ATTRIBUTE_QUANTIZATION};
       const uint32_t size = 2;
@@ -174,7 +181,7 @@ graph graph::create(
         scale_hash_id != 0) {
       synStatus status = synSuccess;
       synGraphAttributeVal values[] = {
-          device.get_scale_attribute_is_hw_aligned(), scale_hash_id};
+          {device.get_scale_attribute_is_hw_aligned()}, {scale_hash_id}};
       synGraphAttribute att[] = {
           GRAPH_ATTRIBUTE_IS_HW_ALIGNED_SCALE,
           GRAPH_ATTRIBUTE_SCALE_METHOD_HASH_ID};
@@ -283,7 +290,7 @@ void graph::getTensorGeometry(
 
   shape.resize(tensorGeometry.dims);
   for (size_t i = 0; i < shape.size(); i++) {
-    shape[i] = tensorGeometry.sizes[shape.size() - i - 1];
+    shape[i] = static_cast<int64_t>(tensorGeometry.sizes[shape.size() - i - 1]);
   }
   PT_SYNHELPER_END;
 }
@@ -294,10 +301,11 @@ void graph::setTensorGeometry(
   PT_SYNHELPER_BEGIN;
   synStatus status = synSuccess;
   synTensorGeometry maxGeometry;
-  maxGeometry.dims = shape.size();
+  maxGeometry.dims = static_cast<uint32_t>(shape.size());
 
   for (size_t i = 0; i < shape.size(); i++) {
-    maxGeometry.sizes[shape.size() - i - 1] = shape.at(i);
+    maxGeometry.sizes[shape.size() - i - 1] =
+        static_cast<uint64_t>(shape.at(i));
   }
 
   status = synTensorSetGeometry(tensor_handle, &maxGeometry, synGeometrySizes);
@@ -314,7 +322,10 @@ void graph::setTensorPermutation(
   PT_SYNHELPER_BEGIN;
   synStatus status = synSuccess;
   synTensorPermutation perm = {};
-  perm.dims = permute_or_empty.size();
+  HABANA_ASSERT(
+      permute_or_empty.size() <= std::numeric_limits<uint8_t>::max(),
+      "Permutation size is too large");
+  perm.dims = static_cast<uint8_t>(permute_or_empty.size());
   for (size_t i = 0; i < perm.dims; i++) {
     perm.permutation[i] = permute_or_empty[i];
   }
@@ -440,9 +451,9 @@ template <
     typename Alloc,
     template <typename, typename>
     class V,
-    typename std::enable_if<std::negation<typename std::is_same<
+    typename std::enable_if_t<std::negation<typename std::is_same<
         std::string,
-        typename V<T, Alloc>::value>::value>::type>::type>
+        typename V<T, Alloc>::value>::value>::type>>
 std::ostream& operator<<(std::ostream& out, const V<T, Alloc>& collection) {
   auto item{collection.begin()};
   if (item == collection.end()) {
@@ -513,8 +524,8 @@ void graph::add_node(
       graph_handle_,
       inputs.empty() ? nullptr : inputs.data(),
       outputs.empty() ? nullptr : outputs.data(),
-      inputs.size(),
-      outputs.size(),
+      static_cast<uint32_t>(inputs.size()),
+      static_cast<uint32_t>(outputs.size()),
       params,
       params_size,
       node_type.c_str(),
@@ -612,13 +623,30 @@ std::shared_ptr<graph::recipe_handle> graph::compile() {
 
   auto name = get_unique_recipe_name(name_, eager_mode_);
 
+  auto compile_start_time = std::chrono::high_resolution_clock::now();
   status = synGraphCompile(
       &recipe_handle->syn_recipe_handle_, graph_handle_, name.c_str(), nullptr);
+  auto compile_end_time = std::chrono::high_resolution_clock::now();
+  auto compile_duration = std::chrono::duration<double, std::milli>(
+                              compile_end_time - compile_start_time)
+                              .count();
 
-  HABANA_ASSERT(
-      status == synStatus::synSuccess,
-      "Graph compile failed. synStatus=",
-      Logger::formatStatusMsg(status));
+  if (status == synStatus::synSuccess) {
+    uint64_t workspace_size = query_workspace_size(*recipe_handle);
+    towl::emitRecipeCompileSuccess(
+        *recipe_handle, workspace_size, name, compile_duration);
+  } else {
+    std::string error_info = absl::StrFormat(
+        "name %s synStatus %s", name, Logger::formatStatusMsg(status));
+    towl::emitRecipeCompileFailed(error_info, compile_duration);
+    HABANA_ASSERT(
+        false,
+        "Graph compile failed. Recipe: ",
+        name,
+        ", synStatus=",
+        Logger::formatStatusMsg(status));
+  }
+
   END_TIME_MEASURE("Synapse graph compilation took");
   in_execution_phase_ = true;
   recipe_handle->graph_is_empty_ = graph_is_empty_;
@@ -677,7 +705,7 @@ void graph::query_recipe_tensor_info(
     std::vector<synRetrievedLaunchTensorInfo>& tensor_info_vec) {
   auto status = synTensorRetrieveLaunchInfoById(
       recipe_handle.syn_recipe_handle_,
-      tensor_info_vec.size(),
+      static_cast<uint32_t>(tensor_info_vec.size()),
       tensor_info_vec.data());
   HABANA_ASSERT(
       status == synStatus::synSuccess,
@@ -694,7 +722,7 @@ void graph::launch(
     std::vector<shared_event>& ext_events,
     stream& compute_stream,
     size_t active_graph_key) {
-  return launch(
+  launch(
       device,
       recipe_handle,
       workspace_size,
@@ -729,7 +757,7 @@ void graph::launch(
     // [SW-96080], due to change in get_tensor_for_scalar PT tensor has
     // size [0] for 0d tensor need to force it [1] to pass to synapse
     // correctly valdity check for pTensorAddress to differentiate from ZST in
-    // case of ZST pTensorAddress will be NULL
+    // case of ZST pTensorAddress will be nullptr
     if (tensorInfo.pTensorAddress && tensorInfo.tensorSize[0] == 0) {
       tensorInfo.tensorSize[0] = 1;
     }
@@ -781,10 +809,9 @@ void graph::launch(
       least_workspace_size =
           device.get_least_workspace_size(tensor_mem, workspace_size);
       // Set minimal size of workspace to 4MB to prevent it from being 0
-      constexpr size_t min_required_workspace_size = 4ull * 1024 * 1024;
-      if (least_workspace_size < min_required_workspace_size) {
-        least_workspace_size = min_required_workspace_size;
-      }
+      constexpr size_t min_required_workspace_size = 4ULL * 1024 * 1024;
+      least_workspace_size =
+          std::max(least_workspace_size, min_required_workspace_size);
       device.cleanup_workspace_buffer();
     }
   }
@@ -803,7 +830,7 @@ void graph::launch(
 
   log_graph_info(
       device,
-      recipe_handle.recipe_name_.c_str(),
+      recipe_handle.recipe_name_,
       tensor_mem,
       workspace_size,
       device.get_workspace_size());
@@ -832,6 +859,16 @@ void graph::launch(
     }
     towl::emitRecipeLaunch(
         recipe_handle, workspace_size, addresses, inputs_and_outputs_info);
+
+    // emit the physical address
+    std::vector<device_ptr> locked_addresses(
+        address_lock->begin(), address_lock->end());
+    towl::emitRecipeLaunch(
+        recipe_handle,
+        workspace_size,
+        locked_addresses,
+        inputs_and_outputs_info,
+        true /* is_physical */);
 
     PT_SYNHELPER_DEBUG(
         "in graph::launch, launch handle string:\n",
@@ -864,11 +901,11 @@ void graph::launch(
       status = synLaunchWithExternalEvents(
           compute_stream,
           inputs_and_outputs_info.data(),
-          inputs_and_outputs_info.size(),
+          static_cast<uint32_t>(inputs_and_outputs_info.size()),
           workspace_buffer,
           recipe_handle.syn_recipe_handle_,
           event_handles.data(),
-          event_handles.size(),
+          static_cast<uint32_t>(event_handles.size()),
           flags);
     }
   }
@@ -890,8 +927,6 @@ void graph::launch(
   if (sync_launch != nullptr && atoi(sync_launch) == 1) {
     device.synchronize();
   }
-
-  return;
 }
 
 std::string_view graph::name_suffix_from_type(
@@ -1082,8 +1117,8 @@ synStatus graph::set_synapse_control_edges() {
         graph_handle_,
         src_synapse_node_ids_vector.data(),
         dst_synapse_node_ids_vector.data(),
-        src_synapse_node_ids_vector.size(),
-        dst_synapse_node_ids_vector.size());
+        static_cast<uint32_t>(src_synapse_node_ids_vector.size()),
+        static_cast<uint32_t>(dst_synapse_node_ids_vector.size()));
 
     PT_SYNHELPER_DEBUG(
         "Added synapse control edges from node ",
@@ -1109,8 +1144,8 @@ synStatus graph::set_synapse_control_edges_pt(
       graph_handle_,
       src_synapse_node_ids_vector.data(),
       dst_synapse_node_ids_vector.data(),
-      src_synapse_node_ids_vector.size(),
-      dst_synapse_node_ids_vector.size());
+      static_cast<uint32_t>(src_synapse_node_ids_vector.size()),
+      static_cast<uint32_t>(dst_synapse_node_ids_vector.size()));
 
   PT_SYNHELPER_DEBUG(
       "Added synapse control edges from node ",

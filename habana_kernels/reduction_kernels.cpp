@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,9 @@
  */
 // #include <ATen/native/TensorIterator.h> // TODO: fix this include
 #include <bitset>
+#include <cstdint>
 
+#include <absl/container/fixed_array.h>
 #include <perf_lib_layer_params.h>
 #include <torch/csrc/jit/ir/irparser.h>
 #include <torch/script.h>
@@ -61,7 +63,7 @@ void allocate_reduction_result(
   // Following code is required to convert Pytorch 0d tensor
   // to a 1d tensor. This is required because synapse_helpers
   // tensor_builder does not support 0d tensors
-  if (shape.size() == 0) {
+  if (shape.empty()) {
     shape.push_back(1);
   }
 
@@ -103,11 +105,10 @@ void ReduceOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   bool keepdim = inputs[3].toBool();
   auto dtype = inputs[4].toOptional<ScalarType>();
 
-  int64_t data[dim.size()];
-  std::copy(dim.begin(), dim.end(), data);
-  IntArrayRef dim_arr(data, dim.size());
-  auto ndim = self.dim();
-  auto mask = LoweringUtil::MakeDimMask(dim_arr, ndim);
+  absl::FixedArray<int64_t> data(dim.begin(), dim.end());
+  IntArrayRef dim_arr(data.data(), dim.size());
+  const auto ndim = self.dim();
+  const auto mask = LoweringUtil::MakeDimMask(dim_arr, ndim);
 
   allocate_reduction_result(
       output,
@@ -138,7 +139,7 @@ InferOutputMetaRetType ReduceOperator::InferOutputMeta(
 
   std::vector<int64_t> next_val{0, 1, 2, 3, 4};
   bool flatten_higher_dims = false;
-  for (auto i = 0u; i < num_dims_to_reduce && num_dims_to_reduce > 1; i++) {
+  for (auto i = 0U; i < num_dims_to_reduce && num_dims_to_reduce > 1; i++) {
     if (in_dim[i] == next_val[i]) {
       flatten_higher_dims = true;
     } else {
@@ -178,17 +179,19 @@ InferOutputMetaRetType ReduceOperator::InferOutputMeta(
     auto& reshape_out = out.call_InferOutputMeta(ReshapeOp, stack);
     self_reshaped = std::get<1>(reshape_out.GetOutputTensor(0));
 
-    int64_t reshaped_in_dim_data[reshaped_in_dim_size];
+    absl::FixedArray<int64_t> reshaped_in_dim_data(reshaped_in_dim_size);
     if (!keepdim) {
       reshaped_in_dim_data[0] = 0;
     } else {
       std::copy(
           in_dim.begin() + num_dims_to_reduce - 1,
           in_dim.end(),
-          reshaped_in_dim_data);
+          reshaped_in_dim_data.data());
     }
 
-    IntArrayRef reshaped_in_dim(reshaped_in_dim_data, reshaped_in_dim_size);
+    IntArrayRef reshaped_in_dim(
+        reshaped_in_dim_data.data(), reshaped_in_dim_size);
+
     auto mask = LoweringUtil::MakeDimMask(reshaped_in_dim, self_reshaped.dim());
     allocate_reduction_result(
         output,
@@ -198,9 +201,8 @@ InferOutputMetaRetType ReduceOperator::InferOutputMeta(
         LoweringUtil::GetDtype(output, self_reshaped, dtype, false),
         false);
   } else {
-    int64_t in_dim_copy[in_dim.size()];
-    std::copy(in_dim.begin(), in_dim.end(), in_dim_copy);
-    IntArrayRef in_dim_arr(in_dim_copy, in_dim.size());
+    absl::FixedArray<int64_t> in_dim_copy(in_dim.begin(), in_dim.end());
+    IntArrayRef in_dim_arr(in_dim_copy.data(), in_dim.size());
     auto mask = LoweringUtil::MakeDimMask(in_dim_arr, self.dim());
     allocate_reduction_result(
         output,
@@ -272,7 +274,7 @@ void ReduceOperator::AllocateAndAddSynapseNode(
   // back to regular flow
   std::vector<int64_t> next_val{0, 1, 2, 3, 4};
   bool flatten_higher_dims = false;
-  for (auto i = 0u; i < num_dims_to_reduce && num_dims_to_reduce > 1; i++) {
+  for (auto i = 0U; i < num_dims_to_reduce && num_dims_to_reduce > 1; i++) {
     if (in_dim[i] == next_val[i]) {
       flatten_higher_dims = true;
     } else {
@@ -328,17 +330,18 @@ void ReduceOperator::AllocateAndAddSynapseNode(
     ReshapeOp->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
 
     auto self_reshaped = ReshapeOp->GetOutputs()[0];
-    int64_t reshaped_in_dim_data[reshaped_in_dim_size];
+    absl::FixedArray<int64_t> reshaped_in_dim_data(reshaped_in_dim_size);
     if (!keepdim) {
       reshaped_in_dim_data[0] = 0;
     } else {
       std::copy(
           in_dim.begin() + num_dims_to_reduce - 1,
           in_dim.end(),
-          reshaped_in_dim_data);
+          reshaped_in_dim_data.data());
     }
 
-    IntArrayRef reshaped_in_dim(reshaped_in_dim_data, reshaped_in_dim_size);
+    IntArrayRef reshaped_in_dim(
+        reshaped_in_dim_data.data(), reshaped_in_dim_size);
     auto mask = LoweringUtil::MakeDimMask(reshaped_in_dim, self_reshaped.dim());
     allocate_reduction_result(
         output,
@@ -361,9 +364,8 @@ void ReduceOperator::AllocateAndAddSynapseNode(
         reshaped_in_dim,
         keepdim);
   } else {
-    int64_t in_dim_copy[in_dim.size()];
-    std::copy(in_dim.begin(), in_dim.end(), in_dim_copy);
-    IntArrayRef in_dim_arr(in_dim_copy, in_dim.size());
+    absl::FixedArray<int64_t> in_dim_copy(in_dim.begin(), in_dim.end());
+    IntArrayRef in_dim_arr(in_dim_copy.data(), in_dim.size());
     auto mask = LoweringUtil::MakeDimMask(in_dim_arr, self.dim());
     allocate_reduction_result(
         output,
@@ -545,7 +547,7 @@ InferOutputMetaRetType SumDimOperator::InferOutputMeta(
 
     // Check if dim = [], if yes, reduce input along all dims
     // dim = tuple(range(self.dim))
-    if (dim.size() == 0) {
+    if (dim.empty()) {
       for (int i = 0; i < self.dim(); ++i) {
         dim.push_back(i);
       }
@@ -589,7 +591,7 @@ void SumDimOperator::AllocateAndAddSynapseNode(
 
   // Check if dim = [], if yes, reduce input along all dims
   // dim = tuple(range(self.dim))
-  if (dim.size() == 0) {
+  if (dim.empty()) {
     for (int i = 0; i < self.dim(); ++i) {
       dim.push_back(i);
     }
@@ -639,7 +641,7 @@ InferOutputMetaRetType SumDimOutOperator::InferOutputMeta(
   IntArrayRef dim_new(data);
 
   // Check if dim = {}, if yes, reduce input along all dims
-  if (dim.vec().size() == 0) {
+  if (dim.empty()) {
     inputs[1] = IValue(dim_new);
   }
 
@@ -684,7 +686,7 @@ void SumDimOutOperator::AllocateAndAddSynapseNode(
   IntArrayRef dim_new(data);
 
   // Check if dim = {}, if yes, reduce input along all dims
-  if (dim.vec().size() == 0) {
+  if (dim.empty()) {
     inputs[1] = IValue(dim_new);
   }
 

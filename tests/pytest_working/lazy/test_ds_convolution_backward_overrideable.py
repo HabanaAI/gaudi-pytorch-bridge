@@ -30,7 +30,7 @@ Verbose = False
     [{"PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES": 1}],
     indirect=True,
 )
-@pytest.mark.parametrize("output_mask_v", range(0, 8))
+@pytest.mark.parametrize("output_mask_v", range(8))
 def test_hpu_lazy_dynamic_shape(output_mask_v, setup_teardown_env_fixture):
     output_mask = [bool(output_mask_v & (1 << i)) for i in range(3)]
     if Verbose:

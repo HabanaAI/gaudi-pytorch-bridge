@@ -24,7 +24,7 @@ namespace habana {
  */
 struct PartialOutputMetaData {
   at::ScalarType dtype{at::ScalarType::Undefined};
-  std::vector<int64_t> shape{};
+  std::vector<int64_t> shape;
 };
 
 using PartialOutputMetaDataVector = std::vector<PartialOutputMetaData>;

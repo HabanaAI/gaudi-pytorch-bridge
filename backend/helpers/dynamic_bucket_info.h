@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,12 +25,7 @@
 #include "backend/backend_meta.h"
 #include "backend/helpers/dynamic_bucket_info_utils.h"
 #include "backend/helpers/dynamic_shape_infer.h"
-#include "backend/lazy_to_backend.h"
-#include "backend/synapse_helpers/habana_tensor.h"
-#include "backend/synapse_helpers/stream.h"
 #include "backend/synapse_helpers/time_slot.h"
-#include "habana_lazy/aten_lazy_bridge.h"
-#include "habana_lazy/tensor_impl.h"
 #include "torch/csrc/jit/ir/ir.h"
 
 namespace habana {
@@ -49,6 +44,7 @@ enum class CompilationPass {
   DYNAMIC_CURRENT,
   STATIC
 };
+
 enum class DynamicDimsPolicy {
   DEFAULT,
   CURRENT,
@@ -467,7 +463,7 @@ class DynamicBucketInfo {
   DynamicBucketInfo(DynamicDimsPolicy min_policy, DynamicDimsPolicy max_policy)
       : min_policy_(min_policy),
         max_policy_(max_policy),
-        split_policy_(SplitPolicy::DYNAMIC){};
+        split_policy_(SplitPolicy::DYNAMIC) {};
 
   using DimMultipliers =
       std::map<int64_t, std::map<int64_t, std::pair<int64_t, int64_t>>>;
@@ -819,7 +815,7 @@ class DynamicBucketInfo {
   void ComputeMFUBucketDetails();
   void UpdateMFUBucketDetails(size_t bucket_id);
   std::vector<int64_t> ExtractDynamicDimsValue(const InpTensorShapes& shapes);
-  bool IsInRangeStaticDims(const std::vector<int64_t>& dims, int64_t num) const;
+  bool IsInRangeStaticDims(const std::vector<int64_t>& dims, size_t num) const;
   int64_t GetMaxMultiplier(const PadShapes& pad_shapes);
   DimMultipliers CalculateFlattenedMultipliers(
       const InpTensorShapes& shapes,
@@ -830,9 +826,10 @@ class DynamicBucketInfo {
   // xin is used as a shortened form of max or min in valiable names.
   size_t CalculateHistoric(
       const InpTensorShapes& shapes,
-      std::string xin_name,
+      const std::string& xin_name,
       std::function<bool(int64_t, int64_t)> comp,
       int64_t xin_val);
+
   size_t CalculateHistoricMin(const InpTensorShapes& shapes) {
     return CalculateHistoric(
         shapes,
@@ -840,6 +837,7 @@ class DynamicBucketInfo {
         std::greater<int64_t>(),
         std::numeric_limits<int64_t>::max());
   }
+
   size_t CalculateHistoricMax(const InpTensorShapes& shapes) {
     return CalculateHistoric(
         shapes,
@@ -896,7 +894,7 @@ class DynamicBucketInfo {
     int64_t pos;
     int64_t previous_val;
     DynamicDimsElement(int64_t n, int64_t p, int64_t v)
-        : num(n), pos(p), previous_val(v){};
+        : num(n), pos(p), previous_val(v) {};
     friend inline std::ostream& operator<<(
         std::ostream& O,
         const DynamicDimsElement& d) {

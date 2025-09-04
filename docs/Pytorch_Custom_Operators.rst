@@ -1,4 +1,3 @@
-
 .. _pytorch-custom-operators:
 
 ****************************
@@ -49,6 +48,7 @@ Custom Operators Support Summary
 **Custom Operator**                     **FP32** **BF16** **FP16** **INT64** **INT32** **INT8** **BOOL**  **FP8**  **FP4**  **INT4**
 ======================================  ======== ======== ======== ========= ========= ======== ======== ========= ======== ========
 accumulate_grads\_                        Yes      Yes      Yes      Yes      Yes       Yes      Yes        Yes        No       No
+calculate_scale_for_cast                  Yes      Yes      Yes       No       No        No       No         No        No       No
 cast_from_fp8                              No       No       No       No       No        No       No        Yes        No       No
 cast_to_fp8                               Yes      Yes       No       No       No        No       No         No        No       No
 cast_to_fp8_v2                            Yes      Yes       No       No       No        No       No         No        No       No
@@ -94,4 +94,6 @@ fp8_sdpa_recomp_fwd_non_dropout            No       No       No       No       N
 fp8_sdpa_recomp_fwd_dropout                No       No       No       No       No        No       No        Yes        No       No
 sum_fp8                                    No       No       No       No       No        No       No        Yes        No       No
 fused_clip_norm                           Yes      Yes       No       No       No        No       No         No        No       No
+block_softmax                             Yes      Yes       No       No       No        No       No         No        No       No
+block_softmax_adjustment                  Yes      Yes       No       No       No        No       No         No        No       No
 ======================================  ======== ======== ======== ========= ========= ======== ======== ========= ======== ========

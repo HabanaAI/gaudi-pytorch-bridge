@@ -58,10 +58,16 @@ def pytest_addoption(parser):
         help="{eager|lazy|graph}, default eager. Choose mode to run tests",
     )
     parser.addoption(
-        "--dut", action="store", default="gaudi2", help="{gaudi|gaudi2|gaudi3}, default gaudi2. Choose chip version"
+        "--dut",
+        action="store",
+        default="gaudi2",
+        help="{gaudi|gaudi2|gaudi3}, default gaudi2. Choose chip version",
     )
     parser.addoption(
-        "--vendor", action="store_true", default=False, help="Collect tests for Vendor CI (skip any simple ops)."
+        "--vendor",
+        action="store_true",
+        default=False,
+        help="Collect tests for Vendor CI (skip any simple ops).",
     )
 
 
@@ -69,7 +75,6 @@ backup_env = pytest.StashKey[Mapping]()
 
 
 def pytest_runtest_setup(item):
-
     from habana_frameworks.torch.dynamo.compile_backend.config import (
         configuration_flags,
     )
@@ -122,13 +127,11 @@ def pytest_configure(config):
 
     if pytest.mode == "eager":
         os.environ["PT_HPU_LAZY_MODE"] = "0"
-        set_env_var("PT_HPU_USE_OVERRIDE_ATEN_SDPA", True)
     elif pytest.mode == "lazy":
         os.environ["PT_HPU_LAZY_MODE"] = "1"
     elif pytest.mode == "compile":
         os.environ["PT_HPU_LAZY_MODE"] = "0"
         os.environ["PT_HPU_USE_EAGER_FALLBACK"] = "0"
-        set_env_var("PT_HPU_USE_OVERRIDE_ATEN_SDPA", True)
         try:
             eager_fallback_path = Path(__file__).parent.joinpath(EAGER_FALLBACK_TESTS_LIST)
             with open(eager_fallback_path) as f:

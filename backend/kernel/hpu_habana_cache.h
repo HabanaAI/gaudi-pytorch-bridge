@@ -40,11 +40,11 @@ class HbCas {
   explicit HbCas(bool with_grad, at::ArrayRef<c10::IValue> inputs);
 
   size_t hashCode() const {
-    return p_cas->hashCode();
+    return hash_code;
   }
 
   bool operator==(const HbCas& spec) const {
-    return *p_cas == *spec.Cas();
+    return *p_cas == *spec.Cas() && offsets_data == spec.offsets_data;
   }
 
   bool operator!=(const HbCas& spec) const {
@@ -57,6 +57,8 @@ class HbCas {
 
  private:
   std::shared_ptr<torch::jit::CompleteArgumentSpec> p_cas;
+  std::vector<uint64_t> offsets_data;
+  size_t hash_code{0};
 };
 
 // Adding the op strings to the key for recipe
@@ -367,7 +369,7 @@ struct RecipeValueSpec {
   std::vector<PtTensorInfoShared> dtensorinfos;
   std::shared_ptr<habana_helpers::CollectiveKernelInfos>
       collective_kernels_info;
-  std::unordered_map<int64_t, PtTensorInfoShared> sif_tidx_to_tinfo_map;
+  std::unordered_map<uint64_t, PtTensorInfoShared> sif_tidx_to_tinfo_map;
   std::unordered_map<uint64_t, uint64_t> st_to_tensor_idx_map;
   std::unordered_set<uint32_t> dynamic_nodes_with_backend_STs;
   std::unordered_map<size_t, habana_helpers::DynamicSIFInfo> ds_sifinfo_map;
@@ -484,7 +486,7 @@ struct RecipeHolder {
   RecipeHolder(
       std::shared_ptr<RecipeLauncher> rl,
       std::shared_ptr<RecipeValueSpec> rvs)
-      : rl_(rl), rvs_(rvs){};
+      : rl_(rl), rvs_(rvs) {};
   RecipeHolder(std::istream& is, synRecipeHandle recipe);
   std::shared_ptr<RecipeLauncher> rl_;
   std::shared_ptr<RecipeValueSpec> rvs_;
@@ -509,7 +511,7 @@ class DynamicBucketInfoMap {
   }
 
   bool empty() {
-    return (map_.size() == 0);
+    return (map_.empty());
   }
 
   void add(

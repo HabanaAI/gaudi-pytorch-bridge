@@ -12,6 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "generated/lazy/cast_from_fp8.h"
 #include "generated/lazy/cast_to_fp8_v2.h"
 #include "generated/lazy/conv2d_fp8.h"
 #include "generated/lazy/fp8_gemm_v2.h"
@@ -34,17 +35,47 @@ std::tuple<at::Tensor, at::Tensor> cast_to_fp8_v2_lazy(
     at::OptionalIntArrayRef scale_shape) {
   PT_LAZY_TRACE;
 
+  std::vector<at::IValue> inputs{
+      input, std::nullopt, stochastic_rounding, is_amax, dtype, scale_shape};
+
+  bool trivial_scales_optimization_disabled =
+      GET_ENV_FLAG_NEW(PT_HPU_H2D_TRIVIAL_SCALES_MODE) == 0;
+
+  if (trivial_scales_optimization_disabled or
+      not(scale.has_value() and scale->defined() and
+          scale->device().is_cpu() and scale->item().toDouble() == 1.0)) {
+    inputs[1] = maybe_convert_tensor_to_h2d(
+        scale, habana_helpers::is_h2d_scales_enabled(), "cast_to_fp8_v2"sv);
+  }
+
   LazyOp<::std::tuple<at::Tensor, at::Tensor>> hpu_op{
-      "hpu::cast_to_fp8_v2",
-      {input,
-       maybe_convert_to_h2d(
-           scale, habana_helpers::is_h2d_scales_enabled(), "cast_to_fp8_v2"sv),
-       stochastic_rounding,
-       is_amax,
-       dtype,
-       scale_shape}};
+      "hpu::cast_to_fp8_v2", std::move(inputs)};
   hpu_op.SetOutputMetaFn(CastToFp8V2Meta);
   RUN_TUPLE_MAYBE_WITH_ACC_THREAD(cast_to_fp8_v2, hpu_op);
+}
+
+at::Tensor cast_from_fp8_lazy(
+    const at::Tensor& input,
+    const std::optional<at::Tensor>& scale,
+    at::ScalarType dtype,
+    at::OptionalIntArrayRef scale_shape) {
+  PT_LAZY_TRACE;
+
+  std::vector<at::IValue> inputs{input, std::nullopt, dtype, scale_shape};
+
+  bool trivial_scales_optimization_disabled =
+      GET_ENV_FLAG_NEW(PT_HPU_H2D_TRIVIAL_SCALES_MODE) == 0;
+
+  if (trivial_scales_optimization_disabled or
+      not(scale.has_value() and scale->defined() and
+          scale->device().is_cpu() and scale->item().toDouble() == 1.0)) {
+    inputs[1] = maybe_convert_tensor_to_h2d(
+        scale, habana_helpers::is_h2d_scales_enabled(), "cast_from_fp8"sv);
+  }
+
+  LazyOp<at::Tensor> hpu_op{"hpu::cast_from_fp8", std::move(inputs)};
+  hpu_op.SetOutputMetaFn(CastFromFp8Meta);
+  RUN_MAYBE_WITH_ACC_THREAD(cast_from_fp8, hpu_op);
 }
 
 at::Tensor conv2d_fp8_lazy(
@@ -99,19 +130,36 @@ at::Tensor fp8_gemm_v2_lazy(
 
   const auto h2d_scales_enabled = habana_helpers::is_h2d_scales_enabled();
   const std::string_view op_name{"fp8_gemm_v2"};
-  LazyOp<at::Tensor> hpu_op{
-      "hpu::fp8_gemm_v2",
-      {A,
-       trans_A,
-       B,
-       trans_B,
-       D,
-       out_dtype,
-       maybe_convert_to_h2d(A_scale_inv, h2d_scales_enabled, op_name),
-       maybe_convert_to_h2d(B_scale_inv, h2d_scales_enabled, op_name),
-       bias,
-       accumulate,
-       B_scale_shape}};
+
+  std::vector<at::IValue> inputs{
+      A,
+      trans_A,
+      B,
+      trans_B,
+      D,
+      out_dtype,
+      std::nullopt,
+      std::nullopt,
+      bias,
+      accumulate,
+      B_scale_shape};
+
+  bool trivial_scales_optimization_disabled =
+      GET_ENV_FLAG_NEW(PT_HPU_H2D_TRIVIAL_SCALES_MODE) < 2;
+
+  if (trivial_scales_optimization_disabled or
+      not(A_scale_inv.has_value() and A_scale_inv->defined() and
+          A_scale_inv->device().is_cpu() and B_scale_inv.has_value() and
+          B_scale_inv->defined() and B_scale_inv->device().is_cpu() and
+          A_scale_inv->item().toDouble() ==
+              1 / B_scale_inv->item().toDouble())) {
+    inputs[6] =
+        maybe_convert_tensor_to_h2d(A_scale_inv, h2d_scales_enabled, op_name);
+    inputs[7] =
+        maybe_convert_tensor_to_h2d(B_scale_inv, h2d_scales_enabled, op_name);
+  }
+
+  LazyOp<at::Tensor> hpu_op{"hpu::fp8_gemm_v2", std::move(inputs)};
   hpu_op.SetOutputMetaFn(Fp8GemmV2Meta);
   RUN_MAYBE_WITH_ACC_THREAD(fp8_gemm_v2, hpu_op);
 }
@@ -131,35 +179,42 @@ at::Tensor mixture_of_experts_fp8_lazy(
     bool permuted_weights,
     std::string_view activation,
     int64_t experts_min,
-    int64_t experts_max) {
+    int64_t experts_max,
+    const int64_t chunk_size,
+    const int64_t total_experts) {
   PT_LAZY_TRACE;
 
-  using namespace std::literals;
-  verify_no_h2d_scales(
-      {d_scale_hidden_states,
-       d_scale_intermediate_hidden_states,
-       d_scale_w1,
-       d_scale_w2,
-       d_scale_w3},
-      "mixture_of_experts.fp8"sv);
+  const std::string_view op_name{"mixture_of_experts.fp8"};
 
-  LazyOp<at::Tensor> hpu_op{
-      "hpu::mixture_of_experts",
-      {hidden_states,
-       expert_routing_table,
-       router_weights,
-       w1,
-       w2,
-       w3,
-       d_scale_hidden_states,
-       d_scale_intermediate_hidden_states,
-       d_scale_w1,
-       d_scale_w2,
-       d_scale_w3,
-       permuted_weights,
-       activation,
-       experts_min,
-       experts_max}};
+  std::vector<at::IValue> inputs{
+      hidden_states,
+      expert_routing_table,
+      router_weights,
+      w1,
+      w2,
+      w3,
+      d_scale_hidden_states,
+      d_scale_intermediate_hidden_states,
+      d_scale_w1,
+      d_scale_w2,
+      d_scale_w3,
+      permuted_weights,
+      activation,
+      experts_min,
+      experts_max,
+      chunk_size,
+      total_experts};
+
+  if (habana_helpers::is_h2d_scales_enabled()) {
+    inputs[6] = maybe_convert_tensor_to_h2d(d_scale_hidden_states, op_name);
+    inputs[7] =
+        maybe_convert_list_to_h2d(d_scale_intermediate_hidden_states, op_name);
+    inputs[8] = maybe_convert_list_to_h2d(d_scale_w1, op_name);
+    inputs[9] = maybe_convert_list_to_h2d(d_scale_w2, op_name);
+    inputs[10] = maybe_convert_list_to_h2d(d_scale_w3, op_name);
+  }
+
+  LazyOp<at::Tensor> hpu_op{"hpu::mixture_of_experts", std::move(inputs)};
   hpu_op.SetOutputMetaFn(MixtureOfExpertsFp8Meta);
   RUN_MAYBE_WITH_ACC_THREAD(mixture_of_experts, hpu_op);
 }
@@ -177,32 +232,39 @@ at::Tensor mixture_of_experts_fp8_fused_weights_lazy(
     bool permuted_weights,
     std::string_view activation,
     int64_t experts_min,
-    int64_t experts_max) {
+    int64_t experts_max,
+    const int64_t chunk_size,
+    const int64_t total_experts) {
   PT_LAZY_TRACE;
 
-  using namespace std::literals;
-  verify_no_h2d_scales(
-      {d_scale_hidden_states,
-       d_scale_intermediate_hidden_states,
-       d_scale_w12,
-       d_scale_w3},
-      "mixture_of_experts.fp8_fused_weights"sv);
+  const std::string_view op_name{"mixture_of_experts.fp8_fused_weights"};
 
-  LazyOp<at::Tensor> hpu_op{
-      "hpu::mixture_of_experts",
-      {hidden_states,
-       expert_routing_table,
-       router_weights,
-       w12,
-       w3,
-       d_scale_hidden_states,
-       d_scale_intermediate_hidden_states,
-       d_scale_w12,
-       d_scale_w3,
-       permuted_weights,
-       activation,
-       experts_min,
-       experts_max}};
+  std::vector<at::IValue> inputs{
+      hidden_states,
+      expert_routing_table,
+      router_weights,
+      w12,
+      w3,
+      d_scale_hidden_states,
+      d_scale_intermediate_hidden_states,
+      d_scale_w12,
+      d_scale_w3,
+      permuted_weights,
+      activation,
+      experts_min,
+      experts_max,
+      chunk_size,
+      total_experts};
+
+  if (habana_helpers::is_h2d_scales_enabled()) {
+    inputs[5] = maybe_convert_tensor_to_h2d(d_scale_hidden_states, op_name);
+    inputs[6] =
+        maybe_convert_list_to_h2d(d_scale_intermediate_hidden_states, op_name);
+    inputs[7] = maybe_convert_list_to_h2d(d_scale_w12, op_name);
+    inputs[8] = maybe_convert_list_to_h2d(d_scale_w3, op_name);
+  }
+
+  LazyOp<at::Tensor> hpu_op{"hpu::mixture_of_experts", std::move(inputs)};
   hpu_op.SetOutputMetaFn(MixtureOfExpertsFp8Meta);
   RUN_MAYBE_WITH_ACC_THREAD(mixture_of_experts, hpu_op);
 }
@@ -221,30 +283,39 @@ at::Tensor mixture_of_experts_fp8_dynamic_lazy(
     bool permuted_weights,
     std::string_view activation,
     int64_t experts_min,
-    int64_t experts_max) {
+    int64_t experts_max,
+    const int64_t chunk_size,
+    const int64_t total_experts) {
   PT_LAZY_TRACE;
 
-  using namespace std::literals;
-  verify_no_h2d_scales(
-      {d_scale_hidden_states, d_scale_w1, d_scale_w2, d_scale_w3},
-      "mixture_of_experts.fp8_dynamic"sv);
+  const std::string_view op_name{"mixture_of_experts.fp8_dynamic"};
 
-  LazyOp<at::Tensor> hpu_op{
-      "hpu::mixture_of_experts",
-      {hidden_states,
-       expert_routing_table,
-       router_weights,
-       w1,
-       w2,
-       w3,
-       d_scale_hidden_states,
-       d_scale_w1,
-       d_scale_w2,
-       d_scale_w3,
-       permuted_weights,
-       activation,
-       experts_min,
-       experts_max}};
+  std::vector<at::IValue> inputs{
+      hidden_states,
+      expert_routing_table,
+      router_weights,
+      w1,
+      w2,
+      w3,
+      d_scale_hidden_states,
+      d_scale_w1,
+      d_scale_w2,
+      d_scale_w3,
+      permuted_weights,
+      activation,
+      experts_min,
+      experts_max,
+      chunk_size,
+      total_experts};
+
+  if (habana_helpers::is_h2d_scales_enabled()) {
+    inputs[6] = maybe_convert_tensor_to_h2d(d_scale_hidden_states, op_name);
+    inputs[7] = maybe_convert_list_to_h2d(d_scale_w1, op_name);
+    inputs[8] = maybe_convert_list_to_h2d(d_scale_w2, op_name);
+    inputs[9] = maybe_convert_list_to_h2d(d_scale_w3, op_name);
+  }
+
+  LazyOp<at::Tensor> hpu_op{"hpu::mixture_of_experts", std::move(inputs)};
   hpu_op.SetOutputMetaFn(MixtureOfExpertsFp8Meta);
   RUN_MAYBE_WITH_ACC_THREAD(mixture_of_experts, hpu_op);
 }
@@ -261,28 +332,37 @@ at::Tensor mixture_of_experts_fp8_fused_weights_dynamic_lazy(
     bool permuted_weights,
     std::string_view activation,
     int64_t experts_min,
-    int64_t experts_max) {
+    int64_t experts_max,
+    const int64_t chunk_size,
+    const int64_t total_experts) {
   PT_LAZY_TRACE;
 
-  using namespace std::literals;
-  verify_no_h2d_scales(
-      {d_scale_hidden_states, d_scale_w12, d_scale_w3},
-      "mixture_of_experts.fp8_fused_weights_dynamic"sv);
+  const std::string_view op_name{
+      "mixture_of_experts.fp8_fused_weights_dynamic"};
 
-  LazyOp<at::Tensor> hpu_op{
-      "hpu::mixture_of_experts",
-      {hidden_states,
-       expert_routing_table,
-       router_weights,
-       w12,
-       w3,
-       d_scale_hidden_states,
-       d_scale_w12,
-       d_scale_w3,
-       permuted_weights,
-       activation,
-       experts_min,
-       experts_max}};
+  std::vector<at::IValue> inputs{
+      hidden_states,
+      expert_routing_table,
+      router_weights,
+      w12,
+      w3,
+      d_scale_hidden_states,
+      d_scale_w12,
+      d_scale_w3,
+      permuted_weights,
+      activation,
+      experts_min,
+      experts_max,
+      chunk_size,
+      total_experts};
+
+  if (habana_helpers::is_h2d_scales_enabled()) {
+    inputs[6] = maybe_convert_tensor_to_h2d(d_scale_hidden_states, op_name);
+    inputs[7] = maybe_convert_list_to_h2d(d_scale_w12, op_name);
+    inputs[8] = maybe_convert_list_to_h2d(d_scale_w3, op_name);
+  }
+
+  LazyOp<at::Tensor> hpu_op{"hpu::mixture_of_experts", std::move(inputs)};
   hpu_op.SetOutputMetaFn(MixtureOfExpertsFp8Meta);
   RUN_MAYBE_WITH_ACC_THREAD(mixture_of_experts, hpu_op);
 }

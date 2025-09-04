@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,9 +15,7 @@
 #include "generated/backend/_log_softmax_backward_data.h"
 
 namespace habana {
-std::shared_ptr<void> FillLogSoftmaxParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillLogSoftmaxParams(const at::Stack& stack) {
   bool half_to_float = stack.at(2).toBool();
   HABANA_ASSERT(
       !half_to_float,
@@ -27,16 +25,14 @@ std::shared_ptr<void> FillLogSoftmaxParams(
   params->dim = get_dim_in_tpc_order(
       /*dim*/ stack.at(1).toInt(),
       /*max dims*/ self.dim());
-  return params;
+  return paramsT;
 }
 
-std::shared_ptr<void> FillLogSoftmaxBackwardParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillLogSoftmaxBackwardParams(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   PARAMS_STUB(ns_Softmax::Params);
   params->dim = get_dim_in_tpc_order(stack.at(2).toInt(), self.dim());
-  return params;
+  return paramsT;
 }
 
 } // namespace habana

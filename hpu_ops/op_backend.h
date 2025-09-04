@@ -16,6 +16,7 @@
 #include <absl/functional/any_invocable.h>
 #include "backend/habana_operator.h"
 #include "backend/helpers/habana_types.h"
+#include "fillparams.h"
 
 #pragma once
 
@@ -29,7 +30,7 @@ using sym_sizes_vec = sizes_vec_template<c10::SymInt>;
 
 struct NodeAttr {
   struct NodeOutputAttr {
-    at::IntArrayRef sizes{};
+    at::IntArrayRef sizes;
     at::ScalarType dtype{at::kFloat};
     std::optional<int> final_result_index{std::nullopt};
     synTensorType tensor_type{DATA_TENSOR};
@@ -41,9 +42,9 @@ struct NodeAttr {
   std::string guid;
   std::vector<synTensor> inputs;
   std::vector<NodeOutputAttr> output_attrs;
-  void* params = nullptr;
-  size_t param_size = 0;
-  std::string inf_name = std::string();
+  void* params{nullptr};
+  size_t param_size{0};
+  std::string inf_name{}; // NOLINT(readability-redundant-member-init)
 };
 
 class StackGetter;
@@ -59,7 +60,6 @@ class OpBackend : public HabanaOperator {
       std::vector<int> scalar_ids,
       bool is_outfn);
 
- public:
   bool isOutputInfMode() const {
     return m_output_inf_mode;
   }
@@ -117,7 +117,7 @@ class OpBackend : public HabanaOperator {
 
   bool STMeta(
       habana_helpers::IShapeList& inputs,
-      habana_helpers::IShapeList& outputs) const;
+      habana_helpers::IShapeList& outputs) override;
   void HandleScalarToTensorSTMeta(habana_helpers::IShapeList& inputs) const;
   void SetOutputMetadata(OutputMetaDataVector meta_vec) {
     m_output_metadata = std::move(meta_vec);
@@ -139,7 +139,7 @@ class OpBackend : public HabanaOperator {
   }
 
   bool IsOutputAvailable() const {
-    return m_is_outfn or m_inplace_ids.size();
+    return m_is_outfn or !m_inplace_ids.empty();
   }
 
   bool IsOutputPersistent(int i) const {
@@ -147,7 +147,7 @@ class OpBackend : public HabanaOperator {
   }
 
   bool IsInplace() const {
-    return m_inplace_ids.size();
+    return !m_inplace_ids.empty();
   }
 
   void SetSynapseLayouts(
@@ -185,13 +185,12 @@ class OpBackend : public HabanaOperator {
     return m_promote_int_to_float;
   }
 
-  void SetFillParams(
-      std::function<std::shared_ptr<void>(const at::Stack&, size_t&)> fn) {
+  void SetFillParams(std::function<FillParamsT(const at::Stack&)> fn) {
     m_fill_params = std::move(fn);
   }
 
-  std::shared_ptr<void> FillParams(const at::Stack& stack, size_t& size) {
-    return m_fill_params ? m_fill_params(stack, size) : nullptr;
+  FillParamsT FillParams(const at::Stack& stack) {
+    return m_fill_params ? m_fill_params(stack) : FillParamsT{};
   }
 
   void SetComputeOutputShapes(std::function<sizes_vec(const at::Stack&)> fn) {
@@ -290,6 +289,16 @@ class OpBackend : public HabanaOperator {
       std::optional<at::ScalarType> force_type = std::nullopt,
       const at::IntArrayRef constant_outshape = 1,
       std::optional<int> final_result_index = std::nullopt);
+
+  synapse_helpers::tensor CopyHelper(
+      at::IntArrayRef src_size,
+      c10::ScalarType src_type,
+      at::IntArrayRef dest_size,
+      c10::ScalarType dest_type,
+      synapse_helpers::graph& graph,
+      std::vector<synTensor> inputs,
+      const OutputMetaDataVector meta,
+      std::optional<int> result_index = std::nullopt);
 
   synapse_helpers::tensor ReshapeHelper(
       synapse_helpers::graph& graph,
@@ -444,6 +453,17 @@ class OpBackend : public HabanaOperator {
       at::ScalarType dtype,
       std::optional<int> final_result_index = std::nullopt);
 
+  static synapse_helpers::tensor BuildCopy(
+      at::IntArrayRef src_size,
+      c10::ScalarType src_type,
+      at::IntArrayRef dest_size,
+      c10::ScalarType dest_type,
+      OpBackend* op,
+      synapse_helpers::graph& graph,
+      std::vector<synTensor> inputs,
+      OutputMetaDataVector meta,
+      std::optional<int> result_index = std::nullopt);
+
   void moveLastOutputTensorAtFront();
 
  private:
@@ -464,7 +484,7 @@ class OpBackend : public HabanaOperator {
   InferOutputMetaRetType m_output_inf_meta;
   int m_num_syn_nodes = 0;
 
-  std::function<std::shared_ptr<void>(const at::Stack&, size_t&)> m_fill_params;
+  std::function<FillParamsT(const at::Stack&)> m_fill_params;
   std::function<sizes_vec(const at::Stack&)> m_compute_output_shapes;
   std::function<OutputMetaDataVector(const at::Stack&)> m_output_meta_fn;
   std::function<PartialOutputMetaDataVector(const at::Stack&)>

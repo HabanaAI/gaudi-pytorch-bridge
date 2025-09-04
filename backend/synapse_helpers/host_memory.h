@@ -12,28 +12,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#pragma once
+
 #include <synapse_common_types.h>
 
-#include <algorithm>
-#include <memory>
+#include <common/strong_type.h>
 #include <mutex>
-#include <ostream>
 #include <set>
-#include <string>
-#include <tuple>
 #include <unordered_map>
-#include <utility>
-#include <vector>
-
-#include "backend/synapse_helpers/synapse_error.h"
 
 namespace synapse_helpers {
-class device;
+class device_interface;
 
 class host_memory {
  public:
-  explicit host_memory(device& device);
-  ~host_memory(); //= default;
+  explicit host_memory(device_interface& device);
+  ~host_memory();
   host_memory(const host_memory&) = delete;
   host_memory& operator=(const host_memory&) = delete;
   host_memory(host_memory&&) = delete;
@@ -54,11 +48,48 @@ class host_memory {
   };
 
   struct Block : public BlockSize {
-    bool allocated; // true if the block is currently allocated
+    using is_allocated_t = common::StrongType<bool, struct IsAllocatedTTag>;
+    using is_huge_page_t = common::StrongType<bool, struct IsHugePageTTag>;
+    using is_real_allocation_t =
+        common::StrongType<bool, struct IsRealAllocationTTag>;
+    is_allocated_t allocated; // true if the block is currently allocated
+    is_huge_page_t is_huge_page;
+    is_real_allocation_t
+        real_allocation; // true if the block is a real allocation, false is
+                         // part of allocated buffer
+    size_t real_allocation_size;
+    void* real_allocation_ptr;
+    size_t ref_count{0};
 
-    Block(size_t size, void* ptr, bool allocated)
-        : BlockSize(size, ptr), allocated(allocated) {}
+    Block(
+        size_t size,
+        void* ptr,
+        is_allocated_t allocated,
+        is_huge_page_t is_huge_page,
+        is_real_allocation_t real_allocation,
+        size_t real_allocation_size,
+        void* real_allocation_ptr)
+        : BlockSize(size, ptr),
+          allocated(allocated),
+          is_huge_page(is_huge_page),
+          real_allocation(real_allocation),
+          real_allocation_size(real_allocation_size),
+          real_allocation_ptr(real_allocation_ptr) {}
   };
+
+  // Allocates memory on host and maps it to Synapse.
+  // For allocations larger than 2MB tries to allocate huge page. If this
+  // succeed, updates actual_allocation_size to aligned size of allocation. If
+  // huge page allocation is unnecessary or not possible (e.g, error, or
+  // exhausted limit), resolves to synHostMalloc.
+  std::tuple<synStatus, Block::is_huge_page_t> alloc_memory(
+      size_t& actual_allocation_size,
+      void** ptr);
+
+  void free_memory(
+      void* const ptr,
+      Block::is_huge_page_t is_huge_page,
+      size_t size);
 
   static bool BlockComparator(const BlockSize& a, const BlockSize& b) {
     // sort by size, break ties with pointer
@@ -72,11 +103,22 @@ class host_memory {
   // lock around all operations
   std::mutex mutex_;
 
-  device& device_;
-  // pointers that are ready to be allocated
+  device_interface& device_;
+
+  // Pointers that are ready to be allocated
   std::set<BlockSize, Comparison> available_;
 
-  // blocks by pointer
-  std::unordered_map<void*, Block> blocks;
+  // Blocks by pointer
+  std::unordered_map<void*, Block> blocks_;
+
+  // In case of huge pages, we try to split it equally between workers.
+  // This ignores other huge pages users in the system, but should give quite
+  // good approximation so each worker won't starve. Optionally can be overriden
+  // by env var PT_HPU_HUGE_PAGES_LIMIT_MB.
+  const size_t available_huge_pages_mb_for_worker_;
+
+  // Remaining huge pages for use by this worker. Initially set to
+  // available_huge_pages_mb_for_worker_.
+  size_t remaining_huge_pages_mb_;
 };
 } // namespace synapse_helpers

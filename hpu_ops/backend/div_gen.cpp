@@ -55,6 +55,6 @@ void Divide::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
     // Update the div guid with precise based on env
     update_div_guid_with_precise(guid_);
   }
-  return OpBackend::AddNode(graph, stack);
+  OpBackend::AddNode(graph, stack);
 }
 } // namespace habana

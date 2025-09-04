@@ -62,16 +62,23 @@ class HabanaParameterWrapper(torch.nn.Parameter):
             arg = args[i]
             if type(arg) is list:
                 new_args[i] = [
-                    HabanaParameterWrapper.db[id(inner_arg)] if type(inner_arg) is HabanaParameterWrapper else inner_arg
+                    (
+                        HabanaParameterWrapper.db[id(inner_arg)]
+                        if type(inner_arg) is HabanaParameterWrapper
+                        else inner_arg
+                    )
                     for inner_arg in arg
                 ]
             else:
                 new_args[i] = HabanaParameterWrapper.db[id(arg)] if type(arg) is HabanaParameterWrapper else arg
-        if func.__name__ == "__set__":
-            if hasattr(new_args[0], "device") and hasattr(new_args[1], "device"):
-                if new_args[0].device != new_args[1].device:
-                    new_args[0].change_device_placement(new_args[1].device)
-                    return
+        if (
+            func.__name__ == "__set__"
+            and hasattr(new_args[0], "device")
+            and hasattr(new_args[1], "device")
+            and new_args[0].device != new_args[1].device
+        ):
+            new_args[0].change_device_placement(new_args[1].device)
+            return
         return super().__torch_function__(func, types, new_args, kwargs)
 
     def __del__(self):
@@ -178,7 +185,7 @@ def wrapped_to(self, *args, **kwargs):
     shared_parameters = {}
     collected_parameters = []
     weight_sharing_exception = Exception(
-        "Weight sharing unsuccessful. " "You can disable weight sharing by setting: PT_HPU_WEIGHT_SHARING=0"
+        "Weight sharing unsuccessful. You can disable weight sharing by setting: PT_HPU_WEIGHT_SHARING=0"
     )
 
     # Convert all parameters to habana parameters

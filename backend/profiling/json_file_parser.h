@@ -23,8 +23,7 @@
 #include "backend/synapse_helpers/env_flags.h"
 #include "nlohmann/json.hpp"
 
-namespace habana {
-namespace profile {
+namespace habana::profile {
 
 template <class ClockT>
 inline int64_t timeSinceEpoch(const std::chrono::time_point<ClockT>& t) {
@@ -119,8 +118,8 @@ class JsonFileParser : public TraceSink {
   virtual void addDeviceDetails(
       const std::unordered_map<std::string, int64_t>& device_details) override;
 
-  nlohmannV340::json& getCreateArray(
-      nlohmannV340::json& json_file,
+  nlohmann::json& getCreateArray(
+      nlohmann::json& json_file,
       const std::string_view& name);
 
   void merge(const std::string_view& path);
@@ -130,23 +129,23 @@ class JsonFileParser : public TraceSink {
    *
    * Clean-up and reset data containers and variables in the object.
    */
-  virtual void clear();
+  void clear() override;
 
   virtual int64_t transToRelativeTime(int64_t time) override;
 
  private:
-  void addToEvents(const nlohmannV340::json& obj);
+  void addToEvents(const nlohmann::json& obj);
 
   std::string toHex(uint64_t handle);
 
   double convertToMs(uint64_t value);
 
-  nlohmannV340::json constructEvent(
+  nlohmann::json constructEvent(
       const Activity& activity,
       const std::optional<RecipeInfo>& recipeInfo,
       int64_t ts);
 
-  nlohmannV340::json constructFlow(
+  nlohmann::json constructFlow(
       std::string_view name,
       std::string_view cat,
       int64_t pid,
@@ -154,7 +153,7 @@ class JsonFileParser : public TraceSink {
       int64_t ts,
       bool start);
 
-  nlohmannV340::json constructMemoryEvent(
+  nlohmann::json constructMemoryEvent(
       int64_t pid,
       int64_t tid,
       int64_t ts,
@@ -169,8 +168,7 @@ class JsonFileParser : public TraceSink {
 
   uint64_t flow_id_counter_ = 0;
   uint64_t profiler_event_index_ = 0;
-  nlohmannV340::json traceEvents_;
-  nlohmannV340::json deviceProperties_;
+  nlohmann::json traceEvents_;
+  nlohmann::json deviceProperties_;
 };
-}; // namespace profile
-}; // namespace habana
+}; // namespace habana::profile

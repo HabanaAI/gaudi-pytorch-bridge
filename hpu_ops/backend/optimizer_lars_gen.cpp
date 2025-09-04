@@ -12,12 +12,132 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "hpu_ops/hpu_op_helper.h"
 #include "hpu_ops/stack_getter.h"
 #include "perf_lib_layer_params.h"
 
 namespace sh = synapse_helpers;
 
 namespace habana {
+
+SharedMetaDataVector NormializeInputSharedMeta(
+    int input_rank,
+    at::ScalarType precision_type) {
+  SharedMetaTensor constant_tensor{1, precision_type};
+  SharedMetaDataVector shared_meta_vec;
+  SharedMetaData sum_sq_shared_meta{"reduce_sum_square_multi_dim_fwd"};
+  sum_sq_shared_meta.inputs_data.emplace_back(input_rank, precision_type);
+  sum_sq_shared_meta.outputs_data.push_back(constant_tensor);
+  shared_meta_vec.push_back(sum_sq_shared_meta);
+
+  SharedMetaData sqrt_sum_sq_shared_meta{"sqrt_fwd"};
+  sqrt_sum_sq_shared_meta.inputs_data = sum_sq_shared_meta.outputs_data;
+  sqrt_sum_sq_shared_meta.outputs_data = sqrt_sum_sq_shared_meta.inputs_data;
+  shared_meta_vec.push_back(sqrt_sum_sq_shared_meta);
+
+  SharedMetaData greater_shared_meta{"greater_fwd"};
+  greater_shared_meta.inputs_data = {
+      sqrt_sum_sq_shared_meta.outputs_data[0], constant_tensor};
+  greater_shared_meta.outputs_data.emplace_back(1, at::ScalarType::Bool);
+  return shared_meta_vec;
+}
+
+SharedMetaDataVector OptimizerLarsSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  const auto& params = stack.at(0).toTensorVector();
+  const auto& grads = stack.at(1).toTensorVector();
+  const auto& skip_masks = stack.at(2).to<std::vector<int64_t>>();
+  const auto& lr = stack.at(6).toTensor();
+  const auto lr_rank = lr.dim();
+  const auto precision_type = params[0].scalar_type();
+
+  SharedMetaTensor constant_tensor{1, precision_type};
+  SharedMetaDataVector shared_meta_vec;
+  size_t num_params = params.size();
+  for (size_t i = 0; i < num_params; ++i) {
+    const auto& param = params[i];
+    const auto param_rank = param.dim();
+    const auto& grad = grads[i];
+    const auto grad_rank = grad.dim();
+    const auto& skip_mask = skip_masks[i];
+    if (!skip_mask) {
+      SharedMetaData mul_shared_meta{"mult_fwd"};
+      mul_shared_meta.inputs_data = {
+          {grad_rank, precision_type}, {lr_rank, precision_type}};
+      mul_shared_meta.outputs_data.emplace_back(param_rank, precision_type);
+      shared_meta_vec.push_back(mul_shared_meta);
+    } else {
+      const auto param_norm_shared_meta_vec =
+          NormializeInputSharedMeta(param_rank, precision_type);
+      shared_meta_vec.insert(
+          std::end(shared_meta_vec),
+          std::begin(param_norm_shared_meta_vec),
+          std::end(param_norm_shared_meta_vec));
+      const auto grad_norm_shared_meta_vec =
+          NormializeInputSharedMeta(grad_rank, precision_type);
+      shared_meta_vec.insert(
+          std::end(shared_meta_vec),
+          std::begin(grad_norm_shared_meta_vec),
+          std::end(grad_norm_shared_meta_vec));
+
+      SharedMetaData pnorm_times_eeta{"mult_fwd"};
+      pnorm_times_eeta.inputs_data = {constant_tensor, constant_tensor};
+      pnorm_times_eeta.outputs_data = {constant_tensor};
+      shared_meta_vec.push_back(pnorm_times_eeta);
+
+      SharedMetaData pnorm_times_wd_plus_ep{"add_fwd"};
+      pnorm_times_wd_plus_ep.inputs_data = {
+          pnorm_times_eeta.outputs_data[0], constant_tensor};
+      pnorm_times_wd_plus_ep.outputs_data = {constant_tensor};
+      shared_meta_vec.push_back(pnorm_times_wd_plus_ep);
+
+      SharedMetaData div_shared_meta{"div_fwd"};
+      div_shared_meta.inputs_data = {
+          pnorm_times_eeta.outputs_data[0], constant_tensor};
+      div_shared_meta.outputs_data = {constant_tensor};
+      shared_meta_vec.push_back(div_shared_meta);
+
+      SharedMetaData selected_div_part_shared_meta{"where_fwd"};
+      selected_div_part_shared_meta.inputs_data = {
+          {1, at::ScalarType::Bool},
+          div_shared_meta.outputs_data[0],
+          constant_tensor};
+      selected_div_part_shared_meta.outputs_data = {constant_tensor};
+      shared_meta_vec.push_back(selected_div_part_shared_meta);
+
+      SharedMetaData scaled_lr_shared_meta{"mult_fwd"};
+      scaled_lr_shared_meta.inputs_data = {
+          selected_div_part_shared_meta.outputs_data[0],
+          {lr_rank, precision_type}};
+      scaled_lr_shared_meta.outputs_data = {constant_tensor};
+      shared_meta_vec.push_back(scaled_lr_shared_meta);
+
+      SharedMetaData param_times_wd_shared_meta{"mult_fwd"};
+      param_times_wd_shared_meta.inputs_data = {
+          {param_rank, precision_type}, constant_tensor};
+      param_times_wd_shared_meta.outputs_data.emplace_back(
+          param_rank, precision_type);
+      shared_meta_vec.push_back(param_times_wd_shared_meta);
+
+      SharedMetaData param_times_wd_plus_grad_shared_meta{"add_fwd"};
+      param_times_wd_plus_grad_shared_meta.inputs_data = {
+          {grad_rank, precision_type},
+          param_times_wd_shared_meta.outputs_data[0]};
+      param_times_wd_plus_grad_shared_meta.outputs_data =
+          param_times_wd_shared_meta.outputs_data;
+      shared_meta_vec.push_back(param_times_wd_plus_grad_shared_meta);
+
+      SharedMetaData result_shared_meta{"mult_fwd"};
+      result_shared_meta.inputs_data = {
+          {grad_rank, precision_type}, scaled_lr_shared_meta.outputs_data[0]};
+      result_shared_meta.outputs_data =
+          param_times_wd_plus_grad_shared_meta.outputs_data;
+      shared_meta_vec.push_back(result_shared_meta);
+    }
+  }
+  return shared_meta_vec;
+}
 
 class OptimizerFusedLarsOperator : public OpBackend {
  public:
@@ -214,6 +334,7 @@ void OptimizerFusedLarsOperator::AddNode(
 
 } // namespace habana
 
-static auto& OptimizerKernelsKernelRegistry = habana::KernelRegistry().add(
-    "hpu::optimizer_lars",
-    KERNEL_FN(OptimizerFusedLarsOperator));
+static auto& OptimizerKernelsKernelRegistry =
+    habana::KernelRegistry().REGISTER_HPU_BACKEND(
+        "hpu::optimizer_lars",
+        habana::OptimizerFusedLarsOperator);

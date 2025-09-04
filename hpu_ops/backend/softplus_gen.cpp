@@ -1,6 +1,5 @@
-
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,9 +15,8 @@
 #include "generated/backend/softplus.h"
 
 namespace habana {
-std::shared_ptr<void> FillSoftplusParams(
+FillParamsT FillSoftplusParams(
     const at::Stack& stack,
-    size_t& size,
     int beta_index,
     int threshold_index) {
   PARAMS_STUB(ns_Softplus::Params);
@@ -26,18 +24,12 @@ std::shared_ptr<void> FillSoftplusParams(
   auto threshold = stack.at(threshold_index).toScalar().to<float>();
   params->beta = beta;
   params->threshold = threshold;
-  return params;
+  return paramsT;
 }
-std::shared_ptr<void> FillSoftplusParamsFwd(
-    const at::Stack& stack,
-    size_t& size) {
-  return FillSoftplusParams(
-      stack, size, 1 /*beta_index*/, 2 /*threshold_index*/);
+FillParamsT FillSoftplusParamsFwd(const at::Stack& stack) {
+  return FillSoftplusParams(stack, 1 /*beta_index*/, 2 /*threshold_index*/);
 }
-std::shared_ptr<void> FillSoftplusParamsBwd(
-    const at::Stack& stack,
-    size_t& size) {
-  return FillSoftplusParams(
-      stack, size, 2 /*beta_index*/, 3 /*threshold_index*/);
+FillParamsT FillSoftplusParamsBwd(const at::Stack& stack) {
+  return FillSoftplusParams(stack, 2 /*beta_index*/, 3 /*threshold_index*/);
 }
 } // namespace habana

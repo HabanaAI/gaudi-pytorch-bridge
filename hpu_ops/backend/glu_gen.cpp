@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,23 +37,20 @@ OutputMetaDataVector GluBwdMeta(const at::Stack& stack) {
   return {meta};
 }
 
-std::shared_ptr<void> FillGluParams(
-    const at::Stack& stack,
-    size_t& size,
-    int dim_index) {
+FillParamsT FillGluParams(const at::Stack& stack, int dim_index) {
   auto self = stack_tensor(stack, dim_index - 1);
   int dim_ = stack.at(dim_index).toInt();
   auto dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
   PARAMS_STUB(ns_GatherKernel::Params);
   params->axis = dim;
-  return params;
+  return paramsT;
 }
-std::shared_ptr<void> FillGluFwdParams(const at::Stack& stack, size_t& size) {
-  return FillGluParams(stack, size, 1 /*dim_index FWD*/);
+FillParamsT FillGluFwdParams(const at::Stack& stack) {
+  return FillGluParams(stack, 1 /*dim_index FWD*/);
 }
 
-std::shared_ptr<void> FillGluBwdParams(const at::Stack& stack, size_t& size) {
-  return FillGluParams(stack, size, 2 /*dim_index BWD*/);
+FillParamsT FillGluBwdParams(const at::Stack& stack) {
+  return FillGluParams(stack, 2 /*dim_index BWD*/);
 }
 
 } // namespace habana

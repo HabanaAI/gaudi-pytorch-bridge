@@ -16,7 +16,6 @@
 ###############################################################################
 
 
-import os
 from collections.abc import Callable
 
 import habana_frameworks.torch.internal.bridge_config as bc
@@ -83,14 +82,66 @@ def bfs_search_node(predicate: Callable, queue=[], direction="input"):
         node = queue.pop(0)
         if predicate(node):
             return node
+        elif direction == "input":
+            for arg in node.args:
+                if isinstance(arg, torch.fx.Node):
+                    queue.append(arg)
         else:
-            if direction == "input":
-                for arg in node.args:
-                    if isinstance(arg, torch.fx.Node):
-                        queue.append(arg)
-            else:
-                queue.extend(list(node.users))
+            queue.extend(list(node.users))
     return None
+
+
+def collect_kvcache_details(pt2eq_context, gm: GraphModule):
+    """
+    Collect following kv-cache details and record in pt2eq_context:
+    1. if kv-cache allocation is done internally i.e. as part of model forward method,
+    2. kv-cache size in prefill and decode stage,
+    3. kv-cache original data type,
+    """
+    kvcache_quant_details = pt2eq_context.get_kvcache_quant_details()
+    if not kvcache_quant_details.get("kvcache_size_prefill", []):
+        graph_output_nodes = []
+        for node in reversed(gm.graph.nodes):
+            if node.op == "output":
+                assert isinstance(node.args[0], tuple)
+                graph_output_nodes = node.args[0]
+                break
+        # For prefill / prompt stage
+        full_nodes = get_nodes(gm, lambda n: is_node(n, "full.default"))
+        for node in full_nodes:
+            for full_node_user in node.users:
+                if not is_node(full_node_user, "copy.default"):
+                    continue
+                if full_node_user not in graph_output_nodes:
+                    continue
+                kvcache_size_prefill = list(node.args[0])
+                kvcache_quant_details["kvcache_allocation"] = "internal"
+                kvcache_quant_details["kvcache_size_prefill"] = kvcache_size_prefill
+                pt2eq_context.set_kvcache_quant_details(kvcache_allocation="internal")
+                pt2eq_context.set_kvcache_quant_details(kvcache_size_prefill=kvcache_size_prefill)
+                node_meta_val = node.meta.get("val", None)
+                assert node_meta_val is not None, f"[collect_kvcache_details] Meta not found for node: {node.name}"
+                kvcache_orig_dtype = node_meta_val.dtype
+                assert kvcache_orig_dtype == node.kwargs.get("dtype", None)
+                kvcache_quant_details["kvcache_orig_dtype"] = kvcache_orig_dtype
+                pt2eq_context.set_kvcache_quant_details(kvcache_orig_dtype=kvcache_orig_dtype)
+                break
+
+    if not kvcache_quant_details.get("kvcache_size_prefill", []):
+        return
+
+    if not kvcache_quant_details.get("kvcache_size", []):
+        graph_input_nodes = get_nodes(gm, lambda n: n.op == "placeholder")
+        # For token generation stage
+        index_copy_nodes = get_nodes(gm, lambda n: is_node(n, "index_copy.default"))
+        for node in index_copy_nodes:
+            if node.args[0] in graph_input_nodes:
+                assert any(is_node(user, "copy_.default") and user.args[0] in graph_input_nodes for user in node.users)
+                index_copy_node_meta_val = node.args[0].meta.get("val", None)
+                assert index_copy_node_meta_val is not None
+                kvcache_size = list(index_copy_node_meta_val.size())
+                pt2eq_context.set_kvcache_quant_details(kvcache_size=kvcache_size)
+                break
 
 
 def verify_kvcache_quant_effect(pt2eq_context, new_graph_module):
@@ -104,9 +155,20 @@ def verify_kvcache_quant_effect(pt2eq_context, new_graph_module):
               other non data compute nodes.
            2. Remove _to_copy nodes, if both input and output dtypes are same.
     """
-    kvcache_quant_details = pt2eq_context.get_kvcache_quant_details()
-    if not bc.get_pt_hpu_pt2eq_kvcq() or not kvcache_quant_details:
+
+    if not bc.get_pt_hpu_pt2eq_kvcq():
         return False
+
+    # Collect kvcache related misc details from captured graph
+    collect_kvcache_details(pt2eq_context, new_graph_module)
+    kvcache_quant_details = pt2eq_context.get_kvcache_quant_details()
+    if not kvcache_quant_details or not kvcache_quant_details.get("kvcache_quant_dtype", None):
+        return False
+
+    kvcache_details_loaded = pt2eq_context.get_kvcache_quant_details(loaded=True)
+    if kvcache_details_loaded:
+        logger.debug(f"[verify_kvcache_quant_effect] kvcache quant details loaded: {kvcache_details_loaded}")
+        logger.debug(f"[verify_kvcache_quant_effect] kvcache quant details now collected: {kvcache_quant_details}")
 
     # Get all placeholders of size=kvcache_size, dtype=kvcache_quant_dtype.
     def is_quantized_graph_input(node, kvcache_quant_dtype, kvcache_size):
@@ -120,7 +182,8 @@ def verify_kvcache_quant_effect(pt2eq_context, new_graph_module):
     kvcache_quant_dtype = kvcache_quant_details["kvcache_quant_dtype"]
     kvcache_size = tuple(kvcache_quant_details["kvcache_size"])
     quantized_graph_inputs = get_nodes(
-        new_graph_module, lambda n: is_quantized_graph_input(n, kvcache_quant_dtype, kvcache_size)
+        new_graph_module,
+        lambda n: is_quantized_graph_input(n, kvcache_quant_dtype, kvcache_size),
     )
     if len(quantized_graph_inputs) == 0:
         return False
@@ -137,7 +200,8 @@ def verify_kvcache_quant_effect(pt2eq_context, new_graph_module):
                 return True
         return False
 
-    quant_dtype = kvcache_quant_details["kvcache_quant_dtype"]
+    quant_dtype = kvcache_quant_details.get("kvcache_quant_dtype", None)
+    assert quant_dtype
     nodes_with_quantized_output = get_nodes(new_graph_module, lambda n: is_node_with_quantized_output(n, quant_dtype))
 
     allowed_list = [
@@ -188,7 +252,8 @@ def verify_kvcache_quant_effect(pt2eq_context, new_graph_module):
 
     # Rectify all nodes other than those in the allowed_list.
     remaining_nodes = []
-    orig_dtype = kvcache_quant_details["kvcache_orig_dtype"]
+    orig_dtype = kvcache_quant_details.get("kvcache_orig_dtype", None)
+    assert orig_dtype
     for node in nodes_with_quantized_output:
         if node.target.__name__ not in allowed_list:
             rectify_node(node, quant_dtype, orig_dtype)
@@ -256,7 +321,7 @@ def load_scales_from_calibrated_converted_module(
     return uncalibrated_converted_module
 
 
-def replace_pattern_for_kvcache_quant(pt2eq_context, module: torch.fx.GraphModule, kvcacheq_n):
+def replace_pattern_for_kvcache_quant(pt2eq_context, module: torch.fx.GraphModule):
     """
     Apply pattern matching logic to replace kv-cache with quantized kv-cache.
     This is possible if kv-cache allocation is done as part of model forward method.
@@ -271,26 +336,21 @@ def replace_pattern_for_kvcache_quant(pt2eq_context, module: torch.fx.GraphModul
     number_of_full_replacements_done = 0
     number_of_copy_replacements_done = 0
     number_of_index_copy_replacements_done = 0
-
-    kvcacheq_n_1 = kvcacheq_n
-    kvcacheq_n_2 = kvcacheq_n
+    kvcache_quant_dtype = None
 
     graph_changed = False
     # PASS-1: kv-cache related pattern matching
     for node in graph.nodes:
-
         # For prefill / prompt stage
         # Check if the node is a full.default operation
         new_full_node = None
-        if is_node(node, "full.default") and kvcacheq_n_1 > 0:
+        if is_node(node, "full.default"):
             logger.debug(f"Found full.default node: {node.name}")
             assert len(node.users) == 1
             full_user_node = next(iter(node.users), None)
             if is_node(full_user_node, "copy.default") and is_node(
                 full_user_node.args[1], "dequantize_per_tensor.default"
             ):
-                kvcacheq_n_1 = kvcacheq_n_1 - 1
-
                 graph_changed = True
                 copy_src = full_user_node.args[1]
                 nodes_to_remove.extend(
@@ -299,6 +359,7 @@ def replace_pattern_for_kvcache_quant(pt2eq_context, module: torch.fx.GraphModul
                     ]
                 )
 
+                kvcache_quant_dtype = copy_src.args[5]
                 full_user_node.replace_input_with(copy_src, copy_src.args[0])
 
                 full_user_node_tensor_meta = full_user_node.meta.get("tensor_meta", None)
@@ -306,7 +367,7 @@ def replace_pattern_for_kvcache_quant(pt2eq_context, module: torch.fx.GraphModul
 
                 new_full_user_node_tensor_meta = TensorMetadata(
                     shape=full_user_node_tensor_meta.shape,
-                    dtype=kvcache_quant_details["kvcache_quant_dtype"],
+                    dtype=kvcache_quant_dtype,
                     requires_grad=full_user_node_tensor_meta.requires_grad,
                     stride=full_user_node_tensor_meta.stride,
                     memory_format=full_user_node_tensor_meta.memory_format,
@@ -339,14 +400,12 @@ def replace_pattern_for_kvcache_quant(pt2eq_context, module: torch.fx.GraphModul
 
         # For token generation stage
         # Check if the node is an index_copy.default operation
-        if is_node(node, "index_copy.default") and kvcacheq_n_2 > 0:
+        if is_node(node, "index_copy.default"):
             input3_dequant_node = get_dequant_node(node.args[3])
             if input3_dequant_node is not None:
                 logger.debug("Dequant node found for input3")
 
             if input3_dequant_node:
-                kvcacheq_n_2 = kvcacheq_n_2 - 1
-
                 graph_changed = True
                 input3_quant_node = input3_dequant_node.args[0]
                 input3_dequant_node.replace_all_uses_with(input3_quant_node)
@@ -391,7 +450,8 @@ def replace_pattern_for_kvcache_quant(pt2eq_context, module: torch.fx.GraphModul
 
     # PASS-2: optimization: reuse of quantization nodes
     rop_node_with_multiple_users = get_nodes(
-        module, lambda n: is_node(n, "rotary_pos_embedding.default") and (len(n.users) > 1)
+        module,
+        lambda n: is_node(n, "rotary_pos_embedding.default") and (len(n.users) > 1),
     )
     for node in rop_node_with_multiple_users:
         node_users = []
@@ -443,6 +503,10 @@ def replace_pattern_for_kvcache_quant(pt2eq_context, module: torch.fx.GraphModul
                 logger.error("Node {} still have users:", node)
             graph.erase_node(node)
 
+    # Set kvcache_quant_dtype
+    if kvcache_quant_dtype and not pt2eq_context.get_kvcache_quant_details().get("kvcache_quant_dtype", None):
+        pt2eq_context.set_kvcache_quant_details(kvcache_quant_dtype=kvcache_quant_dtype)
+
     graph.lint()
     module.recompile()
     return module
@@ -469,11 +533,10 @@ def prepare_for_inference(pt2eq_context, new_graph_module, update_scale=False) -
     )
 
     # Apply kvcache pattern matching
-    k_or_v_cacheq_n = int(os.getenv("PT_HPU_PT2EQ_KVCQ_DEBUG_CNT", "32"))
-    kvcacheq_n = k_or_v_cacheq_n * 2
-    converted_module = replace_pattern_for_kvcache_quant(pt2eq_context, converted_module, kvcacheq_n)
+    converted_module = replace_pattern_for_kvcache_quant(pt2eq_context, converted_module)
 
     if not update_scale:
+        pt2eq_context.record_transformed_gm(converted_module, converted=True)
         return converted_module
 
     matching_transformed_module = pt2eq_context.get_transformed_gm(converted=True)
@@ -515,62 +578,6 @@ def check_kcache_or_vcache(node):
     return "", None
 
 
-def get_kvcache_quant_details(pt2eq_context, converted_gms: list[GraphModule]):
-    """
-    Inspect following kv-cache details and record in pt2eq_context:
-    1. if kv-cache allocation is done internally i.e. as part of model forward method,
-    2. kv-cache size in prefill and decode stage,
-    3. kv-cache original, quantized data type,
-    """
-    kvcache_allocation = None
-    kvcache_size = None
-    kvcache_size_prefill = None
-    kvcache_orig_dtype = None
-    kvcache_quant_dtype = None
-
-    for gm in converted_gms:
-        index_copy_node = get_node(gm, lambda n: is_node(n, "index_copy.default"))
-        if index_copy_node:
-            result = search_node(index_copy_node.args[3], "dequantize_per_tensor.default")
-            if result["found"]:
-                dquant_node = result["fx_node"]
-                kvcache_orig_dtype = dquant_node.kwargs["out_dtype"]
-                kvcache_quant_dtype = dquant_node.args[5]
-                index_copy_output_node_meta = index_copy_node.args[0].meta.get("val", None)
-                kvcache_size = list(index_copy_output_node_meta.size())
-                break
-
-    if kvcache_size is None:
-        return
-
-    kvcache_allocation = "external"
-    for gm in converted_gms:
-        full_nodes = get_nodes(gm, lambda n: is_node(n, "full.default"))
-        for node in full_nodes:
-            allocation_size = node.args[0]
-            if (
-                len(allocation_size) == len(kvcache_size)
-                and allocation_size[0] == kvcache_size[0]
-                and allocation_size[1] == kvcache_size[1]
-                and allocation_size[3] == kvcache_size[3]
-            ):
-                kvcache_size_prefill = list(allocation_size)
-                kvcache_allocation = "internal"
-                break
-        if kvcache_allocation == "internal":
-            break
-
-    kvcache_quant_details = {
-        "kvcache_allocation": kvcache_allocation,
-        "kvcache_size": kvcache_size,
-        "kvcache_size_prefill": kvcache_size_prefill,
-        "kvcache_orig_dtype": kvcache_orig_dtype,
-        "kvcache_quant_dtype": kvcache_quant_dtype,
-    }
-    pt2eq_context.set_kvcache_quant_details(kvcache_quant_details)
-    return kvcache_quant_details
-
-
 def handle_kvcache_quantization(pt2eq_context):
     """
     Use kv-cache quantization if kv-cache allocation is done internally i.e. as part of model forward method.
@@ -578,24 +585,21 @@ def handle_kvcache_quantization(pt2eq_context):
     if not bc.get_pt_hpu_pt2eq_kvcq():
         return
 
-    converted_gms = pt2eq_context.get_all_transformed_gms(converted=True)
-
-    kvcache_quant_details = get_kvcache_quant_details(pt2eq_context, converted_gms)
-    if not kvcache_quant_details or kvcache_quant_details["kvcache_allocation"] != "internal":
+    kvcache_quant_details = pt2eq_context.get_kvcache_quant_details()
+    if not kvcache_quant_details or kvcache_quant_details.get("kvcache_allocation", "external") != "internal":
         return
 
     kcache_qparams = []
     vcache_qparams = []
-    k_or_v_cacheq_n = int(os.getenv("PT_HPU_PT2EQ_KVCQ_DEBUG_CNT", "32"))
-    kvcacheq_n = k_or_v_cacheq_n * 2
 
+    converted_gms = pt2eq_context.get_all_transformed_gms(converted=True)
     for gm in converted_gms:
         logger.debug("================= BEFORE KVCQ PM PASS =================")
         logger.debug(gm.graph)
         logger.debug("=======================================================")
 
         # Pattern matching for each fx_graph
-        gm = replace_pattern_for_kvcache_quant(pt2eq_context, gm, kvcacheq_n)
+        gm = replace_pattern_for_kvcache_quant(pt2eq_context, gm)
 
         logger.debug("================= AFTER KVCQ PM PASS ==================")
         logger.debug(gm.graph)
@@ -605,15 +609,9 @@ def handle_kvcache_quantization(pt2eq_context):
         index_copy_nodes = get_nodes(gm, lambda n: is_node(n, "index_copy.default"))
         logger.debug(f"[PT2EQ-KVCQ] index_copy_nodes: {index_copy_nodes}")
 
-        kvcacheq_i = 0
-
         # Align kv-cache qparams inside each fx_graph
         # I.e. make kvcache qparams of index_copy input path same as that of output path
         for index_copy_node in index_copy_nodes:
-
-            if kvcacheq_i >= kvcacheq_n:
-                break
-
             input_quant_node = (
                 index_copy_node.args[3] if is_node(index_copy_node.args[3], "quantize_per_tensor.default") else None
             )
@@ -645,17 +643,13 @@ def handle_kvcache_quantization(pt2eq_context):
                 logger.debug(f"[PT2EQ-KVCQ] store decode graph vcache scale, zero-point: {q_scale}, {z_point}")
                 vcache_qparams.append((q_scale, z_point))
 
-            kvcacheq_i = kvcacheq_i + 1
-
         gm.graph.lint()
         gm.recompile()
 
     logger.debug(f"[PT2EQ-KVCQ] length of kcache_qparams: {len(kcache_qparams)}")
     logger.debug(f"[PT2EQ-KVCQ] length of vcache_qparams: {len(vcache_qparams)}")
-    assert len(kcache_qparams) == k_or_v_cacheq_n
     assert len(kcache_qparams) == len(vcache_qparams)
 
-    kvcacheq_i = 0
     kcache_qparams_list_idx = 0
     vcache_qparams_list_idx = 0
 
@@ -669,10 +663,6 @@ def handle_kvcache_quantization(pt2eq_context):
             continue
 
         for ful_node in ful_nodes:
-
-            if kvcacheq_i >= kvcacheq_n:
-                break
-
             output_copy_nodes = [
                 user
                 for user in ful_node.users
@@ -718,8 +708,6 @@ def handle_kvcache_quantization(pt2eq_context):
                     dequant_node_args[1] = q_scale
                     dequant_node_args[2] = z_point
                     user.args = tuple(dequant_node_args)
-
-            kvcacheq_i = kvcacheq_i + 1
 
         gm.graph.lint()
         gm.recompile()

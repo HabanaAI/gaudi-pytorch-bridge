@@ -36,7 +36,6 @@ check_aten_sdpa_fusion_flag = str_to_bool(os.environ.get("PT_HPU_USE_FUSE_SDPA_P
 
 
 class TestHpuFusedAttention:
-
     def compare_outputs(output1, output2, rtol=1e-05, atol=1e-08):
         """
         Compares two outputs, which can be tensors or tuples of tensors,
@@ -228,5 +227,9 @@ class TestHpuFusedAttention:
         ]
         with use_eager_fallback():  # to allow transpose.int to fallback to eager
             TestHpuFusedAttention._check_common(
-                dot_prod_attention, args1=args, contains=False, has_dropout=True, check_train=True
+                dot_prod_attention,
+                args1=args,
+                contains=False,
+                has_dropout=True,
+                check_train=True,
             )

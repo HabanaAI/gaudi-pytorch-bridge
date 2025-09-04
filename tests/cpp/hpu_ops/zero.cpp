@@ -13,15 +13,30 @@
  * limitations under the License.
  */
 
+#include "../utils/dtype_supported_on_device.h"
 #include "backend/habana_device/HPUGuardImpl.h"
 #include "util.h"
 
 #define TORCH_TYPE(type) torch::k##type
 #define SHAPE(...) __VA_ARGS__
 
+bool IsUnsupported(torch::ScalarType dtype) {
+  habana::HABANAGuardImpl device_guard;
+  device_guard.getDevice();
+  const auto device_type = habana::HPUDeviceContext::get_device().type();
+  if (!IsDtypeSupportedOnCurrentDevice(dtype) ||
+      (dtype == torch::kLong && device_type == synDeviceGaudi)) {
+    return true;
+  }
+  return false;
+}
+
 #define ZEROS_TEST(type, shape)                                         \
   TEST_F(HpuOpTest, zeros_##type) {                                     \
     torch::ScalarType dtype = TORCH_TYPE(type);                         \
+    if (IsUnsupported(dtype)) {                                         \
+      GTEST_SKIP();                                                     \
+    }                                                                   \
     auto expected = torch::zeros(shape, dtype);                         \
     auto result =                                                       \
         torch::zeros(shape, torch::TensorOptions(dtype).device("hpu")); \

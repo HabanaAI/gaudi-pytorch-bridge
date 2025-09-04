@@ -42,7 +42,6 @@ distributed_emulation_apply_if_enabled()
 
 
 def _setup_module_id(local_rank=-1, world_size=1):
-
     if HLS_MODULE_ID_VAR in os.environ.keys():
         # Module id already set, exiting.
         return
@@ -56,9 +55,7 @@ def _setup_module_id(local_rank=-1, world_size=1):
 
     if HABANA_VISIBLE_MODULES_VAR in os.environ.keys():
         visible_modules = os.environ[HABANA_VISIBLE_MODULES_VAR].split(",")
-        assert local_rank < len(
-            visible_modules
-        ), f"""There is not enough devices
+        assert local_rank < len(visible_modules), f"""There is not enough devices
         available for training. Please verify if {HABANA_VISIBLE_MODULES_VAR}
         is set correctly."""
         os.environ[HLS_MODULE_ID_VAR] = visible_modules[local_rank]
@@ -86,8 +83,7 @@ def _setup_environment_from_mpi():
         return
 
     if all(key in os.environ.keys() for key in OMPI_VARIABLES_MAPPING.keys()):
-        for mpi_env_var_name in OMPI_VARIABLES_MAPPING.keys():
-            env_var_name = OMPI_VARIABLES_MAPPING[mpi_env_var_name]
+        for mpi_env_var_name, env_var_name in OMPI_VARIABLES_MAPPING.items():
             os.environ[env_var_name] = os.environ[mpi_env_var_name]
 
     # This generally should be set outside but in case they are not,
@@ -131,7 +127,12 @@ initialize_distributed_hpu()
 
 
 def _create_process_group_hccl(backend_opts, pg_opts):
-    return ProcessGroupHCCL(backend_opts.store, backend_opts.group_rank, backend_opts.group_size, backend_opts.group_id)
+    return ProcessGroupHCCL(
+        backend_opts.store,
+        backend_opts.group_rank,
+        backend_opts.group_size,
+        backend_opts.group_id,
+    )
 
 
 torch.distributed.Backend.register_backend("hccl", _create_process_group_hccl, devices=["hpu"], extended_api=True)

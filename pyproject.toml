@@ -1,48 +1,48 @@
-[tool.black]
-line-length = 120
-
-[tool.isort]
-profile = "black"
-line_length = 120
-multi_line_output = 3
+[project]
+requires-python = ">=3.10"
 
 [tool.ruff]
-target-version = "py312"
+line-length = 120
 
 # Rules: https://docs.astral.sh/ruff/rules
 [tool.ruff.lint]
-select = ["F","E","W","I","UP","B","C4","EXE","PYI","SIM","ARG","FIX"]
+select = ["F","E","W","I","UP","B","C4","EXE","PYI","SIM","ARG","FIX","PL","N","PIE","S"]
 ignore = [
-   "E203",
-   "E501",
-   "E721",
+   "E501", # "Line too long" (88 chars)
+   "PLE1205", # "We use custom logger"
    "E722",
    "E741",
    "F811",
    "F841",
    "B006",
    "B008",
-   "B011",
    "B023",
    "B028",
    "B904",
-   "C417",
-   "EXE001",
+   "PLE0605",
+   "PLE0704",
+   "PLR0124",
+   "PLR0911",
+   "PLR0912",
+   "PLR0913",
+   "PLR0915",
+   "PLR1714",
+   "PLR1722",
+   "PLR2004",
+   "PLW0602",
+   "PLW0603",
+   "PLW0604",
+   "PLW1508",
+   "PLW2901",
    "PYI024",
    "PYI026",
    "PYI034",
    "PYI036",
-   "SIM101",
-   "SIM102",
    "SIM103",
    "SIM105",
    "SIM108",
    "SIM115",
-   "SIM116",
-   "SIM117",
    "SIM118",
-   "SIM201",
-   "SIM401",
    "ARG001",
    "ARG002",
    "ARG003",
@@ -51,6 +51,19 @@ ignore = [
    "FIX001",
    "FIX002",
    "FIX004",
+   "N801",
+   "N802",
+   "N803",
+   "N804",
+   "N805",
+   "N806",
+   "N812",
+   "N816",
+   "N818",
+   "N999",
+   "S101",
+   "S110",
+   "S307",
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -63,4 +76,17 @@ ignore = [
 "*_C.py" = [
     "F401",
     "F403",
+]
+".devops/*" = [
+    "S108",
+    "S603",
+    "S607",
+]
+"*tests/*" = [
+    "S108",
+    "S311",
+    "S603",
+]
+"*passes.py" = [
+    "S105",
 ]

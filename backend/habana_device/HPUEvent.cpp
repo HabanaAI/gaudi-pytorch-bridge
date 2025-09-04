@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,14 +13,12 @@
  * limitations under the License.
  */
 
-//#include "backend/habana_device/HPUAllocator.h"
 #include "backend/habana_device/HPUEvent.h"
 #include "backend/habana_device/HPUDevice.h"
 #include "habana_eager/eager_context.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 
-namespace at {
-namespace hpu {
+namespace at::hpu {
 HPUEvent::~HPUEvent() {
   if (is_created_ && habana::HPUDeviceContext::is_device_acquired())
     habana::HPUDeviceContext::get_device().delete_event(id_, flags_);
@@ -29,7 +27,7 @@ HPUEvent::~HPUEvent() {
 void HPUEvent::createEvent([[maybe_unused]] DeviceIndex device_index) {
   // get device
   auto& dev = habana::HPUDeviceContext::get_device();
-  device_index_ = dev.id();
+  device_index_ = static_cast<c10::DeviceIndex>(dev.id());
   id_ = dev.create_event(flags_);
   is_created_ = true;
   PT_DEVICE_DEBUG("created event with ::", id_);
@@ -113,6 +111,7 @@ void HPUEvent::block(const c10::hpu::HPUStream& stream) {
     }
     auto& device = habana::HPUDeviceContext::get_device();
     device.wait_event(id_, stream.stream());
+    device.flush_host_events_on_stream(stream.stream());
   }
 }
 
@@ -122,7 +121,7 @@ float HPUEvent::elapsed_time(const HPUEvent& other) const {
       is_created_ && other.isCreated(),
       "Both events must be recorded before calculating elapsed time.");
   auto& device = habana::HPUDeviceContext::get_device();
-  return device.elapsed_time(id_, other.id_);
+  return static_cast<float>(device.elapsed_time(id_, other.id_));
 }
 
 // Note: hpuEventSynchronize can be safely called from any device
@@ -130,8 +129,8 @@ void HPUEvent::synchronize() const {
   if (is_created_) {
     auto& device = habana::HPUDeviceContext::get_device();
     device.synchronize_event(id_);
+    device.flush_host_events();
   }
 }
 
-} // namespace hpu
-} // namespace at
+} // namespace at::hpu

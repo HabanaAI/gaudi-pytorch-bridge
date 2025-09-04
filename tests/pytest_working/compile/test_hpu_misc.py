@@ -21,7 +21,6 @@ from test_utils import compile_function_if_compile_mode, is_pytest_mode_compile
 
 
 def test_hpu_disallow_torch_compile():
-
     def fn(x):
         return x + 1
 
@@ -63,3 +62,21 @@ def test_hpu_disallow_torch_compile():
             exception_raised = True
 
         assert not exception_raised, "No exception is expected for eager allowing compile"
+
+
+def test_hpu_fallback_random_unused_input(monkeypatch):
+    monkeypatch.setattr(torch._inductor.config, "fallback_random", True)
+    device = "hpu"
+
+    def fn(t1, t2):
+        t3 = torch.empty(1, device=device)
+        t3.uniform_(0, 1)
+        return t1.add(t2)
+
+    t1 = torch.ones(1, device=device)
+    t2 = torch.ones(1, device=device) * 2
+
+    compiled_fn = compile_function_if_compile_mode(fn)
+    result = compiled_fn(t1, t2)
+
+    assert torch.allclose(result, t1 + t2)

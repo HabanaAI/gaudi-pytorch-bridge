@@ -36,6 +36,7 @@
 #include "backend/synapse_helpers/env_flags.h"
 #include "common/utils.h"
 #include "habana_helpers/logging.h"
+#include "habana_helpers/towl.h"
 #include "habana_kernels/lazy_kernels.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_kernels/tensor_shape_kernels.h"
@@ -157,7 +158,7 @@ ProcessGroupHCCL::ProcessGroupHCCL(
     int rank,
     int size,
     std::string group_name)
-    : ProcessGroupHcclBase(store, rank, size, group_name), hcclCommCounter_(0) {
+    : ProcessGroupHcclBase(store, rank, size, group_name) {
   PT_DISTRIBUTED_DEBUG(
       "Created ProcessGroupHCCL name:",
       group_name_,
@@ -377,7 +378,7 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::pointToPoint(
   for (size_t i = 0; i < tensors.size(); ++i) {
     auto deviceCtxt = deviceCtxts[i];
     synStreamHandle collective_stream = commStreams[i];
-    synapse_helpers::device_ptr tensor_storage_ptr =
+    auto tensor_storage_ptr =
         (synapse_helpers::device_ptr)tensors[i].storage().data_ptr().get();
     deviceCtxt->prepare_stream(collective_stream, tensor_storage_ptr);
 
@@ -455,8 +456,7 @@ void ProcessGroupHCCL::groupStart() {
 
   auto pr = std::make_shared<std::promise<bool>>();
   std::future<bool> fut = pr->get_future();
-  auto fn = hcclGroupStart;
-  auto func = [fn = fn, pr = pr]() mutable {
+  auto func = [pr = pr]() mutable {
     hcclResult_t hccl_result = hcclSuccess;
     hccl_result = hcclGroupStart();
     HABANA_ASSERT(
@@ -476,8 +476,7 @@ void ProcessGroupHCCL::groupEnd() {
   auto pr = std::make_shared<std::promise<bool>>();
 
   std::future<bool> fut = pr->get_future();
-  auto fn = hcclGroupStart;
-  auto func = [fn = fn, pr = pr]() mutable {
+  auto func = [pr = pr]() mutable {
     hcclResult_t hccl_result = hcclSuccess;
     hccl_result = hcclGroupEnd();
     HABANA_ASSERT(
@@ -540,9 +539,9 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::collective(
 
     auto deviceCtxt = deviceCtxts[i];
     synStreamHandle collective_stream = commStreams[i];
-    synapse_helpers::device_ptr input_storage_ptr =
+    auto input_storage_ptr =
         (synapse_helpers::device_ptr)in_view_vec[i].storage().data_ptr().get();
-    synapse_helpers::device_ptr output_storage_ptr =
+    auto output_storage_ptr =
         (synapse_helpers::device_ptr)out_view_vec[i].storage().data_ptr().get();
 
     std::vector<synapse_helpers::shared_event> event_lists = {};
@@ -627,6 +626,7 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::collective(
           [resource_holder, &recipe_counter]() mutable {
             resource_holder.reset();
             recipe_counter.decrease_and_notify();
+            towl::emitCollectiveFinished("lazy");
           });
       pr->set_value(hccl_result == hcclSuccess);
       return true;
@@ -649,6 +649,7 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::collective(
         HABANA_ASSERT(syn_result == synSuccess, "synStreamSynchronize failed");
       }
     }
+    towl::emitCollectiveLaunch("lazy");
   }
 
   for (size_t i = 0; i < in_view_vec.size(); ++i) {
@@ -789,6 +790,6 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, module) {
   processGroupHccl.def(
       "_shutdown",
       [](const c10::intrusive_ptr<::c10d::ProcessGroupHCCL>& self) {
-        return self->shutdown(std::nullopt);
+        self->shutdown(std::nullopt);
       });
 };

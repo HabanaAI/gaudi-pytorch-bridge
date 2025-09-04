@@ -29,10 +29,12 @@ import itertools
 from typing import Any
 
 import habana_frameworks.torch.internal.bridge_config as bc
-from habana_frameworks.torch.core.observer import AbsMaxObserver
+from habana_frameworks.torch import hpu
+from habana_frameworks.torch.core.observer import AbsMaxObserver, SimplePerChannelAbsMaxObserver
 from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
 
 import torch
+from torch._ops import OpOverload as TorchOpOverload
 from torch.ao.quantization.observer import PlaceholderObserver
 from torch.ao.quantization.qconfig import _ObserverOrFakeQuantizeConstructor
 from torch.ao.quantization.quantizer.x86_inductor_quantizer import (
@@ -59,7 +61,25 @@ from torch.fx.passes.utils.source_matcher_utils import (
 
 logger = get_compile_backend_logger()
 
-QUANTIZER_MIN_MAX = {torch.int8: (-128, 127), torch.float8_e4m3fn: (-240, 240), torch.float8_e5m2: (-240, 240)}
+
+def is_fp8_e4m3_on_gaudi2():
+    device_name = hpu.get_device_name()
+    if device_name == "GAUDI2":
+        try:
+            fp8_e4m3_range_on_gaudi2 = torch.finfo(torch.float8_e4m3fnuz)
+            return True
+        except:
+            pass
+    return False
+
+
+QUANTIZER_MIN_MAX = {
+    torch.int8: (int(torch.iinfo(torch.int8).min), int(torch.iinfo(torch.int8).max)),
+    torch.float8_e4m3fn: (int(torch.finfo(torch.float8_e4m3fnuz).min), int(torch.finfo(torch.float8_e4m3fnuz).max))
+    if is_fp8_e4m3_on_gaudi2()
+    else (int(torch.finfo(torch.float8_e4m3fn).min), int(torch.finfo(torch.float8_e4m3fn).max)),
+    torch.float8_e5m2: (int(torch.finfo(torch.float8_e5m2).min), int(torch.finfo(torch.float8_e5m2).max)),
+}
 extra_args_act: dict[str, Any] = {"for_observer": {"eps": 2**-12, "backoff_margin": 2}}
 extra_args_weight: dict[str, Any] = {"for_observer": {"eps": 2**-12, "backoff_margin": 1}}
 
@@ -108,7 +128,6 @@ def _update_output_qspec(output_node: Node, qspec: QuantizationSpec) -> None:
 # Habana Quantizer definition
 # ======================================================================================
 class habana_quantizer(Quantizer):
-
     def __init__(self):
         super().__init__()
         self.global_config: QuantizationConfig = None  # type: ignore[assignment]
@@ -133,7 +152,6 @@ class habana_quantizer(Quantizer):
     def annotate_symmetric_config(
         self, model: torch.fx.GraphModule, config: QuantizationConfig
     ) -> torch.fx.GraphModule:
-
         if bc.get_pt_hpu_pt2eq_kvcq():
             self._annotate_kvcache(model, config)
 
@@ -141,6 +159,7 @@ class habana_quantizer(Quantizer):
         self._annotate_linear(model, config)
         self._annotate_matmul(model, config)
         self._annotate_maxpool2d(model, config)
+        self._annotate_sdpa(model, config)
 
         return model
 
@@ -190,14 +209,24 @@ class habana_quantizer(Quantizer):
         if len(conv_partitions) == 0:
             return
 
+        def is_conv_node(node):
+            return node.op == "call_function" and (
+                node.target == torch.ops.aten.convolution.default
+                or node.target == torch.ops.aten.conv2d.default
+                or (
+                    isinstance(node.target, TorchOpOverload)
+                    and (node.target._name == "aten::convolution" or node.target._name == "aten::conv2d")
+                )
+            )
+
         conv_partitions = list(itertools.chain(*conv_partitions.values()))
 
         for conv_partition in conv_partitions:
             if len(conv_partition.output_nodes) > 1:
                 raise ValueError("conv partition has more than one output node")
             conv_node = conv_partition.output_nodes[0]
-            if conv_node.op != "call_function" or conv_node.target != torch.ops.aten.convolution.default:
-                raise ValueError(f"{conv_node} is not an aten conv2d operator")
+            if not is_conv_node(conv_node):
+                raise ValueError(f"{conv_node} is not a convolution operator!")
             # skip annotation if it is already annotated
             if _is_annotated([conv_node]):
                 continue
@@ -236,17 +265,40 @@ class habana_quantizer(Quantizer):
                 for p in partitions:
                     act_node = p.input_nodes[0]
                     output_node = p.output_nodes[0]
+                    assert output_node.op == "call_function"
                     weight_node = None
                     bias_node = None
-                    for node in p.params:
-                        try:
-                            weight_or_bias = getattr(gm, node.target)  # type: ignore[arg-type]
-                        except:
-                            continue
-                        if weight_or_bias.ndim == 2:  # type: ignore[attr-defined]
-                            weight_node = node
-                        if weight_or_bias.ndim == 1:  # type: ignore[attr-defined]
-                            bias_node = node
+
+                    if output_node.target in [
+                        torch.ops.aten.view.default,
+                        torch.ops.aten._unsafe_view.default,
+                    ]:
+                        output_node = output_node.args[0]
+
+                    if output_node.target in [
+                        torch.ops.aten.linear.default,
+                    ]:
+                        weight_node = output_node.args[1]
+                        if len(output_node.args) > 2:
+                            bias_node = output_node.args[2]
+
+                    if output_node.target in [
+                        torch.ops.aten.mm.default,
+                        torch.ops.aten.addmm.default,
+                    ]:
+                        transpose_node = None
+                        for node in p.nodes:
+                            if node.op == "call_function" and node.target in [
+                                torch.ops.aten.transpose.int,
+                            ]:
+                                transpose_node = node
+                                break
+                        assert transpose_node is not None
+                        weight_node = transpose_node.args[0]
+                        for node in p.params:
+                            if node.op == "get_attr" and (node != weight_node):
+                                bias_node = node
+                                break
 
                     if weight_node is None:
                         logger.warn("No weight found in Linear pattern")
@@ -290,14 +342,27 @@ class habana_quantizer(Quantizer):
         if len(module_partitions) == 0:
             return
 
+        def is_max_pool_node(node):
+            return node.op == "call_function" and (
+                node.target == torch.ops.aten.max_pool2d_with_indices.default
+                or node.target == torch.ops.aten.max_pool2d.default
+                or (
+                    isinstance(node.target, TorchOpOverload)
+                    and (
+                        node.target._name == "aten::max_pool2d_with_indices" or node.target._name == "aten::max_pool2d"
+                    )
+                )
+            )
+
         maxpool_partitions = list(itertools.chain(*module_partitions.values()))
 
         for maxpool_partition in maxpool_partitions:
             output_node = maxpool_partition.output_nodes[0]
             maxpool_node = None
             for n in maxpool_partition.nodes:
-                if n.target == torch.ops.aten.max_pool2d_with_indices.default:
+                if is_max_pool_node(n):
                     maxpool_node = n
+                    break
             if _is_annotated([output_node, maxpool_node]):  # type: ignore[list-item]
                 continue
 
@@ -309,9 +374,6 @@ class habana_quantizer(Quantizer):
                 input_qspec_map={
                     input_act: act_qspec,
                 },
-                _annotated=True,
-            )
-            output_node.meta["quantization_annotation"] = QuantizationAnnotation(
                 output_qspec=SharedQuantizationSpec((input_act, maxpool_node)),
                 _annotated=True,
             )
@@ -337,9 +399,53 @@ class habana_quantizer(Quantizer):
                 nodes_to_mark_annotated = list(p.nodes)
                 _mark_nodes_as_annotated(nodes_to_mark_annotated)
 
+    def _annotate_sdpa(self, gm: torch.fx.GraphModule, quantization_config: QuantizationConfig) -> None:
+        module_partitions = get_source_partitions(
+            gm.graph,
+            [
+                torch.ops.hpu.sdpa_recomp_fwd_non_dropout.default,
+                torch.ops.hpu.sdpa_recomp_fwd,
+            ],
+        )
+
+        if len(module_partitions) == 0:
+            return
+
+        def is_qkv(node):
+            while node and node.op == "call_function":
+                if (
+                    node.target.__name__ == "index_copy.default"
+                    or node.target.__name__ == "rotary_pos_embedding.default"
+                    or node.target.__name__ == "mm.default"
+                ):
+                    return True
+                node = node.args[0]
+            return False
+
+        input_act_qspec = get_input_act_qspec(quantization_config)
+        output_act_qspec = get_output_act_qspec(quantization_config)
+        for module_or_fn_type, partitions in module_partitions.items():
+            if (
+                module_or_fn_type == torch.ops.hpu.sdpa_recomp_fwd
+                or module_or_fn_type == torch.ops.hpu.sdpa_recomp_fwd_non_dropout.default
+            ):
+                for p in partitions:
+                    output_node = p.output_nodes[0]
+                    if p.input_nodes[0] and is_qkv(p.input_nodes[0]):
+                        _update_input_qspec_map(p, p.input_nodes[0], input_act_qspec)
+                    if p.input_nodes[1] and is_qkv(p.input_nodes[1]):
+                        _update_input_qspec_map(p, p.input_nodes[1], input_act_qspec)
+                    if p.input_nodes[2] and is_qkv(p.input_nodes[2]):
+                        _update_input_qspec_map(p, p.input_nodes[2], input_act_qspec)
+                    if len(p.input_nodes) > 3 and p.input_nodes[3] and is_qkv(p.input_nodes[3]):
+                        _update_input_qspec_map(p, p.input_nodes[3], input_act_qspec)
+                    _update_output_qspec(output_node, output_act_qspec)
+
+                    nodes_to_mark_annotated = list(p.nodes)
+                    _mark_nodes_as_annotated(nodes_to_mark_annotated)
+
     def validate(self, model: torch.fx.GraphModule) -> None:
         """validate if the annotated graph is supported by the backend"""
-        pass
 
     @classmethod
     def get_supported_operators(cls) -> list[OperatorConfig]:
@@ -349,8 +455,10 @@ class habana_quantizer(Quantizer):
 # ======================================================================================
 # Habana Quant Config definition
 # ======================================================================================
-def habana_quant_config_symmetric(quant_dtype):
-    logger.debug(f"habana_quant_config_symmetric: quantizer dtype is {quant_dtype}")
+def habana_quant_config_symmetric(quant_dtype, weight_qscheme="ptq"):
+    logger.debug(
+        f"habana_quant_config_symmetric: quantized data type is {quant_dtype}, weight quant scheme is {weight_qscheme}"
+    )
     quant_min, quant_max = QUANTIZER_MIN_MAX[quant_dtype]
 
     act_observer_or_fake_quant_ctr: _ObserverOrFakeQuantizeConstructor = AbsMaxObserver
@@ -365,12 +473,18 @@ def habana_quant_config_symmetric(quant_dtype):
     )
 
     weight_observer_or_fake_quant_ctr: _ObserverOrFakeQuantizeConstructor = AbsMaxObserver
+    qscheme = torch.per_tensor_symmetric
+
+    if weight_qscheme == "pcq" or bc.get_pt_hpu_pt2eq_use_weight_pcq():
+        weight_observer_or_fake_quant_ctr: _ObserverOrFakeQuantizeConstructor = SimplePerChannelAbsMaxObserver
+        qscheme = torch.per_channel_symmetric
+
     weight_observer_or_fake_quant_args = extra_args_weight.get("for_observer").copy()
     weight_quantization_spec = QuantizationSpec(
         dtype=quant_dtype,
         quant_min=quant_min,
         quant_max=quant_max,
-        qscheme=torch.per_tensor_symmetric,
+        qscheme=qscheme,
         ch_axis=0,
         is_dynamic=False,
         observer_or_fake_quant_ctr=weight_observer_or_fake_quant_ctr.with_args(**weight_observer_or_fake_quant_args),

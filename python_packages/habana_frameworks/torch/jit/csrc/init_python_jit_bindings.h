@@ -18,8 +18,6 @@
 #include <torch/extension.h>
 #include "pybind11/stl.h"
 
-namespace habana_torch {
-namespace jit {
+namespace habana_torch::jit {
 TORCH_API void InitBindings(pybind11::module& m);
-} // namespace jit
-} // namespace habana_torch
+} // namespace habana_torch::jit

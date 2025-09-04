@@ -48,7 +48,6 @@ def test_hpu_slice():
     assert torch.allclose(hpu, cpu, 0.001, 0.001)
 
     def func3(dev, k):
-
         t = torch.zeros(12, 13, 14).to(dev)
         t[1:11:k].add_(1)
         t[:, 1:11:k].add_(1)

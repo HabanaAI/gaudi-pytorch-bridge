@@ -15,12 +15,20 @@
 #
 ###############################################################################
 
+import math
+
+import habana_frameworks.torch.utils.experimental as htexp
 from habana_frameworks.torch import _hpu_C
-from habana_frameworks.torch.utils.version_checker import is_pytorch_older_than
+from habana_frameworks.torch.hpu import get_device_name
 
 import torch
 from torch._decomp import global_decomposition_table
-from torch._meta_registrations import _compute_reduction_shape, register_meta, utils
+from torch._meta_registrations import (
+    _broadcast_shapes,
+    _compute_reduction_shape,
+    register_meta,
+    utils,
+)
 from torch._ops import HigherOrderOperator, OpOverload
 
 _meta_lib_dont_use_me_use_register_meta_for_hpu = torch.library.Library("hpu", "IMPL", "Meta")
@@ -78,6 +86,19 @@ def meta_cast_to_fp8_v2_scalar_list(input, scale, stochastic=False, is_amax=Fals
     return meta_cast_to_fp8_v2_common(input, is_amax, dtype)
 
 
+@register_meta([torch.ops.hpu.cast_to_fp8_just_in_time.default])
+def meta_cast_to_fp8_just_in_time(input, block_shape, *, out_dtype=None, scale_dtype=None):
+    out_dtype = out_dtype if out_dtype else torch.float8_e4m3fn
+    scale_dtype = scale_dtype if scale_dtype else input.dtype
+    scale_shape = input.shape
+    scale_shape[-2] /= block_shape[0]
+    scale_shape[-1] /= block_shape[1]
+
+    out = input.new_empty(input.shape, dtype=out_dtype)
+    scale = input.new_empty(scale_shape, dtype=scale_dtype)
+    return out, scale
+
+
 @register_meta([torch.ops.hpu.cast_to_fp8_hybrid.default])
 def meta_cast_to_fp8_hybrid(input, scale_152=None, scale_143=None, stochastic=False, is_amax=False):
     out_152 = input.new_empty(input.shape, dtype=torch.float8_e5m2)
@@ -93,14 +114,11 @@ def meta_convert_from_int4_common(input, out_dtype):
     return input.new_empty(output_shape, dtype=out_dtype)
 
 
-@register_meta([torch.ops.hpu.convert_from_int4.default])
-def meta_convert_from_int4(input, scale, zero_point, out_dtype):
-    return meta_convert_from_int4_common(input, out_dtype)
-
-
-@register_meta([torch.ops.hpu.convert_from_uint4.default])
-def meta_convert_from_uint4(input, scale, zero_point, out_dtype):
-    return meta_convert_from_int4_common(input, out_dtype)
+@register_meta([torch.ops.hpu.convert_from_int4.default, torch.ops.hpu.convert_from_uint4.default])
+def meta_convert_from_int4(input, scale, zero_point, out_dtype, group_index=None, *, disable_fp8_clipping=False):
+    output_shape = list(input.shape)
+    output_shape[-1] *= 8
+    return input.new_empty(output_shape, dtype=out_dtype)
 
 
 @register_meta([torch.ops.hpu.cast_from_fp8.default])
@@ -133,6 +151,23 @@ def meta_fp8_gemm(
     out,
 ):
     return out
+
+
+@register_meta(
+    [torch.ops.hpu._fp8_gemm_bwd.default, torch.ops.hpu._fp8_gemm_bwd.scalar, torch.ops.hpu._fp8_gemm_bwd.scalar_list]
+)
+def meta_fp8_gemm_bwd(
+    gradIn,
+    A,
+    trans_A,
+    B,
+    trans_B,
+    A_scale_inv,
+    B_scale_inv,
+    has_bias,
+    has_acc,
+):
+    return A.new_empty(A.shape), B.new_empty(B.shape), gradIn.new_empty(gradIn.shape), gradIn.new_empty(gradIn.shape)
 
 
 def meta_fp8_gemm_v2_common(
@@ -322,40 +357,20 @@ def meta_optimizer_ema(model_inputs, updated_ema, decay):
     return
 
 
-if is_pytorch_older_than("2.7.0"):
-
-    @register_meta([torch.ops.hpu.optimizer_adamw.default])
-    def meta_optimizer_adamw(
-        gradient_vec,
-        weight_vec,
-        exp_avg_vec,
-        exp_avg_sq_vec,
-        lr,
-        neg_step_t,
-        beta1,
-        beta2,
-        epsilon,
-        weight_decay,
-        has_weight_decay,
-    ):
-        return
-
-else:
-
-    @register_meta([torch.ops.hpu.optimizer_adamw.default])
-    def meta_optimizer_adamw(
-        gradient_vec,
-        weight_vec,
-        exp_avg_vec,
-        exp_avg_sq_vec,
-        neg_step_t,
-        beta1,
-        beta2,
-        epsilon,
-        weight_decay,
-        has_weight_decay,
-    ):
-        return
+@register_meta([torch.ops.hpu.optimizer_adamw.default])
+def meta_optimizer_adamw(
+    gradient_vec,
+    weight_vec,
+    exp_avg_vec,
+    exp_avg_sq_vec,
+    neg_step_t,
+    beta1,
+    beta2,
+    epsilon,
+    weight_decay,
+    has_weight_decay,
+):
+    return
 
 
 @register_meta([torch.ops.hpu.optimizer_sgd.default])
@@ -378,6 +393,45 @@ def meta_masked_batch_gemm(a, b, mask_a, mask_b, trans_a, trans_b):
 @register_meta([torch.ops.hpu.scaled_triangular_softmax.default])
 def meta_scaled_triangular_softmax(input, inv_scale_attn, exp_sum_recpr=None, sum=None):
     return input.new_empty(input.shape)
+
+
+@register_meta([torch.ops.hpu.flex_attention_score_mod])
+def flex_attention_score_mod(score, b, h, q_idx, kv_idx):
+    return score
+
+
+@register_meta([torch.ops.hpu.flex_attention_bwd_score_mod])
+def flex_attention_bwd_score_mod(score, b, h, q_idx, kv_idx, grad):
+    return score
+
+
+@register_meta([torch.ops.hpu.flex_attention_mask_mod])
+def flex_attention_mask_mod(b, h, q_idx, kv_idx):
+    out_shape = (b.size(0), h.size(1), q_idx.size(2), kv_idx.size(3))
+    return kv_idx.new_empty(out_shape, dtype=torch.bool)
+
+
+@register_meta([torch.ops.hpu.flex_attention_pack_tensors])
+def flex_attention_pack_tensors(h, q, kv):
+    return h.new_empty(h.shape)
+
+
+@register_meta([torch.ops.hpu.flex_attention_fwd])
+def flex_attention_fwd(q, k, v, block_size, is_apply_mask_1, is_ret_lse):
+    batch_size, num_heads, seq_len_q, q_head_dim = q.shape
+    v_head_dim = v.size(-1)
+    out_shape = (batch_size, num_heads, seq_len_q, v_head_dim)
+    if is_ret_lse:
+        lse_shape = (*q.shape[:-1], 1)
+        lse = q.new_empty(lse_shape)
+        return q.new_empty(out_shape), lse, None
+    return q.new_empty(out_shape), None, None
+
+
+@register_meta([torch.ops.hpu.flex_attention_bwd])
+def flex_attention_bwd(q, k, v, o, lse, do, glse, block_size, is_apply_mask_1):
+    # return grads shape
+    return input.new_empty(q.shape), input.new_empty(k.shape), input.new_empty(v.shape)
 
 
 @register_meta([torch.ops.hpu.scaled_triangular_softmax_retain.default])
@@ -415,35 +469,16 @@ def meta_habana_randint(seed, low, high, shape_tensor, dtype=torch.long, layout=
     return torch.empty(shape_tensor, dtype=dtype, device="meta")
 
 
-@register_meta([torch.ops.hpu.habana_randint_checkpoint])
-def meta_habana_randint_checkpoint(
-    seed, low, high, shape_tensor, dtype=torch.long, layout=None, device=None, pin_memory=False
-):
-    return (torch.empty_like(seed), torch.empty(shape_tensor, dtype=dtype, device="meta"))
-
-
 @register_meta([torch.ops.hpu.habana_bernoulli])
 def meta_habana_bernoulli(seed, value):
-    return torch.rand_like(value)
+    return value.new_empty(value.shape)
 
 
-@register_meta([torch.ops.hpu.habana_bernoulli_checkpoint])
-def meta_habana_bernoulli_checkpoint(seed, value):
-    return (torch.empty_like(seed), torch.rand_like(value))
-
-
-@register_meta([torch.ops.hpu.habana_native_dropout])
-def meta_habana_native_dropout(seed, input, p, train):
+@register_meta([torch.ops.hpu.habana_native_dropout, torch.ops.hpu.habana__fused_dropout])
+def meta_habana_native_dropout(seed, input, *args):
     ref_tensor = input if isinstance(input, torch.Tensor) else seed
     shape = ref_tensor.shape
     return (torch.empty_like(ref_tensor), torch.empty(shape, dtype=torch.bool, device="meta"))
-
-
-@register_meta([torch.ops.hpu.habana_native_dropout_checkpoint])
-def meta_habana_native_dropout_checkpoint(seed, input, p, train):
-    ref_tensor = input if isinstance(input, torch.Tensor) else seed
-    shape = ref_tensor.shape
-    return (torch.empty_like(seed), torch.empty_like(ref_tensor), torch.empty(shape, dtype=torch.bool, device="meta"))
 
 
 @register_meta([torch.ops.hpu.habana_randn])
@@ -451,29 +486,14 @@ def meta_habana_randn(seed, shape_tensor, dtype=torch.float, layout=None, device
     return torch.empty(shape_tensor, dtype=dtype, device="meta")
 
 
-@register_meta([torch.ops.hpu.habana_randn_checkpoint])
-def meta_habana_randn_checkpoint(seed, shape_tensor, dtype=torch.float, layout=None, device="meta", pin_memory=False):
-    return (torch.empty_like(seed), torch.empty(shape_tensor, dtype=dtype, device="meta"))
-
-
 @register_meta([torch.ops.hpu.habana_randperm])
 def meta_habana_randperm(seed, shape, dtype=torch.int64, layout=None, device="meta", pin_memory=False):
     return torch.empty(shape, dtype=dtype, device="meta")
 
 
-@register_meta([torch.ops.hpu.habana_randperm_checkpoint])
-def meta_habana_randperm_checkpoint(seed, shape, dtype=torch.int64, layout=None, device="meta", pin_memory=False):
-    return (torch.empty_like(seed), torch.empty(shape, dtype=dtype, device="meta"))
-
-
 @register_meta([torch.ops.hpu.habana_poisson])
 def meta_habana_poisson(seed, value):
-    return torch.rand_like(value)
-
-
-@register_meta([torch.ops.hpu.habana_poisson_checkpoint])
-def meta_habana_poisson_checkpoint(seed, value):
-    return (torch.empty_like(seed), torch.rand_like(value))
+    return value.new_empty(value.shape)
 
 
 @register_meta([torch.ops.hpu.habana_rand])
@@ -481,19 +501,9 @@ def meta_habana_rand(seed, shape_tensor, dtype=torch.float, layout=None, device=
     return torch.empty(shape_tensor, dtype=dtype, device="meta")
 
 
-@register_meta([torch.ops.hpu.habana_rand_checkpoint])
-def meta_habana_rand_checkpoint(seed, shape_tensor, dtype=torch.float, layout=None, device="meta", pin_memory=False):
-    return (torch.empty_like(seed), torch.empty(shape_tensor, dtype=dtype, device="meta"))
-
-
 @register_meta([torch.ops.hpu.habana_uniform])
 def meta_habana_uniform(seed, self, low=0.0, high=1.0):
-    return torch.empty(self.shape, dtype=self.dtype, device="meta")
-
-
-@register_meta([torch.ops.hpu.habana_uniform_checkpoint])
-def meta_habana_uniform_checkpoint(seed, self, low=0.0, high=1.0):
-    return (torch.empty_like(seed), torch.empty(self.shape, dtype=self.dtype, device="meta"))
+    return self.new_empty(self.shape)
 
 
 @register_meta([torch.ops.hpu.habana_multinomial])
@@ -504,14 +514,54 @@ def meta_habana_multinomial(seed, value, num_samples, replacement=False):
     return torch.empty((value.size()[0], num_samples), dtype=torch.int64, device="meta")
 
 
-@register_meta([torch.ops.hpu.habana_multinomial_checkpoint])
-def meta_habana_multinomial_checkpoint(seed, value, num_samples, replacement=False):
-    dim = value.ndim
-    if dim == 1:
-        rst = torch.empty((num_samples,), dtype=torch.int64, device="meta")
+@register_meta([torch.ops.hpu.habana_exponential])
+def meta_habana_exponential(seed, self, lamd=1):
+    return self.new_empty(self.shape)
+
+
+@register_meta([torch.ops.hpu.habana_random_wrapper])
+def meta_habana_random_wrapper(self, low, high):
+    return self.new_empty(self.shape)
+
+
+@register_meta([torch.ops.hpu.habana_random])
+def meta_habana_random(seed, self, low, high):
+    return self.new_empty(self.shape)
+
+
+@register_meta(
+    [
+        torch.ops.hpu.habana_normal.Tensor_Tensor,
+        torch.ops.hpu.habana_normal.Tensor_float,
+        torch.ops.hpu.habana_normal.float_Tensor,
+        torch.ops.hpu.habana_normal.float_float,
+    ]
+)
+def meta_habana_normal_tt(seed, mean, std, *args, **kwargs):
+    is_mean_tensor = isinstance(mean, torch.Tensor)
+    is_std_tensor = isinstance(std, torch.Tensor)
+    layout = torch.strided
+    dtype = torch.result_type(mean, std)
+
+    if is_mean_tensor and is_std_tensor:
+        shape = _broadcast_shapes(mean.shape, std.shape)
+    elif is_mean_tensor:
+        shape = mean.shape
+    elif is_std_tensor:
+        shape = std.shape
     else:
-        rst = torch.empty((value.size()[0], num_samples), dtype=torch.int64, device="meta")
-    return (torch.empty_like(seed), rst)
+        shape = args[0]
+        kwarg_layout = kwargs.get("layout")
+        if kwarg_layout is not None:
+            layout = kwarg_layout
+
+        kwarg_dtype = kwargs.get("dtype")
+        if kwarg_dtype is None:
+            dtype = torch.get_default_dtype()
+        else:
+            dtype = kwarg_dtype
+
+    return seed.new_empty(shape, dtype=dtype, layout=layout)
 
 
 @register_meta([torch.ops.hpu.scaled_masked_triangular_softmax.default])
@@ -547,21 +597,54 @@ def meta_sdpa_recomp_fwd_helper(q, k, v, requires_backward, softmax_mode):
 
 @register_meta([torch.ops.hpu.sdpa_recomp_fwd.default])
 def meta_sdpa_recomp_fwd(
-    q, k, v, attn_mask, dropout_p, is_causal, scale, requires_backward, softmax_mode, valid_seq_len, seq_padding_type
+    q,
+    k,
+    v,
+    attn_mask,
+    dropout_p,
+    is_causal,
+    scale,
+    requires_backward,
+    softmax_mode,
+    valid_seq_len,
+    seq_padding_type,
+    window_size=(-1, -1),
 ):
     return meta_sdpa_recomp_fwd_helper(q, k, v, requires_backward, softmax_mode)
 
 
 @register_meta([torch.ops.hpu.sdpa_recomp_fwd_dropout.default])
 def meta_sdpa_recomp_fwd_dropout(
-    q, k, v, attn_mask, dropout_p, is_causal, scale, requires_backward, softmax_mode, valid_seq_len, seq_padding_type
+    q,
+    k,
+    v,
+    attn_mask,
+    dropout_p,
+    is_causal,
+    scale,
+    requires_backward,
+    softmax_mode,
+    valid_seq_len,
+    seq_padding_type,
+    window_size=(-1, -1),
 ):
     return meta_sdpa_recomp_fwd_helper(q, k, v, requires_backward, softmax_mode)
 
 
 @register_meta([torch.ops.hpu.sdpa_recomp_fwd_non_dropout.default])
 def meta_sdpa_recomp_fwd_non_dropout(
-    q, k, v, attn_mask, dropout_p, is_causal, scale, requires_backward, softmax_mode, valid_seq_len, seq_padding_type
+    q,
+    k,
+    v,
+    attn_mask,
+    dropout_p,
+    is_causal,
+    scale,
+    requires_backward,
+    softmax_mode,
+    valid_seq_len,
+    seq_padding_type,
+    window_size=(-1, -1),
 ):
     return meta_sdpa_recomp_fwd_helper(q, k, v, requires_backward, softmax_mode)
 
@@ -580,6 +663,7 @@ def meta_sdpa_recomp_fwd_dropout_seed(
     softmax_mode,
     valid_seq_len,
     seq_padding_type,
+    window_size=(-1, -1),
 ):
     return meta_sdpa_recomp_fwd_helper(q, k, v, requires_backward, softmax_mode)
 
@@ -847,6 +931,7 @@ def meta_fp8_sdpa_recomp_fwd(
     is_amax_o,
     valid_seq_len,
     seq_padding_type,
+    window_size=(-1, -1),
 ):
     return meta_fp8_sdpa_recomp_fwd_helper(q, k, v, q_scale_o, softmax_mode, requires_backward)
 
@@ -872,6 +957,7 @@ def meta_fp8_sdpa_recomp_fwd_dropout(
     is_amax_o,
     valid_seq_len,
     seq_padding_type,
+    window_size=(-1, -1),
 ):
     return meta_fp8_sdpa_recomp_fwd_helper(q, k, v, q_scale_o, softmax_mode, requires_backward)
 
@@ -897,6 +983,7 @@ def meta_fp8_sdpa_recomp_fwd_non_dropout(
     is_amax_o,
     valid_seq_len,
     seq_padding_type,
+    window_size=(-1, -1),
 ):
     return meta_fp8_sdpa_recomp_fwd_helper(q, k, v, q_scale_o, softmax_mode, requires_backward)
 
@@ -923,6 +1010,7 @@ def meta_fp8_sdpa_recomp_fwd_dropout_seed(
     is_amax_o,
     valid_seq_len,
     seq_padding_type,
+    window_size=(-1, -1),
 ):
     return meta_fp8_sdpa_recomp_fwd_helper(q, k, v, q_scale_o, softmax_mode, requires_backward)
 
@@ -977,37 +1065,38 @@ def meta_rotary_pos_embedding(input, sin, cos, position_ids, offset, mode):
     return input.new_empty(input.shape)
 
 
-@register_meta([torch.ops.hpu.mixture_of_experts.default, torch.ops.hpu.mixture_of_experts_recomp_fwd.default])
-def meta_mixture_of_experts(
+@register_meta(
+    [
+        torch.ops.hpu.mixture_of_experts.default,
+        torch.ops.hpu.mixture_of_experts.fused_weights,
+        torch.ops.hpu.mixture_of_experts_recomp_fwd.default,
+        torch.ops.hpu.mixture_of_experts_recomp_fwd.fused_weights,
+    ]
+)
+def meta_mixture_of_experts_common(
     hidden_states,
-    expert_routing_table,
-    router_weights,
-    w1,
-    w2,
-    w3,
-    permuted_weights,
-    activation,
-    experts_min,
-    experts_max,
+    *args,
+    **kwargs,
 ):
     return hidden_states.new_empty(hidden_states.shape)
 
 
 @register_meta(
-    [torch.ops.hpu.mixture_of_experts.fused_weights, torch.ops.hpu.mixture_of_experts_recomp_fwd.fused_weights]
+    [
+        torch.ops.hpu.mixture_of_experts.fp8,
+        torch.ops.hpu.mixture_of_experts.fp8_scalars,
+        torch.ops.hpu.mixture_of_experts.fp8_blockwise,
+        torch.ops.hpu.mixture_of_experts.fp8_fused_weights_blockwise,
+        torch.ops.hpu.mixture_of_experts.fp8_fused_weights,
+        torch.ops.hpu.mixture_of_experts.fp8_fused_weights_scalars,
+        torch.ops.hpu.mixture_of_experts.fp8_fused_weights_dynamic,
+        torch.ops.hpu.mixture_of_experts.fp8_fused_weights_scalars_dynamic,
+        torch.ops.hpu.mixture_of_experts.fp8_dynamic,
+        torch.ops.hpu.mixture_of_experts.fp8_scalars_dynamic,
+    ]
 )
-def meta_mixture_of_experts_fused_weights(
-    hidden_states,
-    expert_routing_table,
-    router_weights,
-    w12,
-    w3,
-    permuted_weights,
-    activation,
-    experts_min,
-    experts_max,
-):
-    return hidden_states.new_empty(hidden_states.shape)
+def meta_mixture_of_experts_fp8_common(hidden_states, *args, **kwargs):
+    return hidden_states.new_empty(hidden_states.shape, dtype=torch.bfloat16)
 
 
 @register_meta([torch.ops.hpu.mixture_of_experts_fwd.default])
@@ -1022,10 +1111,13 @@ def meta_mixture_of_experts_fwd(
     activation,
     experts_min,
     experts_max,
+    **kwargs,
 ):
     h2 = w1[0].shape[0 if permuted_weights else 1]
     out_shapes = _hpu_C.custom_op_calc_out_shape_params_int(
-        "mixture_of_experts_fwd", [hidden_states, expert_routing_table], [len(w1), h2, False]
+        "mixture_of_experts_fwd",
+        [hidden_states, expert_routing_table],
+        [len(w1), h2, False, kwargs.get("chunk_size", 0)],
     )
     return [
         hidden_states.new_empty(out_shapes[0]),
@@ -1053,10 +1145,13 @@ def meta_mixture_of_experts_fwd_fused_weights(
     activation,
     experts_min,
     experts_max,
+    **kwargs,
 ):
     h2 = w12[0].shape[0 if permuted_weights else 1]
     out_shapes = _hpu_C.custom_op_calc_out_shape_params_int(
-        "mixture_of_experts_fwd", [hidden_states, expert_routing_table], [len(w12), h2, True]
+        "mixture_of_experts_fwd",
+        [hidden_states, expert_routing_table],
+        [len(w12), h2, True, kwargs.get("chunk_size", 0)],
     )
     return [
         hidden_states.new_empty(out_shapes[0]),
@@ -1072,11 +1167,134 @@ def meta_mixture_of_experts_fwd_fused_weights(
     ]
 
 
-def common_mixture_of_experts_bwd_meta(grad_tokens_in, router_weights_size, weights_lists):
+def append_amax_outputs(outputs, num_experts, amax_number):
+    for _ in range(amax_number):
+        outputs.append(torch.empty(num_experts, dtype=torch.float32, device="meta"))
+
+
+def get_fp8_output_dtype(fp8_input_dtype, hybrid_mode):
+    is_gaudi2 = get_device_name() == "GAUDI2"
+
+    if fp8_input_dtype == torch.float8_e4m3fn and hybrid_mode and is_gaudi2:
+        return torch.float8_e5m2
+
+    return fp8_input_dtype
+
+
+@register_meta([torch.ops.hpu.mixture_of_experts_recomp_fwd.fp8_fused])
+def meta_mixture_of_experts_recomp_fwd_fp8_fused(
+    hidden_states,
+    expert_routing_table,
+    router_weights,
+    w12,
+    w3,
+    **kwargs,
+):
+    outputs = [hidden_states.new_empty(hidden_states.shape)]
+    append_amax_outputs(
+        outputs, len(w3), int(kwargs.get("is_first_amax", False)) + int(kwargs.get("is_second_amax", False))
+    )
+    return outputs
+
+
+@register_meta([torch.ops.hpu.mixture_of_experts_fwd.fp8_fused])
+def meta_mixture_of_experts_fwd_fp8_fused(
+    hidden_states,
+    expert_routing_table,
+    router_weights,
+    w12,
+    w3,
+    **kwargs,
+):
+    h2 = w12[0].shape[0 if kwargs.get("permuted_weights", False) else 1]
+    out_shapes = _hpu_C.custom_op_calc_out_shape_params_int(
+        "mixture_of_experts_fwd",
+        [hidden_states, expert_routing_table],
+        [len(w12), h2, True, kwargs.get("chunk_size", 0)],
+    )
+    fp8_output_dtype = get_fp8_output_dtype(w12[0].dtype, kwargs.get("hybrid_mode", False))
+
+    outputs = [
+        hidden_states.new_empty(out_shapes[0]),
+        hidden_states.new_empty(out_shapes[1], dtype=fp8_output_dtype),
+        hidden_states.new_empty(out_shapes[2], dtype=torch.int),
+        hidden_states.new_empty(out_shapes[3], dtype=torch.int),
+        hidden_states.new_empty(out_shapes[4], dtype=torch.int),
+        hidden_states.new_empty(out_shapes[5]),
+        hidden_states.new_empty(out_shapes[6]),
+        hidden_states.new_empty(out_shapes[7]),
+        hidden_states.new_empty(out_shapes[8], dtype=fp8_output_dtype),
+        hidden_states.new_empty(out_shapes[9]),
+    ]
+    append_amax_outputs(
+        outputs, len(w3), int(kwargs.get("is_first_amax", False)) + int(kwargs.get("is_second_amax", False))
+    )
+    return outputs
+
+
+@register_meta([torch.ops.hpu.mixture_of_experts_recomp_fwd.fp8])
+def meta_mixture_of_experts_recomp_fwd_fp8(
+    hidden_states,
+    expert_routing_table,
+    router_weights,
+    w1,
+    w2,
+    w3,
+    **kwargs,
+):
+    outputs = [hidden_states.new_empty(hidden_states.shape)]
+    append_amax_outputs(
+        outputs, len(w3), int(kwargs.get("is_first_amax", False)) + int(kwargs.get("is_second_amax", False))
+    )
+    return outputs
+
+
+@register_meta([torch.ops.hpu.mixture_of_experts_fwd.fp8])
+def meta_mixture_of_experts_fwd_fp8(
+    hidden_states,
+    expert_routing_table,
+    router_weights,
+    w1,
+    w2,
+    w3,
+    **kwargs,
+):
+    h2 = w1[0].shape[0 if kwargs.get("permuted_weights", False) else 1]
+    out_shapes = _hpu_C.custom_op_calc_out_shape_params_int(
+        "mixture_of_experts_fwd",
+        [hidden_states, expert_routing_table],
+        [len(w3), h2, False, kwargs.get("chunk_size", 0)],
+    )
+    fp8_output_dtype = get_fp8_output_dtype(w3[0].dtype, kwargs.get("hybrid_mode", False))
+
+    outputs = [
+        hidden_states.new_empty(out_shapes[0]),
+        hidden_states.new_empty(out_shapes[1], dtype=fp8_output_dtype),
+        hidden_states.new_empty(out_shapes[2], dtype=torch.int),
+        hidden_states.new_empty(out_shapes[3], dtype=torch.int),
+        hidden_states.new_empty(out_shapes[4], dtype=torch.int),
+        hidden_states.new_empty(out_shapes[5]),
+        hidden_states.new_empty(out_shapes[6]),
+        hidden_states.new_empty(out_shapes[7]),
+        hidden_states.new_empty(out_shapes[8]),
+        hidden_states.new_empty(out_shapes[9], dtype=fp8_output_dtype),
+        hidden_states.new_empty(out_shapes[10]),
+    ]
+    append_amax_outputs(
+        outputs, len(w3), int(kwargs.get("is_first_amax", False)) + int(kwargs.get("is_second_amax", False))
+    )
+    return outputs
+
+
+def common_mixture_of_experts_bwd_meta(
+    grad_tokens_in, router_weights_size, weights_lists, *, amax_outputs=0, weights_dtype=None, num_experts=None
+):
     outputs = [torch.empty_like(grad_tokens_in), grad_tokens_in.new_empty(size=router_weights_size)]
+    for _ in range(amax_outputs):
+        outputs.append(torch.empty(len(weights_lists[0][:num_experts]), dtype=torch.float32, device="meta"))
     for weight_list in weights_lists:
-        for w in weight_list:
-            outputs.append(torch.empty_like(w))
+        for w in weight_list[:num_experts]:
+            outputs.append(torch.empty_like(w, dtype=weights_dtype))
     return outputs
 
 
@@ -1141,6 +1359,7 @@ def meta_mixture_of_experts_recomp_bwd(
     activation,
     experts_min,
     experts_max,
+    **kwargs,
 ):
     return common_mixture_of_experts_bwd_meta(grad_tokens_in, router_weights.shape, [w1, w2, w3])
 
@@ -1157,8 +1376,102 @@ def meta_mixture_of_experts_recomp_bwd_fused_weights(
     activation,
     experts_min,
     experts_max,
+    **kwargs,
 ):
     return common_mixture_of_experts_bwd_meta(grad_tokens_in, router_weights.shape, [w12, w3])
+
+
+@register_meta([torch.ops.hpu.mixture_of_experts_bwd.fp8_fused])
+def meta_mixture_of_experts_bwd_fp8_fused(
+    grad_tokens_in,
+    chunks_input,
+    token_to_chunk,
+    token_in_chunk,
+    chunks_routing_table,
+    chunks_routing_weights,
+    gemm12_out,
+    activation_out,
+    mult_out,
+    mlp_out,
+    w12,
+    w3,
+    **kwargs,
+):
+    return common_mixture_of_experts_bwd_meta(
+        grad_tokens_in,
+        kwargs.get("router_weights_size", []),
+        [w12, w3],
+        amax_outputs=int(kwargs.get("is_first_amax", False)) + int(kwargs.get("is_second_amax", False)),
+        weights_dtype=torch.bfloat16,
+    )
+
+
+@register_meta([torch.ops.hpu.mixture_of_experts_bwd.fp8])
+def meta_mixture_of_experts_bwd_fp8(
+    grad_tokens_in,
+    chunks_input,
+    token_to_chunk,
+    token_in_chunk,
+    chunks_routing_table,
+    chunks_routing_weights,
+    gemm1_out,
+    gemm2_out,
+    activation_out,
+    mult_out,
+    mlp_out,
+    w1,
+    w2,
+    w3,
+    **kwargs,
+):
+    return common_mixture_of_experts_bwd_meta(
+        grad_tokens_in,
+        kwargs.get("router_weights_size", []),
+        [w1, w2, w3],
+        amax_outputs=2 * int(kwargs.get("is_first_amax", False)) + int(kwargs.get("is_second_amax", False)),
+        weights_dtype=torch.bfloat16,
+    )
+
+
+@register_meta([torch.ops.hpu.mixture_of_experts_recomp_bwd.fp8_fused])
+def meta_mixture_of_experts_recomp_bwd_fp8_fused(
+    grad_tokens_in,
+    hidden_states,
+    expert_routing_table,
+    router_weights,
+    w12,
+    w3,
+    **kwargs,
+):
+    return common_mixture_of_experts_bwd_meta(
+        grad_tokens_in,
+        router_weights.shape,
+        [w12, w3],
+        amax_outputs=int(kwargs.get("is_first_amax", False)) + int(kwargs.get("is_second_amax", False)),
+        weights_dtype=torch.bfloat16,
+        num_experts=len(kwargs.get("d_scale_second_gemm_grad", [])),
+    )
+
+
+@register_meta([torch.ops.hpu.mixture_of_experts_recomp_bwd.fp8])
+def meta_mixture_of_experts_recomp_bwd_fp8(
+    grad_tokens_in,
+    hidden_states,
+    expert_routing_table,
+    router_weights,
+    w1,
+    w2,
+    w3,
+    **kwargs,
+):
+    return common_mixture_of_experts_bwd_meta(
+        grad_tokens_in,
+        router_weights.shape,
+        [w1, w2, w3],
+        amax_outputs=2 * int(kwargs.get("is_first_amax", False)) + int(kwargs.get("is_second_amax", False)),
+        weights_dtype=torch.bfloat16,
+        num_experts=len(kwargs.get("d_scale_second_gemm_grad", [])),
+    )
 
 
 @register_meta(
@@ -1169,13 +1482,8 @@ def meta_mixture_of_experts_fp8_measurement(
     expert_routing_table,
     router_weights,
     w1,
-    w2,
-    w3,
-    permuted_weights,
-    activation,
-    experts_min,
-    experts_max,
-    measurement_mode,
+    *args,
+    **kwargs,
 ):
     return hidden_states.new_empty(hidden_states.shape), hidden_states.new_empty(len(w1))
 
@@ -1191,93 +1499,10 @@ def meta_mixture_of_experts_fp8_measurement_fused_weights(
     expert_routing_table,
     router_weights,
     w12,
-    w3,
-    permuted_weights,
-    activation,
-    experts_min,
-    experts_max,
-    measurement_mode,
+    *args,
+    **kwargs,
 ):
     return hidden_states.new_empty(hidden_states.shape), hidden_states.new_empty(len(w12))
-
-
-@register_meta(
-    [
-        torch.ops.hpu.mixture_of_experts.fp8,
-        torch.ops.hpu.mixture_of_experts.fp8_scalars,
-        torch.ops.hpu.mixture_of_experts.fp8_blockwise,
-        torch.ops.hpu.mixture_of_experts.fp8_fused_weights_blockwise,
-    ]
-)
-def meta_mixture_of_experts_fp8(
-    hidden_states,
-    *args,
-):
-    return hidden_states.new_empty(hidden_states.shape, dtype=torch.bfloat16)
-
-
-@register_meta(
-    [torch.ops.hpu.mixture_of_experts.fp8_fused_weights, torch.ops.hpu.mixture_of_experts.fp8_fused_weights_scalars]
-)
-def meta_mixture_of_experts_fp8_fused_weights(
-    hidden_states,
-    expert_routing_table,
-    router_weights,
-    w12,
-    w3,
-    d_scale_w12,
-    d_scale_w3,
-    d_scale_hidden_states,
-    d_scale_intermediate_hidden_states,
-    permuted_weights,
-    activation,
-    experts_min,
-    experts_max,
-):
-    return hidden_states.new_empty(hidden_states.shape, dtype=torch.bfloat16)
-
-
-@register_meta([torch.ops.hpu.mixture_of_experts.fp8_dynamic, torch.ops.hpu.mixture_of_experts.fp8_scalars_dynamic])
-def meta_mixture_of_experts_fp8_dynamic(
-    hidden_states,
-    expert_routing_table,
-    router_weights,
-    w1,
-    w2,
-    w3,
-    d_scale_w1,
-    d_scale_w2,
-    d_scale_w3,
-    d_scale_hidden_states,
-    permuted_weights,
-    activation,
-    experts_min,
-    experts_max,
-):
-    return hidden_states.new_empty(hidden_states.shape, dtype=torch.bfloat16)
-
-
-@register_meta(
-    [
-        torch.ops.hpu.mixture_of_experts.fp8_fused_weights_dynamic,
-        torch.ops.hpu.mixture_of_experts.fp8_fused_weights_scalars_dynamic,
-    ]
-)
-def meta_mixture_of_experts_fp8_fused_weights_dynamic(
-    hidden_states,
-    expert_routing_table,
-    router_weights,
-    w12,
-    w3,
-    d_scale_w12,
-    d_scale_w3,
-    d_scale_hidden_states,
-    permuted_weights,
-    activation,
-    experts_min,
-    experts_max,
-):
-    return hidden_states.new_empty(hidden_states.shape, dtype=torch.bfloat16)
 
 
 @register_meta([torch.ops.hpu.rotary_pos_embedding_backward.default])
@@ -1295,7 +1520,7 @@ def meta_rms_norm(data_in, gamma, epsilon):
         data_in_dtype = torch.float32
 
     return data_in.new_empty(data_in.shape, dtype=data_in_dtype), data_in.new_empty(
-        inverse_root_mean_square_shape, dtype=data_in_dtype
+        inverse_root_mean_square_shape, dtype=torch.float32
     )
 
 
@@ -1367,9 +1592,88 @@ def linear_backward(self, grad_output, weight, output_mask):
     return input_grad, weight_grad, bias_grad
 
 
+@register_meta([torch.ops.hpu.mamba_pscan.default])
+def mamba_pscan(state, x, dt, A, B):
+    out_shape = x.shape
+    out_shape[2] = state.shape[2]
+    out = state.new_empty(out_shape, dtype=state.dtype)
+    return out
+
+
+@register_meta([torch.ops.hpu.mamba_pscan_update.default])
+def mamba_pscan_update(state, x, C, D, z):
+    out = x.new_empty(x.shape, dtype=x.dtype)
+    return out
+
+
+@register_meta([torch.ops.hpu.calculate_scale_for_cast.default])
+def meta_calculate_scale_for_cast(
+    input, maxMode, scaleMode, reduceAxis=0, reduceKeepdim=False, fullscale=1.0, backoff=1.0
+):
+    out_shape = _hpu_C.custom_op_calc_out_shape_params_int(
+        "calculate_scale_for_cast", [input], [maxMode, reduceAxis, reduceKeepdim]
+    )[0]
+    return input.new_empty(out_shape, dtype=input.dtype)
+
+
 @register_meta([torch.ops.hpu.dequantize_nf4.default])
-def meta_dequantize_nf4(input, absmax, blocksize, out_shape, out_dtype):
+def meta_dequantize_nf4(input, absmax, blocksize, out_shape, out_dtype, big_endian=True):
     return input.new_empty(out_shape, dtype=out_dtype)
+
+
+@register_meta([torch.ops.hpu.quantize_nf4.default])
+def meta_quantize_nf4(input, blocksize):
+    num_elements = input.numel()
+    return input.new_empty(math.ceil(num_elements / 2), dtype=torch.uint8), input.new_empty(
+        math.ceil(num_elements / blocksize), dtype=input.dtype
+    )
+
+
+@register_meta([torch.ops.hpu.block_softmax.default])
+def meta_block_softmax(attn, block_bias, block_ind):
+    # Get shape information
+    num_blocks = attn.size(0)
+    kv_heads = attn.size(1)
+    gqa = attn.size(2)
+    num_tokens = attn.size(3)
+
+    # Output 1: Same shape as input
+    attn_out = attn.new_empty(attn.shape)
+
+    is_gaudi2 = htexp._get_device_type() == htexp.synDeviceType.synDeviceGaudi2
+
+    # Output 2 & 3: Reshape and align to vector size
+    if attn.dtype == torch.float32:
+        vec_size = 64
+    else:  # bfloat16
+        vec_size = 128
+
+    def round_up(num, roundup):
+        """
+        Rounds 'num' up to the nearest multiple of 'roundup'.
+        'roundup' should ideally be a power of two for this bitwise logic to work as intended.
+        """
+        return (num + (roundup - 1)) & ~(roundup - 1)
+
+    flat_size = kv_heads * gqa * num_tokens
+    aligned_flat_size = round_up(flat_size, vec_size)
+
+    reduce_shape = ()
+
+    if is_gaudi2:  # no padding required for gaudi2
+        reduced_shape = (num_blocks, flat_size)
+    else:
+        reduced_shape = (num_blocks, aligned_flat_size)
+
+    b_maxes = attn.new_empty(reduced_shape)
+    b_sums = attn.new_empty(reduced_shape)
+
+    return (attn_out, b_maxes, b_sums)
+
+
+@register_meta([torch.ops.hpu.block_softmax_adjustment.default])
+def meta_block_softmax_adjustment(block_maxes, block_sums, block_groups, batch_size, out_shape=None):
+    return block_maxes.new_empty(out_shape if out_shape is not None else block_maxes.shape)
 
 
 def activate_hpu_custom_op_meta():

@@ -84,7 +84,10 @@ def all_gather_into_tensor_with_odd_size(rank, world_size, args):
     output_tensor = torch.zeros(63 * world_size, device=device_hpu, dtype=torch.uint8)
     dist.all_gather_into_tensor(output_tensor, input_tensor, async_op=True).wait()
 
-    torch.testing.assert_close(torch.arange(63 * world_size, device=device_hpu, dtype=torch.uint8), output_tensor)
+    torch.testing.assert_close(
+        torch.arange(63 * world_size, device=device_hpu, dtype=torch.uint8),
+        output_tensor,
+    )
 
     dist.barrier()
     cleanup()
@@ -141,7 +144,10 @@ def simple(rank, world_size, args):
     output_tensor = torch.zeros(100 * world_size, device=device_hpu, dtype=torch.float)
     dist.all_gather_into_tensor(output_tensor, input_tensor, async_op=True).wait()
 
-    torch.testing.assert_close(torch.arange(100 * world_size, device=device_hpu, dtype=torch.float), output_tensor)
+    torch.testing.assert_close(
+        torch.arange(100 * world_size, device=device_hpu, dtype=torch.float),
+        output_tensor,
+    )
 
     # test all_reduce
     input_tensor = torch.ones(100, 100, device=device_hpu) * 7
@@ -164,6 +170,32 @@ def simple(rank, world_size, args):
 
     dist.barrier()
     cleanup()
+
+
+def send_recieve_with_strided_tensor(rank, world_size, args):
+    device = f"{device_hpu}"
+    setup(rank, world_size)
+
+    def local_send(nodes):
+        _tensor = (
+            torch.arange(8 * 8 * 16, dtype=torch.bfloat16).as_strided((1, 8, 1, 16, 8), (16, 8, 128, 8, 1)).to(device)
+        )
+        for node in nodes:
+            torch.distributed.send(_tensor, node)
+
+    def local_recv():
+        _tensor = torch.zeros(8 * 8 * 16, device=device, dtype=torch.bfloat16).reshape(1, 8, 1, 16, 8).to(device)
+        torch.distributed.recv(_tensor, 0)
+        return _tensor
+
+    _tensor_ref = (
+        torch.arange(8 * 8 * 16, dtype=torch.bfloat16).as_strided((1, 8, 1, 16, 8), (16, 8, 128, 8, 1)).to(device)
+    )
+    if rank == 0:
+        local_send(range(1, world_size))
+    else:
+        _tensor = local_recv()
+        assert torch.equal(_tensor, _tensor_ref)
 
 
 def send_recieve_with_odd_size(rank, world_size, args):
@@ -261,7 +293,7 @@ def gather_with_odd_size(rank, world_size, args):
         if rank == r:
             for t1, t2 in zip(expected_output_list, output_list, strict=False):
                 assert torch.equal(t1.cpu(), t2.cpu()), (
-                    f"Gathered tensor is not equal to expected one. " f"Got: {t2}, expected: {t1}."
+                    f"Gathered tensor is not equal to expected one. Got: {t2}, expected: {t1}."
                 )
 
     dist.barrier()
@@ -283,10 +315,26 @@ if __name__ == "__main__":
     if WORLD_SIZE > 2:
         mp.spawn(all_gather_into_tensor_with_odd_size, args=(2, args), nprocs=2, join=True)
         mp.spawn(all_gather_into_tensor_with_odd_size, args=(3, args), nprocs=3, join=True)
-        mp.spawn(broadcast_with_odd_size, args=(WORLD_SIZE, args), nprocs=WORLD_SIZE, join=True)
-        mp.spawn(all_gather_with_odd_size, args=(WORLD_SIZE, args), nprocs=WORLD_SIZE, join=True)
-        mp.spawn(all_gather_with_odd_size_and_view, args=(WORLD_SIZE, args), nprocs=WORLD_SIZE, join=True)
+        mp.spawn(
+            broadcast_with_odd_size,
+            args=(WORLD_SIZE, args),
+            nprocs=WORLD_SIZE,
+            join=True,
+        )
+        mp.spawn(
+            all_gather_with_odd_size,
+            args=(WORLD_SIZE, args),
+            nprocs=WORLD_SIZE,
+            join=True,
+        )
+        mp.spawn(
+            all_gather_with_odd_size_and_view,
+            args=(WORLD_SIZE, args),
+            nprocs=WORLD_SIZE,
+            join=True,
+        )
         mp.spawn(send_recieve, args=(2, args), nprocs=2, join=True)
         mp.spawn(send_recieve_with_odd_size, args=(2, args), nprocs=2, join=True)
         mp.spawn(send_recieve_permuted, args=(2, args), nprocs=2, join=True)
+        mp.spawn(send_recieve_with_strided_tensor, args=(2, args), nprocs=2, join=True)
         mp.spawn(gather_with_odd_size, args=(2, args), nprocs=2, join=True)

@@ -28,8 +28,7 @@
 
 #include <c10/macros/Export.h>
 
-namespace habana_torch {
-namespace jit {
+namespace habana_torch::jit {
 
 struct UpgraderEntry {
   int bumped_at_version;
@@ -55,5 +54,4 @@ TORCH_API void test_only_remove_entry(const std::string& op_name);
 
 TORCH_API void test_only_reset_flag();
 
-} // namespace jit
-} // namespace habana_torch
+} // namespace habana_torch::jit

@@ -38,7 +38,6 @@
 #include "absl/types/optional.h"
 #include "backend/habana_device/tensor_builder.h"
 #include "backend/helpers/tensor_info.h"
-#include "backend/helpers/tensor_utils.h"
 #include "backend/jitgraph_utils.h"
 #include "habana_helpers/misc_utils.h"
 
@@ -144,6 +143,79 @@ bool FuseCollectiveViewPass::CanFuse(CValPtr value, int64_t dim, int64_t step) {
   return false;
 }
 
+bool FuseCollectiveViewPass::IsGraphInputOutput(
+    torch::jit::Value* value,
+    bool is_node_output) {
+  bool ret = false;
+
+  if (value) {
+    auto* graph = value->owningGraph();
+    if (graph != nullptr) {
+      auto values = is_node_output ? graph->outputs() : graph->inputs();
+      auto it = std::find_if(values.begin(), values.end(), [&](Value* value_) {
+        return value_ != nullptr && value_->unique() == value->unique();
+      });
+      if (values.end() != it) {
+        ret = true;
+      }
+    }
+  }
+
+  return ret;
+}
+
+bool FuseCollectiveViewPass::CanFuse(
+    torch::jit::Node* node,
+    bool is_node_output) {
+  if (node == nullptr) {
+    return false;
+  }
+  if (is_node_output) {
+    if (strcmp(node->kind().toQualString(), "hpu::slice_insert") == 0) {
+      return IsGraphInputOutput(node->output(), true);
+    } else if (strcmp(node->kind().toQualString(), "prim::Return") == 0) {
+      return true;
+    }
+  } else {
+    if (strcmp(node->kind().toQualString(), "aten::slice") == 0) {
+      auto input = node->input(0);
+      auto dim = torch::jit::toIValue(node->input(1)).value().toInt();
+      auto step = torch::jit::toIValue(node->input(4)).value().toInt();
+      bool can_fuse = CanFuse(input, dim, step);
+      if (can_fuse && !IsGraphInputOutput(input)) {
+        can_fuse = CanFuse(input->node());
+      }
+      return can_fuse;
+    } else if (
+        strcmp(node->kind().toQualString(), "aten::view") == 0 ||
+        strcmp(node->kind().toQualString(), "aten::squeeze") == 0) {
+      bool can_fuse = false;
+      auto input = node->input(0);
+      auto output = node->output();
+      auto tensor_type = output->type()->cast<TensorType>();
+      auto sizes = tensor_type->sizes();
+      auto ndim = sizes.size();
+      if (ndim.has_value() && ndim.value() >= 1) {
+        auto uses = output->uses();
+        auto* successor_node = uses.at(0).user;
+        if (successor_node != nullptr &&
+            habana_helpers::IsCollective(successor_node->kind())) {
+          if (sizes[0].has_value() && ndim.value() == 1) {
+            can_fuse = true;
+          }
+        } else {
+          can_fuse = true;
+        }
+      }
+      if (can_fuse && !IsGraphInputOutput(input)) {
+        can_fuse = CanFuse(input->node());
+      }
+      return can_fuse;
+    }
+  }
+  return false;
+}
+
 void FuseCollectiveViewPass::GetExternalParams(
     CValPtr value,
     int64_t dim,
@@ -164,9 +236,7 @@ void FuseCollectiveViewPass::GetExternalParams(
         if (idx < -size) {
           idx = 0;
         }
-        if (idx > size) {
-          idx = size;
-        }
+        idx = std::min(idx, size);
         if (idx < 0) {
           idx += size;
         }
@@ -255,11 +325,11 @@ void FuseCollectiveViewPass::FuseSliceOps(torch::jit::Node* slice_node) {
   }
 }
 
-void FuseCollectiveViewPass::FuseViewOps(torch::jit::Node* view_node) {
-  auto input = view_node->input(0);
-  auto output = view_node->output(0);
+void FuseCollectiveViewPass::FuseSqueezeViewOps(torch::jit::Node* node) {
+  auto input = node->input(0);
+  auto output = node->output(0);
 
-  auto tensor_type = input->type()->cast<TensorType>();
+  auto tensor_type = output->type()->cast<TensorType>();
   auto sizes = tensor_type->sizes();
   auto ndim = sizes.size();
 
@@ -273,15 +343,35 @@ void FuseCollectiveViewPass::FuseViewOps(torch::jit::Node* view_node) {
         input_valptr_to_params_map_[input] =
             std::make_shared<ExternalParams>(params);
         output->replaceAllUsesWith(input);
-        view_node->removeAllInputs();
-        view_node->destroy();
+        node->removeAllInputs();
+        node->destroy();
       }
     } else {
       input_valptr_to_params_map_[input] =
           std::make_shared<ExternalParams>(*it->second);
       output->replaceAllUsesWith(input);
-      view_node->removeAllInputs();
-      view_node->destroy();
+      node->removeAllInputs();
+      node->destroy();
+    }
+  }
+}
+
+void FuseCollectiveViewPass::RunFuseOps(
+    torch::jit::Node* collective_node,
+    int index) {
+  auto* input = collective_node->input(index);
+  if (input != nullptr) {
+    auto* node = input->node();
+    if (node != nullptr) {
+      if (strcmp(node->kind().toQualString(), "aten::slice") == 0) {
+        FuseSliceOps(node);
+        RunFuseOps(collective_node, index);
+      } else if (
+          strcmp(node->kind().toQualString(), "aten::view") == 0 ||
+          strcmp(node->kind().toQualString(), "aten::squeeze") == 0) {
+        FuseSqueezeViewOps(node);
+        RunFuseOps(collective_node, index);
+      }
     }
   }
 }
@@ -308,28 +398,11 @@ bool FuseCollectiveViewPass::RunFuseOps(
     auto input_index = std::get<0>(indices);
     if (input_index != -1) {
       auto* input = collective_node->input(input_index);
-      auto* node = input->node();
-      if (strcmp(node->kind().toQualString(), "aten::slice") == 0) {
+      if (CanFuse(input->node())) {
         if (is_check_mode) {
           return true;
         } else {
-          FuseSliceOps(node);
-          input = collective_node->input(input_index);
-          node = input->node();
-          if (strcmp(node->kind().toQualString(), "aten::view") == 0) {
-            FuseViewOps(node);
-          }
-        }
-      } else if (strcmp(node->kind().toQualString(), "aten::view") == 0) {
-        if (is_check_mode) {
-          return true;
-        } else {
-          FuseViewOps(node);
-          input = collective_node->input(input_index);
-          node = input->node();
-          if (strcmp(node->kind().toQualString(), "aten::slice") == 0) {
-            FuseSliceOps(node);
-          }
+          RunFuseOps(collective_node, input_index);
         }
       }
     }
@@ -337,10 +410,8 @@ bool FuseCollectiveViewPass::RunFuseOps(
     for (auto* output : collective_node->outputs()) {
       auto uses = output->uses();
       auto* successor_node = uses.at(0).user;
-      if (uses.size() == 2 &&
-          strcmp(successor_node->kind().toQualString(), "hpu::slice_insert") ==
-              0 &&
-          strcmp(uses.at(1).user->kind().toQualString(), "prim::Return") == 0) {
+      if (uses.size() == 2 && CanFuse(successor_node, true) &&
+          CanFuse(uses.at(1).user, true)) {
         if (is_check_mode) {
           return true;
         } else {

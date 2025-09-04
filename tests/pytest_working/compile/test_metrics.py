@@ -122,7 +122,13 @@ class TestMetricsAPI:
         assert rc_metric_dict["TotalHit"] == total_test_cases - 1
 
     @pytest.mark.parametrize(
-        "metric_name", [("graph_compilation"), ("cpu_fallback"), ("memory_defragmentation"), ("recipe_cache")]
+        "metric_name",
+        [
+            ("graph_compilation"),
+            ("cpu_fallback"),
+            ("memory_defragmentation"),
+            ("recipe_cache"),
+        ],
     )
     def test_metric_zero_at_beginning(self, metric_name):
         metric_debug_reload()
@@ -220,9 +226,8 @@ class TestMetricsAPI:
         assert metric is None
 
     def test_get_nonexisting_local_metric(self):
-        with pytest.raises(MetricNotFound):
-            with metric_localcontext("non-existing") as m:
-                pass
+        with pytest.raises(MetricNotFound), metric_localcontext("non-existing") as m:
+            pass
 
 
 def set_flag_in_env(name: str, value):
@@ -236,7 +241,7 @@ def set_flag_in_env(name: str, value):
     elif isinstance(value, int):
         os.environ[name] = str(value)
     else:
-        assert False, f"Value '{value}' invalid or not supported"
+        raise AssertionError(f"Value '{value}' invalid or not supported")
 
 
 @contextmanager
@@ -248,13 +253,12 @@ def env_var_in_scope(vars={}):
     try:
         yield
     finally:
-        for key in orig_vars.keys():
+        for key, orig_var in orig_vars.items():
             # restore environment variable
-            if orig_vars[key] is not None:
-                os.environ[key] = orig_vars[key]
-            else:
-                if key in os.environ:
-                    del os.environ[key]
+            if orig_var is not None:
+                os.environ[key] = orig_var
+            elif key in os.environ:
+                del os.environ[key]
 
 
 class TestMetricsDump:
@@ -316,7 +320,7 @@ class TestMetricsDump:
         metric_file_target = f"{tmp_path}/{expected_base_name}"
 
         assert not os.path.exists(metric_file_target)
-        env_vars = {"PT_HPU_METRICS_FILE": metric_file_user_input, "PT_HPU_METRICS_DUMP_TRIGGERS": "process_exit"}
+        env_vars = {"PT_HPU_METRICS_FILE": metric_file_user_input}
         if multinode:
             env_vars["RANK"] = "0"
 
@@ -389,7 +393,6 @@ class TestMetricsDump:
         metric_file = f"{tmp_path}/metric.{format}"
         env_vars = {
             "PT_HPU_METRICS_FILE": metric_file,
-            "PT_HPU_METRICS_DUMP_TRIGGERS": "process_exit",
             "PT_HPU_METRICS_FILE_FORMAT": format,
         }
 
@@ -398,7 +401,7 @@ class TestMetricsDump:
             payload = f.read()
         parsed = TestMetricsDump._parse_dump(payload, format)
 
-        assert len(parsed) == 4
+        assert len(parsed) == 5
         metric = parsed[0]
         assert metric["metric_name"] == "graph_compilation"
         assert metric["triggered_by"] == "process_exit"
@@ -413,7 +416,6 @@ class TestMetricsDump:
         metric_file = f"{tmp_path}/metric.{format}"
         env_vars = {
             "PT_HPU_METRICS_FILE": metric_file,
-            "PT_HPU_METRICS_DUMP_TRIGGERS": "process_exit",
             "PT_HPU_METRICS_FILE_FORMAT": format,
         }
 
@@ -422,7 +424,7 @@ class TestMetricsDump:
             payload = f.read()
         parsed = TestMetricsDump._parse_dump(payload, format)
 
-        assert len(parsed) == 4
+        assert len(parsed) == 5
         gc_only = [p for p in parsed if p["metric_name"] == "graph_compilation"]
 
         metric_on_process_exit = gc_only[-1]
@@ -439,7 +441,7 @@ class TestMetricsDump:
             payload = f.read()
         parsed = TestMetricsDump._parse_dump(payload, "json")
 
-        assert len(parsed) == 4
+        assert len(parsed) == 5
         metric = parsed[0]
         assert metric["metric_name"] == "graph_compilation"
         assert metric["triggered_by"] == "process_exit"
@@ -466,7 +468,7 @@ class TestMetricsDump:
     @staticmethod
     def worker_process_for_mp(rank, world_size, call_initialize_dist_hpu):
         if call_initialize_dist_hpu:
-            import habana_frameworks.torch.distributed.hccl as hccl
+            from habana_frameworks.torch.distributed import hccl
 
             hccl.initialize_distributed_hpu(world_size, rank, rank)
 
@@ -493,7 +495,10 @@ class TestMetricsDump:
         world_size = 2
 
         runner(
-            TestMetricsDump._sample_worker_running_processes_via_torch_mp, world_size, call_init_dist_hpu, env=env_vars
+            TestMetricsDump._sample_worker_running_processes_via_torch_mp,
+            world_size,
+            call_init_dist_hpu,
+            env=env_vars,
         )
 
         for rank in range(world_size):
@@ -507,7 +512,7 @@ class TestMetricsDump:
                 payload = f.read()
             parsed = TestMetricsDump._parse_dump(payload, "json")
 
-            assert len(parsed) == 4
+            assert len(parsed) == 5
             metric = parsed[0]
             assert metric["metric_name"] == "graph_compilation"
             assert metric["triggered_by"] == "process_exit"
@@ -516,8 +521,7 @@ class TestMetricsDump:
 
         if call_init_dist_hpu:
             assert not os.path.exists(metric_file), (
-                "When 'initialize_distributed_hpu' is called then metrics should"
-                " be stored in files with suffix 'rankX'"
+                "When 'initialize_distributed_hpu' is called then metrics should be stored in files with suffix 'rankX'"
             )
 
     @staticmethod
@@ -533,13 +537,17 @@ class TestMetricsDump:
     @pytest.mark.parametrize("format", ["json", "text"])
     def test_manual_metric_dump(self, runner, tmp_path, format):
         metric_file = f"{tmp_path}/metric.{format}"
-        runner(TestMetricsDump._sample_worker_process_with_manual_metric_dump, metric_file, format)
+        runner(
+            TestMetricsDump._sample_worker_process_with_manual_metric_dump,
+            metric_file,
+            format,
+        )
 
         with open(metric_file) as f:
             payload = f.read()
 
         parsed = TestMetricsDump._parse_dump(payload, format)
-        assert len(parsed) == 4
+        assert len(parsed) == 5
         metric = parsed[0]
         assert metric["metric_name"] == "graph_compilation"
         assert metric["triggered_by"] == "user"

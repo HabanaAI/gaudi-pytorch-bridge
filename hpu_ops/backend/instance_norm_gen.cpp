@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
  */
 
 #include "habana_helpers/logging.h"
+#include "hpu_ops/hpu_op_helper.h"
 #include "hpu_ops/instance_norm.h"
 
 namespace habana {
@@ -67,7 +68,7 @@ void InstanceNorm::AddNode(
   auto bias = stackGetter.getNextInput<std::optional<TensorsPair>>();
   const auto eps = stackGetter.getNextInput<double>();
 
-  auto is_norm_3d = input.pt_t.sizes().vec().size() == 5;
+  auto is_norm_3d = input.pt_t.sizes().size() == 5;
 
   kernel_meta_data_.synapse_input_layout.assign(
       {is_norm_3d ? synapse_helpers::layouts::SynapseLayoutFormat::WHDCN
@@ -86,7 +87,7 @@ void InstanceNorm::AddNode(
       ? std::nullopt
       : std::make_optional(ConstantHelper(
             graph,
-            0.0f,
+            0.0F,
             c10::ScalarType::Float,
             input.pt_t.sizes().vec()[INPUT_CHANNEL_INDEX]));
 
@@ -98,7 +99,7 @@ void InstanceNorm::AddNode(
       ? std::nullopt
       : std::make_optional(ConstantHelper(
             graph,
-            1.0f,
+            1.0F,
             c10::ScalarType::Float,
             input.pt_t.sizes().vec()[INPUT_CHANNEL_INDEX]));
 
@@ -108,9 +109,8 @@ void InstanceNorm::AddNode(
 
   // Note: TPC kernel doesnt support running mean and variance computation. we
   // just pass random momentum value as a place holder
-  struct ns_InstanceNormTrainingKernel::Params params {
-    0.9, static_cast<float>(eps)
-  };
+  struct ns_InstanceNormTrainingKernel::Params params{
+      0.9, static_cast<float>(eps)};
   auto instanceNorm = BuildOp(
       graph,
       guid_,
@@ -129,6 +129,6 @@ void InstanceNorm::AddNode(
 } // namespace habana
 
 static const auto& InstanceNormForwardKernelRegistry =
-    habana::KernelRegistry().add(
+    habana::KernelRegistry().REGISTER_HPU_BACKEND(
         "hpu::instance_norm",
-        KERNEL_FN_GLOBAL(habana::InstanceNorm));
+        habana::InstanceNorm);

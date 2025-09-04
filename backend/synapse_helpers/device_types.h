@@ -21,8 +21,8 @@
 #include <synapse_api_types.h>
 
 namespace synapse_helpers {
-typedef uint64_t hpuStream_t;
-typedef uint64_t hpuEvent_t;
+using hpuStream_t = uint64_t;
+using hpuEvent_t = uint64_t;
 
 class device;
 

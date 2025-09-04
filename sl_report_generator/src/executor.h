@@ -36,7 +36,33 @@ class SharedLayerExecutor {
       : generator(generator), validator(validator) {}
   virtual ~SharedLayerExecutor() = default;
 
-  virtual void validate();
+  virtual void validate() {
+    if (validated)
+      return;
+    for (const auto precision_type : report_precision_types) {
+      if (generator->isBlacklistedPrecisionType(precision_type)) {
+        report[precision_type] = false;
+      } else if (generator->isWhitelistedPrecisionType(precision_type)) {
+        report[precision_type] = true;
+      } else {
+        const auto& stacks = generator->getStacks(precision_type);
+        bool all_valid = true;
+        for (const auto& stack : stacks) {
+          try {
+            all_valid &= checkNodeWithSharedLayer(stack);
+          } catch (std::exception& e) {
+            throw std::logic_error(
+                "SharedLayerExecutor::validate failed for op '" +
+                generator->getOpAndOverloadName() +
+                "'. Possibly incorrect input quantity, signature or TORCH_CHECK inside output_meta.\nOriginal exception: " +
+                e.what());
+          }
+        }
+        report[precision_type] = all_valid;
+      }
+    }
+    validated = true;
+  }
 
   Report getReport() const {
     return report;
@@ -109,5 +135,3 @@ class CustomSharedLayerExecutor final
 };
 
 } // namespace slrg
-
-#include "executor.cpp"

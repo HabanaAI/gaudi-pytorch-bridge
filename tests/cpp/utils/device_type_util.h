@@ -14,5 +14,6 @@
  */
 #include <torch/torch.h>
 
+bool isGaudi();
 bool isGaudi2();
 bool isGaudi3();

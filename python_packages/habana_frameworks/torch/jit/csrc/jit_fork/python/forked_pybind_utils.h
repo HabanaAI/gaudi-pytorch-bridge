@@ -15,10 +15,8 @@
 
 #pragma once
 
-namespace habana_torch {
-namespace jit {
+namespace habana_torch::jit {
 
 void clear_registered_instances(void* ptr);
 
-} // namespace jit
-} // namespace habana_torch
+} // namespace habana_torch::jit

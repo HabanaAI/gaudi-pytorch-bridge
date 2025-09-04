@@ -18,8 +18,7 @@
 #include <torch/csrc/jit/ir/ir.h>
 #include "habana_eager/graph_execs_group.h"
 
-namespace habana {
-namespace graph {
+namespace habana::graph {
 
 class GraphStorage {
  public:
@@ -27,6 +26,7 @@ class GraphStorage {
 
   size_t add_new_recipe(
       std::shared_ptr<torch::jit::Graph> graph,
+      const std::string& parent_graph_name,
       torch::jit::Stack& example_inputs,
       const std::vector<bool>& is_reusable,
       bool dynamic,
@@ -53,5 +53,4 @@ class GraphStorage {
   std::vector<GraphExecsGroup> m_storage_vec;
 };
 
-} // namespace graph
-} // namespace habana
+} // namespace habana::graph

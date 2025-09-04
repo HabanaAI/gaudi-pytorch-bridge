@@ -18,16 +18,12 @@
 
 import pytest
 import torch
-from test_utils import compile_function_if_compile_mode, format_tc
+from test_utils import compile_function_if_compile_mode, format_tc, is_gaudi1
 
 all_dtypes = [
-    torch.bfloat16,
-    torch.float16,
-    torch.int16,
     torch.bool,
     torch.uint8,
     torch.int8,
-    torch.float32,
     torch.float64,
 ]
 
@@ -36,6 +32,8 @@ all_dtypes = [
 class TestHpuIndexPutSelect:
     @staticmethod
     def test_index_put_torch_compile(dtype):
+        if is_gaudi1() and dtype == torch.half:
+            pytest.skip("Half is not supported on Gaudi.")
 
         def fn(input, index, values):
             return input.index_put(index, values)

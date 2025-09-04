@@ -80,4 +80,6 @@ void SplitHpu::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 } // namespace habana
 
 static auto& SplitKernelRegistry =
-    habana::KernelRegistry().add("aten::split.Tensor", KERNEL_FN(SplitHpu));
+    habana::KernelRegistry().REGISTER_HPU_BACKEND(
+        "aten::split.Tensor",
+        habana::SplitHpu);

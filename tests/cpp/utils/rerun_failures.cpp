@@ -27,7 +27,7 @@ int CustomTestRunner::RunAllTests() {
 
 int CustomTestRunner::RunFailedTests() {
   if (!failed_tests_.empty()) {
-    std::string filter = "";
+    std::string filter;
     for (const auto& test : failed_tests_) {
       if (!filter.empty()) {
         filter += ":";

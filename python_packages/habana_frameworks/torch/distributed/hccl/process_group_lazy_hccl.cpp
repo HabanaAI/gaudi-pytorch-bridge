@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 #include "process_group_lazy_hccl.hpp"
+#include <tuple>
 
 #include <hccl.h>
 #include <hccl_types.h>
@@ -139,7 +140,8 @@ void restoreTensorsize(
     int extra_num_elems,
     int ori_input_size = -1) {
   if (extra_num_elems == 1) {
-    return restoreOddTensorsize(tensors, changed, sizeList, strideList);
+    restoreOddTensorsize(tensors, changed, sizeList, strideList);
+    return;
   }
 
   // Below for the case: extra_num_elems > 1
@@ -268,10 +270,7 @@ ProcessGroupLazyHCCL::ProcessGroupLazyHCCL(
     int rank,
     int size,
     std::string group_name)
-    : Backend(rank, size),
-      store_(store),
-      barrier_cnt_(0),
-      group_name_(group_name) {
+    : Backend(rank, size), store_(store), group_name_(group_name) {
   PT_DISTRIBUTED_DEBUG(
       "Created ProcessGroupLazyHCCL name:",
       group_name_,
@@ -692,6 +691,7 @@ void c10d::ProcessGroupLazyHCCL::CoalescedWorkHCCL::clear() {
 // Same as calling synchronize().
 bool c10d::ProcessGroupLazyHCCL::CoalescedWorkHCCL::wait(
     std::chrono::milliseconds timeout [[maybe_unused]]) {
+  std::ignore = pg_;
   for (auto& w : works_) {
     w->wait(timeout);
   }
@@ -881,14 +881,15 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::gather(
       }
     }
   } else {
-    HABANA_ASSERT(
-        outputTensors.size() == 0, "Requires empty output on non-root");
+    HABANA_ASSERT(outputTensors.empty(), "Requires empty output on non-root");
     work = send(inputTensors, opts.rootRank, 0 /*tag*/);
   }
   if (change) {
     PT_IRGRAPH_DEBUG("step marker due to ProcessGroupLazyHCCL::gather");
     habana_lazy::HbLazyTensor::StepMarker();
   }
+
+  restoreOddTensorsize(inputTensors, in_changed, in_sizeList, in_strideList);
   for (size_t i = 0; i < outputTensors.size(); i++) {
     restoreOddTensorsize(
         outputTensors[i], changed[i], sizeList[i], strideList[i]);
@@ -904,7 +905,7 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::alltoall(
     std::vector<at::Tensor>& inputTensors,
     [[maybe_unused]] const AllToAllOptions& opts) {
   HABANA_ASSERT(
-      inputTensors.size() && outputTensors.size(),
+      !inputTensors.empty() && !outputTensors.empty(),
       "ProcessGroupLazyHCCL::alltoall input and output tensors must have at least one element");
   auto data_type = outputTensors[0].scalar_type();
 
@@ -1070,7 +1071,7 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::scatter(
       }
     }
   } else {
-    HABANA_ASSERT(inputTensors.size() == 0, "Requires empty input on non-root");
+    HABANA_ASSERT(inputTensors.empty(), "Requires empty input on non-root");
     work = recv(outputTensors, opts.rootRank, 0 /*tag*/);
   }
 
@@ -1313,6 +1314,6 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, module) {
   processGroupHccl.def(
       "_shutdown",
       [](const c10::intrusive_ptr<::c10d::ProcessGroupLazyHCCL>& self) {
-        return self->shutdown(std::nullopt);
+        self->shutdown(std::nullopt);
       });
 };

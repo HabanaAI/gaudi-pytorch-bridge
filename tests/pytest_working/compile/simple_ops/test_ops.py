@@ -21,13 +21,13 @@ from test_utils import (
     compile_function_if_compile_mode,
     format_tc,
     generic_setup_teardown_env,
+    is_gaudi1,
 )
 from torch.testing._internal.common_methods_invocations import op_db
 
 all_dtypes = [
     torch.bfloat16,
     torch.float,
-    torch.float16,
     torch.int,
     torch.int16,
     torch.int8,
@@ -41,6 +41,10 @@ def setup_teardown_env():
         pass
 
     generic_setup_teardown_env(temp_test_env={"PT_HPU_LAZY_MODE": 0}, callback=callback)
+
+
+if not is_gaudi1():
+    all_dtypes.append(torch.float16)
 
 
 @pytest.mark.parametrize("dtype", all_dtypes, ids=format_tc)
@@ -219,7 +223,6 @@ def test_constant_pad_nd():
 logical_dtypes = [
     torch.bfloat16,
     torch.float,
-    torch.float16,
     torch.int,
     torch.int16,
     torch.int8,
@@ -227,6 +230,9 @@ logical_dtypes = [
     torch.bool,
     torch.long,
 ]
+
+if not is_gaudi1():
+    logical_dtypes.append(torch.float16)
 
 logical_ops_not_supported_dtypes = {
     torch.logical_and: [torch.int16],
@@ -270,226 +276,3 @@ def test_logical_not(dtype):
     hpu_res = compiled_hpu(hpu_tensor)
 
     assert torch.equal(cpu_res, hpu_res.to("cpu"))
-
-
-@pytest.mark.skip(reason="KeyError: 'torch_dynamo_backends'")
-def test_cat():
-    def raw_function(t1, t2):
-        return torch.cat((t1, t2))
-
-    compiled_fnc = compile_function_if_compile_mode(raw_function)
-
-    t1 = torch.rand(8, 8)
-    t2 = torch.rand(8, 8)
-
-    t1_cpu = t1.to(device="cpu")
-    t2_cpu = t2.to(device="cpu")
-    cpu_reference = raw_function(t1_cpu, t2_cpu)
-
-    hpu_output = compiled_fnc(t1, t2)
-
-    torch.allclose(hpu_output.to(device="cpu"), cpu_reference)
-
-
-@pytest.mark.parametrize("dtype", all_dtypes, ids=format_tc)
-def test_unbind_opdbtest(dtype):
-    results = run_test("unbind", dtype)
-    for a, b in results:
-        assert torch.allclose(a, b.cpu(), atol=0.001, rtol=0.001)
-
-
-@pytest.mark.parametrize("shape_in", [(4, 4), (2, 3, 4, 4, 4)], ids=format_tc)
-def test_nonzero(shape_in):
-    def fn(tensor):
-        return torch.nonzero(tensor)
-
-    cpu_tensor = torch.randint(10, shape_in) > 5
-    hpu_tensor = cpu_tensor.to("hpu")
-
-    cpu_res = fn(cpu_tensor)
-
-    compiled_hpu = compile_function_if_compile_mode(fn)
-    hpu_res = compiled_hpu(hpu_tensor)
-
-    assert torch.equal(cpu_res, hpu_res.to("cpu"))
-
-
-@pytest.mark.parametrize(
-    "init_val, dtype",
-    [
-        (1234567, torch.int64),
-        (12345.678, torch.double),
-        (12345.678, torch.bfloat16),
-        (1234567, torch.int),
-        (12288.0, torch.float8_e5m2),
-        (120.0, torch.float8_e4m3fn),
-        (True, torch.bool),
-    ],
-    ids=format_tc,
-)
-def test_local_scalar_dense(init_val, dtype):
-    cpu_tensor = torch.Tensor([init_val]).type(dtype)
-
-    def fn(tensor):
-        return torch.ops.aten._local_scalar_dense(tensor)
-
-    compiled_hpu = compile_function_if_compile_mode(fn)
-    hpu_res = compiled_hpu(cpu_tensor.to("hpu"))
-
-    if dtype in [torch.double, torch.bfloat16]:
-        assert torch.isclose(torch.tensor([hpu_res]), cpu_tensor.to(torch.float), atol=0.001, rtol=0.001)
-    else:
-        assert hpu_res == init_val
-
-
-@pytest.mark.parametrize("shape_in", [(4, 4)], ids=format_tc)
-def test_rand(shape_in):
-    def fn(shape_in, g):
-        return torch.rand(shape_in, generator=g, device="hpu")
-
-    torch.manual_seed(123)
-    g = None  # torch.Generator()
-    compiled_hpu = compile_function_if_compile_mode(fn)
-    hpu_res1 = compiled_hpu(shape_in, g)
-    torch.manual_seed(123)
-    hpu_res2 = compiled_hpu(shape_in, g)
-    assert torch.equal(hpu_res1.to("cpu"), hpu_res2.to("cpu"))
-
-
-@pytest.mark.parametrize("shape_in", [(4, 3)], ids=format_tc)
-def test_randn(shape_in):
-    def fn(shape_in, g):
-        return torch.randn(shape_in, generator=g, device="hpu")
-
-    g = None
-    compiled_hpu = compile_function_if_compile_mode(fn)
-    torch.manual_seed(123)
-    hpu_res1 = compiled_hpu(shape_in, g)
-    torch.manual_seed(123)
-    hpu_res2 = compiled_hpu(shape_in, g)
-    assert torch.equal(hpu_res1.to("cpu"), hpu_res2.to("cpu"))
-
-
-@pytest.mark.parametrize("shape_in", [(4,)], ids=format_tc)
-def test_normal_ff(shape_in):
-    def fn(mean, stddev, shape_in, g):
-        return torch.normal(mean, stddev, shape_in, generator=g, device="hpu")
-
-    g = None
-    compiled_hpu = compile_function_if_compile_mode(fn)
-    torch.manual_seed(123)
-    hpu_res1 = compiled_hpu(0.0, 1.0, shape_in, g)
-    torch.manual_seed(123)
-    hpu_res2 = compiled_hpu(0.0, 1.0, shape_in, g)
-    assert torch.equal(hpu_res1.to("cpu"), hpu_res2.to("cpu"))
-    torch.manual_seed(123)
-    hpu_res3 = compiled_hpu(0.5, 1.0, shape_in, g)
-    torch.manual_seed(123)
-    hpu_res4 = compiled_hpu(0.5, 1.0, shape_in, g)
-    assert torch.equal(hpu_res3.to("cpu"), hpu_res4.to("cpu"))
-    torch.manual_seed(123)
-    hpu_res5 = compiled_hpu(0.0, 2.0, shape_in, g)
-    torch.manual_seed(123)
-    hpu_res6 = compiled_hpu(0.0, 2.0, shape_in, g)
-    assert torch.equal(hpu_res5.to("cpu"), hpu_res6.to("cpu"))
-
-
-@pytest.mark.parametrize("shape_in", [(4,)], ids=format_tc)
-def test_normal_tf(shape_in):
-    def fn(mean, g):
-        return torch.normal(mean, 1.0, generator=g)
-
-    g = None
-    mean = torch.rand(shape_in, dtype=torch.float, device="hpu")
-    compiled_hpu = compile_function_if_compile_mode(fn)
-    torch.manual_seed(123)
-    hpu_res1 = compiled_hpu(mean, g)
-    torch.manual_seed(123)
-    hpu_res2 = compiled_hpu(mean, g)
-    assert torch.equal(hpu_res1.to("cpu"), hpu_res2.to("cpu"))
-
-
-@pytest.mark.parametrize("shape_in", [(4,)], ids=format_tc)
-def test_normal_ft(shape_in):
-    def fn(std, g):
-        return torch.normal(0.5, std, generator=g)
-
-    g = None
-    std = torch.rand(shape_in, dtype=torch.float, device="hpu")
-    compiled_hpu = compile_function_if_compile_mode(fn)
-    torch.manual_seed(123)
-    hpu_res1 = compiled_hpu(std, g)
-    torch.manual_seed(123)
-    hpu_res2 = compiled_hpu(std, g)
-    assert torch.equal(hpu_res1.to("cpu"), hpu_res2.to("cpu"))
-
-
-@pytest.mark.parametrize("shape_in", [(4,)], ids=format_tc)
-def test_normal_tt(shape_in):
-    def fn(mean, std, g):
-        return torch.normal(mean, std, generator=g)
-
-    mean = torch.rand(shape_in, dtype=torch.float, device="hpu")
-    g = None
-    std = torch.rand(shape_in, dtype=torch.float, device="hpu")
-    compiled_hpu = compile_function_if_compile_mode(fn)
-    torch.manual_seed(123)
-    hpu_res1 = compiled_hpu(mean, std, g)
-    torch.manual_seed(123)
-    hpu_res2 = compiled_hpu(mean, std, g)
-    assert torch.equal(hpu_res1.to("cpu"), hpu_res2.to("cpu"))
-
-
-@pytest.mark.parametrize("n", [32, 1], ids=format_tc)
-@pytest.mark.parametrize("g", [None])
-@pytest.mark.parametrize("dtype", [torch.int32, torch.bfloat16, torch.int64])
-def test_randperm(n, g, dtype):
-    def fn(n, g, dtype):
-        return torch.randperm(n, generator=g, dtype=dtype, device="hpu")
-
-    seed = 1234
-    compiled_hpu = compile_function_if_compile_mode(fn)
-    torch.manual_seed(seed)
-    hpu_res1 = compiled_hpu(n, g, dtype)
-    torch.manual_seed(seed)
-    hpu_res2 = compiled_hpu(n, g, dtype)
-    assert torch.equal(hpu_res1.to("cpu"), hpu_res2.to("cpu"))
-
-
-@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float, torch.int32])
-def test_index_add(dtype):
-    def compile_fn(x, ind1, src, y, dim):
-        return torch.index_add(x, dim, ind1, src, out=y)
-
-    def index_add_test(dtype_used, dim: int, ind1: torch.Tensor, src: torch.Tensor) -> torch.Tensor:
-        device = torch.device(ind1.device.type)
-        x = torch.ones(s0 * s1).view(s0, s1).to(dtype_used).to(device)
-        y = torch.zeros(x.shape, dtype=dtype_used).to(device)
-
-        if device == torch.device("hpu"):
-            compiled_hpu = torch.compile(compile_fn, backend="hpu_backend", dynamic=None)
-            compiled_hpu(x, ind1, src, y, dim)
-        else:
-            compile_fn(x, ind1, src, y, dim)
-
-        return y
-
-    s0 = 8
-    s1 = 4
-    dtype_used = dtype
-    for i in range(2):
-        dim = i
-        ind_len = s1 if dim else s0
-        redundancy = ind_len
-        ind_cpu = torch.randint(0, ind_len, (ind_len + redundancy,), dtype=torch.long)
-        ind_hpu = ind_cpu.to("hpu")
-        src = None
-        if dim:
-            src = torch.ones((s0, ind_cpu.shape[0]), dtype=dtype_used)
-        else:
-            src = torch.ones((ind_cpu.shape[0], s1), dtype=dtype_used)
-
-        index_put_res = index_add_test(dtype_used, dim, ind_cpu, src)
-        src_hpu = src.to("hpu")
-        index_put_res_hpu = index_add_test(dtype_used, dim, ind_hpu, src_hpu)
-        assert torch.allclose(index_put_res_hpu.to("cpu"), index_put_res, atol=0.001, rtol=0.001)

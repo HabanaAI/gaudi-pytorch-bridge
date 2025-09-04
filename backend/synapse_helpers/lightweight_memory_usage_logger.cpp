@@ -80,7 +80,7 @@ class MemMonitor : public MemMonitorBase {
     std::array<char, 25> strbuf;
     strftime(
         strbuf.data(), strbuf.size(), "%Y-%m-%dT%H_%M_%S", &current_time_tm);
-    return string(strbuf.data());
+    return {strbuf.data()};
   }
 
   template <typename... Tp>

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,8 +21,7 @@
 #include "habana_lazy/ir.h"
 #include "torch/csrc/jit/ir/ir.h"
 
-namespace habana_lazy {
-namespace ir {
+namespace habana_lazy::ir {
 
 struct Slice : public ir::Node {
   enum class SliceParms { DIM_INDEX = 1, START_INDEX, END_INDEX, STEP_INDEX };
@@ -70,7 +69,7 @@ struct Slice : public ir::Node {
       if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_H2D_DYNAMIC_SLICE)) {
         std::vector<int64_t> host_params{
             self.dim(), 1, 1, 1, 1, 1, 0, 0, 0, 0, 0};
-        int index = self.dim() - dim;
+        const auto index = static_cast<size_t>(self.dim() - dim);
         host_params[index] = step;
         host_params[index + 5] = start;
         auto host_tensor = empty_hpu_lazy(
@@ -80,16 +79,19 @@ struct Slice : public ir::Node {
             false,
             HOST_TO_DEVICE_TENSOR);
         auto hl_param_tensor = GetOrCreateHbLazyTensor(host_tensor, c10::kHPU);
-        auto hl_param_tensor_internal =
-            hl_param_tensor.CurrentTensorAttached().value();
-        auto host_tmeta{
-            habana::get_tensor_extra_meta(hl_param_tensor_internal)};
-        host_tmeta->set_host_data(
-            host_params.data(),
-            host_params.size(),
-            sizeof(uint64_t),
-            habana::HostDataType::UINT64_T);
+        if (hl_param_tensor.CurrentTensorAttached().has_value()) {
+          auto hl_param_tensor_internal =
+              hl_param_tensor.CurrentTensorAttached().value();
+
+          auto host_tmeta{habana::get_tensor_extra_meta(hl_param_tensor_internal)};
+          host_tmeta->set_host_data(
+              host_params.data(),
+              host_params.size(),
+              sizeof(uint64_t),
+              habana::HostDataType::UINT64_T);
         host_tmeta->set_H2D_data_for_bucketing();
+        }
+
         AddInput(hl_param_tensor.GetIrValue());
         input_pt_vec.emplace_back(host_tensor);
       } else {
@@ -271,5 +273,4 @@ struct Identity : public ir::Node {
   }
 };
 
-} // namespace ir
-} // namespace habana_lazy
+} // namespace habana_lazy::ir

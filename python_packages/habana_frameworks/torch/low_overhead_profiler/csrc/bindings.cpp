@@ -31,7 +31,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     SET_ENV_FLAG_NEW(PT_HPU_ENABLE_LOP_METRICS_COLLECTION, false, 1);
     SET_ENV_FLAG_NEW(PT_HPU_ENABLE_LOP_TRACES_COLLECTION, false, 1);
   });
-  m.def("_flush_lo_host_profiler", []() {
-    LOP::ProfilerEngine::get_inst().flush();
+  m.def("_flush_lo_host_profiler", [](bool dump_traces) {
+    LOP::ProfilerEngine::get_inst(dump_traces).flush();
   });
 }

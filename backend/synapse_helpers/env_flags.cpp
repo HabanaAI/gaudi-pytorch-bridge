@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -431,6 +431,7 @@ static T getenv_numeric_new(
   return act_val;
 }
 
+// NOLINTBEGIN(bugprone-macro-parentheses)
 #define INSTANTIATE_GETENV_BY_TYPE_NEW(T, conv) \
   template <>                                   \
   T getenv_by_type_new(                         \
@@ -453,6 +454,7 @@ static T getenv_numeric_new(
         max_val,                                \
         conv);                                  \
   }
+// NOLINTEND(bugprone-macro-parentheses)
 
 INSTANTIATE_GETENV_BY_TYPE_NEW(int, strtol)
 INSTANTIATE_GETENV_BY_TYPE_NEW(long, strtol)

@@ -21,11 +21,8 @@
  */
 
 #pragma once
-
-namespace habana_torch {
-namespace jit {
+namespace habana_torch::jit {
 
 static const char* valid_single_char_tokens = "+-*/%@()[]:,={}><.?!&^|~";
 
-} // namespace jit
-} // namespace habana_torch
+} // namespace habana_torch::jit

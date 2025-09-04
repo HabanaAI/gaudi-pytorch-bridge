@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,13 +16,11 @@
 #include "generated/backend/log_normal.h"
 
 namespace habana {
-std::shared_ptr<void> FillLogNormalParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillLogNormalParams(const at::Stack& stack) {
   PARAMS_STUB(ns_RandomNormal::Params);
   params->mean = static_cast<float>(stack.at(1).toDouble());
   params->stddev = static_cast<float>(stack.at(2).toDouble());
 
-  return params;
+  return paramsT;
 }
 } // namespace habana

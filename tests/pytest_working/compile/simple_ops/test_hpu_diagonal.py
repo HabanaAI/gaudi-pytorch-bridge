@@ -18,7 +18,7 @@
 
 import pytest
 import torch
-from test_utils import compile_function_if_compile_mode
+from test_utils import compile_function_if_compile_mode, is_gaudi1
 
 
 def set_precision(dtype):
@@ -30,7 +30,9 @@ def set_precision(dtype):
     return atol, rtol
 
 
-supported_dtypes = [torch.bfloat16, torch.float, torch.half, torch.int, torch.short]
+supported_dtypes = [torch.bfloat16, torch.float, torch.int, torch.short]
+if not is_gaudi1():
+    supported_dtypes.append(torch.half)
 
 #             shape                 dims        offset
 input5D = [[(10, 10, 10, 10, 10), (0, 1), 0]]

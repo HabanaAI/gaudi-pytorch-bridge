@@ -25,8 +25,7 @@
 #include "habana_eager/graph_dynamic.h"
 #include "habana_lazy/tensor_impl.h"
 
-namespace habana {
-namespace graph {
+namespace habana::graph {
 
 using GraphInputIndexMap = std::unordered_map<std::string, int64_t>;
 void GetValueAndScalarIndexFromInput(
@@ -571,5 +570,4 @@ class RandintOperatorDS : public DynamicOp {
       LaunchDynamicShapes& launch_shapes);
 };
 
-} // namespace graph
-} // namespace habana
+} // namespace habana::graph

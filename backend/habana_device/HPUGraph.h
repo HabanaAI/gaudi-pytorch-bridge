@@ -19,8 +19,7 @@
 #include "habana_lazy/ir.h"
 #include "torch/csrc/jit/ir/ir.h"
 
-namespace at {
-namespace hpu {
+namespace at::hpu {
 
 struct SingleHPUGraph {
   SingleHPUGraph(
@@ -115,7 +114,7 @@ struct SingleHPUGraph {
       seed_tensors_generator_;
   size_t hash_{0};
   size_t graphKey_{0};
-  std::string opStrs_ = "";
+  std::string opStrs_;
   c10::hpu::HPUStream capture_stream_;
 };
 
@@ -133,7 +132,9 @@ struct HPUGraph {
       std::vector<at::Tensor>& inputs,
       bool async = false);
   void replayV3(std::vector<at::Tensor>& inputs, bool async = false);
-  void mark_user_outputs(std::vector<at::Tensor>& outputs);
+  void mark_user_outputs(
+      std::vector<at::Tensor>& outputs,
+      bool free_inplace = true);
   void mark_user_inputs(std::vector<at::Tensor>& static_inputs);
   void destroy();
   std::unordered_set<size_t> get_user_input_match_indices() {
@@ -147,11 +148,10 @@ struct HPUGraph {
   bool dynamic_env_ = false;
   bool capturing_ = false;
   std::vector<std::shared_ptr<SingleHPUGraph>> captured_graphs;
-  std::vector<std::vector<int64_t>> user_input_sizes_ = {};
+  std::vector<std::vector<int64_t>> user_input_sizes_;
   std::unordered_set<size_t> user_input_match_indices_;
   // tensors that are input as well as intermediate outputs
   std::vector<habana_lazy::HbLazyTensor> hblazy_tensors_in_out_;
 };
 
-} // namespace hpu
-} // namespace at
+} // namespace at::hpu

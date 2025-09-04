@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -142,6 +142,7 @@ class Output {
   std::optional<SmallSizeVec> sizes;
   std::optional<at::ScalarType> scalar_type;
   uint64_t unique_id;
+  int64_t tensor_id;
 };
 using OutputList = std::vector<Output>;
 
@@ -233,7 +234,7 @@ class MetaData {
   }
 
   std::string ToStringIrGraph() const {
-    if (m_data.size() == 0) {
+    if (m_data.empty()) {
       return {};
     }
 
@@ -462,6 +463,7 @@ class Node {
 
   virtual std::string ToString() const;
   virtual std::string ToStringIrGraph() const;
+  std::string GetOpNameString() const;
 
   void AddInput(const Value& value);
 
@@ -553,9 +555,9 @@ class Node {
 
  protected:
   c10::Symbol m_op;
-  bool m_is_input = false;
-  bool m_is_control_edge = false;
-  bool m_is_output_tensor_list = false;
+  bool m_is_input{false};
+  bool m_is_control_edge{false};
+  bool m_is_output_tensor_list{false};
   std::vector<bool> m_bcast_details;
   InlinedValueList m_inputs;
   OutputList m_outputs;
@@ -569,7 +571,7 @@ class Node {
   std::shared_ptr<std::string> m_scope;
   uint64_t m_id;
   bool deterministic = 0;
-  std::unordered_map<uint32_t, uint32_t> m_pt_vec_to_input_ival;
+  std::unordered_map<size_t, size_t> m_pt_vec_to_input_ival;
   std::string module_name = std::string();
 };
 

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -83,10 +83,10 @@ TEST_F(FallbackTest, DISABLED_tensorView_Inplace) {
   torch::Tensor tensor = torch::randn({3, 3});
   auto tensor_hpu = tensor.to(torch::kHPU);
 
-  auto out = torch::as_strided(tensor, (2, 2), (1, 2));
+  auto out = torch::as_strided(tensor, {2, 2}, {1, 2});
   out.mul_(2);
 
-  auto out_hpu = torch::as_strided(tensor_hpu, (2, 2), (1, 2));
+  auto out_hpu = torch::as_strided(tensor_hpu, {2, 2}, {1, 2});
   out_hpu.mul_(2);
 
   auto hOut_cpu = out_hpu.cpu();
@@ -99,10 +99,10 @@ TEST_F(FallbackTest, DISABLED_tensorView_OutOfPlace) {
   torch::Tensor tensor = torch::randn({3, 3});
   auto tensor_hpu = tensor.to(torch::kHPU);
 
-  auto out = torch::as_strided(tensor, (2, 2), (1, 2));
+  auto out = torch::as_strided(tensor, {2, 2}, {1, 2});
   out.add(2);
 
-  auto out_hpu = torch::as_strided(tensor_hpu, (2, 2), (1, 2));
+  auto out_hpu = torch::as_strided(tensor_hpu, {2, 2}, {1, 2});
   out_hpu.add(2);
 
   auto hOut_cpu = out_hpu.cpu();
@@ -139,13 +139,13 @@ TEST_F(FallbackTest, DISABLED_tensorView_Inplace_3) {
   torch::Tensor tensor = torch::randn({3, 3});
   auto tensor_hpu = tensor.to(torch::kHPU);
 
-  auto out = torch::as_strided(tensor, (2, 2), (1, 2));
+  auto out = torch::as_strided(tensor, {2, 2}, {1, 2});
   out.mul_(2);
   tensor.add_(1);
   auto relu = torch::nn::ReLU();
   auto res = relu(tensor);
 
-  auto out_hpu = torch::as_strided(tensor_hpu, (2, 2), (1, 2));
+  auto out_hpu = torch::as_strided(tensor_hpu, {2, 2}, {1, 2});
   out_hpu.mul_(2);
   tensor_hpu.add_(1);
   auto res_hpu = relu(tensor_hpu);
@@ -162,9 +162,9 @@ TEST_F(FallbackTest, DISABLED_tensorView_Inplace_4) {
   auto a_hpu = a.to(torch::kHPU);
   auto b_hpu = b.to(torch::kHPU);
 
-  auto out = torch::as_strided(a, (2, 2), (1, 2));
+  auto out = torch::as_strided(a, {2, 2}, {1, 2});
   a.bitwise_and_(b);
-  auto out_hpu = torch::as_strided(a_hpu, (2, 2), (1, 2));
+  auto out_hpu = torch::as_strided(a_hpu, {2, 2}, {1, 2});
   a_hpu.bitwise_and_(b_hpu);
 
   auto hOut_cpu = a_hpu.cpu();
@@ -178,11 +178,11 @@ TEST_F(FallbackTest, DISABLED_tensorlistView_Inplace) {
   torch::Tensor t2 = torch::randn({8, 8});
   auto t1_hpu = t1.to(torch::kHPU);
   auto t2_hpu = t2.to(torch::kHPU);
-  auto view1 = torch::as_strided(t1, (2, 2), (1, 2));
-  auto view2 = torch::as_strided(t2, (2, 6), (1, 2));
+  auto view1 = torch::as_strided(t1, {2, 2}, {1, 2});
+  auto view2 = torch::as_strided(t2, {2, 6}, {1, 2});
   at::_foreach_abs_({view1, view2});
-  auto view1_hpu = torch::as_strided(t1_hpu, (2, 2), (1, 2));
-  auto view2_hpu = torch::as_strided(t2_hpu, (2, 6), (1, 2));
+  auto view1_hpu = torch::as_strided(t1_hpu, {2, 2}, {1, 2});
+  auto view2_hpu = torch::as_strided(t2_hpu, {2, 6}, {1, 2});
   at::_foreach_abs_({view1_hpu, view2_hpu});
 
   /*

@@ -36,12 +36,10 @@ def fn2(x, y):
 
 
 def test_simple():
-    with use_eager_fallback():
-        with force_op_eager_fallback("randint"):
-            with FxGraphAnalyzer(reset_dynamo=True) as fga:
-                t1 = torch.tensor([6], device="hpu")
-                t2 = torch.tensor([2], device="hpu")
-                fn(t1, t2, "hpu")
+    with use_eager_fallback(), force_op_eager_fallback("randint"), FxGraphAnalyzer(reset_dynamo=True) as fga:
+        t1 = torch.tensor([6], device="hpu")
+        t2 = torch.tensor([2], device="hpu")
+        fn(t1, t2, "hpu")
 
     ops_summary = fga.get_ops_summary()
     fga_assert_helper(ops_summary, "torch.ops.aten.randint.low", [(0, 1)])
@@ -59,15 +57,14 @@ def test_cpu():
 
 
 def test_multiple():
-    with use_eager_fallback():
-        with FxGraphAnalyzer(reset_dynamo=True) as fga:
-            t1 = torch.tensor([6], device="hpu")
-            t2 = torch.tensor([2], device="hpu")
-            with FxGraphAnalyzer() as fga2:
-                fn2(t1, t2)
-            with FxGraphAnalyzer() as fga3:
-                fn(t1, t2, "hpu")
-            fn(t1.to("cpu"), t2.to("cpu"), "cpu")
+    with use_eager_fallback(), FxGraphAnalyzer(reset_dynamo=True) as fga:
+        t1 = torch.tensor([6], device="hpu")
+        t2 = torch.tensor([2], device="hpu")
+        with FxGraphAnalyzer() as fga2:
+            fn2(t1, t2)
+        with FxGraphAnalyzer() as fga3:
+            fn(t1, t2, "hpu")
+        fn(t1.to("cpu"), t2.to("cpu"), "cpu")
 
     ops_summary = fga.get_ops_summary()
     fga_assert_helper(ops_summary, "torch.ops.aten.randint.low", [None, (1, 0), None])

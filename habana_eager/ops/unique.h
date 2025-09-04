@@ -15,11 +15,9 @@
 
 #pragma once
 
-namespace habana {
-namespace eager {
+namespace habana::eager {
 std::tuple<at::Tensor, at::Tensor> _unique_eager(
     const at::Tensor& self,
     bool sorted,
     bool return_inverse);
-} // namespace eager
-} // namespace habana
+} // namespace habana::eager

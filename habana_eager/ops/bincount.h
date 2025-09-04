@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,12 +14,16 @@
  */
 
 #pragma once
+#include <c10/core/SymInt.h>
+#include "habana_helpers/pt_version_check.h"
 
-namespace habana {
-namespace eager {
+namespace habana::eager {
 at::Tensor bincount_eager(
     const at::Tensor& self,
     const std::optional<at::Tensor>& weights,
+#if IS_PYTORCH_AT_LEAST(2, 8)
+    c10::SymInt minlength);
+#else
     int64_t minlength);
-} // namespace eager
-} // namespace habana
+#endif
+} // namespace habana::eager

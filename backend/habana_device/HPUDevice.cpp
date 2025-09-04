@@ -15,10 +15,13 @@
 
 #include "backend/habana_device/HPUDevice.h"
 #include <c10/util/thread_name.h>
+#include <synapse_api_types.h>
 #include <memory>
 #include "backend/habana_device/HPUAllocator.h"
 #include "backend/habana_device/PinnedMemoryAllocator.h"
 #include "backend/habana_device/hpu_cached_devices.h"
+#include "backend/helpers/event_dispatcher.h"
+#include "backend/kernel/constant_information.h"
 #include "backend/scalar_cache.h"
 #include "backend/synapse_helpers/time_slot.h"
 #include "common/pipeline_deleter.h"
@@ -29,6 +32,7 @@ struct HPUDeviceContextImpl {
   std::unique_ptr<habana_helpers::SingleThreadPool> garbage_collection_thread_;
   synapse_helpers::device_handle device_;
   std::unique_ptr<backend::ScalarCache> scalar_cache_;
+  std::unique_ptr<backend::H2dScalesCache> h2d_scales_cache_;
 
   std::unique_ptr<RecipeCacheLRU> recipe_cache_;
 
@@ -114,6 +118,7 @@ void HPUDeviceContextImpl::Init() {
       true, []() { c10::setThreadName("Pipeline Lowering Thread"); });
   constant_information_ = ConstantInformationPtr();
   scalar_cache_ = std::make_unique<backend::ScalarCache>();
+  h2d_scales_cache_ = std::make_unique<backend::H2dScalesCache>();
 
   HPURegistrar::get_hpu_registrar().register_thread_deleter(
       []() { device_context.ThreadsRelease(); });
@@ -133,9 +138,25 @@ void HPUDeviceContextImpl::ThreadsRelease() {
 }
 
 void HPUDeviceContextImpl::Finish() {
+  synapse_helpers::MemoryStats stats;
+  device_->get_device_memory().get_memory_stats(&stats);
+
+  // Currently statistic is device independent. device_->id() can be added if
+  // needed The backend device maximum bytes in use
+  const std::string pb_name("peak_bytes");
+  const std::string pb_val(std::to_string(stats.peak_bytes_in_use));
+  // The backend device internal memory used
+  const std::string wrksp_name("workspace_bytes");
+  const std::string wrksp_val(std::to_string(stats.scratch_mem_in_use));
+
+  habana_helpers::EmitEvent(
+      habana_helpers::EventDispatcher::Topic::CTX_FINISH_BEFORE,
+      {{pb_name, pb_val}, {wrksp_name, wrksp_val}});
+
   lazy_compile_thread_pool_.reset();
   recipe_cache_.reset();
   scalar_cache_.reset();
+  h2d_scales_cache_.reset();
 
   constant_information_->ClearChecksumInformation();
 
@@ -155,12 +176,14 @@ void HPUDeviceContextImpl::Finish() {
         " other references ");
   }
 
-  habana::HPUDeviceAllocator::allocator_active_device_id = -1;
-  habana::PinnedMemoryAllocator::allocator_active_device_id = -1;
+  habana::HPUDeviceAllocator::allocator_active_device_id =
+      SYN_INVALID_DEVICE_ID;
+  habana::PinnedMemoryAllocator::allocator_active_device_id =
+      SYN_INVALID_DEVICE_ID;
   constant_information_.reset();
 }
 
-synapse_helpers::device& get_device(int) {
+synapse_helpers::device& get_device(synDeviceId) {
   HABANA_ASSERT(device_context.device_);
   return *device_context.device_;
 }
@@ -212,6 +235,11 @@ habana_helpers::ThreadPool& lazy_compile_thread_pool() {
 backend::ScalarCache& scalar_cache() {
   HABANA_ASSERT(device_context.scalar_cache_);
   return *device_context.scalar_cache_;
+}
+
+backend::H2dScalesCache& h2d_scales_cache() {
+  HABANA_ASSERT(device_context.h2d_scales_cache_);
+  return *device_context.h2d_scales_cache_;
 }
 
 synapse_helpers::device& syn_device() {

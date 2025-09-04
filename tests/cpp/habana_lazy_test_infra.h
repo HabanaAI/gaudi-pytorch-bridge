@@ -41,7 +41,7 @@ class EnvHelper {
   bool m_recipe_cache_enable = true;
   bool m_eager_gc_enable = false;
   bool m_eager_view_handling_enable = false;
-  std::optional<bool> m_shape_agnostic_enable{};
+  std::optional<bool> m_shape_agnostic_enable;
   bool m_acc_par_mode_enable = true;
   std::string place_on_cpu_env = GET_ENV_FLAG_NEW(PT_HPU_PLACE_ON_CPU);
 
@@ -260,10 +260,10 @@ class LazyDynamicTest : public LazyTest {
   }
 };
 
-typedef struct {
+struct PostOrderTestStruct {
   habana_lazy::ir::NodePtrList post_order_nodes;
   size_t post_order_nodes_hash;
-} PostOrderTestStruct;
+};
 
 // Create a 3 Node vector from first level IR
 // This is what is expected after a post order traversal
@@ -282,8 +282,8 @@ torch::jit::Stack createStack(std::vector<at::Tensor>&& list);
 } // namespace habana_lazy_test
 
 namespace jit_ir_test {
-nlohmannV340::json read_json(std::string input_json);
-std::string get_jit_graph(nlohmannV340::json json_);
+nlohmann::json read_json(std::string input_json);
+std::string get_jit_graph(nlohmann::json json_);
 at::Tensor create_empty_tensor(
     const std::vector<int64_t>& tshape,
     c10::TensorOptions& tensor_options,

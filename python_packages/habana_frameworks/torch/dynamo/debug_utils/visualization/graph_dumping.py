@@ -145,7 +145,6 @@ def dump_fx_graph(
 
     if last_pass is None and stage != OptimizationPassPlacement.PRE_PLACEMENT:
         return
-
     if last_pass is not None:
         graph_log_name = f"{graph_name} <{stage} after `{last_pass}`>"
         graph_file_name = f"{graph_name}-{stage.value}-{stage.name}-{pass_counter}-{last_pass}"
@@ -155,7 +154,7 @@ def dump_fx_graph(
 
     node_coloring = get_node_coloring_strategy(stage=stage, graph_pass=last_pass)
 
-    logger.debug(graph_to_str(graph_module, graph_name=graph_log_name, print_nodes=True))
+    logger.debug("%s", graph_to_str(graph_module, graph_name=graph_log_name, print_nodes=True))
 
     GraphVisualizer.dump_fx_graph(graph_file_name, graph_module, node_coloring)
 

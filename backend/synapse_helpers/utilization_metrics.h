@@ -104,11 +104,11 @@ class HPUUtilizationPoller {
   void pollLoop();
 
   int interval_;
-  std::atomic<bool> started_;
-  double totalUtil_;
-  size_t sampleCount_;
-  double usage_;
-  HlmlPowerProvider provider_;
+  std::atomic<bool> started_{false};
+  double totalUtil_{0.0};
+  size_t sampleCount_{0};
+  double usage_{0.0};
+  HlmlPowerProvider provider_{};
 
   std::thread pollThread_;
 
@@ -134,7 +134,7 @@ class Timer {
 
 class StreamUtilizationMetric {
  public:
-  StreamUtilizationMetric();
+  StreamUtilizationMetric() = default;
 
   void start();
   void stop();
@@ -149,11 +149,11 @@ class StreamUtilizationMetric {
   StreamUtilizationMetric& operator=(const StreamUtilizationMetric&) = delete;
 
   mutable std::mutex mutex_;
-  bool started_;
+  bool started_{false};
   std::chrono::time_point<std::chrono::high_resolution_clock> startTime_;
 
-  int64_t totalTime_ = 0;
-  int64_t idleTime_ = 0;
+  int64_t totalTime_{0};
+  int64_t idleTime_{0};
 };
 
 class UtilizationMetrics {

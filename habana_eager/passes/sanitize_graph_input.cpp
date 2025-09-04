@@ -18,13 +18,11 @@
 #include "habana_eager/graph_exec.h"
 #include "habana_helpers/logging_pt.h"
 
-namespace habana {
-namespace graph {
-namespace pass {
+namespace habana::graph::pass {
 
 void SanitizeGraphInput(std::shared_ptr<torch::jit::Graph> graph) {
   PT_EAGER_TRACE;
-  if (0 == graph->inputs().size()) {
+  if (graph->inputs().empty()) {
     // No input to sanitize...
     return;
   }
@@ -36,6 +34,4 @@ void SanitizeGraphInput(std::shared_ptr<torch::jit::Graph> graph) {
   }
 }
 
-} // namespace pass
-} // namespace graph
-} // namespace habana
+} // namespace habana::graph::pass

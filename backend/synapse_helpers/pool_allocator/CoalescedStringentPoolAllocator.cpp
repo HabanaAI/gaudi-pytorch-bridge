@@ -12,19 +12,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <synapse_api.h>
-
-#include <habana_helpers/logging.h>
 #include "CoalescedStringentPoolAllocator.h"
+#include <habana_helpers/logging.h>
+#include <synapse_api.h>
 #include "backend/synapse_helpers/devmem_logger.h"
-#include "backend/synapse_helpers/env_flags.h"
+#include "backend/synapse_helpers/env_flags.h" // IWYU pragma: keep
 #include "backend/synapse_helpers/lightweight_memory_usage_logger.h"
 #include "backend/synapse_helpers/util.h"
 
-#define DEFRAGMENT_TH(arg) std::ceil(0.9 * (arg))
+#define DEFRAGMENT_TH(arg) \
+  static_cast<decltype(arg)>(std::ceil(0.9 * static_cast<double>(arg)))
 
-namespace synapse_helpers {
-namespace pool_allocator {
+namespace synapse_helpers::pool_allocator {
 
 Bin* BinUtils::BinFromIndex(uint64_t index) const {
   Bin* bin = const_cast<Bin*>(
@@ -62,8 +61,8 @@ void BinUtils::InsertFreeChunkIntoBin(Chunk* c) const {
 
 void BinUtils::RemoveFreeChunkFromBin(Chunk* c) const {
   if (!c->used && (c->bin_index != kInvalidBinNum)) {
-    int count = BinFromIndex(c->bin_index)->free_chunks.erase(c);
-    if (count < 0) {
+    const auto count = BinFromIndex(c->bin_index)->free_chunks.erase(c);
+    if (count == 0) {
       PT_DEVMEM_DEBUG(
           "CS_POOL:: RemoveFreeChunkFromBin - memptr = ",
           uint64_to_hex_string(c->memptr),
@@ -104,9 +103,9 @@ CoalescedStringentPooling::CoalescedStringentPooling(device& device)
   max_pool_size = default_pool_size;
   prealloc_pool = nullptr;
   small_allocs_ = nullptr;
-  defragmenter_state_started_ = 0;
+  defragmenter_state_started_ = false;
   alignment = device_.get_device_memory_alignment();
-  kMinAllocationBits = std::log2(alignment) + 1;
+  kMinAllocationBits = static_cast<size_t>(std::log2(alignment)) + 1;
   kMinAllocationSize = 1 << kMinAllocationBits;
   bin_utils = new BinUtils(kMinAllocationSize, kMinAllocationBits);
   header_bytes = alignment;
@@ -155,14 +154,18 @@ bool CoalescedStringentPooling::pool_create(synDeviceId deviceID, uint64_t size)
     }
     stats.pre_allocate_size += hccl_allowance_bytes;
 
-    auto val = GET_ENV_FLAG_NEW(PT_HPU_POOL_MEM_ACQUIRE_PERC);
-    uint32_t mem_acquire_perc = (val > 100) ? 100 : val;
-    size = ((mem_acquire_perc / 100.0) * free_mem) - hccl_allowance_bytes;
+    const auto val =
+        static_cast<size_t>(GET_ENV_FLAG_NEW(PT_HPU_POOL_MEM_ACQUIRE_PERC));
+    const auto mem_acquire_perc = (val > 100) ? 100 : val;
+    size = static_cast<size_t>(
+               ((static_cast<double>(mem_acquire_perc) / 100.0) *
+                static_cast<double>(free_mem))) -
+        hccl_allowance_bytes;
 
     PT_DEVMEM_DEBUG(
         "CS_POOL:: use 100% of freepool size, free mem :: ",
         free_mem,
-        "hccl allowance bytes",
+        " hccl allowance bytes",
         hccl_allowance_bytes,
         " size used for pool :: ",
         size);
@@ -231,8 +234,8 @@ bool CoalescedStringentPooling::pool_create(synDeviceId deviceID, uint64_t size)
   }
   // Create one large chunk for the whole memory space that will be chunked
   // and use later
-  Chunk* chunk = new Chunk();
-  chunk->memptr = (uint64_t)p->next;
+  auto* chunk = new Chunk();
+  chunk->memptr = p->next;
   chunk->extra_space = 0;
   chunk->size = max_pool_size - header_bytes;
   chunk->used = false;
@@ -258,7 +261,8 @@ bool CoalescedStringentPooling::pool_create(synDeviceId deviceID, uint64_t size)
   stats.bytes_in_use += header_bytes;
   bytes_in_use += header_bytes;
   stats.pre_allocate_size += header_bytes;
-  size_t small_alloc_size = 6 * 1024 * alignment;
+  constexpr auto mem_block_size = 6 * 1024;
+  size_t small_alloc_size = mem_block_size * alignment;
   const auto chunk_ptr = static_cast<int8_t*>(alloc_chunk(
       small_alloc_size, 0 /*default stream*/, false /*use_stream*/));
   const auto free_chunk = [this](int8_t* ptr) { delete_chunk(ptr); };
@@ -309,7 +313,7 @@ void CoalescedStringentPooling::pool_destroy() const {
 
     if (!get_device_deallocation()) {
       if (nullptr != (void*)s_pool->basememptr) {
-        uint64_t ptr_address{reinterpret_cast<uint64_t>(s_pool->basememptr)};
+        uint64_t ptr_address{s_pool->basememptr};
         auto status{synDeviceFree(pool_id, ptr_address, 0)};
         if (status) {
           set_device_deallocation(true);
@@ -348,7 +352,9 @@ bool CoalescedStringentPooling::is_memory_available(size_t size) const {
   const std::lock_guard<std::mutex> lock(sp_mutex);
 
   if ((size + bytes_in_use) > max_pool_size) {
-    PT_DEVMEM_DEBUG("total requested memory size::", size, " not available");
+    PT_DEVMEM_DEBUG("total requested memory size:: ", size, " not available");
+    PT_DEVMEM_DEBUG(
+        "bytes_in_use:: ", bytes_in_use, " max_pool_size:: ", max_pool_size);
     return false;
   }
   return true;
@@ -404,11 +410,11 @@ void* CoalescedStringentPooling::FindChunkPtr(
         // If we can break the size of the chunk into two reasonably large
         // pieces, do so.  In any case don't waste more than
         // kMaxInternalFragmentation bytes on padding this alloc.
-        const int64_t kMaxInternalFragmentation = 128 << 20; // 128mb
+        constexpr uint64_t kMaxInternalFragmentation = 128 << 20; // 128mb
         if ((chunk->size > num_bytes) &&
             (chunk->size >= num_bytes * 2 ||
-             static_cast<int64_t>(chunk->size) - num_bytes >=
-                 kMaxInternalFragmentation ||
+             (chunk->size >= num_bytes &&
+              chunk->size - num_bytes >= kMaxInternalFragmentation) ||
              (num_bytes < DEFRAGMENT_TH(chunk->size)) ||
              defragmenter_state_started_)) {
           try_splitting_chunks(chunk, num_bytes);
@@ -459,9 +465,8 @@ void CoalescedStringentPooling::print_pool_stats() const {
       free_chunks++;
       free_chunks_size += chunk->size;
       cntgs_free_chunks_size = getContigousChunkSize(chunk);
-      if (max_cntgs_free_chunks_size < cntgs_free_chunks_size) {
-        max_cntgs_free_chunks_size = cntgs_free_chunks_size;
-      }
+      max_cntgs_free_chunks_size =
+          std::max(max_cntgs_free_chunks_size, cntgs_free_chunks_size);
 
       if (chunk->prev && !chunk->prev->used && chunk->prev->size) {
         PT_DEVMEM_DEBUG(
@@ -498,12 +503,13 @@ void CoalescedStringentPooling::print_pool_stats() const {
   PT_DEVMEM_DEBUG("CS_POOL::{}", pool_status.str());
   PT_DEVMEM_DEBUG(
       "CS_POOL::Fragmentation = ",
-      1 - ((double)max_cntgs_free_chunks_size / free_chunks_size));
+      1. -
+          (static_cast<double>(max_cntgs_free_chunks_size) /
+           static_cast<double>(free_chunks_size)));
   free_chunks = 0;
   free_chunks_size = 0;
   pool_status.str("");
   pool_status.clear();
-  return;
 }
 
 size_t CoalescedStringentPooling::get_max_cntgs_chunk_size() const {
@@ -521,9 +527,8 @@ size_t CoalescedStringentPooling::get_max_cntgs_chunk_size() const {
 
     if (!chunk->used && (chunk->size != 0)) {
       cntgs_free_chunks_size = getContigousChunkSize(chunk);
-      if (max_cntgs_free_chunks_size < cntgs_free_chunks_size) {
-        max_cntgs_free_chunks_size = cntgs_free_chunks_size;
-      }
+      max_cntgs_free_chunks_size =
+          std::max(max_cntgs_free_chunks_size, cntgs_free_chunks_size);
     }
   }
 
@@ -540,18 +545,15 @@ bool CoalescedStringentPooling::isChunkContigous(Chunk* chunk1, Chunk* chunk2)
 
 uint64_t CoalescedStringentPooling::getContigousChunkSize(Chunk* chunk) const {
   uint64_t ctgs_chunks_size = 0;
-  uint64_t ctgs_chunks = 0;
   auto temp1 = chunk;
   while (temp1 && temp1->prev && !temp1->prev->used &&
          isChunkContigous(temp1->prev, temp1)) {
-    ctgs_chunks++;
     ctgs_chunks_size += temp1->prev->size;
     temp1 = temp1->prev;
   };
   auto temp2 = chunk;
   while (temp2 && temp2->next && !temp2->next->used &&
          isChunkContigous(temp2, temp2->next)) {
-    ctgs_chunks++;
     ctgs_chunks_size += temp2->next->size;
     temp2 = temp2->next;
   };
@@ -564,8 +566,8 @@ Chunk* CoalescedStringentPooling::reuse_chunks(
     uint64_t size,
     hpuStream_t stream,
     bool use_stream) const {
-  int bin_index = bin_utils->BinIndexForSize(size);
-  Chunk* free_chunk = (Chunk*)FindChunkPtr(bin_index, size, stream, use_stream);
+  const auto bin_index = bin_utils->BinIndexForSize(size);
+  auto* free_chunk = (Chunk*)FindChunkPtr(bin_index, size, stream, use_stream);
   if (free_chunk == nullptr) {
     PT_DEVMEM_DEBUG(
         "CS_POOL:: no more reusable chunk: defragment or extend !!");
@@ -698,7 +700,6 @@ void* CoalescedStringentPooling::alloc_chunk(
     hpuStream_t stream,
     bool use_stream) const {
   void* ptr = nullptr;
-
   if (size % alignment != 0) {
     PT_DEVMEM_FATAL(
         "CS_POOL:: alloc_chunk requested size not aligned to default size::",
@@ -721,7 +722,7 @@ void* CoalescedStringentPooling::alloc_chunk(
     return nullptr;
   }
 
-  simple_coalesced_pool_t* p = (simple_coalesced_pool_t*)prealloc_pool;
+  auto* p = prealloc_pool;
   if (prealloc_pool != p) {
     PT_DEVMEM_FATAL("CS_POOL:: alloc unknown pool !!");
   }
@@ -744,7 +745,7 @@ void CoalescedStringentPooling::try_splitting_chunks(
     Chunk* chunk,
     uint64_t size) const {
   // Allocate the new chunk
-  Chunk* new_chunk = new Chunk();
+  auto* new_chunk = new Chunk();
   // split extracts requested size from the beginning of the given chunk
 
   HABANA_ASSERT(!chunk->used && (chunk->bin_index == kInvalidBinNum));
@@ -954,37 +955,14 @@ size_t CoalescedStringentPooling::allocated_size(const void* ptr) const {
   return chunk->size;
 }
 
-void CoalescedStringentPooling::synchronize_and_free_events() const {
-  const std::lock_guard<std::mutex> lock(sp_mutex);
-  // Synchronize on outstanding events and then free associated blocks.
-  for (auto& st : hpu_events) {
-    for (auto& e : st.second) {
-      synEventHandle event = std::move(e.first);
-      Chunk* chunk = e.second;
-
-      auto status = synEventSynchronize(event);
-      if (synStatus::synSuccess != status) {
-        PT_DEVMEM_FATAL(
-            Logger::formatStatusMsg(status), "Event synchronization failed");
-      }
-
-      chunk->event_count--;
-      if (chunk->event_count == 0) {
-        delete_chunk(chunk);
-      }
-      device_.get_event_handle_cache().release_handle(event);
-    }
-  }
-
-  hpu_events.clear();
-}
-
 void CoalescedStringentPooling::process_events() const {
   // Process outstanding HpuEvents. Events that are completed are
   // removed from the queue, and the 'event_count' for the
   // corresponding allocation is decremented. We maintain a separate
   // list of events per stream to avoid head-of-line delays if one
   // or more streams has long-running operations.
+
+  PT_DEVMEM_DEBUG("CS_POOL::hpu_events.size() is ", hpu_events.size());
 
   // Iterate over different streams.
   for (auto it = hpu_events.begin(); it != hpu_events.end();) {
@@ -1008,7 +986,7 @@ void CoalescedStringentPooling::process_events() const {
 
       chunk->event_count--;
       if (chunk->event_count == 0) {
-        delete_chunk(chunk);
+        delete_chunk((void*)chunk->memptr);
       }
       it->second.pop_front();
     }
@@ -1025,7 +1003,6 @@ void CoalescedStringentPooling::insert_events(Chunk* chunk) const {
   stream_set streams(std::move(chunk->stream_uses));
   AT_ASSERT(chunk->stream_uses.empty());
   for (auto& stream : streams) {
-    // for default stream it will use compute stream
     synapse_helpers::stream& s = device_.get_stream(stream);
     synEventHandle event = device_.get_event_handle_cache().get_free_handle();
     auto status = synEventRecord(event, s);
@@ -1039,6 +1016,7 @@ void CoalescedStringentPooling::insert_events(Chunk* chunk) const {
           event);
     }
 
+    PT_DEVMEM_DEBUG("CS_POOL::Event ", event, " is inserted to stream ", s);
     chunk->event_count++;
     hpu_events[stream].emplace_back(event, chunk);
   }
@@ -1054,6 +1032,7 @@ bool CoalescedStringentPooling::is_stream_uses_empty(void* ptr) const {
   }
 
   auto it = chunks.find((uint64_t)ptr);
+
   HABANA_ASSERT(it != chunks.end());
   Chunk* chunk = it->second;
   return chunk->stream_uses.empty();
@@ -1079,6 +1058,8 @@ void CoalescedStringentPooling::record_stream(void* ptr, hpuStream_t stream)
     // special synchronization
     return;
   }
+
+  PT_DEVMEM_DEBUG("CS_POOL::Stream ", stream, " is recorded to Chunk ", chunk);
   chunk->stream_uses.insert(stream);
 }
 
@@ -1114,7 +1095,7 @@ void CoalescedStringentPooling::SmallAllocs::ValidateEmpty() const {
 }
 
 size_t CoalescedStringentPooling::SmallAllocs::UnitsOccupied() const {
-  return std::count(map_.begin(), map_.end(), true);
+  return static_cast<size_t>(std::count(map_.begin(), map_.end(), true));
 }
 
 void CoalescedStringentPooling::SmallAllocs::Reset() {
@@ -1132,7 +1113,7 @@ CoalescedStringentPooling::SmallAllocs::~SmallAllocs() {
 
 bool CoalescedStringentPooling::SmallAllocs::IsAllocated(
     const void* aPtr) const {
-  const int8_t* const ptr = static_cast<const int8_t*>(aPtr);
+  const auto* const ptr = static_cast<const int8_t*>(aPtr);
   const int8_t* const chunk_ptr = chunk_ptr_.get();
 
   if (chunk_ptr == nullptr) {
@@ -1151,7 +1132,8 @@ bool CoalescedStringentPooling::SmallAllocs::IsAllocated(
 }
 
 size_t CoalescedStringentPooling::SmallAllocs::Offset(const void* ptr) const {
-  return static_cast<const int8_t*>(ptr) - chunk_ptr_.get();
+  return static_cast<size_t>(
+      static_cast<const int8_t*>(ptr) - chunk_ptr_.get());
 }
 
 size_t CoalescedStringentPooling::SmallAllocs::ToUnits(
@@ -1187,7 +1169,7 @@ void* CoalescedStringentPooling::SmallAllocs::Allocate(size_t size) {
 
   if (start != map_.end()) {
     std::fill_n(start, size_in_units, true);
-    const auto offset = std::distance(map_.begin(), start);
+    const auto offset = static_cast<size_t>(std::distance(map_.begin(), start));
 
     size_[offset] = size;
     return chunk_ptr_.get() + ToBytes(offset);
@@ -1275,10 +1257,10 @@ void CoalescedStringentPooling::get_stats(MemoryStats* mem_stats) const {
     for (auto& m : chunks) {
       chunks_ordered.insert(m);
     }
-    int occupied_chunks = 0;
-    int total_chunks = 0;
-    int total_extra_spaced_chunks = 0;
-    int free_chunks = 0;
+    uint64_t occupied_chunks = 0;
+    uint64_t total_chunks = 0;
+    uint64_t total_extra_spaced_chunks = 0;
+    uint64_t free_chunks = 0;
     uint64_t occupied_size = header_bytes;
     uint64_t total_size = header_bytes;
     uint64_t total_exta_size = 0;
@@ -1310,9 +1292,8 @@ void CoalescedStringentPooling::get_stats(MemoryStats* mem_stats) const {
         free_chunks_size += chunk->size;
         available_chunks_size += chunk->size;
         cntgs_free_chunks_size = getContigousChunkSize(chunk);
-        if (max_cntgs_free_chunks_size < cntgs_free_chunks_size) {
-          max_cntgs_free_chunks_size = cntgs_free_chunks_size;
-        }
+        max_cntgs_free_chunks_size =
+            std::max(max_cntgs_free_chunks_size, cntgs_free_chunks_size);
       } else {
         occupied_chunks++;
         occupied_size += chunk->size;
@@ -1326,8 +1307,11 @@ void CoalescedStringentPooling::get_stats(MemoryStats* mem_stats) const {
         pool_status << "\n";
       }
     }
-    stats.fragmentation_percent = 100 *
-        (1 - ((double)max_cntgs_free_chunks_size / available_chunks_size));
+    stats.fragmentation_percent = static_cast<uint64_t>(
+        100. *
+        (1. -
+         (static_cast<double>(max_cntgs_free_chunks_size) /
+          static_cast<double>(available_chunks_size))));
     stats.total_chunks = total_chunks;
     stats.total_size = total_size;
     stats.occupied_chunks = occupied_chunks;
@@ -1363,5 +1347,4 @@ void CoalescedStringentPooling::reset_peak_mem_stats() const {
   stats.peak_bytes_in_use = 0;
 }
 
-} // namespace pool_allocator
-} // namespace synapse_helpers
+} // namespace synapse_helpers::pool_allocator

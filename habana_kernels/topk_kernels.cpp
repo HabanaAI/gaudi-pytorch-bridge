@@ -46,7 +46,7 @@ inline void _allocate_or_resize_output_with_indices(
     bool values_persistent,
     bool indices_persistent) {
   auto result_sizes = self.sizes().vec();
-  if (result_sizes.size() > 0) {
+  if (!result_sizes.empty()) {
     result_sizes[dim] = k;
   }
   if (values.defined()) {
@@ -54,11 +54,19 @@ inline void _allocate_or_resize_output_with_indices(
         self.options().type_equal(values.options()),
         "output values must be of same type as input");
     auto tht_values = values.unsafeGetTensorImpl();
+    HABANA_ASSERT(self.dim() >= 0, "dim must be non-negative");
     if (values.numel() || values_persistent)
-      THHTensor_resizeNd(tht_values, self.dim(), result_sizes.data(), nullptr);
+      THHTensor_resizeNd(
+          tht_values,
+          static_cast<size_t>(self.dim()),
+          result_sizes.data(),
+          nullptr);
     else {
       THHTensor_resizeNd_nonpersistent(
-          tht_values, self.dim(), result_sizes.data(), nullptr);
+          tht_values,
+          static_cast<size_t>(self.dim()),
+          result_sizes.data(),
+          nullptr);
     }
   } else {
     values = at::empty(result_sizes, self.options());
@@ -96,10 +104,10 @@ InferOutputMetaRetType TopkOutOperator::InferOutputMeta(
 
   int64_t k;
   Tensor k_tensor = inputs[1].toTensor();
-  k = k_tensor.sizes().vec().at(0);
+  k = k_tensor.sizes().at(0);
 
   auto result_sizes = self.sizes().vec();
-  if (result_sizes.size() > 0) {
+  if (!result_sizes.empty()) {
     result_sizes[dim] = k;
   }
 
@@ -165,7 +173,7 @@ void TopkOutOperator::AllocateAndAddSynapseNode(
         (p_context_->syn_inputs_.size() == 4));
     HABANA_ASSERT(p_context_->syn_inputs_[1].ref().is_shape_tensor());
     Tensor k_tensor = inputs[1].toTensor();
-    k = k_tensor.sizes().vec().at(
+    k = k_tensor.sizes().at(
         0); // Get the first element which holds the dynamic value of k
   } else {
     k = inputs[1].toInt();

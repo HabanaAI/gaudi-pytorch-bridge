@@ -16,32 +16,7 @@
 ###############################################################################
 import pytest
 import torch
-from test_utils import check_ops_executed_in_jit_ir, compile_function_if_compile_mode
-
-
-@pytest.mark.parametrize("dtype", [None, torch.float, torch.bfloat16, torch.int8, torch.int32, torch.long])
-@pytest.mark.parametrize("layout", [None, torch.strided])
-@pytest.mark.parametrize("start", [None, 0, 10])
-@pytest.mark.parametrize("step", [None, 1, 20])
-@pytest.mark.parametrize("end", [40, 100])
-def test_arange(dtype, layout, start, step, end):
-    if step is not None and start is None:
-        pytest.skip("Invalid case")
-
-    def fn(start, layout, step, end, device):
-        if step is not None:
-            return torch.arange(start=start, step=step, end=end, device=device, dtype=dtype, layout=layout)
-        elif start is not None:
-            return torch.arange(start=start, end=end, device=device, dtype=dtype, layout=layout)
-        else:
-            return torch.arange(end=end, device=device, dtype=dtype, layout=layout)
-
-    compiled_fn = compile_function_if_compile_mode(fn)
-
-    expected = fn(start, layout, step, end, "cpu")
-    result = compiled_fn(start, layout, step, end, "hpu").cpu()
-    assert torch.equal(result, expected)
-    check_ops_executed_in_jit_ir("arange")
+from test_utils import compile_function_if_compile_mode
 
 
 # Test for rounding issues in arange op

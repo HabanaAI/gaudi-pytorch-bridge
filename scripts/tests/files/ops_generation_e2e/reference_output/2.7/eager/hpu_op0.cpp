@@ -9,8 +9,8 @@
 #include "__ilshift__.h"
 
 
-using habana_helpers::DTypeHelper;
-using synapse_helpers::graph;
+using habana_helpers::DTypeHelper; // NOLINT(misc-unused-using-decls)
+using synapse_helpers::graph; // NOLINT(misc-unused-using-decls)
 using torch::jit::Stack;
 
 
@@ -18,14 +18,14 @@ namespace habana {
 
 
 
-at::Tensor & __ilshift__(at::Tensor & self, const at::Scalar & other) {
+at::Tensor & __ilshift___Scalar(at::Tensor & self, const at::Scalar & other) {
   PT_EAGER_TRACE;
   PT_OP_INFO("__ilshift__: ", DUMP_2ARGS(self, other));
 
   [[maybe_unused]] bool require_h2d = false;
   [[maybe_unused]] bool require_st = false;
 
-  HPU_SUPPORTED_DTYPES(({{-1, {at::kInt, at::kChar, at::kByte, at::kShort, at::kBool}}}))
+  HPU_SUPPORTED_DTYPES(({at::kInt, at::kChar, at::kByte, at::kShort, at::kBool}))
   FALLBACK_IF_UNSUPPORTED_DTYPE2(self, __ilshift__, Scalar, self, other)
 
   eager::EagerOp<at::Tensor &> hpu_op{"aten::__ilshift__", {self, other}};
@@ -41,7 +41,7 @@ static const auto& kr_gen_0 = KernelRegistry()
 ;
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {
-  m.impl("__ilshift__.Scalar", static_cast<at::Tensor & (*)(at::Tensor &, const at::Scalar &)>(&habana::__ilshift__));
+  m.impl("__ilshift__.Scalar", habana::__ilshift___Scalar);
 
 }
 

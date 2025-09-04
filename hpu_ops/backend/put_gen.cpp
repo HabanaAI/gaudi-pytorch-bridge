@@ -1,6 +1,5 @@
-
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,10 +17,10 @@
 
 namespace habana {
 
-std::shared_ptr<void> FillPutParams(const at::Stack& stack, size_t& size) {
+FillParamsT FillPutParams(const at::Stack& stack) {
   const bool accumulate = stack.at(3).toBool();
   PARAMS_STUB(ns_PutKernel::Params);
   params->accumulate = accumulate;
-  return params;
+  return paramsT;
 }
 } // namespace habana

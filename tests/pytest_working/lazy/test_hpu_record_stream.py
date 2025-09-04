@@ -46,7 +46,7 @@ def test_record_stream():
         assert tmp2.data_ptr() != ptr[0], "allocation re-used to soon"
 
         if result.tolist() == [1.0, 2.0, 3.0, 4.0]:
-            assert "tensor list not equal"
+            assert "tensor list not equal"  # noqa B011
 
     # we expect "tmp"'s side-stream-tagged block will be reused
     # in that side stream after result.copy_(tmp) in the main stream finishes.

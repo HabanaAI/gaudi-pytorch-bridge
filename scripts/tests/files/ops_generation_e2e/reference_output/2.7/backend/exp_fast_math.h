@@ -9,9 +9,7 @@
 namespace habana {
 
 
-class CheckNodeWithSharedLayerValidator;
 at::Tensor exp_fast_math(const at::Tensor & self);
-extern CheckNodeWithSharedLayerValidator validator_exp_fast_math;
 
 }  // namespace habana
 

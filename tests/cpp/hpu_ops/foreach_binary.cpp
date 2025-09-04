@@ -15,14 +15,10 @@
 
 #include "util.h"
 
-typedef const std::function<
-    std::vector<at::Tensor>(at::TensorList, at::TensorList)>
-    FunctionTwoLists;
-typedef const std::function<std::vector<at::Tensor>(at::TensorList)>
-    FunctionOneList;
-typedef const std::function<void(at::TensorList)> FunctionOneListInplace;
-typedef const std::function<void(at::TensorList, at::TensorList)>
-    FunctionTwoListsInplace;
+using FunctionOneList = const std::function<std::vector<at::Tensor>(at::TensorList)>;
+using FunctionTwoLists = const std::function<std::vector<at::Tensor>(at::TensorList, at::TensorList)>;
+using FunctionOneListInplace = const std::function<void(at::TensorList)>;
+using FunctionTwoListsInplace = const std::function<void(at::TensorList, at::TensorList)>;
 
 std::vector<at::Scalar> scalars = {7, 3.141, 2., -100, -0.001};
 

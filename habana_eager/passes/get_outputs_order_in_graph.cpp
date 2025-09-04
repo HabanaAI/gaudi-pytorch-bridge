@@ -22,9 +22,7 @@
 #include "habana_eager/graph_exec.h"
 #include "habana_helpers/logging_pt.h"
 
-namespace habana {
-namespace graph {
-namespace pass {
+namespace habana::graph::pass {
 
 struct GetOutputsOrderInGraphPass {
   explicit GetOutputsOrderInGraphPass(std::shared_ptr<torch::jit::Graph> graph)
@@ -68,6 +66,4 @@ bool GetOutputsOrderInGraph(
   return !std::is_sorted(outputs_order.begin(), outputs_order.end());
 }
 
-} // namespace pass
-} // namespace graph
-} // namespace habana
+} // namespace habana::graph::pass

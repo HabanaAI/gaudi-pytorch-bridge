@@ -39,6 +39,7 @@ from sdpa_test_utils import (  # noqa F401
 from test_utils import (
     compare_tensors,
     compile_function_if_compile_mode,
+    is_gaudi1,
     is_gaudi3,
 )
 
@@ -108,7 +109,11 @@ def process_results(results):
             t_hpu = r["t_hpu"]
             rtol = r["rtol"]
             atol = r["atol"]
-            vb_print(r["name"], "\t: Match? = ", torch.allclose(t_cpu, t_hpu, rtol=rtol, atol=atol))
+            vb_print(
+                r["name"],
+                "\t: Match? = ",
+                torch.allclose(t_cpu, t_hpu, rtol=rtol, atol=atol),
+            )
             if print_max_diff:
                 vb_print(r["name"], "\t: Max diff = ", torch.max(torch.abs(t_cpu - t_hpu)))
     for r in results:
@@ -117,7 +122,13 @@ def process_results(results):
             t_hpu = r["t_hpu"]
             rtol = r["rtol"]
             atol = r["atol"]
-            vb_print(r["name"], "\t: Comparing with assert on misatch with rtol = ", rtol, ", atol = ", atol)
+            vb_print(
+                r["name"],
+                "\t: Comparing with assert on misatch with rtol = ",
+                rtol,
+                ", atol = ",
+                atol,
+            )
             compare_tensors(t_cpu, t_hpu, atol=atol, rtol=rtol)
 
 
@@ -184,11 +195,10 @@ def get_scale_values(name, t, is_t_amax=False, scale_limit=None):
 def get_d_scale_s(scaleSInv_hpu, inference, is_fwd=True):
     if inference:
         return scaleSInv_hpu
+    elif is_fwd:
+        return None
     else:
-        if is_fwd:
-            return None
-        else:
-            return scaleSInv_hpu
+        return scaleSInv_hpu
 
 
 class TestModel(torch.nn.Module):
@@ -240,8 +250,16 @@ class TestModel(torch.nn.Module):
         self.is_amax_s = is_amax_s
         self.is_amax_o = is_amax_o
 
-    def forward(self, q_hpu, k_hpu, v_hpu, attn_mask=None, dropout_p=0.0, is_causal=False, softmax_mode="None"):
-
+    def forward(
+        self,
+        q_hpu,
+        k_hpu,
+        v_hpu,
+        attn_mask=None,
+        dropout_p=0.0,
+        is_causal=False,
+        softmax_mode="None",
+    ):
         outputs = fp8_fused_sdpa(
             q_hpu,
             k_hpu,
@@ -291,9 +309,15 @@ def create_attention_mask_for_test(batch_size, q_heads, seq_len_N_t, seq_len_N_s
 
 
 def vanilla_attention_impl_for_test(
-    query, key, value, attn_mask=None, dropout_p=0.0, is_causal=False, scale=None, is_amax_s=False
+    query,
+    key,
+    value,
+    attn_mask=None,
+    dropout_p=0.0,
+    is_causal=False,
+    scale=None,
+    is_amax_s=False,
 ):
-
     sqrt_dim_head = query.shape[-1] ** 0.5
     scores = torch.matmul(query, key.transpose(-2, -1))
     if scale is None:
@@ -403,33 +427,28 @@ def is_param_combo_valid(
     fp8_run_out_type,
     is_scalar_run,
 ):
-
-    if not recompute:
+    if not recompute and inference and not is_causal:
         # In non-recomp inference case, there is an acc diff in non triangular mask case.
         # To be checked if it is an actual issue.
-        if inference:
-            if is_causal is False:
-                return False
+        return False
     if not recompute and is_scalar_run:
         return False
 
-    if not inference:  # limiting tests Temporarily for training
-        if q_heads != kv_heads:
-            return False  # no MQA/GQA test for now
+    if not inference and q_heads != kv_heads:
+        # limiting tests Temporarily for training
+        return False  # no MQA/GQA test for now
 
     # fp8 mode supports only inference in Triangular and Non-Triangular mask mode
     # But training is supported only in Triangular mask mode as of now.
-    if not inference:
-        if is_causal is False:
-            return False
+    if not inference and not is_causal:
+        return False
 
     # fp8 mode supports only recompute mode as of now.
     # if not recompute:
     #    return False
 
-    if is_causal:
-        if use_attn_mask:
-            return False
+    if is_causal and use_attn_mask:
+        return False
 
     if dropout_p != 0.0:
         return False
@@ -458,9 +477,8 @@ def is_param_combo_valid(
         if is_amax_ds:
             return False
 
-        if is_amax_s:
-            if fp8_run:
-                return False
+        if is_amax_s and fp8_run:
+            return False
 
         if fp8_run:
             if is_amax_s:
@@ -470,10 +488,9 @@ def is_param_combo_valid(
             # TODO: See if we should accept this config and ignore.
             if softmax_mode != "None":
                 return False
-        else:  # inference measurement
-            if fp8_run_out_type == "fp8_143":
-                # reason = " fp8 : inference measurement supports only bf16 in fwd pass out; fp8_run_out_type can not be fp8 type"
-                return False
+        elif fp8_run_out_type == "fp8_143":
+            # reason = " fp8 : inference measurement supports only bf16 in fwd pass out; fp8_run_out_type can not be fp8 type"
+            return False
 
     else:
         # training does supports amax_o measurement only in recompute mode
@@ -1081,11 +1098,11 @@ def test_sdpa(
         fp8_run_out_type,
         scalar_run,
     )
+    if is_gaudi1():
+        pytest.skip("Fp8 tests not supported on G1")
 
-    if not is_gaudi3():
-        if not inference:
-            if not check_dbg_env_var("PT_HPU_SDPA_FP8_152_152_FMT"):
-                pytest.skip("Fp8 training tests with hybrid precision(143 -152) not currently supported on G1 or G2")
+    if not is_gaudi3() and not inference and not check_dbg_env_var("PT_HPU_SDPA_FP8_152_152_FMT"):
+        pytest.skip("Fp8 training tests with hybrid precision(143 -152) not currently supported on G1 or G2")
 
     # print("test_case_valid = ", test_case_valid)
     if not test_case_valid:
@@ -1227,7 +1244,13 @@ def test_sdpa(
 
     if use_attn_mask:
         attn_mask = create_attention_mask_for_test(
-            batch_size, q_heads, seq_len_N_t, seq_len_N_s, mask_dtype, attn_mask_shape, float_mask=use_float_mask
+            batch_size,
+            q_heads,
+            seq_len_N_t,
+            seq_len_N_s,
+            mask_dtype,
+            attn_mask_shape,
+            float_mask=use_float_mask,
         )
         attn_mask_hpu = attn_mask.to("hpu")
     else:
@@ -1283,12 +1306,11 @@ def test_sdpa(
         scaleS_hpu, scaleSInv_hpu = get_scale_values("s", amax_s_ref, is_t_amax=True, scale_limit=128)
         q_scale_s = scaleS_hpu
 
-        if fp8_run_out_type == "fp8_143":
+        if fp8_run_out_type == "fp8_143" and recompute:
             # Non-recomp does not support FWD output in Fp8. No q_scale_o
-            if recompute:
-                scaleO_hpu, _ = get_scale_values("o", O_ref)
-                q_scale_o_copy = copy.deepcopy(scaleO_hpu)
-                q_scale_o = scaleO_hpu
+            scaleO_hpu, _ = get_scale_values("o", O_ref)
+            q_scale_o_copy = copy.deepcopy(scaleO_hpu)
+            q_scale_o = scaleO_hpu
 
         # Let fp8 conversions and scale transfer to HPU be in a separate graph
         htcore.mark_step()
@@ -1305,46 +1327,47 @@ def test_sdpa(
         )
 
     # ----------------------------------HPU Fused SDPA attention---------------------------------------------
-    with torch.autocast(device_type="hpu", dtype=torch.bfloat16, enabled=enable_autocast):
-        # Use ht.sdp_kernel() context manager to enable/disable recompute based on pytest recompute parameter
-        with ht.sdp_kernel(enable_recompute=recompute):
+    # Use ht.sdp_kernel() context manager to enable/disable recompute based on pytest recompute parameter
+    with (
+        torch.autocast(device_type="hpu", dtype=torch.bfloat16, enabled=enable_autocast),
+        ht.sdp_kernel(enable_recompute=recompute),
+    ):
+        model = TestModel(
+            d_scale_q=scaleQInv_hpu,
+            d_scale_k=scaleKInv_hpu,
+            d_scale_v=scaleVInv_hpu,
+            q_scale_s=q_scale_s,
+            q_scale_o=q_scale_o,
+            d_scale_s=get_d_scale_s(scaleSInv_hpu, inference, is_fwd=True),
+            is_amax_s=is_amax_s,
+            is_amax_o=is_amax_o,
+            inference=inference,
+            is_scalar_run=scalar_run,
+        )
 
-            model = TestModel(
-                d_scale_q=scaleQInv_hpu,
-                d_scale_k=scaleKInv_hpu,
-                d_scale_v=scaleVInv_hpu,
-                q_scale_s=q_scale_s,
-                q_scale_o=q_scale_o,
-                d_scale_s=get_d_scale_s(scaleSInv_hpu, inference, is_fwd=True),
-                is_amax_s=is_amax_s,
-                is_amax_o=is_amax_o,
-                inference=inference,
-                is_scalar_run=scalar_run,
-            )
+        if inference:
+            # make scale tensors constant
+            _mark_params_as_const(model)
+            _check_params_as_const(model)
 
-            if inference:
-                # make scale tensors constant
-                _mark_params_as_const(model)
-                _check_params_as_const(model)
+        sdpa_fn = compile_function_if_compile_mode(sdpa_fn)
 
-            sdpa_fn = compile_function_if_compile_mode(sdpa_fn)
+        # O_hpu, amax_s, amax_o = sdpa_fn(
+        fwd_pass_outputs = sdpa_fn(
+            model,
+            q_hpu,
+            k_hpu,
+            v_hpu,
+            attn_mask=attn_mask_hpu,
+            dropout_p=dropout_p,
+            is_causal=is_causal,
+            softmax_mode=softmax_mode,
+        )
 
-            # O_hpu, amax_s, amax_o = sdpa_fn(
-            fwd_pass_outputs = sdpa_fn(
-                model,
-                q_hpu,
-                k_hpu,
-                v_hpu,
-                attn_mask=attn_mask_hpu,
-                dropout_p=dropout_p,
-                is_causal=is_causal,
-                softmax_mode=softmax_mode,
-            )
-
-            if recompute and inference is False:
-                O_hpu, m, linv, seed, amax_s, amax_o = fwd_pass_outputs
-            else:
-                O_hpu, amax_s, amax_o = fwd_pass_outputs
+        if recompute and inference is False:
+            O_hpu, m, linv, seed, amax_s, amax_o = fwd_pass_outputs
+        else:
+            O_hpu, amax_s, amax_o = fwd_pass_outputs
 
     # ----------------------------------HPU Fused SDPA attention---------------------------------------------
 
@@ -1413,7 +1436,6 @@ def test_sdpa(
     #    return
 
     with torch.autocast(device_type="cpu", dtype=torch.bfloat16, enabled=enable_autocast):
-
         dQ, dK, dV, amax_ds_ref = vanilla_attention_impl_bwd_for_test(
             g_t,
             q_t,
@@ -1549,7 +1571,6 @@ def test_sdpa(
         is_amax_ds,
         O_hpu,
     ):
-
         return torch.ops.hpu.fp8_sdpa_recomp_bwd(
             g_hpu,
             q_hpu,

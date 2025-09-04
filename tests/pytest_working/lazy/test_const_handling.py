@@ -20,8 +20,8 @@ import os
 import numpy
 import pytest
 import torch
-import torch.nn as nn
 from test_utils import inference_env_fixture  # noqa F401
+from torch import nn
 
 
 # Fixture to set the environment variable

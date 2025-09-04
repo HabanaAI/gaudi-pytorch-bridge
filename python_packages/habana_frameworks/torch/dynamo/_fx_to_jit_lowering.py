@@ -22,7 +22,7 @@ from typing import Any
 # todo https://jira.habana-labs.com/browse/SW-199903
 # is it better to import here the C module directly
 # or implement all functions calling c module in py module?
-import habana_frameworks.torch._torch_jit_C.jit as jit
+from habana_frameworks.torch._torch_jit_C import jit
 from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
 
 import torch
@@ -32,6 +32,16 @@ from torch._ops import OpOverload as TorchOpOverload
 from ._fx_jit_lowering_utils import BUILTIN_OPS_TO_ATEN_OPS, TYPE_TO_JIT_TYPE
 
 logger = get_compile_backend_logger()
+
+
+def propagate_node_module_name(fx_node: torch.fx.Node, jit_val: jit.Value):
+    if "nn_module_stack" in fx_node.meta:
+        last_module_stack_elem = next(reversed(fx_node.meta["nn_module_stack"].values()))[0]
+        module_list = last_module_stack_elem.split(".")
+        # First element is in different format: e.x. L['self']; we convert it to L_self
+        module_list[0] = module_list[0].translate(str.maketrans({"[": "_", "]": None, "'": None}))
+        debug_name = f"{'/'.join(module_list)}/{jit_val.debugName()}"
+        jit_val.setDebugName(debug_name)
 
 
 # The whole mechanism of how an interpreter works is well explained
@@ -75,10 +85,10 @@ class FxToJitLowering(torch.fx.Interpreter):
             return getattr(self, n.op)(n, args, kwargs)
 
     def call_module(self, node: torch.fx.Node, args, kwargs):
-        raise NotImplementedError("Modules should not be present in our FX submodules. " "Please report a bug.")
+        raise NotImplementedError("Modules should not be present in our FX submodules. Please report a bug.")
 
     def get_attr(self, node: torch.fx.Node, args, kwargs):
-        raise NotImplementedError("Attributes should not be present in our FX submodules. " "Please report a bug.")
+        raise NotImplementedError("Attributes should not be present in our FX submodules. Please report a bug.")
 
     def call_function(self, node: torch.fx.Node, args, kwargs):
         # Prepare arguments for JIT node and schema if exists or
@@ -89,6 +99,9 @@ class FxToJitLowering(torch.fx.Interpreter):
         # being processed.
         returned_val = self._emit_jit_node(node, schema, jit_op_name, jit_args, jit_kwargs)
 
+        # Set jit.Value's debug name based on fx node metadata
+        propagate_node_module_name(node, returned_val)
+
         # Check if the metadata for the node is well-formed.
         self._check_meta(node)
 
@@ -98,7 +111,7 @@ class FxToJitLowering(torch.fx.Interpreter):
         return returned_val
 
     def call_method(self, node: torch.fx.Node, args, kwargs):
-        raise NotImplementedError("Methods should not be present in our FX submodules. " "Please report a bug.")
+        raise NotImplementedError("Methods should not be present in our FX submodules. Please report a bug.")
 
     def output(self, node: torch.fx.Node, args, kwargs):
         for arg in args:
@@ -139,10 +152,9 @@ class FxToJitLowering(torch.fx.Interpreter):
         # a list whose element type will be an optional type. The following
         # code handles this situation.
         types = {type(elem.type()) for elem in jit_vals}
-        if len(types) > 1:
-            if jit.NoneType in types:
-                types.remove(jit.NoneType)
-                optional_type = True
+        if len(types) > 1 and jit.NoneType in types:
+            types.remove(jit.NoneType)
+            optional_type = True
 
         for elem in jit_vals:
             # If we are dealing with a situation in which the element type is
@@ -207,10 +219,6 @@ class FxToJitLowering(torch.fx.Interpreter):
         if isinstance(arg, jit.Value):
             return arg
 
-        cache_key = (type(arg), tuple(arg) if isinstance(arg, list) else arg)
-        if cache_key in self.const_cache:
-            return self.const_cache[cache_key]
-
         converter = TYPE_TO_JIT_TYPE.find(type(arg))
         if converter:
             jit_type = converter(arg)
@@ -223,19 +231,30 @@ class FxToJitLowering(torch.fx.Interpreter):
                     # If jit_type mismatchs the parameter type, we need to convert it.
                     element_type = parameter.type.getElementType()
                     jit_type = jit.ListType(element_type)
+                elif (
+                    isinstance(jit_type, jit.BoolType | torch.BoolType)
+                    and hasattr(parameter, "type")
+                    and (parameter.type.kind() == "NumberType" or parameter.type.kind() == "TensorType")
+                ):
+                    arg = int(arg)
+                    jit_type = TYPE_TO_JIT_TYPE.find(type(arg))(arg)
 
-                new_const = self.jit_ir.insertConstant(arg, jit_type)
-                self.const_cache[cache_key] = new_const
-                return new_const
+                cache_key = (type(arg), tuple(arg) if isinstance(arg, list) else arg)
+                if cache_key in self.const_cache:
+                    return self.const_cache[cache_key]
+                else:
+                    new_const = self.jit_ir.insertConstant(arg, jit_type)
+                    self.const_cache[cache_key] = new_const
+                    return new_const
 
         # A workaround, should be isinstance(arg, (list, tuple, namedtuple)), but lintrule force a syntax of
         # UP038 Use `X | Y` in `isinstance` call instead of `(X, Y)`
         # however, arg maybe a UnionType which cannot follow the rule UP038. You'll get
         # TypeError: unsupported operand type(s) for |: 'types.UnionType' and 'function
-        if isinstance(arg, list) or isinstance(arg, tuple) or isinstance(arg, namedtuple):
+        if isinstance(arg, list) or isinstance(arg, tuple) or isinstance(arg, namedtuple):  # noqa SIM101
             return self._get_jit_val_from_iterable(arg, parameter)
 
-        raise NotImplementedError(f"The argument {arg} contains unsupported type: {type(arg)}. " "Please report a bug.")
+        raise NotImplementedError(f"The argument {arg} contains unsupported type: {type(arg)}. Please report a bug.")
 
     ##############################################################
     # Below are the functions responsible for emitting jit
@@ -252,7 +271,7 @@ class FxToJitLowering(torch.fx.Interpreter):
                 jit_args.append(self._get_jit_val(kwargs[parameter.name], parameter))
             else:
                 if not parameter.has_default_value():
-                    raise RuntimeError(f"The parameter {i} is not present in the argument list " f"for {schema.name}.")
+                    raise RuntimeError(f"The parameter {i} is not present in the argument list for {schema.name}.")
                 jit_args.append(self._get_jit_val(parameter.default_value, parameter))
 
         return schema.name, jit_args
@@ -311,7 +330,7 @@ class FxToJitLowering(torch.fx.Interpreter):
             if fx_node.stack_trace:
                 parsed_st = _parse_stack_trace(fx_node.stack_trace)
                 filename = Path(parsed_st.file).name
-                stack_trace = f"File: {filename}:{parsed_st.lineno} " f"in {parsed_st.name}, code: {parsed_st.code}"
+                stack_trace = f"File: {filename}:{parsed_st.lineno} in {parsed_st.name}, code: {parsed_st.code}"
                 return stack_trace
             return None
         except ImportError:
@@ -400,9 +419,7 @@ class FxToJitLowering(torch.fx.Interpreter):
             else:
                 input_type = jit_type
         else:
-            raise NotImplementedError(
-                f"The metadata contains unsupported type: {type(meta_val)}. " "Please report a bug."
-            )
+            raise NotImplementedError(f"The metadata contains unsupported type: {type(meta_val)}. Please report a bug.")
 
         if isinstance(input_type, jit.NoneType) and jit_val.type().annotation_str == "Tensor":
             logger.debug("Won't rewrite metadata from Tensor to NoneType")
@@ -440,7 +457,7 @@ class FxToJitLowering(torch.fx.Interpreter):
             unpacked_collection = self.jit_ir.createTupleUnpack(jit_val)
         else:
             raise NotImplementedError(
-                f"The JIT IR contains unsupported collection type {jit_val_type}. " "Please report a bug."
+                f"The JIT IR contains unsupported collection type {jit_val_type}. Please report a bug."
             )
 
         unpacked_collection = self.jit_ir.insertNode(unpacked_collection)

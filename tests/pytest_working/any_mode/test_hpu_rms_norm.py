@@ -25,6 +25,7 @@ from test_utils import (
     compile_function_if_compile_mode,
     cpu,
     hpu,
+    is_gaudi1,
     is_pytest_mode_compile,
 )
 
@@ -44,6 +45,8 @@ def rms_norm_fwd_ref(data_in, gamma, eps):
 
 
 def rms_norm_fwd_bwd(size, eps, use_stages, bwd_mode, fast_math, data_in_dtype, gamma_dtype):
+    if is_gaudi1() and (data_in_dtype == torch.float16 or gamma_dtype == torch.float16):
+        pytest.skip("Half is not supported on Gaudi.")
 
     if (
         bwd_mode == RmsNormBwdMode.STATIC_CASE_WIDTH_PARTITIONING
@@ -78,11 +81,10 @@ def rms_norm_fwd_bwd(size, eps, use_stages, bwd_mode, fast_math, data_in_dtype, 
 
     if data_in_dtype == gamma_dtype and data_in_dtype == torch.float32:
         tol = 0.001
+    elif fast_math:
+        tol = 0.021
     else:
-        if fast_math:
-            tol = 0.021
-        else:
-            tol = 0.015
+        tol = 0.015
 
     torch.testing.assert_close(
         root_mean_square_norm.to(torch.float32).to(cpu),

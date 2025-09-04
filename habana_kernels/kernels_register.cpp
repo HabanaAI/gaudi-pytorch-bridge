@@ -13,12 +13,13 @@
  * limitations under the License.
  */
 #include <ATen/core/Tensor.h>
+#include <ATen/native/transformers/sdp_utils_cpp.h>
 #include <torch/library.h>
 #include "backend/helpers/habana_types.h"
 #include "backend/synapse_helpers/device_helpers.h"
 #include "common/dump_args.h"
-#include "common/random_utils.h"
 #include "generated/lazy/wrap_kernels_declarations.h"
+#include "habana_helpers/pt_version_check.h"
 #include "habana_kernels/basic_kernels.h"
 #include "habana_kernels/instance_norm_utils.h"
 #include "habana_kernels/lazy_kernels.h"
@@ -27,6 +28,7 @@
 #include "habana_kernels/mixture_of_experts.h"
 #include "habana_kernels/wrap_kernels_declarations.h"
 #include "habana_lazy/hpu_stage_submission.h"
+#include "hpu_ops/common/mixture_of_experts.h"
 #include "hpu_ops/cpu_fallback.h"
 #include "hpu_ops/op_logger.h"
 #include "hpu_ops/op_validator.h"
@@ -52,15 +54,17 @@ static CheckNodeWithSharedLayerValidator validator_matmul(
     MatmulSharedMeta,
     habana_helpers::HabanaExecutionMode::LAZY);
 
-static CheckNodeWithSharedLayerValidator validator__reshape_alias(
-    "_reshape_alias",
-    StridedViewSharedMeta,
-    habana_helpers::HabanaExecutionMode::LAZY);
+static CheckNodeWithSharedLayerValidator
+    validator__reshape_alias( // NOLINT (bugprone-reserved-identifier)
+        "_reshape_alias",
+        StridedViewSharedMeta,
+        habana_helpers::HabanaExecutionMode::LAZY);
 
-static CheckNodeWithSharedLayerValidator validator__unsafe_view(
-    "_unsafe_view",
-    StridedViewSharedMeta,
-    habana_helpers::HabanaExecutionMode::LAZY);
+static CheckNodeWithSharedLayerValidator
+    validator__unsafe_view( // NOLINT (bugprone-reserved-identifier)
+        "_unsafe_view",
+        StridedViewSharedMeta,
+        habana_helpers::HabanaExecutionMode::LAZY);
 
 static CheckNodeWithSharedLayerValidator validator_instance_norm(
     "instance_norm",
@@ -107,7 +111,11 @@ Tensor hpu_wrap::_pin_memory(
 Tensor hpu_wrap::bincount(
     const Tensor& self,
     const std::optional<Tensor>& weights,
+#if IS_PYTORCH_AT_LEAST(2, 8)
+    c10::SymInt minlength) {
+#else
     int64_t minlength) {
+#endif
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO("bincount :", DUMP_3ARGS(self, weights, minlength));
@@ -397,6 +405,15 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> hpu_wrap::_unique2(
         PARAMS2(self, sorted, return_inverse, return_counts));
   }
   return unique2_hpu_lazy(self, sorted, return_inverse, return_counts);
+}
+
+std::tuple<at::Tensor, at::Tensor, at::Tensor> hpu_wrap::unique_dim(
+    const at::Tensor& self,
+    int64_t dim,
+    bool sorted,
+    bool return_inverse,
+    bool return_counts) {
+  return unique_dim_hpu_lazy(self, dim, sorted, return_inverse, return_counts);
 }
 
 Tensor& hpu_wrap::nonzero_out(const Tensor& self, Tensor& out) {
@@ -1064,7 +1081,7 @@ void optimizer_adamw_hpu_wrap(
           exp_avg_sq_scales));
 
   HABANA_ASSERT(
-      (weight_vec.size() > 0),
+      (!weight_vec.empty()),
       "optimizer_adamw : can not process empty weight vector");
   HABANA_ASSERT(
       exp_avg_scales.has_value() == exp_avg_sq_scales.has_value(),
@@ -1098,7 +1115,7 @@ Tensor fused_norm_hpu_wrap(
       to_string(max_norm),
       " norm_type=",
       to_string(norm_type));
-  HABANA_ASSERT((grad.size() > 0), "Can not process empty grad vector");
+  HABANA_ASSERT(!grad.empty(), "Can not process empty grad vector");
   return fused_norm_hpu_lazy(grad, max_norm, norm_type);
 }
 
@@ -1207,7 +1224,7 @@ void optimizer_lars_hpu_wrap(
       to_string(eps),
       " lr=",
       to_string(lr));
-  return optimizer_lars_hpu_lazy(
+  optimizer_lars_hpu_lazy(
       params, grads, skipMasks, eeta, weight_decay, eps, lr);
 }
 
@@ -1526,12 +1543,13 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_fwd_wrap(
     const bool requires_backward,
     std::string_view softmax_mode,
     const std::optional<at::Tensor>& valid_seq_len,
-    std::string_view seq_padding_type) {
+    std::string_view seq_padding_type,
+    SymIntArrayRef window_size) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
       "sdpa_recomp_fwd :",
-      DUMP_11ARGS(
+      DUMP_12ARGS(
           q,
           k,
           v,
@@ -1542,7 +1560,8 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_fwd_wrap(
           requires_backward,
           softmax_mode,
           valid_seq_len,
-          seq_padding_type));
+          seq_padding_type,
+          window_size));
 
   return sdpa_recomp_fwd_lazy(
       q,
@@ -1555,7 +1574,8 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_fwd_wrap(
       requires_backward,
       softmax_mode,
       valid_seq_len,
-      seq_padding_type);
+      seq_padding_type,
+      window_size);
 }
 
 /***********************************************************************************
@@ -1687,8 +1707,21 @@ Tensor hpu_wrap::dropout(const Tensor& input, double p, bool train) {
   return DropoutFunction::apply(input, p, train);
 }
 
-namespace vision {
-namespace ops {
+int64_t fused_sdp_choice_hpu(
+    [[maybe_unused]] const at::Tensor& query,
+    [[maybe_unused]] const at::Tensor& key,
+    [[maybe_unused]] const at::Tensor& value,
+    [[maybe_unused]] const ::std::optional<at::Tensor>& attn_mask,
+    [[maybe_unused]] double dropout_p,
+    [[maybe_unused]] bool is_causal,
+    [[maybe_unused]] ::std::optional<double> scale,
+    [[maybe_unused]] bool enable_gqa) {
+  // there are five availble SDPBackend (math, flash_attention,
+  // efficient_attention, cudnn_attention, overrideable)
+  return static_cast<int64_t>(sdp::SDPBackend::math);
+}
+
+namespace vision::ops {
 at::Tensor roi_align_fwd_wrap(
     const at::Tensor& images,
     const at::Tensor& rois,
@@ -1758,8 +1791,7 @@ TORCH_LIBRARY_IMPL(torchvision, HPU, m) {
       TORCH_SELECTIVE_NAME("torchvision::_roi_align_backward"),
       TORCH_FN(roi_align_bwd_wrap));
 }
-} // namespace ops
-} // namespace vision
+} // namespace vision::ops
 
 TORCH_LIBRARY(hpu, m) {
   m.def("cat(Tensor[] tensors, int dim, Tensor out_shape) -> Tensor");
@@ -1929,11 +1961,7 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::habana_cast_sr_mode(Tensor input, Scalar type, bool stochastic_rounding, int seed=0) -> (Tensor)");
   m.def(
-      "hpu::convert_from_int4(Tensor input, Tensor scale, Tensor? zero_point, ScalarType out_dtype) -> Tensor");
-  m.def(
-      "hpu::convert_from_uint4(Tensor input, Tensor scale, Tensor? zero_point, ScalarType out_dtype) -> Tensor");
-  m.def(
-      "hpu::dequantize_nf4(Tensor input, Tensor absmax, SymInt blocksize, int[] out_shape, ScalarType out_dtype) -> Tensor");
+      "hpu::dequantize_nf4(Tensor input, Tensor absmax, SymInt blocksize, int[] out_shape, ScalarType out_dtype, bool use_big_endian) -> Tensor");
   m.def(
       "hpu::index_add(Tensor self, int dim, Tensor index, Tensor source, *, Scalar alpha=1) -> Tensor");
   m.def("hpu::habana_random_seed(Tensor input) -> (Tensor)");
@@ -1948,33 +1976,9 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::habana_expand_into_jagged_permute(Tensor permute, Tensor input_offsets, Tensor output_offsets, int output_size) -> Tensor");
   m.def(
-      "hpu::mixture_of_experts(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, bool? recomp=True) -> Tensor");
+      "hpu::mixture_of_experts.fp8_measurement(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, bool measurement_mode, *, int chunk_size=0, int total_experts=0) -> (Tensor, Tensor)");
   m.def(
-      "hpu::mixture_of_experts.fused_weights(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, bool? recomp=True) -> Tensor");
-  m.def(
-      "hpu::mixture_of_experts.fp8_measurement(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, bool measurement_mode) -> (Tensor, Tensor)");
-  m.def(
-      "hpu::mixture_of_experts.fp8_measurement_fused_weights(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, bool measurement_mode) -> (Tensor, Tensor)");
-  m.def(
-      "hpu::mixture_of_experts_fp8_measurement(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, bool measurement_mode) -> (Tensor, Tensor)");
-  m.def(
-      "hpu::mixture_of_experts_fp8_measurement.fused_weights(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, bool measurement_mode) -> (Tensor, Tensor)");
-  m.def(
-      "hpu::mixture_of_experts_fwd(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor[]");
-  m.def(
-      "hpu::mixture_of_experts_recomp_fwd(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor");
-  m.def(
-      "hpu::mixture_of_experts_fwd.fused_weights(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor[]");
-  m.def(
-      "hpu::mixture_of_experts_recomp_fwd.fused_weights(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor");
-  m.def(
-      "hpu::mixture_of_experts_bwd(Tensor grad_tokens_in, Tensor chunks_input, Tensor token_to_chunk, Tensor token_in_chunk, Tensor chunks_routing_table, Tensor chunks_routing_weights, Tensor gemm1_out, Tensor gemm2_out, Tensor activation_out, Tensor mult_out, Tensor mlp_out, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, int[] router_weights_size) -> Tensor[]");
-  m.def(
-      "hpu::mixture_of_experts_recomp_bwd(Tensor grad_tokens_in, Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor[]");
-  m.def(
-      "hpu::mixture_of_experts_bwd.fused_weights(Tensor grad_tokens_in, Tensor chunks_input, Tensor token_to_chunk, Tensor token_in_chunk, Tensor chunks_routing_table, Tensor chunks_routing_weights, Tensor gemm12_out, Tensor activation_out, Tensor mult_out, Tensor mlp_out, Tensor[] w12, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, int[] router_weights_size) -> Tensor[]");
-  m.def(
-      "hpu::mixture_of_experts_recomp_bwd.fused_weights(Tensor grad_tokens_in, Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor[]");
+      "hpu::mixture_of_experts.fp8_measurement_fused_weights(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, bool measurement_mode, *, int chunk_size=0, int total_experts=0) -> (Tensor, Tensor)");
   m.def(
       "hpu::habana_split_permute_cat(Tensor input, Tensor indices, int batch_size, int num_features, int dims) -> Tensor");
   m.def(
@@ -2000,67 +2004,76 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::sdpa_fwd_dropout_seed(Tensor seed, Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, str softmax_mode, Tensor? valid_seq_len, str seq_padding_type) -> (Tensor, Tensor, Tensor)");
   m.def(
-      "hpu::sdpa_recomp_fwd(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode, Tensor? valid_seq_len, str seq_padding_type) -> (Tensor, Tensor, Tensor, Tensor)");
+      "hpu::sdpa_recomp_fwd(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode, Tensor? valid_seq_len, str seq_padding_type, SymInt[] window_size=[-1, -1]) -> (Tensor, Tensor, Tensor, Tensor)");
   m.def(
-      "hpu::sdpa_recomp_fwd_dropout(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode, Tensor? valid_seq_len, str seq_padding_type) -> (Tensor, Tensor, Tensor, Tensor)");
+      "hpu::sdpa_recomp_fwd_dropout(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode, Tensor? valid_seq_len, str seq_padding_type, SymInt[] window_size=[-1, -1]) -> (Tensor, Tensor, Tensor, Tensor)");
   // for torch.compile to insert seed tensor
   m.def(
-      "hpu::sdpa_recomp_fwd_non_dropout(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode, Tensor? valid_seq_len, str seq_padding_type) -> (Tensor, Tensor, Tensor, Tensor)");
+      "hpu::sdpa_recomp_fwd_non_dropout(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode, Tensor? valid_seq_len, str seq_padding_type, SymInt[] window_size=[-1, -1]) -> (Tensor, Tensor, Tensor, Tensor)");
   m.def(
-      "hpu::sdpa_recomp_fwd_dropout_seed(Tensor seed, Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode, Tensor? valid_seq_len, str seq_padding_type) -> (Tensor, Tensor, Tensor, Tensor)");
+      "hpu::sdpa_recomp_fwd_dropout_seed(Tensor seed, Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode, Tensor? valid_seq_len, str seq_padding_type, SymInt[] window_size=[-1, -1]) -> (Tensor, Tensor, Tensor, Tensor)");
   m.def(
-      "hpu::fp8_sdpa_recomp_fwd(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode, Tensor? d_scale_q, Tensor? d_scale_k, Tensor? d_scale_v, Tensor? q_scale_s, Tensor? q_scale_o, Tensor? d_scale_s, bool is_amax_s, bool is_amax_0, Tensor? valid_seq_len, str seq_padding_type ) -> (Tensor, Tensor, Tensor, Tensor, Tensor, Tensor)");
+      "hpu::fp8_sdpa_recomp_fwd(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode, Tensor? d_scale_q, Tensor? d_scale_k, Tensor? d_scale_v, Tensor? q_scale_s, Tensor? q_scale_o, Tensor? d_scale_s, bool is_amax_s, bool is_amax_0, Tensor? valid_seq_len, str seq_padding_type, SymInt[] window_size=[-1, -1]) -> (Tensor, Tensor, Tensor, Tensor, Tensor, Tensor)");
   m.def(
-      "hpu::fp8_sdpa_recomp_fwd_non_dropout(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode, Tensor? d_scale_q, Tensor? d_scale_k, Tensor? d_scale_v, Tensor? q_scale_s, Tensor? q_scale_o, Tensor? d_scale_s, bool is_amax_s, bool is_amax_0,  Tensor? valid_seq_len, str seq_padding_type ) -> (Tensor, Tensor, Tensor, Tensor, Tensor, Tensor)");
+      "hpu::fp8_sdpa_recomp_fwd_non_dropout(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode, Tensor? d_scale_q, Tensor? d_scale_k, Tensor? d_scale_v, Tensor? q_scale_s, Tensor? q_scale_o, Tensor? d_scale_s, bool is_amax_s, bool is_amax_0,  Tensor? valid_seq_len, str seq_padding_type, SymInt[] window_size=[-1, -1]) -> (Tensor, Tensor, Tensor, Tensor, Tensor, Tensor)");
   m.def(
-      "hpu::fp8_sdpa_recomp_fwd_dropout(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode, Tensor? d_scale_q, Tensor? d_scale_k, Tensor? d_scale_v, Tensor? q_scale_s, Tensor? q_scale_o, Tensor? d_scale_s, bool is_amax_s, bool is_amax_0,  Tensor? valid_seq_len, str seq_padding_type ) -> (Tensor, Tensor, Tensor, Tensor, Tensor, Tensor)");
+      "hpu::fp8_sdpa_recomp_fwd_dropout(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode, Tensor? d_scale_q, Tensor? d_scale_k, Tensor? d_scale_v, Tensor? q_scale_s, Tensor? q_scale_o, Tensor? d_scale_s, bool is_amax_s, bool is_amax_0,  Tensor? valid_seq_len, str seq_padding_type, SymInt[] window_size=[-1, -1]) -> (Tensor, Tensor, Tensor, Tensor, Tensor, Tensor)");
   m.def(
-      "hpu::fp8_sdpa_recomp_fwd_dropout_seed(Tensor seed, Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode, Tensor? d_scale_q, Tensor? d_scale_k, Tensor? d_scale_v, Tensor? q_scale_s, Tensor? q_scale_o, Tensor? d_scale_s, bool is_amax_s, bool is_amax_o,  Tensor? valid_seq_len, str seq_padding_type ) -> (Tensor, Tensor, Tensor, Tensor, Tensor, Tensor)");
+      "hpu::fp8_sdpa_recomp_fwd_dropout_seed(Tensor seed, Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode, Tensor? d_scale_q, Tensor? d_scale_k, Tensor? d_scale_v, Tensor? q_scale_s, Tensor? q_scale_o, Tensor? d_scale_s, bool is_amax_s, bool is_amax_o,  Tensor? valid_seq_len, str seq_padding_type, SymInt[] window_size=[-1, -1]) -> (Tensor, Tensor, Tensor, Tensor, Tensor, Tensor)");
   m.def(
-      "hpu::fp8_sdpa_recomp_fwd.scalar(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode, float d_scale_q, float d_scale_k, float d_scale_v, float q_scale_s, float q_scale_o, float d_scale_s, bool is_amax_s, bool is_amax_0, Tensor? valid_seq_len, str seq_padding_type ) -> (Tensor, Tensor, Tensor, Tensor, Tensor, Tensor)");
+      "hpu::fp8_sdpa_recomp_fwd.scalar(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode, float d_scale_q, float d_scale_k, float d_scale_v, float q_scale_s, float q_scale_o, float d_scale_s, bool is_amax_s, bool is_amax_0, Tensor? valid_seq_len, str seq_padding_type, SymInt[] window_size=[-1, -1]) -> (Tensor, Tensor, Tensor, Tensor, Tensor, Tensor)");
   m.def(
-      "hpu::fp8_sdpa_recomp_fwd_non_dropout.scalar(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode, float d_scale_q, float d_scale_k, float d_scale_v, float q_scale_s, float q_scale_o, float d_scale_s, bool is_amax_s, bool is_amax_0,  Tensor? valid_seq_len, str seq_padding_type ) -> (Tensor, Tensor, Tensor, Tensor, Tensor, Tensor)");
+      "hpu::fp8_sdpa_recomp_fwd_non_dropout.scalar(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode, float d_scale_q, float d_scale_k, float d_scale_v, float q_scale_s, float q_scale_o, float d_scale_s, bool is_amax_s, bool is_amax_0,  Tensor? valid_seq_len, str seq_padding_type, SymInt[] window_size=[-1, -1]) -> (Tensor, Tensor, Tensor, Tensor, Tensor, Tensor)");
   m.def(
-      "hpu::fp8_sdpa_recomp_fwd_dropout.scalar(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode, float d_scale_q, float d_scale_k, float d_scale_v, float q_scale_s, float q_scale_o, float d_scale_s, bool is_amax_s, bool is_amax_0,  Tensor? valid_seq_len, str seq_padding_type ) -> (Tensor, Tensor, Tensor, Tensor, Tensor, Tensor)");
+      "hpu::fp8_sdpa_recomp_fwd_dropout.scalar(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode, float d_scale_q, float d_scale_k, float d_scale_v, float q_scale_s, float q_scale_o, float d_scale_s, bool is_amax_s, bool is_amax_0,  Tensor? valid_seq_len, str seq_padding_type, SymInt[] window_size=[-1, -1]) -> (Tensor, Tensor, Tensor, Tensor, Tensor, Tensor)");
   m.def(
-      "hpu::fp8_sdpa_recomp_fwd_dropout_seed.scalar(Tensor seed, Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode, float d_scale_q, float d_scale_k, float d_scale_v, float q_scale_s, float q_scale_o, float d_scale_s, bool is_amax_s, bool is_amax_o,  Tensor? valid_seq_len, str seq_padding_type ) -> (Tensor, Tensor, Tensor, Tensor, Tensor, Tensor)");
+      "hpu::fp8_sdpa_recomp_fwd_dropout_seed.scalar(Tensor seed, Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode, float d_scale_q, float d_scale_k, float d_scale_v, float q_scale_s, float q_scale_o, float d_scale_s, bool is_amax_s, bool is_amax_o,  Tensor? valid_seq_len, str seq_padding_type, SymInt[] window_size=[-1, -1]) -> (Tensor, Tensor, Tensor, Tensor, Tensor, Tensor)");
   m.def(
       "hpu::fp8_sdpa_recomp_bwd(Tensor grad, Tensor q, Tensor k, Tensor v, Tensor? attention_mask, Tensor m, Tensor linv, Tensor ? seed, bool is_causal, float p, float scale, str softmax_mode, Tensor? d_scale_q, Tensor? d_scale_k, Tensor? d_scale_v, Tensor? d_scale_s, Tensor? d_scale_do, Tensor? d_scale_ds, Tensor? q_scale_s, Tensor? q_scale_ds, bool is_amax_ds, Tensor fwd_out) -> (Tensor, Tensor, Tensor, Tensor)");
   m.def(
-      "hpu::habana_seed_generator(Tensor seed, Tensor counter, int size) -> Tensor");
-  HABANA_RANDOM_DEF_CHECKPOINT(bernoulli, "Tensor seed, Tensor self")
-  HABANA_RANDOM_DEF_CHECKPOINT(poisson, "Tensor seed, Tensor self")
-  HABANA_RANDOM_DEF_CHECKPOINT(
-      rand,
-      "Tensor seed, SymInt[] size, *, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None")
-  HABANA_RANDOM_DEF_CHECKPOINT(
-      randn,
-      "Tensor seed, SymInt[] size, *, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None")
-  HABANA_RANDOM_DEF_CHECKPOINT(
-      randint,
-      "Tensor seed, SymInt low, SymInt high, SymInt[] size, *, ScalarType? dtype=long, Layout? layout=None, Device? device=None, bool? pin_memory=None")
-  HABANA_RANDOM_DEF_CHECKPOINT(
-      multinomial,
-      "Tensor seed, Tensor self, int num_samples, bool replacement=False")
-  HABANA_RANDOM_DEF_CHECKPOINT(
-      uniform, "Tensor seed, Tensor self, float from=0, float to=1")
-  HABANA_RANDOM_DEF_CHECKPOINT(
-      randperm,
-      "Tensor seed, SymInt n, *, ScalarType? dtype=long, Layout? layout=None, Device? device=None, bool? pin_memory=None")
-  HABANA_RANDOM_DEF_CHECKPOINT_2_OUTS(
-      native_dropout, "Tensor seed, Tensor input, float p, bool? train")
-  m.def(
       "hpu::bincount_backend(Tensor self, int length, Tensor? weights) -> (Tensor)");
+  // Random ops wrappers for t.compile
+  m.def(
+      "hpu::habana_seed_generator(Tensor seed, Tensor counter, int size) -> Tensor");
+  m.def("hpu::habana_bernoulli(Tensor seed, Tensor self) -> Tensor");
+  m.def("hpu::habana_poisson(Tensor seed, Tensor self) -> Tensor");
+  m.def(
+      "hpu::habana_rand(Tensor seed, SymInt[] size, *, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> Tensor");
+  m.def(
+      "hpu::habana_randn(Tensor seed, SymInt[] size, *, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> Tensor");
+  m.def(
+      "hpu::habana_randint(Tensor seed, SymInt low, SymInt high, SymInt[] size, *, ScalarType? dtype=long, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> Tensor");
+  m.def(
+      "hpu::habana_multinomial(Tensor seed, Tensor self, int num_samples, bool replacement=False) -> Tensor");
+  m.def(
+      "hpu::habana_uniform(Tensor seed, Tensor self, float from=0, float to=1) -> Tensor");
+  m.def(
+      "hpu::habana_randperm(Tensor seed, SymInt n, *, ScalarType? dtype=long, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> Tensor");
+  m.def(
+      "hpu::habana_native_dropout(Tensor seed, Tensor input, float p, bool? train) -> (Tensor, Tensor)");
+  m.def(
+      "hpu::habana__fused_dropout(Tensor seed, Tensor input, float p) -> (Tensor, Tensor)");
+  m.def(
+      "hpu::habana_exponential(Tensor seed, Tensor self, float lambd=1) -> Tensor");
+  m.def(
+      "hpu::habana_normal.Tensor_Tensor(Tensor seed, Tensor mean, Tensor std) -> Tensor");
+  m.def(
+      "hpu::habana_normal.Tensor_float(Tensor seed, Tensor mean, float std=1) -> Tensor");
+  m.def(
+      "hpu::habana_normal.float_Tensor(Tensor seed, float mean, Tensor std) -> Tensor");
+  m.def(
+      "hpu::habana_normal.float_float(Tensor seed, float mean, float std, SymInt[] size, *, Generator? generator=None, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> Tensor");
+  m.def(
+      "hpu::habana_random_wrapper(Tensor self, int low, int? high) -> Tensor",
+      {at::Tag::nondeterministic_seeded});
+  m.def(
+      "hpu::habana_random(Tensor seed, Tensor self, int low, int? high) -> Tensor");
+  m.def(
+      "hpu::block_softmax_adjustment(Tensor block_maxes, Tensor block_sums, Tensor block_groups, int batch_size, int[]? out_shape=None) -> Tensor");
 }
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {
-  m.impl("hpu::convert_from_int4", convert_from_int4_lazy);
-  m.impl("hpu::convert_from_uint4", convert_from_uint4_lazy);
   m.impl("hpu::dequantize_nf4", dequantize_nf4_lazy);
-  m.impl("hpu::mixture_of_experts", mixture_of_experts_lazy);
-  m.impl(
-      "hpu::mixture_of_experts.fused_weights",
-      mixture_of_experts_fused_weights_lazy);
   m.impl(
       "hpu::mixture_of_experts.fp8_measurement",
       mixture_of_experts_fp8_measurement_lazy);
@@ -2080,13 +2093,34 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::fp8_sdpa_recomp_fwd.scalar", fp8_sdpa_recomp_fwd_scalar_lazy);
   m.impl("hpu::fp8_sdpa_fwd", fp8_sdpa_fwd_wrap);
   m.impl("hpu::fp8_sdpa_recomp_bwd", fp8_sdpa_recomp_bwd_lazy);
+  m.impl("hpu::block_softmax_adjustment", block_softmax_adjustment_lazy);
+  m.impl(
+      "hpu::mixture_of_experts_fwd.fp8_fused",
+      mixture_of_experts_fwd_fp8_fused_weights_lazy);
+  m.impl(
+      "hpu::mixture_of_experts_recomp_fwd.fp8_fused",
+      mixture_of_experts_recomp_fwd_fp8_fused_weights_lazy);
+  m.impl(
+      "hpu::mixture_of_experts_bwd.fp8_fused",
+      mixture_of_experts_bwd_fp8_fused_weights_lazy);
+  m.impl(
+      "hpu::mixture_of_experts_recomp_bwd.fp8_fused",
+      mixture_of_experts_recomp_bwd_fp8_fused_weights_lazy);
+  m.impl("hpu::mixture_of_experts_fwd.fp8", mixture_of_experts_fwd_fp8_lazy);
+  m.impl(
+      "hpu::mixture_of_experts_recomp_fwd.fp8",
+      mixture_of_experts_recomp_fwd_fp8_lazy);
+  m.impl("hpu::mixture_of_experts_bwd.fp8", mixture_of_experts_bwd_fp8_lazy);
+  m.impl(
+      "hpu::mixture_of_experts_recomp_bwd.fp8",
+      mixture_of_experts_recomp_bwd_fp8_lazy);
 }
 
 TORCH_LIBRARY_IMPL(hpu, Autograd, m) {
-  m.impl("hpu::mixture_of_experts", mixture_of_experts_fwd_autograd_lazy);
+  m.impl("hpu::mixture_of_experts", mixture_of_experts_fwd_autograd);
   m.impl(
       "hpu::mixture_of_experts.fused_weights",
-      mixture_of_experts_fwd_fused_weights_autograd_lazy);
+      mixture_of_experts_fwd_fused_weights_autograd);
 }
 
 TORCH_LIBRARY_IMPL(torchvision, HPU, m) {
@@ -2095,10 +2129,11 @@ TORCH_LIBRARY_IMPL(torchvision, HPU, m) {
       TORCH_FN(torchvision_nms_hpu_wrap));
 }
 
-// We need to override matmul implementation also for inference,
-// to have the same implementation as matmul forward in autograd.
 TORCH_LIBRARY_IMPL(aten, HPU, m) {
+  // We need to override matmul implementation also for inference,
+  // to have the same implementation as matmul forward in autograd.
   m.impl("matmul", matmul_inference);
+  m.impl("_fused_sdp_choice", fused_sdp_choice_hpu);
 }
 
 TORCH_LIBRARY(hccl, m) {

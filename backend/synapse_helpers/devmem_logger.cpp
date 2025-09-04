@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,23 +12,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <cxxabi.h>
 #include <dlfcn.h>
-#include <cinttypes>
-#include <cstdlib>
-#include <cstring>
-
 #include <execinfo.h>
 #include <unistd.h>
 #include <cassert>
-
-#include <cxxabi.h>
 #include <cstdlib>
-#include <memory>
+#include <cstring>
 #include <sstream>
 
 #include <absl/strings/str_format.h>
 #include "backend/synapse_helpers/device_mem_stats.h"
-#include "backend/synapse_helpers/env_flags.h"
+#include "backend/synapse_helpers/env_flags.h" // IWYU pragma: keep
 #include "backend/synapse_helpers/util.h"
 #include "devmem_logger.h"
 
@@ -173,7 +168,7 @@ std::string deviceMallocData::get_formatted_func_name(
 
   // Find the mangled function name in the frame
   const auto start_of_func_name = string.find('(');
-  std::string out_name = "";
+  std::string out_name;
   std::size_t end_of_func_name;
   bool formatted_name = true;
   if (start_of_func_name != std::string::npos) {
@@ -204,11 +199,11 @@ std::string deviceMallocData::get_formatted_func_name(
     *dot_marker_placed = false;
     if (status == 0) {
       std::string demang_name(demangled_name);
-      demang_name = demang_name.substr(0, demang_name.find("("));
+      demang_name = demang_name.substr(0, demang_name.find('('));
       out_name += ("    " + demang_name + "\n");
     } else {
       std::string name_(name);
-      name_ = name_.substr(0, name_.find("("));
+      name_ = name_.substr(0, name_.find('('));
       out_name += ("    " + name_ + "\n");
     }
   } else {
@@ -245,7 +240,7 @@ void deviceMallocData::print_an_entry(
     const auto& bt_strings = size_bt.second;
     bool dot_marker_placed = false;
     for (const auto& string : bt_strings) {
-      if (string.length()) {
+      if (!string.empty()) {
         out_stream << get_formatted_func_name(
             string, print_all_frames, &dot_marker_placed);
       }
@@ -276,7 +271,7 @@ void deviceMallocData::collect_backtrace(
 
   // Take backtrace
   if (take_bt && (alloc || print_free_bt)) {
-    nptrs = backtrace(buffer, bt_depth);
+    nptrs = backtrace(buffer, static_cast<int>(bt_depth));
 
     strings = backtrace_symbols(buffer, nptrs);
     if (strings == nullptr) {
@@ -288,7 +283,8 @@ void deviceMallocData::collect_backtrace(
       bt_string.emplace_back(strings[i]);
     }
 
-    free(strings);
+    free(strings); // NOLINT (bugprone-multi-level-implicit-pointer-conversion)
+                   // this is a single allocation
   }
 
   auto out_stream = get_out_stream();
@@ -359,9 +355,8 @@ void deviceMallocData::collect_backtrace(
       // Stats update
       if (!duplicate) {
         running_memory += size;
-        if (running_memory > iteration_high_watermark) {
-          iteration_high_watermark = running_memory;
-        }
+        iteration_high_watermark =
+            std::max(iteration_high_watermark, running_memory);
       }
 
       if (iteration_high_watermark > overall_high_watermark) {
@@ -513,11 +508,12 @@ void deviceMallocData::print_to_file(const char* msg) {
  */
 void deviceMallocData::print_live_allocations(const char* msg) {
   if (!logging_enabled_) {
-    return print_to_file(msg);
+    print_to_file(msg);
+    return;
   }
 
   std::string record_id_msg = msg;
-  if (0 == record_id_msg.size()) {
+  if (record_id_msg.empty()) {
     record_id_msg = "Instance " + std::to_string(iteration_number);
   }
   auto out_stream = get_out_stream();
@@ -526,7 +522,8 @@ void deviceMallocData::print_live_allocations(const char* msg) {
   out_stream << "=========================\n";
   out_stream << "DRAM start: 0x" << std::hex << dram_start_ << "\n";
   out_stream << "DRAM size: " << std::dec << dram_size_ << " ("
-             << dram_size_ / (1024 * 1024 * 1024.) << " GB)\n";
+             << static_cast<double>(dram_size_) / (1024 * 1024 * 1024.)
+             << " GB)\n";
   std::vector<std::pair<uint64_t, size_bt_pair_t>> sorted_by_size_log(
       ptr_bt_map.begin(), ptr_bt_map.end());
 
@@ -542,14 +539,18 @@ void deviceMallocData::print_live_allocations(const char* msg) {
     total_live_size += entry.second.first;
   }
   out_stream << "Total memory held : " << total_live_size << " ("
-             << total_live_size / (1024 * 1024.) << " MB)\n";
+             << static_cast<double>(total_live_size) / (1024 * 1024.)
+             << " MB)\n";
 
   // Stats on peak memory usage
   out_stream << "Peak memory usage : " << overall_high_watermark << " ("
-             << overall_high_watermark / (1024 * 1024.) << " MB)\n";
+             << static_cast<double>(overall_high_watermark) / (1024 * 1024.)
+             << " MB)\n";
 
   out_stream << "Peak memory usage from last log : " << iteration_high_watermark
-             << " (" << iteration_high_watermark / (1024 * 1024.) << " MB)\n";
+             << " ("
+             << static_cast<double>(iteration_high_watermark) / (1024 * 1024.)
+             << " MB)\n";
 
   ++iteration_number;
   iteration_high_watermark = 0;
@@ -652,11 +653,8 @@ void deviceMallocData::record_tensor_info(
     grads.emplace_back(std::make_tuple(start, end, name));
   } else if (is_optim_state) {
     optim_states.emplace_back(std::make_tuple(start, end, name));
-  } else if (is_graph_input) {
+  } else if (is_graph_input || is_graph_output) {
     // Not adding via this.. graph_input.emplace_back(std::make_tuple(start,
-    // end, name));
-  } else if (is_graph_output) {
-    // Not adding via this.. graph_output.emplace_back(std::make_tuple(start,
     // end, name));
   }
 }
@@ -1134,7 +1132,7 @@ void memory_reporter_event_create(
     synapse_helpers::device& device,
     synapse_helpers::mem_reporter_type event_type) {
   if (memory_reporter_enable()) {
-    std::string event_name = "";
+    std::string event_name;
     switch (event_type) {
       case MEM_REPORTER_GRAPH_BEFORE_LAUNCH:
         event_name = "GRAPH_BEFORE_LAUNCH_EVENT";

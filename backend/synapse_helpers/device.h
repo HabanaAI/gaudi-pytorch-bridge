@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,13 +16,10 @@
 
 #include <synapse_api_types.h>
 #include <synapse_common_types.h>
-
-#include <algorithm>
 #include <condition_variable>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
-#include <initializer_list>
 #include <iosfwd>
 #include <memory>
 #include <mutex>
@@ -30,8 +27,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
-
-#include "absl/types/variant.h"
+#include "backend/synapse_helpers/device_interface.h"
 #include "backend/synapse_helpers/device_memory.h"
 #include "backend/synapse_helpers/device_types.h"
 #include "backend/synapse_helpers/event.h"
@@ -94,6 +90,8 @@ class active_recipe_counter {
 
 class host_event {
  public:
+  host_event(hpuStream_t stream) : stream_(stream) {}
+
   void wait_for_event_complete() {
     std::unique_lock<std::mutex> lck(mutex_);
     cv_.wait(lck, [this]() -> bool { return done(); });
@@ -109,20 +107,25 @@ class host_event {
     return done_.load();
   }
 
+  hpuStream_t stream() const {
+    return stream_;
+  }
+
  private:
+  hpuStream_t stream_;
   std::condition_variable cv_;
   std::mutex mutex_;
   std::atomic<bool> done_{false};
 };
 
-class device {
+class device final : public device_interface {
  public:
   struct transfer_desc {
-    device_ptr src;
-    device_ptr dst;
-    device_ptr src_event_addr;
-    device_ptr dst_event_addr;
-    size_t bytes_to_transfer;
+    device_ptr src = 0;
+    device_ptr dst = 0;
+    device_ptr src_event_addr = 0;
+    device_ptr dst_event_addr = 0;
+    size_t bytes_to_transfer = 0;
   };
 
   using transfer_manifest = std::vector<transfer_desc>;
@@ -146,6 +149,8 @@ class device {
 
   void cleanup();
   void flush_stream_events();
+  void flush_host_events();
+  void flush_host_events_on_stream(hpuStream_t stream);
 
   // Function passed here will be called at the begining od device dtor.
   void register_framework_specific_cleanup(
@@ -156,7 +161,7 @@ class device {
   synDeviceType type() const {
     return type_;
   }
-  synDeviceId id() const {
+  synDeviceId id() const override {
     return id_;
   }
 
@@ -343,7 +348,7 @@ class device {
   }
 
   CachedEventHandle get_cached_time_event_handle() {
-    return CachedEventHandle(time_event_handle_cache_);
+    return {time_event_handle_cache_};
   }
 
   recipe_handle_cache& get_recipe_handle_cache() {
@@ -372,7 +377,7 @@ class device {
     return host_memory_;
   }
 
-  bool HostMemoryCacheEnabled_() {
+  bool HostMemoryCacheEnabled() const override {
     return host_memory_cache_enabled_;
   }
 
@@ -418,9 +423,13 @@ class device {
 
   bool query_default_stream();
 
-  void create_default_stream();
+  void create_default_streams();
 
   stream& get_stream(hpuStream_t id, default_stream_type stream_type = COMPUTE);
+
+  hpuStream_t get_dma_pt_stream(
+      hpuStream_t id,
+      default_stream_type stream_type);
 
   void delete_stream(hpuStream_t id);
 
@@ -455,7 +464,7 @@ class device {
       size_t persistent_size,
       size_t req_workspace_size);
 
-  void register_host_event(uint64_t addr);
+  void register_host_event(hpuStream_t stream, uint64_t addr);
 
   void wait_for_host_event(uint64_t addr);
 
@@ -498,6 +507,11 @@ class device {
 
   uint64_t get_compute_stream_count();
 
+  void create_default_stream(
+      default_stream_type type,
+      uint64_t availAffinity,
+      bool is_compute_stream);
+
   std::shared_ptr<session> synapse_session_;
 
   synDeviceType type_;
@@ -524,6 +538,7 @@ class device {
   absl::optional<owned_device_ptr> preallocated_reduction_buffer_;
   bool is_hcl_same_addr_enabled_;
 
+  const unsigned generic_stream_limit{32};
   active_recipe_counter recipe_counter_;
   bool host_memory_cache_enabled_;
   unsigned max_dma_copy_retry_count_;
@@ -534,6 +549,7 @@ class device {
 
   bool enable_dynamic_workspace_{false};
   bool cleanup_done_{false};
+  void synchronize_substreams(hpuStream_t stream, default_stream_type tp);
 
   // stream counter
   std::atomic<uint64_t> stream_index_{0};
@@ -556,6 +572,7 @@ class device {
   // Only used with old design of stream assignment
   std::unordered_map<default_stream_type, std::unique_ptr<stream>>
       default_streams_;
+  std::unordered_map<default_stream_type, hpuStream_t> dma_streams_mapper;
   bool scale_attribute_is_hw_aligned_{false};
   uint32_t scale_attribute_hash_id_{0};
 };

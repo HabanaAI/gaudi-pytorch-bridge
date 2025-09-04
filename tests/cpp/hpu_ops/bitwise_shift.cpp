@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@ so using other modulo */
     name, in_size1, in_size2, dtype1, dtype2, dtype_size)                      \
   TEST_F(HpuOpTest, name) {                                                    \
     GenerateInputs(2, {in_size1, in_size2}, {dtype1, dtype2});                 \
-    GetCpuInput(1) = GetCpuInput(1) % dtype_size;                              \
+    GetCpuInput(1) = GetCpuInput(1) % (dtype_size);                            \
     auto other = GetCpuInput(1).to(torch::kHPU);                               \
     auto expected = torch::empty(0, dtype1);                                   \
     auto result = torch::empty(0, torch::TensorOptions(dtype1).device("hpu")); \
@@ -38,7 +38,7 @@ so using other modulo */
     name, in_size1, in_size2, dtype1, dtype2, dtype_size)                      \
   TEST_F(HpuOpTest, name) {                                                    \
     GenerateInputs(2, {in_size1, in_size2}, {dtype1, dtype2});                 \
-    GetCpuInput(1) = GetCpuInput(1) % dtype_size;                              \
+    GetCpuInput(1) = GetCpuInput(1) % (dtype_size);                            \
     auto other = GetCpuInput(1).to(torch::kHPU);                               \
     auto expected = torch::bitwise_left_shift(GetCpuInput(0), GetCpuInput(1)); \
     auto result = torch::bitwise_left_shift(GetHpuInput(0), GetHpuInput(1));   \
@@ -49,7 +49,7 @@ so using other modulo */
     name, op, in_size1, in_size2, dtype1, dtype2, dtype_size)  \
   TEST_F(HpuOpTest, name) {                                    \
     GenerateInputs(2, {in_size1, in_size2}, {dtype1, dtype2}); \
-    GetCpuInput(1) = GetCpuInput(1) % dtype_size;              \
+    GetCpuInput(1) = GetCpuInput(1) % (dtype_size);            \
     auto other = GetCpuInput(1).to(torch::kHPU);               \
     GetCpuInput(0).op(GetCpuInput(1));                         \
     GetHpuInput(0).op(GetHpuInput(1));                         \
@@ -60,7 +60,7 @@ so using other modulo */
     name, in_size1, in_size2, dtype1, dtype2, dtype_size)                      \
   TEST_F(HpuOpTest, name) {                                                    \
     GenerateInputs(2, {in_size1, in_size2}, {dtype1, dtype2});                 \
-    GetCpuInput(1) = GetCpuInput(1) % dtype_size;                              \
+    GetCpuInput(1) = GetCpuInput(1) % (dtype_size);                            \
     auto other = GetCpuInput(1).to(torch::kHPU);                               \
     auto expected = torch::empty(0, dtype1);                                   \
     auto result = torch::empty(0, torch::TensorOptions(dtype1).device("hpu")); \
@@ -73,7 +73,7 @@ so using other modulo */
     name, in_size1, in_size2, dtype1, dtype2, dtype_size)            \
   TEST_F(HpuOpTest, name) {                                          \
     GenerateInputs(2, {in_size1, in_size2}, {dtype1, dtype2});       \
-    GetCpuInput(1) = GetCpuInput(1) % dtype_size;                    \
+    GetCpuInput(1) = GetCpuInput(1) % (dtype_size);                  \
     auto other = GetCpuInput(1).to(torch::kHPU);                     \
     auto expected =                                                  \
         torch::bitwise_right_shift(GetCpuInput(0), GetCpuInput(1));  \
@@ -85,7 +85,7 @@ so using other modulo */
     name, op, in_size1, in_size2, dtype1, dtype2, dtype_size)  \
   TEST_F(HpuOpTest, name) {                                    \
     GenerateInputs(2, {in_size1, in_size2}, {dtype1, dtype2}); \
-    GetCpuInput(1) = GetCpuInput(1) % dtype_size;              \
+    GetCpuInput(1) = GetCpuInput(1) % (dtype_size);            \
     auto other = GetCpuInput(1).to(torch::kHPU);               \
     GetCpuInput(0).op(GetCpuInput(1));                         \
     GetHpuInput(0).op(other);                                  \

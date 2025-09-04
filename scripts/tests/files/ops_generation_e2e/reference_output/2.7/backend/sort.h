@@ -10,7 +10,7 @@ namespace habana {
 HPU_OP_BACKEND(SortStable)
 
 
-::std::tuple<at::Tensor &,at::Tensor &> sort_out(const at::Tensor & self, ::std::optional<bool> stable, int64_t dim, bool descending, at::Tensor & values, at::Tensor & indices);
+::std::tuple<at::Tensor &,at::Tensor &> sort_values_stable(const at::Tensor & self, ::std::optional<bool> stable, int64_t dim, bool descending, at::Tensor & values, at::Tensor & indices);
 FALLBACK_CHECK(SortStableFallbackCheck, const at::Tensor & self, ::std::optional<bool> stable, int64_t dim, bool descending);
 
 }  // namespace habana

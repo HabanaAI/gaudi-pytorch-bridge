@@ -37,18 +37,16 @@ def remove_file(path, verbose=True, strict=True):
         if verbose:
             print(f"[INFO] Deleting file {path}")
         os.remove(path)
-    else:
-        if strict:
-            raise ValueError(f"{path} is not a file")
+    elif strict:
+        raise ValueError(f"{path} is not a file")
 
 
 def remove_dir(path, strict=True):
     if os.path.isdir(path):
         print(f"[INFO] Deleting directory {path}")
         shutil.rmtree(path)
-    else:
-        if strict:
-            raise ValueError(f"{path} is not a directory")
+    elif strict:
+        raise ValueError(f"{path} is not a directory")
 
 
 def calc_difference(a, b):
@@ -97,7 +95,7 @@ class DivergenceAnalyzer:
         self.cfg = cfg
         self.dumpdir = os.path.join(args.out)
         # For master Slave mode this is used as tmp dump location
-        self.hls_local_dir = "/tmp/dumps_hls"
+        self.hls_local_dir = "/tmp/dumps_hls"  # noqa S108
         self.logdir = os.path.join(self.dumpdir, "divergence_logs")
         self.dumpdir_static = os.path.join(self.dumpdir, "StaticSynRec")
         self.dumpdir_dynamic = os.path.join(self.dumpdir, "DynamicSynRec")
@@ -276,8 +274,8 @@ class DivergenceAnalyzer:
             shutil.move(source_path, destination_path)
 
     def compare_databases(self, db_static, db_dynamic):
-        assert not (os.path.getsize(db_static) == 0), f"db file {db_static} is empty"
-        assert not (os.path.getsize(db_dynamic) == 0), f"db file {db_dynamic} is empty"
+        assert os.path.getsize(db_static) != 0, f"db file {db_static} is empty"
+        assert os.path.getsize(db_dynamic) != 0, f"db file {db_dynamic} is empty"
 
         conn1 = sqlite3.connect(db_static)
         conn2 = sqlite3.connect(db_dynamic)
@@ -292,17 +290,17 @@ class DivergenceAnalyzer:
         """
         This is thr format in which data is preset in DB file
         Data is from synapse/src/data_serialize/sql/sql_db_serializer.cpp
-                                        "GROUP_ID       int     not NULL,"
-                                        "LAUNCH_INDEX   int     not NULL,"
-                                        "GRAPH_NAME     text    not NULL,"
-                                        "RECIPE_ID      int     not NULL,"
-                                        "NAME           text    not NULL,"
-                                        "ID             int     not NULL,"
-                                        "ITERATION      int     not NULL,"
-                                        "TYPE           int     not NULL,"
-                                        "DATA_TYPE      int     not NULL,"
-                                        "VALIDATION     int     not NULL,"
-                                        "CONST_TENSOR   int     not NULL,"
+                                        "GROUP_ID       int     not nullptr,"
+                                        "LAUNCH_INDEX   int     not nullptr,"
+                                        "GRAPH_NAME     text    not nullptr,"
+                                        "RECIPE_ID      int     not nullptr,"
+                                        "NAME           text    not nullptr,"
+                                        "ID             int     not nullptr,"
+                                        "ITERATION      int     not nullptr,"
+                                        "TYPE           int     not nullptr,"
+                                        "DATA_TYPE      int     not nullptr,"
+                                        "VALIDATION     int     not nullptr,"
+                                        "CONST_TENSOR   int     not nullptr,"
                                         "SHAPE          blob,"
                                         "PERMUTATION    blob,"
                                         "DATA_IDS       blob);"
@@ -354,7 +352,7 @@ class DivergenceAnalyzer:
         # Validate if tensor names match for all common entries
         tensor_names_static = [item[idx_tensor_name] for item in tensors_static[:compare_len]]
         tensor_names_dynamic = [item[idx_tensor_name] for item in tensors_dynamic[:compare_len]]
-        if not tensor_names_static == tensor_names_dynamic:
+        if tensor_names_static != tensor_names_dynamic:
             self.log("[ERROR] DB has different Tensor name for tensor in static and dynamic not comparing.")
             if self.cfg.cache:
                 self.log("[ERROR] Check with --cache 0.")
@@ -604,7 +602,7 @@ class DivergenceAnalyzer:
             outfile = "/dev/null"
 
         cmd_full = f'script -e -q -c "{cmd}" {outfile} > /dev/null'
-        status = os.system(cmd_full)
+        status = os.system(cmd_full)  # noqa S605
         assert status == 0, f"[ERROR] Dumping error logs to\033[91m {outfile}\033[0m"
 
     def train(self):
@@ -631,7 +629,7 @@ class DivergenceAnalyzer:
         p2 = mp.Process(target=self.run, args=(cmd_dynamic, "dynamic", verbose))
 
         def _await(exit_gracefully=True):
-            os.system("reset")  # FIXME: The "script" command messes up the terminal.
+            os.system("reset")  # noqa S605 # noqa S607 # FIXME: The "script" command messes up the terminal.
             p1.join()
             p2.join()
             if exit_gracefully:
@@ -705,7 +703,10 @@ def get_args():
         help="If Specified run the command on the device in static and dynamic and do a comparison, command to be specified in quotes",
     )
     parser.add_argument(
-        "--out", type=str, default="/tmp/dumps", help="The output directory to dump or read the dumps from"
+        "--out",
+        type=str,
+        default="/tmp/dumps",  # noqa S108
+        help="The output directory to dump or read the dumps from",
     )
     parser.add_argument(
         "--parallel",
@@ -781,7 +782,7 @@ def main(args):
 
     if args.cmd is not None:
         if args.parallel:
-            import habana_frameworks.torch.hpu as hpu
+            from habana_frameworks.torch import hpu
 
             if hpu.device_count() < 2:
                 print(f"[ERROR]: Found only {hpu.device_count()} HPU device(s). Cannot running in parallel mode.")

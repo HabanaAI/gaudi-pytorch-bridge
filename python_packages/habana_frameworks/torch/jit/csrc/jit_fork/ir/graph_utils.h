@@ -26,8 +26,7 @@
 
 #include "jit_fork/ir/ir.h"
 
-namespace habana_torch {
-namespace jit {
+namespace habana_torch::jit {
 
 TORCH_API TypePtr getTensorType(const at::Tensor& t, bool complete);
 
@@ -43,5 +42,4 @@ TORCH_API void setInputTensorTypes(
     bool complete,
     const std::vector<int>& param_count_list = {});
 
-} // namespace jit
-} // namespace habana_torch
+} // namespace habana_torch::jit

@@ -40,16 +40,24 @@ def dynamic_output_shape_ops_fn(x, y):
 
 
 def test_capture_scalar_outputs():
-    with FxGraphAnalyzer(capture_non_hpu_output=True) as fga, torch._dynamo.config.patch(capture_scalar_outputs=True):
+    with (
+        FxGraphAnalyzer(capture_non_hpu_output=True) as fga,
+        torch._dynamo.config.patch(capture_scalar_outputs=True),
+    ):
         input1 = torch.tensor([3], device="hpu")
         input2 = torch.tensor([2, 2], device="hpu")
         res = scalar_fn(input1, input2)
-        fga_assert_helper(fga.get_ops_summary(), "torch.ops.aten._local_scalar_dense.default", [{0, 1}])
+        fga_assert_helper(
+            fga.get_ops_summary(),
+            "torch.ops.aten._local_scalar_dense.default",
+            [{0, 1}],
+        )
 
 
 def test_capture_dynamic_output_shape_ops():
-    with FxGraphAnalyzer(capture_non_hpu_output=True) as fga, torch._dynamo.config.patch(
-        capture_dynamic_output_shape_ops=True
+    with (
+        FxGraphAnalyzer(capture_non_hpu_output=True) as fga,
+        torch._dynamo.config.patch(capture_dynamic_output_shape_ops=True),
     ):
         input1 = torch.tensor([1, 1, 1, 0, 1], device="hpu")
         input2 = torch.tensor([1, 1, 1, 1], device="hpu")

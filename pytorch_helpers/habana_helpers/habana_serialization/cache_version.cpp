@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,12 +24,41 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <filesystem>
+#include <fstream>
 #include <string>
 #include <vector>
 
-extern char** environ;
+namespace fs = std::filesystem;
 
-std::string get_synapse_lib_path(void) {
+// return first non-zero MAC address from the filesystem
+// zero MAC means a loopback or invalid interface
+// if no valid MAC is found, returns "00:00:00:00:00:00"
+std::string getMACFromFilesystemNonZero() {
+  // standard path for network interfaces in Linux
+  const std::string basePath = "/sys/class/net/";
+  const std::string invalidMAC = "00:00:00:00:00:00";
+
+  for (const auto& entry : fs::directory_iterator(basePath)) {
+    std::string iface = entry.path().filename();
+
+    // MAC address file for the given interface
+    std::ifstream macFile(basePath + iface + "/address");
+    if (macFile.is_open()) {
+      std::string mac;
+      std::getline(macFile, mac);
+
+      // Skip if MAC is all zeros
+      if (mac != invalidMAC) {
+        return mac;
+      }
+    }
+  }
+
+  return invalidMAC;
+}
+
+std::string get_synapse_lib_path() {
   std::string map_file_name{"/proc/" + std::to_string(getpid()) + "/maps"};
   std::ifstream proc_map_stream{map_file_name};
   std::string line;
@@ -53,12 +82,14 @@ std::string get_synapse_lib_path(void) {
 
 // quick trick function to retrieve full path to habana_device library
 // (ourselves)
-std::string habana_device_path(void) {
+std::string habana_device_path() {
   Dl_info dl_info;
   dladdr((void*)habana_device_path, &dl_info);
   std::string lib_path = dl_info.dli_fname;
   HABANA_ASSERT(
-      lib_path.find("libhabana_pytorch_backend.so") != std::string::npos);
+      lib_path.find("libhabana_pytorch_backend.so") != std::string::npos ||
+      lib_path.find("libhabana_pytorch_backend.upstream.so") !=
+          std::string::npos);
   return lib_path;
 }
 
@@ -76,7 +107,12 @@ size_t hash64_file_content(const std::string& path_to_file) {
       PT_HABHELPER_WARN("Failed to get stat of file: ", path_to_file);
     } else {
       char* fileAddr = (char*)mmap(
-          NULL, static_cast<size_t>(sb.st_size), PROT_READ, MAP_PRIVATE, fh, 0);
+          nullptr,
+          static_cast<size_t>(sb.st_size),
+          PROT_READ,
+          MAP_PRIVATE,
+          fh,
+          0);
       if (fileAddr == MAP_FAILED) {
         PT_HABHELPER_WARN("Failed in mapping file: ", path_to_file);
       } else {
@@ -92,8 +128,8 @@ size_t hash64_file_content(const std::string& path_to_file) {
             ", hash: ",
             reinterpret_cast<void*>(hashRes));
       }
-      close(fh);
     }
+    close(fh);
   }
   return hashRes;
 }
@@ -139,7 +175,7 @@ std::string CacheVersion::libs_env_hash() {
 
   if (IS_ENV_FLAG_DEFINED_NEW(GC_KERNEL_PATH)) {
     std::string gc_kernel_path = GET_ENV_FLAG_NEW(GC_KERNEL_PATH);
-    auto foundComma = gc_kernel_path.find(":");
+    auto foundComma = gc_kernel_path.find(':');
     if (foundComma != std::string::npos) {
       // GC_KERNEL_PATH can be a list of paths to libs, comma separated, need to
       // hash them all
@@ -153,7 +189,7 @@ std::string CacheVersion::libs_env_hash() {
             gc_kernel_path.begin() + static_cast<difference_type>(foundComma) +
                 1,
             gc_kernel_path.end());
-        foundComma = gc_kernel_path.find(",");
+        foundComma = gc_kernel_path.find(',');
       } while (foundComma != std::string::npos);
     }
     // if it's a list do/while gets all the paths but the last one, else it's a
@@ -177,4 +213,15 @@ std::string CacheVersion::libs_env_hash() {
   std::stringstream stream;
   stream << std::hex << hash;
   return stream.str();
+}
+
+std::string CacheVersion::combined_pid_mac_addr() {
+  auto pid = std::to_string(getpid());
+  auto mac_addr = getMACFromFilesystemNonZero();
+
+  // Remove all colons
+  mac_addr.erase(
+      std::remove(mac_addr.begin(), mac_addr.end(), ':'), mac_addr.end());
+
+  return pid + "_" + mac_addr;
 }

@@ -15,9 +15,18 @@
 #
 ###############################################################################
 
+include(FetchContent)
+FetchContent_Declare(
+  googletest
+  GIT_REPOSITORY https://github.com/google/googletest.git
+  GIT_TAG v1.17.0
+  GIT_SHALLOW TRUE
+  SYSTEM EXCLUDE_FROM_ALL)
+FetchContent_MakeAvailable(googletest)
+
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
-set(lazy_tests_src
+set(LAZY_TESTS_SRC
     lazy_graph_passes/test_replace_inplace_ops.cpp
     lazy_add_composite_tests.cpp
     lazy_basic_kernel_tests.cpp
@@ -64,7 +73,7 @@ set(lazy_tests_src
     post_order_tests.cpp
     dry_run_test.cpp)
 
-set(hpu_ops_tests_src
+set(HPU_OPS_TESTS_SRC
     hpu_ops/_assert_async.cpp
     hpu_ops/_masked_scale.cpp
     hpu_ops/adaptive_avg_pool2d.cpp
@@ -257,6 +266,9 @@ list(
   misc_utils_tests.cpp
   nms_tests.cpp
   serialization/habana_serialization_tests.cpp
+  jit_graph_cache/tests_jit_graph_cache.cpp
+  serialization/recipe_cache_tests.cpp
+  serialization/recipe_cache_utils_tests.cpp
   sif_tests.cpp
   synapse_helpers_memory_test.cpp
   synapse_helpers_tensor_test.cpp
@@ -264,13 +276,17 @@ list(
   synapse_helpers_graph_test.cpp
   tensor_usage.cpp
   type_promotion_tests.cpp
+  # test_host_memory.cpp # Disabled until possibility to mock GC API without affecting other tests is found
   user_stream_tests.cpp
   utils/check_device_type.cpp
   utils/device_type_util.cpp
+  utils/dtype_supported_on_device.cpp
   utils/hint_tolerance_values.cpp
   utils/rerun_failures.cpp
   view_utils_tests.cpp
-  common_tests.cpp)
+  common_tests.cpp
+  test_custom_autocast_list.cpp
+  test_symbolic_expression.cpp)
 
 list(
   APPEND
@@ -281,10 +297,13 @@ list(
   scalar_dtype_range_tests.cpp
   shape_agnostic_tests.cpp)
 
-add_habana_executable(test_pt_integration ${lazy_tests_src} ${hpu_ops_tests_src} ${misc_tests_src})
+add_habana_executable(test_pt_integration ${LAZY_TESTS_SRC} ${HPU_OPS_TESTS_SRC} ${misc_tests_src})
 
 target_compile_definitions(test_pt_integration PRIVATE LAZY_TESTS)
 set_target_properties(test_pt_integration PROPERTIES COMPILE_OPTIONS "-Wno-deprecated-declarations")
+
+# Disable clang-tidy checks for lazy mode
+set_target_properties(test_pt_integration PROPERTIES CXX_CLANG_TIDY "")
 
 # Remove tests unrelated or not working with PT2
 list(
@@ -300,7 +319,7 @@ list(
   common_functions_custom_kernel_tests.cpp
   eager_custom_kernel_tests.cpp)
 
-add_habana_executable(test_pt2_integration ${hpu_ops_tests_src} ${misc_tests_src} ${eager_tests_src})
+add_habana_executable(test_pt2_integration ${HPU_OPS_TESTS_SRC} ${misc_tests_src} ${eager_tests_src})
 target_compile_definitions(test_pt2_integration PRIVATE EAGER_TESTS)
 set_target_properties(test_pt2_integration PROPERTIES COMPILE_OPTIONS "-Wno-deprecated-declarations")
 
@@ -314,10 +333,13 @@ target_link_libraries(
           habana_pytorch_plugin
           gtest
           gtest_main
+          gmock
+          gmock_main
           util
           pthread
           stdc++
           stdc++fs
+          fmt::fmt-header-only
           nlohmann_json::nlohmann_json
           absl::strings
           dl
@@ -337,10 +359,13 @@ target_link_libraries(
           habana_pytorch2_plugin
           gtest
           gtest_main
+          gmock
+          gmock_main
           util
           pthread
           stdc++
           stdc++fs
+          fmt::fmt-header-only
           nlohmann_json::nlohmann_json
           absl::strings
           dl

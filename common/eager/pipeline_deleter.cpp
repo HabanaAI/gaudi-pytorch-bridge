@@ -17,6 +17,7 @@
 #include <sys/syscall.h>
 #include "backend/habana_device/HPUAllocator.h"
 #include "backend/synapse_helpers/env_flags.h"
+#include "common/utils.h"
 #include "habana_eager/eager_pipeline_utils.h"
 namespace common {
 
@@ -25,13 +26,11 @@ using namespace ::habana;
 namespace {
 
 int get_thread_tid() {
-  return syscall(SYS_gettid);
+  return syscall(static_cast<long>(SYS_gettid));
 }
 
 bool is_enabled() {
-  bool rs = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_RECORD_STREAM);
-  bool ls = GET_ENV_FLAG_NEW(PT_HPU_USE_LAUNCH_RECORD_STREAM);
-  return rs and ls;
+  return IsStreamAllocatorEnabled();
 }
 } // namespace
 

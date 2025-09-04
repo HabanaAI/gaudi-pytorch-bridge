@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -22,7 +22,6 @@ add_habana_library(
   deserializers.cpp
   serializers.cpp
   recipe_cache.cpp
-  inter_host_cache.cpp
   cache_version.cpp
   base_cache_file_handler.cpp
   recipe_cache_config.cpp
@@ -32,9 +31,8 @@ target_compile_features(habana_serialization PUBLIC cxx_std_17)
 
 target_include_directories(
   habana_serialization
-  PRIVATE include/habana_serialization/ ${PROJECT_SOURCE_DIR}/pytorch_helpers
-  PRIVATE ${CMAKE_BINARY_DIR}
+  PRIVATE include/habana_serialization/ ${PROJECT_SOURCE_DIR}/pytorch_helpers ${CMAKE_BINARY_DIR}
   PUBLIC include/ ${PROJECT_SOURCE_DIR})
 target_include_directories(habana_serialization SYSTEM PUBLIC $<TARGET_PROPERTY:Synapse,INTERFACE_INCLUDE_DIRECTORIES>)
 
-target_link_libraries(habana_serialization PUBLIC torch c10 absl::span npu::hllogger npu::fmt)
+target_link_libraries(habana_serialization PUBLIC torch c10 absl::span npu::hllogger fmt::fmt-header-only)

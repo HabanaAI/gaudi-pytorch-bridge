@@ -59,15 +59,11 @@ SharedMetaDataVector NanSumSharedMeta(
   if (outputRank <= 0)
     outputRank = 1;
 
-  SharedMetaDataVector metaVec;
-  metaVec.reserve(inputRank > 1 ? 4 : 3);
   SharedMetaTensor commonTensor = {inputRank, computeDtype};
 
-  if (inputRank > 1) {
-    SharedMetaData constantSharedMeta{"constant"};
-    constantSharedMeta.outputs_data = {commonTensor};
-    metaVec.push_back(constantSharedMeta);
-  }
+  // Don't create a shared meta for a constant node, as it would disable SAG
+  // flow. In fact, this node is always created with a shape {1}, which is
+  // supported by SAG.
 
   SharedMetaData isNanSharedMeta{"isnan_fwd"};
   isNanSharedMeta.inputs_data = {commonTensor};
@@ -118,7 +114,7 @@ void NansumList::AddNode(
       {input},
       {{inputShape, c10::ScalarType::Char}});
 
-  auto zero_constant = ConstantHelper(graph, 0.0f, compute_type, inputShape);
+  auto zero_constant = ConstantHelper(graph, 0.0F, compute_type);
 
   // where on is_nan
   auto where = BuildOp(

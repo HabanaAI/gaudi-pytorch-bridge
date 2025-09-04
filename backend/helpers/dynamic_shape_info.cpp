@@ -38,11 +38,11 @@ void SetRefineDynamicShape(bool flag) {
 }
 
 void EnableRefineDynamicShape() {
-  return SetRefineDynamicShape(true);
+  SetRefineDynamicShape(true);
 }
 
 void DisableRefineDynamicShape() {
-  return SetRefineDynamicShape(false);
+  SetRefineDynamicShape(false);
 }
 
 bool GetRefineDynamicShapeStatus() {

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,14 +12,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <stdint.h>
+#pragma once
 #include <array>
 #include <atomic>
 #include <climits>
-#include <list>
+#include <cstdint>
 #include <mutex>
+#include <string>
 #include <string_view>
-#include <thread>
 #include <vector>
 
 #define LOP_TRACE_NAMED(x, l) LOP::ScopedProfiler tracer(x, l);
@@ -33,12 +33,12 @@
 namespace LOP {
 
 enum class PipelineStageID {
-  PIPELIE_STAGE_MAIN_ID = 0,
-  PIPELIE_STAGE_LOWERING_ID = 1,
-  PIPELIE_STAGE_COMPILE_ID = 2,
-  PIPELIE_STAGE_EXECUTE_ID = 3,
-  PIPELIE_STAGE_BACKGROUND_ID = 4,
-  PIPELIE_STAGE_DEFAULT_ID = -1
+  PIPELINE_STAGE_MAIN_ID = 0,
+  PIPELINE_STAGE_LOWERING_ID = 1,
+  PIPELINE_STAGE_COMPILE_ID = 2,
+  PIPELINE_STAGE_EXECUTE_ID = 3,
+  PIPELINE_STAGE_BACKGROUND_ID = 4,
+  PIPELINE_STAGE_DEFAULT_ID = -1
 };
 
 struct Event {
@@ -46,7 +46,7 @@ struct Event {
   uint64_t jit_cache_key;
   const char* name;
   std::string op_name;
-  uint32_t thread_id;
+  uint64_t thread_id;
   uint32_t cpu_id;
   uint32_t user_event_id;
   int32_t pipeline_stage_id;
@@ -61,12 +61,12 @@ struct ProfilerEngine {
   ProfilerEngine();
   ~ProfilerEngine();
 
-  static ProfilerEngine& get_inst();
+  static ProfilerEngine& get_inst(bool dump_traces = false);
 
-  inline bool is_enabled() {
+  bool is_enabled() {
     return this->enabled;
   }
-  inline bool is_loglevel(uint32_t log_level) {
+  bool is_loglevel(uint32_t log_level) {
     return this->env_log_level <= log_level;
   }
   void enable() {
@@ -79,8 +79,10 @@ struct ProfilerEngine {
 
   std::atomic<bool> enabled;
   std::atomic<bool> flushed;
+  std::atomic<bool> enable_traces;
 
   double ticks_per_ns_ratio;
+  std::array<std::mutex, NUM_OF_PIPELINE_STAGES> events_mutex;
   std::array<std::atomic<uint64_t>, NUM_OF_PIPELINE_STAGES> events_counter;
   std::vector<std::vector<Event>> events_table;
   uint32_t env_log_level;

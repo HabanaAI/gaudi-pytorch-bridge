@@ -84,8 +84,6 @@ SharedMetaDataVector NativeGroupNormBwdSharedMeta(
     habana_helpers::HabanaExecutionMode) {
   const auto& gradOut = stack_tensor(stack, 0);
   const auto& input = stack_tensor(stack, 1);
-  const auto& mean = stack_tensor(stack, 2);
-  const auto& rstd = stack_tensor(stack, 3);
   const auto weight =
       stack.at(4).toOptional<at::Tensor>().value_or(at::Tensor());
   const auto N = stack.at(5).toInt();
@@ -171,25 +169,21 @@ SharedMetaDataVector NativeGroupNormBwdSharedMeta(
   return metaVec;
 }
 
-std::shared_ptr<void> FillNativeGroupNormParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillNativeGroupNormParams(const at::Stack& stack) {
   PARAMS_STUB(ns_NativeGroupNorm::Params);
   params->N = stack[3].toInt();
   params->G = stack[6].toInt();
   params->epsilon = stack[7].toDouble();
 
-  return params;
+  return paramsT;
 }
 
-std::shared_ptr<void> FillNativeGroupNormBwdParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillNativeGroupNormBwdParams(const at::Stack& stack) {
   PARAMS_STUB(ns_NativeGroupNorm::Params);
   params->N = stack[5].toInt();
   params->G = stack[8].toInt();
 
-  return params;
+  return paramsT;
 }
 
 sizes_vec NativeGroupNormBwdOutputShape(const at::Stack& stack) {
@@ -221,8 +215,7 @@ void NativeGroupNormFwd::AddNode(sh::graph& graph, const at::Stack& stack) {
   auto weight = stackGetter.getNextInput<std::optional<TensorsPair>>();
   auto bias = stackGetter.getNextInput<std::optional<TensorsPair>>();
   auto metas = OutputMeta(stack);
-  size_t size = 0;
-  auto params = FillParams(stack, size);
+  auto params = FillParams(stack);
   auto outputsNumber = metas.size();
   if (input.pt_t.numel() == 0) {
     for (unsigned i = 0; i < outputsNumber; i++) {
@@ -259,8 +252,8 @@ void NativeGroupNormFwd::AddNode(sh::graph& graph, const at::Stack& stack) {
         {{metas[0].shape, metas[0].dtype, 0},
          {metas[1].shape, metas[1].dtype, 1},
          {metas[2].shape, metas[2].dtype, 2}},
-        params.get(),
-        size);
+        params.ptr(),
+        params.size());
     for (unsigned i = 0; i < outputsNumber; i++) {
       syn_out(i) = std::move(outputs[i]);
     }
@@ -277,8 +270,7 @@ void NativeGroupNormBwd::AddNode(sh::graph& graph, const at::Stack& stack) {
   auto weight_opt = stackGetter.getNextInput<at::optional<TensorsPair>>();
 
   auto metas = GroupNormBwdMeta(stack);
-  size_t params_size;
-  auto params = FillNativeGroupNormBwdParams(stack, params_size);
+  auto params = FillNativeGroupNormBwdParams(stack);
 
   const auto rank = input.pt_t.dim();
   auto layout = [rank]() {
@@ -322,8 +314,8 @@ void NativeGroupNormBwd::AddNode(sh::graph& graph, const at::Stack& stack) {
       {{metas[0].shape, metas[0].dtype, 0},
        {metas[1].shape, metas[1].dtype, 1},
        {metas[2].shape, metas[2].dtype, 2}},
-      params.get(),
-      params_size);
+      params.ptr(),
+      params.size());
 
   syn_out(0) = std::move(outputs[0]);
   syn_out(1) = std::move(outputs[1]);

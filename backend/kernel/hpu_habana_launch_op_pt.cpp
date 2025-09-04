@@ -1,3 +1,4 @@
+
 /**
  * Copyright (c) 2021-2025 Intel Corporation
  *
@@ -28,6 +29,7 @@
 #include <sstream>
 #include <unordered_map>
 #include "backend/backend_meta.h"
+#include "backend/cache/permute_cache.h"
 #include "backend/habana_device/HPUAllocator.h"
 #include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/habana_device/tensor_builder.h"
@@ -49,6 +51,7 @@
 #include "backend/random.h"
 #include "backend/synapse_helpers/env_flags.h" // IWYU pragma: keep // NOLINT
 #include "backend/synapse_helpers/tcmalloc_helper.h"
+#include "common/warning_suppress.h"
 #include "habana_eager/eager_pipeline_utils.h"
 #include "habana_helpers/logging.h"
 #include "habana_helpers/misc_utils.h"
@@ -125,7 +128,7 @@ void LoweringTask(
     std::optional<std::vector<std::vector<int64_t>>> output_shapes) {
   PipelineCall pipeline_call;
 
-  bool sync_with_compile_stage = !launch_op->get_enable_4stage_pipeline();
+  bool sync_with_compile_stage = !launch_op->is_pipeline_enabled();
 
   launch_op->run(
       stack, nullptr, allocated_outputs, output_shapes, false, pipeline_call);
@@ -137,6 +140,21 @@ void LoweringTask(
     // has been called before
     return;
   }
+  auto jit_graph_and_meta_data = launch_op->get_jit_graph_and_meta_data();
+  if (!jit_graph_and_meta_data) {
+    PT_BRIDGE_FATAL("Error: JIT graph and metadata not available.");
+  }
+
+  LOP::emit_event_fast(
+      true,
+      "PipelineQueueWaitTime",
+      jit_graph_and_meta_data->GetOpName(),
+      (int32_t)LOP::PipelineStageID::PIPELINE_STAGE_LOWERING_ID,
+      HPUDeviceContext::lowering_thread().get_active_task_count());
+
+  auto jit_cache_hit_count_for_event =
+      launch_op->get_jit_graph_cache_hit_count();
+  auto jit_key = launch_op->get_graph_key();
 
   eager::PipelineTaskLowering(
       std::move(launch_op),
@@ -148,6 +166,15 @@ void LoweringTask(
           std::unique_ptr<habana::HabanaLaunchOpPT>& launch_op) mutable {
         ExecuteSynapseTaskWrapper(*launch_op, std::move(execute_task));
       });
+
+  LOP::emit_event_fast(
+      false,
+      "PipelineQueueWaitTime",
+      jit_graph_and_meta_data->GetOpName(),
+      (int32_t)LOP::PipelineStageID::PIPELINE_STAGE_LOWERING_ID,
+      HPUDeviceContext::lowering_thread().get_active_task_count(),
+      jit_key,
+      jit_cache_hit_count_for_event);
 
   if (sync_with_compile_stage)
     HPUDeviceContext::compile_thread_pool().waitWorkComplete();
@@ -163,6 +190,13 @@ ref_input_shape_map() {
 
 std::unordered_set<std::string>& disabled_jit_ir_ops() {
   static std::unordered_set<std::string> set;
+  static bool initialized = false;
+
+  if (!initialized) {
+    set.insert("aten::convolution_backward_overrideable");
+    initialized = true;
+  }
+
   return set;
 };
 
@@ -180,21 +214,6 @@ void emitCacheEvent(
     habana_helpers::EmitEvent(
         topic, habana_helpers::EventParams({{"recipe_id", cache_name}}));
   }
-}
-
-std::string makeIdStr(const std::string& name, size_t graph_index) {
-  std::ostringstream oss;
-  oss << name << '_' << graph_index;
-  return oss.str();
-}
-
-std::string& HabanaLaunchOpPT::SetAndGetSynapseGraphName(
-    const std::string& name,
-    size_t g_index) {
-  if (id_str_ == std::string())
-    id_str_ = makeIdStr(name, g_index);
-
-  return id_str_;
 }
 
 HabanaLaunchOpPT::HabanaLaunchOpPT(
@@ -224,8 +243,10 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
 
   compile_stats_path_ = GET_ENV_FLAG_NEW(PT_COMPILATION_STATS_PATH);
 
-  PT_BRIDGE_DEBUG(
-      "Creating : ", SetAndGetSynapseGraphName(name_, graph_index_));
+  syn_graph_name_ = name_ + '_' + std::to_string(graph_index_);
+  if (syn_graph_name_.find("_jit") != std::string::npos)
+    syn_graph_name_.replace(syn_graph_name_.find("jit"), 3, "syn");
+  PT_BRIDGE_DEBUG("Creating : ", GetSynapseGraphName());
 
   auto front_end_type = jit_graph_and_meta_data_->GetFrontendType();
   execution_mode_ = front_end_type;
@@ -269,12 +290,10 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
   auto frontend_type_eager_or_compile =
       ((front_end_type == habana_helpers::HabanaFrontendTypes::EAGER) ||
        (front_end_type == habana_helpers::HabanaFrontendTypes::COMPILE));
-  enable_2stage_pipeline_ =
-      jit_graph_and_meta_data_->get_is_pipeline_supported();
-  enable_4stage_pipeline_ = enable_2stage_pipeline_ &&
-      GET_ENV_FLAG_NEW(PT_HPU_EAGER_4_STAGE_PIPELINE_ENABLE) &&
+  enable_pipeline_ = jit_graph_and_meta_data_->get_is_pipeline_supported() &&
       frontend_type_eager_or_compile;
-  PT_DYNAMIC_SHAPE_DEBUG("Enable 4 stage pipeline = ", enable_4stage_pipeline_);
+  PT_DYNAMIC_SHAPE_DEBUG(
+      "Enable eager/compile stage pipeline = ", enable_pipeline_);
 
   graph_symint_hash_ =
       optimized_jit_graph_and_meta_data->get_graph_symint_hash();
@@ -321,7 +340,7 @@ bool HabanaLaunchOpPT::nodeOutputPersistencePerValue(
     }
     is_persistent = true;
   } else {
-    is_persistent = persistence_marker_pass_data_ptr_.get()
+    is_persistent = persistence_marker_pass_data_ptr_
         ? persistence_marker_pass_data_ptr_->IsPersistentNode(value_out)
         : false;
     if (is_persistent) {
@@ -338,7 +357,7 @@ bool HabanaLaunchOpPT::nodeOutputPersistencePerValue(
 }
 
 bool HabanaLaunchOpPT::IsValueExternal(torch::jit::Value* value) {
-  return persistence_marker_pass_data_ptr_.get()
+  return persistence_marker_pass_data_ptr_
       ? persistence_marker_pass_data_ptr_->IsExternalNode(value)
       : false;
 }
@@ -569,7 +588,8 @@ void HabanaLaunchOpPT::GetSynapseInputs(
         scope_string_common + ".placeholder." + std::to_string(input_idx);
 
     bool isTensor = ivalue->isTensor();
-    if ((isTensor || ivalue->isTensorList())) {
+    if ((isTensor || ivalue->isTensorList() ||
+         ivalue->isOptionalTensorList())) {
       GetSynapseInputsForTensors(habana_op, value_in, isTensor, scope_string);
     }
   }
@@ -630,12 +650,6 @@ void HabanaLaunchOpPT::GetSynapseInputsPopulateSeed(
     torch::jit::Node* node) {
   bool populate_seed = false;
   switch (node->kind()) {
-    case torch::jit::aten::bernoulli:
-    case torch::jit::aten::exponential:
-    case torch::jit::aten::_fused_dropout:
-    case torch::jit::aten::native_dropout:
-    case torch::jit::aten::normal:
-    case torch::jit::aten::randperm:
     case torch::jit::aten::rrelu_with_noise:
     case torch::jit::aten::rrelu_with_noise_functional:
       populate_seed = true;
@@ -647,7 +661,7 @@ void HabanaLaunchOpPT::GetSynapseInputsPopulateSeed(
   if (populate_seed) {
     int seed = 0;
     if (!syn_graph_ptr_->is_dry_run()) {
-      seed = get_seed_hpu(std::nullopt);
+      seed = static_cast<int>(get_seed_hpu(std::nullopt));
     }
     at::Tensor seed_cpu_tensor = at::tensor(seed);
     at::Tensor seed_tensor = at::empty(
@@ -833,18 +847,15 @@ int64_t HabanaLaunchOpPT::ProcessSynapseOutputs(
   }
 
   const auto& output_tensors_pt = habana_op->GetOutputs();
-  const auto& excluded_out_indices =
-      habana_op->GetSynOutputIndicesExcludedInNode();
 
   HABANA_ASSERT(
-      output_nodes.size() ==
-          output_tensors_pt.size() - excluded_out_indices.size(),
+      output_nodes.size() == output_tensors_pt.size(),
       "HabanaFusionOp Lowering of node : ",
       node->kind().toQualString(),
       " Number of output nodes ",
       output_nodes.size(),
       " doesnt match the generated ",
-      output_tensors_pt.size() - excluded_out_indices.size());
+      output_tensors_pt.size());
 
   size_t output_nodes_idx = 0, output_tensor_idx = 0;
 
@@ -909,8 +920,8 @@ int64_t HabanaLaunchOpPT::ProcessSynapseOutputs(
   };
 
   auto handle_postprocess = [&](const auto& nodes,
-                                int node_output_idx,
-                                int tensor_idx,
+                                size_t node_output_idx,
+                                size_t tensor_idx,
                                 sh::tensor& sh_t) {
     SharedSynTensorOrRefListPtr tensorList =
         std::make_shared<SynTensorOrRefList>();
@@ -920,7 +931,7 @@ int64_t HabanaLaunchOpPT::ProcessSynapseOutputs(
 
     // Validate external flag was set correctly
     const auto& value = nodes.at(tensor_idx);
-    bool required_external = persistence_marker_pass_data_ptr_.get()
+    bool required_external = persistence_marker_pass_data_ptr_
         ? persistence_marker_pass_data_ptr_->IsExternalNode(value)
         : false;
     if (required_external) {
@@ -935,53 +946,50 @@ int64_t HabanaLaunchOpPT::ProcessSynapseOutputs(
   };
 
   for (sh::tensor& out_tensor_syn : habana_op->GetSynOutputs()) {
-    if (excluded_out_indices.find(output_tensor_idx) ==
-        excluded_out_indices.end()) {
-      IValPtrShared ivpsh =
-          std::make_shared<IVal>(output_tensors_pt[output_tensor_idx]);
-      value_to_ivalue_[output_nodes[output_nodes_idx]] = ivpsh;
+    IValPtrShared ivpsh =
+        std::make_shared<IVal>(output_tensors_pt[output_tensor_idx]);
+    value_to_ivalue_[output_nodes[output_nodes_idx]] = ivpsh;
 
-      // For some kernels, like the inplace ones, the kernel output is always
-      // created as persistent. Patching table needs to be updated accordingly
-      // for such tensors.
-      if (use_persistent_tensors_ || out_tensor_syn.is_persistent()) {
-        const auto& out_val = output_nodes[output_nodes_idx];
-        auto ti = ProcessPersistentNodeOutput(ivpsh, out_val, out_tensor_syn);
+    // For some kernels, like the inplace ones, the kernel output is always
+    // created as persistent. Patching table needs to be updated accordingly
+    // for such tensors.
+    if (use_persistent_tensors_ || out_tensor_syn.is_persistent()) {
+      const auto& out_val = output_nodes[output_nodes_idx];
+      auto ti = ProcessPersistentNodeOutput(ivpsh, out_val, out_tensor_syn);
 
-        handle_permutes(ti, out_tensor_syn, ivpsh);
+      handle_permutes(ti, out_tensor_syn, ivpsh);
 
-        // persistent intermediate synapse tensor i.e. out_tensor_syn
-        if (false == isInGraphOutputs(out_val)) {
-          intermediate_syn_tensors_count_++;
-        }
-        // Add node output tinfo i.e. graph output for multiple nodes graph
-        // to get shape via shape inference, for ex strided insert
-        // ToDo: Fix output shape info from frontend for strided insert
-        //       when adding node params patching support.
-        constexpr bool use_output_shape = true;
-        bool shape_agn_flag = enable_shape_agnostic_caching_ &&
-            (intermediate_syn_tensors_count_ > 0);
-        handle_shape_inf(ti, use_output_shape, shape_agn_flag);
-      } else if (enable_shape_agnostic_caching_) {
-        // For shape agnostic flow for eager we need non-persistent info as well
-        // Try maintaing it in another struct other than dtensor info struct
-        PtTensorInfoShared ti = std::make_shared<PtTensorInfo>(
-            out_tensor_syn.name(),
-            out_tensor_syn.id(),
-            out_tensor_syn.get(),
-            out_tensor_syn.tensor_type(),
-            out_tensor_syn.pt_shape());
-        constexpr bool use_output_shape = true;
-        handle_shape_inf(ti, use_output_shape, enable_shape_agnostic_caching_);
-        // non-persistent intermediate synapse tensor
+      // persistent intermediate synapse tensor i.e. out_tensor_syn
+      if (false == isInGraphOutputs(out_val)) {
         intermediate_syn_tensors_count_++;
       }
-
-      handle_postprocess(
-          output_nodes, output_nodes_idx, output_tensor_idx, out_tensor_syn);
-
-      output_nodes_idx++;
+      // Add node output tinfo i.e. graph output for multiple nodes graph
+      // to get shape via shape inference, for ex strided insert
+      // ToDo: Fix output shape info from frontend for strided insert
+      //       when adding node params patching support.
+      constexpr bool use_output_shape = true;
+      bool shape_agn_flag = enable_shape_agnostic_caching_ &&
+          (intermediate_syn_tensors_count_ > 0);
+      handle_shape_inf(ti, use_output_shape, shape_agn_flag);
+    } else if (enable_shape_agnostic_caching_) {
+      // For shape agnostic flow for eager we need non-persistent info as well
+      // Try maintaing it in another struct other than dtensor info struct
+      PtTensorInfoShared ti = std::make_shared<PtTensorInfo>(
+          out_tensor_syn.name(),
+          out_tensor_syn.id(),
+          out_tensor_syn.get(),
+          out_tensor_syn.tensor_type(),
+          out_tensor_syn.pt_shape());
+      constexpr bool use_output_shape = true;
+      handle_shape_inf(ti, use_output_shape, enable_shape_agnostic_caching_);
+      // non-persistent intermediate synapse tensor
+      intermediate_syn_tensors_count_++;
     }
+
+    handle_postprocess(
+        output_nodes, output_nodes_idx, output_tensor_idx, out_tensor_syn);
+
+    output_nodes_idx++;
     output_tensor_idx++;
     cur_sif_tidx++;
   }
@@ -1039,7 +1047,7 @@ void HabanaLaunchOpPT::ProcessShapeTensorsCS(
   }
 
   for (auto& kernel : output.GetKernelOutputs()) {
-    ProcessShapeTensorsCS(*kernel.get(), intermediate_shape_tensor_cs);
+    ProcessShapeTensorsCS(*kernel, intermediate_shape_tensor_cs);
   }
 }
 
@@ -1146,7 +1154,8 @@ void HabanaLaunchOpPT::create_duplicate_syn_tensor(
             .mark_persistence(true)
             .with_memory_section(syn_tensor_input.memorysection())
             .build(
-                HPUDeviceContext::get_device(tensor->device().index()),
+                HPUDeviceContext::get_device(
+                    static_cast<synDeviceId>(tensor->device().index())),
                 syn_tensor_input.graph());
 
     meta_syn_tensors_.push_back(absl::get<sh::tensor>(std::move(variant)));
@@ -1229,12 +1238,12 @@ void HabanaLaunchOpPT::handleRestrideNode(
     auto sizes = tensor.sizes().vec();
     std::vector<int64_t> swapped_sizes;
     for (auto& pos : new_pos) {
-      swapped_sizes.emplace_back(sizes[pos]);
+      swapped_sizes.emplace_back(sizes[static_cast<size_t>(pos)]);
     }
     auto strides = tensor.strides().vec();
     std::vector<long int> swapped_strides;
     for (auto& pos : new_pos) {
-      swapped_strides.emplace_back(strides[pos]);
+      swapped_strides.emplace_back(strides[static_cast<size_t>(pos)]);
     }
 
     tensor.unsafeGetTensorImpl()->set_sizes_and_strides(
@@ -1831,12 +1840,12 @@ void HabanaLaunchOpPT::handleMetaOps(torch::jit::Node* node) {
       }*/
     }
   }
-  torch::jit::Operator jit_op = node->getOperator();
+  const auto& jit_op = node->getOperator();
   jit_op.getOperation()(stack);
 
   auto node_outs = node->outputs();
   auto outputs = last(stack, node_outs.size());
-  int i = 0;
+  size_t i = 0;
   for (const auto val_out : node_outs) {
     IValPtrShared ival = std::make_shared<IVal>(outputs[i]);
     value_to_ivalue_[val_out] = ival;
@@ -1981,7 +1990,7 @@ void HabanaLaunchOpPT::validateOutputShapeDynamic(
 
   std::deque<sh::tensor_or_ref>& syn_outputs = HabanaKernel->GetSynOutputs();
   std::deque<sh::tensor_or_ref>& syn_inputs = HabanaKernel->GetSynInputs();
-  int intermediate_shape_tensor_count = 0;
+  size_t intermediate_shape_tensor_count = 0;
   // Auto gen op intermediate shape tensors
   if (auto op = std::dynamic_pointer_cast<OpBackend>(HabanaKernel)) {
     for (const auto& st : op->GetShapeTensors()) {
@@ -2234,7 +2243,7 @@ void ProcessGraphForConstantTensors(
 void HabanaLaunchOpPT::FillMaxValues(
     const HabanaOperatorPtr& habana_op,
     const torch::jit::Stack& input_stack,
-    std::unordered_map<int64_t, std::vector<int64_t>>& index2maxvalues) {
+    std::unordered_map<uint64_t, std::vector<int64_t>>& index2maxvalues) {
   for (size_t i = 0; i < input_stack.size(); ++i) {
     auto& input_tensor = input_stack[i];
     if (input_tensor.isTensor()) {
@@ -2254,7 +2263,7 @@ void HabanaLaunchOpPT::FillMaxValues(
 void HabanaLaunchOpPT::UpdateMaxValues(
     const HabanaOperatorPtr& habana_op,
     const torch::jit::Stack& input_stack,
-    std::unordered_map<int64_t, std::vector<int64_t>>& index2maxvalues) {
+    std::unordered_map<uint64_t, std::vector<int64_t>>& index2maxvalues) {
   for (size_t i = 0; i < input_stack.size(); ++i) {
     auto& input_tensor = input_stack[i];
     std::vector<int64_t> max_new;
@@ -2545,7 +2554,7 @@ void HabanaLaunchOpPT::UpdateIshapeForNodeInputs(
           PT_DYNAMIC_SHAPE_DEBUG(
               "Cannot evaluate Input shape for node ",
               value_name,
-              " expression is NULL");
+              " expression is nullptr");
         }
       }
     }
@@ -2624,7 +2633,7 @@ void HabanaLaunchOpPT::UpdateIshapeForNodeOuputs(
         HABANA_ASSERT(0, "Invalid ListConstruct call for node:", value_name);
       } else if (
           dsi.value_to_ishape[value_name].isTensor() &&
-          dsi.value_to_sizeexpr[value_name].size() != 0) {
+          !dsi.value_to_sizeexpr[value_name].empty()) {
         auto& size_expr_list = dsi.value_to_sizeexpr[value_name];
         HABANA_ASSERT(size_expr_list.size() == 1);
         auto& size_expr = size_expr_list[0];
@@ -2644,7 +2653,7 @@ void HabanaLaunchOpPT::UpdateIshapeForNodeOuputs(
           PT_DYNAMIC_SHAPE_DEBUG(
               "Cannot evaluate out shape for node ",
               value_name,
-              " expression is NULL");
+              " expression is nullptr");
         }
       }
     }
@@ -2851,7 +2860,7 @@ void HabanaLaunchOpPT::HandleOutputExprMappedJITGraph(
   }
 
   size_t outputs_metadata_index = 0;
-  uint32_t node_idx = static_cast<uint32_t>(-1);
+  auto node_idx = static_cast<uint32_t>(-1);
   torch::jit::graph_node_list graph_nodes = rv_jit_graph->nodes();
   for (auto* node : graph_nodes) {
     ++node_idx;
@@ -3224,7 +3233,7 @@ void HabanaLaunchOpPT::SetModuleNameInOutputsMetadata(
     auto val_ins = node->inputs();
     module_name = val_ins[0]->node()->scope()->name().toUnqualString();
   }
-  if (habana_helpers::IsInferenceMode() && module_name.size() > 0) {
+  if (habana_helpers::IsInferenceMode() && !module_name.empty()) {
     if (((strcmp(node->kind().toQualString(), "aten::add") == 0) ||
          (strcmp(node->kind().toQualString(), "hpu::add") == 0)) &&
         std::string(node->scope()->name().toUnqualString()).find("add") ==
@@ -3269,7 +3278,7 @@ void HabanaLaunchOpPT::HandleSlicesAndStrides(
         value_to_ivalue_,
         pt_to_synapse_tensors_);
   } else {
-    std::unordered_map<int64_t, std::vector<int64_t>> index2maxvalues;
+    std::unordered_map<uint64_t, std::vector<int64_t>> index2maxvalues;
     // Currently max update which is less than bucket range issue exists for
     // slice. If other node needs this, can be added here.
     bool updatemax_node =
@@ -3606,7 +3615,7 @@ HabanaLaunchOpPT::BuildSynapseGraphNodesMainLoopRT HabanaLaunchOpPT::
   std::vector<size_t> intermediate_shape_tensors_vec;
   std::vector<std::pair<torch::jit::Value*, torch::jit::Node*>>
       memory_reuse_pairs;
-  unsigned node_idx = static_cast<unsigned>(-1);
+  auto node_idx = static_cast<unsigned>(-1);
   PT_OP_DEBUG("JIT Graph: ", jit_ir_graph_->toString());
   for (auto* node : graph_nodes) {
     ++node_idx;
@@ -3638,6 +3647,10 @@ HabanaLaunchOpPT::BuildSynapseGraphNodesMainLoopRT HabanaLaunchOpPT::
     const auto scope = node->scope();
     if (!scope->isBlank()) {
       op_name_context.emplace(syn_graph, scope->name().toUnqualString());
+    } else {
+      const std::string& node_output_name = node->output(0)->debugName();
+      auto pos = node_output_name.find_last_of('.');
+      op_name_context.emplace(syn_graph, node_output_name.substr(0, pos));
     }
 
     torch::jit::Stack input_stack = getStackForNode(node);
@@ -3849,17 +3862,17 @@ void HabanaLaunchOpPT::ProcessDynamicBucketInputShapesWithH2D(
         std::vector<int64_t> h2d_vec;
         habana::HostDataType h2d_dt_type = tmeta->get_host_dt_type();
         if (h2d_dt_type == habana::HostDataType::INT32_T) {
-          int32_t* h2d_data = static_cast<int32_t*>(tmeta->get_host_ptr());
+          auto* h2d_data = static_cast<int32_t*>(tmeta->get_host_ptr());
           for (size_t i = 0; i < h2d_size; i++) {
             h2d_vec.push_back(static_cast<int64_t>(*h2d_data++));
           }
         } else if (h2d_dt_type == habana::HostDataType::UINT32_T) {
-          uint32_t* h2d_data = static_cast<uint32_t*>(tmeta->get_host_ptr());
+          auto* h2d_data = static_cast<uint32_t*>(tmeta->get_host_ptr());
           for (size_t i = 0; i < h2d_size; i++) {
             h2d_vec.push_back(static_cast<int64_t>(*h2d_data++));
           }
         } else if (h2d_dt_type == habana::HostDataType::UINT64_T) {
-          uint64_t* h2d_data = static_cast<uint64_t*>(tmeta->get_host_ptr());
+          auto* h2d_data = static_cast<uint64_t*>(tmeta->get_host_ptr());
           for (size_t i = 0; i < h2d_size; i++) {
             uint64_t h2d_elem = *h2d_data++;
             HABANA_ASSERT(
@@ -3951,7 +3964,7 @@ void HabanaLaunchOpPT::CreateValueToIShapeMapForInputs(
     torch::jit::Graph& jit_graph) {
   PT_BRIDGE_BEGIN;
   for (size_t j = 0; j < pt_stack_sh_.size(); j++) {
-    auto& value_input = jit_graph.inputs().at(j);
+    SUPPRESS_WDANGLING_REFERENCE(auto& value_input = jit_graph.inputs().at(j);)
     auto& ivalue_input = pt_stack_sh_[j];
     const auto& value_name = value_input->debugName();
     auto& dsi = ds_sif_info_;
@@ -4142,7 +4155,7 @@ void HabanaLaunchOpPT::EvictSynapseRecipe(size_t& dsi_bucket_id) {
   // Keep evicting recipes until the memory usage goes below threshold
   if (habana::IsHostMemoryThresholdReached()) {
     // Remove in chunks of 512MB
-    int64_t eviction_threshold_left = 512ll * 1024 * 1024;
+    int64_t eviction_threshold_left = 512LL * 1024 * 1024;
     while (eviction_threshold_left > 0) {
       auto dropped_recipe = HPUDeviceContext::recipe_cache().drop_lru();
       if (!dropped_recipe.has_value())
@@ -4392,7 +4405,7 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS(
 
           habana::ShapeInference::ResetSifTensorId();
           constexpr bool dynamic_shapes_true = true;
-          if (rv.disabled_jit_ir_ops_.size()) {
+          if (!rv.disabled_jit_ir_ops_.empty()) {
             HabanaLaunchOpUtils::disabled_jit_ir_ops() =
                 rv.disabled_jit_ir_ops_;
           } else {
@@ -4461,7 +4474,7 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS(
         current_dbipsh_->get_statistics()->DumpAndNextStep();
       }
 
-      if (!enable_4stage_pipeline_) {
+      if (!is_pipeline_enabled()) {
         if (!dry_run_) {
           recipe_launcher_->Launch(
               hpu_stream_,
@@ -4651,7 +4664,7 @@ void HabanaLaunchOpPT::ConstructDuplicateShapeMap(
     if (tensor_map != synapse_orig_to_new_handle_info.end()) {
       const auto& new_handle = tensor_map->second.first;
       auto shape = tinfo->get_shape();
-      if (shape.size() == 0 && !tinfo->is_ZST()) {
+      if (shape.empty() && !tinfo->is_ZST()) {
         shape = {1};
       }
       syn_graph_ptr_->setTensorGeometry(new_handle, shape);
@@ -4828,7 +4841,7 @@ void HabanaLaunchOpPT::ExecuteSynapseCache() {
               auto matched_const_id =
                   constant_information.GetMatchedConstIdForRecipe(
                       recipe_key, const_id, scale_index);
-              uint64_t oldAddress = reinterpret_cast<uint64_t>(
+              auto oldAddress = reinterpret_cast<uint64_t>(
                   pt_tensor.storage().data_ptr().get());
               auto smeta{habana::get_storage_extra_meta(pt_tensor)};
               permuteInfo perm_info;
@@ -4841,7 +4854,7 @@ void HabanaLaunchOpPT::ExecuteSynapseCache() {
               if (new_extra_smeta && smeta) {
                 SetPermuteInfo(new_extra_smeta, smeta, perm_info);
               }
-              uint64_t newAddress = reinterpret_cast<uint64_t>(
+              auto newAddress = reinterpret_cast<uint64_t>(
                   pt_tensor.storage().data_ptr().get());
               update_syn_launch_info(oldAddress, newAddress);
             }
@@ -4849,10 +4862,10 @@ void HabanaLaunchOpPT::ExecuteSynapseCache() {
           auto info_exists = constant_information.DoesConstInfoExistForRecipe(
               const_id, ConstantInformation::key_t{cur_rargpsh_->hashCode()});
           if (!info_exists) {
-            uint64_t oldAddress = reinterpret_cast<uint64_t>(
+            auto oldAddress = reinterpret_cast<uint64_t>(
                 pt_tensor.storage().data_ptr().get());
             DeserializeConstSection(pt_tensor, cur_rargpsh_->hashCode());
-            uint64_t newAddress = reinterpret_cast<uint64_t>(
+            auto newAddress = reinterpret_cast<uint64_t>(
                 pt_tensor.storage().data_ptr().get());
             update_syn_launch_info(oldAddress, newAddress);
           }
@@ -4877,7 +4890,7 @@ void HabanaLaunchOpPT::ExecuteSynapseCache() {
           }
           if (checksum_and_recipe_checksum.device_checksum_ !=
               checksum_and_recipe_checksum.recipe_checksum_) {
-            uint64_t oldAddress = reinterpret_cast<uint64_t>(
+            auto oldAddress = reinterpret_cast<uint64_t>(
                 pt_tensor.storage().data_ptr().get());
             constant_information.GetConstPtrForRecipe(
                 const_id,
@@ -4885,7 +4898,7 @@ void HabanaLaunchOpPT::ExecuteSynapseCache() {
                 pt_tensor);
             constant_information.Insert(
                 const_id, checksum_and_recipe_checksum.recipe_checksum_);
-            uint64_t newAddress = reinterpret_cast<uint64_t>(
+            auto newAddress = reinterpret_cast<uint64_t>(
                 pt_tensor.storage().data_ptr().get());
             update_syn_launch_info(oldAddress, newAddress);
           }
@@ -4905,7 +4918,7 @@ void HabanaLaunchOpPT::ExecuteSynapseCache() {
         dma_inputs_);
   }
 
-  if (!get_enable_2stage_pipeline()) {
+  if (!jit_graph_and_meta_data_->get_is_pipeline_supported()) {
     // Update the stack from the recipe itself
     UpdateRecipeOutputs();
   }
@@ -4952,7 +4965,7 @@ void HabanaLaunchOpPT::DumpStaticCompilationStatistics(
     current_dbipsh_ = DynamicBucketInfoMap::get_instance().get(rargpsh_graph);
     HABANA_ASSERT(
         (current_dbipsh_ != nullptr),
-        "Dynamic bucketinfo got NULL in static cache hit hash code ",
+        "Dynamic bucketinfo got nullptr in static cache hit hash code ",
         rargpsh_graph->graphHashCode());
     current_dbipsh_->SetLastUsedStepForBucket(
         0, current_dbipsh_->get_statistics()->GetCurrentStep());
@@ -5099,7 +5112,7 @@ void HabanaLaunchOpPT::run(
   idx += 1;
   if (enable_caching_ || IS_BRIDGE_DEBUG_ENABLED) {
     if (maybe_static_recipe_ &&
-        ((cached_rarg_psh.get() == nullptr) ||
+        ((cached_rarg_psh == nullptr) ||
          (cached_rarg_psh->graphWithPermuteHashCode() != graph_perm_hash_))) {
       cur_rargpsh_ = std::make_shared<RecipeArgumentSpec>(
           false,
@@ -5110,7 +5123,7 @@ void HabanaLaunchOpPT::run(
           graph_symint_hash_,
           graph_perm_hash_);
 
-      if (execution_mode_ == habana_helpers::HabanaFrontendTypes::LAZY &&
+      if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 1 &&
           GET_ENV_FLAG_NEW(PT_HPU_DISABLE_HPUGRAPH_REPLAY_HASHCHECK)) {
         auto context = habana_lazy::get_device_lazy_execution_context();
         if (context->getCapturing())
@@ -5120,8 +5133,6 @@ void HabanaLaunchOpPT::run(
       cur_rargpsh_ = cached_rarg_psh;
     }
   }
-
-  auto is_enable_4stage_pipeline = enable_4stage_pipeline_;
 
   // eager and graph recipe caching :: begin
   if (enable_caching_ && maybe_static_recipe_) {
@@ -5152,7 +5163,7 @@ void HabanaLaunchOpPT::run(
       rvs.update_hit_count();
 
       PT_BRIDGE_DEBUG(
-          id_str_,
+          GetSynapseGraphName(),
           ": ",
           "HabanaOp recipe cache hit :: key ",
           cur_rargpsh_->hashCode(),
@@ -5175,7 +5186,7 @@ void HabanaLaunchOpPT::run(
       } else {
         PT_LAZY_EAGER_DEBUG(
             "[LAZY EAGER MT] Enqueue new task to the Compile and Execute Thread");
-        if (!is_enable_4stage_pipeline) {
+        if (!is_pipeline_enabled()) {
           ExecuteSynapseCache();
         } else {
           pipeline_execution.execute(
@@ -5191,7 +5202,7 @@ void HabanaLaunchOpPT::run(
           habana_helpers::EventDispatcher::Topic::CACHE_MISS,
           std::to_string(cur_rargpsh_->hashCode()));
       PT_BRIDGE_DEBUG(
-          id_str_,
+          GetSynapseGraphName(),
           ": ",
           "HabanaOp recipe cache miss :: key ",
           cur_rargpsh_->hashCode());
@@ -5300,34 +5311,6 @@ void HabanaLaunchOpPT::run(
                 ", syanpse shape inference expects shape or h2d tensor(s) !");
             syn_infer_shapes = false;
           }
-          // ToDO: Remove try run hybrid sif logic once shape tensor(s)
-          // can be queried using shared layer.
-          // Try run hybrid sif with dynamic shapes flag to detect
-          // if shape tensor(s) required for synapse shape inference
-          try {
-            habana::ShapeInference::ResetSifTensorId();
-            std::unordered_map<int64_t, at::Tensor> tmp_map;
-            constexpr bool dynamic_shapes_true = true;
-            if (RunHybridSif<dynamic_shapes_true>(tmp_map)) {
-              jit_graph_and_meta_data_->set_is_shape_agnostic_supported(false);
-              PT_EAGER_DEBUG(
-                  "[SHAPE AGNOSTIC] Shape agnostic not supported for op ",
-                  name_,
-                  ", syanpse shape inference expects shape tensor(s) !");
-              syn_infer_shapes = false;
-            }
-          } catch (std::exception& e) {
-            // RunHybridSif<true> can return TORCH CHECK from
-            // AllocateAndAddSynapseNode if ComputeOutputShape
-            // is not supported or failed during early validation
-            PT_EAGER_DEBUG(
-                "[SHAPE AGNOSTIC] Shape agnostic not supported for op ",
-                name_,
-                ", RunHybridSif with dynamic shapes failed ! ",
-                "what(): ",
-                e.what());
-            syn_infer_shapes = false;
-          }
 
           // Try infer shapes using synapse shape inference if possible
           if (syn_infer_shapes) {
@@ -5390,7 +5373,7 @@ void HabanaLaunchOpPT::run(
       RecipeValueSpec& rv = *rvs;
       rv.update_hit_count();
       PT_EAGER_DEBUG(
-          id_str_,
+          GetSynapseGraphName(),
           ": ",
           "HabanaOp shape agnostic graph cache hit :: key ",
           graph_key_,
@@ -5445,13 +5428,6 @@ void HabanaLaunchOpPT::run(
           synapse_orig_to_new_handle,
           is_shape_agnostic_graph);
 
-      // Run Synapse Shape inference if required
-      if (jit_graph_and_meta_data_->get_is_synapse_shape_inf_required()) {
-        HABANA_ASSERT(
-            syn_graph_ptr_->inferShapes() == true,
-            "[SHAPE AGNOSTIC] Cache hit Synapse shape inference failed !");
-      }
-
       // Get updated nodes params for if param agnostic is supported
       // and for single node graph for which Hybrid SIF did not run earlier
       // ToDO: Check and optimize Hybrid SIF for getting only node params
@@ -5469,6 +5445,13 @@ void HabanaLaunchOpPT::run(
             syn_graph_ptr_->get_syn_node_id_vec(),
             syn_graph_ptr_->get_graph_handle(),
             node_params_vec_ptr);
+      }
+
+      // Run Synapse Shape inference if required
+      if (jit_graph_and_meta_data_->get_is_synapse_shape_inf_required()) {
+        HABANA_ASSERT(
+            syn_graph_ptr_->inferShapes() == true,
+            "[SHAPE AGNOSTIC] Cache hit Synapse shape inference failed !");
       }
 
       recipe_launcher_ = std::make_unique<RecipeLauncher>(rv);
@@ -5529,25 +5512,51 @@ void HabanaLaunchOpPT::run(
   map_shape_.m_pass = ShapeInfo::InferencePass::INVALID;
   BuildSynapseGraph(syn_graph, jit_graph_and_meta_data_->syn_build_cache_);
 
-  if ((eager_mode || compile_mode) &&
-      jit_graph_and_meta_data_->get_is_pipeline_supported()) {
+  if (enable_pipeline_) {
     PT_LAZY_EAGER_DEBUG(
         "[LAZY EAGER MT] Enqueue new task to the Compile and Execute Thread");
-    bool is_permute_data_cached = jit_graph_and_meta_data_->is_permute_set();
-    if (is_permute_data_cached) {
-      ApplyOutputPermutationsFromCache();
-      permutation_saver_ = std::make_unique<PermutationIgnore>();
-    } else {
-      permutation_saver_ =
-          std::make_unique<PermutationSetAndSave>(jit_graph_and_meta_data_);
+
+    /*
+      For now there is a need to handle differently cached permutes in eager and
+      compile. In eager permutes are saved in OptimizedJITGraphAndMetaData
+      members while in static compile we save them in PermuteCache.
+
+      Big distinction is that in eager there are separate permutation info
+      members for static and dynamic graphs.
+    */
+    bool is_permute_data_cached = false;
+    if (execution_mode_ == habana_helpers::HabanaFrontendTypes::COMPILE) {
+      auto cached_permutations =
+          PermuteCache::GetCachedPermute(*(this->jit_graph_and_meta_data_));
+      if (cached_permutations.has_value()) {
+        ApplyOutputPermutations(cached_permutations.value());
+        this->permutation_saver_ =
+            std::make_unique<CompileStaticPermutationCacheVerifier>(
+                jit_graph_and_meta_data_);
+        is_permute_data_cached = true;
+      } else {
+        this->permutation_saver_ =
+            std::make_unique<CompileStaticPermutationSetAndSave>(
+                jit_graph_and_meta_data_);
+      }
+    } else if (execution_mode_ == habana_helpers::HabanaFrontendTypes::EAGER) {
+      is_permute_data_cached = jit_graph_and_meta_data_->is_permute_set();
+      if (is_permute_data_cached) {
+        ApplyOutputPermutations(jit_graph_and_meta_data_->get_permute(
+            false)); // Not a dynamic path -> get static permute
+        permutation_saver_ =
+            std::make_unique<PermutationIgnore>();
+      } else {
+        permutation_saver_ =
+            std::make_unique<EagerPermutationSetAndSave>(
+                jit_graph_and_meta_data_);
+      }
     }
 
     bool permute_calculation_is_needed = !is_permute_data_cached &&
         GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_OUTPUT_PERMUTE);
 
     if (permute_calculation_is_needed) {
-      // TODO may be we don't need sync with compile thread
-      pipeline_execution.compile_sync();
       CompileSynapseGraphAndPatchTable();
       pipeline_execution.execute(
           nullptr, [](habana::HabanaLaunchOpPT& launch_op) {
@@ -5770,10 +5779,9 @@ void HabanaLaunchOpPT::CompileGraphWithRange(
   }
 
   auto& device = HPUDeviceContext::get_device();
-  GetSynapseGraphName();
 
   auto syn_graph = std::make_shared<sh::graph>(
-      sh::graph::create_for_refinement(device, name_));
+      sh::graph::create_for_refinement(device, GetSynapseGraphName()));
 
   std::shared_ptr<sh::graph::recipe_handle> recipe;
   auto rvs = std::make_shared<RecipeValueSpec>(jit_ir_graph_);
@@ -6158,7 +6166,7 @@ void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
       "}");
 
   std::string result = "OK";
-  std::string jit_ir = "";
+  std::string jit_ir;
   if (graph_input_info.current_bucket_id == 0) {
     jit_ir = jit_ir_graph_->toString();
   }
@@ -6191,7 +6199,7 @@ void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
   SynBuildCache cache;
   BuildSynapseGraph(syn_graph, cache);
 
-  if (enable_4stage_pipeline_) {
+  if (is_pipeline_enabled()) {
     bool is_dynamic_recipe = is_dynamic_graph &&
         (graph_input_info.min_input_tshapes !=
          graph_input_info.max_input_tshapes);
@@ -6201,7 +6209,7 @@ void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
       ApplyOutputPermutationsFromCache(is_dynamic_recipe);
       permutation_saver_ = std::make_unique<PermutationIgnore>();
     } else {
-      permutation_saver_ = std::make_unique<PermutationSetAndSave>(
+      permutation_saver_ = std::make_unique<EagerPermutationSetAndSave>(
           jit_graph_and_meta_data_, is_dynamic_recipe);
     }
     PT_DYNAMIC_SHAPE_DEBUG("Cache miss pipeline flow");

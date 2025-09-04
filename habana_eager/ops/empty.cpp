@@ -16,8 +16,7 @@
 #include "backend/habana_device/HPUAllocator.h"
 #include "backend/helpers/tensor_utils.h"
 
-namespace habana {
-namespace eager {
+namespace habana::eager {
 at::Tensor empty(
     at::SymIntArrayRef size,
     std::optional<at::ScalarType> dtype_opt,
@@ -89,5 +88,4 @@ at::Tensor empty_strided(
       size, stride, allocator, hpu_ks, dtype);
 }
 
-} // namespace eager
-} // namespace habana
+} // namespace habana::eager

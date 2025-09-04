@@ -481,7 +481,7 @@ bool CheckNodeWithSharedLayerValidator::ValidateCustom(
             "Shared Layer Report Generator rejected complex op: ",
             m_opname,
             ":  guid=",
-            m_guid,
+            meta.guid,
             " inputlist=",
             ToDebugString(inputs),
             " outputlist=",
@@ -612,8 +612,7 @@ bool SharedLayerGuidValidator::fillGuidParamInfo(
 
 template <typename T>
 bool SharedLayerGuidValidator::fillParam(
-    T& params,
-    SharedLayer::DeviceId deviceId) {
+    T & params, SharedLayer::DeviceId deviceId) {
   params.apiVersion = 1;
   params.deviceId = deviceId;
 
@@ -625,14 +624,14 @@ bool SharedLayerGuidValidator::fillParam(
   // params.nodeParams.nodeParamsSize - not used in lower layer
 
   const size_t input_count = m_input_values.size();
-  for (auto i = 0u; i < input_count; ++i) {
+  for (auto i = 0U; i < input_count; ++i) {
     if (not fillGuidParamInfo(params.inputTensors[i], m_input_values[i])) {
       return false;
     }
   }
 
   const size_t output_count = m_output_values.size();
-  for (auto i = 0u; i < output_count; ++i) {
+  for (auto i = 0U; i < output_count; ++i) {
     if (not fillGuidParamInfo(params.outputTensors[i], m_output_values[i])) {
       return false;
     }
@@ -654,21 +653,21 @@ bool SharedLayerGuidValidator::fillParam(
 }
 
 // input/output tensors will be freed automatically after request
-#define PREPARE_IN_OUT_TENSORS()                            \
-  const size_t input_count = m_input_values.size();         \
-  const size_t output_count = m_output_values.size();       \
-  HABANA_ASSERT(                                            \
-      input_count <= SharedLayer::MAX_TENSOR_NR,            \
-      "Input count passed to Shared Layer exceeds limit");  \
-  HABANA_ASSERT(                                            \
-      output_count <= SharedLayer::MAX_TENSOR_NR,           \
-      "Output count passed to Shared Layer exceeds limit"); \
-  SharedLayer::Tensor input_tensors[input_count];           \
-  SharedLayer::Tensor output_tensors[output_count];         \
-  params.inputTensorNr = input_count;                       \
-  params.outputTensorNr = output_count;                     \
-  params.inputTensors = input_tensors;                      \
-  params.outputTensors = output_tensors;
+#define PREPARE_IN_OUT_TENSORS()                                 \
+  const size_t input_count = m_input_values.size();              \
+  const size_t output_count = m_output_values.size();            \
+  HABANA_ASSERT(                                                 \
+      input_count <= SharedLayer::MAX_TENSOR_NR,                 \
+      "Input count passed to Shared Layer exceeds limit");       \
+  HABANA_ASSERT(                                                 \
+      output_count <= SharedLayer::MAX_TENSOR_NR,                \
+      "Output count passed to Shared Layer exceeds limit");      \
+  std::vector<SharedLayer::Tensor> input_tensors(input_count);   \
+  std::vector<SharedLayer::Tensor> output_tensors(output_count); \
+  params.inputTensorNr = input_count;                            \
+  params.outputTensorNr = output_count;                          \
+  params.inputTensors = input_tensors.data();                    \
+  params.outputTensors = output_tensors.data();
 
 /*
  * This function is a wrapper for shared layer validation interface.

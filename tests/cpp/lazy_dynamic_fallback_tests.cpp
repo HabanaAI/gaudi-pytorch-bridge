@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -207,14 +207,14 @@ TEST_F(LazyDynamicFallbackTest, ViewTest) {
   int C = 4;
   at::Scalar alpha = 1.0;
   at::Scalar Y = 2.0;
-  std::vector<int> in_sizes{6, 8, 10};
-  for (int i = 0; i < in_sizes.size(); i++) {
-    int W = in_sizes[i];
-    int H = in_sizes[i] / 2;
+  std::vector<int64_t> in_sizes{6, 8, 10};
+  for (size_t i = 0; i < in_sizes.size(); i++) {
+    const auto W = in_sizes[i];
+    const auto H = in_sizes[i] / 2;
     PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
     torch::Tensor A = torch::randn({N, C, H, W}, torch::requires_grad(false));
     torch::Tensor hA = A.to(torch::kHPU);
-    std::vector<int64_t> shape{N, C, H * W, 1};
+    std::vector<int64_t> shape{N, C, static_cast<int64_t>(H * W), 1};
     torch::Tensor C = A.reshape(c10::IntArrayRef(shape));
     torch::Tensor hC = hA.reshape(c10::IntArrayRef(shape));
     auto C_out = hC.to(torch::kCPU);
@@ -473,7 +473,7 @@ TEST_F(LazyDynamicFallbackTest, UniqueGraph_Broadcast) {
 
 TEST_F(LazyDynamicFallbackTest, maxpool_2d_with_indices_backward) {
   // Static Maxpool Fwd +BWD
-  if (1) {
+  {
     torch::Tensor A = torch::randn(
         {2, 8, 40, 121}, torch::dtype(torch::kFloat).requires_grad(false));
     torch::Tensor B = torch::randn(
@@ -520,7 +520,7 @@ TEST_F(LazyDynamicFallbackTest, maxpool_2d_with_indices_backward) {
         true);
   }
   // Dynamic Maxpool Fwd +BWD
-  if (1) {
+  {
     torch::Tensor A = torch::randn(
         {2, 16, 41, 123}, torch::dtype(torch::kFloat).requires_grad(false));
     torch::Tensor B = torch::randn(

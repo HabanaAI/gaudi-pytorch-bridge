@@ -30,8 +30,7 @@
 #include <string>
 #include "pytorch_helpers/habana_helpers/logging.h"
 
-namespace habana_torch {
-namespace jit {
+namespace habana_torch::jit {
 
 namespace {
 std::string& removeWhitespaces(std::string& str) {
@@ -106,7 +105,7 @@ TypeWrapper TypeWrapper::createTensorTypeWrapper(
     TensorTypePtr tensor_type =
         TensorType::create(scalar_type, device, shape.size(), requires_grad);
 
-    return TypeWrapper(tensor_type, shape, strides);
+    return {tensor_type, shape, strides};
   } else {
     std::vector<int64_t> fixed_shape;
     std::vector<int64_t> fixed_strides;
@@ -136,7 +135,7 @@ TypeWrapper TypeWrapper::createTensorTypeWrapper(
         c10::VaryingShape<int64_t>(fixed_shape),
         c10::VaryingShape<int64_t>(fixed_strides),
         requires_grad);
-    return TypeWrapper(tensor_type, shape, strides);
+    return {tensor_type, shape, strides};
   }
 }
 
@@ -428,5 +427,4 @@ std::ostream& operator<<(std::ostream& out, const TypeWrapper& wrapper) {
   return out;
 }
 
-} // namespace jit
-} // namespace habana_torch
+} // namespace habana_torch::jit

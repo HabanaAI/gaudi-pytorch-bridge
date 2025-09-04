@@ -18,8 +18,7 @@
 
 using stream_set = absl::flat_hash_set<synapse_helpers::hpuStream_t>;
 
-namespace synapse_helpers {
-namespace pool_allocator {
+namespace synapse_helpers::pool_allocator {
 
 struct Chunk {
   uint64_t size;
@@ -79,5 +78,4 @@ struct simple_coalesced_pool_t {
   uint64_t memptr;
   uint64_t basememptr;
 };
-} // namespace pool_allocator
-} // namespace synapse_helpers
+} // namespace synapse_helpers::pool_allocator

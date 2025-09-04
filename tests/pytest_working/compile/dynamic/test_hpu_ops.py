@@ -20,14 +20,15 @@ import os
 import habana_frameworks.torch.internal.bridge_config as bc
 import pytest
 import torch
-import torch.nn as nn
 from compile.test_dynamo_utils import use_eager_fallback
 from test_utils import (
     check_ops_executed_in_jit_ir,
     clear_t_compile_logs,
     compare_tensors,
+    is_gaudi1,
     is_pytest_mode_compile,
 )
+from torch import nn
 
 
 @pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-167770")
@@ -108,7 +109,10 @@ def test_slice_scatter_op_fallback():
     tensors with more than 4 dimensions
     """
 
-    input_info = [[[2, 3, 4, 3, 3], [2, 3, 2, 3, 3], 2, 0, 2, 1], [[2, 3, 4, 3, 5], [2, 3, 3, 3, 5], 2, 0, 3, 1]]
+    input_info = [
+        [[2, 3, 4, 3, 3], [2, 3, 2, 3, 3], 2, 0, 2, 1],
+        [[2, 3, 4, 3, 5], [2, 3, 3, 3, 5], 2, 0, 3, 1],
+    ]
 
     def raw_function(inp, src, dim, start, end, step):
         result = torch.slice_scatter(inp, src, dim, start, end, step)
@@ -164,7 +168,10 @@ def test_view_op_fallback():
     as tensors with more than 5 dimensions
     are not supported in dynamic
     """
-    inputs = [((16, 9, 32, 16, 16), [4, 4, 3, 3, 2, 16, 16, 16]), ((16, 27, 36, 25, 16), [4, 4, 3, 9, 2, 18, 25, 16])]
+    inputs = [
+        ((16, 9, 32, 16, 16), [4, 4, 3, 3, 2, 16, 16, 16]),
+        ((16, 27, 36, 25, 16), [4, 4, 3, 9, 2, 18, 25, 16]),
+    ]
 
     def raw_function(tensor1, list1):
         view1 = tensor1.view(torch.Size(list1))
@@ -186,7 +193,12 @@ def test_view_op_fallback():
 
 
 def test_unsafe_view_op():
-    inputs = [((4, 3, 2), [4, 6]), ((4, 3, 4), [4, 12]), ((4, 3, 6), [4, 18]), ((4, 3, 8), [4, 24])]
+    inputs = [
+        ((4, 3, 2), [4, 6]),
+        ((4, 3, 4), [4, 12]),
+        ((4, 3, 6), [4, 18]),
+        ((4, 3, 8), [4, 24]),
+    ]
 
     def raw_function(tensor1, list1):
         view1 = tensor1.view(torch.Size(list1))
@@ -657,6 +669,7 @@ def test_op_chunk():
             assert torch.allclose(out_h.to("cpu"), out_c, atol=0.001, rtol=0.001)
 
 
+@pytest.mark.skipif(is_gaudi1(), reason="G1 not supported half")
 def test_op_bernoulli_half_static():
     input = [2, 3, 4, 4]
 
@@ -1059,11 +1072,10 @@ def test_conv_ds_default():
         return model_hpu(tensor)
 
     compiled_function = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
-    with torch.no_grad():
-        with torch.autocast(device_type="hpu", dtype=torch.bfloat16, enabled=True):
-            x_hpu = x_hpu.to(torch.bfloat16)
-            output_hpu = compiled_function(x_hpu)
-            output_hpu = output_hpu.to(torch.float32)
+    with torch.no_grad(), torch.autocast(device_type="hpu", dtype=torch.bfloat16, enabled=True):
+        x_hpu = x_hpu.to(torch.bfloat16)
+        output_hpu = compiled_function(x_hpu)
+        output_hpu = output_hpu.to(torch.float32)
 
     # check results
     output_hpu_cpu = output_hpu.to("cpu")
@@ -1159,6 +1171,24 @@ def test_op_scalar_div():
 
     def raw_function(x, s):
         return torch.div(x, s)
+
+    compiled_fn = torch.compile(raw_function, backend="hpu_backend")
+
+    for s1, s2 in zip(inputs, scalars, strict=False):
+        t1 = torch.randn(s1, requires_grad=False)
+        result = raw_function(t1, s2)
+        t1_hpu = t1.to("hpu")
+        h_result = compiled_fn(t1_hpu, s2)
+        h = h_result.to("cpu")
+        assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)
+
+
+def test_op_scalar_div2():
+    inputs = [(4, 4), (4, 4), (4, 4)]
+    scalars = [2, 3, 4]
+
+    def raw_function(x, s):
+        return torch.ops.aten.div.Scalar(x, s)
 
     compiled_fn = torch.compile(raw_function, backend="hpu_backend")
 
@@ -1403,7 +1433,12 @@ def test_op_empty():
 
     def raw_function(s, dut):
         t1 = torch.ops.aten.empty.memory_format(
-            s, dtype=torch.float, layout=None, device=dut, pin_memory=False, memory_format=torch.contiguous_format
+            s,
+            dtype=torch.float,
+            layout=None,
+            device=dut,
+            pin_memory=False,
+            memory_format=torch.contiguous_format,
         )
         t1 = torch.relu(t1)
         return t1
@@ -1479,7 +1514,7 @@ def test_backend_st_test4():
         result = raw_function(t)
         h_result = compiled_fn(t_h)
         assert h_result.to("cpu").shape == result.shape
-    check_ops_executed_in_jit_ir({"exponential"})
+    check_ops_executed_in_jit_ir({"habana_exponential"})
 
 
 def test_backend_st_test5():
@@ -1665,7 +1700,6 @@ def test_user_test():
 
 
 def test_complex_symbolic_input():
-
     input_shapes = [
         [(3, 6, 4), (3, 24)],
         [(3, 8, 4), (3, 32)],
@@ -1723,7 +1757,12 @@ def test_dynamic_strided():
     compiled_dynamic_func = torch.compile(func, backend="hpu_backend", dynamic=None)
 
     shapes = [(1, 32, 15, 128), (1, 8, 15, 128), (1, 32, 15, 128), (1, 8, 15, 128)]
-    strides = [(61440, 128, 4096, 1), (15360, 128, 1024, 1), (61440, 128, 4096, 1), (15360, 128, 1024, 1)]
+    strides = [
+        (61440, 128, 4096, 1),
+        (15360, 128, 1024, 1),
+        (61440, 128, 4096, 1),
+        (15360, 128, 1024, 1),
+    ]
     for shape, stride in zip(shapes, strides, strict=False):
         inp1 = torch.randn(shape).to("hpu")
         static_res = compiled_static_func(inp1, shape, stride, cos, sin, pos)

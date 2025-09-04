@@ -18,13 +18,14 @@
 """
 This script runs shared layer report generator and processes the report
 into documentation in .rst format.
-The documentation is saved to the file specified in --doc_path argument.
+The documentation is saved in the directory specified in --doc_path argument.
 - [-h, --help] - Print help
-- [-p, --doc_path] - Specifies the path (including file name) to save the
-  documentation
+- [-p, --doc_path] - Specifies the path to save the documentation
+- [-c, --gen_custom_doc] - Indicates whether Pytorch_Custom_Operators.rst should be generated
 Example:
-python report_parser.py --path ${PYTORCH_MODULES_ROOT_PATH}/docs/Pytorch_Operators.rst
+python report_parser.py --path ${PYTORCH_MODULES_ROOT_PATH}/docs --gen_custom_doc
 """
+
 import argparse
 from collections import defaultdict
 from pathlib import Path
@@ -36,10 +37,14 @@ import torch
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Example: python report_parser.py --path ${PYTORCH_MODULES_ROOT_PATH}/docs/Pytorch_Operators.rst"
+        description="Example: python report_parser.py --path ${PYTORCH_MODULES_ROOT_PATH}/docs --gen_custom_doc"
     )
+    parser.add_argument("-p", "--path", help="Specifies the path to save the documentation", type=str)
     parser.add_argument(
-        "-p", "--path", help="Specifies the path (including file name) to save the documentation", type=str
+        "-c",
+        "--gen_custom_doc",
+        help="Indicates whether Pytorch_Custom_Operators.rst should be generated",
+        action="store_true",
     )
     args = parser.parse_args()
     return args
@@ -68,17 +73,29 @@ def gen_doc(args):
                 torch.short: True,
                 torch.int8: True,
                 torch.bool: True,
+                "float4": True,
+                "int4": True,
             }
             for item in items:
                 for type in supported_types.keys():
-                    supported_types[type] &= item.second[type]
+                    if type != "float4" and type != "int4":
+                        supported_types[type] &= item.second[type]
+                supported_types["float4"] &= item.second.fp4_support
+                supported_types["int4"] &= item.second.int4_support
             support_summary_by_namespace[namespace] = supported_types
         for namespace, supported_types in support_summary_by_namespace.items():
             op_name = key
             if key.endswith("_") and not key.endswith("__"):
                 op_name = key[:-1] + r"\_"
-            row = doc_templates._DOC_RST_ROW.format(
-                op_name=doc_templates.get_operator_name_with_spacer(op_name),
+            template = doc_templates.DOC_RST_ROW
+            wide_spacer = False
+            if namespace == "torch.hpu":
+                template = doc_templates.CUSTOM_DOC_RST_ROW
+                wide_spacer = True
+            elif namespace == "torch.hpu.optimizer":
+                template = doc_templates.CUSTOM_DOC_RST_OPTIMIZER_ROW
+            row = template.format(
+                op_name=doc_templates.get_operator_name_with_spacer(op_name, wide_spacer),
                 fp32=doc_templates.get_support_value(supported_types[torch.float]),
                 bf16=doc_templates.get_support_value(supported_types[torch.bfloat16]),
                 fp16=doc_templates.get_support_value(supported_types[torch.half]),
@@ -90,11 +107,13 @@ def gen_doc(args):
                 int16=doc_templates.get_support_value(supported_types[torch.short]),
                 int8=doc_templates.get_support_value(supported_types[torch.int8]),
                 bool=doc_templates.get_support_value(supported_types[torch.bool]),
+                fp4=doc_templates.get_support_value(supported_types["float4"]),
+                int4=doc_templates.get_support_value(supported_types["int4"]),
                 namespace=namespace,
             )
             doc_rows_by_namespace[namespace].append(row)
 
-    documentation = doc_templates._DOC_FILE.format(
+    documentation = doc_templates.DOC_FILE.format(
         operators_torch_nn_functional=str.join("", doc_rows_by_namespace["torch.nn.functional"]),
         operators_torch_linalg=str.join("", doc_rows_by_namespace["torch.linalg"]),
         operators_torch=str.join("", doc_rows_by_namespace["torch"]),
@@ -109,7 +128,16 @@ def gen_doc(args):
 
     if not Path(args.path).parent.exists():
         Path(args.path).parent.mkdir(parents=True)
-    print(documentation, file=open(args.path, "w"))
+    print(documentation, file=open(args.path + "/Pytorch_Operators.rst", "w"))
+    if args.gen_custom_doc:
+        custom_operators_documentation = doc_templates.CUSTOM_DOC_FILE.format(
+            optimizer_operators=str.join("", doc_rows_by_namespace["torch.hpu.optimizer"]),
+            custom_operators=str.join("", doc_rows_by_namespace["torch.hpu"]),
+        )
+        print(
+            custom_operators_documentation,
+            file=open(args.path + "/Pytorch_Custom_Operators.rst", "w"),
+        )
 
 
 if __name__ == "__main__":

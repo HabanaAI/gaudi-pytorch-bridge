@@ -25,9 +25,11 @@ add_habana_library(
   jitgraph_utils.cpp
   create_pt_tensor.cpp
   backend_meta.cpp
+  h2d_scales_cache.cpp
   habana_operator.cpp
   scalar_cache.cpp
   random.cpp
+  cache/permute_cache.cpp
   kernel/constant_information.cpp
   kernel/control_edges_processing.cpp
   kernel/ds_graph_recompile.cpp
@@ -41,6 +43,7 @@ add_habana_library(
   kernel/hpu_recipe_cache.cpp
   kernel/hpu_shape_inference.cpp
   kernel/refinement_engine.cpp
+  passes/detect_weights_tensors.cpp
   passes/hpu_habana_persistence_marker_pass.cpp
   passes/fuse_collective_view_pass.cpp
   passes/replace_inplace_ops_ds.cpp
@@ -76,7 +79,8 @@ add_habana_library(
   profiling/trace_sources/synapse_profiler_source.cpp
   profiling/trace_sources/bridge_logs_source.cpp
   profiling/trace_sources/trace_parser.cpp
-  profiling/trace_sources/memory_source.cpp)
+  profiling/trace_sources/memory_source.cpp
+  ${CMAKE_SOURCE_DIR}/pytorch_helpers/habana_helpers/stats.cpp)
 
 add_custom_command(
   TARGET habana_pytorch_backend
@@ -89,7 +93,7 @@ target_include_directories(habana_pytorch_backend PRIVATE ${CMAKE_SOURCE_DIR} ${
 
 target_link_libraries(
   habana_pytorch_backend
-  PUBLIC habana_pytorch_backend_ops pytorch_synapse_helpers c10
+  PUBLIC habana_pytorch_backend_ops pytorch_synapse_helpers c10 exprtk::exprtk
   PRIVATE Python::Python
           habana_serialization
           torch
@@ -97,11 +101,13 @@ target_link_libraries(
           absl::strings
           absl::str_format
           ${PYTORCH_SYNAPSE_UTILS_LIB}
-          # tensor_comparator_core
           -lstdc++fs
           npu::hllogger)
 
-target_include_directories(habana_pytorch_backend PUBLIC ${PROJECT_SOURCE_DIR})
+target_include_directories(
+  habana_pytorch_backend
+  PUBLIC ${PROJECT_SOURCE_DIR}
+  PRIVATE ${xxhash_SOURCE_DIR})
 target_include_directories(habana_pytorch_backend SYSTEM PUBLIC $<TARGET_PROPERTY:Synapse,INTERFACE_INCLUDE_DIRECTORIES>
                                                                 $<TARGET_PROPERTY:hcl,INTERFACE_INCLUDE_DIRECTORIES>)
 

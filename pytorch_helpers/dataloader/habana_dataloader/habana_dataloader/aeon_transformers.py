@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -30,11 +30,7 @@ class HabanaAeonTransforms:
 
     def _parse_transforms(self):
         for t in self.transforms:
-            if (
-                isinstance(t, transforms.RandomResizedCrop)
-                or isinstance(t, transforms.CenterCrop)
-                or isinstance(t, transforms.Resize)
-            ):
+            if isinstance(t, transforms.RandomResizedCrop | transforms.CenterCrop | transforms.Resize):
                 self._handle_resize_crop(t)
             elif isinstance(t, transforms.RandomHorizontalFlip):
                 self._handle_random_horizontal_flip(t)
@@ -52,7 +48,7 @@ class HabanaAeonTransforms:
             and not isinstance(t, transforms.Resize)
         ):
             raise ValueError("not a Crop/Resize transform")
-        if isinstance(t, transforms.CenterCrop) or isinstance(t, transforms.Resize):
+        if isinstance(t, transforms.CenterCrop | transforms.Resize):
             self.is_val = True
         if isinstance(t, transforms.RandomResizedCrop):
             self.is_train = True

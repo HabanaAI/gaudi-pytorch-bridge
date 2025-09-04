@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,12 +17,10 @@
 
 namespace habana {
 
-std::shared_ptr<void> FillBucketizeParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillBucketizeParams(const at::Stack& stack) {
   PARAMS_STUB(ns_SearchSorted::Params);
   params->right = stack.at(3).toBool();
-  return params;
+  return paramsT;
 }
 
 OutputMetaDataVector BucketizeMeta(const at::Stack& stack) {

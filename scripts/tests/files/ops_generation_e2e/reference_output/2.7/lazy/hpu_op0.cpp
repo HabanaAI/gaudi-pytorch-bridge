@@ -8,14 +8,13 @@
 #include "habana_kernels/lazy_kernels.h"
 #include "habana_lazy/hpu_stage_submission.h"
 using habana_lazy::LazyOp;
-using habana_lazy::GraphHashBuilder;
 
 #include "__ilshift__.h"
 #include "_foreach_add.h"
 
 
-using habana_helpers::DTypeHelper;
-using synapse_helpers::graph;
+using habana_helpers::DTypeHelper; // NOLINT(misc-unused-using-decls)
+using synapse_helpers::graph; // NOLINT(misc-unused-using-decls)
 using torch::jit::Stack;
 
 
@@ -23,7 +22,7 @@ namespace habana {
 
 
 
-at::Tensor & __ilshift__(at::Tensor & self, const at::Scalar & other) {
+at::Tensor & __ilshift___Scalar(at::Tensor & self, const at::Scalar & other) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO("__ilshift__: ", DUMP_2ARGS(self, other));
@@ -31,14 +30,14 @@ at::Tensor & __ilshift__(at::Tensor & self, const at::Scalar & other) {
   [[maybe_unused]] bool require_h2d = false;
   [[maybe_unused]] bool require_st = false;
 
-  HPU_SUPPORTED_DTYPES(({{-1, {at::kInt, at::kChar, at::kByte, at::kShort, at::kBool}}}))
+  HPU_SUPPORTED_DTYPES(({at::kInt, at::kChar, at::kByte, at::kShort, at::kBool}))
   FALLBACK_IF_UNSUPPORTED_DTYPE2(self, __ilshift__, Scalar, self, other)
 
   LazyOp<at::Tensor &> hpu_op{"aten::__ilshift__", {self, other}};
   RUN_INPLACE_MAYBE_WITH_ACC_THREAD(__ilshift__, hpu_op, self);
 }
 
-void _foreach_add_(at::TensorList self, const at::Scalar & scalar) {
+void _foreach_add__Scalar(at::TensorList self, const at::Scalar & scalar) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO("_foreach_add_: ", DUMP_2ARGS(self, scalar));
@@ -46,8 +45,7 @@ void _foreach_add_(at::TensorList self, const at::Scalar & scalar) {
   [[maybe_unused]] bool require_h2d = false;
   [[maybe_unused]] bool require_st = false;
 
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kLong, at::kInt, at::kShort, at::kChar, at::kHalf, at::kDouble, at::kBool}},
-   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kLong, at::kInt, at::kShort, at::kChar, at::kHalf, at::kDouble, at::kBool}}}))
+  HPU_SUPPORTED_DTYPES(({at::kBFloat16, at::kFloat, at::kLong, at::kInt, at::kShort, at::kChar, at::kHalf, at::kDouble, at::kBool}))
 
   LazyOp<void> hpu_op{"aten::_foreach_add_", {self, scalar}};
   RUN_TENSOR_LIST_INPLACE_MAYBE_WITH_ACC_THREAD(_foreach_add_, hpu_op, self);
@@ -61,8 +59,8 @@ static const auto& kr_gen_0 = KernelRegistry()
 ;
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {
-  m.impl("__ilshift__.Scalar", static_cast<at::Tensor & (*)(at::Tensor &, const at::Scalar &)>(&habana::__ilshift__));
-  m.impl("_foreach_add_.Scalar", static_cast<void (*)(at::TensorList, const at::Scalar &)>(&habana::_foreach_add_));
+  m.impl("__ilshift__.Scalar", habana::__ilshift___Scalar);
+  m.impl("_foreach_add_.Scalar", habana::_foreach_add__Scalar);
 
 }
 

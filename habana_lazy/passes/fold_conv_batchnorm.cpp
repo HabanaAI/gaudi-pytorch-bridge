@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -60,9 +60,9 @@ bool computeUpdatedConvWeightAndBias(
   auto status = synHostMalloc(device_id, bytes * 2, 0, &host_ptr);
   HABANA_ASSERT(
       status == synStatus::synSuccess, Logger::synStatusToStr(status));
-  double* s = (double*)host_ptr;
+  auto* s = (double*)host_ptr;
   for (auto i = 0; i < co; i++) {
-    s[i] = ((double)w[i] / sqrt((double)v[i] + (double)bn_eps));
+    s[i] = ((double)w[i] / sqrt((double)v[i] + bn_eps));
   }
 
   bool all_bias_zero = true;
@@ -97,7 +97,7 @@ bool computeUpdatedConvWeightAndBias(
       for (auto a = 0; a < ci * ky * kx; a++) {
         cw[a] = (float)((double)cw[a] * t);
       }
-      cw += (ci * ky * kx);
+      cw += (static_cast<ptrdiff_t>(ci * ky * kx));
     }
   } else {
     for (auto a = 0; a < (ky * kx); a++) {
@@ -202,8 +202,8 @@ bool FuseConvBatchnorm(
       std::vector<torch::jit::Node*> w_auto_cast;
       std::vector<torch::jit::Node*> b_auto_cast;
       CheckIfAutoCastNodePresent(graph, conv, w_auto_cast, b_auto_cast);
-      auto w_auto_cast_en = (w_auto_cast.size() > 0);
-      auto b_auto_cast_en = (b_auto_cast.size() > 0);
+      auto w_auto_cast_en = !w_auto_cast.empty();
+      auto b_auto_cast_en = !b_auto_cast.empty();
 
       auto ib = b_auto_cast_en ? -1 : 2;
       auto nb = b_auto_cast_en ? b_auto_cast.at(0) : conv;

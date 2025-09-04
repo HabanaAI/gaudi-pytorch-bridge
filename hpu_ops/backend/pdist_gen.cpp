@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,16 +18,16 @@
 #include "hpu_ops/op_backend.h"
 
 namespace habana {
-std::shared_ptr<void> FillPdistFwdParams(const at::Stack& stack, size_t& size) {
+FillParamsT FillPdistFwdParams(const at::Stack& stack) {
   PARAMS_STUB(ns_Pdist::Params);
   params->p = stack.at(1).toScalar().toDouble();
-  return params;
+  return paramsT;
 }
 
-std::shared_ptr<void> FillPdistBwdParams(const at::Stack& stack, size_t& size) {
+FillParamsT FillPdistBwdParams(const at::Stack& stack) {
   PARAMS_STUB(ns_Pdist::Params);
   params->p = stack.at(2).toScalar().toDouble();
-  return params;
+  return paramsT;
 }
 
 OutputMetaDataVector PdistFwdMeta(const at::Stack& stack) {
@@ -75,15 +75,14 @@ SharedMetaDataVector PdistBwdSharedMeta(
 
 void PdistBwd::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto meta = OutputMeta(stack)[0];
-  size_t size = 0;
-  auto params = FillParams(stack, size);
+  auto params = FillParams(stack);
   auto op = BuildOp(
       graph,
       guid_,
       {syn_in(0), syn_in(1)},
       {{meta.shape, meta.dtype, 0}},
-      params.get(),
-      size);
+      params.ptr(),
+      params.size());
   syn_out(0) = std::move(op[0]);
 }
 } // namespace habana

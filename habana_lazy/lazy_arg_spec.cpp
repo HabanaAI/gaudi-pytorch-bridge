@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -55,9 +55,9 @@ LazyArgumentSpec::LazyArgumentSpec(
 torch::jit::Stack LazyArgumentSpec::CreateStack(
     const at::ArrayRef<torch::jit::IValue>& list) {
   // Create a torch::jit::Stack from the IValues
-  return torch::jit::Stack(
+  return {
       std::make_move_iterator(list.begin()),
-      std::make_move_iterator(list.end()));
+      std::make_move_iterator(list.end())};
 }
 
 size_t LazyArgumentSpec::GetInputHash(
@@ -127,15 +127,14 @@ void LazyArgumentSpec::GetArgSpecKey(
   for (auto const& input_ival : input_refs) {
     if (input_ival.isTensor()) {
       auto in_tensor = input_ival.toTensor();
-      auto m = in_tensor.suggest_memory_format();
-      int64_t m_int =
-          static_cast<std::underlying_type<c10::MemoryFormat>::type>(m);
+      auto memory_format = in_tensor.suggest_memory_format();
+      int64_t m_int = static_cast<unsigned char>(memory_format);
       mf_hash_code =
           at::hash_combine(mf_hash_code, at::get_hash(habana::mod_exp(m_int)));
       if (habana::is_tensor_const_with_valid_const_id(in_tensor)) {
         auto const_id = habana::get_tensor_const_id(in_tensor);
         if (in_tensor.numel() == 1) {
-          float const_value = in_tensor.item<float>();
+          auto const_value = in_tensor.item<float>();
           auto tmeta{habana::get_tensor_extra_meta(in_tensor)};
           PT_BRIDGE_DEBUG(
               "Lazy arg spec hash const_value:",
@@ -157,8 +156,7 @@ void LazyArgumentSpec::GetArgSpecKey(
         if (hb_tensor) {
           auto m_lazy = hb_tensor->GetTensorLayout();
           int64_t m_lazy_int =
-              static_cast<std::underlying_type<habana::LayoutFormat>::type>(
-                  m_lazy);
+              static_cast<std::underlying_type_t<habana::LayoutFormat>>(m_lazy);
           mf_hash_code = at::hash_combine(
               mf_hash_code, at::get_hash(habana::mod_exp(m_lazy_int)));
         }

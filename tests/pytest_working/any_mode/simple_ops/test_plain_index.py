@@ -33,7 +33,6 @@ from test_utils import compile_function_if_compile_mode, cpu, hpu
 )
 @pytest.mark.skip
 def test_index(shape, indices):
-
     def wrapper_fn(src, indices):
         return torch.ops.hpu.plain_index(src, indices)
 

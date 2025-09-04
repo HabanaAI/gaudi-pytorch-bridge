@@ -49,6 +49,7 @@
 
 using namespace torch;
 using namespace habana;
+using namespace std::literals;
 using tensor_name_generator = synapse_helpers::detail::tensor_name_generator;
 
 /*************************************************************************
@@ -133,9 +134,6 @@ void GatherOperator::AllocateAndAddSynapseNode(
   ns_GatherKernel::Params params;
   params.axis = get_dim_in_tpc_order(dim, self.dim());
 
-  p_context_->params_.emplace<ns_GatherKernel::Params>(params);
-  p_context_->params_size_ = sizeof(params);
-
   AllocateSynapseOutput(graph, output, output_metadata.at(0));
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
@@ -163,15 +161,16 @@ std::vector<int64_t> GatherElemOperator::compute_output_shape(
     const Tensor& index) {
   auto dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
   auto shape = self.sizes().vec();
-  if (shape.size()) {
-    // for gather op, output size is same as index
-    if (self.dim() == index.dim()) {
-      shape = index.sizes().vec();
-    } else {
-      // for index_select and other index ops
-      shape.erase(shape.begin() + dim);
-      shape.insert(shape.begin() + dim, index.numel());
-    }
+  if (shape.empty()) {
+    return shape;
+  }
+  // for gather op, output size is same as index
+  if (self.dim() == index.dim()) {
+    shape = index.sizes().vec();
+  } else {
+    // for index_select and other index ops
+    shape.erase(shape.begin() + dim);
+    shape.insert(shape.begin() + dim, index.numel());
   }
   return shape;
 }
@@ -222,9 +221,6 @@ void GatherElemOperator::AllocateAndAddSynapseNode(
 
   ns_GatherElementsKernel::Params params;
   params.axis = get_dim_in_tpc_order(dim, self.dim());
-
-  p_context_->params_.emplace<ns_GatherElementsKernel::Params>(params);
-  p_context_->params_size_ = sizeof(params);
 
   AllocateSynapseOutput(graph, output, output_metadata.at(0));
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
@@ -291,9 +287,6 @@ void ScatterWrapperOperator::AllocateAndAddSynapseNode(
 
   ns_ScatterKernel::Params params;
   params.axis = get_dim_in_tpc_order(dim, self.dim());
-
-  p_context_->params_.emplace<ns_ScatterKernel::Params>(params);
-  p_context_->params_size_ = sizeof(params);
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
@@ -339,11 +332,8 @@ void ScatterAddOperator::AllocateAndAddSynapseNode(
 
   ns_ScatterKernel::Params params;
   params.axis = get_dim_in_tpc_order(dim, self.dim());
-  p_context_->params_.emplace<ns_ScatterKernel::Params>(params);
-  p_context_->params_size_ = sizeof(params);
 
   if (GET_ENV_FLAG_NEW(PT_HPU_USE_UNSORTED_SCATTER_ADD) &&
-      HPUGlobalConfig::get().getDeterministic() == false &&
       at::globalContext().deterministicAlgorithms() == false &&
       HPUDeviceContext::get_device().type() != synDeviceType::synDeviceGaudi) {
     if (self.scalar_type() == c10::ScalarType::BFloat16) {
@@ -403,9 +393,14 @@ void ScatterAddOperator::AllocateAndAddSynapseNode(
       p_context_->pt_outputs_[0] = std::move(cast_op3->GetOutputs()[0]);
       return;
     }
-    const std::string guid = (self.scalar_type() == at::ScalarType::Int)
-        ? "unsorted_scatter_add_fwd_i32"
-        : "unsorted_scatter_add_fwd_f32";
+    auto precision_type = self.scalar_type();
+    if (at::isFloatingType(precision_type))
+      precision_type = at::ScalarType::Float;
+    else if (precision_type == at::ScalarType::Long)
+      precision_type = at::ScalarType::Int;
+
+    const std::string guid =
+        get_guid_with_precision("unsorted_scatter_add_fwd"sv, precision_type);
     SetGuid(guid);
     AddNodeToSynapseGraph(graph, &params, sizeof(params));
   } else { // On Gaudi1
@@ -509,7 +504,7 @@ void ScatterAddOperator::AllocateAndAddSynapseNode(
 }
 
 namespace habana {
-SharedMetaDataVector IndexAddSharedMeta(
+SharedMetaDataVector IndexAddLazySharedMeta(
     const at::Stack& stack,
     habana_helpers::HabanaExecutionMode) {
   const auto& self = stack.at(0).toTensor();
@@ -539,9 +534,7 @@ SharedMetaDataVector IndexAddSharedMeta(
   const bool self_is_int32 = selfDtype == c10::ScalarType::Int;
   const bool useUnsortedScatter =
       GET_ENV_FLAG_NEW(PT_HPU_USE_UNSORTED_SCATTER_ADD) &&
-      HPUGlobalConfig::get().getDeterministic() == false &&
-      at::globalContext().deterministicAlgorithms() == false &&
-      HPUDeviceContext::get_device().type() != synDeviceType::synDeviceGaudi;
+      at::globalContext().deterministicAlgorithms() == false;
 
   SharedMetaData scatterAddFwdSharedMetaV2(
       useUnsortedScatter ? "unsorted_scatter_add_fwd" : "scatter_add_fwd");
@@ -604,6 +597,35 @@ SharedMetaDataVector IndexAddSharedMeta(
 
   return indexAddSharedMeta;
 }
+
+SharedMetaDataVector IndexAddSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  const auto& self = stack.at(0).toTensor();
+  const auto& value = stack.at(3).toTensor();
+
+  const auto selfDim = self.dim();
+  const auto selfDtype = self.scalar_type();
+
+  SharedMetaDataVector indexAddSharedMeta;
+
+  // for Bool and Byte input autocast (into Int) is applied
+  auto castedDtype =
+      (selfDtype == c10::ScalarType::Bool || selfDtype == c10::ScalarType::Byte)
+      ? c10::ScalarType::Int
+      : selfDtype;
+
+  SharedMetaData indexAddFwdSharedMeta{"index_add_fwd"};
+  indexAddFwdSharedMeta.inputs_data = {
+      {selfDim, castedDtype},
+      getSharedMetaFromTensor(stack_tensor(stack, 2)),
+      {value.dim(), castedDtype}};
+
+  indexAddFwdSharedMeta.outputs_data.emplace_back(selfDim, castedDtype);
+
+  return {indexAddFwdSharedMeta};
+}
+
 } // namespace habana
 
 /*
@@ -923,7 +945,6 @@ void IndexPutOperator::AllocateAndAddSynapseNodeBoolIndices(
         std::move(add_op->GetSynOutputs()[0]));
     p_context_->pt_outputs_.emplace_back(std::move(add_op->GetOutputs()[0]));
   }
-  return;
 }
 
 void IndexPutOperator::AllocateAndAddSynapseNodeNonBoolIndices(
@@ -1045,6 +1066,7 @@ void IndexPutOperator::AllocateAndAddSynapseNodeNonBoolIndices(
   concatinated_pos_indices_op->AllocateAndAddSynapseNode(
       graph, stack, OutputMetaDataVector(1));
   auto concatenated_indices = concatinated_pos_indices_op->GetOutputs()[0];
+
   stack.clear();
 
   // Calculate the dimensionality of updates for broadcasting
@@ -1102,8 +1124,30 @@ void IndexPutOperator::AllocateAndAddSynapseNodeNonBoolIndices(
   auto self_scalar_type = self.scalar_type();
 
   if (!accumulate) {
-    scatter_op =
-        make_operator<ScatterNdONNXOperator>(device_id, self_scalar_type);
+    auto isScaterNdUpdateRequired = [self, concatenated_indices]() -> bool {
+      auto indicesShape = concatenated_indices.sizes().vec();
+      auto selfShape = self.sizes().vec();
+      size_t indicesRank = indicesShape.size();
+      size_t indicesFcd = indicesShape[indicesRank - 1];
+      int64_t totalIndices = 1;
+      int64_t totalScatters = 1;
+
+      for (size_t i = 0; i < indicesRank - 1; i++)
+        totalIndices *= std::max(indicesShape[i], 1L);
+
+      for (size_t i = 0; i < indicesFcd; i++)
+        totalScatters *= std::max(selfShape[i], 1L);
+
+      return totalIndices > totalScatters;
+    }();
+
+    if (isScaterNdUpdateRequired)
+      scatter_op =
+          make_operator<ScatterNdUpdateOperator>(device_id, self_scalar_type);
+    else
+      scatter_op =
+          make_operator<ScatterNdONNXOperator>(device_id, self_scalar_type);
+
     stack = {
         IValue(self),
         IValue(concatenated_indices),
@@ -1255,7 +1299,6 @@ void IndexPutOperator::AllocateAndAddSynapseNodeNonBoolIndices(
         std::move(add_op->GetSynOutputs()[0]));
     p_context_->pt_outputs_.emplace_back(std::move(add_op->GetOutputs()[0]));
   }
-  return;
 }
 
 void IndexPutOperator2::AllocateAndAddSynapseNode(
@@ -1406,7 +1449,6 @@ void IndexPutOperator2::AllocateAndAddSynapseNode(
         std::move(add_op->GetSynOutputs()[0]));
     p_context_->pt_outputs_.emplace_back(std::move(add_op->GetOutputs()[0]));
   }
-  return;
 }
 
 void IndexPutOperator::AllocateAndAddSynapseNode(
@@ -1529,6 +1571,44 @@ void ScatterNdONNXOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, nullptr, 0);
 }
 
+habana::InferOutputMetaRetType ScatterNdUpdateOperator::InferOutputMeta(
+    torch::jit::Stack& inputs) {
+  auto inp = inputs[0].toTensor();
+  auto shape_out = inp.sizes().vec();
+
+  InferOutputMetaRetType out;
+  // output tensor
+  out.AddOutputTensor(TensorMetaData(
+      shape_out,
+      HabanaOperator::CalculateStrides(shape_out, inp.suggest_memory_format()),
+      inp.scalar_type(),
+      inp.suggest_memory_format()));
+  return out;
+}
+
+void ScatterNdUpdateOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    const OutputMetaDataVector& output_metadata) {
+  HABANA_ASSERT(
+      inputs.size() >= 3,
+      "Incorrect number of inputs passed to ScatterNdONNXOperator");
+
+  auto inp = inputs[0].toTensor();
+  auto indices = inputs[1].toTensor();
+  auto values = inputs[2].toTensor();
+
+  auto shape = DimVector(inp.sizes());
+  auto output = habana::createPTTensor(
+      inp,
+      shape,
+      inp.options(),
+      inp.suggest_memory_format(),
+      output_metadata.at(0).persistent);
+  AllocateSynapseOutput(graph, output, output_metadata.at(0));
+  AddNodeToSynapseGraph(graph, nullptr, 0);
+}
+
 habana::InferOutputMetaRetType ScatterNdOperator::InferOutputMeta(
     torch::jit::Stack& inputs) {
   InferOutputMetaRetType out;
@@ -1609,8 +1689,6 @@ void ScatterNdOperator::AllocateAndAddSynapseNode(
   for (int i = indices_shape.size() - 1, j = 0; i >= 0; --i, ++j) {
     params.origIndicesShape[j] = indices_shape[i];
   }
-  p_context_->params_.emplace<ns_ScatterNDKernel::Params>(params);
-  p_context_->params_size_ = sizeof(params);
 
   graph.add_node(
       std::move(syn_inputs),
@@ -1928,7 +2006,7 @@ std::vector<int64_t> SliceOperator::GetH2DTensorData(
   }
 
   std::vector<int64_t> params;
-  uint64_t* h2d_data = static_cast<uint64_t*>(host_ptr);
+  auto* h2d_data = static_cast<uint64_t*>(host_ptr);
   for (size_t i = 0; i < h2d_data_size; i++) {
     params.push_back(*h2d_data++);
   }
@@ -1997,12 +2075,10 @@ void SliceOperator::UpdateMaxPassSliceInputs(
         // current value Since the current value is not available in
         // AllocateAndAdd, used a hack to find it from the max value
         HABANA_ASSERT(min.size() == max.size());
-        if (min.size() && (min[i] != max[i])) {
+        if (!min.empty() && (min[i] != max[i])) {
           auto curr_val = max[i] /
               habana_helpers::DynamicBucketInfo::default_max_multiplier_;
-          if (start[i] < curr_val) {
-            start[i] = curr_val;
-          }
+          start[i] = std::max(start[i], curr_val);
         }
       }
     }
@@ -2140,13 +2216,8 @@ void SliceOperator::AllocateAndAddSynapseNode(
     shape = compute_output_shape(self, dim, start, end, step);
   }
 
-  Tensor output = habana::createPTTensor(
-      self,
-      shape,
-      self.options(),
-      self.suggest_memory_format(),
-      output_metadata.at(0).persistent);
-
+  auto output = habana_helpers::get_or_create_output_tensor(
+      graph, output_metadata.at(0), self, shape);
   AllocateSynapseOutput(graph, output, output_metadata.at(0));
 
   if (has_shape_tensor) {
@@ -2240,9 +2311,9 @@ void ArangeOperator::AllocateAndAddSynapseNode(
     param.limit.f = static_cast<float>(end.to<double>());
     param.delta.f = static_cast<float>(step.to<double>());
   } else {
-    param.start.i = static_cast<int>(start.to<int>());
-    param.limit.i = static_cast<int>(end.to<int>());
-    param.delta.i = static_cast<int>(step.to<int>());
+    param.start.i = start.to<int>();
+    param.limit.i = end.to<int>();
+    param.delta.i = step.to<int>();
     SetGuid("range_i32");
   }
 
@@ -2495,9 +2566,9 @@ void ArangeOperatorHT::AllocateAndAddSynapseNode(
       param.limit.f = static_cast<float>(end.to<double>());
       param.delta.f = static_cast<float>(step.to<double>());
     } else {
-      param.start.i = static_cast<int>(start.to<int>());
-      param.limit.i = static_cast<int>(end.to<int>());
-      param.delta.i = static_cast<int>(step.to<int>());
+      param.start.i = start.to<int>();
+      param.limit.i = end.to<int>();
+      param.delta.i = step.to<int>();
       SetGuid("range_i32");
     }
 
@@ -2611,9 +2682,6 @@ void Unique_Operator::AllocateAndAddSynapseNode(
   // dim = -5 returns flattened result(unique elements over all dimesions)
   params.dim = -5;
 
-  p_context_->params_.emplace<ns_UniqueKernel::Params>(params);
-  p_context_->params_size_ = sizeof(params);
-
   AllocateSynapseOutput(graph, output_feature_map, output_metadata.at(0));
   synDataType synType = syn_type_int32;
   AllocateSynapseOutput(
@@ -2678,8 +2746,8 @@ void UniqueDimOperator::AllocateAndAddSynapseNode(
   auto output_shape = DimVector(self.sizes());
   auto valid_shape =
       DimVector{1}; // As valid tensor will be a 1D tensor with single value
-  auto inverse_tensor_shape = DimVector{self.sizes().vec().at(dim)};
-  auto counts_tensor_shape = DimVector{self.sizes().vec().at(dim)};
+  auto inverse_tensor_shape = DimVector{self.sizes().at(dim)};
+  auto counts_tensor_shape = DimVector{self.sizes().at(dim)};
 
   // create output and valid shape tensors which are compulsory
   auto output_feature_map = habana::createPTTensor(
@@ -2715,9 +2783,6 @@ void UniqueDimOperator::AllocateAndAddSynapseNode(
   params.returnInverse = 1; // When set to 1 will return Inverse
   params.returnCounts = 1; // When set to 1 will return Counts
   params.dim = self.dim() - dim - 1;
-
-  p_context_->params_.emplace<ns_UniqueKernel::Params>(params);
-  p_context_->params_size_ = sizeof(params);
 
   AllocateSynapseOutput(graph, output_feature_map, output_metadata.at(0));
   synDataType synType = syn_type_int32;
@@ -2849,9 +2914,6 @@ void UniqueOperator::AllocateAndAddSynapseNode(
     params.sorted = sorted;
   // dim = -5 returns flattened result(unique elements over all dimesions)
   params.dim = -5;
-
-  p_context_->params_.emplace<ns_UniqueKernel::ParamsV2>(params);
-  p_context_->params_size_ = sizeof(params);
 
   AllocateSynapseOutput(graph, output_feature_map, output_metadata.at(0));
   synDataType synType = syn_type_uint32;
@@ -3029,12 +3091,8 @@ void UnsqueezeOperator::AllocateAndAddSynapseNode(
 
   auto shape = UnsqueezeOperator::compute_output_shape(input, dim);
 
-  auto output = habana::createPTTensor(
-      input,
-      shape,
-      input.options(),
-      input.suggest_memory_format(),
-      output_metadata.at(0).persistent);
+  auto output = habana_helpers::get_or_create_output_tensor(
+      graph, output_metadata.at(0), input, shape);
   AllocateSynapseOutput(graph, output, output_metadata.at(0));
 
   const auto syn_axis = input.dim() - dim;
@@ -3045,21 +3103,26 @@ void UnsqueezeOperator::AllocateAndAddSynapseNode(
 
 static auto& IndexKernelsKernelRegistry =
     habana::KernelRegistry()
-        .add("hpu::scatter_add", KERNEL_FN(ScatterAddOperator))
-        .add("hpu::scatter_nd", KERNEL_FN(ScatterNdOperator))
-        .add("hpu::scatter_nd_onnx", KERNEL_FN(ScatterNdONNXOperator))
-        .add("aten::index_put", KERNEL_FN(IndexPutOperator))
-        .add(
+        .REGISTER_HPU_BACKEND("hpu::scatter_add", habana::ScatterAddOperator)
+        .REGISTER_HPU_BACKEND("hpu::scatter_nd", habana::ScatterNdOperator)
+        .REGISTER_HPU_BACKEND(
+            "hpu::scatter_nd_update",
+            habana::ScatterNdUpdateOperator)
+        .REGISTER_HPU_BACKEND(
+            "hpu::scatter_nd_onnx",
+            habana::ScatterNdONNXOperator)
+        .REGISTER_HPU_BACKEND("aten::index_put", habana::IndexPutOperator)
+        .REGISTER_HPU_BACKEND(
             "hpu::index_put_normal_and_neg_indices",
-            KERNEL_FN(IndexPutOperator))
-        .add("hpu::index_put", KERNEL_FN(IndexPutOperator2))
-        .add("aten::slice.Tensor", KERNEL_FN(SliceOperator))
-        .add("hpu::slice", KERNEL_FN(SliceOperator))
-        .add("hpu::slice_ds", KERNEL_FN(SliceOperator))
-        .add("hpu::slice_ht", KERNEL_FN(SliceOperator))
-        .add("hpu::index_add", KERNEL_FN(IndexAddOperator))
-        .add("hpu::_unique2", KERNEL_FN(UniqueOperator))
-        .add("hpu::_unique", KERNEL_FN(Unique_Operator))
-        .add("hpu::unique_dim", KERNEL_FN(UniqueDimOperator))
-        .add("aten::squeeze.dim", KERNEL_FN(SqueezeOperator))
-        .add("aten::unsqueeze", KERNEL_FN(UnsqueezeOperator));
+            habana::IndexPutOperator)
+        .REGISTER_HPU_BACKEND("hpu::index_put", habana::IndexPutOperator2)
+        .REGISTER_HPU_BACKEND("aten::slice.Tensor", habana::SliceOperator)
+        .REGISTER_HPU_BACKEND("hpu::slice", habana::SliceOperator)
+        .REGISTER_HPU_BACKEND("hpu::slice_ds", habana::SliceOperator)
+        .REGISTER_HPU_BACKEND("hpu::slice_ht", habana::SliceOperator)
+        .REGISTER_HPU_BACKEND("hpu::index_add", habana::IndexAddOperator)
+        .REGISTER_HPU_BACKEND("hpu::_unique2", habana::UniqueOperator)
+        .REGISTER_HPU_BACKEND("hpu::_unique", habana::Unique_Operator)
+        .REGISTER_HPU_BACKEND("hpu::unique_dim", habana::UniqueDimOperator)
+        .REGISTER_HPU_BACKEND("aten::squeeze.dim", habana::SqueezeOperator)
+        .REGISTER_HPU_BACKEND("aten::unsqueeze", habana::UnsqueezeOperator);

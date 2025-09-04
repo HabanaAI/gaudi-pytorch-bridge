@@ -18,8 +18,8 @@
 class HpuOpTest : public HpuOpTestUtil {};
 
 TEST_F(HpuOpTest, logspace_out_1) {
-  at::Scalar start = 0.0f;
-  at::Scalar end = 10.0f;
+  at::Scalar start = 0.0F;
+  at::Scalar end = 10.0F;
   int steps = 20;
   float base = 2.0;
 
@@ -33,8 +33,8 @@ TEST_F(HpuOpTest, logspace_out_1) {
 }
 
 TEST_F(HpuOpTest, logspace_out_2) {
-  at::Scalar start = 10.0f;
-  at::Scalar end = 0.0f;
+  at::Scalar start = 10.0F;
+  at::Scalar end = 0.0F;
   int steps = 2;
   float base = 2.0;
 
@@ -48,8 +48,8 @@ TEST_F(HpuOpTest, logspace_out_2) {
 }
 
 TEST_F(HpuOpTest, logspace_out_3) {
-  at::Scalar end = -40.0f;
-  at::Scalar start = -10.0f;
+  at::Scalar end = -40.0F;
+  at::Scalar start = -10.0F;
   int steps = 10;
   float base = 2.0;
 
@@ -78,8 +78,8 @@ TEST_F(HpuOpTest, logspace_out_4) {
 }
 
 TEST_F(HpuOpTest, logspace_out_5) {
-  at::Scalar start = 0.0f;
-  at::Scalar end = 10.0f;
+  at::Scalar start = 0.0F;
+  at::Scalar end = 10.0F;
   int steps = 2;
   float base = 2.0;
 
@@ -93,8 +93,8 @@ TEST_F(HpuOpTest, logspace_out_5) {
 }
 
 TEST_F(HpuOpTest, logspace_out_6) {
-  at::Scalar start = 10.0f;
-  at::Scalar end = 0.0f;
+  at::Scalar start = 10.0F;
+  at::Scalar end = 0.0F;
   int steps = 20;
   float base = 2.0;
 

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ const unsigned DIM_INDEX = 1;
 const unsigned IND_INDEX = 2;
 const unsigned SRC_INDEX = 3;
 
-std::shared_ptr<void> ScatterAddParams(const at::Stack& stack, size_t& size) {
+FillParamsT ScatterAddParams(const at::Stack& stack) {
   PARAMS_STUB(ns_ScatterKernel::ParamsV2);
   const auto dim = stack.at(DIM_INDEX).toInt();
 
@@ -28,7 +28,7 @@ std::shared_ptr<void> ScatterAddParams(const at::Stack& stack, size_t& size) {
   params->dim = dim;
   params->axis = get_dim_in_tpc_order(dim, rank);
 
-  return params;
+  return paramsT;
 }
 
 OutputMetaDataVector ScatterAddMeta(const at::Stack& stack) {

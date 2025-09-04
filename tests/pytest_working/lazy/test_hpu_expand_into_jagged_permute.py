@@ -21,7 +21,7 @@ import random
 import pytest
 import torch
 from habana_frameworks.torch.hpex.kernels.fbgemm import expand_into_jagged_permute
-from test_utils import cpu, hpu
+from test_utils import cpu, hpu, is_gaudi1
 
 
 def expand_into_jagged_permute_ref(
@@ -43,14 +43,31 @@ def expand_into_jagged_permute_ref(
 
 permute_test_case_list = [
     # T, W
-    pytest.param(10, 8),
-    pytest.param(12, 16),
+    pytest.param(
+        10,
+        8,
+        marks=(
+            [pytest.mark.skip(reason="synNodeCreateWithId failed for node: expand_into_jagged_permute_fwd_i32")]
+            if is_gaudi1()
+            else []
+        ),
+    ),
+    pytest.param(
+        12,
+        16,
+        marks=(
+            [pytest.mark.skip(reason="synNodeCreateWithId failed for node: expand_into_jagged_permute_fwd_i32")]
+            if is_gaudi1()
+            else []
+        ),
+    ),
 ]
 
 
 @pytest.mark.parametrize("T, W", permute_test_case_list)
 def test_expand_into_jagged_permute_case(T, W):
-    length_per_w = [random.randint(5000, 10000) for i in range(W)]
+    # This is considered safe because it is not used for security or cryptographic operations.
+    length_per_w = [random.randint(5000, 10000) for i in range(W)]  # nosec B311
     length_1d = list(itertools.chain.from_iterable(itertools.repeat(x, T) for x in length_per_w))
     permute_list = list(range(T * W))
     random.shuffle(permute_list)

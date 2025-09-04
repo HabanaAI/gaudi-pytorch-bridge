@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,12 +18,11 @@
 #include <media_pytorch_proxy.h>
 #include "synapse_shim/logging.h"
 
-#define MEDIA_API_PTR(func) decltype(::func)* func
 #define MEDIA_API_INIT_PTR(func) \
-  CHECK_NULL(func = (decltype(func))dlsym(lib_handle, #func))
+  CHECK_NULL((func) = (decltype(func))dlsym(lib_handle, #func))
 
 namespace shim_media {
-MEDIA_API_PTR(mediaPytFwProxy_init);
+decltype(&::mediaPytFwProxy_init) mediaPytFwProxy_init = nullptr;
 
 void LoadSymbols(void* lib_handle) {
   MEDIA_API_INIT_PTR(mediaPytFwProxy_init);
@@ -62,7 +61,8 @@ LibMediaLoader::LibMediaLoader() {
   CHECK_NULL(media_lib_handle_);
   shim_media::LoadSymbols(media_lib_handle_);
   link_map* l_map = nullptr;
-  CHECK_TRUE_DL(!dlinfo(media_lib_handle_, RTLD_DI_LINKMAP, &l_map));
+  CHECK_TRUE_DL(!dlinfo(
+      media_lib_handle_, RTLD_DI_LINKMAP, reinterpret_cast<void*>(&l_map)));
   media_lib_path_ = l_map->l_name;
 }
 

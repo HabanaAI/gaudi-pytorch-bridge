@@ -30,7 +30,7 @@ class HpuFallbackHelper {
  public:
   static HpuFallbackHelper* get() {
     // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-    static HpuFallbackHelper* singleton = new HpuFallbackHelper();
+    static auto* singleton = new HpuFallbackHelper();
     return singleton;
   }
 

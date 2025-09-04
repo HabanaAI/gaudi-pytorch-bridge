@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 
+#include "../utils/dtype_supported_on_device.h"
 #include "util.h"
 
 namespace {
@@ -97,6 +98,9 @@ TEST_F(FusedDropoutHpuOpTest, DefaultGenerator_SameSeeds_ResultsEqual) {
 }
 
 TEST_F(FusedDropoutHpuOpTest, DefaultGenerator_DifferentSeeds_ResultsVary) {
+  if (not IsDtypeSupportedOnCurrentDevice(torch::kHalf)) {
+    GTEST_SKIP();
+  }
   expectOutputsInequality(
       computeOutputsUsingDefaultGen({2, 3, 4, 5}, torch::kHalf, 0.7123, 6, 9));
 }

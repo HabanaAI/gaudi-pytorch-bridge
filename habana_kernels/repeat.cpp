@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@
 #include "habana_kernels/tensor_shape_kernels.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/tensor_impl.h"
+#include "hpu_ops/hpu_op_helper.h"
 
 using namespace torch;
 using namespace habana;
@@ -80,7 +81,7 @@ std::vector<int64_t> RepeatOperatorHT::ComputeRepeatShapefromH2DTensor(
   }
 
   std::vector<int64_t> repeat;
-  uint32_t* h2d_data = static_cast<uint32_t*>(host_ptr);
+  auto* h2d_data = static_cast<uint32_t*>(host_ptr);
   for (size_t i = 0; i < h2d_data_size; i++) {
     repeat.push_back(*h2d_data++);
   }
@@ -95,7 +96,7 @@ InferOutputMetaRetType RepeatOperatorHT::InferOutputMeta(
   auto param_tensor = inputs[1].toTensor();
 
   auto repeat_shape = ComputeRepeatShapefromH2DTensor(param_tensor);
-  int64_t size = static_cast<int64_t>(repeat_shape.size());
+  auto size = static_cast<int64_t>(repeat_shape.size());
 
   std::vector<int64_t> rpt_cast;
   for_each(repeat_shape.rbegin(), repeat_shape.rend(), [&](const int32_t& n) {
@@ -134,7 +135,7 @@ void RepeatOperatorHT::AllocateAndAddSynapseNode(
   auto input = inputs[0].toTensor();
   auto param_tensor = inputs[1].toTensor();
   auto repeat_shape = ComputeRepeatShapefromH2DTensor(param_tensor);
-  int64_t size = static_cast<int64_t>(repeat_shape.size());
+  auto size = static_cast<int64_t>(repeat_shape.size());
 
   std::vector<int64_t> rpt_cast;
   for_each(repeat_shape.rbegin(), repeat_shape.rend(), [&](const int32_t& n) {
@@ -159,11 +160,11 @@ void RepeatOperatorHT::AllocateAndAddSynapseNode(
     p_context_->syn_inputs_[0] = std::move(syn_tensor);
   }
 
-  if (!graph.is_dry_run() &&
-      output_metadata.at(0).allocated_tensor.has_value()) {
+  auto allocated_tensor = output_metadata.at(0).allocated_tensor;
+  if (!graph.is_dry_run() && allocated_tensor.has_value()) {
     AllocateSynapseOutput(
         graph,
-        output_metadata.at(0).allocated_tensor.value(),
+        allocated_tensor.value(),
         output_metadata.at(0));
   } else {
     auto output = habana::createPTTensor(
@@ -207,11 +208,11 @@ void RepeatOperator::AllocateAndAddSynapseNode(
   }
   ns_TileKernel::ParamsV2 params{};
 
-  if (!graph.is_dry_run() &&
-      output_metadata.at(0).allocated_tensor.has_value()) {
+  auto allocated_tensor = output_metadata.at(0).allocated_tensor;
+  if (!graph.is_dry_run() && allocated_tensor.has_value()) {
     AllocateSynapseOutput(
         graph,
-        output_metadata.at(0).allocated_tensor.value(),
+        allocated_tensor.value(),
         output_metadata.at(0));
   } else {
     auto output = habana::createPTTensor(
@@ -314,7 +315,7 @@ std::vector<int64_t> RepeatInlvOperatorHT::ComputeRepeatShapefromH2DTensor(
   }
 
   std::vector<int64_t> repeat;
-  uint32_t* h2d_data = static_cast<uint32_t*>(host_ptr);
+  auto* h2d_data = static_cast<uint32_t*>(host_ptr);
   for (size_t i = 0; i < h2d_data_size; i++) {
     repeat.push_back(*h2d_data++);
   }
@@ -329,7 +330,7 @@ InferOutputMetaRetType RepeatInlvOperatorHT::InferOutputMeta(
   auto repeats_ht = inputs[1].toTensor();
 
   auto repeat_vec = ComputeRepeatShapefromH2DTensor(repeats_ht);
-  auto out_size = std::accumulate(repeat_vec.begin(), repeat_vec.end(), 0ll);
+  auto out_size = std::accumulate(repeat_vec.begin(), repeat_vec.end(), 0LL);
   auto out_shape = RepeatInlvOperator::compute_output_shape(input, 0, out_size);
 
   auto out_metadata = TensorMetaData(
@@ -371,7 +372,7 @@ void RepeatInlvOperatorHT::AllocateAndAddSynapseNode(
       habana::HostDataType::INT32_T);
 
   auto repeat_vec = ComputeRepeatShapefromH2DTensor(repeats_ht);
-  auto out_size = std::accumulate(repeat_vec.begin(), repeat_vec.end(), 0ll);
+  auto out_size = std::accumulate(repeat_vec.begin(), repeat_vec.end(), 0LL);
 
   auto out_shape = RepeatInlvOperator::compute_output_shape(input, 0, out_size);
 
@@ -385,6 +386,8 @@ void RepeatInlvOperatorHT::AllocateAndAddSynapseNode(
 
 static auto& RepeatKernelRegistry =
     habana::KernelRegistry()
-        .add("hpu::repeat_inlv", KERNEL_FN(RepeatInlvOperator))
-        .add("hpu::repeat_inlv_ht", KERNEL_FN(RepeatInlvOperatorHT))
-        .add("hpu::repeat_ht", KERNEL_FN(RepeatOperatorHT));
+        .REGISTER_HPU_BACKEND("hpu::repeat_inlv", habana::RepeatInlvOperator)
+        .REGISTER_HPU_BACKEND(
+            "hpu::repeat_inlv_ht",
+            habana::RepeatInlvOperatorHT)
+        .REGISTER_HPU_BACKEND("hpu::repeat_ht", habana::RepeatOperatorHT);

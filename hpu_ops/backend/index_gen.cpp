@@ -20,6 +20,7 @@
 #include "habana_kernels/tensor_shape_kernels.h"
 #include "hpu_ops/backend/arange.h"
 #include "hpu_ops/common/index.h"
+#include "hpu_ops/hpu_op_helper.h"
 #include "hpu_ops/indexing_ops_helper.h"
 
 namespace habana {
@@ -73,7 +74,7 @@ static std::vector<int64_t> CalcCatOutSize(
   // out tensor size should match along all dimensions for input tensors except
   // along the dim in which to cat
   auto out_size = tensors->at(0);
-  if (out_size.size() != 0) {
+  if (!out_size.empty()) {
     out_size[dim] = 0;
     for (unsigned i = 0; i < tensor_count; i++)
       out_size[dim] += tensors->at(i)[dim];
@@ -124,9 +125,8 @@ static sizes_vec IndexOutShapeFromOrigStack(const at::Stack& stack) {
     int i = 0;
     for (const auto& index_opt : indices_ival) {
       auto o1 = index_opt.toOptional<at::Tensor>();
-      if (o1.has_value() && !o1.value().defined()) {
-        // Don't add undefined tensors to list as Lazy infra can't handle such
-        // tensors
+      if (!o1.has_value() || (o1.has_value() && !o1.value().defined())) {
+        // handle advanced indexing
         adv_index_dims[i] = -1;
         adv_indexing_present = true;
       } else if (o1.has_value() && o1.value().defined()) {
@@ -146,8 +146,8 @@ static sizes_vec IndexOutShapeFromOrigStack(const at::Stack& stack) {
     std::vector<int64_t> input_shape;
     int64_t largest_specified_index_t_size = 0;
     for (int i = 0; i < (int)permuted_input_sizes.size(); i++) {
-      if (adv_index_dims[i] > largest_specified_index_t_size)
-        largest_specified_index_t_size = adv_index_dims[i];
+      largest_specified_index_t_size =
+          std::max(largest_specified_index_t_size, adv_index_dims[i]);
     }
     bool explicit_index_found = false;
     for (int i = 0; i < (int)permuted_input_sizes.size(); i++) {
@@ -174,9 +174,10 @@ static sizes_vec IndexOutShapeFromOrigStack(const at::Stack& stack) {
 
 sizes_vec IndexOutputShape(const at::Stack& stack) {
   const at::Tensor input = stack_tensor(stack, 0);
-  auto indices = stack.at(1).toTensorList().vec();
+
   if (stack.size() > 2) { // indicates that we are getting the custom schema
                           // with additional info
+    auto indices = stack.at(1).toTensorList().vec();
     std::vector<bool> adv_ind_dim = stack[2].toBoolList().vec();
     const int num_index_tensors = stack[4].toInt();
     const bool adv_indexing_present = std::any_of(
@@ -199,8 +200,7 @@ sizes_vec IndexOutputShape(const at::Stack& stack) {
       return shape;
     }
   } else {
-    HABANA_ASSERT(
-        "!!!Not expected to hit IndexOutShapeFromOrigStack as index op uses custom schema!!!");
+    // handle non-advanced indexing cases and advanced indexing cases upto 2D
     return IndexOutShapeFromOrigStack(stack);
   }
 }
@@ -215,9 +215,7 @@ OutputMetaDataVector IndexMeta(const at::Stack& stack) {
   return {meta};
 }
 
-static std::shared_ptr<void> FillPermuteParams(
-    const at::Stack& stack,
-    size_t& size) {
+static FillParamsT FillPermuteParams(const at::Stack& stack) {
   PARAMS_STUB(synTransposeParamsNDims);
   auto self = stack.at(0).toTensor();
   auto permute_dim_arr = stack[3].toIntList().vec();
@@ -231,25 +229,49 @@ static std::shared_ptr<void> FillPermuteParams(
     params->permutation[i] = static_cast<TransposePermutationDim>(i);
   }
 
-  return params;
+  return paramsT;
 }
 
-std::shared_ptr<void> FillIndexParams(const at::Stack& stack, size_t& size) {
+FillParamsT FillIndexParams(const at::Stack& stack) {
   PARAMS_STUB(ns_IndexKernel::Params);
 
-  auto const& adv_indexing_dims = stack.at(2).toBoolList();
-  auto const aid_size = adv_indexing_dims.size();
-  for (size_t i = 0; i < aid_size; ++i)
-    params->advanced_indexing_dims[i] = adv_indexing_dims[i];
+  if (stack.size() > 2) {
+    auto const& adv_indexing_dims = stack.at(2).toBoolList();
+    auto const aid_size = adv_indexing_dims.size();
+    for (size_t i = 0; i < aid_size; ++i)
+      params->advanced_indexing_dims[i] = adv_indexing_dims[i];
 
-  auto const& self_permute_dims = stack.at(3).toIntList();
-  auto const spd_size = self_permute_dims.size();
-  for (size_t i = 0; i < spd_size; ++i)
-    params->self_permute_dims[i] = self_permute_dims[i];
+    auto const& self_permute_dims = stack.at(3).toIntList();
+    auto const spd_size = self_permute_dims.size();
+    for (size_t i = 0; i < spd_size; ++i)
+      params->self_permute_dims[i] = self_permute_dims[i];
 
-  params->num_index_tensors = stack.at(4).toScalar().toInt();
+    params->num_index_tensors = stack.at(4).toScalar().toInt();
 
-  return params;
+    return paramsT;
+  } else {
+    // handle advanced indexing
+    std::vector<bool> adv_ind_dim;
+    const auto& self = stack_tensor(stack, 0);
+    auto opt_tensorlist_args = stack.at(1).toOptionalTensorList();
+    for (std::optional<at::Tensor> input_ind : opt_tensorlist_args) {
+      auto input = input_ind.value_or(at::Tensor());
+      if (input.defined()) {
+        adv_ind_dim.push_back(false);
+      } else {
+        adv_ind_dim.push_back(true);
+      }
+    }
+    auto const aid_size = adv_ind_dim.size();
+    for (size_t i = 0; i < aid_size; ++i)
+      params->advanced_indexing_dims[i] = adv_ind_dim[i];
+
+    for (int i = 0; i < (int)self.dim(); i++) {
+      params->self_permute_dims[i] = i;
+    }
+    params->num_index_tensors = opt_tensorlist_args.size();
+    return paramsT;
+  }
 }
 
 SharedMetaDataVector IndexSharedMeta(
@@ -289,8 +311,7 @@ void IndexHabanaOperator::AddNode(
     const at::Stack& stack) {
   if (!GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE)) {
     // new implementation only for eager.
-    size_t size = 0;
-    auto params = FillIndexParams(stack, size);
+    auto params = FillIndexParams(stack);
     auto meta = IndexMeta(stack)[0];
 
     StackGetter stackGetter(this, stack, "IndexHabanaOperator::AddNode");
@@ -298,16 +319,30 @@ void IndexHabanaOperator::AddNode(
     auto indices = stackGetter.getNextInput<std::vector<TensorsPair>>();
 
     std::vector<synTensor> index_input{input.syn_t};
-    for (auto const& index : indices)
-      index_input.push_back(index.syn_t);
+    if (!stack.at(1).isOptionalTensorList()) {
+      for (auto const& index : indices) {
+        index_input.push_back(index.syn_t);
+      }
+    } else {
+      // handle advanced indexing
+      auto opt_tensorlist_args = stack.at(1).toOptionalTensorList();
+      int i = 0;
+      for (std::optional<at::Tensor> input_ind : opt_tensorlist_args) {
+        auto input = input_ind.value_or(at::Tensor());
+        if (input.defined()) {
+          i++;
+          index_input.push_back(syn_in(i));
+        }
+      }
+    }
 
     auto result = BuildOp(
         graph,
         get_guid_with_precision("index"sv, meta.dtype),
         std::move(index_input),
         {{meta.shape, meta.dtype, 0}},
-        params.get(),
-        size);
+        params.ptr(),
+        params.size());
 
     syn_out(0) = std::move(result[0]);
 
@@ -349,15 +384,14 @@ void IndexHabanaOperator::AddNode(
           c10::IValue(sparse_grad)};
 
       // Fill params for gather
-      size_t size = 0;
-      const auto& gather_params = FillGatherParams(stack_, size);
+      const auto& gather_params = FillGatherParams(stack_);
       auto gatherOp = BuildOp(
           graph,
           get_guid_with_precision("gather_fwd"sv, ScalarType()),
           {syn_in(0), syn_in(1)},
           {{outshape, ScalarType(), 0}},
-          gather_params.get(),
-          size);
+          gather_params.ptr(),
+          gather_params.size());
       syn_out(0) = std::move(gatherOp[0]);
       return;
     }
@@ -366,7 +400,7 @@ void IndexHabanaOperator::AddNode(
 
     auto max_size = broadcast_size(tensorlist);
     auto max_dims = (int)max_size.size();
-    int64_t max_num_elems = (int64_t)std::accumulate(
+    auto max_num_elems = (int64_t)std::accumulate(
         max_size.begin(), max_size.end(), 1, std::multiplies<int64_t>());
     auto scalar_type = tensorlist[0].scalar_type();
 
@@ -376,7 +410,7 @@ void IndexHabanaOperator::AddNode(
     for (size_t i = 0; i < tensorlist.size(); i++) {
       auto t_sz = tensorlist[i].sizes().vec();
       int num_dims = (int)t_sz.size();
-      int64_t num_elems = (int64_t)std::accumulate(
+      auto num_elems = (int64_t)std::accumulate(
           t_sz.begin(), t_sz.end(), 1, std::multiplies<int64_t>());
       std::vector<synTensor> index_maybe_multidim_synTensor{syn_in(i + 1)};
       std::unique_ptr<synapse_helpers::tensor> index_maybe_multidim_shTensor;
@@ -426,9 +460,10 @@ void IndexHabanaOperator::AddNode(
 
     int64_t dim = 0;
     std::vector<int64_t> cat_out_size = CalcCatOutSize(&cat_input_index, &dim);
-    dim = cat_out_size.size() > 0
-        ? (cat_out_size.size() - dim) - 1
-        : 0; // if tensor is empty then dim of the concatenated tensor will be 0
+
+    dim = cat_out_size.empty()
+        ? 0 // if tensor is empty then dim of the concatenated tensor will be 0
+        : (cat_out_size.size() - dim) - 1;
 
     synConcatenateParams concat_params{};
     concat_params.axis = dim;
@@ -463,8 +498,8 @@ void IndexHabanaOperator::AddNode(
     int64_t explicit_index_count = 0;
     std::vector<int64_t> broadcast_to_size = {1};
     std::vector<bool> index_all_elems(self.dim());
-    int64_t repeats_needed[self.dim()];
-    int64_t repeat_interleaves_needed[self.dim()];
+    std::vector<int64_t> repeats_needed(self.dim());
+    std::vector<int64_t> repeat_interleaves_needed(self.dim());
     std::vector<int64_t> indices_size_with_adv_indexing;
     std::vector<synTensor> indices_list;
     std::vector<synTensor> cat_input_synTensor;
@@ -474,8 +509,7 @@ void IndexHabanaOperator::AddNode(
     const std::vector<int64_t> self_permute_dims = stack[3].toIntList().vec();
 
     synTensor permuted_self_t;
-    size_t size = 0;
-    const auto& params = FillPermuteParams(stack, size);
+    const auto& params = FillPermuteParams(stack);
     std::vector<int64_t> new_sizes, new_strides;
     std::tie(new_sizes, new_strides) =
         PermuteOperator::compute_output_shape(self, self_permute_dims);
@@ -484,8 +518,8 @@ void IndexHabanaOperator::AddNode(
         "transpose",
         {syn_in(0)},
         {{new_sizes, ScalarType()}},
-        params.get(),
-        size);
+        params.ptr(),
+        params.size());
 
     auto permuted_self_shape = permuted_self[0].pt_shape();
     permuted_self_t = std::move(permuted_self[0].get());
@@ -548,10 +582,7 @@ void IndexHabanaOperator::AddNode(
       } else {
         index_numel = permuted_self_shape[i];
       }
-      if (index_all_elems[i] && explicit_index_above) {
-        repeats_needed[i] *= broadcast_to_size_numel;
-      } else if (
-          !index_all_elems[i] && (index_numel < broadcast_to_size_numel)) {
+      if ((index_all_elems[i] && explicit_index_above) || (!index_all_elems[i] && (index_numel < broadcast_to_size_numel))) {
         repeats_needed[i] *= broadcast_to_size_numel;
       }
     }
@@ -580,11 +611,10 @@ void IndexHabanaOperator::AddNode(
       int64_t num_elems;
       if (index_all_elems[dim]) {
         std::vector<int64_t> outshape{permuted_self_shape[dim]};
-        size_t size = 0;
         at::Stack arange_stack = {};
         num_elems = permuted_self_shape[dim];
         auto params = FillArangeParamsInternal(
-            0, permuted_self_shape[dim], 1, index_dtype, size);
+            0, permuted_self_shape[dim], 1, index_dtype);
 
         index_tensor_to_use.emplace_back(ArangeCommon(
             this,
@@ -598,7 +628,6 @@ void IndexHabanaOperator::AddNode(
             get_guid_with_precision("range"sv, index_dtype),
             outshape,
             params,
-            size,
             std::nullopt));
         if ((broadcast_to_size_numel == 1) &&
             (repeat_interleaves_needed[dim] == 1) &&
@@ -651,28 +680,26 @@ void IndexHabanaOperator::AddNode(
             rinlv_bcast_size,
             index_dtype);
 
-        auto rnilv_transpose_params =
-            std::make_shared<synTransposeParamsNDims>();
+        synTransposeParamsNDims rnilv_transpose_params{};
         std::vector<int64_t> t_dim_arr{1, 0};
         std::vector<int64_t> t_new_sizes{
             num_elems, repeat_interleaves_needed[dim]};
-        rnilv_transpose_params->tensorDim = (int64_t)rinlv_bcast_size.size();
-        rnilv_transpose_params->permutation[0] =
+        rnilv_transpose_params.tensorDim = (int64_t)rinlv_bcast_size.size();
+        rnilv_transpose_params.permutation[0] =
             static_cast<TransposePermutationDim>(
-                rnilv_transpose_params->tensorDim -
+                rnilv_transpose_params.tensorDim -
                 t_dim_arr[t_dim_arr.size() - 1] - 1);
-        rnilv_transpose_params->permutation[1] =
+        rnilv_transpose_params.permutation[1] =
             static_cast<TransposePermutationDim>(
-                rnilv_transpose_params->tensorDim -
+                rnilv_transpose_params.tensorDim -
                 t_dim_arr[t_dim_arr.size() - 2] - 1);
-        size = sizeof(synTransposeParamsNDims);
         auto t_op = BuildOp(
             graph,
             "transpose",
             {bcastOp.get()},
             {{t_new_sizes, index_dtype}},
-            rnilv_transpose_params.get(),
-            size);
+            &rnilv_transpose_params,
+            sizeof(rnilv_transpose_params));
         std::vector<int64_t> reshape_size = {
             num_elems * repeat_interleaves_needed[dim]};
         std::vector<int64_t> reshape_outshape = {reshape_size};
@@ -681,19 +708,18 @@ void IndexHabanaOperator::AddNode(
 
         std::vector<int64_t> rpt_outshape = {
             num_elems * repeat_interleaves_needed[dim] * repeats_needed[dim]};
-        auto tile_params = std::make_shared<ns_TileKernel::ParamsV2>();
-        size = sizeof(ns_TileKernel::ParamsV2);
+        ns_TileKernel::ParamsV2 tile_params{};
         for (int i = 0; i < MAX_TPC_SUPPORTED_REPEAT_DIMS; i++) {
-          tile_params->repeat[i] = 1;
+          tile_params.repeat[i] = 1;
         }
-        tile_params->repeat[0] = repeats_needed[dim];
+        tile_params.repeat[0] = repeats_needed[dim];
         auto rpt_op = BuildOp(
             graph,
             get_guid_with_precision("tile_fwd"sv, index_dtype),
             {reshaped_index.get()},
             {{rpt_outshape, index_dtype}},
-            tile_params.get(),
-            size);
+            &tile_params,
+            sizeof(tile_params));
 
         indices_size_with_adv_indexing = rpt_outshape;
         auto tensorlist = stack[1].toTensorList().vec();
@@ -709,12 +735,11 @@ void IndexHabanaOperator::AddNode(
             cat_input_tensor[cat_input_tensor.size() - 1].pt_shape());
       } else if (repeats_needed[dim] > 1) {
         std::vector<int64_t> rpt_outshape = {num_elems * repeats_needed[dim]};
-        auto tile_params = std::make_shared<ns_TileKernel::ParamsV2>();
-        size = sizeof(ns_TileKernel::ParamsV2);
+        ns_TileKernel::ParamsV2 tile_params{};
         for (int i = 0; i < MAX_TPC_SUPPORTED_REPEAT_DIMS; i++) {
-          tile_params->repeat[i] = 1;
+          tile_params.repeat[i] = 1;
         }
-        tile_params->repeat[0] = repeats_needed[dim];
+        tile_params.repeat[0] = repeats_needed[dim];
         auto rpt_op = BuildOp(
             graph,
             get_guid_with_precision("tile_fwd"sv, index_dtype),
@@ -726,8 +751,8 @@ void IndexHabanaOperator::AddNode(
                                            index_dtype)
                                            .get())},
             {{rpt_outshape, index_dtype}},
-            tile_params.get(),
-            size);
+            &tile_params,
+            sizeof(tile_params));
         indices_size_with_adv_indexing = rpt_outshape;
         auto tensorlist = stack[1].toTensorList().vec();
         std::vector<int64_t> expanded_size{1};
@@ -762,9 +787,9 @@ void IndexHabanaOperator::AddNode(
     auto scalar_type = tensorlist[0].scalar_type();
     int64_t dim = 0;
     std::vector<int64_t> cat_out_size = CalcCatOutSize(&cat_input_index, &dim);
-    dim = cat_out_size.size() > 0
-        ? (cat_out_size.size() - dim) - 1
-        : 0; // if tensor is empty then dim of the concatenated tensor will be 0
+    dim = cat_out_size.empty()
+        ? 0 // if tensor is empty then dim of the concatenated tensor will be 0
+        : (cat_out_size.size() - dim) - 1;
     synConcatenateParams concat_params{};
     concat_params.axis = dim;
     auto catop1 = BuildOp(
@@ -798,7 +823,7 @@ std::vector<int64_t> ComputeGatherOperatorOutputShape(
     const at::Tensor& index) {
   auto dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
   auto shape = self.sizes().vec();
-  if (shape.size()) {
+  if (!shape.empty()) {
     // for gather op, output size is same as index
     if (self.dim() == index.dim()) {
       shape = index.sizes().vec();
@@ -821,9 +846,7 @@ SimpleIndexCompileOperator::SimpleIndexCompileOperator(
     c10::ScalarType scalar_type)
     : OpBackend(device_id, {}, scalar_type, {0}, {}, {}, false) {}
 
-static std::shared_ptr<void> FillSimpleIndexParams(
-    size_t num_index_tensors,
-    size_t& size) {
+static FillParamsT FillSimpleIndexParams(size_t num_index_tensors) {
   PARAMS_STUB(ns_IndexKernel::Params);
   assert(
       num_index_tensors <=
@@ -834,7 +857,7 @@ static std::shared_ptr<void> FillSimpleIndexParams(
     params->self_permute_dims[i] = 0;
   }
   params->num_index_tensors = num_index_tensors;
-  return params;
+  return paramsT;
 }
 
 void SimpleIndexCompileOperator::AddNode(
@@ -844,8 +867,7 @@ void SimpleIndexCompileOperator::AddNode(
   StackGetter stackGetter(this, stack, "IndexHabanaOperator::AddNode");
   auto input = stackGetter.getNextInput<TensorsPair>();
   auto indices = stackGetter.getNextInput<std::vector<TensorsPair>>();
-  size_t size = 0;
-  auto params = FillSimpleIndexParams(indices.size(), size);
+  auto params = FillSimpleIndexParams(indices.size());
   std::vector<synTensor> index_input{input.syn_t};
   for (auto const& index : indices)
     index_input.push_back(index.syn_t);
@@ -855,14 +877,15 @@ void SimpleIndexCompileOperator::AddNode(
       get_guid_with_precision("index"sv, meta.dtype),
       std::move(index_input),
       {{meta.shape, meta.dtype, 0}},
-      params.get(),
-      size);
+      params.ptr(),
+      params.size());
 
   syn_out(0) = std::move(result[0]);
 }
 
 } // namespace habana
 
-static const auto& IndexAtenKernelRegistry = habana::KernelRegistry().add(
-    "aten::index.Tensor_hacked_twin",
-    KERNEL_FN_GLOBAL(habana::SimpleIndexCompileOperator));
+static const auto& IndexAtenKernelRegistry =
+    habana::KernelRegistry().REGISTER_HPU_BACKEND(
+        "aten::index.Tensor_hacked_twin",
+        habana::SimpleIndexCompileOperator);

@@ -190,7 +190,7 @@ auto get_cast_type_for_long() {
 } // namespace
 
 std::ostream& operator<<(std::ostream& os, const CastType& obj) {
-  os << static_cast<std::underlying_type<CastType>::type>(obj);
+  os << static_cast<std::underlying_type_t<CastType>>(obj);
   return os;
 }
 

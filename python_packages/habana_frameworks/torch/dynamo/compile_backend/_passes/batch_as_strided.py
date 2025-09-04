@@ -22,6 +22,7 @@ from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backen
 
 import torch
 from torch.fx.passes.operator_support import OperatorSupport
+from torch.fx.passes.tools_common import legalize_graph
 
 from .._helpers import fill_propagated_tensor_metadata_to_node
 from ..partitioner import HabanaPartitioner
@@ -31,7 +32,7 @@ logger = get_compile_backend_logger()
 
 class BatchAsStridedOperatorSupport(OperatorSupport):
     def is_node_supported(self, submodules: Mapping[str, torch.nn.Module], node: torch.fx.Node) -> bool:
-        return "as_strided" in str(node.target) and "hpu" in str(node.meta["output_device"])
+        return "as_strided.default" in str(node.target) and "hpu" in str(node.meta["output_device"])
 
 
 def group_batch_as_strided(graph_module: torch.fx.GraphModule) -> list:
@@ -51,6 +52,7 @@ def batch_as_strided(graph_module: torch.fx.GraphModule, current_batch_as_stride
     sorted_as_strided_nodes = graph_module.graph.find_nodes(
         op="call_function", target=torch.ops.aten.as_strided.default, sort=True
     )
+
     if len(sorted_as_strided_nodes) <= 1:
         return retval
 
@@ -78,6 +80,7 @@ def batch_as_strided(graph_module: torch.fx.GraphModule, current_batch_as_stride
 
         assert len(sorted_partition_nodes) == len(partition_nodes), "Mismatch between as_strideds count"
 
+        # Inserting batch_as_strided node after the last as_strided node of the partition
         with graph_module.graph.inserting_after(sorted_partition_nodes[-1]):
             batch_as_strided_node = graph_module.graph.call_function(
                 torch.ops.hpu.batch_as_strided, (bas_input_nodes, bas_shapes, bas_strides, bas_offsets)
@@ -97,6 +100,7 @@ def batch_as_strided(graph_module: torch.fx.GraphModule, current_batch_as_stride
                 fill_propagated_tensor_metadata_to_node(getitem_result, getitem_node)
             node.replace_all_uses_with(getitem_node)
             graph_module.graph.erase_node(node)
+    legalize_graph(graph_module)
     graph_module.recompile()
     graph_module.graph.lint()
     return retval

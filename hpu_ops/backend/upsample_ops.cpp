@@ -20,7 +20,7 @@
 #include "generated/backend/upsample_nearest1d.h"
 #include "generated/backend/upsample_nearest2d.h"
 #include "generated/backend/upsample_nearest3d.h"
-
+#include "hpu_ops/hpu_op_helper.h"
 namespace habana {
 struct UpsampleNearest1dVec : UpsampleNearest1DFwdOperator {
   UpsampleNearest1dVec(int device_id, c10::ScalarType scalar_type)
@@ -121,22 +121,22 @@ struct UpsampleNearest3dVec : UpSampleNearest3DFwdOperator {
 
 static const auto& UpsampleKernelRegistry =
     KernelRegistry()
-        .add(
+        .REGISTER_HPU_BACKEND(
             "aten::upsample_nearest1d.vec",
-            KERNEL_FN_GLOBAL(UpsampleNearest1dVec))
-        .add(
+            UpsampleNearest1dVec)
+        .REGISTER_HPU_BACKEND(
             "aten::upsample_linear1d.vec",
-            KERNEL_FN_GLOBAL(UpsampleLinear1dVec))
-        .add(
+            UpsampleLinear1dVec)
+        .REGISTER_HPU_BACKEND(
             "aten::upsample_bilinear2d.vec",
-            KERNEL_FN_GLOBAL(UpsampleBilinear2dVec))
-        .add(
+            UpsampleBilinear2dVec)
+        .REGISTER_HPU_BACKEND(
             "aten::upsample_bicubic2d.vec",
-            KERNEL_FN_GLOBAL(UpsampleBicubic2dVec))
-        .add(
+            UpsampleBicubic2dVec)
+        .REGISTER_HPU_BACKEND(
             "aten::upsample_nearest2d.vec",
-            KERNEL_FN_GLOBAL(UpsampleNearest2dVec))
-        .add(
+            UpsampleNearest2dVec)
+        .REGISTER_HPU_BACKEND(
             "aten::upsample_nearest3d.vec",
-            KERNEL_FN_GLOBAL(UpsampleNearest3dVec));
+            UpsampleNearest3dVec);
 } // namespace habana

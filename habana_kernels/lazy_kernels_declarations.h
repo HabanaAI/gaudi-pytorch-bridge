@@ -21,6 +21,7 @@
 #include <torch/script.h>
 #include <torch/version.h>
 #include "backend/habana_operator.h"
+#include "habana_helpers/pt_version_check.h"
 
 using OptionalIntArrayRef = at::OptionalIntArrayRef;
 
@@ -28,7 +29,11 @@ namespace habana_lazy {
 at::Tensor bincount_hpu_lazy(
     const at::Tensor& self,
     const std::optional<at::Tensor>& weights,
+#if IS_PYTORCH_AT_LEAST(2, 8)
+    c10::SymInt minlength);
+#else
     int64_t minlength);
+#endif
 at::Tensor _copy_from(
     const at::Tensor& self,
     const at::Tensor& dst,
@@ -534,22 +539,13 @@ at::Tensor& recv_hpu_lazy_(
     int64_t src_rank,
     int64_t tag,
     int64_t comm_id);
-at::Tensor convert_from_int4_lazy(
-    const at::Tensor& input,
-    const at::Tensor& scale,
-    const std::optional<at::Tensor>& zero_point,
-    at::ScalarType out_dtype);
-at::Tensor convert_from_uint4_lazy(
-    const at::Tensor& input,
-    const at::Tensor& scale,
-    const std::optional<at::Tensor>& zero_point,
-    at::ScalarType out_dtype);
 at::Tensor dequantize_nf4_lazy(
     const at::Tensor& input,
     const at::Tensor& absmax,
     c10::SymInt blocksize,
     at::IntArrayRef out_shape,
-    at::ScalarType out_dtype);
+    at::ScalarType out_dtype,
+    const bool use_big_endian);
 std::tuple<at::Tensor, at::Tensor, at::Tensor>
 native_group_norm_backward_hpu_lazy(
     const at::Tensor& grad_out,
@@ -691,7 +687,8 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_fwd_lazy(
     const bool requires_backward,
     std::string_view softmax_mode,
     const std::optional<at::Tensor>& valid_seq_len,
-    std::string_view seq_padding_type);
+    std::string_view seq_padding_type,
+    at::SymIntArrayRef window_size);
 std::tuple<
     at::Tensor,
     at::Tensor,
@@ -718,7 +715,8 @@ fp8_sdpa_recomp_fwd_lazy(
     const bool is_amax_s,
     const bool is_amax_o,
     const std::optional<at::Tensor>& valid_seq_len,
-    std::string_view seq_padding_type);
+    std::string_view seq_padding_type,
+    at::SymIntArrayRef window_size);
 
 std::tuple<
     at::Tensor,
@@ -746,7 +744,8 @@ fp8_sdpa_recomp_fwd_scalar_lazy(
     const bool is_amax_s,
     const bool is_amax_o,
     const std::optional<at::Tensor>& valid_seq_len,
-    std::string_view seq_padding_type);
+    std::string_view seq_padding_type,
+    at::SymIntArrayRef window_size);
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_bwd_lazy(
     const at::Tensor& grad,
@@ -762,4 +761,11 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_bwd_lazy(
     const double scale,
     const std::string_view softmax_mode,
     const at::Tensor& fwd_out);
+
+at::Tensor block_softmax_adjustment_lazy(
+    const at::Tensor& block_maxes,
+    const at::Tensor& block_sums,
+    const at::Tensor& block_groups,
+    int64_t batch_size,
+    const at::OptionalIntArrayRef out_shape);
 } // namespace habana_lazy

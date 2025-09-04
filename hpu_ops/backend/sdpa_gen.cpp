@@ -19,19 +19,19 @@
 #include "generated/backend/sdpa_recomp_bwd.h"
 #include "hpu_ops/custom_op_outshape.h"
 #include "hpu_ops/fp8_utils.h"
+#include "hpu_ops/hpu_op_helper.h"
 
-namespace fp8 = habana::fp8;
 namespace sh = synapse_helpers;
 
 #define SDPA_SET_FLAGS(condition, flags, flag_name) \
   if (condition) {                                  \
-    flags |= SdpaFlags_t::SDPA_FLAGS_##flag_name;   \
+    (flags) |= SdpaFlags_t::SDPA_FLAGS_##flag_name; \
   }
-#define SDPA_ADD_INPUTS(t)                 \
-  if (t) {                                 \
-    syn_inputs.push_back(t.value().syn_t); \
-  } else {                                 \
-    syn_inputs.push_back(nullptr);         \
+#define SDPA_ADD_INPUTS(t)                   \
+  if (t) {                                   \
+    syn_inputs.push_back((t).value().syn_t); \
+  } else {                                   \
+    syn_inputs.push_back(nullptr);           \
   }
 
 namespace habana {
@@ -229,13 +229,14 @@ sizes_vec SDPABwdOutputShape(const at::Stack& stack) {
 }
 
 static void fillSdpaParams(
-    ns_Sdpa::ParamsV5& params,
+    ns_Sdpa::ParamsV7& params,
     double p,
     double scale,
     bool is_causal,
     bool is_inference,
     std::string_view softmax_mode = "",
-    unsigned int flags = 0) {
+    unsigned int flags = 0,
+    std::vector<int64_t> window_size = {}) {
   SdpaSoftmaxMode_t sfmx_mode = SdpaSoftmaxMode_t::SDPA_DEFAULT_SOFTMAX;
   if (softmax_mode == "fast") {
     sfmx_mode = SdpaSoftmaxMode_t::SDPA_SOFTMAX_HF8_1C;
@@ -248,6 +249,8 @@ static void fillSdpaParams(
   params.is_inference = is_inference;
   params.softmax_mode = sfmx_mode;
   params.flags = flags;
+  params.wl = (window_size.size() == 2) ? window_size[0] : -1;
+  params.wr = (window_size.size() == 2) ? window_size[1] : -1;
 
   const auto& device = habana::HPUDeviceContext::get_device();
   params.is_hw_aligned = device.get_scale_attribute_is_hw_aligned();
@@ -290,7 +293,7 @@ void SDPAFwd::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   SDPA_SET_FLAGS(seq_padding_type == "left", flags, SEQ_PADDING_LEFT)
   SDPA_SET_FLAGS(seq_padding_type == "right", flags, SEQ_PADDING_RIGHT)
 
-  ns_Sdpa::ParamsV5 params{};
+  ns_Sdpa::ParamsV7 params{};
   fillSdpaParams(params, p, scale, is_causal, false, softmax_mode, flags);
 
   std::string guid =
@@ -359,7 +362,7 @@ void Fp8SDPAFwd::AddNode(
   auto valid_seq_len = stackGetter.getNextInput<std::optional<TensorsPair>>();
   auto seq_padding_type = stackGetter.getNextInput<std::string_view>();
 
-  ns_Sdpa::ParamsV5 params{};
+  ns_Sdpa::ParamsV7 params{};
   unsigned int flags = 0;
 
   SDPA_SET_FLAGS(is_amax_s, flags, AMAX_S)
@@ -470,7 +473,7 @@ void SDPABwd::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto scale = stackGetter.getNextInput<double>();
   auto fwd_out = stackGetter.getNextInput<TensorsPair>();
 
-  ns_Sdpa::ParamsV5 params{};
+  ns_Sdpa::ParamsV7 params{};
   fillSdpaParams(params, p, scale, is_causal, false /*is_inference*/);
 
   std::string guid =
@@ -543,7 +546,7 @@ void Fp8SDPABwd::AddNode(
   auto is_amax_ds = stackGetter.getNextInput<bool>();
   auto fwd_out = stackGetter.getNextInput<TensorsPair>();
 
-  ns_Sdpa::ParamsV5 params{};
+  ns_Sdpa::ParamsV7 params{};
   unsigned int flags = 0;
   SDPA_SET_FLAGS(is_amax_ds, flags, AMAX_dS)
   SDPA_SET_FLAGS(d_scale_q, flags, D_SCALE_Q)
@@ -767,13 +770,14 @@ void SDPARecompFwd::AddNode(
   auto softmax_mode = stackGetter.getNextInput<std::string_view>();
   auto valid_seq_len = stackGetter.getNextInput<std::optional<TensorsPair>>();
   auto seq_padding_type = stackGetter.getNextInput<std::string_view>();
+  auto window_size = stackGetter.getNextInput<std::vector<int64_t>>();
   unsigned int flags = 0;
 
   SDPA_SET_FLAGS(valid_seq_len, flags, VALID_SEQ_LEN_PRESENT)
   SDPA_SET_FLAGS(seq_padding_type == "left", flags, SEQ_PADDING_LEFT)
   SDPA_SET_FLAGS(seq_padding_type == "right", flags, SEQ_PADDING_RIGHT)
 
-  ns_Sdpa::ParamsV5 params{};
+  ns_Sdpa::ParamsV7 params{};
   fillSdpaParams(
       params,
       p,
@@ -781,7 +785,8 @@ void SDPARecompFwd::AddNode(
       is_causal,
       !requires_backward /*is_inference*/,
       softmax_mode,
-      flags);
+      flags,
+      window_size);
 
   std::string guid =
       get_guid_with_precision("sdpa_recomp_fwd"sv, q.pt_t.scalar_type());
@@ -870,8 +875,9 @@ void Fp8SDPARecompFwd::AddNode(
 
   auto valid_seq_len = stackGetter.getNextInput<std::optional<TensorsPair>>();
   auto seq_padding_type = stackGetter.getNextInput<std::string_view>();
+  auto window_size = stackGetter.getNextInput<std::vector<int64_t>>();
 
-  ns_Sdpa::ParamsV5 params{};
+  ns_Sdpa::ParamsV7 params{};
   unsigned int flags = 0;
 
   SDPA_SET_FLAGS(is_amax_s, flags, AMAX_S)
@@ -939,7 +945,8 @@ void Fp8SDPARecompFwd::AddNode(
       is_causal,
       !requires_backward /*is_inference*/,
       softmax_mode,
-      flags);
+      flags,
+      window_size);
 
   std::vector<NodeAttr::NodeOutputAttr> output_attrs;
 
@@ -1031,7 +1038,7 @@ void SDPARecompBwd::AddNode(
   auto softmax_mode = stackGetter.getNextInput<std::string_view>();
   auto fwd_out = stackGetter.getNextInput<TensorsPair>();
 
-  ns_Sdpa::ParamsV5 params{};
+  ns_Sdpa::ParamsV7 params{};
   fillSdpaParams(
       params, p, scale, is_causal, false /*is_inference*/, softmax_mode);
 
@@ -1101,7 +1108,7 @@ void Fp8SDPARecompBwd::AddNode(
   auto is_amax_ds = stackGetter.getNextInput<bool>();
   auto fwd_out = stackGetter.getNextInput<TensorsPair>();
 
-  ns_Sdpa::ParamsV5 params{};
+  ns_Sdpa::ParamsV7 params{};
   unsigned int flags = 0;
   SDPA_SET_FLAGS(is_amax_ds, flags, AMAX_dS)
   SDPA_SET_FLAGS(d_scale_q, flags, D_SCALE_Q)
@@ -1175,41 +1182,41 @@ void Fp8SDPARecompBwd::AddNode(
 
 static const auto& SDPAKernelRegistry =
     habana::KernelRegistry()
-        .add("hpu::sdpa_fwd_dropout_seed", KERNEL_FN_GLOBAL(habana::SDPAFwd))
-        .add("hpu::sdpa_fwd_non_dropout", KERNEL_FN_GLOBAL(habana::SDPAFwd))
-        .add("hpu::sdpa_fwd", KERNEL_FN_GLOBAL(habana::SDPAFwd))
-        .add("hpu::sdpa_recomp_fwd", KERNEL_FN_GLOBAL(habana::SDPARecompFwd))
-        .add(
+        .REGISTER_HPU_BACKEND("hpu::sdpa_fwd_dropout_seed", habana::SDPAFwd)
+        .REGISTER_HPU_BACKEND("hpu::sdpa_fwd_non_dropout", habana::SDPAFwd)
+        .REGISTER_HPU_BACKEND("hpu::sdpa_fwd", habana::SDPAFwd)
+        .REGISTER_HPU_BACKEND("hpu::sdpa_recomp_fwd", habana::SDPARecompFwd)
+        .REGISTER_HPU_BACKEND(
             "hpu::sdpa_recomp_fwd_non_dropout",
-            KERNEL_FN_GLOBAL(habana::SDPARecompFwd))
-        .add(
+            habana::SDPARecompFwd)
+        .REGISTER_HPU_BACKEND(
             "hpu::sdpa_recomp_fwd_dropout_seed",
-            KERNEL_FN_GLOBAL(habana::SDPARecompFwd))
-        .add("hpu::fp8_sdpa_fwd", KERNEL_FN_GLOBAL(habana::Fp8SDPAFwd))
-        .add(
+            habana::SDPARecompFwd)
+        .REGISTER_HPU_BACKEND("hpu::fp8_sdpa_fwd", habana::Fp8SDPAFwd)
+        .REGISTER_HPU_BACKEND(
             "hpu::fp8_sdpa_fwd_dropout_seed",
-            KERNEL_FN_GLOBAL(habana::Fp8SDPAFwd))
-        .add(
+            habana::Fp8SDPAFwd)
+        .REGISTER_HPU_BACKEND(
             "hpu::fp8_sdpa_fwd_non_dropout",
-            KERNEL_FN_GLOBAL(habana::Fp8SDPAFwd))
-        .add(
+            habana::Fp8SDPAFwd)
+        .REGISTER_HPU_BACKEND(
             "hpu::fp8_sdpa_recomp_fwd",
-            KERNEL_FN_GLOBAL(habana::Fp8SDPARecompFwd))
-        .add(
+            habana::Fp8SDPARecompFwd)
+        .REGISTER_HPU_BACKEND(
             "hpu::fp8_sdpa_recomp_fwd_dropout_seed",
-            KERNEL_FN_GLOBAL(habana::Fp8SDPARecompFwd))
-        .add(
+            habana::Fp8SDPARecompFwd)
+        .REGISTER_HPU_BACKEND(
             "hpu::fp8_sdpa_recomp_fwd_non_dropout",
-            KERNEL_FN_GLOBAL(habana::Fp8SDPARecompFwd))
-        .add(
+            habana::Fp8SDPARecompFwd)
+        .REGISTER_HPU_BACKEND(
             "hpu::fp8_sdpa_recomp_fwd.scalar",
-            KERNEL_FN_GLOBAL(habana::Fp8SDPARecompFwd))
-        .add(
+            habana::Fp8SDPARecompFwd)
+        .REGISTER_HPU_BACKEND(
             "hpu::fp8_sdpa_recomp_fwd_dropout_seed.scalar",
-            KERNEL_FN_GLOBAL(habana::Fp8SDPARecompFwd))
-        .add(
+            habana::Fp8SDPARecompFwd)
+        .REGISTER_HPU_BACKEND(
             "hpu::fp8_sdpa_recomp_fwd_non_dropout.scalar",
-            KERNEL_FN_GLOBAL(habana::Fp8SDPARecompFwd))
-        .add(
+            habana::Fp8SDPARecompFwd)
+        .REGISTER_HPU_BACKEND(
             "hpu::fp8_sdpa_recomp_bwd",
-            KERNEL_FN_GLOBAL(habana::Fp8SDPARecompBwd));
+            habana::Fp8SDPARecompBwd);

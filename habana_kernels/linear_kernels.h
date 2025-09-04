@@ -29,6 +29,9 @@ class MMOperator : public HabanaOperator {
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
   }
 
+  MMOperator(int device_id, [[maybe_unused]] c10::ScalarType node_type)
+      : MMOperator(device_id) {}
+
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
@@ -118,6 +121,9 @@ class MatMulOperator : public HabanaOperator {
     this->CreateSynContext(device_id);
   }
 
+  MatMulOperator(int device_id, [[maybe_unused]] c10::ScalarType node_type)
+      : MatMulOperator(device_id) {}
+
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
@@ -134,6 +140,11 @@ class MatmulBackwardOperator : public HabanaOperator {
   MatmulBackwardOperator(int device_id) : HabanaOperator("matmul_backward") {
     this->CreateSynContext(device_id);
   }
+
+  MatmulBackwardOperator(
+      int device_id,
+      [[maybe_unused]] c10::ScalarType node_type)
+      : MatmulBackwardOperator(device_id) {}
 
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,

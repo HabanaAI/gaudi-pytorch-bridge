@@ -16,8 +16,7 @@
 
 #include <ATen/EmptyTensor.h>
 
-namespace habana {
-namespace eager {
+namespace habana::eager {
 at::Tensor empty(
     at::SymIntArrayRef size,
     std::optional<at::ScalarType> dtype_opt,
@@ -32,5 +31,4 @@ at::Tensor empty_strided(
     std::optional<at::Layout> layout_opt,
     std::optional<at::Device> device_opt,
     std::optional<bool> pin_memory_opt);
-} // namespace eager
-} // namespace habana
+} // namespace habana::eager

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,14 +17,14 @@
 
 namespace habana {
 
-std::shared_ptr<void> FillHardSigmoidParams(const at::Stack&, size_t& size) {
+FillParamsT FillHardSigmoidParams(const at::Stack&) {
   PARAMS_STUB(ns_HardSigmoidKernel::Params);
-  constexpr float alpha = 1 / 6.0f;
-  constexpr float beta = 1 / 2.0f;
+  constexpr float alpha = 1 / 6.0F;
+  constexpr float beta = 1 / 2.0F;
 
   params->alpha = alpha;
   params->beta = beta;
 
-  return params;
+  return paramsT;
 }
 } // namespace habana

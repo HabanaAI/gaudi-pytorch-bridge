@@ -32,16 +32,12 @@
 
 #include "jit_fork/frontend/source_range.h"
 
-namespace torch {
-namespace jit {
+namespace torch::jit {
 
 struct Function;
 
-}
-} // namespace torch
-
-namespace habana_torch {
-namespace jit {
+} // namespace torch::jit
+namespace habana_torch::jit {
 
 struct ModuleInstanceInfo;
 constexpr size_t kModuleInstanceInfo = 2;
@@ -252,5 +248,4 @@ constexpr size_t kDebugInfoTupleSourceRangeIndex{0};
 constexpr size_t kDebugInfoTupleNodeNameIndex{1};
 constexpr size_t kDebugInfoTupleInlinedCSIndex{2};
 
-} // namespace jit
-} // namespace habana_torch
+} // namespace habana_torch::jit

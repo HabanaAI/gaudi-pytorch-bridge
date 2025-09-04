@@ -94,7 +94,7 @@ ThreadPoolBase<Queue, Task, ThreadPolicy>::~ThreadPoolBase() {
   stop_ = true;
   active_task_count_ += threads_.size();
   for (size_t i = 0; i < threads_.size(); ++i)
-    tasks_.push(Task{[this]() {}});
+    tasks_.push(Task{[]() {}});
 
   try {
     for (auto& thread : threads_)

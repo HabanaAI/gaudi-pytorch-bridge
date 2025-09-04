@@ -17,7 +17,11 @@
 
 import datetime
 import os
-import pickle
+
+# We overwrite torch load/save where pickle is used, so we have to use it.
+# Users should be aware of potential security issues and can use
+# `weights_only` to make the call safe.
+import pickle  # nosec B403
 import threading
 from collections import deque
 from collections.abc import Callable, Generator
@@ -31,11 +35,12 @@ import habana_frameworks.torch.internal.bridge_config as bc
 import habana_frameworks.torch.utils.debug as htdebug
 from habana_frameworks.torch.utils import _weights_only_unpickler
 from habana_frameworks.torch.utils.internal import is_lazy
-from habana_frameworks.torch.utils.version_checker import is_pytorch_older_than
 
 import torch
 from torch.distributed.constants import default_pg_timeout
+from torch.export.exported_program import ExportedProgram
 from torch.functional import Tensor
+from torch.fx import GraphModule
 
 LAZY_DEFAULT_PROTOCOL = 4
 
@@ -204,7 +209,7 @@ def overwrite_torch_functions():
             ranks_cache[backend] = {}
             if ranks is None:
                 actual_world_size = torch.distributed.distributed_c10d.get_world_size()
-                ranks_tuple = tuple(range(0, actual_world_size))
+                ranks_tuple = tuple(range(actual_world_size))
             else:
                 ranks_tuple = tuple(sorted(ranks))
             if ranks_tuple in ranks_cache[backend]:
@@ -234,10 +239,18 @@ def overwrite_torch_functions():
             ranks_cache[backend] = {}
             if len(ranks_cache[backend]) == 0:
                 init_process_group_orig(
-                    backend, init_method, timeout, world_size, rank, store, group_name, pg_options, device_id
+                    backend,
+                    init_method,
+                    timeout,
+                    world_size,
+                    rank,
+                    store,
+                    group_name,
+                    pg_options,
+                    device_id,
                 )
             actual_world_size = torch.distributed.distributed_c10d.get_world_size()
-            ranks_tuple = tuple(range(0, actual_world_size))
+            ranks_tuple = tuple(range(actual_world_size))
             if ranks_tuple not in ranks_cache[backend]:
                 ranks_cache[backend][ranks_tuple] = torch.distributed.distributed_c10d._get_default_group()
         else:
@@ -397,11 +410,10 @@ def overwrite_torch_functions():
             return [convert_for_pickle(e) for e in obj]
         elif isinstance(obj, tuple):
             return tuple([convert_for_pickle(e) for e in obj])
+        elif isinstance(obj, torch.Tensor):
+            return obj.data.detach().clone().cpu()
         else:
-            if isinstance(obj, torch.Tensor):
-                return obj.data.detach().clone().cpu()
-            else:
-                return obj
+            return obj
 
     @wraps(torch.save)
     def wrap_save(
@@ -440,7 +452,12 @@ def overwrite_torch_functions():
 
     @wraps(torch.serialization._load)
     def wrap_serialization_load_internal(
-        zip_file, map_location, pickle_module, pickle_file="data.pkl", overall_storage=None, **pickle_load_args
+        zip_file,
+        map_location,
+        pickle_module,
+        pickle_file="data.pkl",
+        overall_storage=None,
+        **pickle_load_args,
     ):
         if pickle_module.__name__ == "torch._weights_only_unpickler":
             pickle_module = _weights_only_unpickler
@@ -472,7 +489,10 @@ def overwrite_torch_functions():
         if pickle_module.__name__ == "torch._weights_only_unpickler":
             pickle_module = _weights_only_unpickler
         return serialization_legacy_load_internal_orig(
-            f=f, map_location=map_location, pickle_module=pickle_module, **pickle_load_args
+            f=f,
+            map_location=map_location,
+            pickle_module=pickle_module,
+            **pickle_load_args,
         )
 
     # Pickle protocol 4 is used by default for lazy mode.
@@ -520,13 +540,14 @@ def overwrite_torch_functions():
     @wraps(torch.load)
     def wrap_load(
         f: str | os.PathLike | BinaryIO | IO[bytes],
-        map_location: Callable[[torch.Storage, str], torch.Storage] | torch.device | str | dict[str, str] | None = None,
+        map_location: (
+            Callable[[torch.Storage, str], torch.Storage] | torch.device | str | dict[str, str] | None
+        ) = None,
         pickle_module: Any = pickle,
         weights_only: bool = False,
         mmap: bool | None = None,
         **pickle_load_args,
     ) -> Any:
-
         # When weights_only is True, it tells torch.load to only load the model weights,
         # and it cannot safely work with a custom pickle_module in this case
         if weights_only is True and pickle_module is not None:
@@ -564,7 +585,8 @@ def overwrite_torch_functions():
 # The fields that hold the implementations are set when overwrite_native_pt2e_quantization_interface() is called
 class NativeFunctions:
     org_export = None
-    _did_overwrite_export_function = False
+    org_export_for_training = None
+    _did_overwrite_export_functions = False
     org_prepare_pt2e = None
     org_convert_pt2e = None
     org_save_pt2e = None
@@ -584,60 +606,82 @@ def _native_pt2e_quantization_interface(name):
         ]
     ):
         overwrite_native_pt2e_quantization_interface()
-    if NativeFunctions.org_export is None:
-        overwrite_export_function()
-    if name == "export":
-        return NativeFunctions.org_export
-    elif name == "prepare_pt2e":
-        return NativeFunctions.org_prepare_pt2e
-    elif name == "convert_pt2e":
-        return NativeFunctions.org_convert_pt2e
-    elif name == "save_pt2e":
-        return NativeFunctions.org_save_pt2e
-    elif name == "load_pt2e":
-        return NativeFunctions.org_load_pt2e
-    else:
-        return None
+
+    if NativeFunctions.org_export is None or NativeFunctions.org_export_for_training is None:
+        overwrite_export_functions()
+
+    return {
+        "export.export": NativeFunctions.org_export,
+        "export.export_for_training": NativeFunctions.org_export_for_training,
+        "prepare_pt2e": NativeFunctions.org_prepare_pt2e,
+        "convert_pt2e": NativeFunctions.org_convert_pt2e,
+        "save_pt2e": NativeFunctions.org_save_pt2e,
+        "load_pt2e": NativeFunctions.org_load_pt2e,
+    }.get(name)
 
 
-def overwrite_export_function():
+def overwrite_export_functions():
     # calling this function more than one time makes the wrapper wrap itself, causing infinite recursion, hence the guard to make sure it doesn't happen
-    if NativeFunctions._did_overwrite_export_function:
+    if NativeFunctions._did_overwrite_export_functions:
         return
 
-    NativeFunctions._did_overwrite_export_function = True
-    if is_pytorch_older_than("2.7.0"):
-        NativeFunctions.org_export = torch._export.capture_pre_autograd_graph
+    NativeFunctions._did_overwrite_export_functions = True
 
-        # wrap capture_pre_autograd_graph
-        @wraps(torch._export.capture_pre_autograd_graph)
-        def wrap_capture_pre_autograd_graph(
-            f: torch.nn.Module,
-            args: tuple[Any] = None,
-            kwargs: dict[str, Any] | None = None,
-            dynamic_shapes: dict[str, Any] | tuple[Any] | None = None,
-        ) -> torch.nn.Module:
-            from habana_frameworks.torch.core.quantize_pt2e import export
+    NativeFunctions.org_export = torch.export.export
+    NativeFunctions.org_export_for_training = torch.export.export_for_training
 
-            return export(f, args, kwargs, dynamic_shapes)
+    from habana_frameworks.torch.core.quantize_pt2e import export as habana_export
 
-        torch._export.capture_pre_autograd_graph = wrap_capture_pre_autograd_graph
-    else:
-        NativeFunctions.org_export = torch.export.export_for_training
+    # add export_type field in kwargs
+    def add_export_type_kwargs(kwargs, type_name):
+        if not kwargs:
+            kwargs = {"export_type": type_name}
+        else:
+            kwargs.update({"export_type": type_name})
+        return kwargs
 
-        # wrap capture_export_for_training
-        @wraps(torch.export.export_for_training)
-        def wrap_export_for_training(
-            f: torch.nn.Module,
-            args: tuple[Any] = None,
-            kwargs: dict[str, Any] | None = None,
-            dynamic_shapes: dict[str, Any] | tuple[Any] | None = None,
-        ) -> torch.nn.Module:
-            from habana_frameworks.torch.core.quantize_pt2e import export
+    # wrap torch.export.export
+    @wraps(torch.export.export)
+    def wrap_export(
+        mod: torch.nn.Module,
+        args: tuple[Any, ...] = None,
+        kwargs: dict[str, Any] | None = None,
+        *,
+        dynamic_shapes: dict[str, Any] | tuple[Any] | list[Any] | None = None,
+        strict: bool = True,
+        preserve_module_call_signature: tuple[str, ...] = (),
+    ) -> torch.nn.Module | ExportedProgram | GraphModule:
+        return habana_export(
+            mod,
+            args,
+            add_export_type_kwargs(kwargs, "export.export"),
+            dynamic_shapes=dynamic_shapes,
+            strict=strict,
+            preserve_module_call_signature=preserve_module_call_signature,
+        )
 
-            return export(f, args, kwargs, dynamic_shapes)
+    # wrap torch.export.export_for_training
+    @wraps(torch.export.export_for_training)
+    def wrap_export_for_training(
+        mod: torch.nn.Module,
+        args: tuple[Any, ...] = None,
+        kwargs: dict[str, Any] | None = None,
+        *,
+        dynamic_shapes: dict[str, Any] | tuple[Any] | list[Any] | None = None,
+        strict: bool = True,
+        preserve_module_call_signature: tuple[str, ...] = (),
+    ) -> torch.nn.Module | ExportedProgram | GraphModule:
+        return habana_export(
+            mod,
+            args,
+            add_export_type_kwargs(kwargs, "export.export_for_training"),
+            dynamic_shapes=dynamic_shapes,
+            strict=strict,
+            preserve_module_call_signature=preserve_module_call_signature,
+        )
 
-        torch.export.export_for_training = wrap_export_for_training
+    torch.export.export = wrap_export
+    torch.export.export_for_training = wrap_export_for_training
 
 
 def overwrite_native_pt2e_quantization_interface():
@@ -646,10 +690,9 @@ def overwrite_native_pt2e_quantization_interface():
         return
 
     NativeFunctions._did_overwrite_native_pt2e_quantization_interface = True
-    import torch.ao.quantization.quantize_pt2e as quantize_pt2e
-
     # PT 2.5 changes add torch.ao.quantization.observer for dynamo tracing
     from torch._dynamo.trace_rules import MOD_INLINELIST
+    from torch.ao.quantization import quantize_pt2e
 
     MOD_INLINELIST.add("torch.ao.quantization.observer")
 

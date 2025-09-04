@@ -39,7 +39,7 @@ void BinCount::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
   StackGetter stackGetter(this, stack, "Bincount::AddNode");
   auto self = stackGetter.getNextInput<TensorsPair>();
-  auto length = stackGetter.getNextInput<int32_t>();
+  auto length = stackGetter.getNextInput<long>();
   auto weights = stackGetter.getNextInput<std::optional<TensorsPair>>();
 
   ns_BinCountKernel::Params params{
@@ -67,6 +67,7 @@ void BinCount::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
 } // namespace habana
 
-static const auto& BinCountKernelRegistry = habana::KernelRegistry().add(
-    "hpu::bincount_backend",
-    KERNEL_FN_GLOBAL(habana::BinCount));
+static const auto& BinCountKernelRegistry =
+    habana::KernelRegistry().REGISTER_HPU_BACKEND(
+        "hpu::bincount_backend",
+        habana::BinCount);

@@ -20,10 +20,10 @@ import copy
 import habana_frameworks.torch.core as htcore
 import pytest
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 from habana_frameworks.torch.hpex.optimizers import FusedLamb
 from test_utils import compare_tensors, cpu, hpu
+from torch import nn
 
 
 def reference_lamb_norm(grads, max_grad_norm):
@@ -66,7 +66,6 @@ def create_grads(dtypes, shapes):
     ),
 )
 def test_optimizer_lamb_norm(dtypes, shapes, max_grad_norm):
-
     cpu_grads, hpu_grads = create_grads(dtypes, shapes)
 
     result = torch.ops.hpu.optimizer_lamb_fused_norm(hpu_grads, max_grad_norm)
@@ -206,7 +205,6 @@ def reference_optimizer_lamb_phase1(
 @pytest.mark.parametrize("step", [1, 4])
 @pytest.mark.parametrize("grad_averaging", [0, 1])
 def test_optimizer_lamb_phase1(weight_decay, bias_correction, step, grad_averaging):
-
     dtype = torch.float
     shape = (5, 4)
     beta1 = 0.9

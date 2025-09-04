@@ -16,6 +16,7 @@
 #include "hpu_ops/matmul.h"
 #include "backend/helpers/runtime_config.h"
 #include "hpu_ops/common/batched_matmul_output_shape.h"
+#include "hpu_ops/hpu_op_helper.h"
 
 namespace sh = synapse_helpers;
 
@@ -89,8 +90,8 @@ void Matmul::AddNode(sh::graph& graph, const at::Stack& stack) {
          {reshaped_self.get(), syn_in(1)},
          {{gemm_output_shape, meta.dtype}}});
 
-    syn_out(0) = std::move(
-        ReshapeHelper(graph, output[0].get(), meta.shape, self_dtype, 0));
+    syn_out(0) =
+        ReshapeHelper(graph, output[0].get(), meta.shape, self_dtype, 0);
   } else if (self_dim >= 3 and other_dim == 1) {
     auto expanded_sizes = other.sizes().vec();
     expanded_sizes.push_back(1);
@@ -105,8 +106,8 @@ void Matmul::AddNode(sh::graph& graph, const at::Stack& stack) {
          {syn_in(0), reshaped_other.get()},
          {{gemm_output_shape, meta.dtype}}});
 
-    syn_out(0) = std::move(
-        ReshapeHelper(graph, output[0].get(), meta.shape, self_dtype, 0));
+    syn_out(0) =
+        ReshapeHelper(graph, output[0].get(), meta.shape, self_dtype, 0);
   } else if ((self_dim == 1 || self_dim == 2) && other_dim >= 3) {
     std::vector<sh::tensor> expanded_tensor;
     auto expanded_sizes = self.sizes().vec();
@@ -146,8 +147,7 @@ void Matmul::AddNode(sh::graph& graph, const at::Stack& stack) {
          sizeof(gemm_params)});
 
     if (self_dim == 1) {
-      syn_out(0) = std::move(
-          ReshapeHelper(graph, output[0].get(), meta.shape, self_dtype, 0));
+      syn_out(0) = ReshapeHelper(graph, output[0].get(), meta.shape, self_dtype, 0);
     } else {
       synTransposeParamsNDims params;
       params.tensorDim = gemm_output_shape.size();
@@ -211,8 +211,8 @@ void Matmul::AddNode(sh::graph& graph, const at::Stack& stack) {
          {reshaped_self.get(), syn_in(1)},
          {{gemm_output_shape, meta.dtype}}});
 
-    syn_out(0) = std::move(
-        ReshapeHelper(graph, output[0].get(), meta.shape, self_dtype, 0));
+    syn_out(0) =
+        ReshapeHelper(graph, output[0].get(), meta.shape, self_dtype, 0);
   } else if (
       (self_dim >= 1 && other_dim >= 1) && (self_dim >= 3 || other_dim >= 3)) {
     syn_out(0) = std::move(OpBackend::BuildNode(
@@ -248,6 +248,6 @@ MatmulBwd::MatmulBwd(int device_id, c10::ScalarType scalar_type)
 static const auto& MatmulKernelRegistry =
     GET_ENV_FLAG_NEW(PT_HPU_OVERRIDE_LINEAR_MATMUL_EAGER)
     ? habana::KernelRegistry()
-          .add("hpu::matmul", KERNEL_FN_GLOBAL(habana::Matmul))
-          .add("hpu::matmul_bwd", KERNEL_FN_GLOBAL(habana::MatmulBwd))
+          .REGISTER_HPU_BACKEND("hpu::matmul", habana::Matmul)
+          .REGISTER_HPU_BACKEND("hpu::matmul_bwd", habana::MatmulBwd)
     : habana::KernelRegistry();

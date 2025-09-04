@@ -49,7 +49,7 @@ OutputMetaDataVector StdVarMeta(const at::Stack& stack) {
   if (!stack.at(1).isBool()) {
     keepdim = stack.at(3).toBool();
   }
-  int ndims = self.sizes().vec().size();
+  int ndims = self.sizes().size();
   LoweringUtil::SortAndRemoveDuplicateDims(dims, ndims);
 
   OutputMetaData meta;
@@ -110,7 +110,7 @@ static bool needsReduceSum(std::vector<int64_t> dimsVec) {
   if (dimsVec.size() == 1) {
     return false;
   }
-  for (auto i = 0u; i < dimsVec.size() - 1; i++) {
+  for (auto i = 0U; i < dimsVec.size() - 1; i++) {
     // If difference between two next elements is different than one, then dims
     // are not consecutive
     if (dimsVec[i + 1] - dimsVec[i] != 1) {
@@ -132,7 +132,7 @@ std::vector<synapse_helpers::tensor> StdVarCommonFunc(
     const bool take_sqrt,
     const bool mean_op) {
   auto input_shape = self.sizes().vec();
-  if (input_shape.size() == 0) {
+  if (input_shape.empty()) {
     input_shape.push_back(1);
   }
   const size_t ndims = input_shape.size();
@@ -140,7 +140,7 @@ std::vector<synapse_helpers::tensor> StdVarCommonFunc(
   LoweringUtil::SortAndRemoveDuplicateDims(dimsVec, ndims);
 
   const bool enable_reduce_sum = needsReduceSum(dimsVec);
-  const int min_dim = (dimsVec.size() == 0) ? 0 : dimsVec.front();
+  const int min_dim = (dimsVec.empty()) ? 0 : dimsVec.front();
   std::vector<synapse_helpers::tensor> outputs;
 
   // when keepdim is false there will be incompatible input sizes for the
@@ -352,7 +352,7 @@ SharedMetaDataVector VarStdCommonSharedMeta(
     SharedMetaData sliceAxisSharedMeta{"slice_axis"};
     sliceAxisSharedMeta.inputs_data.emplace_back(inRank, dtype);
     sliceAxisSharedMeta.outputs_data.emplace_back(1, dtype);
-    for (auto i = 0u; i < inRank; ++i) {
+    for (auto i = 0U; i < inRank; ++i) {
       out.push_back(sliceAxisSharedMeta);
     }
   }
@@ -385,7 +385,7 @@ SharedMetaDataVector VarStdCommonSharedMeta(
   }
 
   if (mean_op && !keepdim) {
-    for (auto i = 0u; i < inRank; ++i) {
+    for (auto i = 0U; i < inRank; ++i) {
       SharedMetaData squeezeSharedMeta{"squeeze"};
       squeezeSharedMeta.inputs_data.emplace_back(inRank - i, dtype);
       squeezeSharedMeta.outputs_data.emplace_back(inRank - i - 1, dtype);

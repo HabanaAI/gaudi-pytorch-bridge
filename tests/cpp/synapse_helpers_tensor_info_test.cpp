@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -50,7 +50,7 @@ TEST(SynapseHelpersTensorInfoTest, TensorInfoNumel) {
   using namespace synapse_helpers;
   torch::Tensor A = torch::randn({2, 2}, torch::requires_grad(false));
   torch::Tensor hA = A.to(torch::kHPU);
-  int64_t shape = std::numeric_limits<uint32_t>::max() * 2;
+  auto shape = std::numeric_limits<uint32_t>::max() * 2;
   synGraphHandle h;
   auto& synapse_device = habana::HPUDeviceContext::get_device();
   ASSERT_EQ(synSuccess, synGraphCreate(&h, synapse_device.type()));

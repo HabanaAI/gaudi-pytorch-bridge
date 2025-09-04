@@ -16,27 +16,38 @@
 #
 ###############################################################################
 
+function __get_func_name()
+{
+    if [ -n "$ZSH_NAME" ]; then
+        # shellcheck disable=SC2154
+        echo "${funcstack[2]}"
+    else
+        # shellcheck disable=SC2154
+        echo "${FUNCNAME[1]}"
+    fi
+}
+
 function pytorch_functions_help()
 {
     echo -e "\n- The following is a list of available functions for PyTorch"
-    echo -e "build_pytorch_fork             -   Build the habana pytorch fork"
-    echo -e "build_pytorch_modules          -   Build habana pytorch intergation modules"
-    echo -e "build_pytorch_dist             -   Build habana pytorch distrubuted modules"
-    echo -e "build_pytorch_tb_plugin        -   Build habana pytorch tensorboard plugin"
-    echo -e "build_lightning_habana_fork    -   Build lightning habana fork"
-    echo -e "build_pytorch_data             -   Build habana pytorch data"
-    echo -e "build_pytorch_text             -   Build habana pytorch text"
-    echo -e "build_pytorch_audio            -   Build habana pytorch audio"
-    echo -e "run_pytorch_qa_tests           -   Run pytorch QA tests"
-    echo -e "run_pytorch_modules_tests      -   Run pytorch modules tests"
-    echo -e "run_habana_lightning_tests     -   Run habana lightning plugin tests"
+    echo -e "build_pytorch_fork             -   Build the Habana PyTorch fork"
+    echo -e "build_pytorch_modules          -   Build Habana PyTorch integration modules"
+    echo -e "build_pytorch_tb_plugin        -   Build Habana PyTorch TensorBoard plugin"
+    echo -e "build_lightning_habana_fork    -   Build Lightning Habana fork"
+    echo -e "build_pytorch_data             -   Build the torchdata package"
+    echo -e "build_pytorch_text             -   Build the torchtext package"
+    echo -e "build_pytorch_audio            -   Build the torchaudio package"
+    echo -e "build_pytorch_vision           -   Build the torchvision package"
+    echo -e "run_pytorch_qa_tests           -   Run PyTorch QA tests"
+    echo -e "run_pytorch_modules_tests      -   Run PyTorch modules tests"
+    echo -e "run_habana_lightning_tests     -   Run Habana Lightning plugin tests"
     echo -e "run_lightning_habana_fw_tests  -   Run Lightning Habana tests"
-    echo -e "build_pytorch_vision           -   Build the habana pytorch vision"
+    echo -e "setup_standalone               -   Setup environment to build pytorch_modules out of NPU stack (once per version)"
 }
 
 function pytorch_usage()
 {
-    if [ $1 == "build_pytorch_fork" ]; then
+    if [ "$1" == "build_pytorch_fork" ]; then
         echo -e "\n usage: $1 [options]\n"
 
         echo -e "options:\n"
@@ -51,11 +62,8 @@ function pytorch_usage()
         echo -e "       --build-number         Extend whl version number by build number"
         echo -e "       --build-version        Build version used for whl creation"
         echo -e "       --pytorch-next         Build pytorch-next instead of pytorch-fork"
-        echo -e "       --py-version           Python version"
         echo -e "  -h,  --help                 Prints this help"
-    fi
-
-    if [ $1 == "build_lightning_habana_fork" ]; then
+    elif [ "$1" == "build_lightning_habana_fork" ]; then
         echo -e "\n usage: $1 [options]\n"
 
         echo -e "options:\n"
@@ -66,33 +74,15 @@ function pytorch_usage()
         echo -e "  -d,  --debug                Python only code, option ignored"
         echo -e "       --install              will install the package"
         echo -e "       --dist                 create a wheel distribution/default"
-        echo -e "       --py-version           Python version"
         echo -e "  -h,  --help                 Prints this help"
-    fi
-
-    if [ "$1" == "build_pytorch_modules" ]; then
+    elif [ "$1" == "build_pytorch_modules" ]; then
         "${PYTORCH_MODULES_ROOT_PATH}"/.devops/build.py --help
         echo -e ""
         echo -e "Additionally:"
         echo -e "       --recursive            Build all NPU stack dependencies beforehand"
-    fi
-
-    if [ $1 == "build_pytorch_dist" ]; then
+        echo -e "       --standalone           Build pytorch_modules outside of NPU stack. Run setup_standalone before using this flag."
+    elif [ "$1" == "build_pytorch_tb_plugin" ]; then
         echo -e "\n usage: $1 [options]\n"
-
-        echo -e "options:\n"
-        echo -e "  -j,  --jobs <val>           Overwrite number of jobs"
-        echo -e "  -c   --configure            Configure before build"
-        echo -e "  -a,  --build-all            Build both debug and release build"
-        echo -e "  -r,  --release              Build only release build"
-        echo -e "  -y,  --no-tidy              Skip running clang-tidy during build"
-        echo -e "  -s,  --sanitize             Build with sanitize flags on"
-        echo -e "  -v,  --verbose              Build with verbose"
-        echo -e "  -h,  --help                 Prints this help"
-    fi
-
-   if [ $1 == "build_pytorch_tb_plugin" ]; then
-      echo -e "\n usage: $1 [options]\n"
 
         echo -e "options:\n"
         echo -e "  -j,  --jobs <val>           Max jobs used for compilation"
@@ -102,12 +92,9 @@ function pytorch_usage()
         echo -e "  -d,  --debug                Python only code, option ignored"
         echo -e "       --install              will install the package"
         echo -e "       --dist                 create a wheel distribution/default"
-        echo -e "       --py-version           Python version"
         echo -e "       --no-fe                Disable front-end build"
         echo -e "  -h,  --help                 Prints this help"
-    fi
-
-    if [ $1 == "run_pytorch_modules_tests" ]; then
+    elif [ "$1" == "run_pytorch_modules_tests" ]; then
         echo -e "\nusage: $1 [options]\n"
         echo -e "options:\n"
         echo -e "  -l,  --list-tests                   List the available tests"
@@ -124,9 +111,7 @@ function pytorch_usage()
         echo -e "  -hllog LOG_LEVEL                    0-TRACE, 1-DEBUG 2-INFO, 3-WARN, 4-ERR, 5-CRITICAL"
         echo -e "  -r, --rerun-failures                Rerun tests on failure"
         echo -e "  -h,  --help                         Prints this help"
-    fi
-
-    if [ $1 == "run_pytorch_qa_tests" ]; then
+    elif [ "$1" == "run_pytorch_qa_tests" ]; then
         echo -e "\nusage: $1 [options]\n"
         echo -e "options:\n"
         echo -e "  -l,  --list-tests                   List the available tests"
@@ -138,9 +123,7 @@ function pytorch_usage()
         echo -e "  -a,  --mark MARKER                  Run tests marked by MARKER"
         echo -e "  -t,  --suite-type TYPE              Run specific suite type [all, ops, perf, acc, topology_ci, distributed]. Default: all"
         echo -e "  -hllog LOG_LEVEL                    0-TRACE, 1-DEBUG 2-INFO, 3-WARN, 4-ERR, 5-CRITICAL"
-    fi
-
-    if [ $1 == "run_pytorch_lightning_qa_tests" ]; then
+    elif [ "$1" == "run_pytorch_lightning_qa_tests" ]; then
         echo -e "\nusage: $1 [options]\n"
         echo -e "options:\n"
         echo -e "  -l,  --list-tests                   List the available tests"
@@ -152,10 +135,7 @@ function pytorch_usage()
         echo -e "  -a,  --mark MARKER                  Run tests marked by MARKER"
         echo -e "  -t,  --suite-type TYPE              Run specific suite type [all, ops, perf, acc, topology_ci, distributed]. Default: all"
         echo -e "  -hllog LOG_LEVEL                    0-TRACE, 1-DEBUG 2-INFO, 3-WARN, 4-ERR, 5-CRITICAL"
-
-    fi
-
-    if [ $1 == "run_habana_lightning_tests" ]; then
+    elif [ "$1" == "run_habana_lightning_tests" ]; then
         echo -e "\nusage: $1 [options]\n"
         echo -e "options:\n"
         echo -e "  -l,  --list-tests                   List the available tests"
@@ -168,9 +148,7 @@ function pytorch_usage()
         echo -e "  -t,  --suite-type TYPE              Run specific suite type [all, py_tests, cpp_tests]. Default: all"
         echo -e "  -hllog LOG_LEVEL                    0-TRACE, 1-DEBUG 2-INFO, 3-WARN, 4-ERR, 5-CRITICAL"
         echo -e "  -h,  --help                         Prints this help"
-    fi
-
-    if [ $1 == "run_lightning_habana_fw_tests" ]; then
+    elif [ "$1" == "run_lightning_habana_fw_tests" ]; then
         echo -e "\nusage: $1 [options]\n"
         echo -e "options:\n"
         echo -e "  -l,  --list-tests                   List the available tests"
@@ -183,9 +161,7 @@ function pytorch_usage()
         echo -e "  -t,  --suite-type TYPE              Run specific suite type [all, py_tests, cpp_tests]. Default: all"
         echo -e "  -hllog LOG_LEVEL                    0-TRACE, 1-DEBUG 2-INFO, 3-WARN, 4-ERR, 5-CRITICAL"
         echo -e "  -h,  --help                         Prints this help"
-    fi
-
-    if [ $1 == "build_pytorch_data" ]; then
+    elif [ "$1" == "build_pytorch_data" ]; then
         echo -e "\n usage: $1 [options]\n"
 
         echo -e "options:\n"
@@ -195,12 +171,9 @@ function pytorch_usage()
         echo -e "  -d,  --debug                Python only code, option ignored"
         echo -e "       --install              will install the package"
         echo -e "       --dist                 create a wheel distribution/default"
-        echo -e "       --py-version           Python version"
         echo -e "       --pt-data-version      PytorchData version"
         echo -e "  -h,  --help                 Prints this help"
-    fi
-
-    if [ $1 == "build_pytorch_text" ]; then
+    elif [ "$1" == "build_pytorch_text" ]; then
         echo -e "\n usage: $1 [options]\n"
 
         echo -e "options:\n"
@@ -210,12 +183,9 @@ function pytorch_usage()
         echo -e "  -d,  --debug                Python only code, option ignored"
         echo -e "       --install              will install the package"
         echo -e "       --dist                 create a wheel distribution/default"
-        echo -e "       --py-version           Python version"
         echo -e "       --pt-text-version      PytorchText version"
         echo -e "  -h,  --help                 Prints this help"
-    fi
-
-    if [ $1 == "build_pytorch_audio" ]; then
+    elif [ "$1" == "build_pytorch_audio" ]; then
         echo -e "\n usage: $1 [options]\n"
 
         echo -e "options:\n"
@@ -225,11 +195,9 @@ function pytorch_usage()
         echo -e "  -d,  --debug                Python only code, option ignored"
         echo -e "       --install              will install the package"
         echo -e "       --dist                 create a wheel distribution/default"
-        echo -e "       --py-version           Python version"
         echo -e "       --pt-audio-version     PytorchAudio version"
         echo -e "  -h,  --help                 Prints this help"
-    fi
-    if [ $1 == "build_pytorch_vision" ]; then
+    elif [ "$1" == "build_pytorch_vision" ]; then
         echo -e "\n usage: $1 [options]\n"
 
         echo -e "options:\n"
@@ -239,9 +207,19 @@ function pytorch_usage()
         echo -e "  -d,  --debug                Python only code, option ignored"
         echo -e "       --install              will install the package"
         echo -e "       --dist                 create a wheel distribution/default"
-        echo -e "       --py-version           Python version"
         echo -e "       --pt-vision-version    Pytorch Vision version"
         echo -e "  -h,  --help                 Prints this help"
+    elif [ "$1" == "setup_standalone" ]; then
+        echo -e "\n usage: $1 [options]\n"
+        echo -e "\n setup_standalone should be executed only to setup environment to new version\n"
+
+        echo -e "options:\n"
+        echo -e "  -v,  --version <val>        [Mandatory] Version on which environment would be set"
+        echo -e "  -h,  --help                 Print this help"
+    else
+        echo "Unknown function name: $1"
+        pytorch_functions_help
+        return 1
     fi
 }
 
@@ -263,9 +241,10 @@ build_pytorch_modules()
     local __pytorch_module_name="pytorch_bridge"
     local __recursive=""
     local __result=""
+    local __standalone=""
 
     local __variables_to_build
-    __variables_to_build=$(printf "%s\n" "$@" | sed s/--recursive// | sed s/--no-tidy//)
+    __variables_to_build=$(printf "%s\n" "$@" | sed s/--recursive// | sed s/--no-tidy// | sed s/--standalone// )
 
     # parameter while-loop
     while [ -n "$1" ];
@@ -282,7 +261,7 @@ build_pytorch_modules()
             __configure="yes"
             ;;
         -h  | --help )
-            usage $__scriptname
+            pytorch_usage $__scriptname
             return 0
             ;;
         -r  | --release )
@@ -291,14 +270,24 @@ build_pytorch_modules()
         --recursive )
             __recursive="yes"
             ;;
+        --standalone )
+            __standalone="yes"
+            ;;
         esac
         shift
     done
 
-    if [ -n "$__configure" ]; then
+    if [ -n "$__standalone" ]; then
+        __set_build_environment_for_standalone
+        if [ $? -ne 0 ]; then
+            echo "Setting up environment for standalone build_pytorch_modules failed"
+            return 1
+        fi
+    fi
+
+    if [ -n "$__configure" ] && [ -z "$__standalone" ]; then
         __check_mandatory_pkgs
         if [ $? -ne 0 ]; then
-            restore_python_version
             return 1
         fi
     fi
@@ -306,7 +295,7 @@ build_pytorch_modules()
     set_os_specific_vars
 
     #CI job creates venv for every job. So we need to have python pkg install unconditionally
-    $__pip_cmd install -r $PYTORCH_MODULES_ROOT_PATH/requirements.txt
+    pip install -r $PYTORCH_MODULES_ROOT_PATH/requirements.txt
 
     pushd $PYTORCH_MODULES_ROOT_PATH
 
@@ -316,7 +305,6 @@ build_pytorch_modules()
     if [ $__result -ne 0 ]; then
         echo "git submodule init failed!"
         popd
-        restore_python_version
         return $__result
     fi
 
@@ -325,7 +313,6 @@ build_pytorch_modules()
     if [ $__result -ne 0 ]; then
         echo "git submodule update failed!"
         popd
-        restore_python_version
         return $__result
     fi
 
@@ -355,7 +342,6 @@ build_pytorch_modules()
         if [ $__result -ne 0 ]; then
             echo "Failed to build dependency packages $__pytorch_module_name"
             popd
-            restore_python_version
             return $__result
         fi
     fi
@@ -365,169 +351,12 @@ build_pytorch_modules()
     if [ $__result -ne 0 ]; then
         echo "Failed to run build.py. Exit code: " $__result
         popd
-        restore_python_version
         return $__result
     fi
 
     popd
-    restore_python_version
 
     printf "\nElapsed time: %02u:%02u:%02u \n\n" $(($SECONDS / 3600)) $((($SECONDS / 60) % 60)) $(($SECONDS % 60))
-}
-
-build_pytorch_dist()
-{
-    SECONDS=0
-
-    echo "Pytorch dist build skipped.  Support will be removed next release"
-    return 0
-
-    local __scriptname=$(__get_func_name)
-
-    local __jobs=${NUMBER_OF_JOBS}
-    local __all=""
-    local __debug="yes"
-    local __configure=""
-    local __release=""
-    local __no_tidy=""
-    local __sanitize="OFF"
-    local __verbose=""
-    local __build_res=0
-
-    # parameter while-loop
-    while [ -n "$1" ];
-    do
-        case $1 in
-        -a  | --build-all )
-            __all="yes"
-            ;;
-        -j  | --jobs )
-            shift
-            __jobs=$1
-            ;;
-        -c  | --configure )
-            __configure="yes"
-            ;;
-        -h  | --help )
-            usage $__scriptname
-            return 0
-            ;;
-        -r  | --release )
-            __debug=""
-            __release="yes"
-            ;;
-        -y  | --no-tidy )
-            __no_tidy="yes"
-            ;;
-        -s  | --sanitize )
-            __sanitize="ON"
-            ;;
-        -v  | --verbose )
-            __verbose="VERBOSE=1"
-            ;;
-        *)
-            __argument=$1
-            ;;
-        esac
-        shift
-    done
-
-    pushd $PYTORCH_MODULES_ROOT_PATH
-    echo "git submodule update for pybind11"
-    git submodule sync
-    __result=$?
-    if [ $__result -ne 0 ]; then
-        echo "git submodule init failed!"
-        popd
-        return $__result
-    fi
-
-    git submodule update --init --recursive --force
-    __result=$?
-    if [ $__result -ne 0 ]; then
-        echo "git submodule update failed!"
-        popd
-        return $__result
-    fi
-    popd
-
-    if [ -n "$__all" ]; then
-        __debug="yes"
-        __release="yes"
-    fi
-
-    CLANG_TIDY_DEFINE=""
-    if [ ! -z "$__no_tidy" ]; then
-        CLANG_TIDY_DEFINE="-DCLANG_TIDY="
-    fi
-
-    if [ -n "$__debug" ]; then
-        echo -e "Building in debug mode"
-        if [ ! -d $PYTORCH_DIST_DEBUG_BUILD ]; then
-            __configure="yes"
-        fi
-
-        if [ -n "$__configure" ]; then
-            if [ -d $PYTORCH_DIST_DEBUG_BUILD ]; then
-                rm -rf $PYTORCH_DIST_DEBUG_BUILD
-            fi
-            mkdir -p $PYTORCH_DIST_DEBUG_BUILD
-        fi
-
-        _verify_exists_dir "$PYTORCH_DIST_DEBUG_BUILD" $PYTORCH_DIST_DEBUG_BUILD
-
-        pushd $PYTORCH_DIST_DEBUG_BUILD
-        (set -x; cmake \
-            -DCMAKE_BUILD_TYPE=Debug \
-            $CLANG_TIDY_DEFINE \
-            -DSANITIZER=$__sanitize \
-            $PYTORCH_DIST_ROOT_PATH)
-         make $__verbose -j$__jobs
-        __build_res=$?
-        popd
-        if [ $__build_res -ne 0 ]; then
-            return $__build_res
-        fi
-
-        cp -fs $PYTORCH_DIST_DEBUG_BUILD/*.so $BUILD_ROOT_DEBUG
-        if [ -z "$__all" ]; then
-            cp -fs $PYTORCH_DIST_DEBUG_BUILD/*.so $BUILD_ROOT_LATEST
-        fi
-    fi
-
-    if [ -n "$__release" ]; then
-        echo "Building in release mode"
-        if [ ! -d $PYTORCH_DIST_RELEASE_BUILD ]; then
-            __configure="yes"
-        fi
-
-        if [ -n "$__configure" ]; then
-            if [ -d $PYTORCH_DIST_RELEASE_BUILD ]; then
-                rm -rf $PYTORCH_DIST_RELEASE_BUILD
-            fi
-            mkdir -p $PYTORCH_DIST_RELEASE_BUILD
-        fi
-
-        _verify_exists_dir "$PYTORCH_DIST_RELEASE_BUILD" $PYTORCH_DIST_RELEASE_BUILD
-        pushd $PYTORCH_DIST_RELEASE_BUILD
-        (set -x; cmake \
-            -DCMAKE_BUILD_TYPE=Release \
-            $CLANG_TIDY_DEFINE \
-            -DSANITIZER=$__sanitize \
-            $PYTORCH_DIST_ROOT_PATH)
-        make $__verbose -j$__jobs
-        __build_res=$?
-        popd
-        if [ $__build_res -ne 0 ]; then
-            return $__build_res
-        fi
-
-        cp -fs $PYTORCH_DIST_RELEASE_BUILD/*.so $BUILD_ROOT_RELEASE
-        cp -fs $PYTORCH_DIST_RELEASE_BUILD/*.so $BUILD_ROOT_LATEST
-    fi
-
-    printf "\nElapsed time: %02u:%02u:%02u \n\n" $(($SECONDS / 3600)) $((($SECONDS / 60) % 60)) $(($SECONDS % 60))
-    return 0
 }
 
 build_pytorch_fork()
@@ -548,9 +377,7 @@ build_pytorch_fork()
     local __branch=""
     local __build_manylinux_whl="false"
     local __auditwheel="${PYTORCH_MODULES_ROOT_PATH}/.ci/scripts/pt_auditwheel.py"
-    local __set_py_vers="false"
     local __pytorch_next="false"
-    local __use_cxx11_abi="false"
 
     # parameter while-loop
     while [ -n "$1" ];
@@ -586,11 +413,6 @@ build_pytorch_fork()
             __env_vars+=" PYTORCH_BUILD_VERSION=$2"
             shift
             ;;
-        --py-version )
-             set_python_version $2
-             __set_py_vers="true"
-             shift
-            ;;
         --recursive )
             # No-op. Fork has no dependencies.
             ;;
@@ -603,12 +425,8 @@ build_pytorch_fork()
         --pytorch-next )
             __pytorch_next="true"
             ;;
-        --use-cxx11-abi )
-            __use_cxx11_abi="true"
-            ;;
         -h  | --help )
-            usage $__scriptname
-            restore_python_version
+            pytorch_usage $__scriptname
             return 0
             ;;
         -j  | --jobs )
@@ -620,8 +438,7 @@ build_pytorch_fork()
             ;;
         *)
             echo Invalid argument: $1
-            usage $__scriptname
-            restore_python_version
+            pytorch_usage $__scriptname
             return 1
         esac
         shift
@@ -643,7 +460,6 @@ build_pytorch_fork()
     if [ $__result -ne 0 ]; then
         echo "git submodule init failed!"
         popd
-        restore_python_version
         return $__result
     fi
 
@@ -652,21 +468,19 @@ build_pytorch_fork()
     if [ $__result -ne 0 ]; then
         echo "git submodule update failed!"
         popd
-        restore_python_version
         return $__result
     fi
 
-    $__python_cmd -m pip install -r requirements.txt
+    python -m pip install -r requirements.txt
     __result=$?
     if [ $__result -ne 0 ]; then
         echo "torch requirements installation failed!"
         popd
-        restore_python_version
         return $__result
     fi
 
     if [ -n "$__configure" ]; then
-        $__python_cmd setup.py clean
+        python setup.py clean
     fi
 
     local __pkg_name="TORCH_PACKAGE_NAME=torch"
@@ -677,29 +491,22 @@ build_pytorch_fork()
        echo "Building torch in Release mode"
     fi
 
-    if [[ $__use_cxx11_abi == "true" ]]; then
-      __env_vars+=" _GLIBCXX_USE_CXX11_ABI=1"
-    else
-      __env_vars+=" _GLIBCXX_USE_CXX11_ABI=0"
-    fi
-
     echo "Build parameters ${__whl_params}"
     if [ -n "$__env_vars" ]; then
         echo "Build Enviornment parameters ${__env_vars}"
     fi
 
-    (set -x;eval ${__env_vars} ${__pkg_name} $__python_cmd setup.py ${__whl_params})
+    (set -x;eval ${__env_vars} ${__pkg_name} python setup.py ${__whl_params})
     __result=$?
     if [ $__result -ne 0 ]; then
         echo "Pytorch fork build failed!"
         popd
-        restore_python_version
         return $__result
     fi
 
     if [ ${__whl_params} != "develop" ];then
         if [ "z${__build_manylinux_whl}" == "ztrue" ];then
-            bash -c "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$__pytorch_root/torch/lib;$__python_cmd $__auditwheel repair $__pytorch/dist/torch*.whl"
+            bash -c "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$__pytorch_root/torch/lib;python $__auditwheel repair $__pytorch/dist/torch*.whl"
             TORCH_WHL_PATH="$__pytorch_root/wheelhouse/"
         else
             TORCH_WHL_PATH="$__pytorch_root/dist/"
@@ -717,7 +524,6 @@ build_pytorch_fork()
 
     popd
     printf "\nElapsed time: %02u:%02u:%02u \n\n" $(($SECONDS / 3600)) $((($SECONDS / 60) % 60)) $(($SECONDS % 60))
-    restore_python_version
     return $__result
 }
 
@@ -731,7 +537,6 @@ build_pytorch_tb_plugin()
     local __build_package="true"
     local __build_frontend="true"
     local __result
-    local __set_py_vers="false"
     # parameter while-loop
     while [ -n "$1" ];
     do
@@ -757,13 +562,8 @@ build_pytorch_tb_plugin()
             __whl_params=" install"
             __build_package=""
             ;;
-        --py-version )
-            set_python_version $2
-            __set_py_vers="true"
-            ;;
         -h  | --help )
-            usage $__scriptname
-            restore_python_version
+            pytorch_usage $__scriptname
             return 0
             ;;
         esac
@@ -773,7 +573,6 @@ build_pytorch_tb_plugin()
     if [ -n "$__configure" ]; then
         __check_mandatory_pkgs
         if [ $? -ne 0 ]; then
-            restore_python_version
             return 1
         fi
     fi
@@ -786,7 +585,6 @@ build_pytorch_tb_plugin()
     if [ $__result -ne 0 ]; then
         echo "yarn install failed"
         popd
-        restore_python_version
         return $__result
     fi
 
@@ -796,7 +594,6 @@ build_pytorch_tb_plugin()
         if [ $__result -ne 0 ]; then
             echo "front end setup failed"
             popd
-            restore_python_version
             return $__result
         fi
 
@@ -805,28 +602,26 @@ build_pytorch_tb_plugin()
         if [ $__result -ne 0 ]; then
             echo "front end build failed"
             popd
-            restore_python_version
             return $__result
         fi
     fi
 
-    $__pip_cmd install wheel
+    pip install wheel
     __result=$?
     if [ $__result -ne 0 ]; then
         echo "pip install failed"
-        restore_python_version
         return $__result
     fi
 
     pushd $KINETO_ROOT/tb_plugin
 
     if [ -n "$__configure" ]; then
-        $__python_cmd setup.py clean
+        python setup.py clean
     fi
 
     echo "Build parameters ${__whl_params}"
 
-    (set -x;eval ${__env_vars} $__python_cmd setup.py ${__whl_params})
+    (set -x;eval ${__env_vars} python setup.py ${__whl_params})
     __result=$?
     if [ $__result -ne 0 ]; then
         echo "Pytorch tb plugin build failed!"
@@ -841,7 +636,6 @@ build_pytorch_tb_plugin()
     fi
 
     printf "\nElapsed time: %02u:%02u:%02u \n\n" $(($SECONDS / 3600)) $((($SECONDS / 60) % 60)) $(($SECONDS % 60))
-    restore_python_version
     return $__result
 }
 
@@ -853,7 +647,6 @@ build_lightning_habana_fork()
     local __configure=""
     local __whl_params=" bdist_wheel"
     local __result
-    local __set_py_vers="false"
     # parameter while-loop
     while [ -n "$1" ];
     do
@@ -874,13 +667,8 @@ build_lightning_habana_fork()
         --install )
             __whl_params=" install"
             ;;
-        --py-version )
-            set_python_version $2
-            __set_py_vers="true"
-            ;;
         -h  | --help )
-            usage $__scriptname
-            restore_python_version
+            pytorch_usage $__scriptname
             return 0
             ;;
         esac
@@ -890,15 +678,15 @@ build_lightning_habana_fork()
     pushd $LIGHTNING_HABANA_FORK_ROOT
 
     if [ -n "$__configure" ]; then
-        eval ${__env_vars} $__python_cmd setup.py clean
+        eval ${__env_vars} python setup.py clean
     fi
 
-    echo "Build parameters for lightning habana ${__whl_params}"
+    echo "Build parameters for Lightning Habana ${__whl_params}"
 
-    (set -x;eval ${__env_vars} $__python_cmd setup.py ${__whl_params})
+    (set -x;eval ${__env_vars} python setup.py ${__whl_params})
     __result=$?
     if [ $__result -ne 0 ]; then
-        echo "Lightning habana build failed!"
+        echo "Lightning Habana build failed!"
     fi
 
     popd
@@ -910,7 +698,6 @@ build_lightning_habana_fork()
     fi
 
     printf "\nElapsed time: %02u:%02u:%02u \n\n" $(($SECONDS / 3600)) $((($SECONDS / 60) % 60)) $(($SECONDS % 60))
-    restore_python_version
     return $__result
 }
 
@@ -991,7 +778,7 @@ run_pytorch_modules_tests()
             shift
             if [[ "$1" =~ \  ]]; then
                echo "Test case can't contain white space and only one test case can be provided."
-               usage $__scriptname
+               pytorch_usage $__scriptname
                return 1
             fi
             __test_case="$1"
@@ -1001,7 +788,7 @@ run_pytorch_modules_tests()
             __pytest_mode="$1"
             if [[ "${__pytest_mode}" != "lazy" && "${__pytest_mode}" != "compile" && "${__pytest_mode}" != "eager" && "${__pytest_mode}" != "all" ]]; then
                 echo "Pytest mode \"$__pytest_mode\" is not allowed"
-                usage $__scriptname
+                pytorch_usage $__scriptname
                 return 1 # error
             fi
             ;;
@@ -1010,12 +797,12 @@ run_pytorch_modules_tests()
             __cpp_rerun_fail="--rerun-fail"
             ;;
         -h  | --help )
-            usage $__scriptname
+            pytorch_usage $__scriptname
             return 0
             ;;
         *)
             echo "The parameter $1 is not allowed"
-            usage $__scriptname
+            pytorch_usage $__scriptname
             return 1 # error
             ;;
         esac
@@ -1043,7 +830,7 @@ run_pytorch_modules_tests()
         ;;
     *)
         echo "Test suite type \"$__suite_type\" is not allowed"
-        usage $__scriptname
+        pytorch_usage $__scriptname
         return 1 # error
         ;;
     esac
@@ -1208,6 +995,8 @@ run_pytorch_modules_tests()
             __test_status=$((__test_status | $?))
             (set -x; eval PT_HPU_AUTOLOAD=1 DO_NOT_IMPORT_HABANA_TORCH=1 ${__pytorch_modules_tests_exe} pytest_working/test_autoload.py -v $__failures $__py_rerun_fail $__py_filter --junit-xml="${__xml}_eager_pytest_autoload.xml" --mode="eager" --dut="${__dut}" --junit-prefix="PytestEager" ${__marker})
             __test_status=$((__test_status | $?))
+            (set -x; eval PT_HPU_ENABLE_RECORD_STREAM=1 PT_HPU_USE_LAUNCH_RECORD_STREAM=1 ${__pytorch_modules_tests_exe} pytest_working/eager/test_record_stream.py -v $__failures $__py_rerun_fail $__py_filter --junit-xml="${__xml}_eager_record_stream.xml" --mode="eager" --dut="${__dut}" --junit-prefix="PytestEager" ${__marker})
+            __test_status=$((__test_status | $?))
         fi
         popd
     fi
@@ -1223,7 +1012,7 @@ run_pytorch_modules_tests()
       popd
       if [[ "$__pytest_mode" = "eager" ]] ; then
         pushd $PYTORCH_MODULES_ROOT_PATH/tests/user_custom_op/
-        $__python_cmd setup.py install
+        python setup.py install
         (set -x; eval PT_HPU_LAZY_MODE=0 ${__pytorch_modules_tests_exe} test_hpu_custom_op.py -v $__failures $__py_rerun_fail $__py_filter --junit-xml="${__xml}_infra_custom_op_pytest.xml" --junit-prefix="InfraCustomOp." ${__marker})
         __test_status=$((__test_status | $?))
         (set -x; eval ${__pytorch_modules_tests_exe} test_hpu_custom_op.py -v $__failures $__py_rerun_fail $__py_filter --junit-xml="${__xml}_infra_custom_op_pytest.xml" --junit-prefix="InfraCustomOp." ${__marker})
@@ -1259,7 +1048,7 @@ run_pytorch_qa_tests()
     # By default the tox venv installs all the python modules from the external world instead of cached data.
     # This is because there is no config file which pip can use to get this info.
     # So populate the PIP env variable to point to the same pip.conf as in CI env. This file is custom made
-    # and points to habana artifactory cache.
+    # and points to Habana artifactory cache.
     export PIP_CONFIG_FILE="${VIRTUAL_ENV}/pip.conf"
 
     # parameter while-loop
@@ -1301,12 +1090,12 @@ run_pytorch_qa_tests()
             __color="--color=no"
             ;;
         -h  | --help )
-            usage $__scriptname
+            pytorch_usage $__scriptname
             return 0
             ;;
         *)
             echo "The parameter $1 is not allowed"
-            usage $__scriptname
+            pytorch_usage $__scriptname
             return 1 # error
             ;;
         esac
@@ -1353,27 +1142,27 @@ run_pytorch_qa_tests()
         ;;
     *)
         echo "Test suite type \"$__suite_type\" is not allowed"
-        usage $__scriptname
+        pytorch_usage $__scriptname
         return 1 # error
         ;;
     esac
 
     if [ -n "$__print_tests" ]; then
         pushd ${__pytorch_qa_test_path}
-        (set -x; $__python_cmd -m pytest -v ${__pytest_marks} --collect-only)
+        (set -x; python -m pytest -v ${__pytest_marks} --collect-only)
         __test_status=$?
         popd
         return $__test_status
     fi
     pushd ${__pytorch_qa_test_path}
 
-    opts="$__python_cmd -m pytest -v -o junit_logging=all ${__failures} ${__filter} ${__color} "${__pytest_marks}""
+    opts="python -m pytest -v -o junit_logging=all ${__failures} ${__filter} ${__color} "${__pytest_marks}""
     #Adding a separate new variable only for single op params
-    opts_single_op="$__python_cmd -m pytest -v -o junit_logging=all ${__failures} ${__filter} ${__color} "${__pytest_marks}" -n 1 --dut ${__dut} "
+    opts_single_op="python -m pytest -v -o junit_logging=all ${__failures} ${__filter} ${__color} "${__pytest_marks}" -n 1 --dut ${__dut} "
     test_path=""
 
     if [ "$__pytest_marks" == "-m=smoke" ] && [ "$__suite_type" == "ops" ] && [ "${__dut}" == "gaudi" ]; then
-        #run pytorch single_op tests with suite_type = ops
+        #run PyTorch single_op tests with suite_type = ops
         # run in eager mode
        (set -x; LOCK_GAUDI_SYNAPSE_API=1 ENABLE_CONSOLE=true PYTHONPATH="$PYTORCH_TESTS_ROOT" $opts_single_op ${__pytorch_qa_test_path} "--junit-xml=${__xml}_"single_op.xml" ")
         __test_status_1=$?
@@ -1411,12 +1200,12 @@ run_pytorch_qa_tests()
             return ${__test_status}
        elif [ "$__suite_type" == "rn50_eager_1c" ]; then
             install_requirements_event_plugin
-            (set -x; PYTHONPATH="$PYTORCH_TESTS_ROOT:$EVENT_TESTS_PLUGIN_ROOT:$PYTHONPATH" $__python_cmd -m pytest -sv ${__pytorch_qa_test_path}/test_resnet.py -k resnet_lars_1epoch_1xcard_bf16_eager_mode_gaudi2 "--junit-xml=${__xml}_"rn50_eager_ci_functional.xml"")
+            (set -x; PYTHONPATH="$PYTORCH_TESTS_ROOT:$EVENT_TESTS_PLUGIN_ROOT:$PYTHONPATH" python -m pytest -sv ${__pytorch_qa_test_path}/test_resnet.py -k resnet_lars_1epoch_1xcard_bf16_eager_mode_gaudi2 "--junit-xml=${__xml}_"rn50_eager_ci_functional.xml"")
             __test_status=$?
             return ${__test_status}
         elif  [ "$__suite_type" == "rn50_graph_1c" ]; then
             install_requirements_event_plugin
-            (set -x; PYTHONPATH="$PYTORCH_TESTS_ROOT:$EVENT_TESTS_PLUGIN_ROOT:$PYTHONPATH" $__python_cmd -m pytest -sv ${__pytorch_qa_test_path}/test_resnet.py -k resnet_lars_1epoch_1xcard_bf16_graph_mode_gaudi2_100_steps "--junit-xml=${__xml}_"rn50_graph_ci_functional.xml"")
+            (set -x; PYTHONPATH="$PYTORCH_TESTS_ROOT:$EVENT_TESTS_PLUGIN_ROOT:$PYTHONPATH" python -m pytest -sv ${__pytorch_qa_test_path}/test_resnet.py -k resnet_lars_1epoch_1xcard_bf16_graph_mode_gaudi2_100_steps "--junit-xml=${__xml}_"rn50_graph_ci_functional.xml"")
             __test_status=$?
             return ${__test_status}
         fi
@@ -1431,7 +1220,7 @@ run_pytorch_qa_tests()
        # Seperate common pytest command into forked and non-forked versions
        opts_forked="$opts --forked"
 
-       $__python_cmd  $PYTORCH_TESTS_ROOT/tests/torch_training_tests/utils/tox_env_collector.py --marker "'${__pytest_marks}'" --opts "'${opts_forked}'" --log-level $__hllog --test-path ${__pytorch_qa_test_path}${test_path} --test-suite $__suite_type
+       python  $PYTORCH_TESTS_ROOT/tests/torch_training_tests/utils/tox_env_collector.py --marker "'${__pytest_marks}'" --opts "'${opts_forked}'" --log-level $__hllog --test-path ${__pytorch_qa_test_path}${test_path} --test-suite $__suite_type
        __test_status=$?
     fi
     popd
@@ -1450,14 +1239,14 @@ run_pytorch_qa_tests()
 
 install_requirements_pytorch()
 {
-    $__pip_cmd uninstall -y wrapt requests gast
-    sudo -H $__pip_cmd uninstall -y wrapt requests gast
-    $__pip_cmd install -r ${PYTORCH_MODULES_ROOT_PATH}/.ci/requirements/requirements-pytorch.txt
+    pip uninstall -y wrapt requests gast
+    sudo -H pip uninstall -y wrapt requests gast
+    pip install -r ${PYTORCH_MODULES_ROOT_PATH}/.ci/requirements/requirements-pytorch.txt
 }
 
 install_requirements_event_plugin()
 {
-    $__pip_cmd install -r ${EVENT_TESTS_PLUGIN_ROOT}/.ci/requirements/requirements_pinned.txt
+    pip install -r ${EVENT_TESTS_PLUGIN_ROOT}/.ci/requirements/requirements_pinned.txt
 }
 
 run_habana_lightning_tests()
@@ -1516,12 +1305,12 @@ run_habana_lightning_tests()
             __marker="-m \"$1\""
             ;;
         -h  | --help )
-            usage $__scriptname
+            pytorch_usage $__scriptname
             return 0
             ;;
         *)
             echo "The parameter $1 is not allowed"
-            usage $__scriptname
+            pytorch_usage $__scriptname
             return 1 # error
             ;;
         esac
@@ -1605,12 +1394,12 @@ run_pytorch_lightning_qa_tests()
             __marker="-m \"$1\""
             ;;
         -h  | --help )
-            usage $__scriptname
+            pytorch_usage $__scriptname
             return 0
             ;;
         *)
             echo "The parameter $1 is not allowed"
-            usage $__scriptname
+            pytorch_usage $__scriptname
             return 1 # error
             ;;
         esac
@@ -1707,12 +1496,12 @@ run_lightning_habana_fw_tests()
             __marker="-m \"$1\""
             ;;
         -h  | --help )
-            usage $__scriptname
+            pytorch_usage $__scriptname
             return 0
             ;;
         *)
             echo "The parameter $1 is not allowed"
-            usage $__scriptname
+            pytorch_usage $__scriptname
             return 1 # error
             ;;
         esac
@@ -1752,19 +1541,19 @@ run_lightning_habana_fw_tests()
 
 install_lightning_plugin()
 {
-    $__pip_cmd install habana-lightning-plugins --extra-index-url https://artifactory-kfs.habana-labs.com/artifactory/api/pypi/habana_pypi/simple
+    pip install habana-lightning-plugins --extra-index-url https://artifactory-kfs.habana-labs.com/artifactory/api/pypi/habana_pypi/simple
 }
 
 install_requirements_pytest()
 {
-    $__pip_cmd uninstall -y wrapt requests gast
-    sudo -H $__pip_cmd uninstall -y wrapt requests gast
-    $__pip_cmd install -r ${PYTORCH_MODULES_ROOT_PATH}/.ci/requirements/requirements-test.txt
+    pip uninstall -y wrapt requests gast
+    sudo -H pip uninstall -y wrapt requests gast
+    pip install -r ${PYTORCH_MODULES_ROOT_PATH}/.ci/requirements/requirements-test.txt
 }
 
 uninstall_requirements_pytest()
 {
-    $__pip_cmd uninstall -r ${PYTORCH_MODULES_ROOT_PATH}/.ci/requirements/requirements-test.txt -y
+    pip uninstall -r ${PYTORCH_MODULES_ROOT_PATH}/.ci/requirements/requirements-test.txt -y
 }
 
 clean_pytorch_pkgs()
@@ -1798,7 +1587,7 @@ clean_pytorch_pkgs()
 check_no_unwanted_packages_installed() {
     echo "-> Verifying if no unwanted packages are installed"
     local -a faulty_packages
-    faulty_packages=$(! "$__pip_cmd" freeze | grep 'triton\|nvidia')
+    faulty_packages=$(! "pip" freeze | grep 'triton\|nvidia')
     local -r retcode=$?
     readonly faulty_packages
     if [ "$retcode" -ne 0 ]; then
@@ -1820,7 +1609,7 @@ check_proper_pt_version_installed() {
     echo "-> Verifying if the proper PT version is installed ($1)"
     pushd "${PYTORCH_MODULES_ROOT_PATH}"/.devops || return 1
 
-    $__python_cmd - <<EOF "$1"
+    python - <<EOF "$1"
 import sys
 from build_profiles.profiles import get_version_literal_and_source as get_profile
 from build_profiles.version import Version
@@ -1853,7 +1642,7 @@ install_pytorch_build_requirements() (
     set -e
 
     echo "-> Installing PT build requirements"
-    $__pip_cmd install -r "${PYTORCH_MODULES_ROOT_PATH}"/requirements.txt
+    pip install -r "${PYTORCH_MODULES_ROOT_PATH}"/requirements.txt
 
     check_no_unwanted_packages_installed
 )
@@ -1863,7 +1652,7 @@ install_pytorch_deploy_requirements() (
     set -e
 
     echo "-> Installing PT deployment requirements"
-    $__pip_cmd install -r "${PYTORCH_MODULES_ROOT_PATH}"/.ci/requirements/requirements-pytorch.txt
+    pip install -r "${PYTORCH_MODULES_ROOT_PATH}"/.ci/requirements/requirements-pytorch.txt
 
     check_no_unwanted_packages_installed
 )
@@ -1873,7 +1662,7 @@ install_pytorch_test_requirements() (
     set -e
 
     echo "-> Installing PT test requirements"
-    $__pip_cmd install -r "${PYTORCH_MODULES_ROOT_PATH}"/.ci/requirements/requirements-test.txt
+    pip install -r "${PYTORCH_MODULES_ROOT_PATH}"/.ci/requirements/requirements-test.txt
 
     check_no_unwanted_packages_installed
 )
@@ -1883,7 +1672,7 @@ install_pytorch_test_requirements() (
 __print_torch_version_for_profile() {
     pushd "${PYTORCH_MODULES_ROOT_PATH}"/.devops >/dev/null || return 1
 
-    $__python_cmd - <<EOF "$1"
+    python - <<EOF "$1"
 import sys
 from build_profiles.profiles import get_version_literal_and_source as get_profile
 print(get_profile(sys.argv[1]).version)
@@ -1994,12 +1783,12 @@ __set_up_pytorch_artifacts_impl() (
     echo "-> Installing PT requirements and artifacts: " "${pip_install_args[@]}"
 
     # Installing in one go should prevent issues with CUDA torch begin pulled in by accident
-    $__pip_cmd install -U "${pip_install_args[@]}"
+    pip install -U "${pip_install_args[@]}"
 
 
     if [ "${GERRIT_PROJECT}" = "lightning-habana-fork" ]; then
         echo "-> Installing ligtning-habana-fork wheels"
-        $__pip_cmd install -U "${LIGHTNING_HABANA_FORK_BUILD}"/pkgs/*.whl --force-reinstall --no-deps
+        pip install -U "${LIGHTNING_HABANA_FORK_BUILD}"/pkgs/*.whl --force-reinstall --no-deps
     fi
 
     __install_habana_transformer_engine
@@ -2013,7 +1802,7 @@ __install_habana_transformer_engine() {
     hte_whls=$(ls ${TRANSFORMER_ENGINE_FORK_BUILD}/pkgs/*.whl 2>/dev/null | wc -l || true)
     if [ ${hte_whls} -gt 0 ]; then
         echo "  -> Habana Transformer Engine wheel found"
-        $__pip_cmd install -U "${TRANSFORMER_ENGINE_FORK_BUILD}"/pkgs/*.whl --force-reinstall
+        pip install -U "${TRANSFORMER_ENGINE_FORK_BUILD}"/pkgs/*.whl --force-reinstall
         echo "  -> Habana Transformer Engine installed"
     else
         echo "  -> Habana Transformer Engine wheel not found"
@@ -2096,7 +1885,7 @@ set_up_pytorch_artifacts_for_testing() (
 
 uninstall_pytorch_artifacts() {
     echo "-> Uninstalling PT artifacts"
-    $__pip_cmd uninstall -y torch torch-debug habana-torch-dataloader habana-torch-plugin torch_tb_profiler torchaudio torchdata torchtext torchvision
+    pip uninstall -y torch torch-debug habana-torch-dataloader habana-torch-plugin torch_tb_profiler torchaudio torchdata torchtext torchvision
 }
 
 __check_pytorch_dev_py_deps()
@@ -2180,41 +1969,9 @@ __provide_mkl()
 # after torchvision installation
 install_pillow_simd()
 {
-    $__pip_cmd uninstall -y pillow
-    $__pip_cmd uninstall -y pillow-simd
-    CC="cc -mavx2" $__pip_cmd install -U --force-reinstall git+https://github.com/aostrowski-hbn/pillow-simd.git@simd/9.5.x
-}
-
-# set_python_version to set envs related to python version during build
-set_python_version()
-{
-    case $1 in
-    "3.8" | "3.10" | "3.11" | "3.12")
-        echo "version $1"
-        ;;
-    *)
-        echo "Usage: $0 <3.8/3.10/3.11/3.12>"
-        return
-        ;;
-    esac
-    export __old_python_ver=$__python_ver
-    export __old_python_cmd=$__python_cmd
-    export __old_pip_cmd=$__pip_cmd
-    export __python_ver=$1
-    export __python_cmd="python${__python_ver}"
-    export __pip_cmd="${__python_cmd} -m pip"
-    echo "__python_ver = ${__python_ver}"
-    echo "__python_cmd = ${__python_cmd}"
-    echo "__pip_cmd    = ${__pip_cmd}"
-}
-
-restore_python_version()
-{
-    if [ "z$__set_py_vers" == "ztrue" ]; then
-        [ "z$__old_python_ver" != "z" ] && export __python_ver=$__old_python_ver
-        [ "z$__old_pip_cmd" != "z" ] && export __pip_cmd=$__old_pip_cmd
-        [ "z$__old_python_cmd" != "z" ] && export __python_cmd=$__old_python_cmd
-    fi
+    pip uninstall -y pillow
+    pip uninstall -y pillow-simd
+    CC="cc -mavx2" pip install -U --force-reinstall git+https://github.com/aostrowski-hbn/pillow-simd.git@simd/9.5.x
 }
 
 get_github_repo()
@@ -2250,7 +2007,6 @@ build_pytorch_text()
     local __configure=""
     local __whl_params=" bdist_wheel"
     local __result
-    local __set_py_vers="false"
     local __profile_getter_path="${PYTORCH_MODULES_ROOT_PATH}/.devops/profile_getter.py"
     local __pt_text_version
     # parameter while-loop
@@ -2276,18 +2032,12 @@ build_pytorch_text()
         --install )
             __whl_params=" install"
             ;;
-        --py-version )
-            set_python_version $2
-            __set_py_vers="true"
-            shift
-            ;;
         --pt-text-version )
             __pt_text_version="$2"
             shift
             ;;
         -h  | --help )
-            usage $__scriptname
-            restore_python_version
+            pytorch_usage $__scriptname
             return 0
             ;;
         esac
@@ -2307,7 +2057,7 @@ build_pytorch_text()
     git submodule update --init --recursive
 
     if [ -n "$__configure" ]; then
-        $__python_cmd setup.py clean
+        python setup.py clean
     fi
 
     # Replace tcmalloc_minimal with tcmalloc to avoid Segmentation fault during torchtext importing.
@@ -2316,7 +2066,7 @@ build_pytorch_text()
 
     echo "Build parameters ${__whl_params}"
 
-    (set -x;eval ${__env_vars} $__python_cmd setup.py ${__whl_params})
+    (set -x;eval ${__env_vars} python setup.py ${__whl_params})
     __result=$?
     if [ $__result -ne 0 ]; then
         echo "Pytorch torchtext build failed!"
@@ -2331,7 +2081,6 @@ build_pytorch_text()
     fi
 
     printf "\nElapsed time: %02u:%02u:%02u \n\n" $(($SECONDS / 3600)) $((($SECONDS / 60) % 60)) $(($SECONDS % 60))
-    restore_python_version
     return $__result
 }
 
@@ -2343,7 +2092,6 @@ build_pytorch_data()
     local __configure=""
     local __whl_params=" bdist_wheel"
     local __result
-    local __set_py_vers="false"
     local __profile_getter_path="${PYTORCH_MODULES_ROOT_PATH}/.devops/profile_getter.py"
     local __pt_data_version
     # parameter while-loop
@@ -2367,18 +2115,12 @@ build_pytorch_data()
         --install )
             __whl_params=" install"
             ;;
-        --py-version )
-            set_python_version $2
-            __set_py_vers="true"
-            shift
-            ;;
         --pt-data-version )
             __pt_data_version="$2"
             shift
             ;;
         -h  | --help )
-            usage $__scriptname
-            restore_python_version
+            pytorch_usage $__scriptname
             return 0
             ;;
         esac
@@ -2398,12 +2140,12 @@ build_pytorch_data()
     git submodule update --init --recursive
 
     if [ -n "$__configure" ]; then
-        $__python_cmd setup.py clean
+        python setup.py clean
     fi
 
     echo "Build parameters ${__whl_params}"
 
-    (set -x;eval ${__env_vars} $__python_cmd setup.py ${__whl_params})
+    (set -x;eval ${__env_vars} python setup.py ${__whl_params})
     __result=$?
     if [ $__result -ne 0 ]; then
         echo "Pytorch torchdata build failed!"
@@ -2418,7 +2160,6 @@ build_pytorch_data()
     fi
 
     printf "\nElapsed time: %02u:%02u:%02u \n\n" $(($SECONDS / 3600)) $((($SECONDS / 60) % 60)) $(($SECONDS % 60))
-    restore_python_version
     return $__result
 }
 
@@ -2430,7 +2171,6 @@ build_pytorch_audio()
     local __configure=""
     local __whl_params=" bdist_wheel"
     local __result
-    local __set_py_vers="false"
     local __profile_getter_path="${PYTORCH_MODULES_ROOT_PATH}/.devops/profile_getter.py"
     local __pt_audio_version
     # parameter while-loop
@@ -2454,18 +2194,12 @@ build_pytorch_audio()
         --install )
             __whl_params=" install"
             ;;
-        --py-version )
-            set_python_version $2
-            __set_py_vers="true"
-            shift
-            ;;
         --pt-audio-version )
             __pt_audio_version="$2"
             shift
             ;;
         -h  | --help )
-            usage $__scriptname
-            restore_python_version
+            pytorch_usage $__scriptname
             return 0
             ;;
         esac
@@ -2485,12 +2219,12 @@ build_pytorch_audio()
     git submodule update --init --recursive
 
     if [ -n "$__configure" ]; then
-        $__python_cmd setup.py clean
+        python setup.py clean
     fi
 
     echo "Build parameters ${__whl_params}"
 
-    (set -x;eval ${__env_vars} $__python_cmd setup.py ${__whl_params})
+    (set -x;eval ${__env_vars} python setup.py ${__whl_params})
     __result=$?
     if [ $__result -ne 0 ]; then
         echo "Pytorch torchaudio build failed!"
@@ -2505,7 +2239,6 @@ build_pytorch_audio()
     fi
 
     printf "\nElapsed time: %02u:%02u:%02u \n\n" $(($SECONDS / 3600)) $((($SECONDS / 60) % 60)) $(($SECONDS % 60))
-    restore_python_version
     return $__result
 }
 
@@ -2517,7 +2250,6 @@ build_pytorch_vision()
     local __configure=""
     local __whl_params=" bdist_wheel"
     local __result
-    local __set_py_vers="false"
     local __profile_getter_path="${PYTORCH_MODULES_ROOT_PATH}/.devops/profile_getter.py"
     local __pt_vision_version
     local __next_version=false
@@ -2542,11 +2274,6 @@ build_pytorch_vision()
         --install )
             __whl_params=" install"
             ;;
-        --py-version )
-            set_python_version $2
-            __set_py_vers="true"
-            shift
-            ;;
         --pt-vision-version )
             __pt_vision_version="$2"
             shift
@@ -2555,8 +2282,7 @@ build_pytorch_vision()
             __next_version=true
             ;;
         -h  | --help )
-            usage $__scriptname
-            restore_python_version
+            pytorch_usage $__scriptname
             return 0
             ;;
         esac
@@ -2581,12 +2307,12 @@ build_pytorch_vision()
     git submodule update --init --recursive
 
     if [ -n "$__configure" ]; then
-        $__python_cmd setup.py clean
+        python setup.py clean
     fi
 
     echo "Build parameters ${__whl_params}"
 
-    (set -x;eval ${__env_vars} $__python_cmd setup.py ${__whl_params})
+    (set -x;eval ${__env_vars} python setup.py ${__whl_params})
     __result=$?
     if [ $__result -ne 0 ]; then
         echo "Pytorch torch vision build failed!"
@@ -2601,11 +2327,10 @@ build_pytorch_vision()
     fi
 
     printf "\nElapsed time: %02u:%02u:%02u \n\n" $(($SECONDS / 3600)) $((($SECONDS / 60) % 60)) $(($SECONDS % 60))
-    restore_python_version
     return $__result
 }
 
-# Installs pt fork, pt vision, lightning if required & pt modules
+# Installs PT fork, PT vision, Lightning if required & PT modules
 # called from the ci/promote flow
 install_pytorch_whls() {
     __clean_pytorch_dev_py_deps
@@ -2615,20 +2340,20 @@ install_pytorch_whls() {
     if [ $whls_count -gt 1 ]; then
         pyfork_revision=$(cd ${PYTORCH_FORK_ROOT} && git rev-parse HEAD)
         echo "installing pyfork version ${pyfork_revision:0:7}"
-        $__pip_cmd install -U ${PYTORCH_FORK_RELEASE_BUILD}/pkgs/*${pyfork_revision:0:7}*.whl
+        pip install -U ${PYTORCH_FORK_RELEASE_BUILD}/pkgs/*${pyfork_revision:0:7}*.whl
     elif [ $whls_count == 1 ]; then
         printf "Whl detected in ${PYTORCH_FORK_RELEASE_BUILD}/pkgs directory"
-        $__pip_cmd install -U ${PYTORCH_FORK_RELEASE_BUILD}/pkgs/*.whl
+        pip install -U ${PYTORCH_FORK_RELEASE_BUILD}/pkgs/*.whl
     else
         echo "Didn't find pytorch_fork whl file"
         exit 1
     fi
-    $__pip_cmd install -U ${PYTORCH_VISION_BUILD}/pkgs/*.whl
+    pip install -U ${PYTORCH_VISION_BUILD}/pkgs/*.whl
     install_pillow_simd
     if [ "${GERRIT_PROJECT}" = "lightning-habana-fork" ];  then
-        $__pip_cmd install -U ${LIGHTNING_HABANA_FORK_BUILD}/pkgs/*.whl --force-reinstall --no-deps
+        pip install -U ${LIGHTNING_HABANA_FORK_BUILD}/pkgs/*.whl --force-reinstall --no-deps
     fi
-    $__pip_cmd install -U ${PYTORCH_MODULES_RELEASE_BUILD}/pkgs/*.whl
+    pip install -U ${PYTORCH_MODULES_RELEASE_BUILD}/pkgs/*.whl
     __install_habana_transformer_engine
 }
 
@@ -2657,7 +2382,7 @@ dsa_debugger()
         return 1
     fi
 
-    local __dsa_debugger_py="$__python_cmd $PYTORCH_MODULES_ROOT_PATH/python_packages/habana_frameworks/torch/utils/debug/dsa_debugger.py"
+    local __dsa_debugger_py="python $PYTORCH_MODULES_ROOT_PATH/python_packages/habana_frameworks/torch/utils/debug/dsa_debugger.py"
     ${__dsa_debugger_py} "$@"
 
     return $?
@@ -2671,7 +2396,7 @@ stats_parser()
         return 1
     fi
 
-    local __stats_parser_py="$__python_cmd $PYTORCH_MODULES_ROOT_PATH/python_packages/habana_frameworks/torch/utils/debug/stats_parser.py"
+    local __stats_parser_py="python $PYTORCH_MODULES_ROOT_PATH/python_packages/habana_frameworks/torch/utils/debug/stats_parser.py"
     ${__stats_parser_py} "$@"
 
     return $?
@@ -2686,4 +2411,116 @@ set_os_specific_vars() {
         *)
             ;;
     esac
+}
+
+__set_build_environment_for_standalone() {
+
+    export HABANA_SOFTWARE_STACK="$(pwd)"
+
+    export HCL_INCLUDE_DIR=/usr/include/habanalabs/
+    export SWTOOLS_SDK_ROOT=/usr/include/habanalabs/
+    export MEDIA_ROOT=$(python -c "import habana_frameworks.mediapipe, os;print(os.path.dirname(habana_frameworks.mediapipe.__file__))")
+    export SPECS_EXT_ROOT=/usr/include/habanalabs/
+    export SYNAPSE_INCLUDE_DIR=/usr/include/habanalabs/
+    export SYNAPSE_UTILS_INCLUDE_DIR=/usr/include/habanalabs/
+
+    export BUILD_ROOT="$HOME/builds"
+    export BUILD_ROOT_LATEST=/usr/lib/habanalabs/
+    export PYTORCH_MODULES_RELEASE_BUILD="$BUILD_ROOT/pytorch_modules_release"  # the release build artifact
+    export PYTORCH_MODULES_DEBUG_BUILD="$BUILD_ROOT/pytorch_modules_debug"
+}
+
+setup_standalone()
+{
+    local __standalone_version=""
+
+    while [ -n "$1" ];
+    do
+        case $1 in
+        -v  | --version )
+             __standalone_version="$2"
+             shift
+            ;;
+        -h  | --help )
+            pytorch_usage setup_standalone
+            return 0
+            ;;
+        *)
+            echo Invalid argument: $1
+            return 1
+        esac
+        shift
+    done
+
+    if [ -z "$__standalone_version" ]; then
+        echo "Missing version value. Exiting..."
+        return 1
+    fi
+
+    if [ -z "$PYTORCH_MODULES_ROOT_PATH" ]; then
+        echo "PYTORCH_MODULES_ROOT_PATH not defined, exiting..."
+        return 1
+    fi
+
+    local __version=""
+    local __build=""
+
+    if [ -n "$__standalone_version" ]; then
+        PATTERN='^[0-9]+\.[0-9]+\.[0-9]+-[0-9]+$'
+        if [[ $__standalone_version =~ $PATTERN ]]; then
+            __version=$(echo "$__standalone_version" | cut -d '-' -f 1)
+            __build=$(echo "$__standalone_version" | cut -d '-' -f 2)
+        else
+            echo "Version HABANA_STANDALONE_VERSION=$__standalone_version is not a correct format (ex. 1.22.0-100)"
+            return 1
+        fi
+    fi
+
+    export HABANA_STANDALONE_TYPE=
+
+    #Below lines are used for setup environment for unreleased versions
+    echo "deb https://artifactory-kfs.habana-labs.com/artifactory/repo-ubuntu $(lsb_release -cs 2>/dev/null) testing" | sudo tee -a /etc/apt/sources.list
+    sudo apt-get update
+    echo HABANA_SERVER_NAME=artifactory-kfs.habana-labs.com > .env.dev
+    echo HABANALABS_REPO_PATH=artifactory/devops/repos >> .env.dev
+    echo HABANALABS_SERVER_PT_DIR=artifactory/hl-generic-prod-local >> .env.dev
+    echo HABANALABS_MLNX_REPO_PATH=artifactory/devops/tencentos >> .env.dev
+    echo GENERATE_REPOS=FALSE >> .env.dev
+    echo HABANALABS_INSTALLER_LOG=installer-base.log >> .env.dev
+    #End of specific setup
+
+    #Download correct habana-installer (depend if released/unreleased version)
+    rm -f habanalabs-installer.sh
+    local __vault_url="https://vault.habana.ai/artifactory/gaudi-installer/${__version}/habanalabs-installer.sh"
+    local __artifactory_url="https://artifactory-kfs.habana-labs.com/artifactory/hl-generic-prod-local/$__version/$__build/installer/habanalabs-installer.sh"
+    if  wget -S --spider "${__vault_url}"  2>&1 | grep -q 'HTTP/1.1 200'; then
+        wget $__vault_url
+        export HABANA_STANDALONE_TYPE="vault"
+    elif wget -S --spider "${__artifactory_url}"  2>&1 | grep -q 'HTTP/1.1 200'; then
+        wget $__artifactory_url
+        export HABANA_STANDALONE_TYPE="artifactory"
+    else
+        echo "Downloading habanalabs_installer for version ${__version} failed. Exiting..."
+        return 1
+    fi
+
+    bash habanalabs-installer.sh uninstall -y
+    bash habanalabs-installer.sh install -t base -y
+
+    export HABANA_SOFTWARE_STACK="$(pwd)"
+
+    IFS=- read -r VERSION BUILD <<EOF
+    $(bash habanalabs-installer.sh -v)
+EOF
+    "${PYTORCH_MODULES_ROOT_PATH}"/scripts/install_torch_fork.sh "$VERSION" "$BUILD"
+    __result=$?
+    if [ $__result -ne 0 ]; then
+        return ${__result}
+    fi
+
+    pip install --force-reinstall https://artifactory-kfs.habana-labs.com/artifactory/habana-pypi-dev-local/habana_media_loader/${VERSION// /}.$BUILD/habana_media_loader-${VERSION// /}.$BUILD-py3-none-any.whl
+
+    sudo chmod +xw /usr/lib/habanalabs
+    sudo ln -s /usr/include/habanalabs/hl_logger /usr/include/habanalabs/hl_logger/include
+
 }

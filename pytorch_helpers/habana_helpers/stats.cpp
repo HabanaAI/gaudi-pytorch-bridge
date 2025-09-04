@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
-#include "backend/synapse_helpers/env_flags.h"
+#include "backend/synapse_helpers/env_flags.h" // IWYU pragma: keep
 #include "logging.h"
 
 /**************************************/
@@ -40,7 +40,7 @@ StatsBase::~StatsBase() {
   // For table format, print only if at least one member is not 0
   if (m_isTbl) {
     bool allZero = true;
-    for (int i = 0; i < m_maxEnum; i++) {
+    for (size_t i = 0; i < m_maxEnum; i++) {
       uint64_t count = m_pPointData[i].count.load();
       if (count != 0) {
         allZero = false;
@@ -70,20 +70,12 @@ void StatsBase::init(
   m_pointMsg.reset(new std::string[m_maxEnum]{});
   m_pointAttributes.reset(new PointAttrMap[m_maxEnum]{});
 
-  for (int i = 0; i < m_maxEnum; i++) {
+  for (size_t i = 0; i < m_maxEnum; i++) {
     m_pointMsg[i] = names[i];
   }
 }
 
-StatsBase::StatsBase()
-    : m_maxEnum(0),
-      m_dumpFreq(0),
-      m_enabled(false),
-      m_headerPrinted(false),
-      m_isTbl(false) {}
-
-StatsBase::StatsBase(const StatsBase& other)
-    : m_headerPrinted(false), m_isTbl(false) {
+StatsBase::StatsBase(const StatsBase& other) {
   m_statName = other.m_statName + " Cloned";
   m_maxEnum = other.m_maxEnum;
   m_dumpFreq = other.m_dumpFreq;
@@ -92,7 +84,7 @@ StatsBase::StatsBase(const StatsBase& other)
   m_pPointData.reset(new sumCollectData[m_maxEnum]{});
   m_pointMsg.reset(new std::string[m_maxEnum]{});
   m_pointAttributes.reset(new PointAttrMap[m_maxEnum]{});
-  for (int i = 0; i < m_maxEnum; i++) {
+  for (size_t i = 0; i < m_maxEnum; i++) {
     m_pointMsg[i] = other.m_pointMsg[i];
     m_pointAttributes[i] = other.m_pointAttributes[i];
   }
@@ -112,7 +104,7 @@ void StatsBase::printToLog(std::string msg, bool dumpAll, bool clear) {
   std::stringstream out;
   out << m_grep;
   std::string msgOut = "   -----  " + m_statName + " " + msg;
-  for (int i = 0; i < m_maxEnum; i++) {
+  for (size_t i = 0; i < m_maxEnum; i++) {
     uint64_t count = m_pPointData[i].count.load();
     uint64_t sum = m_pPointData[i].sum.load();
     uint64_t last_meas = m_pPointData[i].last_measurement.load();
@@ -120,9 +112,17 @@ void StatsBase::printToLog(std::string msg, bool dumpAll, bool clear) {
     if ((count == 0) && !dumpAll)
       continue;
 
-    if (m_pointAttributes[i].size() > 0 && !dumpAll) { // Print point attributes
+    PointAttrMap attributes;
+    {
+      // Map is not thread-safe and calling add_attribute from another thread
+      // can cause race condition, so copy it for traversing.
+      std::lock_guard<std::mutex> lg(m_pointAttributesMutex);
+      attributes = m_pointAttributes[i];
+    }
+
+    if (!attributes.empty() && !dumpAll) { // Print point attributes
       PT_PROFILE_DUMP(m_pointMsg[i] + " Attributes");
-      for (const auto& attr : m_pointAttributes[i]) {
+      for (const auto& attr : attributes) {
         PT_PROFILE_DUMP(attr.first + " : " + attr.second);
       }
     }
@@ -163,7 +163,7 @@ void StatsBase::printToLog(std::string msg, bool dumpAll, bool clear) {
 void StatsBase::outputHeader() {
   std::stringstream out;
   out << m_grep;
-  for (int i = 0; i < m_maxEnum; i++) {
+  for (size_t i = 0; i < m_maxEnum; i++) {
     out << m_pointMsg[i] << "-sum,";
     out << m_pointMsg[i] << "-count,";
     out << m_pointMsg[i] << "-average,";
@@ -198,7 +198,7 @@ void StatsBase::updateEnableGlbl() {
 }
 
 void StatsBase::clearAll() {
-  for (int i = 0; i < m_maxEnum; i++) {
+  for (size_t i = 0; i < m_maxEnum; i++) {
     m_pPointData[i].count = 0;
     m_pPointData[i].sum = 0;
   }

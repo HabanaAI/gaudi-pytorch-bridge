@@ -65,8 +65,6 @@ void BatchNormInfOperator::AllocateAndAddSynapseNode(
   params.threshold.f = 0.0;
   params.momentum = static_cast<float>(momentum);
   params.epsilon = static_cast<float>(eps);
-  p_context_->params_.emplace<ns_BatchNormKernel::Params>(params);
-  p_context_->params_size_ = sizeof(params);
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
@@ -88,7 +86,7 @@ std::vector<int64_t> NormOperator::compute_output_shape(
     const Tensor& self,
     at::IntArrayRef dim,
     bool keepdim) {
-  if (dim.size() == 0)
+  if (dim.empty())
     return {};
   auto sizes = self.sizes().vec();
   std::vector<int64_t> wrapped_dims;
@@ -118,7 +116,7 @@ void NormOperator::SetPTOutputs(torch::jit::Stack& inputs) {
       "Input arg2 expected to be Scalar for Norm Operator");
 
   auto self = inputs[0].toTensor();
-  auto shape = NormOperator::compute_output_shape(self, {}, 0);
+  auto shape = NormOperator::compute_output_shape(self, {}, false);
   auto output = at::empty(shape, self.options(), std::nullopt);
   HabanaOperator::SetPTOutput(output);
 }
@@ -641,7 +639,7 @@ void FusedNormOperator::AllocateAndAddSynapseNode(
     mul1->SetSynapseInput(slice_op->GetSynOutputs()[0]);
     stack.emplace_back(IValue(gradients.get(i)));
     stack.emplace_back(IValue(slice_op->GetOutputs()[0]));
-    auto out_metadata = SelectVectorIndices(output_metadata, {i + 1u});
+    auto out_metadata = SelectVectorIndices(output_metadata, {i + 1U});
     mul1->AllocateAndAddSynapseNode(graph, stack, out_metadata);
     stack.clear();
     // Add grads to output lists to satisfy GC (since grad updation is
@@ -831,8 +829,6 @@ void BatchNormForwardOperator::AllocateAndAddSynapseNode(
   params.epsilon = static_cast<float>(eps);
   params.threshold.f = 0.0;
   params.isTraining = training;
-  p_context_->params_.emplace<ns_BatchNormKernel::ParamsV2>(params);
-  p_context_->params_size_ = sizeof(params);
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
@@ -975,8 +971,6 @@ void BatchNormBackwardOperator::AllocateAndAddSynapseNode(
   params.epsilon = static_cast<float>(eps);
   params.threshold.f = 0.0;
   params.isTraining = training;
-  p_context_->params_.emplace<ns_BatchNormKernel::ParamsV2>(params);
-  p_context_->params_size_ = sizeof(params);
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
@@ -1020,12 +1014,16 @@ TORCH_LIBRARY_FRAGMENT(hpu, m) {
 
 static auto& NormKernelsKernelRegistry =
     habana::KernelRegistry()
-        .add(
+        .REGISTER_HPU_BACKEND(
             "hpu::native_batch_norm_training",
-            KERNEL_FN(BatchNormForwardOperator))
-        .add("hpu::native_batch_norm_inf", KERNEL_FN(BatchNormInfOperator))
-        .add(
+            habana::BatchNormForwardOperator)
+        .REGISTER_HPU_BACKEND(
+            "hpu::native_batch_norm_inf",
+            habana::BatchNormInfOperator)
+        .REGISTER_HPU_BACKEND(
             "hpu::native_batch_norm_backward",
-            KERNEL_FN(BatchNormBackwardOperator))
-        .add("hpu::fused_norm_", KERNEL_FN(FusedNormOperator))
-        .add("hpu::fused_norm_lazy", KERNEL_FN(FusedNormLazyOperator));
+            habana::BatchNormBackwardOperator)
+        .REGISTER_HPU_BACKEND("hpu::fused_norm_", habana::FusedNormOperator)
+        .REGISTER_HPU_BACKEND(
+            "hpu::fused_norm_lazy",
+            habana::FusedNormLazyOperator);

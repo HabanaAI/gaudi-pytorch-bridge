@@ -352,7 +352,7 @@ class tensor_builder_base {
   tensor::dynamic_shape_t shape_{};
   tensor::dynamic_shape_t stride_{};
   synDataType data_type_{};
-  std::string suffix_ = "";
+  std::string suffix_;
   bool is_persistent_{false};
   bool is_external_{false};
   bool is_const_{false};

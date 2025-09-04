@@ -20,9 +20,7 @@
 #include "common/utils.h"
 #include "pytorch_helpers/habana_helpers/logging.h"
 
-namespace habana {
-
-namespace backend {
+namespace habana::backend {
 
 c10::ScalarType GetInternalScalarType(const c10::ScalarType& scalar_type) {
   switch (scalar_type) {
@@ -87,12 +85,12 @@ at::Tensor ScalarCache::GetTensor(const at::Scalar& scalar) {
   }
 }
 
-void ScalarCache::CopyScalarsToDevice() {
+void ScalarCache::CopyScalarsToDevice(const c10::hpu::HPUStream& stream) {
   if (copy_tensor_list_.empty()) {
     return;
   }
 
-  habana_helpers::copy_scalars_to_device(copy_tensor_list_);
+  habana_helpers::copy_scalars_to_device(copy_tensor_list_, stream);
   copy_tensor_list_.clear();
 }
 
@@ -103,5 +101,4 @@ void ScalarCache::ClearCache() {
   int8_to_tensor_.clear();
 }
 
-} // namespace backend
-} // namespace habana
+} // namespace habana::backend

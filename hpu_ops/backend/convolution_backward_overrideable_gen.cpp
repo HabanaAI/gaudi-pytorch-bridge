@@ -97,7 +97,7 @@ static synapse_helpers::tensor ComputeBiasGradGraph(
   // back to regular flow
   std::vector<int64_t> next_val{0, 1, 2, 3, 4};
   bool flatten_higher_dims = false;
-  for (auto i = 0u; i < num_dims_to_reduce && num_dims_to_reduce > 1; ++i) {
+  for (auto i = 0U; i < num_dims_to_reduce && num_dims_to_reduce > 1; ++i) {
     if (dim_to_reduce[i] == next_val[i]) {
       flatten_higher_dims = true;
     } else {
@@ -147,13 +147,12 @@ static synapse_helpers::tensor ComputeBiasGradGraph(
   }
 }
 
-static std::shared_ptr<void> SynapseConvParamsBuilder(
+static FillParamsT SynapseConvParamsBuilder(
     const c10::IntArrayRef& weight, // HWCK
     const c10::IntArrayRef& stride, // HW
     const c10::IntArrayRef& padding, // HW
     const c10::IntArrayRef& dilation, // HW
-    int64_t groups,
-    size_t& size) {
+    int64_t groups) {
   PARAMS_STUB(synConvolutionParams);
 
   params->dH = stride[0];
@@ -168,16 +167,15 @@ static std::shared_ptr<void> SynapseConvParamsBuilder(
   params->setPadR(padding[1]);
   params->nGroups = groups;
 
-  return params;
+  return paramsT;
 }
 
-static std::shared_ptr<void> SynapseConv3dParamsBuilder(
+static FillParamsT SynapseConv3dParamsBuilder(
     const c10::IntArrayRef& weight, // DHWCK
     const c10::IntArrayRef& stride, // DHW
     const c10::IntArrayRef& padding, // DHW
     const c10::IntArrayRef& dilation, // DHW
-    int64_t groups,
-    size_t& size) {
+    int64_t groups) {
   constexpr uint32_t d_axis = 0;
   constexpr uint32_t h_axis = 1;
   constexpr uint32_t w_axis = 2;
@@ -211,17 +209,16 @@ static std::shared_ptr<void> SynapseConv3dParamsBuilder(
   params->padding[CONV_PAD_BACK] = padding[d_axis];
   params->nGroups = groups;
 
-  return params;
+  return paramsT;
 }
 
-static std::shared_ptr<void> FillConvolutionBackwardOverrideableParams(
+static FillParamsT FillConvolutionBackwardOverrideableParams(
     size_t input_rank,
     std::vector<int64_t> weight_shape,
     std::vector<int64_t> stride,
     std::vector<int64_t> padding,
     std::vector<int64_t> dilation,
-    int64_t groups,
-    size_t& size) {
+    int64_t groups) {
   if (input_rank == 3) {
     weight_shape.push_back(1);
     stride.push_back(1);
@@ -231,10 +228,10 @@ static std::shared_ptr<void> FillConvolutionBackwardOverrideableParams(
 
   if (input_rank == 5) {
     return SynapseConv3dParamsBuilder(
-        weight_shape, stride, padding, dilation, groups, size);
+        weight_shape, stride, padding, dilation, groups);
   } else {
     return SynapseConvParamsBuilder(
-        weight_shape, stride, padding, dilation, groups, size);
+        weight_shape, stride, padding, dilation, groups);
   }
 }
 
@@ -247,7 +244,7 @@ static OutputMetaData CreateMetaData(
   meta.shape = input.sizes().vec();
   meta.dtype = input.scalar_type();
   meta.mem_format = input.suggest_memory_format();
-  meta.undefined = output_mask_in.size() && !output_mask_in.get(index);
+  meta.undefined = !output_mask_in.empty() && !output_mask_in.get(index);
 
   return meta;
 }
@@ -438,7 +435,6 @@ bool ConvBwdDSSTMeta(
 void ConvolutionBackwardOverrideable::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  size_t params_size = 0;
   at::Tensor grad_output = stack_tensor(stack, 0); // Result of convolution fwd
   at::Tensor input = stack_tensor(stack, 1);
   at::Tensor weight = stack_tensor(stack, 2);
@@ -479,13 +475,7 @@ void ConvolutionBackwardOverrideable::AddNode(
   }
 
   const auto& params = FillConvolutionBackwardOverrideableParams(
-      input.dim(),
-      weight.sizes().vec(),
-      stride,
-      padding,
-      dilation,
-      groups,
-      params_size);
+      input.dim(), weight.sizes().vec(), stride, padding, dilation, groups);
   // In case of dynamic graph and dry run check if the input and output sizes
   // are valid fix for SW-94417
   if (graph.is_dynamic_graph() && graph.is_dry_run()) {
@@ -523,7 +513,7 @@ void ConvolutionBackwardOverrideable::AddNode(
           bool is_conv_3d,
           std::vector<synTensor>&& node_inputs,
           std::vector<NodeAttr::NodeOutputAttr>&& node_output_attr,
-          void* params) {
+          const FillParamsT& params) {
         if (guid.find("spatial_convolution") != std::string::npos ||
             guid.find("dedx") != std::string::npos) {
           if (is_conv_3d) {
@@ -576,8 +566,8 @@ void ConvolutionBackwardOverrideable::AddNode(
                              std::move(guid),
                              std::move(node_inputs),
                              std::move(node_output_attr),
-                             params,
-                             params_size)
+                             params.ptr(),
+                             params.size())
                              .at(0));
       };
 
@@ -600,7 +590,7 @@ void ConvolutionBackwardOverrideable::AddNode(
           is_conv_3d,
           {grad_output_expanded, weight_expanded},
           {{out0_shape, ScalarType(), COND_FINAL_RES_IDX(is_conv_1d, 0)}},
-          params.get());
+          params);
 
       IF_CONV1D_SQUEEZE_TO_ORIG_AND_SET_OUT(convOp, out0_shape, 0);
     } else {
@@ -615,7 +605,7 @@ void ConvolutionBackwardOverrideable::AddNode(
           is_conv_3d,
           {input_expanded, grad_output_expanded},
           {{out1_shape, ScalarType(), COND_FINAL_RES_IDX(is_conv_1d, 1)}},
-          params.get());
+          params);
 
       IF_CONV1D_SQUEEZE_TO_ORIG_AND_SET_OUT(dedwOp, out1_shape, 1);
     } else {
@@ -635,7 +625,7 @@ void ConvolutionBackwardOverrideable::AddNode(
           is_conv_3d,
           std::move(syn_inputs),
           {{out0_shape, ScalarType(), COND_FINAL_RES_IDX(is_conv_1d, 0)}},
-          params.get());
+          params);
 
       IF_CONV1D_SQUEEZE_TO_ORIG_AND_SET_OUT(convOp, out0_shape, 0);
     } else {
@@ -650,7 +640,7 @@ void ConvolutionBackwardOverrideable::AddNode(
           is_conv_3d,
           {grad_output_expanded, input_expanded},
           {{out1_shape, ScalarType(), COND_FINAL_RES_IDX(is_conv_1d, 1)}},
-          params.get());
+          params);
 
       IF_CONV1D_SQUEEZE_TO_ORIG_AND_SET_OUT(dedwOp, out1_shape, 1);
     } else {

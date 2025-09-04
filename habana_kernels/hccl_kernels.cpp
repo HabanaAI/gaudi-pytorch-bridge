@@ -214,9 +214,9 @@ void collective(
     auto deviceCtxt = comm->getDeviceCtxt();
     synStreamHandle collective_stream = comm->getCommStream();
 
-    synapse_helpers::device_ptr input_storage_ptr =
+    auto input_storage_ptr =
         (synapse_helpers::device_ptr)inputs.at(i)->get_buffer_start();
-    synapse_helpers::device_ptr output_storage_ptr =
+    auto output_storage_ptr =
         (synapse_helpers::device_ptr)outputs.at(i)->get_buffer_start();
 
     std::vector<synapse_helpers::shared_event> event_lists = {};
@@ -381,7 +381,7 @@ void pointToPoint(
     auto deviceCtxt = comm->getDeviceCtxt();
     synStreamHandle collective_stream = comm->getCommStream();
 
-    synapse_helpers::device_ptr tensor_storage_ptr =
+    auto tensor_storage_ptr =
         (synapse_helpers::device_ptr)tensors.at(i)->get_buffer_start();
     deviceCtxt->prepare_stream(collective_stream, tensor_storage_ptr);
 
@@ -488,7 +488,7 @@ void HcclBroadcastOperator::AllocateAndAddSynapseNode(
   root_rank_ = inputs.at(1).toInt();
   comm_id_ = inputs.at(2).toInt();
 
-  if (p_context_->pt_inputs_.size() == 0)
+  if (p_context_->pt_inputs_.empty())
     p_context_->pt_inputs_.emplace_back(inputs[0].toTensor());
   AllocateSynapseInplaceOutput(graph, output_metadata.at(0).external);
 }
@@ -551,7 +551,7 @@ void HcclAllreduceOperator::AllocateAndAddSynapseNode(
   reduce_op_ = (uint8_t)inputs.at(1).toInt();
   comm_id_ = inputs.at(2).toInt();
 
-  if (p_context_->pt_inputs_.size() == 0)
+  if (p_context_->pt_inputs_.empty())
     p_context_->pt_inputs_.emplace_back(inputs[0].toTensor());
   AllocateSynapseInplaceOutput(graph, output_metadata.at(0).external);
 }
@@ -633,7 +633,7 @@ void HcclReduceOperator::AllocateAndAddSynapseNode(
   reduce_op_ = (uint8_t)inputs.at(2).toInt();
   comm_id_ = inputs.at(3).toInt();
 
-  if (p_context_->pt_inputs_.size() == 0)
+  if (p_context_->pt_inputs_.empty())
     p_context_->pt_inputs_.emplace_back(inputs[0].toTensor());
   AllocateSynapseInplaceOutput(graph, output_metadata.at(0).external);
 }
@@ -726,7 +726,7 @@ void HcclAllToAllOutOperator::AllocateAndAddSynapseNode(
 
   comm_id_ = inputs.at(1).toInt();
 
-  if (p_context_->pt_inputs_.size() == 0)
+  if (p_context_->pt_inputs_.empty())
     p_context_->pt_inputs_.emplace_back(inputs[0].toTensor());
   p_context_->syn_outputs_.emplace_back(
       habana_helpers::duplicate_tensor_in_memory_section(
@@ -755,7 +755,7 @@ void HcclAllToAllOutOperator::RunCollective(
   std::vector<PtTensorInfoShared> tensor_inputs = {inputs.at(0)};
   std::vector<PtTensorInfoShared> tensor_outputs = {inputs.at(4)};
 
-  if (outputSplitSizes.size() == 0 && inputSplitSizes.size() == 0) {
+  if (outputSplitSizes.empty() && inputSplitSizes.empty()) {
     collective(
         tensor_inputs,
         tensor_outputs,
@@ -795,7 +795,7 @@ void HcclAllToAllOutOperator::RunCollective(
         {device_id_},
         {comm_id_},
         async,
-        done_cb = done_cb,
+        done_cb,
         [scalar_type = scalar_type_,
          input_t = p_context_->pt_inputs_[0],
          output_t = p_context_->pt_outputs_[0],
@@ -875,7 +875,7 @@ void HcclAllgatherOutOperator::AllocateAndAddSynapseNode(
   auto inputTensor = inputs.at(0).toTensor();
   comm_id_ = inputs.at(1).toInt();
 
-  if (p_context_->pt_inputs_.size() == 0)
+  if (p_context_->pt_inputs_.empty())
     p_context_->pt_inputs_.emplace_back(inputs[0].toTensor());
   p_context_->syn_outputs_.emplace_back(
       habana_helpers::duplicate_tensor_in_memory_section(
@@ -942,7 +942,7 @@ void HcclReduceScatterOutOperator::AllocateAndAddSynapseNode(
   reduce_op_ = (uint8_t)inputs.at(1).toInt();
   comm_id_ = inputs.at(2).toInt();
 
-  if (p_context_->pt_inputs_.size() == 0)
+  if (p_context_->pt_inputs_.empty())
     p_context_->pt_inputs_.emplace_back(inputs[0].toTensor());
   p_context_->syn_outputs_.emplace_back(
       habana_helpers::duplicate_tensor_in_memory_section(
@@ -1021,7 +1021,7 @@ void HcclSendOperator::AllocateAndAddSynapseNode(
     smeta->set_dont_allow_permutation(true);
   }
 
-  if (p_context_->pt_inputs_.size() == 0)
+  if (p_context_->pt_inputs_.empty())
     p_context_->pt_inputs_.emplace_back(inputs[0].toTensor());
   AllocateSynapseInplaceOutput(graph, output_metadata.at(0).external);
 }
@@ -1086,7 +1086,7 @@ void HcclRecvOperator::AllocateAndAddSynapseNode(
   tag_ = inputs.at(2).toInt();
   comm_id_ = inputs.at(3).toInt();
 
-  if (p_context_->pt_inputs_.size() == 0)
+  if (p_context_->pt_inputs_.empty())
     p_context_->pt_inputs_.emplace_back(inputs[0].toTensor());
   AllocateSynapseInplaceOutput(graph, output_metadata.at(0).external);
 }

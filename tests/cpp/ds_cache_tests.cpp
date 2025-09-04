@@ -72,8 +72,10 @@ TEST(DS_CacheTest, JIT_IR_GraphKeyTest) {
 
   std::string id_str{"HabanaLaunchOp"};
   size_t graphKey = 0;
-  std::string op_strs = std::string();
-  habana::ComputeGraphHashCode(jit_ir_graph, id_str, inputs, op_strs, graphKey);
+  size_t shapelessHash = 0;
+  std::string op_strs;
+  habana::ComputeGraphHashCode(jit_ir_graph, id_str, inputs, op_strs, graphKey, shapelessHash);
+
   std::shared_ptr<habana::RecipeArgumentSpec> rargpsh1 =
       std::make_shared<habana::RecipeArgumentSpec>(inputs, graphKey, op_strs);
 

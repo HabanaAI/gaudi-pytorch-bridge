@@ -75,7 +75,6 @@ def _hpu_lazy_slice(dev, t):
 
 @pytest.mark.parametrize("cl", test_case_list)
 def test_hpu_lazy_pad_slice(cl):
-
     t = torch.randn([1, 4, 132, 176, 136])
     if cl is True:
         t = t.contiguous(memory_format=torch.channels_last_3d)

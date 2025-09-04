@@ -27,8 +27,7 @@
  * The signal handler is modelled after caffe2/utils/signal_handler.cc from
  * pytorch frameworks, which is by default not compiled in the framework.
  */
-namespace habana_helpers {
-namespace signalHandler {
+namespace habana_helpers::signalHandler {
 
 struct sigaction* GetPreviousSigaction(int signum) {
   for (auto handler = SignalHandlersList; handler->name != nullptr; handler++) {
@@ -163,5 +162,4 @@ void fatalSignalHandler(int signum, siginfo_t* info, void* ctx) {
   };
 }
 
-} // namespace signalHandler
-} // namespace habana_helpers
+} // namespace habana_helpers::signalHandler

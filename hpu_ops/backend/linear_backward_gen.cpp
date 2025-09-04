@@ -14,6 +14,7 @@
  */
 
 #include "generated/backend/linear_backward.h"
+#include "hpu_ops/hpu_op_helper.h"
 #include "hpu_ops/linear_backward.h"
 #include "hpu_ops/op_backend.h"
 
@@ -36,28 +37,25 @@ OutputMetaDataVector LinearBackwardMeta(const at::Stack& stack) {
   weight_meta.shape = weight.sizes().vec();
   weight_meta.dtype = weight.scalar_type();
 
-  bias_meta.shape = bias_grad_shape;
+  std::swap(bias_meta.shape, bias_grad_shape);
   bias_meta.dtype = weight.scalar_type();
 
   return {input_meta, weight_meta, bias_meta};
 }
 
-std::shared_ptr<void> FillLinearBwdParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillLinearBwdParams(const at::Stack& stack) {
   const auto& grad_mask = stack.at(3).toBoolList();
   PARAMS_STUB(ns_LinearBwdKernel::Params);
   params->gradBias = grad_mask[2];
 
-  return params;
+  return paramsT;
 }
 
 void LinearBackward::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   const auto meta = LinearBackwardMeta(stack);
-  size_t size = 0;
-  auto params = FillLinearBwdParams(stack, size);
+  auto params = FillLinearBwdParams(stack);
 
   std::vector<synTensor> input_tensor{syn_in(0), syn_in(1), syn_in(2)};
   using namespace std::literals;
@@ -71,8 +69,8 @@ void LinearBackward::AddNode(
       {{meta.at(0).shape, meta.at(0).dtype, 0},
        {meta.at(1).shape, meta.at(1).dtype, 1},
        {meta.at(2).shape, meta.at(2).dtype, 2}},
-      params.get(),
-      size);
+      params.ptr(),
+      params.size());
 
   for (size_t i = 0; i < 3; ++i) {
     syn_out(i) = std::move(linear_bwd[i]);
@@ -96,7 +94,7 @@ LinearBackward::LinearBackward(int device_id, c10::ScalarType scalar_type)
 // are overriden in eager and torch.compile.
 static const auto& LinearBackwardKernelRegistry =
     GET_ENV_FLAG_NEW(PT_HPU_OVERRIDE_LINEAR_MATMUL_EAGER)
-    ? habana::KernelRegistry().add(
+    ? habana::KernelRegistry().REGISTER_HPU_BACKEND(
           "hpu::linear_backward",
-          KERNEL_FN_GLOBAL(habana::LinearBackward))
+          habana::LinearBackward)
     : habana::KernelRegistry();

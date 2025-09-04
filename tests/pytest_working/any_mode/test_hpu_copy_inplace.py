@@ -27,6 +27,7 @@ from test_utils import (
     compare_tensors,
     compile_function_if_compile_mode,
     format_tc,
+    is_gaudi1,
     is_pytest_mode_compile,
     place_on_hpu,
 )
@@ -35,7 +36,8 @@ Verbose = False
 
 dtypes = [torch.float32, torch.bfloat16, torch.int]
 dtypes_fp8 = [torch.float8_e5m2, torch.float8_e4m3fn]
-dtypes += dtypes_fp8
+if not is_gaudi1():
+    dtypes += dtypes_fp8
 
 
 @pytest.mark.parametrize("shape", [(2, 2), (512,), (5, 4, 3, 8)], ids=format_tc)
@@ -117,19 +119,18 @@ def test_hpu_view_copy_(dtype, view_mode, op):
         dst_view = make_view(tensors["dst"])
         tensors["result"] = fn(dst_view, tensors["src"])
 
-    for key in cpu_tensors.keys():
+    for key, result_cpu in cpu_tensors.items():
         if key != "src":
-            result_cpu = cpu_tensors[key]
             result_hpu = hpu_tensors[key]
 
             if cpu_cast_to_bf16:
                 result_cpu = result_cpu.to(dtype)
 
             if Verbose:
-                print(f"\ncpu_tensors[{key}] = {cpu_tensors[key]}")
-                print(f"\nhpu_tensors[{key}].cpu() = {hpu_tensors[key].cpu()}")
+                print(f"\ncpu_tensors[{key}] = {result_cpu}")
+                print(f"\nhpu_tensors[{key}].cpu() = {result_hpu.cpu()}")
 
-            compare_tensors(hpu_tensors[key], cpu_tensors[key], atol=0.0, rtol=0.0)
+            compare_tensors(result_hpu, cpu_tensors[key], atol=0.0, rtol=0.0)
 
     if is_pytest_mode_compile():
         # because copy+copy_ will be rewriten to copy_

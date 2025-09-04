@@ -23,9 +23,7 @@
 #include <atomic>
 #include <future>
 
-namespace habana {
-
-namespace eager {
+namespace habana::eager {
 
 /**
  * @brief
@@ -82,7 +80,6 @@ class HbEagerTensorPool {
     return instance;
   }
 
- public:
   static at::Tensor get_backend_tensor(const at::Tensor& frontend_tensor);
 
  private:
@@ -94,7 +91,6 @@ class HbEagerTensorPool {
   void extend_empty_tensor_pool();
   at::Tensor get_tensor();
 
- private:
   std::deque<at::Tensor> tensor_pool_;
   std::deque<at::Tensor> tensor_pool_other_;
   std::future<void> handle_;
@@ -102,5 +98,4 @@ class HbEagerTensorPool {
   const size_t pool_size_{GET_ENV_FLAG_NEW(PT_HPU_EAGER_TENSOR_POOL_SIZE)};
 };
 
-} // namespace eager
-} // namespace habana
+} // namespace habana::eager

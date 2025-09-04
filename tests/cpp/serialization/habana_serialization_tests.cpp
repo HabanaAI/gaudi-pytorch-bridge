@@ -50,7 +50,7 @@ class HabanaSerializationRecipeTest : public ::testing::Test {
 
  private:
   void overrideEmptyCachePathEnv() {
-    if (m_cache_path == "") {
+    if (m_cache_path.empty()) {
       m_cache_overriden = true;
       m_cache_path = "cache_dir";
       HPUDeviceContext::recipe_cache().UpdateCachePath(m_cache_path);
@@ -241,10 +241,11 @@ TEST(HabanaSerializationTest, CharArrayTest) {
   std::stringstream ss;
   serialization::serialize(ss, testArray.c_str());
 
-  char* restored_testArray;
+  char* restored_testArray = nullptr;
   serialization::deserialize(ss, restored_testArray);
 
   string restored_str = string(restored_testArray);
+  delete[] restored_testArray;
 
   ASSERT_EQ(testArray, restored_str);
 }
@@ -254,7 +255,7 @@ TEST(HabanaSerializationTest, StringTest) {
   std::stringstream ss;
   serialization::serialize(ss, testArray);
 
-  string restored_testArray("");
+  string restored_testArray;
   serialization::deserialize(ss, restored_testArray);
 
   ASSERT_EQ(testArray, restored_testArray);

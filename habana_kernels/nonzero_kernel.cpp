@@ -31,6 +31,7 @@
 #include "habana_kernels/index_kernels.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/nonzero_kernel.h"
+#include "hpu_ops/hpu_op_helper.h"
 
 using namespace torch;
 using namespace habana;
@@ -271,4 +272,6 @@ void NonZeroOperator::AllocateAndAddSynapseNode(
 }
 
 static auto& NonZeroKernelRegistry =
-    habana::KernelRegistry().add("hpu::nonzero", KERNEL_FN(NonZeroOperator));
+    habana::KernelRegistry().REGISTER_HPU_BACKEND(
+        "hpu::nonzero",
+        habana::NonZeroOperator);

@@ -28,8 +28,7 @@
 #include "pytorch_helpers/habana_helpers/logging.h"
 #include "pytorch_helpers/visualize/visualize.h"
 
-namespace habana {
-namespace eager {
+namespace habana::eager {
 
 namespace {
 
@@ -221,7 +220,8 @@ std::vector<at::IValue> convert_ivalues_to_backend_tensors(
 }
 
 std::vector<at::IValue> convert_cpu_wrapped_numbers(
-    const std::vector<at::IValue>& inputs) {
+    const std::vector<at::IValue>& inputs,
+    const c10::hpu::HPUStream& stream) {
   auto& scalar_cache = HPUDeviceContext::scalar_cache();
   auto stack = inputs;
   for (size_t i = 0; i < stack.size(); i++) {
@@ -247,7 +247,7 @@ std::vector<at::IValue> convert_cpu_wrapped_numbers(
   }
 
   // Copy wrapped number tensors to HPU
-  scalar_cache.CopyScalarsToDevice();
+  scalar_cache.CopyScalarsToDevice(stream);
   return stack;
 }
 
@@ -335,12 +335,11 @@ void EagerExec::launch() {
     PT_EAGER_DEBUG("Eager Op :", m_symbol.toQualString(), " Skip lowering ! ");
     return;
   }
-  const c10::hpu::HPUStream& stream{c10::hpu::getCurrentHPUStream()};
 
   // stack is used for both inputs to synapse lowering and outputs from
   // synapse lowering, therefore allocate memory which is max of input
   // and output size - out is 1, so size(inputs)
-  auto stack = convert_cpu_wrapped_numbers(m_inputs);
+  auto stack = convert_cpu_wrapped_numbers(m_inputs, m_stream);
   auto orig_inputs = stack;
   stack = prepare_input_stack(stack);
 
@@ -364,10 +363,11 @@ void EagerExec::launch() {
 
     // Set param agnostic flag if node params are available for the view ops
     // or ops which uses either scalars or tensor shapes as node params
-    const bool param_agnsotic_flag = jit_val_to_ivalue_map.size() ||
+    const bool param_agnsotic_flag = !jit_val_to_ivalue_map.empty() ||
         NodeParamAgnosticOpList::isNodeParamAgnosticOp(m_symbol);
     graph_and_meta->set_is_param_agnostic_supported(param_agnsotic_flag);
     graph_and_meta->set_param_jit_val_to_ivalue_map(jit_val_to_ivalue_map);
+    graph_and_meta->SetHPUStream(m_stream);
 
     if (!graph_and_meta->get_new_strided_insert_output_shape().empty()) {
       auto& temp_outputs = m_outputs.get_outputs();
@@ -414,7 +414,7 @@ void EagerExec::launch() {
     graph_and_meta = std::make_shared<habana::OptimizedJITGraphAndMetaData>(
         graph,
         input_refs,
-        0ull /*unique_cntr*/,
+        0ULL /*unique_cntr*/,
         std::vector<bool>{} /*node_bcast_map_*/,
         "" /*id*/,
         false /*dynamic*/,
@@ -428,7 +428,7 @@ void EagerExec::launch() {
 
     graph_and_meta->SetGraphIndex(graphIndex);
     graph_and_meta->SetOpName(m_graph_name);
-    graph_and_meta->SetHPUStream(stream);
+    graph_and_meta->SetHPUStream(m_stream);
     graph_and_meta->SetFrontendType(habana_helpers::HabanaFrontendTypes::EAGER);
     graph_and_meta->set_is_eager_compiler_supported(eager_compiler_supported);
     graph_and_meta->set_is_shape_agnostic_supported(eager_compiler_supported);
@@ -511,7 +511,7 @@ void EagerExec::launch() {
       false,
       "EagerLoweringTask()",
       graph_and_meta->GetOpName(),
-      (int32_t)LOP::PipelineStageID::PIPELIE_STAGE_LOWERING_ID,
+      (int32_t)LOP::PipelineStageID::PIPELINE_STAGE_LOWERING_ID,
       lowering_queue_length,
       key,
       jit_cache_hit_count_for_event);
@@ -589,8 +589,7 @@ std::shared_ptr<torch::jit::Graph> EagerExec::create_eager_graph(
   /*Need to set this node if the deterministic mode is ON*/
   jit_node->i_(
       torch::jit::attr::deterministic,
-      HPUGlobalConfig::get().getDeterministic() ||
-          at::globalContext().deterministicAlgorithms());
+      at::globalContext().deterministicAlgorithms());
   PT_BRIDGE_DEBUG(
       "Deterministic val during Jit Node creation: ",
       jit_node->i(torch::jit::attr::deterministic));
@@ -618,9 +617,7 @@ size_t EagerExec::calculate_operator_key(
   optimized_key = at::hash_combine(optimized_key, m_outputs.size());
 
   optimized_key = at::hash_combine(
-      optimized_key,
-      HPUGlobalConfig::get().getDeterministic() ||
-          at::globalContext().deterministicAlgorithms());
+      optimized_key, at::globalContext().deterministicAlgorithms());
 
   for (size_t i = 0; i < parent_vec.size(); ++i)
     optimized_key = at::hash_combine(optimized_key, parent_vec[i]);
@@ -676,13 +673,13 @@ size_t EagerExec::calculate_operator_key(
 
               // hash memory section id if valid storage present
               if (tensor.has_storage()) {
-                uint64_t base_address = reinterpret_cast<uint64_t>(
+                auto base_address = reinterpret_cast<uint64_t>(
                     tensor.storage().data_ptr().get());
                 if (base_address) {
                   // find the base address in the storage_base_addresses vector
                   // whose index is analogous to section id i.e. unique memory
                   // section
-                  std::vector<uint64_t>::iterator it = std::find(
+                  auto it = std::find(
                       storage_base_addresses.begin(),
                       storage_base_addresses.end(),
                       base_address);
@@ -861,8 +858,7 @@ void EagerExec::prune_duplicate_stack_inputs(
           stack.begin(),
           stack.end(),
           [&stack, &parent_vec](const c10::IValue& v) {
-            const auto index = static_cast<size_t>(
-                static_cast<const c10::IValue*>(&v) - &stack[0]);
+            const auto index = static_cast<size_t>(&v - stack.data());
             const auto is_duplicate = parent_vec.is_duplicate(index);
             if (is_duplicate) {
               PT_EAGER_DEBUG(
@@ -1021,5 +1017,4 @@ void EagerExec::mark_maybe_grad_view() {
       "Marked grad view. size: ", t.sizes(), " offset ", t.storage_offset());
 }
 
-} // namespace eager
-} // namespace habana
+} // namespace habana::eager

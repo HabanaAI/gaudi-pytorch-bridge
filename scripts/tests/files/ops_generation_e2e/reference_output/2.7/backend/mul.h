@@ -9,7 +9,7 @@
 namespace habana {
 
 
-at::Tensor & mul_out(const at::Tensor & self, const at::Scalar & other, at::Tensor & out);
+at::Tensor & mul_Scalar_out(const at::Tensor & self, const at::Scalar & other, at::Tensor & out);
 OUTSHAPE_DECL(BinaryOutputShape);
 
 }  // namespace habana

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,35 +15,28 @@
 #include "generated/backend/logit.h"
 
 namespace habana {
-std::shared_ptr<void> FillLogitParams(
-    const at::Stack& stack,
-    size_t& size,
-    int64_t index) {
+FillParamsT FillLogitParams(const at::Stack& stack, int64_t index) {
   // check if eps=None
   if (stack.at(index).isNone())
-    return nullptr;
+    return {};
 
   PARAMS_STUB(ns_LogitKernel::Params);
   params->epsilon = stack.at(index).toDouble();
 
-  return params;
+  return paramsT;
 }
 
-std::shared_ptr<void> FillLogitForwardParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillLogitForwardParams(const at::Stack& stack) {
   // index positions for input args
   constexpr size_t epsPositionInArgList = 1;
 
-  return FillLogitParams(stack, size, epsPositionInArgList);
+  return FillLogitParams(stack, epsPositionInArgList);
 }
 
-std::shared_ptr<void> FillLogitBackwardParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillLogitBackwardParams(const at::Stack& stack) {
   // index positions for input args
   constexpr size_t epsPositionInArgList = 2;
 
-  return FillLogitParams(stack, size, epsPositionInArgList);
+  return FillLogitParams(stack, epsPositionInArgList);
 }
 } // namespace habana

@@ -17,8 +17,7 @@
 #include "backend/backend_meta.h"
 #include "backend/synapse_helpers/env_flags.h"
 
-namespace habana {
-namespace eager {
+namespace habana::eager {
 
 HbEagerTensorPool::HbEagerTensorPool() {
   extend_empty_tensor_pool();
@@ -103,5 +102,4 @@ at::Tensor HbEagerTensorPool::get_backend_tensor(
   return backend_tensor;
 }
 
-} // namespace eager
-} // namespace habana
+} // namespace habana::eager

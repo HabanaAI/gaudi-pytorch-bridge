@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -503,11 +503,13 @@ TEST_F(LazyBasicKernelTest, viewtranspose) {
 TEST_F(LazyBasicKernelTest, multilevelview) {
   torch::Tensor A = torch::randn({2, 3, 4, 5});
   auto hA = A.to(torch::kHPU);
-  auto B = A.view({2 * 3, 4, 5});
-  auto C = B.view({2 * 3, 4 * 5});
+  constexpr auto first_view_arg = 2 * 3;
+  constexpr auto second_view_arg = 4 * 5;
+  auto B = A.view({first_view_arg, 4, 5});
+  auto C = B.view({first_view_arg, second_view_arg});
 
-  auto hB = hA.view({2 * 3, 4, 5});
-  auto hC = hB.view({2 * 3, 4 * 5});
+  auto hB = hA.view({first_view_arg, 4, 5});
+  auto hC = hB.view({first_view_arg, second_view_arg});
 
   EXPECT_EQ(allclose(C, hC.cpu(), 0.001, 0.001), true);
 }
@@ -653,10 +655,10 @@ TEST_F(LazyBasicKernelTest, permuteResizeInplaceAddTest) {
   auto hA = A.to(torch::kHPU);
 
   auto hOutPerm = hA.permute({0, 2, 3, 1});
-  auto hOut = hOutPerm.reshape({2, 4, 3 * 5});
+  auto hOut = hOutPerm.reshape({2, 4, static_cast<int64_t>(3 * 5)});
   hOut.add_(2);
   auto outPerm = A.permute({0, 2, 3, 1});
-  auto out = outPerm.reshape({2, 4, 3 * 5});
+  auto out = outPerm.reshape({2, 4, static_cast<int64_t>(3 * 5)});
   out.add_(2);
 
   auto hOut_cpu = hOut.cpu();
@@ -669,12 +671,12 @@ TEST_F(LazyBasicKernelTest, inplaceAddPermuteResizeInplaceAddTest) {
 
   hA.add_(1);
   auto hOutPerm = hA.permute({0, 2, 3, 1});
-  auto hOut = hOutPerm.reshape({2, 4, 3 * 5});
+  auto hOut = hOutPerm.reshape({2, 4, static_cast<int64_t>(3 * 5)});
   hOut.add_(2);
 
   A.add_(1);
   auto outPerm = A.permute({0, 2, 3, 1});
-  auto out = outPerm.reshape({2, 4, 3 * 5});
+  auto out = outPerm.reshape({2, 4, static_cast<int64_t>(3 * 5)});
   out.add_(2);
 
   auto hOut_cpu = hOut.cpu();
@@ -880,8 +882,8 @@ TEST_F(LazyBasicKernelTest, gather_neg_dim) {
   auto indx = torch::randint(0, 2, {2}, torch::kInt64);
   auto hinp = inp.to(torch::kHPU);
   auto hindx = indx.to(torch::kHPU);
-  auto cpuout = torch::gather(inp, -1, indx, 0);
-  auto hpuout = torch::gather(hinp, -1, hindx, 0);
+  auto cpuout = torch::gather(inp, -1, indx, false);
+  auto hpuout = torch::gather(hinp, -1, hindx, false);
   EXPECT_EQ(allclose(cpuout, hpuout.cpu(), 0.001, 0.001), true);
 }
 

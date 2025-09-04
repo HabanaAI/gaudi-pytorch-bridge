@@ -32,8 +32,7 @@
 #include "habana_helpers/logging.h"
 #include "habana_helpers/pt_version_check.h"
 
-namespace habana_torch {
-namespace jit {
+namespace habana_torch::jit {
 
 struct SourceRange;
 
@@ -45,11 +44,7 @@ struct TORCH_API StringCordView {
   StringCordView(const StringCordView&) = default;
   StringCordView(StringCordView&&) noexcept = default;
   StringCordView(
-#if IS_PYTORCH_AT_LEAST(2, 7)
       std::vector<std::string_view> inputs,
-#else
-      std::vector<std::string_view> inputs,
-#endif
       std::vector<std::shared_ptr<std::string>> ownerships);
 
   StringCordView& operator=(const StringCordView&) = default;
@@ -82,11 +77,7 @@ struct TORCH_API StringCordView {
 
   bool operator==(const StringCordView& rhs) const;
 
-#if IS_PYTORCH_AT_LEAST(2, 7)
   std::string_view piece(size_t index) const {
-#else
-  std::string_view piece(size_t index) const {
-#endif
     return pieces_[index];
   }
 
@@ -169,20 +160,12 @@ struct TORCH_API StringCordView {
     }
 
     // returns rest of the line of the current iterator
-#if IS_PYTORCH_AT_LEAST(2, 7)
     std::string_view rest_line() const {
-#else
-    std::string_view rest_line() const {
-#endif
       if (line_ >= str_->pieces_.size()) {
         return "";
       }
 
-#if IS_PYTORCH_AT_LEAST(2, 7)
       std::string_view cur_line = str_->pieces_[line_];
-#else
-      std::string_view cur_line = str_->pieces_[line_];
-#endif
       return cur_line.substr(pos_, std::string::npos);
     }
 
@@ -202,19 +185,15 @@ struct TORCH_API StringCordView {
   };
 
   Iterator begin() const {
-    return Iterator(this, 0, 0, size());
+    return {this, 0, 0, size()};
   }
   Iterator end() const {
-    return Iterator(this, pieces_.size(), 0, 0);
+    return {this, pieces_.size(), 0, 0};
   }
   Iterator iter_for_pos(size_t pos) const;
 
  private:
-#if IS_PYTORCH_AT_LEAST(2, 7)
   std::vector<std::string_view> pieces_;
-#else
-  std::vector<std::string_view> pieces_;
-#endif
   std::vector<size_t> accumulated_sizes_;
   std::vector<std::shared_ptr<std::string>> owned_strings_;
 };
@@ -230,11 +209,7 @@ struct TORCH_API Source {
   enum CopiesString { COPIES_STRING, DONT_COPY };
 
   explicit Source(
-#if IS_PYTORCH_AT_LEAST(2, 7)
       std::string_view text_view,
-#else
-      std::string_view text_view,
-#endif
       std::optional<std::string> filename = std::nullopt,
       size_t starting_line_no = 0,
       CopiesString copies_str = COPIES_STRING)
@@ -360,11 +335,7 @@ struct TORCH_API SourceRange {
         end_(end_),
         start_iter_(start_iter) {}
 
-#if IS_PYTORCH_AT_LEAST(2, 7)
   const std::string_view token_text() const {
-#else
-  const std::string_view token_text() const {
-#endif
     size_t size = end() - start();
     return start_iter_.rest_line().substr(0, size);
   }
@@ -485,8 +456,7 @@ using SourceRangeRecords = std::vector<TaggedRange>;
 using SourceRangeTagMap =
     std::unordered_map<SourceRange, int64_t, SourceRangeHasher>;
 
-} // namespace jit
-} // namespace habana_torch
+} // namespace habana_torch::jit
 
 namespace std {
 

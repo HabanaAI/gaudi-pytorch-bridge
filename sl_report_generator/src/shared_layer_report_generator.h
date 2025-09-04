@@ -38,7 +38,7 @@ class SharedLayerReportGenerator : public ISharedLayerReportGenerator {
   void register_auto_generated_executors() override {
     slrg::register_auto_generated_executors(this);
   }
-  void register_exceptions();
+  void register_exceptions() override;
   void register_op(
       OperatorDescriptor operator_descriptor,
       SharedLayerExecutor<>* const executor) override {
@@ -63,13 +63,18 @@ class SharedLayerReportGenerator : public ISharedLayerReportGenerator {
   void register_bmm_out_exception();
   void register_channel_shuffle_exception();
   void register_clamp_exception();
+  void register_ctc_loss_custom_exception();
+  void register_ctc_loss_custom_backward_exception();
   void register_ctc_loss_exception();
   void register_ctc_loss_tensor_exception();
+  void register_fused_clip_norm_exception();
   void register_grid_sample_exception();
   void register_im2col_exception();
   void register_im2col_out_exception();
   void register_index_reduce__exception();
+  void register_in_place_interleave_exception();
   void register_linear_exception();
+  void register_kv_reorder_exception();
   void register_masked_fill_exception();
   void register_masked_scatter_exception();
   void register_max_pool2d_exception();
@@ -81,8 +86,11 @@ class SharedLayerReportGenerator : public ISharedLayerReportGenerator {
   void register_multilabel_margin_loss_exception();
   void register_nll_loss_forward_exception();
   void register_nll_loss_forward_output_exception();
+  void register_optimizer_resource_apply_momentum_exception();
   void register_reflection_pad_exception();
   void register_replication_pad_exception();
+  void register_rotary_pos_embedding_exception();
+  void register_scaled_triangular_softmax_retain_exception();
   void register_scatter_add__exception();
   void register_scatter_exception();
   void register_scatter_out_exception();
@@ -100,8 +108,8 @@ class SharedLayerReportGenerator : public ISharedLayerReportGenerator {
       executors;
   // below attributes are required for lifetime management of custom generators
   // and executors
-  std::vector<std::shared_ptr<IStackGenerator>> custom_stack_generators;
-  std::vector<std::shared_ptr<SharedLayerExecutor<>>> custom_executors;
+  std::vector<std::unique_ptr<IStackGenerator>> custom_stack_generators;
+  std::vector<std::unique_ptr<SharedLayerExecutor<>>> custom_executors;
 };
 
 } // namespace slrg

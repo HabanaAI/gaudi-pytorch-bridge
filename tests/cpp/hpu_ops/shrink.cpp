@@ -20,7 +20,7 @@ class HpuOpTest : public HpuOpTestUtil {};
 // hardshrink_cpu not implemented for 'BFloat16'
 TEST_F(HpuOpTest, hardshrink) {
   GenerateInputs(1);
-  float lambda = GenerateScalar<float>();
+  auto lambda = GenerateScalar<float>();
   auto expected = torch::hardshrink(GetCpuInput(0), lambda);
   auto result = torch::hardshrink(GetHpuInput(0), lambda);
   Compare(expected, result);
@@ -28,7 +28,7 @@ TEST_F(HpuOpTest, hardshrink) {
 
 TEST_F(HpuOpTest, hardshrink_out) {
   GenerateInputs(2);
-  float lambda = GenerateScalar<float>();
+  auto lambda = GenerateScalar<float>();
 
   torch::ScalarType dtype = torch::kFloat;
   auto expected = torch::empty(0, dtype);
@@ -42,7 +42,7 @@ TEST_F(HpuOpTest, hardshrink_out) {
 
 TEST_F(HpuOpTest, hardshrink_backward) {
   GenerateInputs(2);
-  float lambda = GenerateScalar<float>();
+  auto lambda = GenerateScalar<float>();
   auto expected =
       torch::hardshrink_backward(GetCpuInput(0), GetCpuInput(1), lambda);
   auto result =
@@ -52,7 +52,7 @@ TEST_F(HpuOpTest, hardshrink_backward) {
 
 TEST_F(HpuOpTest, hardshrink_backward_out) {
   GenerateInputs(2);
-  float lambda = GenerateScalar<float>();
+  auto lambda = GenerateScalar<float>();
 
   torch::ScalarType dtype = torch::kFloat;
   auto expected = torch::empty(0, dtype);
@@ -69,7 +69,7 @@ TEST_F(HpuOpTest, hardshrink_backward_out) {
 // softshrink_cpu not implemented for 'BFloat16'
 TEST_F(HpuOpTest, softshrink) {
   GenerateInputs(1);
-  float lambda = GenerateScalar<float>();
+  auto lambda = GenerateScalar<float>();
   auto expected = torch::softshrink(GetCpuInput(0), lambda);
   auto result = torch::softshrink(GetHpuInput(0), lambda);
   Compare(expected, result);
@@ -77,7 +77,7 @@ TEST_F(HpuOpTest, softshrink) {
 
 TEST_F(HpuOpTest, softshrink_backward) {
   GenerateInputs(2);
-  float lambda = GenerateScalar<float>();
+  auto lambda = GenerateScalar<float>();
   auto expected =
       torch::softshrink_backward(GetCpuInput(0), GetCpuInput(1), lambda);
   auto result =
@@ -87,7 +87,7 @@ TEST_F(HpuOpTest, softshrink_backward) {
 
 TEST_F(HpuOpTest, softshrink_out) {
   GenerateInputs(1);
-  float lambda = GenerateScalar<float>();
+  auto lambda = GenerateScalar<float>();
   auto expected = torch::empty(0, torch::kFloat32);
   auto result = expected.to(torch::kHPU);
   torch::softshrink_outf(GetCpuInput(0), lambda, expected);
@@ -97,7 +97,7 @@ TEST_F(HpuOpTest, softshrink_out) {
 
 TEST_F(HpuOpTest, softshrink_backward_out) {
   GenerateInputs(2);
-  float lambda = GenerateScalar<float>();
+  auto lambda = GenerateScalar<float>();
   auto expected = torch::empty(0, torch::kFloat32);
   auto result = expected.to(torch::kHPU);
   torch::softshrink_backward_outf(

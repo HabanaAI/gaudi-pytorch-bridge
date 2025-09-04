@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,7 +35,8 @@ namespace habana_helpers {
 // Should be replaced by C++23 std::move_only_function
 class move_only_function_void {
  public:
-  template <typename F>
+  template <typename F,
+    std::enable_if_t<!std::is_same_v<move_only_function_void, std::decay_t<F>>, bool> = true>
   move_only_function_void(F&& f)
       : func_wrapper_(
             std::make_unique<Wrapper<std::decay_t<F>>>(std::forward<F>(f))) {}
@@ -55,6 +56,10 @@ class move_only_function_void {
     F func_;
     template <typename T>
     Wrapper(T&& f) : func_(std::forward<T>(f)) {}
+
+    Wrapper(Wrapper&&) = delete;
+    Wrapper& operator=(Wrapper&&) = delete;
+
     void invoke() override {
       func_();
     }

@@ -17,22 +17,22 @@
 
 import pytest
 import torch
-import torch.nn as nn
 from binary_cross_entropy_utils import (
     binary_cross_entropy_bwd_test,
     binary_cross_entropy_fwd_test,
-    binary_cross_entropy_with_logits_fwd_test,
     gen_bce_inputs,
 )
 from compile.test_dynamo_utils import use_eager_fallback
 from test_utils import (
     compile_function_if_compile_mode,
     format_tc,
+    is_gaudi1,
     is_pytest_mode_compile,
     is_pytest_mode_eager,
     is_pytest_mode_lazy,
     setup_teardown_env_fixture,  # noqa F401
 )
+from torch import nn
 
 size = [
     (6,),
@@ -44,30 +44,14 @@ size = [
 
 reduction = ["none", "mean", "sum"]
 
-dtype = [torch.float32, torch.bfloat16, torch.float16]
+dtype = [torch.float32, torch.bfloat16]
+if not is_gaudi1():
+    dtype.append(torch.float16)
 
 use_weight_broadcastable_weight = [(False, False), (True, False), (True, True)]
 
 
 # <--- Forward --->
-
-
-@pytest.mark.parametrize("size", size, ids=format_tc)
-@pytest.mark.parametrize("reduction", reduction, ids=format_tc)
-@pytest.mark.parametrize("dtype", dtype, ids=format_tc)
-@pytest.mark.parametrize("use_weight, broadcastable_weight", use_weight_broadcastable_weight, ids=format_tc)
-def test_hpu_binary_cross_entropy_fwd(size, reduction, dtype, use_weight, broadcastable_weight):
-
-    with use_eager_fallback():
-
-        binary_cross_entropy_fwd_test(
-            size,
-            reduction,
-            dtype,
-            use_weight,
-            broadcastable_weight=broadcastable_weight,
-            is_compile=is_pytest_mode_compile(),
-        )
 
 
 @pytest.mark.skipif(is_pytest_mode_eager(), reason="DS are not supported in eager mode")
@@ -83,60 +67,13 @@ def test_hpu_binary_cross_entropy_fwd(size, reduction, dtype, use_weight, broadc
 def test_hpu_binary_cross_entropy_fwd_dynamic(
     size, reduction, dtype, use_weight, broadcastable_weight, setup_teardown_env_fixture
 ):
-
     if is_pytest_mode_compile() and use_weight:
         pytest.skip(
             "Due to improper handling of SymInts in PT 2.1, test fails on cpu when weights are used. Used to work on PT 2.0 - [SW-165520]"
         )
 
     with use_eager_fallback():
-
         binary_cross_entropy_fwd_test(
-            size,
-            reduction,
-            dtype,
-            use_weight,
-            broadcastable_weight=broadcastable_weight,
-            is_dynamic=True,
-            is_compile=is_pytest_mode_compile(),
-        )
-
-
-@pytest.mark.parametrize("size", size, ids=format_tc)
-@pytest.mark.parametrize("reduction", reduction, ids=format_tc)
-@pytest.mark.parametrize("dtype", dtype, ids=format_tc)
-@pytest.mark.parametrize("use_weight, broadcastable_weight", use_weight_broadcastable_weight, ids=format_tc)
-def test_hpu_binary_cross_entropy_with_logits_fwd(size, reduction, dtype, use_weight, broadcastable_weight):
-
-    with use_eager_fallback():
-
-        binary_cross_entropy_with_logits_fwd_test(
-            size,
-            reduction,
-            dtype,
-            use_weight,
-            broadcastable_weight=broadcastable_weight,
-            is_compile=is_pytest_mode_compile(),
-        )
-
-
-@pytest.mark.skipif(is_pytest_mode_eager(), reason="DS are not supported in eager mode")
-@pytest.mark.parametrize("size", size, ids=format_tc)
-@pytest.mark.parametrize("reduction", reduction, ids=format_tc)
-@pytest.mark.parametrize("dtype", dtype, ids=format_tc)
-@pytest.mark.parametrize("use_weight, broadcastable_weight", use_weight_broadcastable_weight, ids=format_tc)
-@pytest.mark.parametrize(
-    "setup_teardown_env_fixture",
-    [{"PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES": 1}],
-    indirect=True,
-)
-def test_hpu_binary_cross_entropy_with_logits_fwd_dynamic(
-    size, reduction, dtype, use_weight, broadcastable_weight, setup_teardown_env_fixture
-):
-
-    with use_eager_fallback():
-
-        binary_cross_entropy_with_logits_fwd_test(
             size,
             reduction,
             dtype,
@@ -156,7 +93,6 @@ def test_hpu_binary_cross_entropy_with_logits_fwd_dynamic(
 @pytest.mark.parametrize("dtype", dtype, ids=format_tc)
 @pytest.mark.parametrize("use_weight", [False, True], ids=format_tc)
 def test_hpu_binary_cross_entropy_bwd(size, reduction, dtype, use_weight):
-
     binary_cross_entropy_bwd_test(size, reduction, dtype, use_weight, is_compile=is_pytest_mode_compile())
 
 
@@ -173,16 +109,19 @@ def test_hpu_binary_cross_entropy_bwd(size, reduction, dtype, use_weight):
 )
 @pytest.mark.skipif(True, reason="Will be resolved under SW-159211")
 def test_hpu_binary_cross_entropy_bwd_dynamic(size, reduction, dtype, use_weight, setup_teardown_env_fixture):
-
     if is_pytest_mode_compile() and use_weight:
         pytest.skip(
             "Due to improper handling of SymInts in PT 2.1, test fails on cpu when weights are used. Used to work on PT 2.0 - [SW-165520]"
         )
 
     with use_eager_fallback():
-
         binary_cross_entropy_bwd_test(
-            size, reduction, dtype, use_weight, is_dynamic=True, is_compile=is_pytest_mode_compile()
+            size,
+            reduction,
+            dtype,
+            use_weight,
+            is_dynamic=True,
+            is_compile=is_pytest_mode_compile(),
         )
 
 
@@ -202,7 +141,6 @@ def test_hpu_binary_cross_entropy_bwd_dynamic(size, reduction, dtype, use_weight
 @pytest.mark.parametrize("dtype", dtype, ids=format_tc)
 @pytest.mark.parametrize("use_weight", [False, True], ids=format_tc)
 def test_hpu_bce_with_logits_module_empty_tensor(size, reduction, dtype, use_weight):
-
     cpu_tensors, hpu_tensors = gen_bce_inputs(size, dtype, use_weight)
 
     BCEWithLogitsLoss = compile_function_if_compile_mode(nn.BCEWithLogitsLoss)

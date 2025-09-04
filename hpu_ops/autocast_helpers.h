@@ -15,20 +15,15 @@
 
 #pragma once
 
-#include <ATen/autocast_mode.h>
-#include <string_view>
+#include <filesystem>
+#include <string>
 #include <unordered_set>
 
-namespace at {
-namespace autocast {
+#include <ATen/autocast_mode.h>
 
-constexpr std::string_view AUTOCAST_LOWER_LIST =
-    "PT_HPU_AUTOCAST_LOWER_PRECISION_OPS_LIST";
-constexpr std::string_view AUTOCAST_FP32_LIST = "PT_HPU_AUTOCAST_FP32_OPS_LIST";
+#include "backend/synapse_helpers/env_flags.h"
 
-std::unordered_set<std::string> load_list(
-    const std::string_view list_name,
-    const std::unordered_set<std::string>& default_list);
+namespace at::autocast {
 
 static const std::unordered_set<std::string> default_lower_ops{
     "addmm",
@@ -74,7 +69,6 @@ static const std::unordered_set<std::string> default_fp32_ops{
     "dist",
     "div",
     "divide",
-    "embedding",
     "embedding_bag",
     "erfinv",
     "exp",
@@ -108,19 +102,20 @@ static const std::unordered_set<std::string> default_fp32_ops{
     "triplet_margin_loss",
     "truediv",
     "true_divide"};
-static const std::unordered_set<std::string> lower_first_ops{
-    "layer_norm",
-    "group_norm",
-    "instance_norm",
-    "batch_norm"};
 
-// Lists of ops for autocast registration are taken from above default lists, or
-// from external files, passed with below envs.
+static const std::filesystem::path autocast_lowering_list =
+    GET_ENV_FLAG_NEW(PT_HPU_AUTOCAST_LOWER_PRECISION_OPS_LIST);
+static const std::filesystem::path autocast_fp32_list =
+    GET_ENV_FLAG_NEW(PT_HPU_AUTOCAST_FP32_OPS_LIST);
+
+std::unordered_set<std::string> load_ops_list(
+    const std::filesystem::path& path_to_list,
+    const std::unordered_set<std::string>& default_list);
 
 static const std::unordered_set<std::string> lower_list =
-    load_list(AUTOCAST_LOWER_LIST, default_lower_ops);
+    load_ops_list(autocast_lowering_list, default_lower_ops);
 static const std::unordered_set<std::string> fp32_list =
-    load_list(AUTOCAST_FP32_LIST, default_fp32_ops);
+    load_ops_list(autocast_fp32_list, default_fp32_ops);
 static const std::unordered_set<std::string> promote_list{
     "add",
     "addcmul",
@@ -319,21 +314,27 @@ struct Hpu_WrapFunction final {
 
 #define Hpu_ADD_NS(RAW_OP) at::RAW_OP
 
-#define Hpu_KERNEL(FUNC, REGISTER_NAME, SIGNATURE)      \
+static const std::unordered_set<std::string> lower_first_ops{
+    "layer_norm",
+    "group_norm",
+    "instance_norm",
+    "batch_norm"};
+
+#define Hpu_KERNEL(FUNC, REGISTER_NAME, ...)            \
   if (lower_list.count(#FUNC)) {                        \
     if (lower_first_ops.count(#FUNC)) {                 \
       m.impl(                                           \
           TORCH_SELECTIVE_NAME("aten::" REGISTER_NAME), \
           &Hpu_WrapFunction<                            \
               Hpu_CastPolicy::lower_first_arg,          \
-              SIGNATURE,                                \
+              __VA_ARGS__,                              \
               &Hpu_ADD_NS(FUNC)>::type::call);          \
     } else {                                            \
       m.impl(                                           \
           TORCH_SELECTIVE_NAME("aten::" REGISTER_NAME), \
           &Hpu_WrapFunction<                            \
               Hpu_CastPolicy::lower_precision_fp,       \
-              SIGNATURE,                                \
+              __VA_ARGS__,                              \
               &Hpu_ADD_NS(FUNC)>::type::call);          \
     }                                                   \
   } else if (fp32_list.count(#FUNC)) {                  \
@@ -341,16 +342,15 @@ struct Hpu_WrapFunction final {
         TORCH_SELECTIVE_NAME("aten::" REGISTER_NAME),   \
         &Hpu_WrapFunction<                              \
             Hpu_CastPolicy::fp32,                       \
-            SIGNATURE,                                  \
+            __VA_ARGS__,                                \
             &Hpu_ADD_NS(FUNC)>::type::call);            \
   } else if (promote_list.count(#FUNC)) {               \
     m.impl(                                             \
         TORCH_SELECTIVE_NAME("aten::" REGISTER_NAME),   \
         &Hpu_WrapFunction<                              \
             Hpu_CastPolicy::promote,                    \
-            SIGNATURE,                                  \
+            __VA_ARGS__,                                \
             &Hpu_ADD_NS(FUNC)>::type::call);            \
   }
 
-} // namespace autocast
-} // namespace at
+} // namespace at::autocast

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -160,7 +160,6 @@ tensor::tensor(
       total_size_bytes_{total_size_bytes},
       shape_{shape},
       stride_{stride},
-      tensor_{},
       is_persistent_{is_persistent},
       is_external_{is_external},
       memory_section_{std::move(section)},
@@ -199,7 +198,6 @@ tensor::tensor(
       total_size_bytes_{total_size_bytes},
       shape_{shape},
       stride_{stride},
-      tensor_{},
       is_persistent_{is_persistent},
       is_external_{is_external},
       memory_section_{std::move(section)},
@@ -375,6 +373,9 @@ synapse_error_o tensor::create_old_synapi() {
     status = synTensorSetExternal(tensor_, is_external_);
     SYNAPSE_SUCCESS_CHECK_WITH_OP(
         "Failed to set tensor external.", status, cleanup());
+    status = synTensorSetMinimalLatency(tensor_, is_external_);
+    SYNAPSE_SUCCESS_CHECK_WITH_OP(
+        "Failed to set tensor min latency.", status, cleanup());
   }
 
   PT_SYNHELPER_DEBUG("created ", *this);
@@ -382,7 +383,7 @@ synapse_error_o tensor::create_old_synapi() {
 }
 
 synapse_error_o tensor::set_permutation() {
-  if (permutation_.size() == 0) {
+  if (permutation_.empty()) {
     return {};
   }
   synStatus status;
@@ -396,7 +397,7 @@ synapse_error_o tensor::set_permutation() {
   synTensorPermutation synPermutation;
   std::copy(
       permutation_.begin(), permutation_.end(), synPermutation.permutation);
-  synPermutation.dims = permutation_.size();
+  synPermutation.dims = static_cast<uint8_t>(permutation_.size());
   status = synTensorSetPermutation(tensor_, &synPermutation);
   SYNAPSE_SUCCESS_CHECK_WITH_OP(
       "synTensorSetPermutation failed.", status, cleanup());
@@ -476,7 +477,7 @@ synapse_error_o tensor::create() {
         "Set device data type failed", status, cleanup());
   }
 
-  if (permutation_.size()) {
+  if (!permutation_.empty()) {
     HABANA_ASSERT(
         permutation_.size() == maxGeometry.dims,
         " create tensor invalid permutation ",
@@ -568,6 +569,9 @@ synapse_error_o tensor::create() {
     status = synTensorSetExternal(tensor_, is_external_);
     SYNAPSE_SUCCESS_CHECK_WITH_OP(
         "Failed to set tensor external.", status, cleanup());
+    status = synTensorSetMinimalLatency(tensor_, is_external_);
+    SYNAPSE_SUCCESS_CHECK_WITH_OP(
+        "Failed to set tensor min latency.", status, cleanup());
   }
 
   PT_SYNHELPER_DEBUG("created ", *this);
@@ -681,7 +685,7 @@ memory_section::memory_section(uint64_t memory_attributes, synGraphHandle graph)
         Logger::formatStatusMsg(status), "Unable to create a memory section");
 }
 
-tensor::shape_t::dimension_count_t operator"" _D(unsigned long long arg) {
+tensor::shape_t::dimension_count_t operator""_D(unsigned long long arg) {
   return tensor::shape_t::dimension_count_t{static_cast<unsigned>(arg)};
 }
 

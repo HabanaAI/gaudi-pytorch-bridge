@@ -16,31 +16,31 @@
 #include <sstream>
 #define XXH_STATIC_LINKING_ONLY
 #define XXH_IMPLEMENTATION
-#include <utilities/xxhash.h>
-#include "backend/helpers/dynamic_graph_utils.h"
-#include "backend/lazy_to_backend.h"
-#include "habana_eager/passes/detect_weights_tensors.cpp"
-
 #include <torch/csrc/api/include/torch/jit.h>
+#include <xxhash.h>
+#include "backend/helpers/dynamic_graph_utils.h"
+#include "backend/passes/detect_weights_tensors.h"
+#include "pytorch_helpers/habana_helpers/misc_utils.h"
 
 namespace habana {
 
 size_t GetWeightHash(
     const at::ArrayRef<torch::jit::IValue>& input_refs,
     const std::shared_ptr<torch::jit::Graph>& irgraph) {
-  std::set<int> graph_weights;
-  graph::pass::DetectWeightTensors(irgraph, graph_weights);
+  std::set<size_t> graph_weights;
+  habana::backend::passes::DetectWeightTensors(irgraph, graph_weights);
   size_t hash_code = 0;
   HABANA_ASSERT(input_refs.size() == irgraph->inputs().size());
 
   for (size_t i = 0; i < input_refs.size(); ++i) {
     if (graph_weights.count(i)) {
-      hash_code =
-          at::hash_combine(hash_code, habana::mod_exp(static_cast<int64_t>(i)));
+      hash_code = at::hash_combine(
+          hash_code,
+          static_cast<size_t>(habana::mod_exp(static_cast<int64_t>(i))));
       HABANA_ASSERT(input_refs[i].isTensor());
       auto& tensor = input_refs[i].toTensor();
-      for (size_t shape : tensor.sizes()) {
-        hash_code = at::hash_combine(hash_code, shape);
+      for (auto shape : tensor.sizes()) {
+        hash_code = at::hash_combine(hash_code, static_cast<size_t>(shape));
       }
     }
   }
@@ -59,6 +59,7 @@ void ComputeGraphHashCode(
     at::ArrayRef<torch::jit::IValue> input_refs,
     std::string& op_strs,
     size_t& graphHashCode,
+    size_t& shapelessWithDimsHash,
     uint64_t unique_graph_cntr,
     std::vector<bool> node_bcast_details,
     bool dynamic_graph,
@@ -118,6 +119,7 @@ void ComputeGraphHashCode(
     node_idx_map.emplace(node, idx);
     idx++;
   }
+
   graphHashCode = str_hash(op_strs);
 
   size_t connection_hash{0};
@@ -125,6 +127,7 @@ void ComputeGraphHashCode(
   for (size_t i = 0; i < irgraph->inputs().size(); ++i) {
     auto value_in = irgraph->inputs().at(i);
     size_t input_connection_hash = i;
+
     for (auto& use : value_in->uses()) {
       auto node = use.user;
       HABANA_ASSERT(node);
@@ -133,7 +136,7 @@ void ComputeGraphHashCode(
     }
     connection_hash = at::hash_combine(connection_hash, input_connection_hash);
   }
-  // Adding output hash
+  //  Adding output hash
   for (size_t i = 0; i < irgraph->outputs().size(); ++i) {
     auto value_out = irgraph->outputs().at(i);
     size_t output_connection_hash = i;
@@ -166,31 +169,33 @@ void ComputeGraphHashCode(
     }
   }
   connection_hash = at::hash_combine(connection_hash, node_connection_hash);
-  graphHashCode = at::hash_combine(graphHashCode, connection_hash);
+  shapelessWithDimsHash = at::hash_combine(graphHashCode, connection_hash);
 
   // Handle the dims also
-  size_t typedims_hash{0};
+  size_t types_hash{0};
+  size_t dims_hash{0};
   size_t const_input_hash{0};
   bool is_eager_graph =
-      (frontend_type == habana_helpers::HabanaFrontendTypes::EAGER) ? true
-                                                                    : false;
+      frontend_type == habana_helpers::HabanaFrontendTypes::EAGER;
+
   for (auto& input : input_refs) {
     if (input.isTensor()) {
       auto pt_tensor = input.toTensor();
-      typedims_hash =
-          at::hash_combine(typedims_hash, habana::mod_exp(pt_tensor.dim()));
+      dims_hash =
+          at::hash_combine(dims_hash, static_cast<size_t>(habana::mod_exp(pt_tensor.dim())));
       auto pt_type = pt_tensor.scalar_type();
       int64_t pt_type_int{
-          static_cast<std::underlying_type<c10::ScalarType>::type>(pt_type)};
-      typedims_hash =
-          at::hash_combine(typedims_hash, habana::mod_exp(pt_type_int));
+          static_cast<std::underlying_type_t<c10::ScalarType>>(pt_type)};
+      types_hash =
+          at::hash_combine(types_hash, static_cast<size_t>(habana::mod_exp(pt_type_int)));
+
       if (habana::is_tensor_const_with_valid_const_id(pt_tensor)) {
         // To support HQT which add each scale as a different tensor for each
         // layer
         auto const_id = habana::get_tensor_const_id(pt_tensor);
         if (pt_tensor.numel() == 1 && !is_eager_graph) {
           auto tmeta{habana::get_tensor_extra_meta(pt_tensor)};
-          float const_value = pt_tensor.item<float>();
+          auto const_value = pt_tensor.item<float>();
           PT_BRIDGE_DEBUG(
               "JIT graph_key hash const_value:",
               const_value,
@@ -201,7 +206,8 @@ void ComputeGraphHashCode(
           auto const_value_h = c10::hash<float>()(const_value);
           const_input_hash = at::hash_combine(const_input_hash, const_value_h);
         } else {
-          const_input_hash = at::hash_combine(const_input_hash, const_id);
+          const_input_hash =
+              at::hash_combine(const_input_hash, static_cast<size_t>(const_id));
         }
       }
     }
@@ -209,12 +215,15 @@ void ComputeGraphHashCode(
   // Handle the dims for strided base tensor
   size_t basedims_hash{0};
   for (auto& input : m_input_new_base_sizes) {
-    int64_t dim = input.second.size();
-    basedims_hash = at::hash_combine(basedims_hash, habana::mod_exp(dim));
+    auto dim = static_cast<int64_t>(input.second.size());
+    basedims_hash = at::hash_combine(
+        basedims_hash, static_cast<uint64_t>(habana::mod_exp(dim)));
   }
+
   size_t sym_hash = habana::ComputeSymSizeHashCode(input_refs);
+  shapelessWithDimsHash = at::hash_combine(shapelessWithDimsHash, dims_hash);
+  graphHashCode = at::hash_combine(shapelessWithDimsHash, types_hash);
   graphHashCode = at::hash_combine(graphHashCode, sym_hash);
-  graphHashCode = at::hash_combine(graphHashCode, typedims_hash);
   graphHashCode = at::hash_combine(graphHashCode, basedims_hash);
   graphHashCode = at::hash_combine(graphHashCode, unique_graph_cntr);
 
@@ -253,7 +262,7 @@ size_t ComputeNodeSymOutputHashCode(
     if ((torch::jit::prim::Constant != node->kind()) &&
         (torch::jit::prim::ListConstruct != node->kind())) {
       auto outputshapes_attr = c10::Symbol::attr("output_shapes");
-      std::string shape_str = "";
+      std::string shape_str;
       if (node->hasAttribute(outputshapes_attr)) {
         shape_str = node->s(outputshapes_attr);
       } else {
@@ -316,13 +325,38 @@ size_t ComputeSymSizeHashCode(at::ArrayRef<torch::jit::IValue> input_refs) {
         std::hash<double> valhash;
         symsize_hash = at::hash_combine(symsize_hash, valhash(value));
       } else {
-        HABANA_ASSERT("Unhandled Scalar");
+        HABANA_ASSERT(false, "Unhandled Scalar");
       }
       sym_hash_code = at::hash_combine(sym_hash_code, cnt);
       sym_hash_code = at::hash_combine(sym_hash_code, symsize_hash);
     }
     cnt++;
   }
+
+  std::unordered_set<void*> buff_to_syn_tensor_set_;
+  cnt = 0;
+  for (auto& input : input_refs) {
+    if (input.isTensor()) {
+      auto pt_tensor = input.toTensor();
+      auto tmeta = get_tensor_extra_meta(pt_tensor, true);
+      if (!(tmeta && tmeta->is_shape_tensor())) {
+        void* pt_tensor_buffer_start = pt_tensor.storage().data_ptr().get();
+        bool is_duplicate_syn_tensor{
+            (pt_tensor_buffer_start != nullptr &&
+             buff_to_syn_tensor_set_.count(pt_tensor_buffer_start))};
+        if (is_duplicate_syn_tensor) {
+          sym_hash_code = at::hash_combine(sym_hash_code, cnt);
+          sym_hash_code =
+              at::hash_combine(sym_hash_code, true /* duplicate mem section */);
+        }
+        if (pt_tensor_buffer_start != nullptr) {
+          buff_to_syn_tensor_set_.insert(pt_tensor_buffer_start);
+        }
+      }
+    }
+    cnt++;
+  }
+
   return sym_hash_code;
 }
 
@@ -345,6 +379,7 @@ OptimizedJITGraphAndMetaData::OptimizedJITGraphAndMetaData(
       frontend_type(f_type),
       m_is_reusable(is_reusable) {
   // Compute the graph hash
+
   ComputeGraphHashCode(
       JitGraphToLowering, input_refs, id, m_input_new_base_sizes);
 }
@@ -355,6 +390,7 @@ void OptimizedJITGraphAndMetaData::ComputeGraphHashCode(
     const std::string& id,
     const std::map<int64_t, std::vector<int64_t>> m_input_new_base_sizes) {
   set_cached_graph_key(0);
+  this->set_shapeless_with_dims_hash(0);
   set_cached_opstrs(std::string());
   habana::ComputeGraphHashCode(
       JitGraphToLowering,
@@ -362,12 +398,14 @@ void OptimizedJITGraphAndMetaData::ComputeGraphHashCode(
       input_refs,
       opstrs,
       graphKey,
+      this->shapelessGraphWithDimsHash,
       unique_graph_cntr,
       node_bcast_details,
       dynamic_graph,
       m_input_new_base_sizes,
       frontend_type,
-      m_is_reusable);
+      m_is_reusable
+      );
 }
 
 std::string& OptimizedJITGraphAndMetaData::GetOpName() {
@@ -481,7 +519,7 @@ bool JitGraphCache::IsCached(size_t key) {
 }
 
 bool JitGraphCache::Empty() {
-  return (m_cache_map.size() == 0);
+  return (m_cache_map.empty());
 }
 
 void JitGraphCache::Clear() {
@@ -540,7 +578,7 @@ size_t OptimizedJitGraphCache::CacheSize() {
 }
 
 bool OptimizedJitGraphCache::Empty() {
-  return (m_cache_map.size() == 0);
+  return (m_cache_map.empty());
 }
 
 void OptimizedJitGraphCache::Clear() {

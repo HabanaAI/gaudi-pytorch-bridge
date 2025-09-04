@@ -25,6 +25,12 @@ struct DequantizeNF4 : OpBackend {
   void AddNode(synapse_helpers::graph&, const at::Stack&) override;
 };
 
+struct QuantizeNF4 : OpBackend {
+  QuantizeNF4(int device_id, c10::ScalarType scalar_type);
+  void AddNode(synapse_helpers::graph&, const at::Stack&) override;
+};
+
 OUTMETA_DECL(DequantizeNF4Meta)
+OUTMETA_DECL(QuantizeNF4Meta)
 
 } // namespace habana

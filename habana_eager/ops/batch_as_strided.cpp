@@ -22,8 +22,7 @@
 #include "habana_eager/ops/as_strided.h"
 #include "habana_helpers/logging.h"
 
-namespace habana {
-namespace eager {
+namespace habana::eager {
 std::vector<at::Tensor> batch_as_strided(
     at::TensorList inputs,
     c10::ArrayRef<std::vector<int64_t>> sizes,
@@ -61,5 +60,4 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::batch_as_strided", batch_as_strided);
 }
 
-} // namespace eager
-} // namespace habana
+} // namespace habana::eager

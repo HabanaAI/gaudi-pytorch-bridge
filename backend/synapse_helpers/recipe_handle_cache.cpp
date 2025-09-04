@@ -109,11 +109,7 @@ void recipe_handle_cache::increaseHitCount_(const size_t key) {
   if (!enable_hit_count_)
     return;
 
-  if (0 == getHitCount(key)) {
-    hit_counter_[key] = 0;
-  }
-
-  hit_counter_[key] += 1;
+  hit_counter_[key] = (hit_counter_.count(key) ? hit_counter_[key] + 1 : 1);
 }
 
 int recipe_handle_cache::getActiveRecipeCount() {

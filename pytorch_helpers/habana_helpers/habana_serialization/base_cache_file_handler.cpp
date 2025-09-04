@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,7 +35,7 @@ namespace serialization {
 
 BaseCacheFileHandler::BaseCacheFileHandler(
     const RecipeCacheConfig& recipe_cache_config)
-    : CacheFileHandler(recipe_cache_config), eviction_lock_fd_(-1) {}
+    : CacheFileHandler(recipe_cache_config) {}
 
 BaseCacheFileHandler::~BaseCacheFileHandler() {
   if (eviction_lock_fd_ >= 0) {
@@ -62,7 +62,7 @@ std::vector<BaseCacheFileHandler::RecipeInfo> BaseCacheFileHandler::
     auto de = fs::directory_iterator{disk_cache_path};
     while (de != fs::end(de)) {
       auto file_name = de->path().filename().string();
-      std::string recipe_id = file_name.substr(0, file_name.rfind("."));
+      std::string recipe_id = file_name.substr(0, file_name.rfind('.'));
       auto r_path = recipe_file_path(disk_cache_path, recipe_id);
       auto met_path = metadata_file_path(disk_cache_path, recipe_id);
 
@@ -229,9 +229,6 @@ bool BaseCacheFileHandler::acquire_access_for_eviction(bool block) {
 }
 
 void BaseCacheFileHandler::release_access_for_eviction() {
-  fs::path cache_dir_path{getCachePath()};
-  fs::path eviction_lock_file_path = cache_dir_path / "eviction.lock";
-
   if (eviction_lock_fd_ >= 0) {
     PT_HABHELPER_DEBUG(CACHEFILE_LOG, "Releasing lock");
     fileClose(eviction_lock_fd_);

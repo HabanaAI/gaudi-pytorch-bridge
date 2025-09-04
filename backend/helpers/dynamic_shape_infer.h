@@ -84,7 +84,7 @@ class IShape {
   bool isTensor();
 };
 
-typedef std::vector<IShape> IShapeList;
+using IShapeList = std::vector<IShape>;
 
 using DSInputSymbolMap =
     std::unordered_map<std::string, std::shared_ptr<double>>;
@@ -96,7 +96,7 @@ using DSValueIShapeMap =
 
 struct DynamicSIFInfo {
   DSInputSymbolMap expr_symbolic_table;
-  DSValueExprMap value_to_sizeexpr{};
+  DSValueExprMap value_to_sizeexpr;
   DSValueIShapeMap value_to_ishape;
 };
 

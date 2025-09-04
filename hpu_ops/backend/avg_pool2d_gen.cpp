@@ -19,20 +19,19 @@
 
 #define CHECK_DIM(input_size)                                             \
   HABANA_ASSERT(                                                          \
-      input_size == 3 || input_size == 4,                                 \
+      (input_size) == 3 || (input_size) == 4,                             \
       "Averagepool2D expects input_size equals to 3 or 4, but got size ", \
       input_size);
 
 namespace habana {
 
-static std::shared_ptr<void> FillAvgpool2dParams(
+static FillParamsT FillAvgpool2dParams(
     std::vector<int64_t>& kernel_size,
     std::vector<int64_t>& stride,
     std::vector<int64_t>& pad,
     bool ceil_mode,
     bool include_pad,
-    int64_t divOverride,
-    size_t& size) {
+    int64_t divOverride) {
   PARAMS_STUB(ns_AveragePoolingWithDivisorOverride::Params);
   params->pad_w_begin = pad.size() == 1 ? pad.at(0) : pad.at(1);
   params->pad_w_end = pad.size() == 1 ? pad.at(0) : pad.at(1);
@@ -51,11 +50,9 @@ static std::shared_ptr<void> FillAvgpool2dParams(
   params->pooling_convention = ceil_mode
       ? EPoolingConvention::POOLING_CONVENTION_FULL_PYTORCH
       : EPoolingConvention::POOLING_CONVENTION_VALID;
-  return params;
+  return paramsT;
 }
-std::shared_ptr<void> Fillavgpool2dParamsFwd(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT Fillavgpool2dParamsFwd(const at::Stack& stack) {
   std::vector<long int> padding = {0, 0};
   auto kernel_size = stack.at(1).toIntVector();
   auto stride =
@@ -66,11 +63,9 @@ std::shared_ptr<void> Fillavgpool2dParamsFwd(
   const bool include_pad = stack.at(5).toBool();
   int64_t divOverride = stack.at(6).isNone() ? 0 : stack.at(6).toInt();
   return FillAvgpool2dParams(
-      kernel_size, stride, pad, ceil_mode, include_pad, divOverride, size);
+      kernel_size, stride, pad, ceil_mode, include_pad, divOverride);
 }
-std::shared_ptr<void> Fillavgpool2dParamsBwd(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT Fillavgpool2dParamsBwd(const at::Stack& stack) {
   std::vector<long int> padding = {0, 0};
   auto kernel_size = stack.at(2).toIntVector();
   auto stride =
@@ -81,7 +76,7 @@ std::shared_ptr<void> Fillavgpool2dParamsBwd(
   const bool include_pad = stack.at(6).toBool();
   int64_t divOverride = stack.at(7).isNone() ? 0 : stack.at(7).toInt();
   return FillAvgpool2dParams(
-      kernel_size, stride, pad, ceil_mode, include_pad, divOverride, size);
+      kernel_size, stride, pad, ceil_mode, include_pad, divOverride);
 }
 
 OutputMetaDataVector Avgpool2dMeta(const at::Stack& stack) {
@@ -127,8 +122,7 @@ SharedMetaDataVector AvgPool2dBwdSharedMeta(
 void Avgpool2dBwd::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  size_t size = 0;
-  const auto& params = Fillavgpool2dParamsBwd(stack, size);
+  const auto& params = Fillavgpool2dParamsBwd(stack);
   auto meta = Avgpool2dBwdMeta(stack)[0];
   if (stack_tensor(stack, 0).dim() == 4) {
     SetSynapseLayouts(
@@ -149,8 +143,8 @@ void Avgpool2dBwd::AddNode(
       get_guid_with_precision("avg_pool_2d_bwd"sv, meta.dtype),
       std::move(grad),
       {{meta.shape, meta.dtype, 0}},
-      params.get(),
-      size);
+      params.ptr(),
+      params.size());
 
   syn_out(0) = std::move(avg_pool[0]);
 }
@@ -164,8 +158,7 @@ SharedMetaDataVector AvgPool2dFwdSharedMeta(
 void Avgpool2dFwd::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  size_t size = 0;
-  const auto& params = Fillavgpool2dParamsFwd(stack, size);
+  const auto& params = Fillavgpool2dParamsFwd(stack);
   auto meta = Avgpool2dMeta(stack)[0];
   const auto rank = stack_tensor(stack, 0).dim();
 
@@ -188,8 +181,8 @@ void Avgpool2dFwd::AddNode(
       GetGuid(),
       std::move(inputs),
       {{meta.shape, meta.dtype, 0}},
-      params.get(),
-      size);
+      params.ptr(),
+      params.size());
 
   syn_out(0) = std::move(avg_pool2d[0]);
 }

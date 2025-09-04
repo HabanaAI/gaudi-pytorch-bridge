@@ -60,15 +60,15 @@ absl::optional<AttrTag> ParseAttrTag(
       }
       switch (node_string[pos]) {
         case '(':
-          nested_open = node_string[pos];
+          nested_open = static_cast<unsigned char>(node_string[pos]);
           nested_close = ')';
           break;
         case '[':
-          nested_open = node_string[pos];
+          nested_open = static_cast<unsigned char>(node_string[pos]);
           nested_close = ']';
           break;
         case '{':
-          nested_open = node_string[pos];
+          nested_open = static_cast<unsigned char>(node_string[pos]);
           nested_close = '}';
           break;
       }
@@ -138,7 +138,7 @@ std::string GenerateDotNodeLabel(
   std::stringstream ss;
   if (use_ir_names) {
     auto num_outputs = node->GetNumOutputs();
-    for (auto id = 0u; id < num_outputs; ++id) {
+    for (auto id = 0U; id < num_outputs; ++id) {
       ss << node->GetOutput(id).ToString() << "\\n";
     }
   }
@@ -255,7 +255,7 @@ std::string IrGraphDumpUtil::PostOrderToText(
     if (use_ir_names) {
       ss << "  ";
       auto num_outputs = node->GetNumOutputs();
-      for (auto id = 0u; id < num_outputs; ++id) {
+      for (auto id = 0U; id < num_outputs; ++id) {
         ss << " %" << node->GetOutput(id).ToString();
         if (id == num_outputs - 1) {
           ss << " = ";

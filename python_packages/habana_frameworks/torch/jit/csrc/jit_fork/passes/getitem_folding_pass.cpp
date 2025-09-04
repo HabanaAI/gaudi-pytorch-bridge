@@ -18,8 +18,7 @@
 #include <sstream>
 #include <string>
 #include "habana_helpers/logging.h"
-namespace habana_torch {
-namespace jit {
+namespace habana_torch::jit {
 namespace {
 
 class ProcessGetItemNodes {
@@ -231,5 +230,4 @@ bool GetItemFoldingPass(habana_torch::jit::Graph& g) {
   return ProcessGetItemNodes().run(g);
 }
 
-} // namespace jit
-} // namespace habana_torch
+} // namespace habana_torch::jit

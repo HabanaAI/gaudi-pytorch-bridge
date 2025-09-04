@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,15 +13,17 @@
  * limitations under the License.
  */
 
-#include <torch/csrc/jit/ir/ir.h>
-#include "habana_eager/graph_dynamic.h"
+#pragma once
 
-namespace habana {
-namespace graph {
-namespace pass {
+#include <torch/csrc/jit/ir/ir.h>
+#include "backend/helpers/dynamic_shape_infer.h"
+#include "habana_eager/graph_dynamic.h"
+#include "habana_eager/graph_exec.h"
+
+namespace habana::graph::pass {
 void SanitizeGraphInput(std::shared_ptr<torch::jit::Graph> graph);
 bool HandleTupleOnOutput(std::shared_ptr<torch::jit::Graph> graph);
-bool AddAttributeAlpha(std::shared_ptr<torch::jit::Graph> graph);
+bool AddDeterministicAttribute(std::shared_ptr<torch::jit::Graph> graph);
 bool HandleH2dScales(
     std::shared_ptr<torch::jit::Graph> graph,
     torch::jit::Stack& stack,
@@ -60,6 +62,4 @@ bool MarkParamsAsConst(
     std::shared_ptr<torch::jit::Graph> graph,
     torch::jit::Stack& example_inputs,
     std::vector<int64_t>& const_indexes);
-} // namespace pass
-} // namespace graph
-} // namespace habana
+} // namespace habana::graph::pass

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,11 +18,6 @@
 #include "tensor_impl.h"
 #pragma once
 namespace habana_lazy {
-
-// Checks whether a std::optional<Tensor> is defined.
-inline bool IsDefined(const std::optional<at::Tensor>& tensor) {
-  return tensor.has_value() && tensor.value().defined();
-}
 
 // Creates an ATen tensor with HbLazy type id from an HbLazyTensor.
 at::Tensor AtenFromHbLazyTensor(

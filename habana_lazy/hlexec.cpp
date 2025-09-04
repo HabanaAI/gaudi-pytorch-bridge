@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,8 +41,7 @@
 
 using namespace std::literals;
 
-namespace habana_lazy {
-namespace exec {
+namespace habana_lazy::exec {
 
 namespace {
 
@@ -75,7 +74,7 @@ struct HabanaLaunchOpLauncher : Launcher {
       torch::jit::Stack& stack,
       std::shared_ptr<habana::RecipeArgumentSpec> cached_rarg_psh,
       bool dry_run) override {
-    return habana_launch_op_.run(stack, cached_rarg_psh, {}, {}, dry_run);
+    habana_launch_op_.run(stack, cached_rarg_psh, {}, {}, dry_run);
   }
 
   habana::HabanaLaunchOpPT habana_launch_op_;
@@ -426,7 +425,7 @@ void HlExec::SearchAndDeleteRedundantInputs(
     for (auto value_in : po_data.inputs) {
       std::string str1 = r_value_in->debugName();
       std::string str2 = value_in.ToString();
-      if (str1.compare(str2) == 0) {
+      if (str1 == str2) {
         // std::cout << "~~~ po_data_input_indices_for_deletion ~~~\n"
         //           << r_value_in->debugName()
         //           << ", "
@@ -764,8 +763,9 @@ void HlExec::Create(
     auto t = mp_g_->addInput(inp.ToString());
     HABANA_ASSERT(!inp.m_data_ptr.expired());
     std::shared_ptr<Data> d = inp.m_data_ptr.lock();
-    t->setType(c10::TensorType::createContiguous(
-        *(d->logical_element_type), d->device, d->sizes));
+    t->setType(
+        c10::TensorType::createContiguous(
+            *(d->logical_element_type), d->device, d->sizes));
     t->setDebugName(inp.ToString());
     ir_map[ir::Output(inp)] = t;
   }
@@ -774,7 +774,8 @@ void HlExec::Create(
     // Is it a scalar node?
     if (c10::Symbol::fromQualString("prim::constant") == node->op()) {
       // add constant
-      auto scalar_node = dynamic_cast<ir::ScalarConstant*>(node.get());
+      auto* scalar_node = dynamic_cast<ir::ScalarConstant*>(node.get());
+      HABANA_ASSERT(scalar_node, "Expected a scalar constant node");
       auto scalar_const = scalar_node->getIValue();
       // TBD: Should we create a constant node, or should it be
       // a 1-element tensor as input?
@@ -830,7 +831,7 @@ void HlExec::Create(
       std::shared_ptr<torch::jit::WithCurrentScope> scope_context;
       auto scope_name = (node->GetScope() ? *node->GetScope() : "");
       if (AccThread::IsAccThreadEnabled() ? !node->GetModuleName().empty()
-                                          : node->GetScope() != NULL) {
+                                          : node->GetScope() != nullptr) {
         scope_context = std::make_shared<torch::jit::WithCurrentScope>(
             *mp_g_,
             c10::make_intrusive<torch::jit::Scope>(
@@ -856,8 +857,9 @@ void HlExec::Create(
           node->is_output_tensor_list()) {
         auto* list_node = dynamic_cast<ir::ListConstruct*>(node.get());
         if (list_node && list_node->isOptional()) {
-          jit_node->output()->setType(torch::jit::ListType::create(
-              torch::jit::OptionalType::ofTensor()));
+          jit_node->output()->setType(
+              torch::jit::ListType::create(
+                  torch::jit::OptionalType::ofTensor()));
         } else {
           jit_node->output()->setType(torch::jit::ListType::ofTensors());
         }
@@ -867,10 +869,11 @@ void HlExec::Create(
               c10::TypeKind::TensorType) {
             auto irout_val = node->GetOutput(idx);
             auto jit_value_out = jit_node->output(idx);
-            jit_value_out->setType(c10::TensorType::createContiguous(
-                *(irout_val.get_scalar_type()),
-                *(irout_val.get_device()),
-                *(irout_val.get_sizes())));
+            jit_value_out->setType(
+                c10::TensorType::createContiguous(
+                    *(irout_val.get_scalar_type()),
+                    *(irout_val.get_device()),
+                    *(irout_val.get_sizes())));
             jit_value_out->setDebugName(irout_val.ToString());
           }
         }
@@ -891,8 +894,11 @@ void HlExec::Create(
   // Because we dont support tensorlist in lowering that matches kernel schema
   // need to disable optimization in case mixture_of_experts_bwd is used in the
   // graph. More details: SW-68937
-  static const std::array<std::string_view, 2> nodes_to_disable_optimization = {
-      "hpu::mixture_of_experts_bwd"sv, "hpu::mixture_of_experts_recomp_bwd"sv};
+  static const std::array<std::string_view, 4> nodes_to_disable_optimization = {
+      "hpu::mixture_of_experts_bwd"sv,
+      "hpu::mixture_of_experts_recomp_bwd"sv,
+      "hpu::mixture_of_experts_fwd"sv,
+      "hpu::mixture_of_experts_recomp_fwd"sv};
 
   const bool call_optimize = std::all_of(
       nodes.cbegin(),
@@ -989,5 +995,4 @@ void HlExec::Optimize(
   visualize::DumpPostGraph(mp_g_, m_g_hash_);
 }
 
-} // namespace exec
-} // namespace habana_lazy
+} // namespace habana_lazy::exec

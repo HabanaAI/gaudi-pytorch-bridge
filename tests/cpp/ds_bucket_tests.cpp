@@ -56,7 +56,7 @@ TEST(DS_TensorShapeTest, Simple) {
 
 class InpShapeGen {
  public:
-  static inline void print_dbi(
+  static void print_dbi(
       const habana_helpers::DynamicBucketInfo& bucket_info,
       size_t input_idx,
       habana_helpers::InpTensorShapes& input_shapes,
@@ -73,11 +73,11 @@ class InpShapeGen {
         "Returned bucket id : ",
         bidx);
   }
-  static inline void print_dyn_dimvals(size_t d1, size_t d0) {
+  static void print_dyn_dimvals(size_t d1, size_t d0) {
     PT_TEST_DEBUG(
         "Using min_dim = ", min_dim, ", dyn_dims shape [ ", d1, " ", d0, " ]");
   }
-  static inline void print_input_shapes(
+  static void print_input_shapes(
       const std::vector<habana_helpers::InpTensorShapes>& input_shapes_vec) {
     PT_TEST_DEBUG("Will use the following input tensor shapes:");
     size_t in_idx{0};

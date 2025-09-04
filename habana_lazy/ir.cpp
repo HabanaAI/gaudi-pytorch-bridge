@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,10 +15,9 @@
 
 #include "ir.h"
 #include <absl/strings/str_format.h>
-#include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/helpers/runtime_config.h"
 #include "habana_helpers/logging.h"
-#include "lazy_executor.h"
+#include "habana_lazy/hpu_lazy_tensors.h"
 
 namespace habana_lazy {
 
@@ -90,10 +89,7 @@ size_t Use::operator()(const Use& in) const {
 Node::Node(c10::Symbol op, bool _is_input)
     : m_op(op),
       m_is_input(_is_input),
-      m_is_control_edge(false),
-      deterministic(
-          habana::HPUGlobalConfig::get().getDeterministic() ||
-          at::globalContext().deterministicAlgorithms()) {
+      deterministic(at::globalContext().deterministicAlgorithms()) {
   /*Need to set this node if the deterministic mode is ON*/
   SetModuleName(*(habana_lazy::ir::getCurrentModuleName()));
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_DEBUG_NAMES)) {
@@ -123,6 +119,10 @@ std::string Node::ToString() const {
     ss << ", scope=" << *m_scope;
   }
   return ss.str();
+}
+
+std::string Node::GetOpNameString() const {
+  return m_op.toQualString();
 }
 
 std::string Node::ToStringIrGraph() const {
@@ -299,7 +299,7 @@ void Node::AddInputPtTensors(std::vector<at::Tensor>& input_pt_vec) {
     input_pt_idx++;
   }
 
-  auto input_idx = 0;
+  size_t input_idx = 0;
   auto pt_idx = m_input_pt_tensors.size();
   for (const auto& inp : m_inputs) {
     if (inp.IsInplaceOnInput()) {
@@ -422,6 +422,9 @@ Output::Output(const Value& v)
   sizes = v.get_sizes();
   scalar_type = v.get_scalar_type();
   unique_id = v.get_unique_id();
+  tensor_id = 0;
+  if (v.DataPtrValidAndNotExpired())
+    tensor_id = v.GetHbLazyTensorUniqueId();
 }
 
 std::string Output::ToString() const {
@@ -432,6 +435,7 @@ std::string Output::ToString() const {
     std::replace(name.begin(), name.end(), ':', '_');
     ss << "_" << name;
   }
+  ss << " Unique ID:" << tensor_id;
   return ss.str();
 }
 

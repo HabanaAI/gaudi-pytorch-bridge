@@ -30,8 +30,7 @@
 #include <variant>
 #include <vector>
 
-namespace habana_torch {
-namespace jit {
+namespace habana_torch::jit {
 
 using SymbolOrExpr = std::string;
 
@@ -108,7 +107,7 @@ std::ostream& operator<<(std::ostream& out, const TypeWrapper& t);
 // access the same graph
 template <typename T>
 struct Wrap {
-  explicit Wrap(T* p) : elem(p), clear_cb(nullptr) {}
+  explicit Wrap(T* p) : elem(p) {}
   void clear() {
     if (clear_cb) {
       clear_cb(elem);
@@ -116,7 +115,7 @@ struct Wrap {
     elem = nullptr;
   }
   T* elem;
-  void (*clear_cb)(void*);
+  void (*clear_cb)(void*){nullptr};
 };
 
 // Note [User node does not uniquely identify use]
@@ -156,5 +155,4 @@ struct Use {
   }
 };
 
-} // namespace jit
-} // namespace habana_torch
+} // namespace habana_torch::jit

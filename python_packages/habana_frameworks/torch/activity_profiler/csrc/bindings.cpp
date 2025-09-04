@@ -36,11 +36,10 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       py::arg("mandatory_events") = "");
   m.def(
       "_setup_habana_profiler_configs",
-      [](bool bridge, bool memory) {
-        habana::profile::setup_habana_profiler_configs(bridge, memory);
+      [](bool bridge) {
+        habana::profile::setup_habana_profiler_configs(bridge);
       },
-      py::arg("bridge") = "",
-      py::arg("memory") = "");
+      py::arg("bridge") = "");
   m.def(
       "_export_logs",
       [](const std::string& path) {

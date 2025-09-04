@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,8 +20,7 @@
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/ir.h"
 #include "torch/csrc/jit/ir/ir.h"
-namespace habana_lazy {
-namespace ir {
+namespace habana_lazy::ir {
 
 class View : public ir::Node {
  public:
@@ -199,10 +198,9 @@ struct SliceInsert : public ir::Node {
       if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_H2D_DYNAMIC_SLICE)) {
         std::vector<int64_t> host_params{
             orig_t.dim(), 1, 1, 1, 1, 1, 0, 0, 0, 0, 0};
-        int num_slice_params = params.size() / 4;
-        int index = 0;
+        const size_t num_slice_params = params.size() / 4;
 
-        for (int i = 0; i < num_slice_params; i++) {
+        for (size_t i = 0; i < num_slice_params; i++) {
           int64_t dim = params[i * 4];
           int64_t start = params[i * 4 + 1];
           int64_t end = params[i * 4 + 2];
@@ -211,7 +209,7 @@ struct SliceInsert : public ir::Node {
           // one place to wrap all dim, start and end indicies
           habana::SliceOperator::compute_output_shape(
               orig_t, dim, start, end, step);
-          index = orig_t.dim() - dim;
+          auto index = static_cast<size_t>(orig_t.dim() - dim);
           host_params[index] = step;
           host_params[index + 5] = start;
         }
@@ -222,16 +220,18 @@ struct SliceInsert : public ir::Node {
             false,
             HOST_TO_DEVICE_TENSOR);
         auto hl_param_tensor = GetOrCreateHbLazyTensor(host_tensor, c10::kHPU);
-        auto hl_param_tensor_internal =
-            hl_param_tensor.CurrentTensorAttached().value();
-        auto host_tmeta{
-            habana::get_tensor_extra_meta(hl_param_tensor_internal)};
-        host_tmeta->set_host_data(
+
+        if (hl_param_tensor.CurrentTensorAttached().has_value()) {
+          auto host_tmeta{
+            habana::get_tensor_extra_meta(hl_param_tensor.CurrentTensorAttached().value())};
+          host_tmeta->set_host_data(
             host_params.data(),
             host_params.size(),
             sizeof(uint64_t),
             habana::HostDataType::UINT64_T);
         host_tmeta->set_H2D_data_for_bucketing();
+        }
+
         AddInput(hl_param_tensor.GetIrValue());
         input_pt_vec.emplace_back(host_tensor);
       } else {
@@ -239,8 +239,8 @@ struct SliceInsert : public ir::Node {
         std::vector<int64_t> step_vec(dims, 1);
         std::vector<int64_t> start_vec(dims, 0);
 
-        int num_slice_params = params.size() / 4;
-        for (int i = 0; i < num_slice_params; i++) {
+        const size_t num_slice_params = params.size() / 4;
+        for (size_t i = 0; i < num_slice_params; i++) {
           int64_t dim = params[i * 4];
           int64_t start = params[i * 4 + 1];
           int64_t end = params[i * 4 + 2];
@@ -430,5 +430,4 @@ class Expand : public ir::Node {
   }
 };
 
-} // namespace ir
-} // namespace habana_lazy
+} // namespace habana_lazy::ir

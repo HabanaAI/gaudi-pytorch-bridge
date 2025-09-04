@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -24,6 +24,14 @@ set(CMAKE_CXX_STANDARD 17)
 set(BUILD_TESTING OFF)
 
 set(ABSL_PROPAGATE_CXX_STD ON)
-add_subdirectory($ENV{THIRD_PARTIES_ROOT}/abseil-cpp absl SYSTEM)
+
+include(FetchContent)
+FetchContent_Declare(
+  abseil-cpp
+  GIT_REPOSITORY https://github.com/abseil/abseil-cpp.git
+  GIT_TAG 20250512.1
+  GIT_SHALLOW TRUE
+  SYSTEM EXCLUDE_FROM_ALL)
+FetchContent_MakeAvailable(abseil-cpp)
 
 include(ExportAbseil)

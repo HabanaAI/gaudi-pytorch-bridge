@@ -18,7 +18,7 @@
 import pytest
 import torch
 from habana_frameworks.torch.dynamo.compile_backend.random_utils import (
-    HABANA_CHECKPOINT_OPS,
+    HABANA_RANDOM_OPS,
 )
 from habana_frameworks.torch.dynamo.compile_backend.shared_layer import (
     hpu_fallback_op_list,
@@ -27,8 +27,17 @@ from test_dynamo_utils import use_eager_fallback
 from test_utils import (
     check_ops_executed_in_jit_ir,
     clear_t_compile_logs,
+    compare_tensors,
     compile_function_if_compile_mode,
 )
+
+# Tests in these file rely on the fact that random ops (bernoulli, randn, etc.)
+# have the same order in graph with and without activation checkpoint flow.
+# The reason is it's the easiest way to verify that random ops in backward
+# are executed deterministically comparing to forward (with the same seed values).
+#
+# However, I don't think this order is strictly required and it can be changed in the future.
+# If it is changed, the tests should be updated accordingly.
 
 
 def bernoulli(x):
@@ -64,6 +73,23 @@ def native_dropout(x):
     return a * x + b
 
 
+def _fused_dropout(x):
+    a, b = torch._fused_dropout(input=x, p=0.4)
+    return a * x + b
+
+
+def exponential(x):
+    return torch.ops.aten.exponential(x) * x
+
+
+def random(x):
+    return torch.ops.aten.random(x, 5, 10) * x
+
+
+def normal(mean, std):
+    return torch.normal(mean, std) * mean * std
+
+
 def three_ops(x):
     res_rand = torch.rand(x.shape, dtype=x.dtype, device=x.device)
     res_bernoulli = torch.bernoulli(res_rand) * x
@@ -71,7 +97,19 @@ def three_ops(x):
     return res_bernoulli * res_randperm
 
 
-OPS = [bernoulli, poisson, rand, randn, randint, multinomial, randperm, native_dropout]
+OPS = [
+    bernoulli,
+    poisson,
+    rand,
+    randn,
+    randint,
+    multinomial,
+    randperm,
+    native_dropout,
+    exponential,
+    _fused_dropout,
+    random,
+]
 
 
 class Model(torch.nn.Module):
@@ -84,6 +122,24 @@ class Model(torch.nn.Module):
         add = input + 10
         rand = (
             torch.utils.checkpoint.checkpoint(self.op, add, use_reentrant=False) if self.is_checkpoint else self.op(add)
+        )
+        relu = torch.relu(rand)
+        return torch.randint_like(relu, 3, 10, dtype=torch.int) + relu
+
+
+class ModelTwoInputs(torch.nn.Module):
+    def __init__(self, op, is_checkpoint):
+        super().__init__()
+        self.op = op
+        self.is_checkpoint = is_checkpoint
+
+    def forward(self, input_a, input_b):
+        add = input_a + 10
+        mul = input_b * 1.3
+        rand = (
+            torch.utils.checkpoint.checkpoint(self.op, add, mul, use_reentrant=False)
+            if self.is_checkpoint
+            else self.op(add, mul)
         )
         relu = torch.relu(rand)
         return torch.randint_like(relu, 3, 10, dtype=torch.int) + relu
@@ -103,7 +159,10 @@ class ModelAllOps(torch.nn.Module):
         res3 = multinomial(input) + res2
         res4 = self.maybe_checkpoint(native_dropout, res3)
         res5 = self.maybe_checkpoint(three_ops, res4)
-        return res5
+        res6 = exponential(res5)
+        res7 = self.maybe_checkpoint(_fused_dropout, res6)
+        res8 = random(res7)
+        return res8
 
 
 class ModelDropout(torch.nn.Module):
@@ -141,14 +200,26 @@ def run_model_with_deterministic_algorithms(model, shape=(12, 16), deterministic
     return out, grad
 
 
+def run_model_two_inputs(model, input_a, input_b):
+    model = compile_function_if_compile_mode(model)
+    out = model(input_a, input_b)
+    out.sum().backward()
+    return (
+        out.cpu(),
+        input_a.grad.cpu() if isinstance(input_a, torch.Tensor) else None,
+        input_b.grad.cpu() if isinstance(input_b, torch.Tensor) else None,
+    )
+
+
+def run_model_with_deterministic_algorithms_two_inputs(model, input_a, input_b, deterministic_flag=True):
+    torch.use_deterministic_algorithms(deterministic_flag)
+    out, grad_a, grad_b = run_model_two_inputs(model, input_a, input_b)
+    torch.use_deterministic_algorithms(False)
+    return out, grad_a, grad_b
+
+
 def get_habana_op_names(op_names):
     return {f"habana_{op_name.__name__}" for op_name in op_names}
-
-
-def get_habana_checkpoint_op_names(op_names):
-    checkpoint_op_names = {f"habana_{op_name.__name__}_checkpoint" for op_name in op_names}
-    checkpoint_op_names.update({f"habana_{op_name.__name__}_checkpoint_backward" for op_name in op_names})
-    return checkpoint_op_names
 
 
 @pytest.mark.parametrize("op", OPS)
@@ -157,37 +228,28 @@ def test_checkpoint(op, disable_compile):
     torch._dynamo.reset()
     clear_t_compile_logs()
 
-    habana_op_name = get_habana_op_names([op])
-    checkpoint_op_name = get_habana_checkpoint_op_names([op])
-
-    forbidden_ops = set()
-    checkpoint_ops = set()
+    habana_op_names = get_habana_op_names([op])
 
     if disable_compile:
         original_op = op
         op = torch.compiler.disable(op)
-        no_checkpoint_ops = {"habana_randint"}
-        forbidden_ops = checkpoint_op_name
+        checkpoint_ops = {"habana_randint"}
     else:
-        no_checkpoint_ops = habana_op_name.union({"habana_randint"})
-        checkpoint_ops = checkpoint_op_name
+        checkpoint_ops = habana_op_names.union({"habana_randint"})
 
     out, grad = run_model_with_deterministic_algorithms(Model(op, False), deterministic_flag=not disable_compile)
 
-    check_ops_executed_in_jit_ir(no_checkpoint_ops)
+    check_ops_executed_in_jit_ir(checkpoint_ops)
     clear_t_compile_logs()
 
     out_checkpoint, grad_checkpoint = run_model(Model(op, True))
-    check_ops_executed_in_jit_ir(checkpoint_ops, forbidden_ops=forbidden_ops)
+    check_ops_executed_in_jit_ir(checkpoint_ops)
 
     if disable_compile:
         op = original_op
 
-    assert torch.equal(out, out_checkpoint)
-    assert torch.equal(grad, grad_checkpoint)
-
-
-CHECKPOINT_OPS = [bernoulli, native_dropout, poisson, rand, randperm]
+    compare_tensors(out, out_checkpoint)
+    compare_tensors(grad, grad_checkpoint)
 
 
 def test_checkpoint_dropout():
@@ -196,7 +258,6 @@ def test_checkpoint_dropout():
 
     op = native_dropout
     habana_op_names = get_habana_op_names([op])
-    checkpoint_op_names = get_habana_checkpoint_op_names([op])
 
     out, grad = run_model_with_deterministic_algorithms(ModelDropout(False), (120, 160))
     check_ops_executed_in_jit_ir(habana_op_names)
@@ -204,10 +265,55 @@ def test_checkpoint_dropout():
     clear_t_compile_logs()
 
     out_checkpoint, grad_checkpoint = run_model(ModelDropout(True), (120, 160))
-    check_ops_executed_in_jit_ir(checkpoint_op_names)
+    check_ops_executed_in_jit_ir(habana_op_names)
 
-    assert torch.equal(out, out_checkpoint)
-    assert torch.equal(grad, grad_checkpoint)
+    compare_tensors(out, out_checkpoint)
+    compare_tensors(grad, grad_checkpoint)
+
+
+@pytest.mark.parametrize("is_mean_tensor, is_std_tensor", [(True, False), (False, True), (True, True)])
+@pytest.mark.parametrize("disable_compile", [False, True])
+def test_checkpoint_normal(is_mean_tensor, is_std_tensor, disable_compile):
+    torch._dynamo.reset()
+    clear_t_compile_logs()
+    op = normal
+    shape = (12, 16)
+
+    habana_op_names = {"habana_normal"}
+
+    if disable_compile:
+        original_op = op
+        op = torch.compiler.disable(op)
+        checkpoint_ops = {"habana_randint"}
+    else:
+        checkpoint_ops = habana_op_names.union({"habana_randint"})
+
+    torch.manual_seed(2137)
+    mean = torch.rand(shape).to("hpu").requires_grad_(True) if is_mean_tensor else 2.5
+    std = torch.rand(shape).to("hpu").requires_grad_(True) if is_std_tensor else 1.5
+
+    out, grad_a, grad_b = run_model_with_deterministic_algorithms_two_inputs(
+        ModelTwoInputs(op, False), mean, std, deterministic_flag=not disable_compile
+    )
+
+    check_ops_executed_in_jit_ir(checkpoint_ops)
+    clear_t_compile_logs()
+
+    torch.manual_seed(2137)
+    mean = torch.rand(shape).to("hpu").requires_grad_(True) if is_mean_tensor else 2.5
+    std = torch.rand(shape).to("hpu").requires_grad_(True) if is_std_tensor else 1.5
+
+    out_checkpoint, grad_a_checkpoint, grad_b_checkpoint = run_model_two_inputs(ModelTwoInputs(op, True), mean, std)
+    check_ops_executed_in_jit_ir(checkpoint_ops)
+
+    if disable_compile:
+        op = original_op
+
+    compare_tensors(out, out_checkpoint)
+    if is_mean_tensor:
+        compare_tensors(grad_a, grad_a_checkpoint)
+    if is_std_tensor:
+        compare_tensors(grad_b, grad_b_checkpoint)
 
 
 def test_checkpoint_all_ops():
@@ -215,7 +321,6 @@ def test_checkpoint_all_ops():
     clear_t_compile_logs()
 
     habana_op_names = get_habana_op_names(OPS)
-    checkpoint_op_names = get_habana_checkpoint_op_names(CHECKPOINT_OPS)
 
     out, grad = run_model_with_deterministic_algorithms(ModelAllOps(False))
 
@@ -223,10 +328,13 @@ def test_checkpoint_all_ops():
     clear_t_compile_logs()
 
     out_checkpoint, grad_checkpoint = run_model(ModelAllOps(True))
-    check_ops_executed_in_jit_ir(checkpoint_op_names)
+    check_ops_executed_in_jit_ir(habana_op_names)
 
-    assert torch.equal(out, out_checkpoint)
-    assert torch.equal(grad, grad_checkpoint)
+    compare_tensors(out, out_checkpoint)
+    compare_tensors(grad, grad_checkpoint)
+
+
+CHECKPOINT_OPS = [bernoulli, native_dropout, poisson, rand, randperm]
 
 
 @pytest.mark.parametrize("eager_op", [poisson, bernoulli])
@@ -244,9 +352,8 @@ def test_checkpoint_all_eager_fallback(eager_op):
     aten_op = f"aten.{eager_op_name}.default"
 
     habana_op_names = get_habana_op_names(compile_ops)
-    checkpoint_op_names = get_habana_checkpoint_op_names(checkpoint_ops)
 
-    checkpoint_op_bckp = HABANA_CHECKPOINT_OPS.pop(aten_op)
+    checkpoint_op_bckp = HABANA_RANDOM_OPS.pop(aten_op)
     hpu_fallback_op_list.add(eager_op_name)
 
     with use_eager_fallback():
@@ -256,11 +363,11 @@ def test_checkpoint_all_eager_fallback(eager_op):
 
         out_checkpoint, grad_checkpoint = run_model(ModelAllOps(True))
         check_ops_executed_in_jit_ir(
-            checkpoint_op_names, allowed_fallbacks={"run_with_rng_state", "run_and_save_rng_state"}
+            habana_op_names, allowed_fallbacks={"run_with_rng_state", "run_and_save_rng_state"}
         )
 
-    HABANA_CHECKPOINT_OPS[aten_op] = checkpoint_op_bckp
+    HABANA_RANDOM_OPS[aten_op] = checkpoint_op_bckp
     hpu_fallback_op_list.remove(eager_op_name)
 
-    assert torch.equal(out, out_checkpoint)
-    assert torch.equal(grad, grad_checkpoint)
+    compare_tensors(out, out_checkpoint)
+    compare_tensors(grad, grad_checkpoint)

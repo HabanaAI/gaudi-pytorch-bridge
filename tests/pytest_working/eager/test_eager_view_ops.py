@@ -697,7 +697,7 @@ def test_view(ttl, inout):
     def add_cpu_tensors(first_value, num, shape, label):
         for i in range(num):
             stop_value = first_value + np.prod(shape)
-            cpu_tensors[f"{label}{i+1}"] = torch.Tensor(np.arange(first_value, stop_value).reshape(shape))
+            cpu_tensors[f"{label}{i + 1}"] = torch.Tensor(np.arange(first_value, stop_value).reshape(shape))
             first_value = stop_value
         return first_value
 
@@ -713,14 +713,14 @@ def test_view(ttl, inout):
     hpu_tensors = place_on_hpu(cpu_tensors)
 
     for tensors in [cpu_tensors, hpu_tensors]:
-        views = [td.make_view(tensors[f"vb{i+1}"]) for i in range(td.num_views)]
+        views = [td.make_view(tensors[f"vb{i + 1}"]) for i in range(td.num_views)]
         views.insert(0, None)
         result = td.command(tensors, views)
         if result is not None:
             tensors[td.store_result] = result
 
-    for key in cpu_tensors.keys():
-        result_cpu = cpu_tensors[key]
+    for key, cpu_tensor in cpu_tensors.items():
+        result_cpu = cpu_tensor
         result_hpu = hpu_tensors[key]
         if isinstance(result_cpu, list):
             result_cpu = torch.cat(result_cpu[:])
@@ -734,7 +734,12 @@ def test_view(ttl, inout):
 
 @pytest.mark.parametrize(
     "shift_op",
-    [torch.ops.aten.__ilshift__, torch.ops.aten.__lshift__, torch.ops.aten.__irshift__, torch.ops.aten.__rshift__],
+    [
+        torch.ops.aten.__ilshift__,
+        torch.ops.aten.__lshift__,
+        torch.ops.aten.__irshift__,
+        torch.ops.aten.__rshift__,
+    ],
 )
 @pytest.mark.parametrize("transpose", [False, True])
 def test_shift(shift_op, transpose):
@@ -792,7 +797,12 @@ def test_sag_view_section_id_2():
 
 
 @pytest.mark.parametrize(
-    "logical_op", [torch.ops.aten.logical_and_, torch.ops.aten.logical_or_, torch.ops.aten.logical_xor_]
+    "logical_op",
+    [
+        torch.ops.aten.logical_and_,
+        torch.ops.aten.logical_or_,
+        torch.ops.aten.logical_xor_,
+    ],
 )
 def test_inplace_slice_logical_op(logical_op):
     dtype = torch.float32

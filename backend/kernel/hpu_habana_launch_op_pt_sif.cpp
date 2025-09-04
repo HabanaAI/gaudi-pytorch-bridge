@@ -360,7 +360,7 @@ void mapOutputTensors(
           (output_tensors.size() +
            output_shape_info.GetNumUndefinedOutputTensors() -
            nr_of_excluded_outputs)) and
-      output_shape_info.GetKernelOutputs().size()) {
+      !output_shape_info.GetKernelOutputs().empty()) {
     output_tensors =
         output_shape_info.GetKernelOutputs().at(0)->GetOutputTensor();
   }
@@ -674,7 +674,7 @@ bool HabanaLaunchOpPT::RunHybridSif(
     auto outputs_metadata = populate_node_output_metadata(node);
 
     auto propagate_shape{[&]() -> void {
-      PT_BRIDGE_BEGIN;
+      PT_BRIDGE_LAMBDA_BEGIN("propagate_shape");
       // Non OutputShapeInf based path, adjust SifTensrorId
       PT_DYNAMIC_SHAPE_DEBUG(
           "Using non OutputShapeInf based flow. Going to add tpc kernel ",
@@ -697,7 +697,7 @@ bool HabanaLaunchOpPT::RunHybridSif(
       if constexpr (DynamicShapes) {
         process_shape_tensors(habana_op, intermediate_shape_tensors_vec);
         shape_tensors_flag |=
-            (intermediate_shape_tensors_vec.size() && (num_syn_nodes > one));
+            (!intermediate_shape_tensors_vec.empty() && (num_syn_nodes > one));
       }
       process_outputs(habana_op, node, val_to_ival_map, tidx_to_tensor_map);
 
@@ -759,7 +759,7 @@ bool HabanaLaunchOpPT::RunHybridSif(
           ProcessShapeTensorsCS(
               output_shape_info, intermediate_shape_tensor_cs);
           shape_tensors_flag |=
-              (intermediate_shape_tensor_cs.size() && (num_syn_nodes > one));
+              (!intermediate_shape_tensor_cs.empty() && (num_syn_nodes > one));
 
           // Get all values of shape tensor
           for (auto& t : intermediate_shape_tensor_cs) {

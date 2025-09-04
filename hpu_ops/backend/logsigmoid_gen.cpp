@@ -76,28 +76,23 @@ SharedMetaDataVector LogSigmoidBwdSharedMeta(
   const auto& self = stack_tensor(stack, 1);
   const auto selfRank = self.dim();
   SharedMetaDataVector metaVec;
-  metaVec.reserve(selfRank > 1 ? 8 : 7);
+  metaVec.reserve(7);
   SharedMetaTensor commonTensor = {selfRank, grad.scalar_type()};
-
-  if (selfRank > 1) {
-    SharedMetaData constantSharedMeta{"constant"};
-    constantSharedMeta.outputs_data = {commonTensor};
-    metaVec.push_back(constantSharedMeta);
-  }
+  SharedMetaTensor common1DTensor = {1, grad.scalar_type()};
 
   SharedMetaData lessSharedMeta{"less_fwd"};
-  lessSharedMeta.inputs_data = {commonTensor, commonTensor};
+  lessSharedMeta.inputs_data = {commonTensor, common1DTensor};
   lessSharedMeta.outputs_data.emplace_back(selfRank, c10::ScalarType::Bool);
   metaVec.push_back(lessSharedMeta);
 
   SharedMetaData negSharedMeta{"neg_fwd"};
-  negSharedMeta.inputs_data = {commonTensor};
-  negSharedMeta.outputs_data = {commonTensor};
+  negSharedMeta.inputs_data = {common1DTensor};
+  negSharedMeta.outputs_data = {common1DTensor};
   metaVec.push_back(negSharedMeta);
 
   SharedMetaData whereSharedMeta{"where_fwd"};
   whereSharedMeta.inputs_data = {
-      lessSharedMeta.outputs_data[0], commonTensor, commonTensor};
+      lessSharedMeta.outputs_data[0], common1DTensor, common1DTensor};
   whereSharedMeta.outputs_data = {commonTensor};
   metaVec.push_back(whereSharedMeta);
 
@@ -213,7 +208,7 @@ void LogSigmoidBackward::AddNode(
     const at::Stack& stack) {
   const auto& inputshape = stack_tensor(stack, 1).sizes();
 
-  auto zero_vec = ConstantHelper(graph, 0, ScalarType(), inputshape);
+  auto zero_vec = ConstantHelper(graph, 0, ScalarType());
 
   // input < zero_vec
   auto mask = BuildOp(
@@ -223,14 +218,14 @@ void LogSigmoidBackward::AddNode(
       {{inputshape, ScalarType()}});
 
   // one vector
-  auto one_vec = ConstantHelper(graph, 1, ScalarType(), inputshape);
+  auto one_vec = ConstantHelper(graph, 1, ScalarType());
 
   // neg(one_vec)
   auto one_vec_neg = BuildOp(
       graph,
       get_guid_with_precision("neg_fwd"sv, ScalarType()),
       {one_vec.get()},
-      {{inputshape, ScalarType()}});
+      {{{1}, ScalarType()}});
 
   // where(mask, neg(one_vec), zero_vec)
   auto max_deriv_vec = BuildOp(

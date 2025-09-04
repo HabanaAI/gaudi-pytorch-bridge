@@ -18,9 +18,17 @@
 
 namespace habana_lazy {
 
-std::optional<at::Tensor> maybe_convert_to_h2d(
+std::optional<at::Tensor> maybe_convert_tensor_to_h2d(
+    const std::optional<at::Tensor>& tensor,
+    const std::string_view op_name);
+
+std::optional<at::Tensor> maybe_convert_tensor_to_h2d(
     const std::optional<at::Tensor>& tensor,
     const bool enabled,
+    const std::string_view op_name);
+
+std::vector<at::Tensor> maybe_convert_list_to_h2d(
+    const at::TensorList& tensors,
     const std::string_view op_name);
 
 void verify_no_h2d_scales(

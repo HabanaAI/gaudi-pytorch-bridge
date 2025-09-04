@@ -23,9 +23,8 @@
 namespace common {
 
 template <typename T>
-using equality_comparable_t = decltype(
-    std::declval<std::remove_reference_t<T>&>() ==
-    std::declval<std::remove_reference_t<T>&>());
+using equality_comparable_t =
+    decltype(std::declval<std::remove_reference_t<T>&>() == std::declval<std::remove_reference_t<T>&>());
 
 template <typename T, typename = std::void_t<>>
 struct is_equality_comparable : std::false_type {};
@@ -147,9 +146,8 @@ class StrongType<T, Tag, std::enable_if_t<std::is_reference_v<T>>>
 };
 
 template <typename T>
-using ostream_operator_capable_t = std::remove_reference_t<decltype(
-    std::declval<std::ostream>()
-    << std::declval<std::remove_reference_t<T>>())>;
+using ostream_operator_capable_t = std::remove_reference_t<
+    decltype(std::declval<std::ostream>() << std::declval<std::remove_reference_t<T>>())>;
 
 template <typename T, typename = std::void_t<>>
 struct is_ostream_operator_capable : std::false_type {};

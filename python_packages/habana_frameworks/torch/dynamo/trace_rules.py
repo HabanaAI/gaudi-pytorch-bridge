@@ -36,7 +36,14 @@ from torch._dynamo.variables.torch import constant_fold_functions
 manual_torch_name_rule_map.pop("torch.cuda.current_device", None)
 
 htorch_skip_list = [
-    htorch.hpu,
+    htorch.hpu.__init__,
+    htorch.hpu._proxy_module,
+    htorch.hpu._utils,
+    htorch.hpu.events,
+    htorch.hpu.memory,
+    htorch.hpu.random,
+    htorch.hpu.streams,
+    htorch.hpu.metrics,
 ]
 
 SKIP_DIRS.extend(filter(None, (_module_dir(m) for m in htorch_skip_list)))
@@ -59,28 +66,27 @@ _manual_htorch_name_rule_map = {
 }
 
 # Dynamo implemented context managers
-_htorch_ctx_manager_classes = {
-    k: TorchCtxManagerClassVariable
-    for k in [
+_htorch_ctx_manager_classes = dict.fromkeys(
+    [
         # "torch._C.DisableTorchFunctionSubclass",                     #Example
         # "torch.amp.autocast_mode.autocast",                          #Example
-    ]
-}
+    ],
+    TorchCtxManagerClassVariable,
+)
 
 # In graph functions (including constant folding) that are C bindings
-_htorch_c_binding_in_graph_functions = {
-    k: TorchInGraphFunctionVariable
-    for k in [
+_htorch_c_binding_in_graph_functions = dict.fromkeys(
+    [
         # "math.acos",                                                 #Example
         # "math.acosh",                                                #Example
         # "torch._C._create_function_from_graph",                      #Example
-    ]
-}
+    ],
+    TorchInGraphFunctionVariable,
+)
 
 # In graph functions (including constant folding) that are not C bindings
-_htorch_non_c_binding_in_graph_functions = {
-    k: TorchInGraphFunctionVariable
-    for k in [
+_htorch_non_c_binding_in_graph_functions = dict.fromkeys(
+    [
         "habana_frameworks.torch.hpu.current_stream",
         "habana_frameworks.torch.hpu.event",
         "habana_frameworks.torch.hpu.set_stream",
@@ -90,8 +96,9 @@ _htorch_non_c_binding_in_graph_functions = {
         "habana_frameworks.torch.hpu.device_count",
         "habana_frameworks.torch.hpu.set_stream_by_id",
         "habana_frameworks.torch.hpu._utils._get_device_index",
-    ]
-}
+    ],
+    TorchInGraphFunctionVariable,
+)
 
 habana_torch_name_rule_list = [
     _manual_htorch_name_rule_map,

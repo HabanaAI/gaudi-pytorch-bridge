@@ -55,7 +55,7 @@ def read_ops_with_custom_sl_meta(filename):
     print(f"BEGIN: {label}")
     result = {}
     with open(filename) as file:
-        op_data = yaml.load(file.read(), Loader=yaml.CLoader)
+        op_data = yaml.load(file.read(), Loader=yaml.CSafeLoader)
         for op in op_data:
             if "op_validator" in op_data[op] and op_data[op]["op_validator"] != "check-node-with-shared-layer":
                 result[op] = op_data[op]["op_validator"]

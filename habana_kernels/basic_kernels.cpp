@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -101,12 +101,12 @@ void adjustPTSizes(Tensor& t) {
   // but data permuted for channel last, so change the size and stride
   // NCHW
   auto sizes = t.sizes().vec();
-  std::vector<int> out_pos = {
+  std::vector<size_t> out_pos = {
       LayoutFormatDims::N,
       LayoutFormatDims::W,
       LayoutFormatDims::C,
       LayoutFormatDims::H};
-  std::vector<int> out_pos_5d = {
+  std::vector<size_t> out_pos_5d = {
       LayoutFormatWithDepthDims::N,
       LayoutFormatWithDepthDims::W,
       LayoutFormatWithDepthDims::C,
@@ -328,8 +328,7 @@ void MemCopyOperator::AllocateAndAddSynapseNode(
     output = habana::createPTTensor(self, output_metadata.at(0).persistent);
     AllocateSynapseOutput(graph, output, output_metadata.at(0));
   }
-  p_context_->params_size_ = 0;
-  AddNodeToSynapseGraph(graph, NULL, 0);
+  AddNodeToSynapseGraph(graph, nullptr, 0);
 }
 
 InferOutputMetaRetType IdentityOperator::InferOutputMeta(
@@ -353,19 +352,18 @@ void IdentityOperator::AllocateAndAddSynapseNode(
   auto self = inputs[0].toTensor();
   at::Tensor output;
 
+  auto allocated_tensor = output_metadata.at(0).allocated_tensor;
   if (inputs.size() == 2) {
     output = inputs[1].toTensor();
   } else if (
-      !graph.is_dry_run() &&
-      output_metadata.at(0).allocated_tensor.has_value()) {
-    output = output_metadata.at(0).allocated_tensor.value();
+      !graph.is_dry_run() && allocated_tensor.has_value()) {
+    output = allocated_tensor.value();
   } else {
     output = habana::createPTTensor(self, output_metadata.at(0).persistent);
   }
 
-  p_context_->params_size_ = 0;
   AllocateSynapseOutput(graph, output, output_metadata.at(0));
-  AddNodeToSynapseGraph(graph, NULL, 0);
+  AddNodeToSynapseGraph(graph, nullptr, 0);
 }
 
 /*************************************************************************
@@ -373,8 +371,7 @@ void IdentityOperator::AllocateAndAddSynapseNode(
  ************************************************************************/
 InferOutputMetaRetType DummyOperator::InferOutputMeta(
     torch::jit::Stack& inputs) {
-  int out_index = inputs.size() - 1;
-  auto output = inputs[out_index].toTensor();
+  auto output = inputs.back().toTensor();
   InferOutputMetaRetType out;
   out.AddOutputTensor(TensorMetaData(
       output.sizes().vec(),
@@ -392,9 +389,8 @@ void DummyOperator::AllocateAndAddSynapseNode(
   static_cast<void>(graph);
   static_cast<void>(output_metadata);
   at::Tensor output;
-  int out_index = inputs.size() - 1;
+  const size_t out_index = inputs.size() - 1;
   output = inputs[out_index].toTensor();
-  p_context_->params_size_ = 0;
   p_context_->syn_outputs_.emplace_back(
       habana_helpers::duplicate_tensor_in_memory_section(
           p_context_->syn_inputs_[out_index],
@@ -447,7 +443,7 @@ void AsStridedOperator::AllocateAndAddSynapseNode(
           graph,
           size,
           strides,
-          offset * self.itemsize(),
+          static_cast<size_t>(offset) * self.itemsize(),
           output_metadata.at(0).external));
   p_context_->pt_outputs_.emplace_back(output);
 }
@@ -473,9 +469,12 @@ void AsStridedLayoutOperator::AllocateAndAddSynapseNode(
   auto dims = inputs[1].toIntVector();
   auto is_5d_layout = dims.size() == 5 ? true : false;
   std::vector<int64_t> swapped_sizes = {
-      sizes[dims[0]], sizes[dims[1]], sizes[dims[2]], sizes[dims[3]]};
+      sizes[static_cast<size_t>(dims[0])],
+      sizes[static_cast<size_t>(dims[1])],
+      sizes[static_cast<size_t>(dims[2])],
+      sizes[static_cast<size_t>(dims[3])]};
   if (is_5d_layout) {
-    swapped_sizes.push_back(sizes[dims[4]]);
+    swapped_sizes.push_back(sizes[static_cast<size_t>(dims[4])]);
   }
 
   std::vector<long int> new_strides = {
@@ -511,7 +510,7 @@ void AsStridedLayoutOperator::AllocateAndAddSynapseNode(
 }
 
 namespace {
-static inline Device ensure_has_index(at::Device device) {
+inline Device ensure_has_index(at::Device device) {
   const c10::impl::DeviceGuardImplInterface* impl =
       c10::impl::getDeviceGuardImpl(device.type());
   return impl->getDevice();
@@ -593,12 +592,14 @@ void SliceInsertOperator::FixSliceParams(
     int64_t& dim,
     int64_t& start,
     int64_t& end,
-    int64_t& step) {
+    int64_t& step,
+    size_t& wrapped_dim) {
   int64_t ndim = self.dim();
   if (ndim == 0) {
     TORCH_CHECK_INDEX(false, "slice() cannot be applied to a 0-dim tensor.");
   }
   dim = at::maybe_wrap_dim(dim, ndim);
+  wrapped_dim = static_cast<size_t>(dim);
   std::vector<int64_t> sizes(self.sizes().begin(), self.sizes().end());
 
   // TODO: support negative strides
@@ -609,20 +610,20 @@ void SliceInsertOperator::FixSliceParams(
     start = 0;
   }
   if (start < 0) {
-    start += sizes[dim];
+    start += sizes[wrapped_dim];
   }
   if (end < 0) {
-    end += sizes[dim];
+    end += sizes[wrapped_dim];
   }
   if (start < 0) {
     start = 0;
-  } else if (start >= sizes[dim]) {
-    start = sizes[dim];
+  } else if (start >= sizes[wrapped_dim]) {
+    start = sizes[wrapped_dim];
   }
   if (end < start) {
     end = start;
-  } else if (end >= sizes[dim]) {
-    end = sizes[dim];
+  } else if (end >= sizes[wrapped_dim]) {
+    end = sizes[wrapped_dim];
   }
 }
 
@@ -637,20 +638,21 @@ void SliceInsertOperator::ComputeParams(
   std::fill_n(params.ends, HABANA_DIM_MAX, 0);
   std::fill_n(params.steps, HABANA_DIM_MAX, 1);
 
-  int num_slice_params = paramsList.size() / 4;
-  for (int i = 0; i < num_slice_params; i++) {
+  size_t num_slice_params = paramsList.size() / 4;
+  for (size_t i = 0; i < num_slice_params; i++) {
     int64_t dim = paramsList[i * 4];
     int64_t start = paramsList[i * 4 + 1];
     int64_t end = paramsList[i * 4 + 2];
     int64_t step = paramsList[i * 4 + 3];
-    FixSliceParams(self, dim, start, end, step);
+    size_t wrapped_dim{};
+    FixSliceParams(self, dim, start, end, step, wrapped_dim);
     params.axes[i] = get_dim_in_tpc_order(dim, self.dim());
-    params.starts[i] = start;
-    params.ends[i] = end;
-    params.steps[i] = step;
+    params.starts[i] = static_cast<unsigned long>(start);
+    params.ends[i] = static_cast<unsigned long>(end);
+    params.steps[i] = static_cast<unsigned long>(step);
     bool needs_params_handling = false;
     if (graph.is_dynamic_graph() && (!graph.is_dry_run()) &&
-        end > self.sizes().vec()[dim]) {
+        end > self.sizes().vec()[wrapped_dim]) {
       needs_params_handling = true;
     }
     if (needs_params_handling) {
@@ -658,7 +660,7 @@ void SliceInsertOperator::ComputeParams(
       auto tensor_id = syn_input_tensor.id();
       std::vector<int64_t> min, max;
       std::tie(min, max) = habana::ShapeInference::GetMinMaxShape(tensor_id);
-      params.ends[i] = max[dim];
+      params.ends[i] = static_cast<unsigned long>(max[wrapped_dim]);
     }
   }
 }
@@ -715,12 +717,10 @@ void SliceInsertOperator::UpdateMaxPassSliceInputs(
         // If the calculated value is less than current value, keep the
         // current value.
         HABANA_ASSERT(min.size() == max.size());
-        if (min.size() && (min[i] != max[i]) && old_start == 0) {
+        if (!min.empty() && (min[i] != max[i]) && old_start == 0) {
           auto curr_val = max[i] /
               habana_helpers::DynamicBucketInfo::default_max_multiplier_;
-          if (start[i] < curr_val) {
-            start[i] = curr_val;
-          }
+            start[i] = std::max(start[i], curr_val);
         }
       }
     }
@@ -1019,7 +1019,7 @@ bool IsStridesRatioUsed(const torch::jit::Stack& inputs) {
     // Offset shape tensor is created only in case the ratio is used
     auto tmeta_offset{get_tensor_extra_meta(offset_t)};
     auto stride_ratios = tmeta_offset->get_shape_struct().get_stride_ratios();
-    if (stride_ratios.size() > 0) {
+    if (!stride_ratios.empty()) {
       stride_ratio_used = true;
     }
   }
@@ -1055,21 +1055,21 @@ std::vector<int64_t> GetAsStridedOperatorStrideData(
   }
 
   if (h2d_dt_type == habana::HostDataType::INT32_T) {
-    int32_t* h2d_data = static_cast<int32_t*>(host_ptr);
+    auto* h2d_data = static_cast<int32_t*>(host_ptr);
     size_t sif_offset = GetMInMaxSifOffset(dry_run, data_size);
     h2d_data = h2d_data + sif_offset;
     for (size_t i = 0; i < data_size; i++) {
       strides.push_back(static_cast<int64_t>(*h2d_data++));
     }
   } else if (h2d_dt_type == habana::HostDataType::UINT32_T) {
-    uint32_t* h2d_data = static_cast<uint32_t*>(host_ptr);
+    auto* h2d_data = static_cast<uint32_t*>(host_ptr);
     size_t sif_offset = GetMInMaxSifOffset(dry_run, data_size);
     h2d_data = h2d_data + sif_offset;
     for (size_t i = 0; i < data_size; i++) {
       strides.push_back(static_cast<int64_t>(*h2d_data++));
     }
   } else if (h2d_dt_type == habana::HostDataType::UINT64_T) {
-    uint64_t* h2d_data = static_cast<uint64_t*>(host_ptr);
+    auto* h2d_data = static_cast<uint64_t*>(host_ptr);
     data_size = data_size / 2;
     size_t sif_offset = GetMInMaxSifOffset(dry_run, data_size);
     h2d_data = h2d_data + sif_offset;
@@ -1370,7 +1370,7 @@ void StridedInsertOperator::compute_params(
         synapse_helpers::tensor& offset_tensor = hop.GetSynInputs()[3];
         std::tie(min, max) =
             habana::ShapeInference::GetMinMaxShape(offset_tensor.id());
-        if (max.size()) {
+        if (!max.empty()) {
           offset = max[0];
         }
       }
@@ -1824,7 +1824,7 @@ void StridedViewOperator::compute_params(
     synapse_helpers::tensor& offset_tensor = p_context_->syn_inputs_[3];
     std::tie(min, max) =
         habana::ShapeInference::GetMinMaxShape(offset_tensor.id());
-    if (max.size()) {
+    if (!max.empty()) {
       offset = max[0];
     }
   }
@@ -1944,63 +1944,59 @@ void StridedViewOperator::ReuseMemoryAndAddSynapseNode(
 
 static auto& BasicKernelsKernelRegistry =
     habana::KernelRegistry()
-        .add("hpu::habana_d2d_memcpy_other", KERNEL_FN_GLOBAL(MemCopyOperator))
-        .add("hpu::control_edge_", KERNEL_FN_GLOBAL(DummyOperator))
-        .add("hpu::as_strided_lazy_", KERNEL_FN_GLOBAL(AsStridedOperator))
-        .add("hpu::strided_view", KERNEL_FN_GLOBAL(StridedViewOperator))
-        .add("hpu::strided_view_cl", KERNEL_FN_GLOBAL(StridedViewClOperator))
-        .add("hpu::strided_view_ds", KERNEL_FN_GLOBAL(StridedViewOperator))
-        .add("hpu::strided_view_ds_h2d", KERNEL_FN_GLOBAL(StridedViewOperator))
-        .add("hpu::strided_view_cl_ds", KERNEL_FN_GLOBAL(StridedViewClOperator))
-        .add("hpu::strided_view_out", KERNEL_FN_GLOBAL(StridedViewOperator))
-        .add("hpu::strided_view_orig_ds", KERNEL_FN_GLOBAL(StridedViewOperator))
-        .add(
+        .REGISTER_HPU_BACKEND("hpu::habana_d2d_memcpy_other", MemCopyOperator)
+        .REGISTER_HPU_BACKEND("hpu::control_edge_", DummyOperator)
+        .REGISTER_HPU_BACKEND("hpu::as_strided_lazy_", AsStridedOperator)
+        .REGISTER_HPU_BACKEND("hpu::strided_view", StridedViewOperator)
+        .REGISTER_HPU_BACKEND("hpu::strided_view_cl", StridedViewClOperator)
+        .REGISTER_HPU_BACKEND("hpu::strided_view_ds", StridedViewOperator)
+        .REGISTER_HPU_BACKEND("hpu::strided_view_ds_h2d", StridedViewOperator)
+        .REGISTER_HPU_BACKEND("hpu::strided_view_cl_ds", StridedViewClOperator)
+        .REGISTER_HPU_BACKEND("hpu::strided_view_out", StridedViewOperator)
+        .REGISTER_HPU_BACKEND("hpu::strided_view_orig_ds", StridedViewOperator)
+        .REGISTER_HPU_BACKEND(
             "hpu::strided_view_orig_ds_h2d",
-            KERNEL_FN_GLOBAL(StridedViewOperator))
-        .add(
+            StridedViewOperator)
+        .REGISTER_HPU_BACKEND(
             "hpu::strided_view_out_orig_ds_h2d",
-            KERNEL_FN_GLOBAL(StridedViewOperator))
-        .add("hpu::strided_view_out_ds", KERNEL_FN_GLOBAL(StridedViewOperator))
-        .add(
+            StridedViewOperator)
+        .REGISTER_HPU_BACKEND("hpu::strided_view_out_ds", StridedViewOperator)
+        .REGISTER_HPU_BACKEND(
             "hpu::strided_view_out_ds_h2d",
-            KERNEL_FN_GLOBAL(StridedViewOperator))
-        .add(
+            StridedViewOperator)
+        .REGISTER_HPU_BACKEND(
             "hpu::strided_view_out_orig_ds",
-            KERNEL_FN_GLOBAL(StridedViewOperator))
-        .add("hpu::slice_insert", KERNEL_FN_GLOBAL(SliceInsertOperator))
-        .add("hpu::slice_insert_ds", KERNEL_FN_GLOBAL(SliceInsertOperator))
-        .add("hpu::slice_insert_ds_ht", KERNEL_FN_GLOBAL(SliceInsertOperator))
-        .add("hpu::slice_scatter_ds", KERNEL_FN_GLOBAL(SliceInsertOperator))
-        .add("hpu::strided_insert", KERNEL_FN_GLOBAL(StridedInsertOperator))
-        .add("hpu::strided_insert_ds", KERNEL_FN_GLOBAL(StridedInsertOperator))
-        .add(
+            StridedViewOperator)
+        .REGISTER_HPU_BACKEND("hpu::slice_insert", SliceInsertOperator)
+        .REGISTER_HPU_BACKEND("hpu::slice_insert_ds", SliceInsertOperator)
+        .REGISTER_HPU_BACKEND("hpu::slice_insert_ds_ht", SliceInsertOperator)
+        .REGISTER_HPU_BACKEND("hpu::slice_scatter_ds", SliceInsertOperator)
+        .REGISTER_HPU_BACKEND("hpu::strided_insert", StridedInsertOperator)
+        .REGISTER_HPU_BACKEND("hpu::strided_insert_ds", StridedInsertOperator)
+        .REGISTER_HPU_BACKEND(
             "hpu::strided_insert_orig_ds",
-            KERNEL_FN_GLOBAL(StridedInsertOperator))
-        .add(
+            StridedInsertOperator)
+        .REGISTER_HPU_BACKEND(
             "hpu::strided_insert_orig_ds_h2d",
-            KERNEL_FN_GLOBAL(StridedInsertOperator))
-        .add(
-            "hpu::strided_insert_cl",
-            KERNEL_FN_GLOBAL(StridedInsertClOperator))
-        .add(
+            StridedInsertOperator)
+        .REGISTER_HPU_BACKEND("hpu::strided_insert_cl", StridedInsertClOperator)
+        .REGISTER_HPU_BACKEND(
             "hpu::strided_insert_cl_ds",
-            KERNEL_FN_GLOBAL(StridedInsertClOperator))
-        .add(
-            "hpu::as_strided_layout",
-            KERNEL_FN_GLOBAL(AsStridedLayoutOperator))
-        .add("hpu::identity", KERNEL_FN_GLOBAL(IdentityOperator))
-        .add("aten::alias", KERNEL_FN_GLOBAL(IdentityOperator))
-        .add("aten::as_strided", KERNEL_FN_GLOBAL(StridedViewOperator))
-        .add("aten::slice_scatter", KERNEL_FN_GLOBAL(SliceScatterOperator))
-        .add("hpu::slice_scatter", KERNEL_FN_GLOBAL(SliceScatterOperatorDSUtil))
-        .add("aten::select_scatter", KERNEL_FN_GLOBAL(SelectScatterOperator))
-        .add("hpu::select_scatter", KERNEL_FN_GLOBAL(SelectScatterOperator))
-        .add(
+            StridedInsertClOperator)
+        .REGISTER_HPU_BACKEND("hpu::as_strided_layout", AsStridedLayoutOperator)
+        .REGISTER_HPU_BACKEND("hpu::identity", IdentityOperator)
+        .REGISTER_HPU_BACKEND("aten::alias", IdentityOperator)
+        .REGISTER_HPU_BACKEND("aten::as_strided", StridedViewOperator)
+        .REGISTER_HPU_BACKEND("aten::slice_scatter", SliceScatterOperator)
+        .REGISTER_HPU_BACKEND("hpu::slice_scatter", SliceScatterOperatorDSUtil)
+        .REGISTER_HPU_BACKEND("aten::select_scatter", SelectScatterOperator)
+        .REGISTER_HPU_BACKEND("hpu::select_scatter", SelectScatterOperator)
+        .REGISTER_HPU_BACKEND(
             "hpu::as_strided_scatter",
-            KERNEL_FN_GLOBAL(AsStridedScatterOperator))
-        .add(
+            AsStridedScatterOperator)
+        .REGISTER_HPU_BACKEND(
             "hpu::as_strided_scatter_orig",
-            KERNEL_FN_GLOBAL(AsStridedScatterOperator))
-        .add(
+            AsStridedScatterOperator)
+        .REGISTER_HPU_BACKEND(
             "aten::as_strided_scatter",
-            KERNEL_FN_GLOBAL(AsStridedScatterOperator));
+            AsStridedScatterOperator);

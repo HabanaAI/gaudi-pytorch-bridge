@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -56,7 +56,7 @@ enum StridedOPType {
   kStridedOpSqueezeDims
 };
 
-enum ViewStatus { kViewRead = 0, kViewWrite = 1, kEvaluated };
+enum ViewStatus { kViewRead = 0, kViewWrite = 1, kEvaluated = 2 };
 
 struct StridedOpSliceParams {
   int64_t dim;
@@ -98,8 +98,8 @@ struct StrideParams {
   at::Tensor parent;
   std::vector<int64_t> sizes;
   std::vector<int64_t> strides;
-  int64_t offset;
-  int64_t parent_id;
+  int64_t offset = 0;
+  int64_t parent_id = 0;
   StridedOPType optype;
   OpParams params;
   ViewStatus viewStatus = kViewRead;
@@ -137,7 +137,7 @@ struct Data {
         ir_value(std::move(ir_value)),
         device(c10::Device(c10::DeviceType::HPU, 0)),
         logical_element_type(logical_element_type),
-        original_element_type(logical_element_type.value()),
+        original_element_type(logical_element_type.value_or(at::ScalarType::Float)),
         unique_id(GetNextTensorId()) {
     static_cast<void>(device);
   }
@@ -158,7 +158,7 @@ struct Data {
   bool sbs_live_tensor = false;
   bool sbs_compare_tensor = true;
   int sbs_tensor_version = 0;
-  std::string sbs_tensor_name = "";
+  std::string sbs_tensor_name;
   bool collective = false;
   at::ScalarType original_element_type;
   const int64_t unique_id = 0;
@@ -258,12 +258,12 @@ struct HbLazyFrontEndInfoToBackend {
   size_t optimized_lazy_eager_key = 0;
   std::string op_name = getHabanaLazyGraphName();
   bool is_optimized_lazy_eager = false;
-  std::vector<ir::Value> input_values{};
+  std::vector<ir::Value> input_values;
   bool is_hccl_send_mark_step = false;
   bool is_broadcastable = false;
-  std::vector<uint64_t> lazy_eager_op_input_uids{};
+  std::vector<uint64_t> lazy_eager_op_input_uids;
   size_t lazy_eager_op_num_of_uids = 0;
-  std::vector<std::vector<int64_t>> out_shapes{};
+  std::vector<std::vector<int64_t>> out_shapes;
 };
 
 class HbLazyTensor {
@@ -437,14 +437,14 @@ class HbLazyTensor {
 
   int64_t getTensorUniqueId() const {
     if (mp_data.get()) {
-      return mp_data.get()->unique_id;
+      return mp_data->unique_id;
     } else
       return -1;
   }
 
   int64_t getTensorRunningId() const {
     if (mp_data.get()) {
-      return mp_data.get()->running_cntr;
+      return mp_data->running_cntr;
     } else
       return -1;
   }
@@ -522,6 +522,9 @@ class HbLazyTensor {
       std::shared_ptr<HbLazyFrontEndInfoToBackend> lazyFrontEndInfo = nullptr,
       bool async = false,
       bool collect_sync_tensors = true);
+
+  static void WarnIfOpsIncompatibleWithHPUGraphs(
+      const std::vector<ir::NodePtr>& post_order);
 
   bool is_hpugraph_out_tensor = false;
   static bool switch_dynamic_mode;

@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 #include "generated/backend/one_hot.h"
+#include "hpu_ops/hpu_op_helper.h"
 
 namespace {
 constexpr int64_t DEFAULT_NUM_OF_CLASSES = -1;
@@ -28,14 +29,14 @@ int64_t calculateNumberOfClasses(const at::Stack& stack) {
   return num_classes;
 }
 
-std::shared_ptr<void> FillOneHotParams(const at::Stack& stack, size_t& size) {
+FillParamsT FillOneHotParams(const at::Stack& stack) {
   PARAMS_STUB(ns_OneHotKernel::Params);
   params->axis = 0;
   params->depth = static_cast<int>(calculateNumberOfClasses(stack));
-  params->on_value = 1.0f;
-  params->off_value = 0.0f;
+  params->on_value = 1.0F;
+  params->off_value = 0.0F;
 
-  return params;
+  return paramsT;
 }
 
 OutputMetaDataVector OneHotMeta(const at::Stack& stack) {
@@ -59,6 +60,7 @@ struct OneHot : OpBackend {
 
 } // namespace habana
 
-static const auto& OneHotKernelRegistry = habana::KernelRegistry().add(
-    "hpu::one_hot",
-    KERNEL_FN_GLOBAL(habana::OneHot));
+static const auto& OneHotKernelRegistry =
+    habana::KernelRegistry().REGISTER_HPU_BACKEND(
+        "hpu::one_hot",
+        habana::OneHot);

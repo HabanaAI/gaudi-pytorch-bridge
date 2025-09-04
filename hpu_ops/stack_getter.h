@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,6 +32,7 @@ struct VariantWrapper {
   VariantWrapper(const Type& src) : v(src) {}
   VariantWrapper(Type&& src) : v(std::move(src)) {}
 
+// NOLINTBEGIN(bugprone-macro-parentheses)
 #define ISTO(IS, TO, T)                  \
   bool IS() const {                      \
     return std::holds_alternative<T>(v); \
@@ -45,6 +46,7 @@ struct VariantWrapper {
   const T& TO() const& {                 \
     return std::get<T>(v);               \
   }
+  // NOLINTEND(bugprone-macro-parentheses)
 
   ISTO(isIValue, toIValue, c10::IValue)
   ISTO(isTensorsPair, toTensorsPair, TensorsPair)
@@ -104,8 +106,8 @@ class StackGetter {
   const char* label;
 
   TensorsPair getTensorsPair(const c10::IValue& ivalue) {
-    int syn_pos = GetAndIncrSynPos();
-    return {ivalue.toTensor(), op->syn_in(syn_pos), syn_pos};
+    const auto syn_pos = GetAndIncrSynPos();
+    return {ivalue.toTensor(), op->syn_in(syn_pos), static_cast<int>(syn_pos)};
   };
 
   // It is suitable only for IValue's not having syn_in() associated.
@@ -134,21 +136,26 @@ class StackGetter {
       std::vector<TensorsPair>*) {
     auto pos = CheckGetAndIncrStackPos();
     HABANA_ASSERT(
-        stack[pos].isTensorList(),
+        stack[pos].isTensorList() || stack[pos].isList(),
         "Input ",
         pos,
         " type expected to be ",
         orNoneStrOpt,
         "tensor list");
-    auto list = stack[pos].toTensorList();
+
     std::vector<TensorsPair> result;
+    if (!stack[pos].isTensorList())
+      return result;
+
+    auto list = stack[pos].toTensorList();
     for (auto&& v : list) {
-      int syn_pos = GetAndIncrSynPos();
-      result.push_back({v, op->syn_in(syn_pos), syn_pos});
+      size_t syn_pos = GetAndIncrSynPos();
+      result.push_back({v, op->syn_in(syn_pos), static_cast<int>(syn_pos)});
     }
     return result;
   }
 
+// NOLINTBEGIN(bugprone-macro-parentheses)
 #define MATCH_INPUT_INTERNAL_TO_TYPE_GENERIC(T, RT, isExpr, toExpr, Tstr) \
   bool valueMatchesType(const c10::IValue& ivalue, T*) {                  \
     return isExpr;                                                        \
@@ -159,6 +166,7 @@ class StackGetter {
   std::string_view typeToStr(T*) {                                        \
     return Tstr;                                                          \
   }
+  // NOLINTEND(bugprone-macro-parentheses)
 
 #define MATCH_INPUT_INTERNAL_TO_TYPE(T, isExpr, toExpr, Tstr) \
   MATCH_INPUT_INTERNAL_TO_TYPE_GENERIC(T, T, isExpr, toExpr, Tstr)
@@ -182,6 +190,7 @@ class StackGetter {
       ivalue,
       "ivalue")
 
+// NOLINTBEGIN(bugprone-macro-parentheses)
 #define GET_NEXT_INPUT_INTERNAL(T, isFn, toFn, Tstr)          \
   T getNextInputInternal(std::string_view orNoneStrOpt, T*) { \
     auto pos = CheckGetAndIncrStackPos();                     \
@@ -196,9 +205,9 @@ class StackGetter {
   }                                                           \
                                                               \
   MATCH_INPUT_INTERNAL_TO_TYPE(T, ivalue.isFn(), ivalue.toFn(), Tstr)
-
+  // NOLINTEND(bugprone-macro-parentheses)
   GET_NEXT_INPUT_INTERNAL(bool, isBool, toBool, "bool")
-  GET_NEXT_INPUT_INTERNAL(int, isInt, toInt, "int")
+  GET_NEXT_INPUT_INTERNAL(long, isInt, toInt, "int")
   GET_NEXT_INPUT_INTERNAL(double, isDouble, toDouble, "double")
   GET_NEXT_INPUT_INTERNAL(c10::ScalarType, isInt, toScalarType, "ScalarType")
   GET_NEXT_INPUT_INTERNAL(c10::List<bool>, isBoolList, toBoolList, "bool array")

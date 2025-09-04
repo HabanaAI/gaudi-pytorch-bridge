@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,9 +20,7 @@
 
 namespace sh = synapse_helpers;
 
-namespace habana {
-
-namespace fp8 {
+namespace habana::fp8 {
 auto GetFp8Dtypes(const at::ScalarType& dtype);
 
 auto GetFp8Dtypes(const at::IValue& dtype);
@@ -44,21 +42,8 @@ void HandleScaleScalar(
     habana::OpBackend* op,
     sh::graph& graph,
     const c10::IValue& scale,
-    const int device_id,
+    const synDeviceId device_id,
     std::vector<sh::tensor>& maybe_const_scale,
     std::vector<synTensor>& syn_inputs,
     const c10::IValue& scale_shape_ival = c10::IValue{});
-
-void HandleScale(
-    habana::OpBackend* op,
-    sh::graph& graph,
-    const habana::VariantWrapper<TensorsPair, c10::IValue>& scaleOpt,
-    const at::Tensor& input,
-    bool isTranspose,
-    std::vector<sh::tensor>& adjusted_scale,
-    std::vector<synTensor>& syn_inputs,
-    int deviceId,
-    const c10::IValue& scale_shape = c10::IValue());
-} // namespace fp8
-
-} // namespace habana
+} // namespace habana::fp8

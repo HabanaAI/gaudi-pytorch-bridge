@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,11 +16,11 @@
 
 namespace habana {
 
-std::shared_ptr<void> FillIsinParams(const at::Stack& stack, size_t& size) {
+FillParamsT FillIsinParams(const at::Stack& stack) {
   PARAMS_STUB(ns_Isin::Params);
   params->invert = stack.at(3).toBool();
 
-  return params;
+  return paramsT;
 }
 
 OutputMetaDataVector IsinMeta(const at::Stack& stack) {

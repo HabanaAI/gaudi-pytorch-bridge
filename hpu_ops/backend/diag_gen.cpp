@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,12 +17,12 @@
 
 namespace habana {
 
-std::shared_ptr<void> FillDiagParams(const at::Stack& stack, size_t& size) {
+FillParamsT FillDiagParams(const at::Stack& stack) {
   auto diagonal = stack.at(1).toInt();
   PARAMS_STUB(ns_MatrixDiag::Params);
   params->kMin = diagonal;
   params->kMax = diagonal;
-  return params;
+  return paramsT;
 }
 
 OutputMetaDataVector DiagMeta(const at::Stack& stack) {
@@ -87,8 +87,7 @@ void Diag::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
   auto meta = DiagMeta(stack)[0];
 
-  size_t size = 0;
-  auto params = FillDiagParams(stack, size);
+  auto params = FillDiagParams(stack);
   std::string guid;
   if (self.dim() == 1) {
     guid = "matrix_diagonal_fwd";
@@ -100,8 +99,8 @@ void Diag::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
       get_guid_with_precision(guid, meta.dtype),
       {syn_in(0)},
       {{meta.shape, meta.dtype, 0}},
-      params.get(),
-      size);
+      params.ptr(),
+      params.size());
 
   syn_out(0) = std::move(result[0]);
 }

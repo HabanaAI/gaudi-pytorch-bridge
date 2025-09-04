@@ -140,7 +140,7 @@ def test_hpu_cat_fwd_bwd(cat_op, kernel_params_fwd):
     tensors = kernel_params_fwd["tensors"]
     shape = list(tensors[0].size())
     shape[dim] = 0
-    for i in range(0, len(tensors)):
+    for i in range(len(tensors)):
         shape[dim] += tensors[i].size()[dim]
     bwd_tensors = [torch.randn(tuple(shape))]
     evaluate_fwd_bwd_kernel(kernel=cat_op, tensor_list_bwd=bwd_tensors, kernel_params_fwd=kernel_params_fwd)

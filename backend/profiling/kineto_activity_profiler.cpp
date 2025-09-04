@@ -26,6 +26,7 @@
 #include <kineto/output_base.h>
 #include <kineto/time_since_epoch.h>
 #pragma GCC diagnostic pop
+#include <torch/csrc/profiler/orchestration/observer.h>
 #include <stack>
 
 namespace {
@@ -39,8 +40,7 @@ std::string toString(std::string_view str) {
 }
 } // namespace
 
-namespace habana {
-namespace profile {
+namespace habana::profile {
 
 using namespace libkineto;
 using namespace std::chrono;
@@ -60,8 +60,8 @@ void GenericTraceActivitySink::addCompleteActivity(
       static_cast<std::string>(activity.name));
   ev->startTime = start;
   ev->endTime = end;
-  ev->device = activity.device;
-  ev->resource = activity.resource;
+  ev->device = static_cast<int32_t>(activity.device);
+  ev->resource = static_cast<int32_t>(activity.resource);
   if (recipeInfo) {
     ev->addMetadata("recipeId", recipeInfo->recipeId);
     ev->addMetadata("recipeName", toString(recipeInfo->recipeName));
@@ -134,8 +134,8 @@ void GenericTraceActivitySink::addMemoryEvent(
       defaultTraceSpan(),
       libkineto::ActivityType::CPU_INSTANT_EVENT,
       "[memory]");
-  ev->device = device;
-  ev->resource = resource;
+  ev->device = static_cast<int32_t>(device);
+  ev->resource = static_cast<int32_t>(resource);
   ev->startTime = time;
   profiler_event_index_++;
   ev->addMetadata("Addr", addr);
@@ -151,7 +151,7 @@ void GenericTraceActivitySink::addMemoryEvent(
 void GenericTraceActivitySink::addDevice(
     std::string_view name,
     int64_t device) {
-  int64_t sort_index = device < 8 ? device + 0x1000000ll : device;
+  int64_t sort_index = device < 8 ? device + 0x1000000LL : device;
   std::string dev_name = static_cast<std::string>(name);
   deviceInfos_.push_back({device, sort_index, dev_name, dev_name});
 }
@@ -209,10 +209,10 @@ std::unique_ptr<GenericTraceActivity> GenericTraceActivitySink::constructFlow(
     bool start) {
   auto flow =
       std::make_unique<GenericTraceActivity>(defaultTraceSpan(), type, name);
-  flow->device = device;
-  flow->resource = resource;
+  flow->device = static_cast<int32_t>(device);
+  flow->resource = static_cast<int32_t>(resource);
   flow->startTime = time;
-  flow->flow.id = flow_id;
+  flow->flow.id = static_cast<uint32_t>(flow_id);
   flow->flow.type = kLinkAsyncCpuGpu;
   flow->flow.start = start;
   return flow;
@@ -305,8 +305,7 @@ std::unique_ptr<libkineto::IActivityProfilerSession> HPUActivityProfiler::
         const std::set<libkineto::ActivityType>& activity_types,
         const libkineto::Config& config) {
   auto start_time_ms =
-      duration_cast<milliseconds>(system_clock::now().time_since_epoch())
-          .count();
+      libkineto::timeSinceEpoch(std::chrono::high_resolution_clock::now());
   return configure(start_time_ms, 0, activity_types, config);
 }
 
@@ -340,19 +339,13 @@ Config& Config::getInstance() {
   return instance;
 }
 
-void Config::setMemoryProfile(bool value) {
-  std::lock_guard<std::mutex> lock(mutex_);
-  isMemoryProfile = value;
-}
-
 void Config::setBridgeProfile(bool value) {
   std::lock_guard<std::mutex> lock(mutex_);
   isBridgeProfile = value;
 }
 
-bool Config::isMemoryProfileEnabled() {
-  std::lock_guard<std::mutex> lock(mutex_);
-  return isMemoryProfile;
+bool HpuActivityProfilerSession::isMemoryProfileEnabled() {
+  return torch::profiler::impl::getProfilerConfig().profile_memory;
 }
 
 bool Config::isBridgeProfileEnabled() {
@@ -362,6 +355,9 @@ bool Config::isBridgeProfileEnabled() {
 
 HpuActivityProfilerSession::HpuActivityProfilerSession(int64_t, int64_t) {
   status_ = TraceStatus::READY;
+}
+
+void HpuActivityProfilerSession::start() {
   sink_ = std::make_unique<GenericTraceActivitySink>(activities_);
   profiler_ = std::make_unique<Profiler>(*sink_);
   std::vector<std::string> mandatory_events;
@@ -375,12 +371,10 @@ HpuActivityProfilerSession::HpuActivityProfilerSession(int64_t, int64_t) {
     mandatory_events = {
         "LaunchRecipeTask", "add_new_recipe", "launch_recipe", "launch"};
   }
-  bool memory_profile = Config::getInstance().isMemoryProfileEnabled();
-  bool bridge_profile = Config::getInstance().isBridgeProfileEnabled();
-  profiler_->init_sources(bridge_profile, memory_profile, mandatory_events);
-}
 
-void HpuActivityProfilerSession::start() {
+  bool bridge_profile = Config::getInstance().isBridgeProfileEnabled();
+  profiler_->init_sources(
+      bridge_profile, isMemoryProfileEnabled(), mandatory_events);
   profilerStartTs_ =
       libkineto::timeSinceEpoch(std::chrono::high_resolution_clock::now());
   profiler_->start();
@@ -426,5 +420,4 @@ auto register_activity_sink_factory = [] {
   }
   return 0;
 }();
-}; // namespace profile
-}; // namespace habana
+}; // namespace habana::profile

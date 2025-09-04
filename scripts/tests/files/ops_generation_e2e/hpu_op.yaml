@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -20,12 +20,14 @@ __ilshift__.Scalar:
   guid: bitshift_fwd
   inplace_ids: [0]
   scalar_ids: [1]
+  op_validator_exception: not implemented yet
 
 _foreach_add_.Scalar:
   dtypes: [BFloat16, Float, Long, Int, Short, Char, Half]
   guid: add_fwd
   op_backend: ForeachBinary
   inplace_ids: [0]
+  op_validator_exception: not implemented yet
 
 _fused_dropout:
   output_meta: FusedNativeDropoutMeta
@@ -35,6 +37,7 @@ _fused_dropout:
   op_backend: FusedNativeDropout
   out_ids: [0, 0]
   schema_args: "(Tensor self, float p, Tensor? seed) -> (Tensor, Tensor)"
+  op_validator_exception: not implemented yet
 
 native_dropout:
   output_meta: FusedNativeDropoutMeta
@@ -45,10 +48,12 @@ native_dropout:
   op_backend: FusedNativeDropout
   out_ids: [0, 0]
   schema_args: "(Tensor input, float p, Tensor? seed) -> (Tensor, Tensor)"
+  op_validator_exception: not implemented yet
 
 as_strided:
   override_fn: as_strided_hpu
   acc_thread: true
+  op_validator_exception: not implemented yet
 
 addbmm:
   dtypes: [BFloat16, Float, Half]
@@ -83,6 +88,7 @@ prod.int_out:
   dtypes: [BFloat16, Float, Char, Byte, Short, Int, Half]
   guid: reduce_prod_multi_dim_fwd
   safe_cast_check: false
+  op_validator_exception: not implemented yet
 
 clone:
   dtypes: [BFloat16, Float, Int, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn]
@@ -90,6 +96,7 @@ clone:
   output_meta: CloneMeta
   out_ids: [0]
   no_compute_flag: true
+  op_validator_exception: not implemented yet
 
 mul.Scalar_out:
   broadcast: true
@@ -97,11 +104,13 @@ mul.Scalar_out:
   guid: mult_fwd
   promote_to_common_type: [self, other]
   scalar_ids: [1]
+  op_validator_exception: not implemented yet
 
 sort.values_stable:
   dtypes: [Float, Int, Long, BFloat16, Short, Half]
   fallback_check: [SortStableFallbackCheck, self, stable, dim, descending]
   op_backend: SortStable
+  op_validator_exception: not implemented yet
 
 squeeze.dims:
   output_meta: SqueezeDimsMeta
@@ -109,28 +118,29 @@ squeeze.dims:
   guid: squeeze
   op_backend: SqueezeDims
   out_ids: [0]
+  op_validator_exception: not implemented yet
   lazy:
     acc_thread: true
     override_fn: squeeze_dims_hpu_lazy
 
 eq.Scalar_out:
-  dtypes: [BFloat16, Float, Half, Int, Char, Byte, Long, Short]
-  guid: equal_fwd
-  output_meta: CompareMeta
+  op_templates: [EqTemplate]
   scalar_ids: [1]
-  promote_to_common_type: [self, other]
-  safe_cast_check: false
-  handle_bool_inputs: true
+
+eq.Tensor_out:
+  op_templates: [EqTemplate]
 
 isfinite:
   dtypes: [BFloat16, Float, Half, Int]
   op_backend: _IsFiniteInfNan
   guid: isfinite_fwd
   out_ids: [0]
+  op_validator_exception: not implemented yet
 
 upsample_bicubic2d.vec:
   only_shared_layer: true
   dtypes: [BFloat16, Float, Half]
+  op_validator_exception: not implemented yet
 
 softmax_fp8:
   custom_op_schema: "hpu::softmax_fp8(Tensor input, int dim, Tensor? input_scale=None, Tensor? output_scale=None, Tensor? inv_attn_heads=None, Tensor? fused_add=None) -> Tensor"
@@ -138,12 +148,15 @@ softmax_fp8:
   op_backend: SoftmaxFp8
   out_ids: [0]
   output_meta: SoftmaxFp8Meta
+  op_validator_exception: custom_op
 
 matmul:
   hpu_wrap: true
+  autograd: true
 
 dropout:
   hpu_wrap: true
+  autograd: true
 
 bitwise_left_shift.Tensor_Scalar:
   dtypes: [Int, Char, Byte, Short]
@@ -151,6 +164,7 @@ bitwise_left_shift.Tensor_Scalar:
   guid: bitshift_fwd
   out_ids: [0]
   scalar_ids: [1]
+  op_validator_exception: not implemented yet
 
 _native_batch_norm_legit:
   custom_fill_params: FillBatchNormFwdParams
@@ -166,6 +180,8 @@ _native_batch_norm_legit:
   synapse_layouts:
   - [WHCN, DONT_CARE, DONT_CARE, DONT_CARE, DONT_CARE]
   - [WHCN, DONT_CARE, DONT_CARE, DONT_CARE, DONT_CARE]
+  op_validator_exception: not implemented yet
+  treat_as_non_inplace: ["running_mean", "running_var"]
 
 convolution_backward_overrideable:
   output_meta: ConvolutionOverrideableMetaBwd
@@ -173,6 +189,8 @@ convolution_backward_overrideable:
   op_frontend: ConvolutionBackwardOverrideableFE
   op_backend: ConvolutionBackwardOverrideable
   out_ids: [0, 0, 0]
+  treat_as_dtdf: true
+  op_validator_exception: not implemented yet
 
 native_group_norm:
   dtypes: [BFloat16, Float]
@@ -180,6 +198,8 @@ native_group_norm:
   custom_fill_params: FillNativeGroupNormParams
   output_meta: GroupNormFwdMeta
   out_ids: [0, 0, 0]
+  treat_as_dtdf: true
+  op_validator_exception: not implemented yet
 
 linear_backward:
   output_meta: LinearBackwardMeta
@@ -187,12 +207,14 @@ linear_backward:
   dtypes: [BFloat16, Float, Half]
   guid: linear_temp_bwd
   out_ids: [0, 0, 0]
+  op_validator_exception: not implemented yet
 
 exp_fast_math:
   custom_op_schema: "hpu::exp_fast_math(Tensor self) -> Tensor"
   guid: exp_fast_math_fwd
   out_ids: [0]
   op_validator: check-node-with-shared-layer
+  namespaces: [torch.hpu]
 
 quantize_per_channel:
   custom_fill_params: FillQuantizePerChannelParams
@@ -200,6 +222,7 @@ quantize_per_channel:
   guid: quantize_per_channel
   output_meta: QuantizePerChannelMeta
   out_ids: [0]
+  op_validator_exception: not implemented yet
 
 _deform_conv2d_backward:
   custom_op_schema: "torchvision::_deform_conv2d_backward(Tensor grad, Tensor input, Tensor weight, Tensor offset, Tensor mask, Tensor bias, int stride_h, int stride_w, int pad_h, int pad_w, int dilation_h, int dilation_w, int groups, int offset_groups, bool use_mask) -> (Tensor, Tensor, Tensor, Tensor, Tensor)"
@@ -209,6 +232,7 @@ _deform_conv2d_backward:
   - [WHCN, SRCK, WHCN, WHCN, DONT_CARE]
   op_backend: DeformConv2dBackward
   out_ids: [0]
+  op_validator_exception: custom_op
 
 mixture_of_experts.fp8_fused_weights:
   custom_op_schema: "hpu::mixture_of_experts.fp8_fused_weights(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, Tensor d_scale_hidden_states, Tensor[] d_scale_intermediate_hidden_states, Tensor[] d_scale_w12, Tensor[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor"
@@ -216,6 +240,7 @@ mixture_of_experts.fp8_fused_weights:
   op_backend: MixtureOfExpertsFp8
   frontend_blocklist: [eager]
   out_ids: [2]
+  op_validator_exception: custom_op
 
 cast_to_fp8_v2:
   custom_op_schema: "hpu::cast_to_fp8_v2(Tensor input, Tensor? scale=None, bool stochastic_rounding=False, bool is_amax=False, ScalarType dtype=None, int[]? scale_shape=None) -> (Tensor, Tensor)"
@@ -223,3 +248,20 @@ cast_to_fp8_v2:
   op_backend: CastToFp8V2
   out_ids: [0, 0]
   autograd: true
+  op_validator_exception: custom_op
+
+_foreach_log10_:
+  only_slrg: true
+  namespaces: [torch]
+  op_validator: UnaryForeachLog10SharedMeta
+
+ind2ptr:
+  custom_op_schema: "torch_sparse::ind2ptr(Tensor ind, int M) -> Tensor"
+  custom_cpp_sig: "at::Tensor ind2ptr(at::Tensor ind, int64_t M)"
+  custom_fill_params: FillInd2ptrParams
+  guid: ind2ptr
+  out_ids: [0]
+  output_meta: Ind2ptrMeta
+  op_validator: check-node-with-shared-layer
+  namespaces: [torch.torch_sparse]
+  treat_as_non_inplace: ["ind"]

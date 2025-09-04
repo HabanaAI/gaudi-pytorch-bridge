@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,8 +20,8 @@ inline bool can_convert(const c10::Scalar& value) {
   if (value.isFloatingPoint()) {
     auto float_value = value.toFloat();
     auto int_value = value.toInt();
-    auto diff = float_value - int_value;
-    return !(diff > 0);
+    auto diff = float_value - static_cast<float>(int_value);
+    return (diff <= 0.F);
   }
   return true;
 }

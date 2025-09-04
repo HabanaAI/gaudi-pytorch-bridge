@@ -33,7 +33,6 @@ def test_reorder_custom_ops():
     def pre_op(state: torch.Tensor, num: int) -> None:
         global OP_STATE
         OP_STATE += num
-        return
 
     def _fake_pre_op(state, num) -> None:
         return
@@ -41,7 +40,6 @@ def test_reorder_custom_ops():
     def post_op(state: torch.Tensor, num: int) -> None:
         global OP_STATE
         OP_STATE -= num
-        return
 
     def _fake_post_op(state, num) -> None:
         return

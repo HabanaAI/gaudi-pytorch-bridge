@@ -64,7 +64,7 @@ class StageSubmission {
   bool isExceededMaxCompoundSize() {
     return (curr_number_of_compound_ops >= max_number_of_compound_ops);
   }
-  inline int64_t find_limit(
+  int64_t find_limit(
       const int64_t& current_max_value,
       const int64_t& max_value) {
     int64_t max_limit = std::min(current_max_value, max_value);
@@ -113,7 +113,7 @@ class StageSubmission {
     is_stage_submission = false;
   }
 
-  inline bool is_mode_set_to(Mode mode) {
+  bool is_mode_set_to(Mode mode) {
     return this->mode & mode;
   }
 
@@ -125,7 +125,6 @@ class StageSubmission {
         max_number_of_accumulated_ops(GET_ENV_FLAG_NEW(PT_HPU_MAX_ACCUM_SIZE)),
         max_number_of_compound_ops(
             GET_ENV_FLAG_NEW(PT_HPU_MAX_COMPOUND_OP_SIZE)),
-        is_stage_submission(0),
         enable_stage_submission(
             GET_ENV_FLAG_NEW(PT_HPU_ENABLE_STAGE_SUBMISSION)),
         mode(
@@ -139,7 +138,7 @@ class StageSubmission {
   std::atomic<size_t> curr_number_of_compound_ops;
   const size_t max_number_of_accumulated_ops;
   std::atomic<size_t> max_number_of_compound_ops;
-  bool is_stage_submission;
+  bool is_stage_submission{false};
   const bool enable_stage_submission;
   const Mode mode;
 };

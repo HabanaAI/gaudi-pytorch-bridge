@@ -26,7 +26,7 @@ class HpuShapeAgnosticHelper {
 
  public:
   static HpuShapeAgnosticHelper* get() {
-    static HpuShapeAgnosticHelper* singleton = new HpuShapeAgnosticHelper();
+    static auto* singleton = new HpuShapeAgnosticHelper();
     return singleton;
   }
 

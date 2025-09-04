@@ -166,8 +166,6 @@ def add_permute_transpose_clone(gm: torch.fx.GraphModule):
     for u in to_remove:
         gm.graph.erase_node(u)
 
-    return
-
 
 def _sfdp_pattern_bert_large(query, key, value, attn_mask, inv_scale, dropout_p):
     # for BertLarge with dropout
@@ -296,15 +294,18 @@ def _get_sfdp_patterns():
                     name += "_mask_fp32"
 
             training_name = name + "_training"
-            yield training_name, {
-                "search_fn": pattern,
-                "replace_fn": replacement,
-                "example_inputs": args,
-                "trace_fn": joint_fwd_bwd_hpu,
-                "pass_dicts": patterns,
-                "extra_check": extra_check,
-                "scalar_workaround": workaround,
-            }
+            yield (
+                training_name,
+                {
+                    "search_fn": pattern,
+                    "replace_fn": replacement,
+                    "example_inputs": args,
+                    "trace_fn": joint_fwd_bwd_hpu,
+                    "pass_dicts": patterns,
+                    "extra_check": extra_check,
+                    "scalar_workaround": workaround,
+                },
+            )
 
             if workaround:
                 assert len(workaround) == 1 and "dropout_p" in workaround
@@ -314,18 +315,21 @@ def _get_sfdp_patterns():
                 workaround = {}
 
             inference_name = name + "_inference"
-            yield inference_name, {
-                "search_fn": pattern,
-                "replace_fn": replacement,
-                "example_inputs": args,
-                "trace_fn": fwd_only_hpu,
-                "pass_dicts": patterns,
-                "extra_check": extra_check,
-                "scalar_workaround": workaround,
-                # with dropout turned into clone, we end up with a number of
-                # semantically identical graphs
-                "skip_duplicates": True,
-            }
+            yield (
+                inference_name,
+                {
+                    "search_fn": pattern,
+                    "replace_fn": replacement,
+                    "example_inputs": args,
+                    "trace_fn": fwd_only_hpu,
+                    "pass_dicts": patterns,
+                    "extra_check": extra_check,
+                    "scalar_workaround": workaround,
+                    # with dropout turned into clone, we end up with a number of
+                    # semantically identical graphs
+                    "skip_duplicates": True,
+                },
+            )
 
 
 @functools.lru_cache(None)

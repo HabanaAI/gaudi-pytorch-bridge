@@ -51,7 +51,7 @@ class ConstSectionFileHandlerSingleton : public ConstSectionFileHandler {
   }
 
   // TODO: create serialize file eviction methods uppon size
-  void checkAndDelete() override{};
+  void checkAndDelete() override {};
 
  public:
   static std::shared_ptr<ConstSectionFileHandlerSingleton> getInstance() {
@@ -66,27 +66,27 @@ class ConstSectionDataSerialize {
   ConstSectionDataSerialize();
   virtual ~ConstSectionDataSerialize() = default;
 
-  void serialize(void* data, int data_size, int const_id);
+  void serialize(void* data, size_t data_size, int const_id);
   void serializePerRecipe(
       void* data,
-      int data_size,
+      size_t data_size,
       int const_id,
       const size_t key);
-  void deserialize(void* data, int data_size, int const_id);
+  void deserialize(void* data, size_t data_size, int const_id);
   void deserializePerRecipe(
       void* data,
-      int data_size,
+      size_t data_size,
       int const_id,
       const size_t key);
   bool isSerialized(int const_id);
 
   void compress_and_serialize(
       void* data,
-      int data_size,
+      size_t data_size,
       std::ofstream& outputFile);
   void decompress_and_deserialize(
       void* data,
-      int data_size,
+      size_t data_size,
       std::ifstream& inputFile);
 
   std::string getSerializedFullPath(int const_id);

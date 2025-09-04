@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -148,7 +148,7 @@ HbLazyTensor CheckAndUpdateSizeStride(
     auto hl_tensor_size_zero = true;
     if (pTensor != std::nullopt) {
       auto old_tensor_data = pTensor.value();
-      if (old_tensor_data.sizes().size() > 0) {
+      if (!old_tensor_data.sizes().empty()) {
         for (auto i = 0; i < (int)old_tensor_data.sizes().size(); i++) {
           if (old_tensor_data.sizes().at(i) > 0) {
             hl_tensor_size_zero = false;
@@ -180,7 +180,7 @@ HbLazyTensor CheckAndUpdateSizeStride(
 
     // backend tensor should always be contiguous as per view table design
     std::vector<int64_t> contig_strides = at_internal_tensor.strides().vec();
-    if (contig_strides.size()) {
+    if (!contig_strides.empty()) {
       habana_helpers::recalc_strides(
           contig_strides, at_internal_tensor.sizes().vec());
       c10::IntArrayRef new_strides = contig_strides;
@@ -273,7 +273,7 @@ HbLazyTensor GetOrCreateHbLazyTensor(
     const c10::Device& device) {
   PT_LAZY_TRACE;
   if (!tensor.defined()) {
-    return HbLazyTensor(device);
+    return {device};
   }
   auto p_hb_tensor = TryGetHbLazyTensor(tensor);
   HbLazyTensor hl_tensor;
@@ -321,11 +321,12 @@ HbLazyTensor GetOrCreateHbLazyTensor(
     const std::optional<at::Tensor>& tensor,
     const c10::Device& device) {
   PT_LAZY_TRACE;
-  if (!IsDefined(tensor)) {
-    return HbLazyTensor();
+  if (tensor.has_value() && tensor.value().defined()) {
+    auto hb_tensor = TryGetHbLazyTensor(tensor.value());
+    return hb_tensor ? *hb_tensor : HbLazyTensor::Create(*tensor, device);
+  } else {
+    return {};
   }
-  auto hb_tensor = TryGetHbLazyTensor(*tensor);
-  return hb_tensor ? *hb_tensor : HbLazyTensor::Create(*tensor, device);
 }
 
 void MarkTensorAsOutputFromCollectiveOp(const at::Tensor& tensor) {
@@ -337,11 +338,11 @@ bool IsHbLazyTensor(const at::Tensor& tensor) {
 }
 
 ir::Value GetIrValueForNone() {
-  return ir::Value(std::make_shared<ir::ScalarConstant>());
+  return {std::make_shared<ir::ScalarConstant>()};
 }
 
 ir::Value GetIrValueForScalar(const c10::Scalar& scalar) {
-  return ir::Value(std::make_shared<ir::ScalarConstant>(scalar));
+  return {std::make_shared<ir::ScalarConstant>(scalar)};
 }
 
 at::Tensor CreateHbLazyTensor(

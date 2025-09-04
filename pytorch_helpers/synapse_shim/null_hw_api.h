@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -51,9 +51,7 @@ struct StubResult<hcclResult_t> {
 };
 
 template <typename IntT>
-struct StubResult<
-    IntT,
-    typename std::enable_if<std::is_integral<IntT>::value>::type> {
+struct StubResult<IntT, typename std::enable_if_t<std::is_integral_v<IntT>>> {
   int operator()() {
     return {};
   }
@@ -137,16 +135,13 @@ template <>
 class Resource<synRecipeHandle> {
  public:
   using SynHandle = synRecipeHandle;
-  Resource<synRecipeHandle>(
-      Graph& graph,
-      const char* pRecipeName,
-      const char* pBuildLog)
+  Resource(Graph& graph, const char* pRecipeName, const char* pBuildLog)
       : graph_{graph},
         recipe_name_{pRecipeName},
         build_log_{pBuildLog == nullptr ? "" : pBuildLog} {}
   Graph& graph_;
-  std::string recipe_name_{};
-  std::string build_log_{};
+  std::string recipe_name_;
+  std::string build_log_;
 };
 using Recipe = Resource<synRecipeHandle>;
 
@@ -177,10 +172,10 @@ class SynapseApi : public StubSynapseApi {
     static constexpr std::uint64_t STREAMS_TOTAL_MEM_SIZE = 1;
     static constexpr std::uint64_t TOTAL_MEMORY = 0x1000000000;
     static constexpr std::uint64_t FREE_MEMORY = 0x1000000000;
-    static constexpr std::uint64_t ALLOCATION_START = 0x111D000000000ull;
+    static constexpr std::uint64_t ALLOCATION_START = 0x111D000000000ULL;
     static constexpr std::uint64_t DEVICE_MALLOC_ALIGNMENT = 0x1000;
   };
-  SynapseApi() : StubSynapseApi(), allocation_back_{Consts::ALLOCATION_START} {
+  SynapseApi() : allocation_back_{Consts::ALLOCATION_START} {
     synapse_api_.synDeviceAcquireByDeviceType =
         [this](synDeviceId* id, const synDeviceType) {
           *id = this->AllocateDevice();

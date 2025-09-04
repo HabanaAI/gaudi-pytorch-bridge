@@ -114,3 +114,96 @@ def test_index(shape, indices):
     assert torch.equal(y_cpu, y_hpu.to(cpu))
     if is_pytest_mode_compile():
         check_ops_executed_in_jit_ir("index")
+
+
+@pytest.mark.parametrize(
+    "func, input_shape, idx_dim, idx_fn",
+    [
+        # int64 index variants
+        pytest.param(
+            lambda t, idx: t[:, idx],
+            (10, 10),
+            1,
+            lambda shape: torch.zeros(shape[1], dtype=torch.int64),
+            id="2d_col_index_zeros",
+        ),
+        pytest.param(
+            lambda t, idx: t[:, idx],
+            (10, 10),
+            1,
+            lambda shape: torch.arange(shape[1], dtype=torch.int64),
+            id="2d_col_index_arange",
+        ),
+        pytest.param(
+            lambda t, idx: t[idx, :],
+            (10, 10),
+            0,
+            lambda shape: torch.zeros(shape[0], dtype=torch.int64),
+            id="2d_row_index_zeros",
+        ),
+        pytest.param(
+            lambda t, idx: t[idx, :],
+            (10, 10),
+            0,
+            lambda shape: torch.arange(shape[0], dtype=torch.int64),
+            id="2d_row_index_arange",
+        ),
+        pytest.param(
+            lambda t, idx: t[:, idx],
+            (8, 12),
+            1,
+            lambda shape: torch.zeros(shape[1], dtype=torch.int64),
+            id="2d_col_index_zeros_8x12",
+        ),
+        pytest.param(
+            lambda t, idx: t[:, idx],
+            (8, 12),
+            1,
+            lambda shape: torch.arange(shape[1], dtype=torch.int64),
+            id="2d_col_index_arange_8x12",
+        ),
+        pytest.param(
+            lambda t, idx: t[idx, :],
+            (8, 12),
+            0,
+            lambda shape: torch.zeros(shape[0], dtype=torch.int64),
+            id="2d_row_index_zeros_8x12",
+        ),
+        pytest.param(
+            lambda t, idx: t[idx, :],
+            (8, 12),
+            0,
+            lambda shape: torch.arange(shape[0], dtype=torch.int64),
+            id="2d_row_index_arange_8x12",
+        ),
+        # int32 index variants
+        pytest.param(
+            lambda t, idx: t[:, idx],
+            (10, 10),
+            1,
+            lambda shape: torch.zeros(shape[1], dtype=torch.int32),
+            id="2d_col_index_zeros_int32",
+        ),
+        pytest.param(
+            lambda t, idx: t[idx, :],
+            (10, 10),
+            0,
+            lambda shape: torch.zeros(shape[0], dtype=torch.int32),
+            id="2d_row_index_zeros_int32",
+        ),
+    ],
+)
+def test_2d_indexing_with_various_index_types(func, input_shape, idx_dim, idx_fn):
+    input_cpu = torch.rand(*input_shape, dtype=torch.float32, requires_grad=True)
+    idx_cpu = idx_fn(input_shape)
+    input_hpu = input_cpu.to(hpu)
+    idx_hpu = idx_cpu.to(hpu)
+
+    compiled_func = compile_function_if_compile_mode(func)
+
+    out_cpu = func(input_cpu, idx_cpu)
+    out_hpu = compiled_func(input_hpu, idx_hpu)
+
+    assert torch.allclose(out_cpu, out_hpu.to(cpu), atol=1e-5)
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir("index")

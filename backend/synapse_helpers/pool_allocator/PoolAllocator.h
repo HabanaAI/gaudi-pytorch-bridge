@@ -18,9 +18,9 @@
 
 #include "backend/synapse_helpers/device_mem_stats.h"
 #include "backend/synapse_helpers/device_types.h"
+#include "habana_helpers/towl.h"
 
-namespace synapse_helpers {
-namespace pool_allocator {
+namespace synapse_helpers::pool_allocator {
 
 enum PoolStrategyType {
   strategy_none = 0,
@@ -87,7 +87,6 @@ class PoolingStrategy {
   virtual bool is_stream_uses_empty([[maybe_unused]] void* p) const {
     return true;
   };
-  virtual void synchronize_and_free_events() const {};
 
   // [Fix Me:] need to have the pool size to accomodate one
   // complete model for static pooling
@@ -116,20 +115,27 @@ class SubAllocator {
   }
 
   void pool_destroy() const {
-    return this->strategy_->pool_destroy();
+    this->strategy_->pool_destroy();
   }
 
   void* pool_alloc_chunk(uint64_t size, bool is_workspace) const {
-    return this->strategy_->pool_alloc_chunk(size, is_workspace);
+    void* ptr = this->strategy_->pool_alloc_chunk(size, is_workspace);
+    if (!is_workspace) {
+      towl::emitDeviceMemoryAllocated(ptr, size, 0, true /*is_physical*/);
+    }
+    return ptr;
   }
 
   void* pool_alloc_chunk(uint64_t size, hpuStream_t stream, bool use_stream)
       const {
-    return this->strategy_->pool_alloc_chunk(size, stream, use_stream);
+    void* ptr = this->strategy_->pool_alloc_chunk(size, stream, use_stream);
+    towl::emitDeviceMemoryAllocated(ptr, size, stream, true /*is_physical*/);
+    return ptr;
   }
 
   void pool_free_chunk(void* p) const {
-    return this->strategy_->pool_free_chunk(p);
+    towl::emitDeviceMemoryDeallocated(p, true /*is_physical*/);
+    this->strategy_->pool_free_chunk(p);
   }
 
   void* extend_high_memory_allocation(uint64_t size, size_t current_ws_size)
@@ -175,7 +181,7 @@ class SubAllocator {
   }
 
   void print_pool_stats() const {
-    return this->strategy_->print_pool_stats();
+    this->strategy_->print_pool_stats();
   }
 
   bool is_memory_available(
@@ -201,11 +207,6 @@ class SubAllocator {
   bool is_stream_uses_empty(void* p) const {
     return this->strategy_->is_stream_uses_empty(p);
   }
-
-  void synchronize_and_free_events() const {
-    this->strategy_->synchronize_and_free_events();
-  }
 };
 
-} // namespace pool_allocator
-} // namespace synapse_helpers
+} // namespace synapse_helpers::pool_allocator

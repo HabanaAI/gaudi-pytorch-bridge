@@ -12,31 +12,64 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "generated/backend/argsort.h"
 #include "generated/backend/sort.h"
 #include "hpu_ops/hpu_op_helper.h"
 
 namespace habana {
 
-bool shouldFallback(const at::Tensor& self, bool isStable, int64_t dim_) {
-  auto dim = at::maybe_wrap_dim(dim_, self.dim());
-  if (dim == 0) {
-    return !isStable;
-  }
-  if (isStable) {
-    return self.sizes()[dim] <= 37;
-  }
-  return true;
+OutputMetaDataVector ArgSortStableMeta(const at::Stack& stack) {
+  return {SortStableMeta(stack)[1]};
 }
 
-FALLBACK_CHECK(
-    SortStableFallbackCheck,
-    const at::Tensor& self,
-    std::optional<bool> stable,
-    int64_t dim_,
-    [[maybe_unused]] bool descending) {
-  bool isStable = stable.has_value() ? stable.value() : false;
+void ArgSortStable::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  const auto self = stack.at(0).toTensor();
+  const auto stable = stack.at(1).isNone() ? false : stack.at(1).toBool();
+  const auto dim_ = stack.at(2).isNone() ? self.dim() : stack.at(2).toInt();
+  const auto dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
+  const auto descending = stack.at(3).isNone() ? false : stack.at(3).toBool();
+  const auto k = self.dim() ? self.size(dim) : 1;
 
-  return shouldFallback(self, isStable, dim_);
+  const auto meta = SortStableMeta(stack);
+  const auto meta_value = meta[0];
+  const auto meta_index = meta[1];
+  const auto outshape = meta_value.shape;
+
+  std::vector<synTensor> syn_inputs{syn_in(0)};
+  ns_TopkNodeV2::ParamsV4 params{};
+  // It is ok to set params.bsw = k irrespective of static or DS case
+  // As per CGUID doc, bsw is ignored if params.kType = K_TENSOR_SHAPE;
+  // which is set in DS case.
+  params.bsw = k;
+  params.axis = get_dim_in_tpc_order(dim, self.dim());
+  params.bottomK = !descending;
+  params.isVcData = false;
+  params.isStable = stable;
+
+  // The following 3 lines are needed only in dyn shape case.
+  // But done hre uncoditionally because, i. is ok to set null pointer
+  // inputs. CreateShapeTensorInput has check internally for DS case
+  syn_inputs.emplace_back(nullptr);
+  syn_inputs.emplace_back(nullptr);
+  CreateShapeTensorInput(graph, ScalarType(), outshape, syn_inputs);
+
+  if (graph.is_dynamic_graph()) {
+    params.kType = K_TENSOR_SHAPE;
+  }
+
+  // Add topk op
+  auto result = BuildOp(
+      graph,
+      "topk",
+      {std::move(syn_inputs)},
+      {{meta_value.shape, meta_value.dtype, std::nullopt},
+       {meta_index.shape, meta_index.dtype, 0}},
+      &params,
+      sizeof(params));
+
+  syn_out(0) = std::move(result[1]);
 }
 
 OutputMetaDataVector SortStableMeta(const at::Stack& stack) {
@@ -70,7 +103,6 @@ void SortStable::AddNode(
   auto meta_value = meta[0];
   auto meta_index = meta[1];
   auto outshape = meta_value.shape;
-  std::vector<synapse_helpers::tensor> result{};
 
   std::vector<synTensor> syn_inputs{syn_in(0)};
   ns_TopkNodeV2::ParamsV4 params{};
@@ -95,7 +127,7 @@ void SortStable::AddNode(
   }
 
   // Add topk op
-  result = BuildOp(
+  auto result = BuildOp(
       graph,
       "topk",
       {std::move(syn_inputs)},

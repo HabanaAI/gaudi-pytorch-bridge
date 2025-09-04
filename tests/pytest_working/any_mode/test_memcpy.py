@@ -38,7 +38,7 @@ def test_memcpy_with_cast(src_dtype, dst_dtype, devices):
     elif pytest.mode == "eager":
         func = memcpy_with_cast
 
-    input_tensor = torch.tensor(range(0, 10), device=src_device, dtype=src_dtype)
+    input_tensor = torch.tensor(range(10), device=src_device, dtype=src_dtype)
     output_tensor = func(input_tensor, dst_dtype)
 
     assert torch.allclose(

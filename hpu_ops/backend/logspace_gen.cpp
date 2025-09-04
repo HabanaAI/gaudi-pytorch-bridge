@@ -63,7 +63,7 @@ SharedMetaDataVector LogspaceSharedMeta(
     memsetSharedMeta.outputs_data.emplace_back(1, outType);
 
     return {memsetSharedMeta};
-  } else if (base == 1.f) {
+  } else if (base == 1.F) {
     // [SW-205149] return empty vector because shape tensor validation will
     // block shape agnostic flow
     return {};
@@ -88,7 +88,7 @@ SharedMetaDataVector LogspaceSharedMeta(
   return metaVec;
 }
 
-std::shared_ptr<void> RangeParams(const at::Stack& stack, size_t& size) {
+FillParamsT RangeParams(const at::Stack& stack) {
   float start = stack[0].toScalar().to<float>();
   float end = stack[1].toScalar().to<float>();
   int64_t step = stack[2].toScalar().to<int64_t>();
@@ -111,7 +111,7 @@ std::shared_ptr<void> RangeParams(const at::Stack& stack, size_t& size) {
   get<float>(params->limit) = end;
   get<float>(params->delta) = delta;
 
-  return params;
+  return paramsT;
 }
 
 void LogSpace::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
@@ -130,24 +130,23 @@ void LogSpace::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
     auto result = habana::OpBackend::BuildOp(
         graph, "memset", {}, {{meta.shape, outType, 0}});
     syn_out(0) = std::move(result[0]);
-  } else if (base == 1.f) {
+  } else if (base == 1.F) {
     auto result = ConstantHelper(
-        graph, 1.f, castNeeded ? at::kInt : outType, meta.shape, 0);
+        graph, 1.F, castNeeded ? at::kInt : outType, meta.shape, 0);
     syn_out(0) = std::move(result);
   } else {
     using namespace std::literals;
     std::vector<synapse_helpers::tensor> range;
     if (start != end && len != 1) {
-      size_t size = 0;
-      auto params = RangeParams(stack, size);
+      auto params = RangeParams(stack);
 
       range = BuildOp(
           graph,
           get_guid_with_precision("range"sv, outType),
           {},
           {{meta.shape, outType}},
-          params.get(),
-          size);
+          params.ptr(),
+          params.size());
     } else {
       range.push_back(ConstantHelper(graph, start, outType, meta.shape));
     }

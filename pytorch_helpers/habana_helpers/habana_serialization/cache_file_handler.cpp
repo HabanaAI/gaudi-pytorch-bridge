@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@
 #include "recipe_cache_config.h"
 
 #include "habana_helpers/logging.h"
+#include "habana_serialization/cache_version.h"
 
 namespace serialization {
 namespace {
@@ -36,6 +37,17 @@ std::string metadata_file_path(
     std::string const& path,
     const std::string& cache_id) {
   return path + "/" + cache_id + METADATA_SUFFIX;
+}
+
+std::string insert_temp_prefix_filename(std::string const& path) {
+  fs::path file_path{path};
+  file_path.replace_filename(
+      file_path.filename().string().insert(0, TEMP_FILE_PREFIX));
+  return file_path.string();
+}
+
+std::string append_unique_node_id(std::string const& path) {
+  return path + "_" + CacheVersion::combined_pid_mac_addr();
 }
 
 CacheFileHandler::CacheFileHandler(const RecipeCacheConfig& recipe_cache_config)
@@ -111,23 +123,26 @@ bool CacheFileHandler::fileLock(int fd, bool block, size_t& size) {
   return true;
 }
 
-void CacheFileHandler::addFileInfo(const std::string& cache_id) {
+void CacheFileHandler::addFileInfo(
+    const std::string& recipe_file_path,
+    const std::string& metadata_file_path) {
   // Get filename, extract real size, and add
-  fs::path rcpeFile{recipe_file_path(cache_path, cache_id)};
-  fs::path metaFile{metadata_file_path(cache_path, cache_id)};
-  HABANA_ASSERT(fs::exists(rcpeFile) && fs::exists(metaFile));
-  fs::directory_entry de1{rcpeFile};
-  fs::directory_entry de2{metaFile};
+  HABANA_ASSERT(fs::exists(recipe_file_path) && fs::exists(metadata_file_path));
 
 #if !defined __GNUC__ || __GNUC__ >= 8
+  fs::directory_entry de1{recipe_file_path};
+  fs::directory_entry de2{metadata_file_path};
   uint64_t size = de1.file_size() + de2.file_size();
 #else
-  uint64_t size = fs::file_size(rcpeFile) + fs::file_size(metaFile);
+  uint64_t size =
+      fs::file_size(recipe_file_path) + fs::file_size(metadata_file_path);
 #endif
   PT_HABHELPER_DEBUG(
       CACHEFILE_LOG,
       "Adding: ",
-      cache_id,
+      recipe_file_path,
+      " and ",
+      metadata_file_path,
       ", Size: ",
       size,
       ", Rank: ",

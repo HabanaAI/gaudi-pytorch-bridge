@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,13 +33,11 @@ OutputMetaDataVector PixelShuffleMeta(const at::Stack& stack) {
   return {meta};
 }
 
-std::shared_ptr<void> FillPixelShuffleParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillPixelShuffleParams(const at::Stack& stack) {
   const auto upscaleFactor = stack.at(1).toInt();
   PARAMS_STUB(ns_PixelShuffleKernel::Params);
   params->upscale_factor = upscaleFactor;
-  return params;
+  return paramsT;
 }
 
 } // namespace habana

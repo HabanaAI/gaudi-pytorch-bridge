@@ -45,7 +45,7 @@
 #define DECL_HCCL_FN(func)                      \
   using func##_pfn_t = decltype(::func);        \
   using func##_t = std::function<func##_pfn_t>; \
-  func##_t func{};
+  func##_t func;
 
 struct hccl_api_t {
   HCCL_API_SYMBOL_VISIT(DECL_HCCL_FN);

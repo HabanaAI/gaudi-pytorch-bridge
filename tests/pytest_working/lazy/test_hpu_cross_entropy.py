@@ -17,9 +17,9 @@
 
 import pytest
 import torch
-from test_utils import format_tc
+from test_utils import format_tc, is_gaudi1
 
-dtypes = [torch.float32, torch.bfloat16, torch.float16]
+dtypes = [torch.float32, torch.bfloat16, torch.float16] if not is_gaudi1() else [torch.float32, torch.bfloat16]
 
 atol = {torch.float32: 0.001, torch.float16: 0.001, torch.bfloat16: 0.01}
 rtol = {torch.float32: 0.001, torch.float16: 0.001, torch.bfloat16: 0.01}
@@ -30,7 +30,6 @@ rtol = {torch.float32: 0.001, torch.float16: 0.001, torch.bfloat16: 0.01}
 @pytest.mark.parametrize("reduction", ["none", "mean", "sum"], ids=format_tc)
 @pytest.mark.parametrize("dtype", dtypes, ids=format_tc)
 def test_hpu_lazy_cross_entropy_fwd(size, use_weight, reduction, dtype):
-
     C = size[1]
 
     # CPU: doesn't support Half dtype

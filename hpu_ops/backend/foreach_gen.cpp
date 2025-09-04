@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,11 +13,14 @@
  * limitations under the License.
  */
 
+#include "common/warning_suppress.h"
 #include "generated/backend/_foreach_abs.h"
 #include "generated/backend/_foreach_add.h"
+#include "generated/backend/_foreach_copy.h"
 #include "generated/backend/_foreach_div.h"
 #include "generated/backend/_foreach_zero.h"
 #include "hpu_ops/backend/foreach.h"
+#include "hpu_ops/op_backend.h"
 #include "hpu_ops/shared_meta_common.h"
 
 #define UNARY_FOREACH_SHARED_META(name, guid)                        \
@@ -39,7 +42,7 @@ OutputMetaDataVector CommonForeachMeta(
   meta.resize(tensors.size());
 
   for (size_t i = 0; i < tensors.size(); ++i) {
-    const at::Tensor& tensor = tensors[i];
+    SUPPRESS_WDANGLING_REFERENCE(const at::Tensor& tensor = tensors[i];)
     meta[i].dtype = tensor.scalar_type();
     meta[i].shape = tensor.sizes().vec();
     if (cast_int_to_float && isIntegralType(meta[i].dtype, true)) {
@@ -153,6 +156,10 @@ OutputMetaDataVector ForeachBinaryMeta(const at::Stack& stack) {
   return CommonForeachBinaryMeta(stack, false);
 }
 
+OutputMetaDataVector ForeachCopyMeta(const at::Stack& stack) {
+  return CommonForeachBinaryMeta(stack, false);
+}
+
 static std::string get_guid(
     const std::string& guid,
     const at::ScalarType dtype) {
@@ -198,8 +205,7 @@ void Foreach::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
       HPUDeviceContext::get_device().type() != synDeviceGaudi ||
           guid_.find("gammaln") == std::string::npos,
       "foreach_lgamma is not supported on Gaudi");
-  size_t params_size = 0;
-  auto params = FillParams(stack, params_size);
+  auto params = FillParams(stack);
   const OutputMetaDataVector output_meta = GetOutputMetaData();
   const auto& tensors = stack[0].toTensorList();
   const std::string guid = guid_.substr(0, guid_.find_last_of('_'));
@@ -210,9 +216,33 @@ void Foreach::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
         get_guid(guid, output_meta[i].dtype),
         {syn_in(i)},
         {{tensor.sizes(), tensor.scalar_type(), i}},
-        params.get(),
-        params_size);
+        params.ptr(),
+        params.size());
     syn_out(i) = std::move(out[0]);
+  }
+}
+
+void ForeachCopy::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  StackGetter stackGetter(this, stack, "ForeachCopy::AddNode");
+  auto self_tensors = stackGetter.getNextInput<std::vector<TensorsPair>>();
+  auto src_tensors = stackGetter.getNextInput<std::vector<TensorsPair>>();
+  const OutputMetaDataVector output_meta = ForeachCopyMeta(stack);
+  auto n = self_tensors.size();
+  for (size_t i = 0; i < n; i++) {
+    const auto self_tensor = self_tensors[i];
+    const auto src_tensor = src_tensors[i];
+    auto out = CopyHelper(
+        src_tensor.pt_t.sizes(),
+        src_tensor.pt_t.scalar_type(),
+        self_tensor.pt_t.sizes(),
+        self_tensor.pt_t.scalar_type(),
+        graph,
+        {self_tensor.syn_t, src_tensor.syn_t},
+        {output_meta[i]},
+        i);
+    syn_out(i) = std::move(out);
   }
 }
 
@@ -220,7 +250,7 @@ void ForeachZero::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   const auto& tensors = stack[0].toTensorList();
-  for (auto i = 0u; i < tensors.size(); ++i) {
+  for (auto i = 0U; i < tensors.size(); ++i) {
     const auto& tensor = tensors[i];
     auto out =
         ConstantHelper(graph, 0, tensor.scalar_type(), tensor.sizes(), i);
@@ -233,7 +263,8 @@ size_t computeInputsNumber(const at::Stack& stack) {
       stack[SELF_INDEX].isTensorList() ? stack[SELF_INDEX].toList().size() : 0;
   const size_t other_size = stack[OTHER_INDEX].isTensorList()
       ? stack[OTHER_INDEX].toList().size()
-      : stack[OTHER_INDEX].isTensor() ? 1 : 0;
+      : stack[OTHER_INDEX].isTensor() ? 1
+                                      : 0;
   return self_size + other_size;
 }
 
@@ -303,7 +334,8 @@ std::vector<synapse_helpers::tensor> CommonForeachBinary(
       }
       for (size_t i = 0; i < selfs.size(); ++i) {
         const auto& self = selfs[i];
-        const auto& other = others.isList() ? others.toList()[i] : others;
+        SUPPRESS_WDANGLING_REFERENCE(
+            const auto& other = others.isList() ? others.toList()[i] : others;)
         const size_t other_syn_index =
             others.isTensorList() ? i + selfs.size() : selfs.size();
 
@@ -323,7 +355,8 @@ std::vector<synapse_helpers::tensor> CommonForeachBinary(
     } else {
       for (size_t i = 0; i < selfs.size(); ++i) {
         const auto& self = selfs[i];
-        const auto& other = others.isList() ? others.toList()[i] : others;
+        SUPPRESS_WDANGLING_REFERENCE(
+            const auto& other = others.isList() ? others.toList()[i] : others;)
 
         outputs.push_back(
             node_creator(op, graph, guid, {inputs[i]}, {self, other}, i));

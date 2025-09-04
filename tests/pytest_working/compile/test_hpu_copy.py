@@ -59,8 +59,7 @@ def test_hpu_view_copy():
         x = torch.randn([5, 10])
         hx = x.to("hpu")
 
-        torch.empty_like(x)
-        hy = torch.empty_like(hx)
+        hy = torch.rand_like(hx)
 
         hres = compiled_fn(hx, hy)
 
@@ -114,8 +113,7 @@ def test_hpu_copy_keepmutation():
         x = torch.randn([5, 10])
         hx = x.to("hpu")
 
-        torch.empty_like(x)
-        hy = torch.empty_like(hx)
+        hy = torch.rand_like(hx)
 
         hres = compiled_fn(hx, hy)
 

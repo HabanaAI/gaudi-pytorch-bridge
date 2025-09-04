@@ -50,9 +50,9 @@ namespace habana_torch::jit {
 
 struct Block;
 
-class Node;
-class Value;
-class Use;
+struct Node;
+struct Value;
+struct Use;
 // the list types are intentionally simple, but we type-def
 // them here so if we need to change them, refactoring will be easier
 using node_list = std::vector<Node*>;
@@ -93,7 +93,7 @@ struct TORCH_API Node {
   // subblocks
   std::vector<Block*> blocks_;
   Graph* graph_;
-  Block* owning_block_;
+  Block* owning_block_{nullptr};
   std::optional<SourceRange> source_range_;
   std::optional<std::string> stack_trace_;
   ScopePtr scope_;
@@ -102,9 +102,9 @@ struct TORCH_API Node {
   // This field is effective a cache that's populated on attribute lookups and
   // invalidated every time we perform an operation that could potentially
   // change the schema. note: mutable because schema_ is effectively a cache
-  mutable const torch::jit::Operator* op_;
-  std::optional<c10::OperatorName> operator_name_ = std::nullopt;
-  topo_position_t topo_position_ = 0;
+  mutable const torch::jit::Operator* op_{nullptr};
+  std::optional<c10::OperatorName> operator_name_{std::nullopt};
+  topo_position_t topo_position_{0};
   // a managing wrapper for Python to allow invalidation
   std::shared_ptr<Wrap<Node>> wrap_;
   // Stores the full schema name, if the operator is historic
@@ -250,12 +250,9 @@ struct TORCH_API Node {
     return outputs_.at(i);
   }
   bool hasUses() const {
-    for (auto o : outputs()) {
-      if (!o->uses().empty()) {
-        return true;
-      }
-    }
-    return false;
+    return std::any_of(outputs_.begin(), outputs_.end(), [](Value* v) {
+      return !v->uses().empty();
+    });
   }
 
   void replaceAllUsesWith(Node* n);
@@ -489,16 +486,16 @@ struct TORCH_API Node {
 
   // iterators of the node list starting at this node
   // useful for resuming a search starting at this node
-  inline graph_node_list_iterator iterator() {
+  graph_node_list_iterator iterator() {
     return {this, 0};
   }
-  inline graph_node_list_iterator reverseIterator() {
+  graph_node_list_iterator reverseIterator() {
     return iterator().reverse();
   }
-  inline const_graph_node_list_iterator iterator() const {
+  const_graph_node_list_iterator iterator() const {
     return {this, 0};
   }
-  inline const_graph_node_list_iterator reverseIterator() const {
+  const_graph_node_list_iterator reverseIterator() const {
     return iterator().reverse();
   }
 
@@ -876,7 +873,7 @@ struct OperatorMap {
         break;
       }
     }
-    if (it->second.size() == 0) {
+    if (it->second.empty()) {
       map.erase(Symbol::fromQualString(op->schema().name()));
     }
   }

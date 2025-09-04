@@ -21,8 +21,7 @@
 #include "habana_helpers/logging.h"
 #include "pool_allocator/PoolAllocator.h"
 
-namespace synapse_helpers {
-namespace defragment_helpers {
+namespace synapse_helpers::defragment_helpers {
 
 enum class MemoryState { FREE, IN_USE, FIXED };
 
@@ -127,5 +126,4 @@ class MemoryDefragementer {
       std::unique_ptr<Region>& result);
 };
 
-} // namespace defragment_helpers
-} // namespace synapse_helpers
+} // namespace synapse_helpers::defragment_helpers

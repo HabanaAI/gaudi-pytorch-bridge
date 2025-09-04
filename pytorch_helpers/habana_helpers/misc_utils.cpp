@@ -16,10 +16,10 @@
 #include "misc_utils.h"
 #include <ATen/Tensor.h>
 #include <dlfcn.h>
-#include <stdlib.h>
+#include <cstdlib>
 #include "habana_helpers/logging.h"
 
-using JoinPendingPipelineThreadsFunc = void (*)(void);
+using JoinPendingPipelineThreadsFunc = void (*)();
 using RestoreToOrgSendTensorsFunc =
     void (*)(std::vector<at::Tensor>&, std::vector<at::Tensor>&);
 
@@ -73,7 +73,7 @@ int GetRankFromEnv() {
 }
 
 void TryJoinPendingEagerPipelineThreads() {
-  static JoinPendingPipelineThreadsFunc joinPendingPipelineThreads =
+  static auto joinPendingPipelineThreads =
       reinterpret_cast<JoinPendingPipelineThreadsFunc>(
           dlsym(RTLD_DEFAULT, "JoinPendingPipelineThreads"));
   if (joinPendingPipelineThreads) {
@@ -87,7 +87,7 @@ void TryJoinPendingEagerPipelineThreads() {
 void TryRestoreToOrgSendTensors(
     std::vector<at::Tensor>& tensors,
     std::vector<at::Tensor>& org_tensors) {
-  static RestoreToOrgSendTensorsFunc restoreToOrgSendTensors =
+  static auto restoreToOrgSendTensors =
       reinterpret_cast<RestoreToOrgSendTensorsFunc>(
           dlsym(RTLD_DEFAULT, "RestoreToOrgSendTensors"));
   if (restoreToOrgSendTensors) {

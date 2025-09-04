@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@
 #include <memory>
 #include <mutex>
 
-#include "absl/types/variant.h"
 #include "backend/synapse_helpers/synapse_error.h" // IWYU pragma: keep
 
 namespace synapse_helpers {

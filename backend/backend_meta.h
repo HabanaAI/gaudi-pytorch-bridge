@@ -142,10 +142,10 @@ struct StorageExtraMeta {
 
  private:
   // Memory permutation represents how tensor layout is set in memory
-  synapse_helpers::layouts::MemoryPermutation memory_permutation_{};
+  synapse_helpers::layouts::MemoryPermutation memory_permutation_;
   bool dont_allow_permutation_{false};
   // view meta
-  std::vector<int64_t> base_sizes_{};
+  std::vector<int64_t> base_sizes_;
 };
 
 StorageExtraMeta* get_storage_extra_meta(const at::Tensor& tensor);
@@ -311,8 +311,16 @@ struct TensorExtraMeta : public BaseTensorExtraMeta {
     return permuted_counter_;
   }
 
-  void set_host_data(void* d, int size, int ele_size, HostDataType dt_type);
-  void update_host_data(void* d, int size, int el_size, bool compile = true);
+  void set_host_data(
+      void* d,
+      size_t size,
+      size_t ele_size,
+      HostDataType dt_type);
+  void update_host_data(
+      void* d,
+      size_t size,
+      size_t el_size,
+      bool compile = true);
 
   void set_redundant() {
     is_redundant_ = true;
@@ -429,11 +437,11 @@ struct TensorExtraMeta : public BaseTensorExtraMeta {
     memcpy(ptr, (void*)d.data(), data_size);
   }
 
-  int get_id() const {
+  synDeviceId get_id() const {
     return id_;
   }
 
-  void set_id(int id) {
+  void set_id(synDeviceId id) {
     id_ = id;
   }
 
@@ -532,10 +540,10 @@ struct TensorExtraMeta : public BaseTensorExtraMeta {
   size_t el_size_{0};
   at::optional<size_t> nbytes_inference_;
   HostDataType dt_type_{HostDataType::INVALID_T};
-  ShapeTensorStruct shape_tensor_struct_{};
+  ShapeTensorStruct shape_tensor_struct_;
   bool is_redundant_ = false;
   size_t host_checksum_{INVALID_CHECKSUM};
-  int id_{-1};
+  synDeviceId id_{SYN_INVALID_DEVICE_ID};
   int const_id_{INVALID_CONST_ID};
   size_t total_elem_{0};
   // view meta

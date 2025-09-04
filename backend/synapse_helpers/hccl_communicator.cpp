@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -96,7 +96,7 @@ std::shared_ptr<HcclCommunicator> HcclCommunicator::Get(int64_t id) {
   return communicator_map_.at(id).lock();
 }
 
-int HcclCommunicator::Count() {
+uint64_t HcclCommunicator::Count() {
   return HcclCommunicator::next_id_;
 }
 
@@ -129,7 +129,7 @@ void HcclCommunicator::Init() {
   }
 }
 
-std::atomic_int64_t HcclCommunicator::next_id_ = 0;
+std::atomic_uint64_t HcclCommunicator::next_id_ = 0;
 std::unordered_map<int64_t, std::weak_ptr<HcclCommunicator>>
     HcclCommunicator::communicator_map_;
 std::mutex HcclCommunicator::communicator_map_mutext_;

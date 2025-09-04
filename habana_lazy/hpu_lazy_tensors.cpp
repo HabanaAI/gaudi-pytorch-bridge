@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -75,7 +75,7 @@ std::shared_ptr<Snapshot> StaleLazyTensorKeeper::extract_snapshot() {
 bool HbLazyTensor::switch_dynamic_mode = false;
 
 HbContextArena* HbContextArena::Get() {
-  static HbContextArena* arena = new HbContextArena();
+  static auto* arena = new HbContextArena();
   return arena;
 };
 
@@ -142,6 +142,7 @@ std::vector<HbLazyTensor> HbContextArena::GetLiveTensors(
 
   HbLazyTensorViews::HandleViewsLiveTensors(
       devctx, is_allreduce, bucket_recent_id);
+  std::lock_guard<std::recursive_mutex> lock(GetMutex());
   for (auto& uid : devctx->tensors_data_opt_order) {
     std::shared_ptr<Data> data = devctx->getDataPtr(uid);
     if (data) {
@@ -162,10 +163,7 @@ std::vector<HbLazyTensor> HbContextArena::GetLiveTensors(
       }
     }
   }
-  {
-    std::lock_guard<std::recursive_mutex> lock(GetMutex());
-    devctx->clear_tensors_data();
-  }
+  devctx->clear_tensors_data();
   return tensors;
 }
 
@@ -630,16 +628,15 @@ habana_lazy::ir::PostOrderData HbLazyTensor::RunPostOrder(
 
   ir::Utils::ComputePostOrder(p_roots, po_data);
   if (!GET_ENV_FLAG_NEW(PT_HPU_DUMP_IR_DOT_GRAPH)) {
-    PT_LAZY_DEBUG(
+    PT_IRGRAPH_DEBUG(
         "Lazy_IR_Graph_BEGIN\n",
         "Graph ",
         idx,
         '\n',
-        IrGraphDumpUtil::PostOrderToText(po_data.post_order, p_roots),
+        IrGraphDumpUtil::PostOrderToText(
+            po_data.post_order, p_roots, true, true),
         "Lazy_IR_Graph_END");
     idx += 1;
-    PT_IRGRAPH_DEBUG(IrGraphDumpUtil::PostOrderToText(
-        po_data.post_order, p_roots, true, true));
   } else {
     PT_LAZY_DEBUG(IrGraphDumpUtil::PostOrderToDot(po_data.post_order, p_roots));
   }
@@ -688,8 +685,10 @@ at::Tensor HbLazyTensor::EvaluateTensorData(bool sync_acc_thread) {
       applyPendingGraph();
     }
   }
+
   ValidateTensorData();
-  return data()->tensor_data.value();
+  HABANA_ASSERT(data()->tensor_data.has_value(), "Optional tensor data has no value");
+  return *data()->tensor_data;
 }
 
 /*
@@ -761,7 +760,7 @@ inline c10::Device GetDeviceOrCurrent(const std::string& device_str) {
     return habana::HPUDeviceContext::aten_device();
   }
 
-  return c10::Device(device_str);
+  return {device_str};
 }
 } // namespace
 
@@ -821,7 +820,7 @@ void HbLazyTensor::SyncLiveTensorsGraph(
   std::vector<HbLazyTensor> tensors = HbContextArena::Get()->GetLiveTensors(
       device, is_allreduce, bucket_recent_id);
 
-  if (tensors.size()) {
+  if (!tensors.empty()) {
     StaleLazyTensorKeeper::getInstance().mark_end_of_accumulation();
     SyncTensorsGraph(&tensors, lazy_front_end_info, async, false);
   }
@@ -829,7 +828,7 @@ void HbLazyTensor::SyncLiveTensorsGraph(
   {
     auto context = habana_lazy::get_device_lazy_execution_context();
 
-    if (context->viewContext.view_outputs.size()) {
+    if (!context->viewContext.view_outputs.empty()) {
       // delete the origtensor map entry only when view outputs are present
       // ex: megatron has all reduce on embedding tables which doesnt involve
       // strided view output. Such cases should be excluded from deletion
@@ -851,7 +850,19 @@ std::string DumpGraph(std::shared_ptr<torch::jit::Graph> jit_graph) {
   return str;
 }
 
-void ValidateSyncInputTensors(habana_lazy::ir::ValueList& inputs) {
+std::vector<ir::NodePtr> GetNodePtrRoots(std::vector<HbLazyTensor>* tensors, std::vector<int>& indices) {
+  std::vector<ir::NodePtr> p_roots;
+  p_roots.reserve(indices.size());
+  for (auto index : indices) {
+      auto ir_value = tensors->at(index).CurrentIrValue();
+      if (ir_value) {
+          p_roots.push_back(ir_value.mp_node);
+        }
+    }
+  return p_roots;
+}
+
+void ValidateSyncInputTensors(std::vector<HbLazyTensor>* tensors, std::vector<int>& indices, habana_lazy::ir::ValueList& inputs, habana_lazy::ir::NodePtrList* ptr_post_order = nullptr) {
   for (const auto& in : inputs) {
     std::shared_ptr<Data> d = in.m_data_ptr.lock();
     if (d == nullptr) {
@@ -860,13 +871,20 @@ void ValidateSyncInputTensors(habana_lazy::ir::ValueList& inputs) {
           in.ToString());
     }
     if (d && (!d->tensor_data.has_value())) {
+      std::vector<ir::NodePtr> p_roots = GetNodePtrRoots(tensors, indices);
       PT_LAZY_FATAL(
           "Error, ValidateSyncInputTensors tensor_data is empty. Tensorid:",
           d->unique_id,
-          " QueueStatus:",
+          " QueueStatus: ",
           SingleTonExecThreadPool::getInstance().ToString(),
           " irValue:",
-          in.ToString());
+          in.ToString(),
+          " Strided Params Has Value: ",
+          d->stride_params.has_value(),
+          " Failing Graph: ",
+          ptr_post_order != nullptr
+              ? IrGraphDumpUtil::PostOrderToText(*ptr_post_order, p_roots)
+              : "null postorder");
     }
   }
 }
@@ -907,14 +925,7 @@ torch::jit::Stack PrepareInputStack(
   for (const auto& in : inputs) {
     // PT_LAZY_DEBUG(std::string("Lowering - ") + in.ToString());
     if (!in.DataPtrValidAndNotExpired()) {
-      std::vector<ir::NodePtr> p_roots;
-      p_roots.reserve(indices.size());
-      for (auto index : indices) {
-        auto ir_value = tensors->at(index).CurrentIrValue();
-        if (ir_value) {
-          p_roots.push_back(ir_value.mp_node);
-        }
-      }
+      std::vector<ir::NodePtr> p_roots = GetNodePtrRoots(tensors, indices);
       if (ptr_post_order != nullptr) {
         PT_LAZY_DEBUG(
             " Node = ",
@@ -926,15 +937,30 @@ torch::jit::Stack PrepareInputStack(
     }
 
     std::shared_ptr<Data> d = in.m_data_ptr.lock();
-    HABANA_ASSERT(d->tensor_data.has_value(), "Empty tensor optional");
-    at::Tensor pt_tensor = d->tensor_data.value();
-    auto is_const_tensor = habana::is_tensor_const(pt_tensor);
+    if (d->tensor_data.has_value()) {
+      at::Tensor pt_tensor = d->tensor_data.value();
+      auto is_const_tensor = habana::is_tensor_const(pt_tensor);
 
-    if (d->is_const_tensor && !is_const_tensor) {
-      habana::set_tensor_const(pt_tensor, d->is_const_tensor, d->const_id);
+      if (d->is_const_tensor && !is_const_tensor) {
+        habana::set_tensor_const(pt_tensor, d->is_const_tensor, d->const_id);
+      }
+
+      stack.emplace_back(pt_tensor);
+    } else {
+      std::vector<ir::NodePtr> p_roots = GetNodePtrRoots(tensors, indices);
+      HABANA_ASSERT(
+          d->tensor_data.has_value(),
+          "Empty tensor optional",
+          " Uniqueid: ",
+          d->unique_id,
+          " Strided Params Has Value: ",
+          d->stride_params.has_value(),
+          " Failing Graph: ",
+          ptr_post_order != nullptr
+              ? IrGraphDumpUtil::PostOrderToText(*ptr_post_order, p_roots)
+              : "null postorder");
     }
 
-    stack.emplace_back(pt_tensor);
     // We dont get the correct lazy tensor back from internal tensor
     // So marking for execution here
     context->MarkTensorExecuting(d);
@@ -1085,7 +1111,7 @@ void LaunchSyncTensorsGraph(
   } else {
     try {
       if (launch_info.has_queued) {
-        ValidateSyncInputTensors(launch_info.po_data.inputs);
+        ValidateSyncInputTensors(tensors, launch_info.indices, launch_info.po_data.inputs, &launch_info.po_data.post_order);
         launch_info.stack = PrepareInputStack(
             tensors,
             launch_info.indices,
@@ -1209,7 +1235,7 @@ void CorrectInputOrder(
     const std::vector<uint64_t>& input_map) {
   std::vector<ir::Value>& input_values_in_orig_order =
       lazyFrontEndInfo->get_input_values();
-  assert(input_map.size());
+  assert(!input_map.empty());
   std::vector<ir::Value> input_values_in_post_order{};
   input_values_in_post_order.reserve(input_map.size());
   for (auto idx : input_map) {
@@ -1224,7 +1250,7 @@ void PrepareInputOrderMap(
     exec::HlExec& hlexec) {
   auto graph_input_stack_uids =
       lazyFrontEndInfo->get_lazy_eager_op_input_uids();
-  HABANA_ASSERT(graph_input_stack_uids.size() > 0, " Input uids not prepared!");
+  HABANA_ASSERT(!graph_input_stack_uids.empty(), " Input uids not prepared!");
   auto& graph_hash_builder = GraphHashBuilder::getInstance();
   graph_hash_builder.set_graph_input_stack_uids(
       std::move(graph_input_stack_uids));
@@ -1233,13 +1259,51 @@ void PrepareInputOrderMap(
   graph_hash_builder.reset();
 }
 
+void HbLazyTensor::WarnIfOpsIncompatibleWithHPUGraphs(
+    const std::vector<ir::NodePtr>& post_order) {
+  static const std::unordered_set<std::string> incompatible_ops = {
+      "hpu::index_put",
+      "hpu::index_add",
+      "aten::index_select",
+      "aten::select",
+      "hpu::nonzero",
+      "hpu::arange",
+      "hpu::batched_nms"};
+  static std::unordered_set<std::string> already_warned_ops;
+
+  std::unordered_set<std::string> found_ops;
+  for (const auto& node : post_order) {
+    const std::string& opName = node->GetOpNameString();
+    if (incompatible_ops.find(opName) != incompatible_ops.end() &&
+        already_warned_ops.find(opName) == already_warned_ops.end()) {
+      found_ops.insert(opName);
+    }
+  }
+  if (!found_ops.empty()) {
+    std::stringstream warning_msg;
+    warning_msg
+        << "The following operations used in HPU graphs might result in accuracy issues : ";
+    auto it = found_ops.begin();
+    warning_msg << (*it).substr((*it).find("::") + 2);
+    ++it;
+    for (; it != found_ops.end(); ++it) {
+      warning_msg << ", " << (*it).substr((*it).find("::") + 2);
+    }
+    warning_msg << ".";
+    TORCH_WARN(warning_msg.str());
+
+    // Add these ops to the already-warned set
+    already_warned_ops.insert(found_ops.begin(), found_ops.end());
+  }
+}
+
 void HbLazyTensor::SyncTensorsGraphInternal(
     std::vector<HbLazyTensor>* tensors,
     std::shared_ptr<HbLazyFrontEndInfoToBackend> lazyFrontEndInfo,
     bool async,
     bool collect_sync_tensors) {
   PT_LAZY_TRACE;
-  if (!(*tensors).size())
+  if ((*tensors).empty())
     return;
 
   LaunchStreamInfo stream_info = {c10::hpu::getCurrentHPUStream()};
@@ -1362,6 +1426,14 @@ void HbLazyTensor::SyncTensorsGraphInternal(
 
   // Save po_data input and output to context for perf mode
   if (context->getCapturing()) {
+    const char* rank = std::getenv("RANK");
+    const char* ompi_rank = std::getenv("OMPI_COMM_WORLD_RANK");
+    // Determine process rank, default to "0" if both are unset
+    std::string process_rank = (rank) ? rank : (ompi_rank) ? ompi_rank : "0";
+    // Print warning only for the main process to avoid flooding of warnings
+    if (process_rank == "0") {
+      WarnIfOpsIncompatibleWithHPUGraphs(po_data.post_order);
+    }
     context->saveInputsAndOutputs(
         po_data.inputs, po_data.outputs, *tensors, indices);
   }

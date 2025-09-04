@@ -12,14 +12,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <string>
 
-#include "habana_eager/graph_storage.h"
 #include "habana_eager/eager_context.h"
+#include "habana_eager/graph_storage.h"
 
 #include "habana_helpers/logging.h"
 
-namespace habana {
-namespace graph {
+namespace habana::graph {
 
 GraphStorage& GraphStorage::get() {
   static GraphStorage storage;
@@ -28,6 +28,7 @@ GraphStorage& GraphStorage::get() {
 
 size_t GraphStorage::add_new_recipe(
     std::shared_ptr<torch::jit::Graph> graph,
+    const std::string& parent_graph_name,
     torch::jit::Stack& example_inputs,
     const std::vector<bool>& is_reusable,
     bool dynamic,
@@ -43,6 +44,7 @@ size_t GraphStorage::add_new_recipe(
   m_storage_vec.emplace_back(
       output_recipe_group_id,
       graph,
+      parent_graph_name,
       example_inputs,
       is_reusable,
       dynamic,
@@ -77,5 +79,4 @@ void GraphStorage::reset_seeds() {
   }
 }
 
-} // namespace graph
-} // namespace habana
+} // namespace habana::graph

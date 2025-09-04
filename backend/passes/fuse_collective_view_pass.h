@@ -46,16 +46,18 @@ namespace habana {
 class HabanaLaunchOpPT;
 class FuseCollectiveViewPassData;
 
-typedef struct {
+struct ExternalParams {
   uint64_t offset;
   uint64_t numel;
-} ExternalParams;
+};
 
 // Derived class
 class FuseCollectiveViewPass : public JITGraphPass<FuseCollectiveViewPassData> {
  public:
   FuseCollectiveViewPass(HabanaLaunchOpPT* habana_launch_op_ptr)
       : habana_launch_op_ptr_(habana_launch_op_ptr) {}
+
+  virtual ~FuseCollectiveViewPass() = default;
 
   std::unordered_map<CValPtr, std::shared_ptr<ExternalParams>>&
   getInputValPtrToParamsMap() {
@@ -92,6 +94,8 @@ class FuseCollectiveViewPass : public JITGraphPass<FuseCollectiveViewPassData> {
   std::shared_ptr<torch::jit::Graph> cloned_graph_;
 
   void RunFuseOpsPasses(const std::shared_ptr<torch::jit::Graph> graph);
+  void RunFuseOps(torch::jit::Node* collective_node,
+      int index);
   bool RunFuseOps(
       torch::jit::graph_node_list graph_nodes,
       bool is_check_mode = false);
@@ -101,7 +105,7 @@ class FuseCollectiveViewPass : public JITGraphPass<FuseCollectiveViewPassData> {
       torch::jit::Node* slice_insert_node,
       std::vector<torch::jit::Node*>& const_node_vec);
   void FuseSliceOps(torch::jit::Node* slice_node);
-  void FuseViewOps(torch::jit::Node* view_node);
+  void FuseSqueezeViewOps(torch::jit::Node* node);
 
   torch::jit::Value* GetInputValue(
       torch::jit::Node* node,
@@ -112,6 +116,8 @@ class FuseCollectiveViewPass : public JITGraphPass<FuseCollectiveViewPassData> {
   void PrepareJITStack(CValuePtrToIValuePtrMap& value_to_ivalue);
   void RestoreJITStack(CValuePtrToIValuePtrMap& value_to_ivalue);
   bool CanFuse(CValPtr value, int64_t dim = 0, int64_t step = 1);
+  bool IsGraphInputOutput(torch::jit::Value* value, bool is_graph_output=false);
+  bool CanFuse(torch::jit::Node* node, bool is_node_output=false);
   bool NeedCheck(std::shared_ptr<torch::jit::Graph> graph);
   void GetExternalParams(
       CValPtr value,

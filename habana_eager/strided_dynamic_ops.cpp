@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,8 +24,7 @@
 #include "habana_eager/graph_dynamic.h"
 #include "habana_eager/graph_dynamic_ops.h"
 
-namespace habana {
-namespace graph {
+namespace habana::graph {
 std::vector<std::string> string_tokenizer(std::string s) {
   std::vector<std::string> exprs;
   std::string modified_s = s.substr(1, s.length() - 2);
@@ -174,7 +173,7 @@ int64_t get_arange_depth_ds_1(
   HABANA_ASSERT(!((start > end) && (step > 0)), "step must be negative.");
   HABANA_ASSERT(!((start < end) && (step < 0)), "step must be positive.");
 
-  int64_t num_elements = static_cast<int64_t>(ceil((end - start) / step));
+  auto num_elements = static_cast<int64_t>(ceil((end - start) / step));
   return num_elements;
 }
 
@@ -450,7 +449,7 @@ bool ConstantPad2dOperatorDS::ReplaceWithDynamicHPUOp(
   std::vector<std::string> pad_ht_vec_expr(MAX_DIMENSIONS_NUM * 2, "0");
   // assuming that "pad" has a pair of pad values corresponding to each
   // dim that needs to be padded.
-  for (unsigned int i = 0; i < values.size() / 2; i++) {
+  for (size_t i = 0; i < values.size() / 2; i++) {
     // Host tensor layout 1D - 10 elements:
     // pad_before[0]...pad_before[4], pad_after[0] ... pad_after[4] (for
     // dimensionality IFM less then 5 some elements not in use)
@@ -750,7 +749,7 @@ bool AsStridedOperatorDS::ReplaceWithDynamicHPUOp(
   }
   // Fill num_strides at 0 index
   scalar_indexes.insert(scalar_indexes.begin(), LONG_MAX);
-  auto num_strides = (values_strides.size() == 0) ? 1 : values_strides.size();
+  auto num_strides = (values_strides.empty()) ? 1 : values_strides.size();
   h2d_values.insert(h2d_values.begin(), static_cast<uint64_t>(num_strides));
   h2d_expr.insert(h2d_expr.begin(), std::to_string(num_strides));
 
@@ -1967,5 +1966,4 @@ void EmptyOpDS::UpdateDynamicInputs(
   UpdateShapeTensorSize(dtensor, scalar_idx.values, orig_stack, launch_shapes);
 }
 
-} // namespace graph
-} // namespace habana
+} // namespace habana::graph

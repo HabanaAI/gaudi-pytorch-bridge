@@ -26,6 +26,12 @@ std::tuple<at::Tensor, at::Tensor> cast_to_fp8_v2_lazy(
     at::ScalarType dtype,
     at::OptionalIntArrayRef scale_shape);
 
+at::Tensor cast_from_fp8_lazy(
+    const at::Tensor& input,
+    const std::optional<at::Tensor>& scale,
+    at::ScalarType dtype,
+    at::OptionalIntArrayRef scale_shape);
+
 at::Tensor conv2d_fp8_lazy(
     const at::Tensor& input,
     const at::Tensor& weight,
@@ -66,7 +72,9 @@ at::Tensor mixture_of_experts_fp8_lazy(
     bool permuted_weights,
     std::string_view activation,
     int64_t experts_min,
-    int64_t experts_max);
+    int64_t experts_max,
+    const int64_t chunk_size = 0,
+    const int64_t total_experts = 0);
 
 at::Tensor mixture_of_experts_fp8_fused_weights_lazy(
     const at::Tensor& hidden_states,
@@ -81,7 +89,9 @@ at::Tensor mixture_of_experts_fp8_fused_weights_lazy(
     bool permuted_weights,
     std::string_view activation,
     int64_t experts_min,
-    int64_t experts_max);
+    int64_t experts_max,
+    const int64_t chunk_size = 0,
+    const int64_t total_experts = 0);
 
 at::Tensor mixture_of_experts_fp8_dynamic_lazy(
     const at::Tensor& hidden_states,
@@ -97,7 +107,9 @@ at::Tensor mixture_of_experts_fp8_dynamic_lazy(
     bool permuted_weights,
     std::string_view activation,
     int64_t experts_min,
-    int64_t experts_max);
+    int64_t experts_max,
+    const int64_t chunk_size = 0,
+    const int64_t total_experts = 0);
 
 at::Tensor mixture_of_experts_fp8_fused_weights_dynamic_lazy(
     const at::Tensor& hidden_states,
@@ -111,6 +123,8 @@ at::Tensor mixture_of_experts_fp8_fused_weights_dynamic_lazy(
     bool permuted_weights,
     std::string_view activation,
     int64_t experts_min,
-    int64_t experts_max);
+    int64_t experts_max,
+    const int64_t chunk_size = 0,
+    const int64_t total_experts = 0);
 
 } // namespace habana_lazy

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,16 +34,14 @@ OutputMetaDataVector ArgMinMaxMeta(const at::Stack& stack) {
   return {meta};
 }
 
-std::shared_ptr<void> FillArgMinMaxParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillArgMinMaxParams(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 0);
   auto dimOpt = stack.at(1).toOptional<int64_t>();
 
   PARAMS_STUB(ns_Reduction::ParamsV2);
   params->reductionDimensionMask = ReductionMask(self, dimOpt);
   params->keepDim = stack.at(2).toBool();
-  return params;
+  return paramsT;
 }
 
 } // namespace habana

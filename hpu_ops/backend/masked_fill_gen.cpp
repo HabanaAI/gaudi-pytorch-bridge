@@ -51,42 +51,45 @@ SharedMetaDataVector MaskedFillSharedMeta(
   return {maskedFillSharedMeta};
 }
 
-std::shared_ptr<void> FillMaskedFillParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillMaskedFillParams(const at::Stack& stack) {
   PARAMS_STUB(ns_MaskedFill::ParamsV2);
   auto value = stack.at(2);
   if (value.isTensor()) {
-    return params;
+    return paramsT;
   }
 
   auto self = stack_tensor(stack, 0);
   auto self_dtype = habana_helpers::getInternalDtype(self.scalar_type());
-
+  const auto scalarValue = value.toScalar();
   if ((self_dtype == c10::ScalarType::Long ||
        self_dtype == c10::ScalarType::UInt64) &&
       common::IsInt64Supported()) {
-    int64_t val = value.to<int64_t>();
+    int64_t val = scalarValue.isIntegral(true)
+        ? scalarValue.to<int64_t>()
+        : static_cast<int64_t>(scalarValue.toFloat());
     params->value_low = val;
     params->value_high = val >> 32;
   } else if (c10::isIntegralType(self_dtype, true)) {
-    params->value.i = value.toScalar().toInt();
+    params->value.i = scalarValue.isIntegral(true)
+        ? scalarValue.toInt()
+        : static_cast<int32_t>(scalarValue.toFloat());
   } else {
-    params->value.f = value.toScalar().toFloat();
+    params->value.f = scalarValue.isIntegral(true)
+        ? static_cast<float>(scalarValue.toInt())
+        : scalarValue.toFloat();
   }
-  return params;
+  return paramsT;
 }
 
 void MaskedFill::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  size_t size = 0;
   std::vector<synTensor> inputs = {syn_in(0), syn_in(1)};
 
   auto metadata = MaskedFillMeta(stack)[0];
   auto out_shape = metadata.shape;
   auto out_dtype = metadata.dtype;
-  const auto& params = FillMaskedFillParams(stack, size);
+  const auto& params = FillMaskedFillParams(stack);
 
   auto value = stack.at(2);
   if (value.isTensor()) {
@@ -103,8 +106,8 @@ void MaskedFill::AddNode(
       guid,
       std::move(inputs),
       {{out_shape, out_dtype, 0}},
-      params.get(),
-      size);
+      params.ptr(),
+      params.size());
   syn_out(0) = std::move(result[0]);
 }
 

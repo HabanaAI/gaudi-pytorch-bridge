@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
 
 #include "hpu_ops/indexing_ops_helper.h"
 #include <c10/core/ScalarType.h>
-#include <stdint.h>
+#include <cstdint>
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_kernels/tensor_shape_kernels.h"
 #include "hpu_ops/hpu_op_helper.h"
@@ -168,12 +168,10 @@ std::tuple<std::vector<int64_t>, std::vector<at::Tensor>> transposeToFront(
     }
   }
   for (const auto i : c10::irange<size_t>(self.dim())) {
-    if ((i < indices.size()) && !indices[i].has_value()) {
+    if (i >= indices.size() || !indices[i].has_value()) {
       dims.push_back(i);
       // Don't add undefined tensors to list as Lazy infra can't handle such
       // tensors
-    } else if ((i >= indices.size())) {
-      dims.push_back(i);
     }
   }
   return std::make_tuple(dims, std::move(transposedIndices));

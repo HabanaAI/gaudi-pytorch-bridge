@@ -30,7 +30,6 @@ class StridedViewContext {
 
   void ReplaceViewBase(int64_t id, at::Tensor& new_base_t);
 
- public:
   std::vector<HbLazyTensor> updated_bucket_list;
   std::set<int64_t> view_outputs;
 };

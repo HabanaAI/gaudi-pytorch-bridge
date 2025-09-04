@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 
 namespace habana {
 
-std::shared_ptr<void> FillRollParams(const at::Stack& stack, size_t& size) {
+FillParamsT FillRollParams(const at::Stack& stack) {
   PARAMS_STUB(ns_RollKernel::Params);
 
   constexpr int64_t shiftIndex = 1;
@@ -36,7 +36,7 @@ std::shared_ptr<void> FillRollParams(const at::Stack& stack, size_t& size) {
     params->dims[i] = dims[i];
   }
 
-  return params;
+  return paramsT;
 }
 
 SharedMetaDataVector RollSharedMeta(
@@ -79,16 +79,15 @@ void RollHabanaOperator::AddNode(
 
   // new i.e. cguid implementation for eager
   if (!GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE)) {
-    size_t size = 0;
-    auto params = FillRollParams(stack, size);
+    auto params = FillRollParams(stack);
 
     auto result = BuildOp(
         graph,
         GetGuid(),
         {syn_in(0)},
         {{input.sizes(), ScalarType(), 0}},
-        params.get(),
-        size);
+        params.ptr(),
+        params.size());
 
     syn_out(0) = std::move(result[0]);
 
@@ -107,13 +106,12 @@ void RollHabanaOperator::AddNode(
   int64_t flattened_size = 0;
 
   HABANA_ASSERT(
-      shift.size() >= 1, "roll: shift must be a scalar or a 1-D vector.");
+      !shift.empty(), "roll: shift must be a scalar or a 1-D vector.");
 
   if (flatten_and_restore)
     axis.push_back(0);
 
-  HABANA_ASSERT(
-      axis.size() >= 1, "roll: axis must be a scalar or a 1-D vector.");
+  HABANA_ASSERT(!axis.empty(), "roll: axis must be a scalar or a 1-D vector.");
   HABANA_ASSERT(
       shift.size() == axis.size(),
       "roll: shift and axis must have the same size (",

@@ -29,7 +29,7 @@
 #  - output_meta - function for output tensors metadata calculation.
 #  - st_meta - attribute to add an op to the optimized output sif flow for dynamic cache hit scenarios
 #  - custom_fill_params - function filling params structure for kernel/cguid. Not needed if op_backend used.
-#  - frontend_blocklist - used to limit frontend generation either to eager or lazy.
+#  - frontend_blocklist - restricts frontend generation to eager or lazy mode. For custom ops with autograd support, autograd can also be specified.
 #  - promote_to_common_type - names of inputs to execute type promotion on.
 #  - promote_int_to_float - names of inputs casted automatically to float.
 #  - promote_int_to_long - names of inputs casted automatically to long.
@@ -40,15 +40,23 @@
 #      if set to check-node-with-shared-layer, automatic validation by shared layer will be executed,
 #             applicable only for ops mapped directly to one kernel/cguid, without op_backend and op_frontend,
 #      other value points to the function which performs manual validation, e.g. for multiple kernels.
+#  - op_validator_exception - reason why op_validator is not used. Required when op_validator is not set.
 #  - only_shared_layer - mark ops registered and implemented manually in the backend just for shared layer validation.
 #  - override_fn - function for full override of the op frontend and backend.
 #  - lazy - separate flow for lazy mode.
 #  - skip_slrg - skip automatic documentation generation by shared layer report generator (has an effect only in non-custom ops), example: torch.nn.functional
+#  - only_slrg - generate validator only for shared layer report generator purposes
 #  - namespaces - a list of namespaces in which the specified op occurs (for slrg purposes)
 #  - pytorch_module_names - module names (list) associated with the op, required when "torch.nn" appears in the "namespaces" field
 #  - overwritten_op_names_in_slrg - op names (list) displayed in the report for all namespaces except torch.nn:
 #      e.g. _adaptive_avg_pool2d should be displayed as adaptive_avg_pool2d and adaptive_avg_pool1d
 #  - autograd - used to register backward support for operator
+#  - treat_as_dtdf - used to generate op in eager mode even if it is not dfdt.
+#  - handle_output_mask - used to return 0-D tensors at positions in output_mask where bits are set to 0 (for backward operators that get output_mask bool array).
+#  - custom_cpp_sig - allows specifying a custom C++ signature for the operator; use only if the automatically generated signature is incorrect
+#      e.g. for torch_scatter.ind2ptr, the C++ signature in torch_scatter uses at::Tensor instead of const at::Tensor&, so the operator cannot be called with const at::Tensor&.
+#  - treat_as_non_inplace - marks a parameter as non-inplace when the C++ signature requires a non-const tensor argument.
+#  - op_templates - list of templates to use for the operator. Templates available templates are located in hpu_op_templates.yaml.
 
 _assert_async:
   guid: assert_async
@@ -161,13 +169,11 @@ __rshift__.Tensor_out:
 
 _copy_from:
   override_fn: _copy_from
-  op_validator: CopySharedMeta
-  namespaces: [torch]
+  op_validator_exception: perf drop
 
 _copy_from_and_resize:
   override_fn: _copy_from_and_resize
-  op_validator: CopySharedMeta
-  namespaces: [torch]
+  op_validator_exception: perf drop
 
 _efficientzerotensor:
   output_meta: EfficientZeroMeta
@@ -178,1010 +184,671 @@ _efficientzerotensor:
 
 _foreach_abs:
   guid: abs_fwd
-  op_backend: Foreach
-  output_meta: ForeachMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachOutPlace]
   op_validator: UnaryForeachAbsSharedMeta
 
 _foreach_abs_:
   guid: abs_fwd
-  inplace_ids: [0]
-  op_backend: Foreach
-  namespaces: [torch]
+  op_templates: [ForeachInplace]
   op_validator: UnaryForeachAbsSharedMeta
 
 _foreach_add.Scalar:
   guid: add_fwd
-  op_backend: ForeachBinary
-  output_meta: ForeachBinaryMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryOutPlace]
   op_validator: AddForeachBinarySharedMeta
 
 _foreach_add.List:
   guid: add_fwd
-  op_backend: ForeachBinary
-  output_meta: ForeachBinaryMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryOutPlace]
   op_validator: AddForeachBinarySharedMeta
 
 _foreach_add.Tensor:
   guid: add_fwd
-  op_backend: ForeachBinary
-  output_meta: ForeachBinaryMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryOutPlace]
   op_validator: AddForeachBinarySharedMeta
 
 _foreach_add.ScalarList:
   guid: add_fwd
-  op_backend: ForeachBinary
-  output_meta: ForeachBinaryMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryOutPlace]
   op_validator: AddForeachBinarySharedMeta
 
 _foreach_add_.Scalar:
   guid: add_fwd
-  op_backend: ForeachBinary
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryInplace]
   op_validator: AddForeachBinarySharedMeta
 
 _foreach_add_.List:
   guid: add_fwd
-  op_backend: ForeachBinary
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryInplace]
   op_validator: AddForeachBinarySharedMeta
 
 _foreach_add_.Tensor:
   guid: add_fwd
-  op_backend: ForeachBinary
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryInplace]
   op_validator: AddForeachBinarySharedMeta
 
 _foreach_add_.ScalarList:
   guid: add_fwd
-  op_backend: ForeachBinary
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryInplace]
   op_validator: AddForeachBinarySharedMeta
 
 _foreach_addcdiv.Scalar:
-
   guid: addcdiv_fwd
-  op_backend: ForeachCompound
-  output_meta: ForeachCompoundMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachCompoundOutPlace]
   op_validator: ForeachAddcdivSharedMeta
 
 _foreach_addcdiv.ScalarList:
   guid: addcdiv_fwd
-  op_backend: ForeachCompound
-  output_meta: ForeachCompoundMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachCompoundOutPlace]
   op_validator: ForeachAddcdivSharedMeta
 
 _foreach_addcdiv.Tensor:
   guid: addcdiv_fwd
-  op_backend: ForeachCompound
-  output_meta: ForeachCompoundMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachCompoundOutPlace]
   op_validator: ForeachAddcdivSharedMeta
 
 _foreach_addcdiv_.Scalar:
   guid: addcdiv_fwd
-  op_backend: ForeachCompound
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachCompoundInplace]
   op_validator: ForeachAddcdivSharedMeta
 
 _foreach_addcdiv_.ScalarList:
   guid: addcdiv_fwd
-  op_backend: ForeachCompound
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachCompoundInplace]
   op_validator: ForeachAddcdivSharedMeta
 
 _foreach_addcdiv_.Tensor:
   guid: addcdiv_fwd
-  op_backend: ForeachCompound
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachCompoundInplace]
   op_validator: ForeachAddcdivSharedMeta
 
 _foreach_addcmul.Scalar:
   guid: addcmul_fwd
-  op_backend: ForeachCompound
-  output_meta: ForeachCompoundMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachCompoundOutPlace]
   op_validator: ForeachAddcmulSharedMeta
 
 _foreach_addcmul.ScalarList:
   guid: addcmul_fwd
-  op_backend: ForeachCompound
-  output_meta: ForeachCompoundMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachCompoundOutPlace]
   op_validator: ForeachAddcmulSharedMeta
 
 _foreach_addcmul.Tensor:
   guid: addcmul_fwd
-  op_backend: ForeachCompound
-  output_meta: ForeachCompoundMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachCompoundOutPlace]
   op_validator: ForeachAddcmulSharedMeta
 
 _foreach_addcmul_.Scalar:
   guid: addcmul_fwd
-  op_backend: ForeachCompound
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachCompoundInplace]
   op_validator: ForeachAddcmulSharedMeta
 
 _foreach_addcmul_.ScalarList:
   guid: addcmul_fwd
-  op_backend: ForeachCompound
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachCompoundInplace]
   op_validator: ForeachAddcmulSharedMeta
 
 _foreach_addcmul_.Tensor:
   guid: addcmul_fwd
-  op_backend: ForeachCompound
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachCompoundInplace]
   op_validator: ForeachAddcmulSharedMeta
 
 _foreach_acos:
   guid: acos_fwd
-  op_backend: Foreach
-  output_meta: NonIntegerForeachMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachOutPlaceNonInteger]
   op_validator: UnaryForeachAcosSharedMeta
 
 _foreach_acos_:
   guid: acos_fwd
-  inplace_ids: [0]
-  op_backend: Foreach
-  namespaces: [torch]
+  op_templates: [ForeachInplace]
   op_validator: UnaryForeachAcosSharedMeta
 
 _foreach_asin:
   guid: asin_fwd
-  op_backend: Foreach
-  output_meta: NonIntegerForeachMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachOutPlaceNonInteger]
   op_validator: UnaryForeachAsinSharedMeta
 
 _foreach_asin_:
   guid: asin_fwd
-  inplace_ids: [0]
-  op_backend: Foreach
-  namespaces: [torch]
+  op_templates: [ForeachInplace]
   op_validator: UnaryForeachAsinSharedMeta
 
 _foreach_atan:
   guid: atan_fwd
-  op_backend: Foreach
-  output_meta: NonIntegerForeachMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachOutPlaceNonInteger]
   op_validator: UnaryForeachAtanSharedMeta
 
 _foreach_atan_:
   guid: atan_fwd
-  inplace_ids: [0]
-  op_backend: Foreach
-  namespaces: [torch]
+  op_templates: [ForeachInplace]
   op_validator: UnaryForeachAtanSharedMeta
 
 _foreach_ceil:
   guid: ceil_fwd
-  op_backend: Foreach
-  output_meta: ForeachMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachOutPlace]
   op_validator: UnaryForeachCeilSharedMeta
 
 _foreach_ceil_:
   guid: ceil_fwd
-  inplace_ids: [0]
-  op_backend: Foreach
-  namespaces: [torch]
+  op_templates: [ForeachInplace]
   op_validator: UnaryForeachCeilSharedMeta
 
 _foreach_clamp_max.Scalar:
   guid: foreach_clamp_max
-  output_meta: ForeachBinaryMeta
-  op_backend: ForeachClamp
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachClampOutPlace]
   op_validator: ForeachClampMaxSharedMeta
 
 _foreach_clamp_max.List:
   guid: foreach_clamp_max
-  output_meta: ForeachBinaryMeta
-  op_backend: ForeachClamp
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachClampOutPlace]
   op_validator: ForeachClampMaxSharedMeta
 
 _foreach_clamp_max.ScalarList:
   guid: foreach_clamp_max
-  output_meta: ForeachBinaryMeta
-  op_backend: ForeachClamp
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachClampOutPlace]
   op_validator: ForeachClampMaxSharedMeta
 
 _foreach_clamp_max_.Scalar:
   guid: foreach_clamp_max
-  op_backend: ForeachClamp
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachClampInplace]
   op_validator: ForeachClampMaxSharedMeta
 
 _foreach_clamp_max_.List:
   guid: foreach_clamp_max
-  op_backend: ForeachClamp
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachClampInplace]
   op_validator: ForeachClampMaxSharedMeta
 
 _foreach_clamp_max_.ScalarList:
   guid: foreach_clamp_max
-  op_backend: ForeachClamp
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachClampInplace]
   op_validator: ForeachClampMaxSharedMeta
 
 _foreach_clamp_min.Scalar:
   guid: foreach_clamp_min
-  output_meta: ForeachBinaryMeta
-  op_backend: ForeachClamp
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachClampOutPlace]
   op_validator: ForeachClampMinSharedMeta
 
 _foreach_clamp_min.List:
   guid: foreach_clamp_min
-  output_meta: ForeachBinaryMeta
-  op_backend: ForeachClamp
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachClampOutPlace]
   op_validator: ForeachClampMinSharedMeta
 
 _foreach_clamp_min.ScalarList:
   guid: foreach_clamp_min
-  output_meta: ForeachBinaryMeta
-  op_backend: ForeachClamp
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachClampOutPlace]
   op_validator: ForeachClampMinSharedMeta
 
 _foreach_clamp_min_.Scalar:
   guid: foreach_clamp_min
-  op_backend: ForeachClamp
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachClampInplace]
   op_validator: ForeachClampMinSharedMeta
 
 _foreach_clamp_min_.List:
   guid: foreach_clamp_min
-  op_backend: ForeachClamp
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachClampInplace]
   op_validator: ForeachClampMinSharedMeta
 
 _foreach_clamp_min_.ScalarList:
   guid: foreach_clamp_min
-  op_backend: ForeachClamp
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachClampInplace]
   op_validator: ForeachClampMinSharedMeta
+
+_foreach_copy:
+  guid: foreach_copy
+  op_backend: ForeachCopy
+  output_meta: ForeachCopyMeta
+  out_ids: [0]
+  frontend_blocklist: [lazy]
+  namespaces: [torch]
+  op_validator: ForeachCopySharedMeta
 
 _foreach_cos:
   guid: cos_fwd
-  op_backend: Foreach
-  output_meta: NonIntegerForeachMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachOutPlaceNonInteger]
   op_validator: UnaryForeachCosSharedMeta
 
 _foreach_cos_:
   guid: cos_fwd
-  inplace_ids: [0]
-  op_backend: Foreach
-  namespaces: [torch]
+  op_templates: [ForeachInplace]
   op_validator: UnaryForeachCosSharedMeta
 
 _foreach_cosh:
   guid: cosh_fwd
-  op_backend: Foreach
-  output_meta: NonIntegerForeachMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachOutPlaceNonInteger]
   op_validator: UnaryForeachCoshSharedMeta
 
 _foreach_cosh_:
   guid: cosh_fwd
-  inplace_ids: [0]
-  op_backend: Foreach
-  namespaces: [torch]
+  op_templates: [ForeachInplace]
   op_validator: UnaryForeachCoshSharedMeta
 
 _foreach_div.Scalar:
   guid: div_fwd
-  op_backend: ForeachBinary
-  output_meta: DivForeachBinaryMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [DivForeachBinaryOutPlace]
   op_validator: DivForeachBinarySharedMeta
 
 _foreach_div.Tensor:
   guid: div_fwd
-  op_backend: ForeachBinary
-  output_meta: DivForeachBinaryMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [DivForeachBinaryOutPlace]
   op_validator: DivForeachBinarySharedMeta
 
 _foreach_div.List:
   guid: div_fwd
-  op_backend: ForeachBinary
-  output_meta: DivForeachBinaryMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [DivForeachBinaryOutPlace]
   op_validator: DivForeachBinarySharedMeta
 
 _foreach_div.ScalarList:
   guid: div_fwd
-  op_backend: ForeachBinary
-  output_meta: DivForeachBinaryMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [DivForeachBinaryOutPlace]
   op_validator: DivForeachBinarySharedMeta
 
 _foreach_div_.Scalar:
   guid: div_fwd
-  op_backend: ForeachBinary
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryInplace]
   op_validator: DivForeachBinarySharedMeta
 
 _foreach_div_.Tensor:
   guid: div_fwd
-  op_backend: ForeachBinary
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryInplace]
   op_validator: DivForeachBinarySharedMeta
 
 _foreach_div_.List:
   guid: div_fwd
-  op_backend: ForeachBinary
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryInplace]
   op_validator: DivForeachBinarySharedMeta
 
 _foreach_div_.ScalarList:
   guid: div_fwd
-  op_backend: ForeachBinary
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryInplace]
   op_validator: DivForeachBinarySharedMeta
 
 _foreach_erf:
   guid: erf_fwd
-  op_backend: Foreach
-  output_meta: NonIntegerForeachMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachOutPlaceNonInteger]
   op_validator: UnaryForeachErfSharedMeta
 
 _foreach_erf_:
   guid: erf_fwd
-  inplace_ids: [0]
-  op_backend: Foreach
-  namespaces: [torch]
+  op_templates: [ForeachInplace]
   op_validator: UnaryForeachErfSharedMeta
 
 _foreach_erfc:
   op_backend: ForeachErfc
-  output_meta: NonIntegerForeachMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachOutPlaceNonInteger]
   op_validator: UnaryForeachErfcSharedMeta
 
 _foreach_erfc_:
-  inplace_ids: [0]
   op_backend: ForeachErfc
-  namespaces: [torch]
+  op_templates: [ForeachInplace]
   op_validator: UnaryForeachErfcSharedMeta
 
 _foreach_exp:
   guid: exp_fwd
-  op_backend: Foreach
-  output_meta: NonIntegerForeachMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachOutPlaceNonInteger]
   op_validator: UnaryForeachExpSharedMeta
 
 _foreach_exp_:
   guid: exp_fwd
-  inplace_ids: [0]
-  op_backend: Foreach
-  namespaces: [torch]
+  op_templates: [ForeachInplace]
   op_validator: UnaryForeachExpSharedMeta
 
 _foreach_expm1:
   guid: expm1_fwd
-  op_backend: Foreach
-  output_meta: NonIntegerForeachMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachOutPlaceNonInteger]
   op_validator: UnaryForeachExpm1SharedMeta
 
 _foreach_expm1_:
   guid: expm1_fwd
-  inplace_ids: [0]
-  op_backend: Foreach
-  namespaces: [torch]
+  op_templates: [ForeachInplace]
   op_validator: UnaryForeachExpm1SharedMeta
 
 _foreach_floor:
   guid: floor_fwd
-  op_backend: Foreach
-  output_meta: ForeachMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachOutPlace]
   op_validator: UnaryForeachFloorSharedMeta
 
 _foreach_floor_:
   guid: floor_fwd
-  inplace_ids: [0]
-  op_backend: Foreach
-  namespaces: [torch]
+  op_templates: [ForeachInplace]
   op_validator: UnaryForeachFloorSharedMeta
 
 _foreach_frac:
   guid: frac_fwd
-  op_backend: Foreach
-  output_meta: NonIntegerForeachMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachOutPlaceNonInteger]
   op_validator: UnaryForeachFracSharedMeta
 
 _foreach_frac_:
   guid: frac_fwd
-  inplace_ids: [0]
-  op_backend: Foreach
-  namespaces: [torch]
+  op_templates: [ForeachInplace]
   op_validator: UnaryForeachFracSharedMeta
 
 _foreach_lerp.Scalar:
-  op_backend: ForeachLerp
-  output_meta: ForeachLerpMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachLerpOutPlace]
   op_validator: ForeachLerpSharedMeta
 
 _foreach_lerp.List:
-  op_backend: ForeachLerp
-  output_meta: ForeachLerpMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachLerpOutPlace]
   op_validator: ForeachLerpSharedMeta
 
 _foreach_lerp_.Scalar:
-  op_backend: ForeachLerp
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachLerpInplace]
   op_validator: ForeachLerpSharedMeta
 
 _foreach_lerp_.List:
-  op_backend: ForeachLerp
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachLerpInplace]
   op_validator: ForeachLerpSharedMeta
 
 _foreach_lgamma:
   guid: gammaln_fwd
-  op_backend: Foreach
-  output_meta: NonIntegerForeachMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachOutPlaceNonInteger]
   op_validator: UnaryForeachLgammaSharedMeta
 
 _foreach_lgamma_:
   guid: gammaln_fwd
-  inplace_ids: [0]
-  op_backend: Foreach
-  namespaces: [torch]
+  op_templates: [ForeachInplace]
   op_validator: UnaryForeachLgammaSharedMeta
 
 _foreach_log:
   guid: log_fwd
-  op_backend: Foreach
-  output_meta: NonIntegerForeachMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachOutPlaceNonInteger]
   op_validator: UnaryForeachLogSharedMeta
 
 _foreach_log_:
   guid: log_fwd
-  inplace_ids: [0]
-  op_backend: Foreach
-  namespaces: [torch]
+  op_templates: [ForeachInplace]
   op_validator: UnaryForeachLogSharedMeta
 
 _foreach_log10:
   op_backend: ForeachLog10
-  output_meta: NonIntegerForeachMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachOutPlaceNonInteger]
   op_validator: UnaryForeachLog10SharedMeta
 
 _foreach_log10_:
-  inplace_ids: [0]
   op_backend: ForeachLog10
-  namespaces: [torch]
+  op_templates: [ForeachInplace]
   op_validator: UnaryForeachLog10SharedMeta
 
 _foreach_log1p:
   guid: log1p_fwd
-  op_backend: Foreach
-  output_meta: NonIntegerForeachMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachOutPlaceNonInteger]
   op_validator: UnaryForeachLog1pSharedMeta
 
 _foreach_log1p_:
   guid: log1p_fwd
-  inplace_ids: [0]
-  op_backend: Foreach
-  namespaces: [torch]
+  op_templates: [ForeachInplace]
   op_validator: UnaryForeachLog1pSharedMeta
 
 _foreach_log2:
   guid: log2_fwd
-  op_backend: Foreach
-  output_meta: NonIntegerForeachMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachOutPlaceNonInteger]
   op_validator: UnaryForeachLog2SharedMeta
 
 _foreach_log2_:
   guid: log2_fwd
-  inplace_ids: [0]
-  op_backend: Foreach
-  namespaces: [torch]
+  op_templates: [ForeachInplace]
   op_validator: UnaryForeachLog2SharedMeta
 
 _foreach_maximum.Scalar:
   guid: max_fwd
-  op_backend: ForeachBinary
-  output_meta: ForeachBinaryMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryOutPlace]
   op_validator: MaxForeachBinarySharedMeta
 
 _foreach_maximum.List:
   guid: max_fwd
-  op_backend: ForeachBinary
-  output_meta: ForeachBinaryMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryOutPlace]
   op_validator: MaxForeachBinarySharedMeta
 
 _foreach_maximum.ScalarList:
   guid: max_fwd
-  op_backend: ForeachBinary
-  output_meta: ForeachBinaryMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryOutPlace]
   op_validator: MaxForeachBinarySharedMeta
 
 _foreach_maximum_.Scalar:
   guid: max_fwd
-  op_backend: ForeachBinary
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryInplace]
   op_validator: MaxForeachBinarySharedMeta
 
 _foreach_maximum_.List:
   guid: max_fwd
-  op_backend: ForeachBinary
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryInplace]
   op_validator: MaxForeachBinarySharedMeta
 
 _foreach_maximum_.ScalarList:
   guid: max_fwd
-  op_backend: ForeachBinary
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryInplace]
   op_validator: MaxForeachBinarySharedMeta
 
 _foreach_minimum.Scalar:
   guid: min_fwd
-  op_backend: ForeachBinary
-  output_meta: ForeachBinaryMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryOutPlace]
   op_validator: MinForeachBinarySharedMeta
 
 _foreach_minimum.List:
   guid: min_fwd
-  op_backend: ForeachBinary
-  output_meta: ForeachBinaryMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryOutPlace]
   op_validator: MinForeachBinarySharedMeta
 
 _foreach_minimum.ScalarList:
   guid: min_fwd
-  op_backend: ForeachBinary
-  output_meta: ForeachBinaryMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryOutPlace]
   op_validator: MinForeachBinarySharedMeta
 
 _foreach_minimum_.Scalar:
   guid: min_fwd
-  op_backend: ForeachBinary
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryInplace]
   op_validator: MinForeachBinarySharedMeta
 
 _foreach_minimum_.List:
   guid: min_fwd
-  op_backend: ForeachBinary
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryInplace]
   op_validator: MinForeachBinarySharedMeta
 
 _foreach_minimum_.ScalarList:
   guid: min_fwd
-  op_backend: ForeachBinary
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryInplace]
   op_validator: MinForeachBinarySharedMeta
 
 _foreach_mul.Scalar:
   guid: mult_fwd
-  op_backend: ForeachBinary
-  output_meta: ForeachBinaryMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryOutPlace]
   op_validator: MultForeachBinarySharedMeta
 
 _foreach_mul.List:
   guid: mult_fwd
-  op_backend: ForeachBinary
-  output_meta: ForeachBinaryMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryOutPlace]
   op_validator: MultForeachBinarySharedMeta
 
 _foreach_mul.Tensor:
   guid: mult_fwd
-  op_backend: ForeachBinary
-  output_meta: ForeachBinaryMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryOutPlace]
   op_validator: MultForeachBinarySharedMeta
 
 _foreach_mul.ScalarList:
   guid: mult_fwd
-  op_backend: ForeachBinary
-  output_meta: ForeachBinaryMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryOutPlace]
   op_validator: MultForeachBinarySharedMeta
 
 _foreach_mul_.Scalar:
   guid: mult_fwd
-  op_backend: ForeachBinary
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryInplace]
   op_validator: MultForeachBinarySharedMeta
 
 _foreach_mul_.Tensor:
   guid: mult_fwd
-  op_backend: ForeachBinary
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryInplace]
   op_validator: MultForeachBinarySharedMeta
 
 _foreach_mul_.List:
   guid: mult_fwd
-  op_backend: ForeachBinary
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryInplace]
   op_validator: MultForeachBinarySharedMeta
 
 _foreach_mul_.ScalarList:
   guid: mult_fwd
-  op_backend: ForeachBinary
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryInplace]
   op_validator: MultForeachBinarySharedMeta
 
 _foreach_neg:
   guid: neg_fwd
-  op_backend: Foreach
-  output_meta: ForeachMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachOutPlace]
   op_validator: UnaryForeachNegSharedMeta
 
 _foreach_neg_:
   guid: neg_fwd
-  inplace_ids: [0]
-  op_backend: Foreach
-  namespaces: [torch]
+  op_templates: [ForeachInplace]
   op_validator: UnaryForeachNegSharedMeta
 
 _foreach_pow.Scalar:
-  guid: pow_fwd
-  op_backend: PowForeachBinary
-  output_meta: ForeachBinaryMeta
-  out_ids: [0]
-  namespaces: [torch]
-  op_validator: PowForeachBinarySharedMeta
+  op_templates: [ForeachPowOutPlace]
 
 _foreach_pow.ScalarAndTensor:
-  guid: pow_fwd
-  op_backend: PowForeachBinary
-  output_meta: ForeachBinaryMeta
+  op_templates: [ForeachPowOutPlace]
   out_ids: [1]
-  namespaces: [torch]
-  op_validator: PowForeachBinarySharedMeta
 
 _foreach_pow.List:
-  guid: pow_fwd
-  op_backend: PowForeachBinary
-  output_meta: ForeachBinaryMeta
-  out_ids: [0]
-  namespaces: [torch]
-  op_validator: PowForeachBinarySharedMeta
+  op_templates: [ForeachPowOutPlace]
 
 _foreach_pow.ScalarList:
-  guid: pow_fwd
-  op_backend: PowForeachBinary
-  output_meta: ForeachBinaryMeta
-  out_ids: [0]
-  namespaces: [torch]
-  op_validator: PowForeachBinarySharedMeta
+  op_templates: [ForeachPowOutPlace]
 
 _foreach_pow_.Scalar:
-  guid: pow_fwd
-  op_backend: PowForeachBinary
-  inplace_ids: [0]
-  namespaces: [torch]
-  op_validator: PowForeachBinarySharedMeta
+  op_templates: [ForeachPowInplace]
 
 _foreach_pow_.List:
-  guid: pow_fwd
-  op_backend: PowForeachBinary
-  inplace_ids: [0]
-  namespaces: [torch]
-  op_validator: PowForeachBinarySharedMeta
+  op_templates: [ForeachPowInplace]
 
 _foreach_pow_.ScalarList:
-  guid: pow_fwd
-  op_backend: PowForeachBinary
-  inplace_ids: [0]
-  namespaces: [torch]
-  op_validator: PowForeachBinarySharedMeta
+  op_templates: [ForeachPowInplace]
 
 _foreach_reciprocal:
   guid: reciprocal_fwd
-  op_backend: Foreach
-  output_meta: NonIntegerForeachMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachOutPlaceNonInteger]
   op_validator: UnaryForeachReciprocalSharedMeta
 
 _foreach_reciprocal_:
   guid: reciprocal_fwd
-  inplace_ids: [0]
-  op_backend: Foreach
-  namespaces: [torch]
+  op_templates: [ForeachInplace]
   op_validator: UnaryForeachReciprocalSharedMeta
 
 _foreach_round:
   custom_fill_params: FillRoundParams
   guid: round_fwd
-  op_backend: Foreach
-  output_meta: ForeachMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachOutPlace]
   op_validator: UnaryForeachRoundSharedMeta
 
 _foreach_round_:
   custom_fill_params: FillRoundParams
   guid: round_fwd
-  inplace_ids: [0]
-  op_backend: Foreach
-  namespaces: [torch]
+  op_templates: [ForeachInplace]
   op_validator: UnaryForeachRoundSharedMeta
 
 _foreach_sign:
   guid: sign_fwd
-  op_backend: Foreach
-  output_meta: ForeachMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachOutPlace]
   op_validator: UnaryForeachSignSharedMeta
 
 _foreach_sign_:
   guid: sign_fwd
-  inplace_ids: [0]
-  op_backend: Foreach
-  namespaces: [torch]
+  op_templates: [ForeachInplace]
   op_validator: UnaryForeachSignSharedMeta
 
 _foreach_sigmoid:
   guid: sigmoid_fwd
-  op_backend: Foreach
-  output_meta: NonIntegerForeachMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachOutPlaceNonInteger]
   op_validator: UnaryForeachSigmoidSharedMeta
 
 _foreach_sigmoid_:
   guid: sigmoid_fwd
-  inplace_ids: [0]
-  op_backend: Foreach
-  namespaces: [torch]
+  op_templates: [ForeachInplace]
   op_validator: UnaryForeachSigmoidSharedMeta
 
 _foreach_sin:
   guid: sin_fwd
-  op_backend: Foreach
-  output_meta: NonIntegerForeachMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachOutPlaceNonInteger]
   op_validator: UnaryForeachSinSharedMeta
 
 _foreach_sin_:
   guid: sin_fwd
-  inplace_ids: [0]
-  op_backend: Foreach
-  namespaces: [torch]
+  op_templates: [ForeachInplace]
   op_validator: UnaryForeachSinSharedMeta
 
 _foreach_sinh:
   guid: sinh_fwd
-  op_backend: Foreach
-  output_meta: NonIntegerForeachMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachOutPlaceNonInteger]
   op_validator: UnaryForeachSinhSharedMeta
 
 _foreach_sinh_:
   guid: sinh_fwd
-  inplace_ids: [0]
-  op_backend: Foreach
-  namespaces: [torch]
+  op_templates: [ForeachInplace]
   op_validator: UnaryForeachSinhSharedMeta
 
 _foreach_sqrt:
   guid: sqrt_fwd
-  op_backend: Foreach
-  output_meta: NonIntegerForeachMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachOutPlaceNonInteger]
   op_validator: UnaryForeachSqrtSharedMeta
 
 _foreach_sqrt_:
   guid: sqrt_fwd
-  inplace_ids: [0]
-  op_backend: Foreach
-  namespaces: [torch]
+  op_templates: [ForeachInplace]
   op_validator: UnaryForeachSqrtSharedMeta
 
 _foreach_sub.Scalar:
   guid: sub_fwd
-  op_backend: ForeachBinary
-  output_meta: ForeachBinaryMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryOutPlace]
   op_validator: SubForeachBinarySharedMeta
 
 _foreach_sub.List:
   guid: sub_fwd
-  op_backend: ForeachBinary
-  output_meta: ForeachBinaryMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryOutPlace]
   op_validator: SubForeachBinarySharedMeta
 
 _foreach_sub.ScalarList:
   guid: sub_fwd
-  op_backend: ForeachBinary
-  output_meta: ForeachBinaryMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryOutPlace]
   op_validator: SubForeachBinarySharedMeta
 
 _foreach_sub_.Scalar:
   guid: sub_fwd
-  op_backend: ForeachBinary
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryInplace]
   op_validator: SubForeachBinarySharedMeta
 
 _foreach_sub_.List:
   guid: sub_fwd
-  op_backend: ForeachBinary
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryInplace]
   op_validator: SubForeachBinarySharedMeta
 
 _foreach_sub_.ScalarList:
   guid: sub_fwd
-  op_backend: ForeachBinary
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryInplace]
   op_validator: SubForeachBinarySharedMeta
 
 _foreach_tan:
   guid: tan_fwd
-  op_backend: Foreach
-  output_meta: NonIntegerForeachMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachOutPlaceNonInteger]
   op_validator: UnaryForeachTanSharedMeta
 
 _foreach_tan_:
   guid: tan_fwd
-  inplace_ids: [0]
-  op_backend: Foreach
-  namespaces: [torch]
+  op_templates: [ForeachInplace]
   op_validator: UnaryForeachTanSharedMeta
 
 _foreach_tanh:
   guid: tanh_fwd
-  op_backend: Foreach
-  output_meta: NonIntegerForeachMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachOutPlaceNonInteger]
   op_validator: UnaryForeachTanhSharedMeta
 
 _foreach_tanh_:
   guid: tanh_fwd
-  inplace_ids: [0]
-  op_backend: Foreach
-  namespaces: [torch]
+  op_templates: [ForeachInplace]
   op_validator: UnaryForeachTanhSharedMeta
 
 _foreach_trunc:
   guid: trunc_fwd
-  op_backend: Foreach
-  output_meta: ForeachMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachOutPlace]
   op_validator: UnaryForeachTruncSharedMeta
 
 _foreach_trunc_:
   guid: trunc_fwd
-  inplace_ids: [0]
-  op_backend: Foreach
-  namespaces: [torch]
+  op_templates: [ForeachInplace]
   op_validator: UnaryForeachTruncSharedMeta
 
 _foreach_zero_:
@@ -1189,6 +856,12 @@ _foreach_zero_:
   op_backend: ForeachZero
   namespaces: [torch]
   op_validator: UnaryForeachZeroSharedMeta
+
+_fused_adamw_:
+  op_backend: FusedAdamW
+  inplace_ids: [0, 1, 2, 3, 4]
+  namespaces: [torch]
+  op_validator: AdamWSharedMeta
 
 _fused_dropout:
   output_meta: FusedNativeDropoutMeta
@@ -1208,6 +881,15 @@ _cdist_forward:
   out_ids: [0]
   op_validator: check-node-with-shared-layer
   skip_slrg: true # TORCH_CHECK inside output_meta
+
+_cdist_backward:
+  output_meta: CdistBwdMeta
+  custom_fill_params: FillCdistBwdParams
+  guid: cdist_bwd
+  out_ids: [1]
+  op_backend: CdistBwd
+  op_validator: CdistBwdSharedMeta
+  namespaces: [torch.ops.aten]
 
 _pdist_forward:
   output_meta: PdistFwdMeta
@@ -1254,14 +936,12 @@ native_dropout_backward:
 
 as_strided:
   override_fn: as_strided_hpu
-  op_validator: StridedViewSharedMeta
-  namespaces: [torch, torch.Tensor]
+  op_validator_exception: perf drop
   acc_thread: true
 
 as_strided_:
   override_fn: as_strided_hpu_lazy_
-  op_validator: StridedViewSharedMeta
-  namespaces: [torch, torch.Tensor]
+  op_validator_exception: perf drop
   acc_thread: true
 
 set_:
@@ -1609,6 +1289,7 @@ all:
   out_ids: [0]
   namespaces: [torch, torch.Tensor]
   op_backend: All
+  treat_as_dtdf: true
 
 all.all_out:
   output_meta: AllAnyMeta
@@ -1622,6 +1303,7 @@ all.dim:
   op_backend: AllDim
   namespaces: [torch, torch.Tensor]
   out_ids: [0]
+  treat_as_dtdf: true
 
 all.out:
   output_meta: AllAnyDimMeta
@@ -1635,12 +1317,14 @@ all.dims:
   op_backend: AllDims
   namespaces: [torch, torch.Tensor]
   out_ids: [0]
+  treat_as_dtdf: true
 
 all.dims_out:
   output_meta: AllAnyDimMeta
   op_validator: AllSharedMeta
   namespaces: [torch, torch.Tensor]
   op_backend: AllDims
+  treat_as_dtdf: true
 
 amax:
   guid: reduce_max_multi_dim_fwd
@@ -1719,6 +1403,7 @@ any:
   op_backend: Any
   out_ids: [0]
   namespaces: [torch, torch.Tensor]
+  treat_as_dtdf: true
 
 any.dim:
   output_meta: AllAnyDimMeta
@@ -1726,6 +1411,7 @@ any.dim:
   op_backend: AnyDim
   out_ids: [0]
   namespaces: [torch, torch.Tensor]
+  treat_as_dtdf: true
 
 any.dims:
   output_meta: AllAnyDimMeta
@@ -1733,12 +1419,14 @@ any.dims:
   op_backend: AnyDims
   out_ids: [0]
   namespaces: [torch, torch.Tensor]
+  treat_as_dtdf: true
 
 any.dims_out:
   output_meta: AllAnyDimMeta
   op_validator: AnySharedMeta
   op_backend: AnyDims
   namespaces: [torch, torch.Tensor]
+  treat_as_dtdf: true
 
 any.out:
   output_meta: AllAnyDimMeta
@@ -1818,6 +1506,13 @@ argmin.out:
   guid: argmin_multi_dim_fwd
   namespaces: [torch, torch.Tensor]
   op_validator: check-node-with-shared-layer
+
+argsort.stable:
+  output_meta: ArgSortStableMeta
+  op_backend: ArgSortStable
+  out_ids: [0]
+  namespaces: [torch, torch.Tensor]
+  op_validator: TopkSharedMeta
 
 asin:
   promote_int_to_float: [self]
@@ -2684,6 +2379,7 @@ complex:
   override_fn: complex_hpu
   op_validator: EmptySharedMeta
   namespaces: [torch]
+  treat_as_dtdf: true
 
 angle:
   guid: angle_fwd
@@ -2718,6 +2414,7 @@ convolution_overrideable:
   overwritten_op_names_in_slrg: [conv1d, conv2d, conv3d, conv_transpose1d, conv_transpose2d, conv_transpose3d]
   namespaces: [torch, torch.nn, torch.nn.functional]
   op_validator: ConvolutionSharedMeta
+  treat_as_dtdf: true
 
 convolution:
   output_meta: ConvolutionOverrideableMeta
@@ -2739,6 +2436,7 @@ convolution_backward_overrideable:
   out_ids: [0, 0, 0]
   op_validator: ConvolutionBwdOverrideableSharedMeta
   skip_slrg: true
+  treat_as_dtdf: true
 
 convolution_backward:
   output_meta: ConvolutionOverrideableMetaBwd
@@ -3124,6 +2822,19 @@ embedding_renorm:
   op_validator: check-node-with-shared-layer
   skip_slrg: true
 
+renorm.out:
+  custom_fill_params: FillRenormParams
+  guid: renorm
+  op_validator: check-node-with-shared-layer
+  namespaces: [torch]
+
+renorm:
+  custom_fill_params: FillRenormParams
+  guid: renorm
+  op_validator: check-node-with-shared-layer
+  namespaces: [torch]
+  out_ids: [0]
+
 equal:
   guid: equal_pt_fwd
   custom_fill_params: FillEqualParams
@@ -3350,16 +3061,18 @@ exponential.out:
   op_validator: ExponentialSharedMeta
 
 eye.out:
+  custom_fill_params: FillEyeParams
   output_meta: EyeMeta
-  op_backend: EyeOpOut
+  guid: eye_fwd
   namespaces: [torch]
-  op_validator: EyeSharedMeta
+  op_validator: check-node-with-shared-layer
 
 eye.m_out:
+  custom_fill_params: FillEyeParams
   output_meta: EyeMeta
-  op_backend: EyeOpOut
+  guid: eye_fwd
   namespaces: [torch]
-  op_validator: EyeSharedMeta
+  op_validator: check-node-with-shared-layer
 
 fill.Scalar:
   op_backend: FillScalar
@@ -3754,6 +3467,23 @@ grid_sampler_3d_backward:
   op_validator: check-node-with-shared-layer
   skip_slrg: true
 
+# dtdf
+narrow_copy.out:
+  custom_fill_params: FillNarrowCopyParams
+  output_meta: NarrowCopyMeta
+  guid: narrow_copy
+  op_validator: check-node-with-shared-layer
+  namespaces: [torch.ops.aten]
+
+# for compile mode
+narrow_copy:
+  custom_fill_params: FillNarrowCopyParams
+  output_meta: NarrowCopyMeta
+  guid: narrow_copy
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+  namespaces: [torch.ops.aten]
+
 native_group_norm:
   guid: native_group_norm_fwd
   custom_fill_params: FillNativeGroupNormParams
@@ -3762,6 +3492,7 @@ native_group_norm:
   out_ids: [0, 0, 0]
   namespaces: [torch]
   op_validator: NativeGroupNormFwdSharedMeta
+  treat_as_dtdf: true
 
 native_group_norm_backward:
   output_meta: GroupNormBwdMeta
@@ -4032,16 +3763,18 @@ huber_loss.out:
   op_validator: check-node-with-shared-layer
 
 huber_loss_backward:
+  custom_fill_params: FillHuberLossBwdParams
   output_meta: HuberLossBackwardMeta
-  op_backend: HuberLossBwdOperator
+  guid: huber_loss_bwd
   out_ids: [0]
-  op_validator: HuberLossBackwardSharedMeta
+  op_validator: check-node-with-shared-layer
   skip_slrg: true
 
 huber_loss_backward.out:
+  custom_fill_params: FillHuberLossBwdParams
   output_meta: HuberLossBackwardMeta
-  op_backend: HuberLossBwdOperator
-  op_validator: HuberLossBackwardSharedMeta
+  guid: huber_loss_bwd
+  op_validator: check-node-with-shared-layer
   skip_slrg: true
 
 heaviside:
@@ -4086,7 +3819,6 @@ index.Tensor:
   output_meta: IndexMeta
   custom_fill_params: FillIndexParams
   guid: index
-  fallback_check: [IndexFallbackCheck, indices]
   op_backend: IndexHabanaOperator
   op_validator: IndexSharedMeta
   op_frontend: IndexFE
@@ -4098,7 +3830,6 @@ index.Tensor_out:
   output_meta: IndexMeta
   custom_fill_params: FillIndexParams
   guid: index
-  fallback_check: [IndexFallbackCheck, indices]
   op_backend: IndexHabanaOperator
   op_validator: IndexSharedMeta
   op_frontend: IndexOutFE
@@ -4239,9 +3970,8 @@ index_add.out:
 index_add_:
   override_fn: index_add_hpu_lazy_
   acc_thread: true
-  op_validator: IndexAddSharedMeta
+  op_validator: IndexAddLazySharedMeta
   namespaces: [torch.Tensor]
-  skip_slrg: true # HPUDeviceContext::get_device().type() inside output meta
 
 index_copy:
   guid: index_copy_fwd
@@ -4270,27 +4000,27 @@ index_copy.out:
 
 index_fill_.int_Scalar:
   output_meta: IndexFillMeta
-  custom_fill_params: FillIndexCopyParams
+  custom_fill_params: FillIndexFillParams
   op_backend: IndexFill
-  guid: index_copy_fwd
+  guid: index_fill
   inplace_ids: [0]
   namespaces: [torch.Tensor]
   op_validator: IndexFillSharedMeta
 
 index_fill_.int_Tensor:
   output_meta: IndexFillMeta
-  custom_fill_params: FillIndexCopyParams
+  custom_fill_params: FillIndexFillParams
   op_backend: IndexFill
-  guid: index_copy_fwd
+  guid: index_fill
   inplace_ids: [0]
   namespaces: [torch.Tensor]
   op_validator: IndexFillSharedMeta
 
 index_fill.int_Scalar:
   output_meta: IndexFillMeta
-  custom_fill_params: FillIndexCopyParams
+  custom_fill_params: FillIndexFillParams
   op_backend: IndexFill
-  guid: index_copy_fwd
+  guid: index_fill
   out_ids: [0]
   namespaces: [torch, torch.Tensor]
   op_validator: IndexFillSharedMeta
@@ -4528,15 +4258,42 @@ lerp_.Tensor:
   namespaces: [torch.Tensor]
   op_validator: LerpSharedMeta
 
+lgamma:
+  promote_int_to_float: [self]
+  out_ids: [0]
+  guid: gammaln_fwd
+  namespaces: [torch]
+  op_validator: check-node-with-shared-layer
+
 lgamma.out:
   promote_int_to_float: [self]
   guid: gammaln_fwd
   namespaces: [torch]
   op_validator: check-node-with-shared-layer
 
+igamma:
+  promote_int_to_float: [self]
+  out_ids: [0]
+  guid: igamma_fwd
+  op_validator: check-node-with-shared-layer
+  namespaces: [torch]
+
 igamma.out:
   promote_int_to_float: [self]
   guid: igamma_fwd
+  op_validator: check-node-with-shared-layer
+  namespaces: [torch]
+
+igammac:
+  promote_int_to_float: [self]
+  out_ids: [0]
+  guid: igammac_fwd
+  op_validator: check-node-with-shared-layer
+  namespaces: [torch]
+
+igammac.out:
+  promote_int_to_float: [self]
+  guid: igammac_fwd
   op_validator: check-node-with-shared-layer
   namespaces: [torch]
 
@@ -5123,18 +4880,18 @@ maximum.out:
 
 fmax:
   broadcast: true
-  guid: max_fwd
+  op_backend: FMax
   out_ids: [0]
   promote_to_common_type: [self, other]
   namespaces: [torch, torch.Tensor]
-  op_validator: check-node-with-shared-layer
+  op_validator: FMaxSharedMeta
 
 fmax.out:
   broadcast: true
-  guid: max_fwd
+  op_backend: FMax
   promote_to_common_type: [self, other]
   namespaces: [torch, torch.Tensor]
-  op_validator: check-node-with-shared-layer
+  op_validator: FMaxSharedMeta
 
 max_pool2d_with_indices:
   custom_fill_params: FillSpatialReduction2DParamsFwd
@@ -5194,8 +4951,7 @@ max_pool3d_with_indices.out:
 max_pool3d_with_indices_backward:
   custom_fill_params: FillSpatialReduction3DParamsBwd
   output_meta: MaxPoolMetaBwd
-  st_meta: DefaultSTMetaFnOneOutputShapeUpdate
-  guid: maxpool_3d_bwd
+  guid: pt_maxpool_3d_bwd
   op_backend: MaxPool3DWithIndicesBwd
   op_validator: MaxPool3DWithIndicesBwdSharedMeta
   out_ids: [0]
@@ -5204,8 +4960,7 @@ max_pool3d_with_indices_backward:
 max_pool3d_with_indices_backward.grad_input:
   custom_fill_params: FillSpatialReduction3DParamsBwd
   output_meta: MaxPoolMetaBwd
-  st_meta: DefaultSTMetaFnOneOutputShapeUpdate
-  guid: maxpool_3d_bwd
+  guid: pt_maxpool_3d_bwd
   op_backend: MaxPool3DWithIndicesBwd
   op_validator: MaxPool3DWithIndicesBwdSharedMeta
   skip_slrg: true
@@ -5299,17 +5054,19 @@ max:
   output_meta: ReduceMinMaxMeta
   custom_fill_params: FillMinMaxParams
   guid: reduce_max_multi_dim_fwd
+  op_backend: MinMax
   out_ids: [0]
   namespaces: [torch, torch.Tensor]
-  op_validator: check-node-with-shared-layer
+  op_validator: MaxSharedMeta
 
 min:
   output_meta: ReduceMinMaxMeta
   custom_fill_params: FillMinMaxParams
   guid: reduce_min_multi_dim_fwd
+  op_backend: MinMax
   out_ids: [0]
   namespaces: [torch, torch.Tensor]
-  op_validator: check-node-with-shared-layer
+  op_validator: MinSharedMeta
 
 min.dim:
   guid: reduce_min_multi_dim_fwd
@@ -5328,18 +5085,18 @@ min.dim_min:
 
 fmin:
   broadcast: true
-  guid: min_fwd
+  op_backend: FMin
   out_ids: [0]
   promote_to_common_type: [self, other]
   namespaces: [torch, torch.Tensor]
-  op_validator: check-node-with-shared-layer
+  op_validator: FMinSharedMeta
 
 fmin.out:
   broadcast: true
-  guid: min_fwd
+  op_backend: FMin
   promote_to_common_type: [self, other]
   namespaces: [torch, torch.Tensor]
-  op_validator: check-node-with-shared-layer
+  op_validator: FMinSharedMeta
 
 minimum:
   broadcast: true
@@ -5615,6 +5372,8 @@ _native_batch_norm_legit:
     running_var: [Float]
   op_backend: BatchNormOpBackend
   out_ids: [0, 0, 0]
+  op_validator_exception: not implemented yet
+  treat_as_non_inplace: ["running_mean", "running_var"]
 
 _native_batch_norm_legit_no_training:
   custom_fill_params: FillBatchNormNoTrainingFwdParams
@@ -5628,6 +5387,7 @@ _native_batch_norm_legit_no_training:
   guid: batch_norm_inf_reshape
   op_backend: BatchNormNoTrainingOpBackend
   out_ids: [0, 0, 0]
+  op_validator_exception: not implemented yet
 
 _native_batch_norm_legit.no_stats:
   custom_fill_params: FillBatchNormNoStatsFwdParams
@@ -5639,6 +5399,7 @@ _native_batch_norm_legit.no_stats:
   guid: _native_batch_norm_legit.no_stats
   op_backend: BatchNormNoStatsOpBackend
   out_ids: [0, 0, 0]
+  op_validator_exception: not implemented yet
 
 _native_batch_norm_legit_functional:
   custom_fill_params: FillBatchNormFwdParams
@@ -5652,6 +5413,7 @@ _native_batch_norm_legit_functional:
   guid: _native_batch_norm_legit_functional
   op_backend: BatchNormOpBackend
   out_ids: [0, 0, 0, 0, 0]
+  op_validator_exception: not implemented yet
 
 native_batch_norm:
   custom_fill_params: FillBatchNormFwdParams
@@ -5664,6 +5426,7 @@ native_batch_norm:
     running_var: [Float]
   op_backend: BatchNormOpBackend
   out_ids: [0, 0, 0]
+  op_validator_exception: not implemented yet
   lazy:
     acc_thread: true
     override_fn: batch_norm_hpu_lazy
@@ -5681,6 +5444,7 @@ native_batch_norm.out:
     save_mean: [Float]
     save_invstd: [Float]
   op_backend: BatchNormOpBackend
+  op_validator_exception: not implemented yet
 
 native_batch_norm_backward:
   custom_fill_params: FillBatchNormBwdParams
@@ -5691,6 +5455,7 @@ native_batch_norm_backward:
   synapse_layouts:
   - [WHCN, WHCN, DONT_CARE, DONT_CARE, DONT_CARE]
   - [WHCN, DONT_CARE, DONT_CARE]
+  op_validator_exception: not implemented yet
   lazy:
     acc_thread: true
     override_fn: batch_norm_bwd_hpu_lazy
@@ -5702,6 +5467,8 @@ native_layer_norm:
   op_backend: LayerNormHabanaOperator
   output_meta: LayerNormHabanaMeta
   out_ids: [0, 0, 0]
+  treat_as_dtdf: true
+  op_validator_exception: not implemented yet
 
 native_layer_norm_backward:
   dtypes: [BFloat16, Float, Half]
@@ -5710,6 +5477,8 @@ native_layer_norm_backward:
   op_backend: LayerNormBwdHabanaOperator
   output_meta: LayerNormBwdMeta
   out_ids: [0, 0, 0]
+  handle_output_mask: LayerNormBwdOutputMaskFn
+  op_validator_exception: not implemented yet
 
 ne.Tensor_out:
   op_backend: NE
@@ -5854,7 +5623,7 @@ nll_loss2d_forward:
   skip_slrg: true
   synapse_layouts:
   - [WHCN, WHN, DONT_CARE, DONT_CARE]
-  - [WHN]
+  - [DONT_CARE, DONT_CARE]
 
 nll_loss_backward.grad_input:
   custom_fill_params: FillNllLossBwdParams
@@ -6011,6 +5780,7 @@ _weight_norm_interface:
   dtypes: [BFloat16, Float, Half]
   op_backend: WeightNormOp
   out_ids: [0, 0]
+  op_validator_exception: not implemented yet
 
 _weight_norm_interface_backward:
   output_meta: WeightNormBwdMeta
@@ -6018,6 +5788,7 @@ _weight_norm_interface_backward:
   guid: weight_norm_bwd
   dtypes: [BFloat16, Float, Half]
   out_ids: [0, 0]
+  op_validator_exception: not implemented yet
 
 one_hot:
   custom_fill_params: FillOneHotParams
@@ -6110,6 +5881,7 @@ _prelu_kernel:
   out_ids: [0]
   output_meta: PreluFwdMeta
   guid: prelu_fwd
+  op_validator_exception: not implemented yet
 
 _prelu_kernel_backward:
   out_ids: [1, 2]
@@ -6424,6 +6196,7 @@ repeat:
   acc_thread: true
   out_ids: [0]
   namespaces: [torch.Tensor]
+  treat_as_dtdf: true
 
 replication_pad1d:
   output_meta: ReplicationPad1DMeta
@@ -6588,6 +6361,7 @@ rrelu_with_noise:
   pytorch_module_names: [RReLU]
   overwritten_op_names_in_slrg: [rrelu]
   op_validator: RreluWithNoiseSharedMeta
+  treat_as_non_inplace: ["noise"]
 
 rrelu_with_noise_:
   op_frontend: GeneratorToSeed
@@ -6598,6 +6372,7 @@ rrelu_with_noise_:
   pytorch_module_names: [RReLU]
   overwritten_op_names_in_slrg: [rrelu_]
   op_validator: RreluWithNoiseSharedMeta
+  treat_as_non_inplace: ["noise"]
 
 rrelu_with_noise.out:
   op_frontend: GeneratorToSeedOut
@@ -6607,6 +6382,7 @@ rrelu_with_noise.out:
   pytorch_module_names: [RReLU]
   overwritten_op_names_in_slrg: [rrelu]
   op_validator: RreluWithNoiseSharedMeta
+  treat_as_non_inplace: ["noise"]
 
 rrelu_with_noise_backward:
   op_backend: Rrelu_with_noise_bwd
@@ -7032,15 +6808,17 @@ smooth_l1_loss.out:
 
 smooth_l1_loss_backward:
   output_meta: SmoothL1LossBackwardMeta
-  op_backend: SmoothL1LossBwdOperator
-  op_validator: SmoothL1LossBwdSharedMeta
+  custom_fill_params: FillSmoothL1LossBwdParams
+  guid: smooth_l1_loss_bwd
+  op_validator: check-node-with-shared-layer
   out_ids: [0]
   skip_slrg: true
 
 smooth_l1_loss_backward.grad_input:
   output_meta: SmoothL1LossBackwardMeta
-  op_backend: SmoothL1LossBwdOperator
-  op_validator: SmoothL1LossBwdSharedMeta
+  custom_fill_params: FillSmoothL1LossBwdParams
+  guid: smooth_l1_loss_bwd
+  op_validator: check-node-with-shared-layer
   skip_slrg: true
 
 _softmax:
@@ -7056,6 +6834,7 @@ _safe_softmax:
   op_validator: SoftmaxSharedMeta
   out_ids: [0]
   namespaces: [torch]
+  treat_as_dtdf: true
 
 _softmax.out:
   custom_fill_params: FillSoftmaxForwardParams
@@ -7512,13 +7291,11 @@ topk.values:
 
 sort.values_stable:
   output_meta: SortStableMeta
-  fallback_check: [SortStableFallbackCheck, self, stable, dim, descending]
   op_backend: SortStable
   namespaces: [torch, torch.Tensor]
   op_validator: TopkSharedMeta
 
 sort.stable:
-  fallback_check: [SortStableFallbackCheck, self, stable, dim, descending]
   op_backend: SortStable
   output_meta: SortStableMeta
   out_ids: [0, 0]
@@ -7632,12 +7409,6 @@ uniform_:
   op_validator: RandomUniformSharedMeta
   namespaces: [torch.Tensor]
   schema_args: "(Tensor(a!) self, float from=0, float to=1, *, Tensor seed) -> Tensor(a!)"
-
-unique_dim:
-  override_fn: unique_dim_hpu_lazy
-  fallback_check: [UniqueFallbackCheck, sorted]
-  op_validator: UniqueDimSharedMeta
-  skip_slrg: true
 
 unsqueeze_:
   override_fn: unsqueeze_hpu_lazy_
@@ -8163,10 +7934,13 @@ view:
   op_validator: EmptySharedMeta
 
 view.dtype:
-  override_fn: view_dtype_hpu
-  acc_thread: true
+  op_backend: ViewDtype
+  out_ids: [0]
   namespaces: [torch.Tensor]
   op_validator: EmptySharedMeta
+  lazy:
+    override_fn: view_dtype_hpu
+    acc_thread: true
 
 where.self:
   guid: where_fwd
@@ -8361,18 +8135,21 @@ quantize_per_tensor:
   output_meta: QuantizePerTensorMeta
   op_backend: QuantizePerTensor
   out_ids: [0]
+  op_validator_exception: custom_op
 
 quantize_per_tensor.tensor:
   custom_op_schema: "quantized_decomposed::quantize_per_tensor.tensor(Tensor input, Tensor scale, Tensor zero_point, int quant_min, int quant_max, ScalarType type) -> Tensor"
   output_meta: QuantizePerTensorMeta
   op_backend: QuantizePerTensor
   out_ids: [0]
+  op_validator_exception: custom_op
 
 quantize_per_tensor.tensor2:
   custom_op_schema: "quantized_decomposed::quantize_per_tensor.tensor2(Tensor input, Tensor scale, Tensor zero_point, Tensor quant_min, Tensor quant_max, ScalarType type) -> Tensor"
   output_meta: QuantizePerTensorMeta
   op_backend: QuantizePerTensor
   out_ids: [0]
+  op_validator_exception: custom_op
 
 quantize_per_channel:
   custom_fill_params: FillQuantizePerChannelParams
@@ -8380,6 +8157,7 @@ quantize_per_channel:
   guid: quantize_per_channel
   output_meta: QuantizePerChannelMeta
   out_ids: [0]
+  op_validator_exception: custom_op
 
 dequantize_per_channel:
   custom_op_schema: "quantized_decomposed::dequantize_per_channel(Tensor input, Tensor scales, Tensor? zero_points, int axis, int quant_min, int quant_max, ScalarType type, ScalarType? out_type) -> Tensor"
@@ -8387,24 +8165,28 @@ dequantize_per_channel:
   output_meta: DequantizePerChannelMeta
   op_backend: DequantizePerChannel
   out_ids: [0]
+  op_validator_exception: custom_op
 
 dequantize_per_tensor:
   custom_op_schema: "quantized_decomposed::dequantize_per_tensor(Tensor input, float scale, int zero_point, int quant_min, int quant_max, ScalarType type, ScalarType? out_dtype) -> Tensor"
   output_meta: DequantizePerTensorMeta
   op_backend: DequantizePerTensor
   out_ids: [0]
+  op_validator_exception: custom_op
 
 dequantize_per_tensor.tensor:
   custom_op_schema: "quantized_decomposed::dequantize_per_tensor.tensor(Tensor input, Tensor scale, Tensor zero_point, int quant_min, int quant_max, ScalarType type, ScalarType? out_dtype) -> Tensor"
   output_meta: DequantizePerTensorMeta
   op_backend: DequantizePerTensor
   out_ids: [0]
+  op_validator_exception: custom_op
 
 dequantize_per_tensor.tensor2:
   custom_op_schema: "quantized_decomposed::dequantize_per_tensor.tensor2(Tensor input, Tensor scale, Tensor zero_point, Tensor quant_min, Tensor quant_max, ScalarType type, ScalarType? out_dtype) -> Tensor"
   output_meta: DequantizePerTensorMeta
   op_backend: DequantizePerTensor
   out_ids: [0]
+  op_validator_exception: custom_op
 
 deform_conv2d:
   custom_op_schema: "torchvision::deform_conv2d(Tensor input, Tensor weight, Tensor offset, Tensor mask, Tensor bias, int stride_h, int stride_w, int pad_h, int pad_w, int dilation_h, int dilation_w, int groups, int offset_groups, bool use_mask) -> Tensor"
@@ -8414,6 +8196,7 @@ deform_conv2d:
   - [WHCN]
   op_backend: DeformConv2d
   out_ids: [0]
+  op_validator_exception: custom_op
 
 _deform_conv2d_backward:
   custom_op_schema: "torchvision::_deform_conv2d_backward(Tensor grad, Tensor input, Tensor weight, Tensor offset, Tensor mask, Tensor bias, int stride_h, int stride_w, int pad_h, int pad_w, int dilation_h, int dilation_w, int groups, int offset_groups, bool use_mask) -> (Tensor, Tensor, Tensor, Tensor, Tensor)"
@@ -8423,6 +8206,7 @@ _deform_conv2d_backward:
   - [WHCN, SRCK, WHCN, WHCN, DONT_CARE]
   op_backend: DeformConv2dBackward
   out_ids: [0]
+  op_validator_exception: custom_op
 
 # Below ops override PyTorch implementation. They were previously
 # declared via wrap_kernels_declarations.h file in habana_kernels and pt_ver
@@ -8451,15 +8235,18 @@ batch_norm_stats:
 
 dropout:
   hpu_wrap: true
+  autograd: true
 
 matmul:
   hpu_wrap: true
+  autograd: true
 
 _reshape_alias:
   hpu_wrap: true
 
 _unsafe_view:
   hpu_wrap: true
+  treat_as_dtdf: true
 
 empty.memory_format:
   hpu_wrap: true
@@ -8491,8 +8278,12 @@ _unique:
 _unique2:
   hpu_wrap: true
 
+unique_dim:
+  hpu_wrap: true
+
 repeat_interleave.Tensor:
   hpu_wrap: true
+  treat_as_dtdf: true
 
 batch_norm_elemt:
   hpu_wrap: true
@@ -8511,6 +8302,7 @@ instance_norm:
 
 softmax.int:
   hpu_wrap: true
+  autograd: true
 
 pin_memory:
   hpu_wrap: true
@@ -8520,6 +8312,7 @@ _pin_memory:
 
 is_pinned:
   hpu_wrap: true
+  treat_as_dtdf: true
 
 # Custom ops
 ctc_loss_custom:
@@ -8528,6 +8321,9 @@ ctc_loss_custom:
   guid: ctc_loss_fwd
   op_backend: CTCLossCustom
   out_ids: [0, 0]
+  op_validator: OptimizerCTCLossCustomSharedMeta
+  namespaces: [torch.hpu]
+  skip_slrg: true # Exception with tensors requiring a specific type
 
 ctc_loss_custom_backward:
   custom_op_schema: "hpu::ctc_loss_custom_backward(Tensor grad, Tensor log_probs, Tensor targets, Tensor input_lengths, Tensor target_lengths, Tensor neg_log_likelihood, Tensor log_alpha, int blank, int reduction, bool zero_infinity) -> Tensor"
@@ -8535,29 +8331,43 @@ ctc_loss_custom_backward:
   guid: ctc_loss_bwd
   op_backend: CTCLossCustomBackward
   out_ids: [1]
+  op_validator: OptimizerCTCLossCustomBackwardSharedMeta
+  namespaces: [torch.hpu]
+  skip_slrg: true # Exception with tensors requiring a specific type
 
 cast_from_fp8:
   custom_op_schema: "hpu::cast_from_fp8(Tensor input, Tensor? scale, ScalarType out_dtype, int[]? scale_shape=None) -> Tensor"
   output_meta: CastFromFp8Meta
   op_backend: CastFromFp8
   out_ids: [0]
+  op_validator: CastFromFp8SharedMeta
+  namespaces: [torch.hpu]
+  lazy:
+    acc_thread: true
+    override_fn: cast_from_fp8_lazy
 
 cast_from_fp8.scalar:
   custom_op_schema: "hpu::cast_from_fp8.scalar(Tensor input, float scale, ScalarType out_dtype, int[]? scale_shape=None) -> Tensor"
   output_meta: CastFromFp8Meta
   op_backend: CastFromFp8
   out_ids: [0]
+  op_validator: CastFromFp8SharedMeta
+  namespaces: [torch.hpu]
 
 cast_from_fp8.scalar_list:
   custom_op_schema: "hpu::cast_from_fp8.scalar_list(Tensor input, float[] scale, ScalarType out_dtype, int[]? scale_shape=None) -> Tensor"
   output_meta: CastFromFp8Meta
   op_backend: CastFromFp8
   out_ids: [0]
+  op_validator: CastFromFp8SharedMeta
+  namespaces: [torch.hpu]
 
 cast_to_fp8:
   custom_op_schema: "hpu::cast_to_fp8(Tensor input, Tensor? scale, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) amax) -> (Tensor(a!), Tensor(b!))"
   op_backend: CastToFp8
   is_custom_op_out_variant: true
+  op_validator: CastToFp8SharedMeta
+  namespaces: [torch.hpu]
 
 cast_to_fp8_v2:
   custom_op_schema: "hpu::cast_to_fp8_v2(Tensor input, Tensor? scale=None, bool stochastic_rounding=False, bool is_amax=False, ScalarType dtype=None, int[]? scale_shape=None) -> (Tensor, Tensor)"
@@ -8565,6 +8375,8 @@ cast_to_fp8_v2:
   op_backend: CastToFp8V2
   out_ids: [0, 0]
   autograd: true
+  op_validator: CastToFp8SharedMeta
+  namespaces: [torch.hpu]
   lazy:
     acc_thread: true
     override_fn: cast_to_fp8_v2_lazy
@@ -8575,6 +8387,8 @@ cast_to_fp8_v2.scalar:
   op_backend: CastToFp8V2
   out_ids: [0, 0]
   autograd: true
+  op_validator: CastToFp8SharedMeta
+  namespaces: [torch.hpu]
 
 cast_to_fp8_v2.scalar_list:
   custom_op_schema: "hpu::cast_to_fp8_v2.scalar_list(Tensor input, float[] scale, bool stochastic_rounding=False, bool is_amax=False, ScalarType dtype=None, int[]? scale_shape=None) -> (Tensor, Tensor)"
@@ -8582,6 +8396,17 @@ cast_to_fp8_v2.scalar_list:
   op_backend: CastToFp8V2
   out_ids: [0, 0]
   autograd: true
+  op_validator: CastToFp8SharedMeta
+  namespaces: [torch.hpu]
+
+cast_to_fp8_just_in_time:
+  custom_op_schema: "hpu::cast_to_fp8_just_in_time(Tensor input, int[2] block_shape, *, ScalarType? out_dtype=None, ScalarType? scale_dtype=None) -> (Tensor, Tensor)"
+  guid: convert_to_fp8_just_in_time
+  out_ids: [0, 0]
+  output_meta: CastToFp8JustInTimeMeta
+  custom_fill_params: CastToFp8JustInTimeParams
+  op_validator: check-node-with-shared-layer
+  namespaces: [torch.hpu]
 
 cast_to_fp8_hybrid:
   custom_op_schema: "hpu::cast_to_fp8_hybrid(Tensor input, Tensor? scale_152=None, Tensor? scale_143=None, bool stochastic_rounding=False, bool is_amax=False) -> (Tensor, Tensor, Tensor)"
@@ -8590,6 +8415,24 @@ cast_to_fp8_hybrid:
   out_ids: [0, 0, 0]
   output_meta: CastToFp8HybridMeta
   custom_fill_params: CastToFp8HybridParams
+  op_validator: CastToFp8HybridSharedMeta
+  namespaces: [torch.hpu]
+
+convert_from_int4:
+  custom_op_schema: "hpu::convert_from_int4(Tensor input, Tensor scale, Tensor? zero_point, ScalarType out_dtype, Tensor? group_index=None, *, bool disable_fp8_clipping=False) -> Tensor"
+  guid: convert_from_int4
+  op_backend: ConvertFromInt4
+  out_ids: [0]
+  output_meta: ConvertFromInt4Meta
+  op_validator_exception: custom_op
+
+convert_from_uint4:
+  custom_op_schema: "hpu::convert_from_uint4(Tensor input, Tensor scale, Tensor? zero_point, ScalarType out_dtype, Tensor? group_index=None, *, bool disable_fp8_clipping=False) -> Tensor"
+  guid: convert_from_uint4
+  op_backend: ConvertFromInt4
+  out_ids: [0]
+  output_meta: ConvertFromInt4Meta
+  op_validator_exception: custom_op
 
 conv2d_fp8:
   custom_op_schema: "hpu::conv2d_fp8(Tensor input, Tensor weight, Tensor? bias=None, SymInt[2] stride=1, SymInt[2] padding=0, SymInt[2] dilation=1, int groups=1, ScalarType? out_dtype=None, Tensor? scale_input=None, Tensor? scale_weight=None) -> Tensor"
@@ -8600,6 +8443,8 @@ conv2d_fp8:
   synapse_layouts:
   - [WHCN, SRCK, DONT_CARE, DONT_CARE, DONT_CARE, DONT_CARE]
   - [WHCN]
+  op_validator: Conv2dFp8SharedMeta
+  namespaces: [torch.hpu]
   lazy:
     acc_thread: true
     override_fn: conv2d_fp8_lazy
@@ -8610,27 +8455,44 @@ conv2d_fp8.scalar:
   out_ids: [0]
   op_backend: Conv2dFp8
   output_meta: Conv2dFp8Meta
+  namespaces: [torch.hpu]
   synapse_layouts:
   - [WHCN, SRCK, DONT_CARE, DONT_CARE, DONT_CARE, DONT_CARE]
   - [WHCN]
+  op_validator: Conv2dFp8SharedMeta
 
 custom_softmax:
   custom_op_schema: "hpu::custom_softmax(Tensor input, int flavor) -> Tensor"
   guid: custom_softmax_fwd
   op_backend: CustomSoftmax
   out_ids: [0]
+  op_validator: CustomSoftmaxSharedMeta
+  namespaces: [torch.hpu]
+
+fake_quant_fp4:
+  custom_op_schema: "hpu::fake_quant_fp4(Tensor input, bool stochastic_rounding, int axis, str dtype) -> Tensor"
+  custom_fill_params: FillFakeQuantFp4Params
+  guid: fake_quantize_fp4
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+  namespaces: [torch.hpu]
 
 fp8_gemm:
   custom_op_schema: "hpu::fp8_gemm(Tensor A, bool trans_A, Tensor B, bool trans_B, Tensor D, ScalarType out_dtype, Tensor? A_scale_inv, Tensor? B_scale_inv, Tensor? bias, bool accumulate, Tensor(a!) out) -> Tensor(a!)"
   output_meta: Fp8GemmV2Meta
   op_backend: Fp8Gemm
   is_custom_op_out_variant: true
+  op_validator: Fp8GemmSharedMeta
+  namespaces: [torch.hpu]
 
 fp8_gemm_v2:
   custom_op_schema: "hpu::fp8_gemm_v2(Tensor A, bool trans_A, Tensor B, bool trans_B, Tensor? D, ScalarType out_dtype, Tensor? A_scale_inv=None, Tensor? B_scale_inv=None, Tensor? bias=None, bool accumulate=False, int[]? B_scale_shape=None) -> Tensor"
   output_meta: Fp8GemmV2Meta
   op_backend: Fp8GemmV2
   out_ids: [0]
+  autograd: true
+  op_validator: Fp8GemmSharedMeta
+  namespaces: [torch.hpu]
   lazy:
     acc_thread: true
     override_fn: fp8_gemm_v2_lazy
@@ -8640,30 +8502,70 @@ fp8_gemm_v2.scalar:
   output_meta: Fp8GemmV2Meta
   op_backend: Fp8GemmV2
   out_ids: [0]
+  autograd: true
+  op_validator: Fp8GemmSharedMeta
+  namespaces: [torch.hpu]
 
 fp8_gemm_v2.scalar_list:
   custom_op_schema: "hpu::fp8_gemm_v2.scalar_list(Tensor A, bool trans_A, Tensor B, bool trans_B, Tensor? D, ScalarType out_dtype, float[] A_scale_inv, float[] B_scale_inv, Tensor? bias=None, bool accumulate=False, int[]? B_scale_shape=None) -> Tensor"
   output_meta: Fp8GemmV2Meta
   op_backend: Fp8GemmV2
   out_ids: [0]
+  autograd: true
+  op_validator: Fp8GemmSharedMeta
+  namespaces: [torch.hpu]
+
+_fp8_gemm_bwd:
+  custom_op_schema: "hpu::_fp8_gemm_bwd(Tensor grad_in, Tensor A, bool trans_A, Tensor B, bool trans_B, Tensor? A_scale_inv, Tensor? B_scale_inv, bool has_bias, bool has_accumulate) -> (Tensor, Tensor, Tensor, Tensor)"
+  guid: fp8_gemm_bwd
+  out_ids: [0]
+  output_meta: Fp8GemmBwdMeta
+  op_backend: Fp8GemmBwd
+  op_validator: Fp8GemmBwdSharedMeta
+  namespaces: [torch.hpu]
+
+_fp8_gemm_bwd.scalar:
+  custom_op_schema: "hpu::_fp8_gemm_bwd.scalar(Tensor grad_in, Tensor A, bool trans_A, Tensor B, bool trans_B, float A_scale_inv, float B_scale_inv, bool has_bias, bool has_accumulate) -> (Tensor, Tensor, Tensor, Tensor)"
+  guid: fp8_gemm_bwd
+  out_ids: [0]
+  output_meta: Fp8GemmBwdMeta
+  op_backend: Fp8GemmBwd
+  op_validator: Fp8GemmBwdSharedMeta
+  namespaces: [torch.hpu]
+
+_fp8_gemm_bwd.scalar_list:
+  custom_op_schema: "hpu::_fp8_gemm_bwd.scalar_list(Tensor grad_in, Tensor A, bool trans_A, Tensor B, bool trans_B, float[] A_scale_inv, float[] B_scale_inv, bool has_bias, bool has_accumulate) -> (Tensor, Tensor, Tensor, Tensor)"
+  guid: fp8_gemm_bwd
+  out_ids: [0]
+  output_meta: Fp8GemmBwdMeta
+  op_backend: Fp8GemmBwd
+  op_validator: Fp8GemmBwdSharedMeta
+  namespaces: [torch.hpu]
 
 in_place_interleave_:
   custom_op_schema: "hpu::in_place_interleave_(Tensor(a!) self) -> (Tensor(a!))"
   output_meta: InPlaceInterleaveMeta
   guid: in_place_interleave_fwd
   inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
+  namespaces: [torch.hpu]
+  skip_slrg: true # TORCH_CHECK inside output_meta
 
 fp8_sdpa_bwd:
   custom_op_schema: "hpu::fp8_sdpa_bwd(Tensor grad, Tensor q, Tensor k, Tensor v, Tensor P, Tensor? dm, bool is_causal, float p, float scale, Tensor? d_scale_q, Tensor? d_scale_k, Tensor? d_scale_v, Tensor? d_scale_s, Tensor? d_scale_do, Tensor? d_scale_ds, Tensor? q_scale_s, Tensor? q_scale_ds, bool is_amax_ds, Tensor fwd_out) -> (Tensor, Tensor, Tensor, Tensor)"
   output_meta: Fp8SDPABwdMeta
   op_backend: Fp8SDPABwd
   out_ids: [0, 0, 0, 0]
+  op_validator_exception: custom_op
 
 kv_reorder_:
   custom_op_schema: "hpu::kv_reorder_(Tensor(a!) self, Tensor start, Tensor end, Tensor beam_idx) -> (Tensor(a!))"
   guid: kv_reorder_
   op_backend: KvReorderCommon
   inplace_ids: [0]
+  op_validator: KvReorderSharedMeta
+  namespaces: [torch.hpu]
+  skip_slrg: true # TORCH_CHECK inside output_meta
 
 masked_batch_gemm:
   custom_op_schema: "hpu::masked_batch_gemm(Tensor a, Tensor b, Tensor mask_a, Tensor mask_b, bool trans_a, bool trans_b) -> Tensor"
@@ -8672,18 +8574,24 @@ masked_batch_gemm:
   guid: masked_batch_gemm
   out_ids: [0]
   op_validator: check-node-with-shared-layer
+  namespaces: [torch.hpu]
+  skip_slrg: true #HPUDeviceContext::get_device().type() in custom_fill_params
 
 ragged_softmax:
   custom_op_schema: "hpu::ragged_softmax(Tensor self, int dim, bool half_to_float, Tensor valid_count) -> Tensor"
   custom_fill_params: FillSoftmaxForwardParams
   guid: ragged_softmax_fwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
+  namespaces: [torch.hpu]
 
 scaled_masked_softmax:
   custom_op_schema: "hpu::scaled_masked_softmax(Tensor input, Tensor mask, float scale) -> Tensor"
   custom_fill_params: FillScaledMaskedSoftmaxParams
   guid: scaled_masked_softmax_fwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
+  namespaces: [torch.hpu]
 
 scaled_masked_triangular_softmax:
   custom_op_schema: "hpu::scaled_masked_triangular_softmax(Tensor self, Tensor start_end, float inv_scale_attn, int grouped_batch_size, bool use_max, int mode, ScalarType? out_dtype=None) -> Tensor"
@@ -8691,12 +8599,16 @@ scaled_masked_triangular_softmax:
   guid: scaled_masked_triangular_softmax_fwd
   op_backend: ScaledMaskedTriangularSoftmax
   out_ids: [0]
+  op_validator: ScaledMaskedTriangularSoftmaxSharedMeta
+  namespaces: [torch.hpu]
 
 scaled_triangular_softmax:
   custom_op_schema: "hpu::scaled_triangular_softmax(Tensor self, float inv_scale_attn, Tensor? exp_sum_recpr=None, Tensor? max=None) -> Tensor"
   guid: scaled_masked_triangular_softmax_fwd
   op_backend: ScaledTriangularSoftmax
   out_ids: [0]
+  op_validator: ScaledTriangularSoftmaxSharedMeta
+  namespaces: [torch.hpu]
 
 scaled_triangular_softmax_retain:
   custom_op_schema: "hpu::scaled_triangular_softmax_retain(Tensor self, float inv_scale_attn) -> (Tensor, Tensor, Tensor)"
@@ -8704,12 +8616,16 @@ scaled_triangular_softmax_retain:
   output_meta: ScaledTriangularSoftmaxRetainMeta
   guid: scaled_masked_triangular_softmax_fwd
   out_ids: [0, 0, 0]
+  op_validator: check-node-with-shared-layer
+  namespaces: [torch.hpu]
+  skip_slrg: true # TORCH_CHECK inside output_meta
 
 sdpa_recomp_bwd:
   custom_op_schema: "hpu::sdpa_recomp_bwd(Tensor grad, Tensor q, Tensor k, Tensor v, Tensor? attention_mask, Tensor m, Tensor linv, Tensor? seed, bool is_causal, float p, float scale, str softmax_mode, Tensor fwd_out) -> (Tensor, Tensor, Tensor)"
   output_meta: SDPARecompBwdMeta
   op_backend: SDPARecompBwd
   out_ids: [0, 0, 0]
+  op_validator_exception: custom_op
 
 softmax_fp8:
   custom_op_schema: "hpu::softmax_fp8(Tensor input, int dim, Tensor? input_scale=None, Tensor? output_scale=None, Tensor? inv_attn_heads=None, Tensor? fused_add=None) -> Tensor"
@@ -8717,6 +8633,8 @@ softmax_fp8:
   op_backend: SoftmaxFp8
   out_ids: [0]
   output_meta: SoftmaxFp8Meta
+  op_validator: SoftmaxFp8SharedMeta
+  namespaces: [torch.hpu]
 
 softmax_fp8.Scalar_scales:
   custom_op_schema: "hpu::softmax_fp8.Scalar_scales(Tensor input, int dim, float input_scale, float output_scale, Tensor? inv_attn_heads=None, Tensor? fused_add=None) -> Tensor"
@@ -8724,6 +8642,8 @@ softmax_fp8.Scalar_scales:
   op_backend: SoftmaxFp8
   out_ids: [0]
   output_meta: SoftmaxFp8Meta
+  op_validator: SoftmaxFp8SharedMeta
+  namespaces: [torch.hpu]
 
 softmax_fp8.Scalar:
   custom_op_schema: "hpu::softmax_fp8.Scalar(Tensor input, int dim, float input_scale, float output_scale, float inv_attn_heads, Tensor? fused_add=None) -> Tensor"
@@ -8731,6 +8651,8 @@ softmax_fp8.Scalar:
   op_backend: SoftmaxFp8
   out_ids: [0]
   output_meta: SoftmaxFp8Meta
+  op_validator: SoftmaxFp8SharedMeta
+  namespaces: [torch.hpu]
 
 rms_norm:
   custom_op_schema: "hpu::rms_norm(Tensor data_in, Tensor gamma, float epsilon) -> (Tensor, Tensor)"
@@ -8738,6 +8660,8 @@ rms_norm:
   out_ids: [0, 0]
   output_meta: RMSNormMeta
   custom_fill_params: RMSNormParams
+  op_validator: check-node-with-shared-layer
+  namespaces: [torch.hpu]
 
 rms_norm_fast:
   custom_op_schema: "hpu::rms_norm_fast(Tensor data_in, Tensor gamma, float epsilon) -> (Tensor, Tensor)"
@@ -8745,6 +8669,8 @@ rms_norm_fast:
   out_ids: [0, 0]
   output_meta: RMSNormMeta
   custom_fill_params: RMSNormFastParams
+  op_validator: check-node-with-shared-layer
+  namespaces: [torch.hpu]
 
 rms_norm_backward:
   custom_op_schema: "hpu::rms_norm_backward(Tensor grad_in, Tensor data_in, Tensor gamma, Tensor inverse_rms, bool use_stages, int bwd_mode) -> (Tensor, Tensor)"
@@ -8752,6 +8678,8 @@ rms_norm_backward:
   out_ids: [0, 0]
   output_meta: RMSNormBwdMeta
   custom_fill_params: RMSNormBwdParams
+  op_validator: check-node-with-shared-layer
+  namespaces: [torch.hpu]
 
 rms_norm_fast_backward:
   custom_op_schema: "hpu::rms_norm_fast_backward(Tensor grad_in, Tensor data_in, Tensor gamma, Tensor inverse_rms, bool use_stages, int bwd_mode) -> (Tensor, Tensor)"
@@ -8759,18 +8687,26 @@ rms_norm_fast_backward:
   out_ids: [0, 0]
   output_meta: RMSNormBwdMeta
   custom_fill_params: RMSNormBwdParams
+  op_validator: check-node-with-shared-layer
+  namespaces: [torch.hpu]
 
 rotary_pos_embedding:
   custom_op_schema: "hpu::rotary_pos_embedding(Tensor input, Tensor sin, Tensor cos, Tensor? position_ids, int offset, int mode) -> Tensor"
   op_backend: RotaryPosEmbedding
   guid: rotary_pos_embedding_fwd
   out_ids: [0]
+  op_validator: RotaryPosEmbeddingFwdSharedMeta
+  namespaces: [torch.hpu]
+  skip_slrg: true # Exception with tensors requiring a specific type
 
 rotary_pos_embedding_backward:
   custom_op_schema: "hpu::rotary_pos_embedding_backward(Tensor grad_in, Tensor sin, Tensor cos, Tensor? position_ids, int offset, int mode) -> Tensor"
   op_backend: RotaryPosEmbeddingBackward
   guid: rotary_pos_embedding_bwd
   out_ids: [0]
+  op_validator: RotaryPosEmbeddingBwdSharedMeta
+  namespaces: [torch.hpu]
+  skip_slrg: true # Exception with tensors requiring a specific type
 
 sum_fp8:
   custom_op_schema: "hpu::sum_fp8(Tensor self, int[1]? dim=None, bool keepdim=False, ScalarType? out_dtype=None) -> Tensor"
@@ -8779,115 +8715,462 @@ sum_fp8:
   guid: reduce_sum_multi_dim_fwd
   out_ids: [0]
   op_validator: check-node-with-shared-layer
+  namespaces: [torch.hpu]
 
 sdpa_bwd:
   custom_op_schema: "hpu::sdpa_bwd(Tensor grad, Tensor q, Tensor k, Tensor v, Tensor P, Tensor? dm, bool is_causal, float p, float scale, Tensor fwd_out) -> (Tensor, Tensor, Tensor)"
   output_meta: SDPABwdMeta
   op_backend: SDPABwd
   out_ids: [0, 0, 0]
+  op_validator_exception: custom_op
 
 exp_fast_math:
   custom_op_schema: "hpu::exp_fast_math(Tensor self) -> Tensor"
   guid: exp_fast_math_fwd
   out_ids: [0]
   op_validator: check-node-with-shared-layer
+  namespaces: [torch.hpu]
 
 sqrt_fast_math:
   custom_op_schema: "hpu::sqrt_fast_math(Tensor self) -> Tensor"
   guid: sqrt_fast_math_fwd
   out_ids: [0]
   op_validator: check-node-with-shared-layer
+  namespaces: [torch.hpu]
 
 rsqrt_fast_math:
   custom_op_schema: "hpu::rsqrt_fast_math(Tensor self) -> Tensor"
   guid: rsqrt_fast_math_fwd
   out_ids: [0]
   op_validator: check-node-with-shared-layer
+  namespaces: [torch.hpu]
 
 reciprocal_fast_math:
   custom_op_schema: "hpu::reciprocal_fast_math(Tensor self) -> Tensor"
   guid: reciprocal_fast_math_fwd
   out_ids: [0]
   op_validator: check-node-with-shared-layer
+  namespaces: [torch.hpu]
+
+calculate_scale_for_cast:
+  custom_op_schema: "hpu::calculate_scale_for_cast(Tensor input, int maxMode, int scaleMode, int reduceAxis=0, bool reduceKeepdim=False, float fullscale=1.0, float backoff=1.0) -> Tensor"
+  custom_fill_params: FillCalculateScaleForCastParams
+  output_meta: CalculateScaleForCastMeta
+  guid: calculate_scale_for_cast
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+  namespaces: [torch.hpu]
+
+mixture_of_experts:
+  custom_op_schema: "hpu::mixture_of_experts(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, bool? recomp=True, int chunk_size=0, int total_experts=0) -> Tensor"
+  op_validator: MixtureOfExpertsSharedMeta
+  op_backend: MixtureOfExperts
+  out_ids: [0]
+  frontend_blocklist: [eager]
+  namespaces: [torch.hpu]
+
+mixture_of_experts.fused_weights:
+  custom_op_schema: "hpu::mixture_of_experts.fused_weights(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, bool? recomp=True, int chunk_size=0, int total_experts=0) -> Tensor"
+  op_validator: MixtureOfExpertsSharedMeta
+  op_backend: MixtureOfExperts
+  out_ids: [0]
+  frontend_blocklist: [eager]
+  namespaces: [torch.hpu]
+
+mixture_of_experts_fp8_measurement:
+  custom_op_schema: "hpu::mixture_of_experts_fp8_measurement(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, bool measurement_mode, *, int chunk_size=0, int total_experts=0) -> (Tensor, Tensor)"
+  op_validator: MixtureOfExpertsSharedMeta
+  output_meta: MixtureOfExpertsMeasurementMeta
+  op_backend: MixtureOfExperts
+  out_ids: [0, 0]
+  frontend_blocklist: [lazy, eager]
+  skip_slrg: true
+
+mixture_of_experts_fp8_measurement.fused_weights:
+  custom_op_schema: "hpu::mixture_of_experts_fp8_measurement.fused_weights(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, bool measurement_mode, *, int chunk_size=0, int total_experts=0) -> (Tensor, Tensor)"
+  op_validator: MixtureOfExpertsSharedMeta
+  output_meta: MixtureOfExpertsMeasurementMeta
+  op_backend: MixtureOfExperts
+  out_ids: [0, 0]
+  frontend_blocklist: [lazy, eager]
+  skip_slrg: true
 
 mixture_of_experts.fp8:
-  custom_op_schema: "hpu::mixture_of_experts.fp8(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, Tensor d_scale_hidden_states, Tensor[] d_scale_intermediate_hidden_states, Tensor[] d_scale_w1, Tensor[] d_scale_w2, Tensor[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor"
+  custom_op_schema: "hpu::mixture_of_experts.fp8(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, Tensor d_scale_hidden_states, Tensor[] d_scale_intermediate_hidden_states, Tensor[] d_scale_w1, Tensor[] d_scale_w2, Tensor[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, int chunk_size=0, int total_experts=0) -> Tensor"
   output_meta: MixtureOfExpertsFp8Meta
   op_backend: MixtureOfExpertsFp8
   frontend_blocklist: [eager]
   out_ids: [2]
+  op_validator: MixtureOfExpertsFp8SharedMeta
+  namespaces: [torch.hpu]
   lazy:
     acc_thread: true
     override_fn: mixture_of_experts_fp8_lazy
 
 mixture_of_experts.fp8_fused_weights:
-  custom_op_schema: "hpu::mixture_of_experts.fp8_fused_weights(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, Tensor d_scale_hidden_states, Tensor[] d_scale_intermediate_hidden_states, Tensor[] d_scale_w12, Tensor[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor"
+  custom_op_schema: "hpu::mixture_of_experts.fp8_fused_weights(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, Tensor d_scale_hidden_states, Tensor[] d_scale_intermediate_hidden_states, Tensor[] d_scale_w12, Tensor[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, int chunk_size=0, int total_experts=0) -> Tensor"
   output_meta: MixtureOfExpertsFp8Meta
   op_backend: MixtureOfExpertsFp8
   frontend_blocklist: [eager]
   out_ids: [2]
+  op_validator: MixtureOfExpertsFp8FusedSharedMeta
+  namespaces: [torch.hpu]
   lazy:
     acc_thread: true
     override_fn: mixture_of_experts_fp8_fused_weights_lazy
 
 mixture_of_experts.fp8_scalars:
-  custom_op_schema: "hpu::mixture_of_experts.fp8_scalars(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, float d_scale_hidden_states, float[] d_scale_intermediate_hidden_states, float[] d_scale_w1, float[] d_scale_w2, float[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor"
+  custom_op_schema: "hpu::mixture_of_experts.fp8_scalars(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, float d_scale_hidden_states, float[] d_scale_intermediate_hidden_states, float[] d_scale_w1, float[] d_scale_w2, float[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, int chunk_size=0, int total_experts=0) -> Tensor"
   output_meta: MixtureOfExpertsFp8Meta
   op_backend: MixtureOfExpertsFp8Scalars
   frontend_blocklist: [eager]
   out_ids: [2]
+  op_validator: MixtureOfExpertsFp8SharedMeta
+  namespaces: [torch.hpu]
 
 mixture_of_experts.fp8_fused_weights_scalars:
-  custom_op_schema: "hpu::mixture_of_experts.fp8_fused_weights_scalars(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, float d_scale_hidden_states, float[] d_scale_intermediate_hidden_states, float[] d_scale_w12, float[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor"
+  custom_op_schema: "hpu::mixture_of_experts.fp8_fused_weights_scalars(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, float d_scale_hidden_states, float[] d_scale_intermediate_hidden_states, float[] d_scale_w12, float[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, int chunk_size=0, int total_experts=0) -> Tensor"
   output_meta: MixtureOfExpertsFp8Meta
   op_backend: MixtureOfExpertsFp8Scalars
   frontend_blocklist: [eager]
   out_ids: [2]
+  op_validator: MixtureOfExpertsFp8FusedSharedMeta
+  namespaces: [torch.hpu]
 
 mixture_of_experts.fp8_dynamic:
-  custom_op_schema: "hpu::mixture_of_experts.fp8_dynamic(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, Tensor d_scale_hidden_states, Tensor[] d_scale_w1, Tensor[] d_scale_w2, Tensor[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor"
+  custom_op_schema: "hpu::mixture_of_experts.fp8_dynamic(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, Tensor d_scale_hidden_states, Tensor[] d_scale_w1, Tensor[] d_scale_w2, Tensor[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, int chunk_size=0, int total_experts=0) -> Tensor"
   output_meta: MixtureOfExpertsFp8Meta
   op_backend: MixtureOfExpertsFp8Dynamic
   frontend_blocklist: [eager]
   out_ids: [2]
+  op_validator: MixtureOfExpertsFp8SharedMeta
+  namespaces: [torch.hpu]
   lazy:
     acc_thread: true
     override_fn: mixture_of_experts_fp8_dynamic_lazy
 
 mixture_of_experts.fp8_fused_weights_dynamic:
-  custom_op_schema: "hpu::mixture_of_experts.fp8_fused_weights_dynamic(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, Tensor d_scale_hidden_states, Tensor[] d_scale_w12, Tensor[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor"
+  custom_op_schema: "hpu::mixture_of_experts.fp8_fused_weights_dynamic(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, Tensor d_scale_hidden_states, Tensor[] d_scale_w12, Tensor[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, int chunk_size=0, int total_experts=0) -> Tensor"
   output_meta: MixtureOfExpertsFp8Meta
   op_backend: MixtureOfExpertsFp8Dynamic
   frontend_blocklist: [eager]
   out_ids: [2]
+  op_validator: MixtureOfExpertsFp8FusedSharedMeta
+  namespaces: [torch.hpu]
   lazy:
     acc_thread: true
     override_fn: mixture_of_experts_fp8_fused_weights_dynamic_lazy
 
 mixture_of_experts.fp8_scalars_dynamic:
-  custom_op_schema: "hpu::mixture_of_experts.fp8_scalars_dynamic(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, float d_scale_hidden_states, float[] d_scale_w1, float[] d_scale_w2, float[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor"
+  custom_op_schema: "hpu::mixture_of_experts.fp8_scalars_dynamic(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, float d_scale_hidden_states, float[] d_scale_w1, float[] d_scale_w2, float[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, int chunk_size=0, int total_experts=0) -> Tensor"
   output_meta: MixtureOfExpertsFp8Meta
   op_backend: MixtureOfExpertsFp8ScalarsDynamic
   frontend_blocklist: [eager]
   out_ids: [2]
+  op_validator: MixtureOfExpertsFp8SharedMeta
+  namespaces: [torch.hpu]
 
 mixture_of_experts.fp8_fused_weights_scalars_dynamic:
-  custom_op_schema: "hpu::mixture_of_experts.fp8_fused_weights_scalars_dynamic(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, float d_scale_hidden_states, float[] d_scale_w12, float[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor"
+  custom_op_schema: "hpu::mixture_of_experts.fp8_fused_weights_scalars_dynamic(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, float d_scale_hidden_states, float[] d_scale_w12, float[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, int chunk_size=0, int total_experts=0) -> Tensor"
   output_meta: MixtureOfExpertsFp8Meta
   op_backend: MixtureOfExpertsFp8ScalarsDynamic
   frontend_blocklist: [eager]
   out_ids: [2]
+  op_validator: MixtureOfExpertsFp8FusedSharedMeta
+  namespaces: [torch.hpu]
 
 mixture_of_experts.fp8_blockwise:
-  custom_op_schema: "hpu::mixture_of_experts.fp8_blockwise(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, Tensor[] d_scale_w1, Tensor[] d_scale_w2, Tensor[] d_scale_w3, int block_size, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor"
+  custom_op_schema: "hpu::mixture_of_experts.fp8_blockwise(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, Tensor[] d_scale_w1, Tensor[] d_scale_w2, Tensor[] d_scale_w3, int block_size, bool permuted_weights, str activation, int experts_min, int experts_max, *, int chunk_size=0, int total_experts=0) -> Tensor"
   output_meta: MixtureOfExpertsFp8Meta
   op_backend: MixtureOfExpertsFp8BlockwiseQuantization
   frontend_blocklist: [eager]
   out_ids: [2]
+  op_validator: MixtureOfExpertsFp8SharedMeta
+  namespaces: [torch.hpu]
 
 mixture_of_experts.fp8_fused_weights_blockwise:
-  custom_op_schema: "hpu::mixture_of_experts.fp8_fused_weights_blockwise(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, Tensor[] d_scale_w12, Tensor[] d_scale_w3, int block_size, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor"
+  custom_op_schema: "hpu::mixture_of_experts.fp8_fused_weights_blockwise(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, Tensor[] d_scale_w12, Tensor[] d_scale_w3, int block_size, bool permuted_weights, str activation, int experts_min, int experts_max, *, int chunk_size=0, int total_experts=0) -> Tensor"
   output_meta: MixtureOfExpertsFp8Meta
   op_backend: MixtureOfExpertsFp8BlockwiseQuantization
   frontend_blocklist: [eager]
   out_ids: [2]
+  op_validator: MixtureOfExpertsFp8FusedSharedMeta
+  namespaces: [torch.hpu]
+
+mixture_of_experts_fwd:
+  custom_op_schema: "hpu::mixture_of_experts_fwd(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, int chunk_size=0, int total_experts=0) -> Tensor[]"
+  custom_fill_params: FillMixtureOfExpertsParams
+  guid: moe_v2_fwd
+  output_meta: MixtureOfExpertsFwdMeta
+  out_ids: [0]
+  frontend_blocklist: [lazy, eager, autograd]
+  op_validator: MixtureOfExpertsFwdSharedMeta
+  namespaces: [torch.hpu]
+  skip_slrg: true
+  autograd: true
+
+mixture_of_experts_recomp_fwd:
+  custom_op_schema: "hpu::mixture_of_experts_recomp_fwd(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, int chunk_size=0, int total_experts=0) -> Tensor"
+  custom_fill_params: FillMixtureOfExpertsParams
+  guid: moe_fwd
+  output_meta: MixtureOfExpertsFwdRecompMeta
+  out_ids: [0]
+  frontend_blocklist: [lazy, eager, autograd]
+  op_validator: MixtureOfExpertsRecompFwdSharedMeta
+  namespaces: [torch.hpu]
+  skip_slrg: true
+  autograd: true
+
+mixture_of_experts_fwd.fused_weights:
+  custom_op_schema: "hpu::mixture_of_experts_fwd.fused_weights(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, int chunk_size=0, int total_experts=0) -> Tensor[]"
+  custom_fill_params: FillMixtureOfExpertsParams
+  guid: moe_v2_fwd
+  output_meta: MixtureOfExpertsFwdMeta
+  out_ids: [0]
+  frontend_blocklist: [lazy, eager, autograd]
+  op_validator: MixtureOfExpertsFwdFusedSharedMeta
+  namespaces: [torch.hpu]
+  skip_slrg: true
+  autograd: true
+
+mixture_of_experts_recomp_fwd.fused_weights:
+  custom_op_schema: "hpu::mixture_of_experts_recomp_fwd.fused_weights(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, int chunk_size=0, int total_experts=0) -> Tensor"
+  custom_fill_params: FillMixtureOfExpertsParams
+  guid: moe_fwd
+  output_meta: MixtureOfExpertsFwdRecompMeta
+  out_ids: [0]
+  frontend_blocklist: [lazy, eager, autograd]
+  op_validator: MixtureOfExpertsRecompFwdFusedSharedMeta
+  namespaces: [torch.hpu]
+  skip_slrg: true
+  autograd: true
+
+mixture_of_experts_fwd.fp8_fused:
+  custom_op_schema: "hpu::mixture_of_experts_fwd.fp8_fused(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, *, Tensor[] d_scale_hidden_states, Tensor[] d_scale_intermediate_hidden_states, Tensor[] d_scale_w12, Tensor[] d_scale_w3, bool permuted_weights=False, str activation='silu', int experts_min=0, int experts_max=8, bool scaled_swiglu=False, bool hybrid_mode=False, bool is_first_amax=False, bool is_second_amax=False) -> Tensor[]"
+  custom_fill_params: FillMixtureOfExpertsFwdFp8Params
+  op_backend: MixtureOfExpertsFwdFp8
+  guid: moe_v2_fwd
+  output_meta: MixtureOfExpertsFwdFp8Meta
+  out_ids: [0]
+  frontend_blocklist: [lazy]
+  op_validator_exception: custom_op
+  namespaces: [torch.hpu]
+  skip_slrg: true
+
+mixture_of_experts_bwd.fp8_fused:
+  custom_op_schema: "hpu::mixture_of_experts_bwd.fp8_fused(Tensor grad_tokens_in, Tensor chunks_input, Tensor token_to_chunk, Tensor token_in_chunk, Tensor chunks_routing_table, Tensor chunks_routing_weights, Tensor gemm12_out, Tensor activation_out, Tensor mult_out, Tensor mlp_out, Tensor[] w12, Tensor[] w3, *, Tensor[] d_scale_hidden_states, Tensor[] d_scale_intermediate_hidden_states, Tensor[] d_scale_w12, Tensor[] d_scale_w3, Tensor[] d_scale_first_gemm_grad, Tensor[] d_scale_second_gemm_grad, bool permuted_weights=False, str activation='silu', int experts_min=0, int experts_max=8, int[] router_weights_size=[], bool scaled_swiglu=False, bool hybrid_mode=False, bool is_first_amax=False, bool is_second_amax=False) -> Tensor[]"
+  custom_fill_params: FillMixtureOfExpertsBwdFp8Params
+  op_backend: MixtureOfExpertsBwdFp8
+  guid: moe_v2_bwd
+  output_meta: MixtureOfExpertsBwdFp8Meta
+  out_ids: [0]
+  frontend_blocklist: [lazy]
+  op_validator_exception: custom_op
+  namespaces: [torch.hpu]
+  skip_slrg: true
+
+mixture_of_experts_recomp_fwd.fp8_fused:
+  custom_op_schema: "hpu::mixture_of_experts_recomp_fwd.fp8_fused(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, *, Tensor[] d_scale_hidden_states, Tensor[] d_scale_intermediate_hidden_states, Tensor[] d_scale_w12, Tensor[] d_scale_w3, bool permuted_weights=False, str activation='silu', int experts_min=0, int experts_max=8, bool scaled_swiglu=False, bool hybrid_mode=False, bool is_first_amax=False, bool is_second_amax=False) -> Tensor[]"
+  custom_fill_params: FillMixtureOfExpertsFwdFp8Params
+  op_backend: MixtureOfExpertsRecompFwdFp8
+  guid: moe_fwd
+  output_meta: MixtureOfExpertsRecompFwdFp8Meta
+  out_ids: [0]
+  frontend_blocklist: [lazy]
+  op_validator_exception: custom_op
+  namespaces: [torch.hpu]
+  skip_slrg: true
+
+mixture_of_experts_recomp_bwd.fp8_fused:
+  custom_op_schema: "hpu::mixture_of_experts_recomp_bwd.fp8_fused(Tensor grad_tokens_in, Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, *, Tensor[] d_scale_hidden_states, Tensor[] d_scale_intermediate_hidden_states, Tensor[] d_scale_w12, Tensor[] d_scale_w3, Tensor[] d_scale_first_gemm_grad, Tensor[] d_scale_second_gemm_grad, bool permuted_weights=False, str activation='silu', int experts_min=0, int experts_max=8, bool scaled_swiglu=False, bool hybrid_mode=False, bool is_first_amax=False, bool is_second_amax=False) -> Tensor[]"
+  custom_fill_params: FillMixtureOfExpertsBwdFp8Params
+  op_backend: MixtureOfExpertsRecompBwdFp8
+  guid: moe_recomp_v2_bwd
+  output_meta: MixtureOfExpertsBwdFp8Meta
+  out_ids: [0]
+  frontend_blocklist: [lazy]
+  op_validator_exception: custom_op
+  namespaces: [torch.hpu]
+  skip_slrg: true
+
+mixture_of_experts_fwd.fp8:
+  custom_op_schema: "hpu::mixture_of_experts_fwd.fp8(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, *, Tensor[] d_scale_hidden_states, Tensor[] d_scale_intermediate_hidden_states, Tensor[] d_scale_w1, Tensor[] d_scale_w2, Tensor[] d_scale_w3, bool permuted_weights=False, str activation='silu', int experts_min=0, int experts_max=8, bool scaled_swiglu=False, bool hybrid_mode=False, bool is_first_amax=False, bool is_second_amax=False) -> Tensor[]"
+  custom_fill_params: FillMixtureOfExpertsFwdFp8Params
+  op_backend: MixtureOfExpertsFwdFp8
+  guid: moe_v2_fwd
+  output_meta: MixtureOfExpertsFwdFp8Meta
+  out_ids: [0]
+  frontend_blocklist: [lazy]
+  op_validator_exception: custom_op
+  namespaces: [torch.hpu]
+  skip_slrg: true
+
+mixture_of_experts_bwd.fp8:
+  custom_op_schema: "hpu::mixture_of_experts_bwd.fp8(Tensor grad_tokens_in, Tensor chunks_input, Tensor token_to_chunk, Tensor token_in_chunk, Tensor chunks_routing_table, Tensor chunks_routing_weights, Tensor gemm1_out, Tensor gemm2_out, Tensor activation_out, Tensor mult_out, Tensor mlp_out, Tensor[] w1, Tensor[] w2, Tensor[] w3, *, Tensor[] d_scale_hidden_states, Tensor[] d_scale_intermediate_hidden_states, Tensor[] d_scale_w1, Tensor[] d_scale_w2, Tensor[] d_scale_w3, Tensor[] d_scale_mult_grad, Tensor[] d_scale_activation_grad, Tensor[] d_scale_second_gemm_grad, bool permuted_weights=False, str activation='silu', int experts_min=0, int experts_max=8, int[] router_weights_size=[], bool scaled_swiglu=False, bool hybrid_mode=False, bool is_first_amax=False, bool is_second_amax=False) -> Tensor[]"
+  custom_fill_params: FillMixtureOfExpertsBwdFp8Params
+  op_backend: MixtureOfExpertsBwdFp8
+  guid: moe_v2_bwd
+  output_meta: MixtureOfExpertsBwdFp8Meta
+  out_ids: [0]
+  frontend_blocklist: [lazy]
+  op_validator_exception: custom_op
+  namespaces: [torch.hpu]
+  skip_slrg: true
+
+mixture_of_experts_recomp_fwd.fp8:
+  custom_op_schema: "hpu::mixture_of_experts_recomp_fwd.fp8(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, *, Tensor[] d_scale_hidden_states, Tensor[] d_scale_intermediate_hidden_states, Tensor[] d_scale_w1, Tensor[] d_scale_w2, Tensor[] d_scale_w3, bool permuted_weights=False, str activation='silu', int experts_min=0, int experts_max=8, bool scaled_swiglu=False, bool hybrid_mode=False, bool is_first_amax=False, bool is_second_amax=False) -> Tensor[]"
+  custom_fill_params: FillMixtureOfExpertsFwdFp8Params
+  op_backend: MixtureOfExpertsRecompFwdFp8
+  guid: moe_fwd
+  output_meta: MixtureOfExpertsRecompFwdFp8Meta
+  out_ids: [0]
+  frontend_blocklist: [lazy]
+  op_validator_exception: custom_op
+  namespaces: [torch.hpu]
+  skip_slrg: true
+
+mixture_of_experts_recomp_bwd.fp8:
+  custom_op_schema: "hpu::mixture_of_experts_recomp_bwd.fp8(Tensor grad_tokens_in, Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, *, Tensor[] d_scale_hidden_states, Tensor[] d_scale_intermediate_hidden_states, Tensor[] d_scale_w1, Tensor[] d_scale_w2, Tensor[] d_scale_w3, Tensor[] d_scale_mult_grad, Tensor[] d_scale_activation_grad, Tensor[] d_scale_second_gemm_grad, bool permuted_weights=False, str activation='silu', int experts_min=0, int experts_max=8, bool scaled_swiglu=False, bool hybrid_mode=False, bool is_first_amax=False, bool is_second_amax=False) -> Tensor[]"
+  custom_fill_params: FillMixtureOfExpertsBwdFp8Params
+  op_backend: MixtureOfExpertsRecompBwdFp8
+  guid: moe_recomp_v2_bwd
+  output_meta: MixtureOfExpertsBwdFp8Meta
+  out_ids: [0]
+  frontend_blocklist: [lazy]
+  op_validator_exception: custom_op
+  namespaces: [torch.hpu]
+  skip_slrg: true
+
+mixture_of_experts_bwd:
+  custom_op_schema: "hpu::mixture_of_experts_bwd(Tensor grad_tokens_in, Tensor chunks_input, Tensor token_to_chunk, Tensor token_in_chunk, Tensor chunks_routing_table, Tensor chunks_routing_weights, Tensor gemm1_out, Tensor gemm2_out, Tensor activation_out, Tensor mult_out, Tensor mlp_out, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, int[] router_weights_size) -> Tensor[]"
+  output_meta: MixtureOfExpertsBwdMeta
+  op_backend: MixtureOfExpertsBwd
+  out_ids: [0]
+  frontend_blocklist: [lazy, eager]
+  op_validator: MixtureOfExpertsBwdSharedMeta
+  namespaces: [torch.hpu]
+  skip_slrg: true
+
+mixture_of_experts_recomp_bwd:
+  custom_op_schema: "hpu::mixture_of_experts_recomp_bwd(Tensor grad_tokens_in, Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, int chunk_size=0, int total_experts=0) -> Tensor[]"
+  output_meta: MixtureOfExpertsBwdMeta
+  op_backend: MixtureOfExpertsRecompBwd
+  out_ids: [0]
+  frontend_blocklist: [lazy, eager]
+  op_validator: MixtureOfExpertsRecompBwdSharedMeta
+  namespaces: [torch.hpu]
+  skip_slrg: true
+
+mixture_of_experts_bwd.fused_weights:
+  custom_op_schema: "hpu::mixture_of_experts_bwd.fused_weights(Tensor grad_tokens_in, Tensor chunks_input, Tensor token_to_chunk, Tensor token_in_chunk, Tensor chunks_routing_table, Tensor chunks_routing_weights, Tensor gemm12_out, Tensor activation_out, Tensor mult_out, Tensor mlp_out, Tensor[] w12, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, int[] router_weights_size) -> Tensor[]"
+  output_meta: MixtureOfExpertsBwdMeta
+  op_backend: MixtureOfExpertsBwd
+  out_ids: [0]
+  frontend_blocklist: [lazy, eager]
+  op_validator: MixtureOfExpertsBwdSharedMeta
+  namespaces: [torch.hpu]
+  skip_slrg: true
+
+mixture_of_experts_recomp_bwd.fused_weights:
+  custom_op_schema: "hpu::mixture_of_experts_recomp_bwd.fused_weights(Tensor grad_tokens_in, Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, int chunk_size=0, int total_experts=0) -> Tensor[]"
+  output_meta: MixtureOfExpertsBwdMeta
+  op_backend: MixtureOfExpertsRecompBwd
+  out_ids: [0]
+  frontend_blocklist: [lazy, eager]
+  op_validator: MixtureOfExpertsRecompBwdSharedMeta
+  namespaces: [torch.hpu]
+  skip_slrg: true
+
+block_softmax:
+  custom_op_schema: "hpu::block_softmax(Tensor attn, Tensor block_bias, Tensor block_ind) -> (Tensor, Tensor, Tensor)"
+  guid: block_softmax
+  out_ids: [0]
+  output_meta: BlockSoftmaxMeta
+  op_validator_exception: custom_op
+
+optimizer_adamw:
+  custom_op_schema: "hpu::optimizer_adamw(Tensor[] gradient_vec, Tensor(a!)[] weight_vec, Tensor(b!)[] exp_avg_vec, Tensor(c!)[] exp_avg_sq_vec, Tensor neg_step_t, float beta1, float beta2, float epsilon, Tensor weight_decay, bool has_weight_decay, Tensor(d!)[]? exp_avg_scales=None, Tensor(e!)[]? exp_avg_sq_scales=None) -> Tensor[]"
+  only_slrg: true
+  op_validator: OptimizerAdamWSharedMeta
+  namespaces: [torch.hpu.optimizer]
+
+optimizer_ema:
+  custom_op_schema: "hpu::optimizer_ema(Tensor[] model_inputs, Tensor(a!)[] updated_ema, Tensor decay) -> Tensor[]"
+  only_slrg: true
+  op_validator: OptimizerEmaSharedMeta
+  namespaces: [torch.hpu.optimizer]
+
+optimizer_lamb_fused_norm:
+  custom_op_schema: "hpu::optimizer_lamb_fused_norm(Tensor[] grad, float max_norm) -> Tensor"
+  only_slrg: true
+  op_validator: OptimizerLambNormSharedMeta
+  namespaces: [torch.hpu.optimizer]
+
+optimizer_lamb_phase1:
+  custom_op_schema: "hpu::optimizer_lamb_phase1(Tensor[] gradients, Tensor[] weights, Tensor(a!)[] exp_avg, Tensor(b!)[] exp_avg_sq, Tensor(c!)[] out_weight_norms, Tensor(d!)[] out_adam_norms, Tensor(e!)[] out_adam_steps, Tensor clip_global_grad_norm, int grad_averaging, float beta1, float beta2, float epsilon, Tensor bias_correction1, Tensor bias_correction2, float weight_decay) -> Tensor[]"
+  only_slrg: true
+  op_validator: OptimizerLambPhase1SharedMeta
+  namespaces: [torch.hpu.optimizer]
+
+optimizer_lamb_phase2:
+  custom_op_schema: "hpu::optimizer_lamb_phase2(Tensor(a!)[] weights, Tensor[] adam_norms, Tensor[] weight_norms, Tensor[] adam_steps, Tensor neg_step, float wd, bool use_lamb) -> Tensor[]"
+  only_slrg: true
+  op_validator: OptimizerLambPhase2SharedMeta
+  namespaces: [torch.hpu.optimizer]
+
+optimizer_lars:
+  custom_op_schema: "hpu::optimizer_lars(Tensor[] params, Tensor(a!)[] grads, int[] skip_masks, float eeta, float weight_decay, float eps, Tensor lr) -> Tensor[]"
+  only_slrg: true
+  op_validator: OptimizerLarsSharedMeta
+  namespaces: [torch.hpu.optimizer]
+
+optimizer_resource_apply_momentum:
+  custom_op_schema: "hpu::optimizer_resource_apply_momentum(Tensor(a!)[] params_momentum_buf_list, Tensor[] dp_list, float momentum) -> Tensor[]"
+  only_slrg: true
+  op_validator: OptimizerResourceApplyMomentumSharedMeta
+  namespaces: [torch.hpu.optimizer]
+  skip_slrg: true # Exception - params_momentum_buf_list minimum 2 elements in list
+
+optimizer_sgd:
+  custom_op_schema: "hpu::optimizer_sgd(Tensor[] gradients, Tensor(a!)[] weights_in, Tensor(b!) learning_rate, float wd, float mom, float damp, bool nesterov) -> Tensor[]"
+  only_slrg: true
+  op_validator: OptimizerSgdSharedMeta
+  namespaces: [torch.hpu.optimizer]
+
+optimizer_sgd_momentum:
+  custom_op_schema: "hpu::optimizer_sgd_momentum(Tensor[] gradients, Tensor(a!)[] weights_in, Tensor(b!)[] momentum_in, Tensor epoch_num, Tensor(c!) learning_rate, Tensor(d!) mom, float wd, float damp, bool nesterov) -> Tensor[]"
+  only_slrg: true
+  op_validator: OptimizerSgdMomentumSharedMeta
+  namespaces: [torch.hpu.optimizer]
+
+mamba_pscan:
+  custom_op_schema: "hpu::mamba_pscan(Tensor state, Tensor x, Tensor dt, Tensor A, Tensor B) -> Tensor"
+  guid: mamba_pscan_fwd
+  out_ids: [0]
+  output_meta: MambaPscanMeta
+  op_validator_exception: custom_op
+
+mamba_pscan_update:
+  custom_op_schema: "hpu::mamba_pscan_update(Tensor state, Tensor x, Tensor C, Tensor D, Tensor z) -> Tensor"
+  guid: mamba_pscan_update_fwd
+  out_ids: [0]
+  output_meta: MambaPscanUpdateMeta
+  op_validator_exception: custom_op
+
+ind2ptr:
+  custom_op_schema: "torch_sparse::ind2ptr(Tensor ind, int M) -> Tensor"
+  custom_cpp_sig: "at::Tensor ind2ptr(at::Tensor ind, int64_t M)"
+  custom_fill_params: FillInd2ptrParams
+  guid: ind2ptr
+  out_ids: [0]
+  output_meta: Ind2ptrMeta
+  op_validator: check-node-with-shared-layer
+  namespaces: [torch.torch_sparse]
+  treat_as_non_inplace: ["ind"]
+
+fused_clip_norm:
+  custom_op_schema: "hpu::fused_clip_norm(Tensor(a!)[] grad, Tensor max_norm, float norm_type) -> Tensor"
+  only_slrg: true
+  op_validator: FusedClipNormSharedMeta
+  namespaces: [torch.hpu]
+  skip_slrg: true # exception - minimum 2 elements of tensor list

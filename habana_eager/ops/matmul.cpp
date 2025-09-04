@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,7 +12,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "common/warning_suppress.h"
+SUPPRESS_W_PREFIX
+SUPPRESS_WARRAY_BOUNDS_WSTRINGOP_OVERFLOW_P
 #include "hpu_ops/matmul.h"
+SUPPRESS_W_SUFFIX
 #include <ATen/ATen.h>
 #include <ATen/Tensor.h>
 #include <torch/library.h>
@@ -22,8 +26,7 @@
 #include "habana_helpers/logging.h"
 #include "hpu_ops/op_logger.h"
 
-namespace habana {
-namespace eager {
+namespace habana::eager {
 
 at::Tensor matmul_forward(const at::Tensor& self, const at::Tensor& other) {
   PT_EAGER_TRACE;
@@ -127,5 +130,4 @@ TORCH_LIBRARY_IMPL(aten, AutogradHPU, m) {
   }
 }
 
-} // namespace eager
-} // namespace habana
+} // namespace habana::eager

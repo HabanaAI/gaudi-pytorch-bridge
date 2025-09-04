@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,14 +26,14 @@ std::vector<int64_t> KthvalueOutputShape(const at::Stack& stack) {
   return ReductionOutputShape(self, axis, keep_dims)[0];
 }
 
-std::shared_ptr<void> FillKthvalueParams(const at::Stack& stack, size_t& size) {
+FillParamsT FillKthvalueParams(const at::Stack& stack) {
   PARAMS_STUB(ns_Kthvalue::Params);
   params->k_value = stack.at(1).toInt();
   params->axis =
       get_dim_in_tpc_order(stack.at(2).toInt(), stack_tensor(stack, 0).dim());
   params->keep_dims = stack.at(3).toBool();
 
-  return params;
+  return paramsT;
 }
 
 OutputMetaDataVector KthvalueMeta(const at::Stack& stack) {

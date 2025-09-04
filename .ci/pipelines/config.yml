@@ -7,3 +7,5 @@ config:
   dependantComponents:
     - component: deepspeed_fork
     - component: pt_next
+  environmentVariables:
+    dockerImage: artifactory-kfs.habana-labs.com/devops-docker-local/habana-builder-pt

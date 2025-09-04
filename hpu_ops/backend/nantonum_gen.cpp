@@ -32,14 +32,11 @@ SharedMetaDataVector NanToNumSharedMeta(
     return {memcpySharedMeta};
   }
 
-  const bool constantPresent = !isIntegralType && rank > 1;
   SharedMetaDataVector metaVec;
-  metaVec.reserve(constantPresent ? 5 : 4);
-  if (constantPresent) {
-    SharedMetaData constantSharedMeta{"constant"};
-    constantSharedMeta.outputs_data = {commonTensor};
-    metaVec.push_back(constantSharedMeta);
-  }
+  metaVec.reserve(4);
+  // Don't create a shared meta for a constant node, as it would disable SAG
+  // flow. In fact, this node is always created with a shape {1}, which is
+  // supported by SAG.
 
   auto isNanMetaVec = IsFiniteInfNanSharedMeta(stack, "isnan_fwd");
   metaVec.insert(
@@ -79,8 +76,7 @@ void NantoNum::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   } else {
     auto nan_constant = stack.at(1).isNone() ? 0.0 : stack.at(1).toDouble();
 
-    auto const_nan =
-        ConstantHelper(graph, nan_constant, ScalarType(), outshape);
+    auto const_nan = ConstantHelper(graph, nan_constant, ScalarType());
 
     c10::Scalar max_value;
 
@@ -93,8 +89,7 @@ void NantoNum::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
     auto posinf_constant =
         stack.at(2).isNone() ? max_value : stack.at(2).toDouble();
 
-    auto const_posinf =
-        ConstantHelper(graph, posinf_constant, ScalarType(), outshape);
+    auto const_posinf = ConstantHelper(graph, posinf_constant, ScalarType());
 
     c10::Scalar min_value;
 
@@ -107,8 +102,7 @@ void NantoNum::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
     auto neginf_constant =
         stack.at(3).isNone() ? min_value : stack.at(3).toDouble();
 
-    auto const_neginf =
-        ConstantHelper(graph, neginf_constant, ScalarType(), outshape);
+    auto const_neginf = ConstantHelper(graph, neginf_constant, ScalarType());
 
     const at::ScalarType& result_type = c10::ScalarType::Bool;
 

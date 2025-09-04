@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
  */
 #include "backend/backend_meta.h"
 #include "common/dump_args.h"
+#include "common/warning_suppress.h"
 #include "generated/eager/wrap_kernels_declarations.h"
 #include "habana_eager/eager_context.h"
 #include "habana_eager/eager_pipeline_utils.h"
@@ -29,8 +30,10 @@
 #include "habana_eager/ops/set.h"
 #include "habana_eager/ops/unique.h"
 #include "habana_eager/ops/unique2.h"
+#include "habana_eager/ops/unique_dim.h"
 #include "habana_eager/ops/view.h"
 #include "habana_helpers/logging.h"
+#include "habana_helpers/pt_version_check.h"
 #include "habana_kernels/wrap_kernels_declarations.h"
 #include "hpu_ops/cpu_fallback.h"
 #include "hpu_ops/op_logger.h"
@@ -109,13 +112,12 @@ at::Tensor fused_norm_hpu_wrap(
     {
       // First and second element in the meta_vec vector should be the same
       OutputMetaData meta;
-      const at::Tensor& grad = grads[0];
-      meta.dtype = grad.scalar_type();
+      SUPPRESS_WDANGLING_REFERENCE(meta.dtype = static_cast<const at::Tensor&>(grads[0]).scalar_type();)
       meta.shape = {1};
       meta_vec.push_back(meta);
     }
 
-    for (const at::Tensor& grad : grads) {
+    SUPPRESS_WDANGLING_REFERENCE(for (const at::Tensor& grad : grads)) {
       OutputMetaData meta;
       meta.dtype = grad.scalar_type();
       meta.shape = grad.sizes().vec();
@@ -180,22 +182,28 @@ at::Tensor& hpu_wrap::_index_put_impl_(
     const at::Tensor& values,
     bool accumulate,
     bool unsafe) {
-  if ((self.scalar_type() != c10::ScalarType::Float) &&
-      (self.scalar_type() != c10::ScalarType::Int) &&
-      (self.scalar_type() != c10::ScalarType::Long) &&
-      (self.scalar_type() != c10::ScalarType::Char) &&
-      (self.scalar_type() != c10::ScalarType::Bool) &&
-      (self.scalar_type() != c10::ScalarType::BFloat16) &&
-      (self.scalar_type() != c10::ScalarType::Short) &&
-      (self.scalar_type() != c10::ScalarType::Byte) &&
-      (self.scalar_type() != c10::ScalarType::Double) &&
-      !(self.scalar_type() == c10::ScalarType::Half &&
-        habana::HPUDeviceContext::get_device().type() !=
-            synDeviceType::synDeviceGaudi)) {
-    return dispatch_fallback<ATEN_OP(_index_put_impl_)>::call(
-        OpSupportLevel::Value::unsupported_dtype,
-        PARAMS2(self, indices, values, accumulate, unsafe));
-  }
+  switch (self.scalar_type()) {
+    case c10::ScalarType::Float:
+    case c10::ScalarType::Int:
+    case c10::ScalarType::Long:
+    case c10::ScalarType::Char:
+    case c10::ScalarType::Bool:
+    case c10::ScalarType::BFloat16:
+    case c10::ScalarType::Short:
+    case c10::ScalarType::Byte:
+    case c10::ScalarType::Double:
+      break;
+    case c10::ScalarType::Half:
+      if (habana::HPUDeviceContext::get_device().type() ==
+          synDeviceType::synDeviceGaudi)
+        break;
+      [[fallthrough]];
+    default:
+      return dispatch_fallback<ATEN_OP(_index_put_impl_)>::call(
+          OpSupportLevel::Value::unsupported_dtype,
+          PARAMS2(self, indices, values, accumulate, unsafe));
+  };
+
   if (self.dim() > 5) {
     return dispatch_fallback<ATEN_OP(_index_put_impl_)>::call(
         OpSupportLevel::Value::unsupported_rank,
@@ -222,7 +230,11 @@ at::Tensor& hpu_wrap::_index_put_impl_(
 at::Tensor hpu_wrap::bincount(
     const at::Tensor& self,
     const std::optional<at::Tensor>& weights,
+#if IS_PYTORCH_AT_LEAST(2, 8)
+    c10::SymInt minlength) {
+#else
     int64_t minlength) {
+#endif
   PT_EAGER_TRACE;
   PT_OP_INFO("bincount :", DUMP_3ARGS(self, weights, minlength));
   static const std::array<c10::ScalarType, 5> valid_self_types = {
@@ -308,6 +320,16 @@ at::Tensor& hpu_wrap::nonzero_out(const at::Tensor& self, at::Tensor& out) {
         OpSupportLevel::Value::unsupported_dtype, PARAMS2(self, out));
   }
   return habana::eager::nonzero_out_eager(self, out);
+}
+
+std::tuple<at::Tensor, at::Tensor, at::Tensor> hpu_wrap::unique_dim(
+    const at::Tensor& self,
+    int64_t dim,
+    bool sorted,
+    bool return_inverse,
+    bool return_counts) {
+  return habana::eager::unique_dim_eager(
+      self, dim, sorted, return_inverse, return_counts);
 }
 
 at::Tensor hpu_wrap::masked_select(

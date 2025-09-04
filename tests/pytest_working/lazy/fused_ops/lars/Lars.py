@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -36,7 +36,7 @@ class Lars(Optimizer):
             weight_decays = []
             for group in self.optim.param_groups:
                 # absorb weight decay control from optimizer
-                weight_decay = group["weight_decay"] if "weight_decay" in group else 0
+                weight_decay = group.get("weight_decay", 0)
                 weight_decays.append(weight_decay)
                 group["weight_decay"] = 0
                 for idx, p in enumerate(group["params"]):

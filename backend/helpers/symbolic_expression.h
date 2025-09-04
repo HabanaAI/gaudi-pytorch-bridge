@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
 
 #pragma once
 
-#include <utilities/exprtk.hpp>
+#include <exprtk.hpp>
 #include <chrono>
 #include <cstdio>
 #include <iostream>
@@ -25,14 +25,14 @@
 
 namespace habana {
 
-typedef double exprtk_T;
+using exprtk_T = double;
 
-typedef exprtk::symbol_table<exprtk_T> symbol_table_t;
-typedef exprtk::expression<exprtk_T> expression_t;
-typedef exprtk::parser<exprtk_T> parser_t;
+using symbol_table_t = exprtk::symbol_table<exprtk_T>;
+using expression_t = exprtk::expression<exprtk_T>;
+using parser_t = exprtk::parser<exprtk_T>;
 
-typedef std::unordered_map<std::string, std::shared_ptr<exprtk_T>>
-    SymbolValueMap;
+using SymbolValueMap =
+    std::unordered_map<std::string, std::shared_ptr<exprtk_T>>;
 
 class SymExpression {
   std::string m_expr_str;
@@ -49,17 +49,17 @@ class SymExpression {
 class SizeExpression {
   std::string m_size_str;
   std::vector<SymExpression> m_size_expr;
-  std::vector<std::string> tokenizer(std::string s);
 
  public:
-  SizeExpression(){};
+  SizeExpression() {};
   SizeExpression(std::string size_str, SymbolValueMap& in_symbol_value_map);
   std::vector<SymExpression>& get_expressions();
   std::string get_size_expr_str();
+  static std::vector<std::string> tokenizer(const std::string& expression);
 };
 
 class SymExprFactory {
-  std::unordered_map<std::string_view, int64_t> expr_value_cache;
+  std::unordered_map<std::string, int64_t> expr_value_cache;
   SymExprFactory() {}
   ~SymExprFactory() {}
 

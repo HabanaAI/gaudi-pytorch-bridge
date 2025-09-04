@@ -25,8 +25,7 @@
 #include "lazy_executor.h"
 #include "torch/csrc/jit/ir/ir.h"
 
-namespace habana_lazy {
-namespace exec {
+namespace habana_lazy::exec {
 
 using Graph = torch::jit::Graph;
 using JitValue = torch::jit::Value;
@@ -61,7 +60,6 @@ class OptPassCfg {
   OptPassCfg(const OptPassCfg&) = delete;
   OptPassCfg& operator=(const OptPassCfg&) = delete;
 
- public:
   static OptPassCfg* GetInstance() {
     if (p_instance_ == nullptr) {
       p_instance_ = new OptPassCfg();
@@ -400,5 +398,4 @@ class HlExec {
   static size_t s_graphIndex;
 };
 
-}; // namespace exec
-}; // namespace habana_lazy
+}; // namespace habana_lazy::exec

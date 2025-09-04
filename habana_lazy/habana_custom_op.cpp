@@ -18,8 +18,7 @@
 #include "habana_lazy/ops/custom_op.h"
 #include "include/habanalabs/hpu_custom_op.h"
 
-namespace habana {
-namespace custom_op {
+namespace habana::custom_op {
 
 std::vector<at::Tensor> HabanaCustomOpDescriptor::execute(
     const std::vector<c10::IValue>& inputs) {
@@ -132,5 +131,4 @@ void HabanaCustomOpDescriptor::verifyInputOutputIndexes() {
   check_unique(inputs_);
   check_unique(outputs_);
 }
-} // namespace custom_op
-} // namespace habana
+} // namespace habana::custom_op

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,23 +29,23 @@ class HpuOpTest : public HpuOpTestUtil {
   }
 };
 
-#define DEF_FULL_OP_TEST(name, shape, dtype, default_dtype)        \
-  TEST_F(HpuOpTest, name) {                                        \
-    auto fillValue = GenerateScalar<int>(-128, 127);               \
-    if (default_dtype) {                                           \
-      torch::set_default_dtype(c10::scalarTypeToTypeMeta(dtype));  \
-    }                                                              \
-    auto hpuResult = at::native::full(                             \
-        shape,                                                     \
-        fillValue,                                                 \
-        default_dtype ? std::nullopt : c10::make_optional(dtype),  \
-        std::nullopt,                                              \
-        c10::Device(c10::DeviceType::HPU));                        \
-    auto cpuResult = at::native::full(                             \
-        shape,                                                     \
-        fillValue,                                                 \
-        default_dtype ? std::nullopt : c10::make_optional(dtype)); \
-    Compare(cpuResult, hpuResult, 0, 0);                           \
+#define DEF_FULL_OP_TEST(name, shape, dtype, default_dtype)          \
+  TEST_F(HpuOpTest, name) {                                          \
+    auto fillValue = GenerateScalar<int>(-128, 127);                 \
+    if (default_dtype) {                                             \
+      torch::set_default_dtype(c10::scalarTypeToTypeMeta(dtype));    \
+    }                                                                \
+    auto hpuResult = at::native::full(                               \
+        shape,                                                       \
+        fillValue,                                                   \
+        (default_dtype) ? std::nullopt : c10::make_optional(dtype),  \
+        std::nullopt,                                                \
+        c10::Device(c10::DeviceType::HPU));                          \
+    auto cpuResult = at::native::full(                               \
+        shape,                                                       \
+        fillValue,                                                   \
+        (default_dtype) ? std::nullopt : c10::make_optional(dtype)); \
+    Compare(cpuResult, hpuResult, 0, 0);                             \
   }
 
 DEF_FULL_OP_TEST(full_1x_f32_false, SHAPE({{1}}), torch::kFloat32, false)

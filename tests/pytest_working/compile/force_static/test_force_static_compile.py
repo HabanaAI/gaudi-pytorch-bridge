@@ -26,9 +26,7 @@ from test_utils import compile_function_if_compile_mode
 
 
 def test_force_static_compile():
-
     class Test_Ops:
-
         def __init__(self, force_static_compile=True):
             self.force_static_compile = force_static_compile
             self.stats_path = pytest.stats_path
@@ -85,13 +83,13 @@ def test_force_static_compile():
                 pass
             if self.force_static_compile:
                 assert "STATIC" in compile_types, "No static recipes with force_static_compile=True"
-                assert (
-                    "DYNAMIC MIN + DYNAMIC MAX" not in compile_types
-                ), "Dynamic recipes with force_static_compile=True"
+                assert "DYNAMIC MIN + DYNAMIC MAX" not in compile_types, (
+                    "Dynamic recipes with force_static_compile=True"
+                )
             else:
-                assert (
-                    "DYNAMIC MIN + DYNAMIC MAX" in compile_types
-                ), "No dynamic recipes with force_static_compile=False"
+                assert "DYNAMIC MIN + DYNAMIC MAX" in compile_types, (
+                    "No dynamic recipes with force_static_compile=False"
+                )
 
             shutil.rmtree(self.stats_path, ignore_errors=True)
 

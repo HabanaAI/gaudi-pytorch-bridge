@@ -18,11 +18,7 @@
 #include "generated/backend/cast_to_fp8.h"
 #include "generated/backend/cast_to_fp8_v2.h"
 #include "generated/backend/conv2d_fp8.h"
-#include "generated/backend/fp8_gemm.h"
-#include "generated/backend/fp8_gemm_v2.h"
-#include "habana_kernels/random_gen_kernels.h"
 #include "hpu_ops/backend/reduction_template.h"
-#include "hpu_ops/common/batched_matmul_output_shape.h"
 #include "hpu_ops/common/convolution_gen.h"
 #include "hpu_ops/custom_op_outshape.h"
 #include "hpu_ops/fp8_utils.h"
@@ -83,7 +79,7 @@ void HandleScaleScalar(
     habana::OpBackend* op,
     sh::graph& graph,
     const c10::IValue& scale,
-    const int device_id,
+    const synDeviceId device_id,
     std::vector<sh::tensor>& maybe_const_scale,
     std::vector<synTensor>& syn_inputs,
     const c10::IValue& scale_shape_ival) {
@@ -101,55 +97,6 @@ void HandleScaleScalar(
     syn_inputs.push_back(maybe_const_scale.back().get());
   } else {
     syn_inputs.push_back(nullptr);
-  }
-}
-
-void HandleScale(
-    habana::OpBackend* op,
-    sh::graph& graph,
-    const habana::VariantWrapper<TensorsPair, c10::IValue>& scaleOpt,
-    const at::Tensor& input,
-    bool isTranspose,
-    std::vector<sh::tensor>& adjusted_scale,
-    std::vector<synTensor>& syn_inputs,
-    int deviceId,
-    const c10::IValue& scale_shape) {
-  if (scaleOpt.isTensorsPair()) {
-    auto scale = scaleOpt.toTensorsPair();
-    if (scale.pt_t.dim() == 2) {
-      HABANA_ASSERT(
-          scale.pt_t.size(0) == 1 || scale.pt_t.size(1) == 1,
-          "Scale tensor must be 1D or 2D with one of the dimensions being 1.");
-    }
-
-    auto sizes = input.sizes().vec();
-    if (isTranspose) {
-      HABANA_ASSERT(
-          sizes.size() >= 2,
-          "Input tensor must have at least 2 dimensions to perform transpose operation.");
-      std::swap(sizes[sizes.size() - 1], sizes[sizes.size() - 2]);
-    }
-    HABANA_ASSERT(
-        at::are_expandable(at::IntArrayRef(sizes), scale.pt_t.sizes()),
-        "Input and its scale must be broadcastable. Got: ",
-        at::IntArrayRef(sizes),
-        " and ",
-        scale.pt_t.sizes());
-
-    ValidateScaleShape(scale.pt_t, scale_shape);
-    HandleScaleTensor(
-        op,
-        graph,
-        scale.pt_t,
-        scale.syn_t,
-        adjusted_scale,
-        syn_inputs,
-        scale_shape);
-  } else {
-    auto scale = scaleOpt.toIValue();
-    ValidateScaleShape(scale, scale_shape);
-    HandleScaleScalar(
-        op, graph, scale, deviceId, adjusted_scale, syn_inputs, scale_shape);
   }
 }
 
@@ -234,6 +181,32 @@ OutputMetaDataVector CastToFp8V2Meta(const at::Stack& stack) {
   return meta;
 }
 
+SharedMetaDataVector CastToFp8SharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  const at::Tensor& input = stack.at(0).toTensor();
+  const int inputDim = input.dim();
+  const bool isCastToFp8V2 = stack.at(3).isBool();
+  const bool isAmax = isCastToFp8V2 ? stack.at(3).toBool()
+                                    : stack.at(4).toTensor().numel() != 0;
+
+  const c10::ScalarType outputType = isCastToFp8V2
+      ? stack.at(4).toScalarType()
+      : stack.at(3).toTensor().scalar_type();
+
+  SharedMetaData sharedMeta("convert_to_fp8");
+  sharedMeta.inputs_data = {
+      getSharedMetaFromTensor(input),
+      getSharedMetaTensorFromScale(stack.at(1))};
+
+  sharedMeta.outputs_data.emplace_back(inputDim, outputType);
+  if (isAmax) {
+    sharedMeta.outputs_data.emplace_back(1, c10::ScalarType::Float);
+  }
+
+  return {sharedMeta};
+}
+
 void CastToFp8V2::AddNode(sh::graph& graph, const at::Stack& stack) {
   auto self = stack_tensor(stack, 0);
   auto scale = stack[1];
@@ -311,6 +284,22 @@ OutputMetaDataVector CastFromFp8Meta(const at::Stack& stack) {
   return {meta};
 }
 
+SharedMetaDataVector CastFromFp8SharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  const at::Tensor& input = stack.at(0).toTensor();
+  const int inputDim = input.dim();
+
+  SharedMetaData sharedMeta("convert_from_fp8");
+  sharedMeta.inputs_data = {
+      getSharedMetaFromTensor(input),
+      getSharedMetaTensorFromScale(stack.at(1))};
+
+  sharedMeta.outputs_data.emplace_back(inputDim, stack.at(2).toScalarType());
+
+  return {sharedMeta};
+}
+
 void CastFromFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
   HABANA_ASSERT(stack.size() == 4, "CastFromFp8 must have 4 input arguments");
 
@@ -354,193 +343,6 @@ void CastFromFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
       this, graph, {guid, syn_inputs, {{sizes, dst_type, 0}}});
 
   syn_out(0) = std::move(casted[0]);
-}
-
-/********** Fp8Gemm **********/
-
-void Fp8Gemm::AddNode(sh::graph& graph, const at::Stack& stack) {
-  StackGetter stackGetter(this, stack, "Fp8Gemm::AddNode");
-  auto A = stackGetter.getNextInput<TensorsPair>();
-  bool trans_A = stackGetter.getNextInput<bool>();
-  auto B = stackGetter.getNextInput<TensorsPair>();
-  bool trans_B = stackGetter.getNextInput<bool>();
-  auto D = stackGetter.getNextInput<TensorsPair>();
-  auto out_type = stackGetter.getNextInput<c10::ScalarType>();
-  auto scaleAOpt = stackGetter.getNextInput<std::optional<TensorsPair>>();
-  auto scaleBOpt = stackGetter.getNextInput<std::optional<TensorsPair>>();
-  auto biasOpt = stackGetter.getNextInput<std::optional<TensorsPair>>();
-  bool accumulate = stackGetter.getNextInput<bool>();
-
-  std::vector<int64_t> out_shape;
-  try {
-    out_shape = getBatchMatmulOutShape(
-        A.pt_t.sizes(), B.pt_t.sizes(), trans_A, trans_B);
-  } catch (const std::invalid_argument& e) {
-    HABANA_ASSERT(false, e.what());
-  }
-
-  std::string guid = get_guid_with_precision("fp8_gemm"sv, out_type);
-
-  std::vector<synTensor> syn_inputs = {A.syn_t, B.syn_t};
-  if (scaleAOpt) {
-    syn_inputs.push_back(scaleAOpt->syn_t);
-  } else {
-    syn_inputs.push_back(nullptr);
-  }
-  if (scaleBOpt) {
-    syn_inputs.push_back(scaleBOpt->syn_t);
-  } else {
-    syn_inputs.push_back(nullptr);
-  }
-  if (biasOpt) {
-    syn_inputs.push_back(biasOpt->syn_t);
-  } else {
-    syn_inputs.push_back(nullptr);
-  }
-  if (accumulate) {
-    syn_inputs.push_back(D.syn_t);
-  }
-
-  synGEMMParams params{trans_A, trans_B};
-
-  auto gemm = OpBackend::BuildNode(
-      this,
-      graph,
-      {guid, syn_inputs, {{out_shape, out_type, 0}}, &params, sizeof(params)});
-
-  syn_out(0) = std::move(gemm[0]);
-}
-
-/********** Fp8GemmV2 **********/
-
-// Left for now, used by torch.compile meta
-sym_sizes_vec fp8_gemm_out_shape(
-    const std::vector<at::Tensor>& inputs,
-    const std::vector<int64_t>& params) {
-  HABANA_ASSERT(inputs.size() == 2);
-  HABANA_ASSERT(params.size() == 2);
-  return {getBatchMatmulOutShape(
-      inputs[0].sym_sizes(),
-      inputs[1].sym_sizes(),
-      static_cast<bool>(params[0]),
-      static_cast<bool>(params[1]))};
-}
-
-REGISTER_CUSTOM_OP_OUTSHAPE_FUN(fp8_gemm, fp8_gemm_out_shape);
-
-OutputMetaDataVector Fp8GemmV2Meta(const at::Stack& stack) {
-  auto A = stack_tensor(stack, 0);
-  bool trans_A = stack[1].toBool();
-  auto B = stack_tensor(stack, 2);
-  bool trans_B = stack[3].toBool();
-  OutputMetaData meta;
-  try {
-    meta.shape = getBatchMatmulOutShape(A.sizes(), B.sizes(), trans_A, trans_B);
-  } catch (const std::invalid_argument& e) {
-    HABANA_ASSERT(false, e.what());
-    return {};
-  }
-  meta.dtype = stack[5].toScalarType();
-  return {meta};
-}
-
-void Fp8GemmV2::AddNode(sh::graph& graph, const at::Stack& stack) {
-  HABANA_ASSERT(stack.size() == 11, "Fp8GemmV2 must have 11 input arguments");
-
-  StackGetter stackGetter(this, stack, "Fp8Gemm::AddNode");
-  auto A = stackGetter.getNextInput<TensorsPair>();
-  bool transA = stackGetter.getNextInput<bool>();
-  auto B = stackGetter.getNextInput<TensorsPair>();
-  bool transB = stackGetter.getNextInput<bool>();
-  auto DOpt = stackGetter.getNextInput<std::optional<TensorsPair>>();
-  auto out_type = stackGetter.getNextInput<c10::ScalarType>();
-  auto scaleAOpt =
-      stackGetter.getNextInput<std::variant<TensorsPair, c10::IValue>>();
-  auto scaleBOpt =
-      stackGetter.getNextInput<std::variant<TensorsPair, c10::IValue>>();
-  auto biasOpt = stackGetter.getNextInput<std::optional<TensorsPair>>();
-  bool accumulate = stackGetter.getNextInput<bool>();
-  auto scale_shape = stackGetter.getNextInput<c10::IValue>();
-
-  std::string guid = get_guid_with_precision("fp8_gemm"sv, out_type);
-
-  std::vector<synTensor> syn_inputs = {A.syn_t, B.syn_t};
-  std::vector<sh::tensor> adjusted_scale;
-
-  HandleScale(
-      this,
-      graph,
-      scaleAOpt,
-      A.pt_t,
-      transA,
-      adjusted_scale,
-      syn_inputs,
-      p_context_->device_id_);
-  HandleScale(
-      this,
-      graph,
-      scaleBOpt,
-      B.pt_t,
-      transB,
-      adjusted_scale,
-      syn_inputs,
-      p_context_->device_id_,
-      scale_shape);
-
-  if (scaleAOpt.isTensorsPair() && scaleBOpt.isTensorsPair()) {
-    HABANA_ASSERT(
-        at::are_expandable(
-            scaleAOpt.toTensorsPair().pt_t.sizes(),
-            scaleBOpt.toTensorsPair().pt_t.sizes()),
-        "Scale tensors must be broadcastable.");
-  }
-
-  if (biasOpt) {
-    syn_inputs.push_back(biasOpt->syn_t);
-  } else {
-    syn_inputs.push_back(nullptr);
-  }
-  if (accumulate) {
-    HABANA_ASSERT(
-        DOpt,
-        "Accumulation tensor must be provided at index 4 for Fp8GemmV2, when accumulate is true");
-    syn_inputs.push_back(DOpt->syn_t);
-  } else {
-    syn_inputs.push_back(nullptr);
-  }
-
-  // GC pass FUSE_CONVERT_MME inserts this last input, but it needs
-  // it to be explicitly filled with nullptr before.
-  syn_inputs.push_back(nullptr);
-
-  ns_Fp8Gemm::ParamsV2 params{};
-  params.transpose_a = transA;
-  params.transpose_b = transB;
-
-  if (scaleAOpt.isTensorsPair() and scaleBOpt.isTensorsPair()) {
-    const auto tmeta_a{get_tensor_extra_meta(scaleAOpt.toTensorsPair().pt_t)};
-    const auto tmeta_b{get_tensor_extra_meta(scaleBOpt.toTensorsPair().pt_t)};
-
-    if (tmeta_a->get_tensor_type() == HOST_TO_DEVICE_TENSOR and
-        tmeta_b->get_tensor_type() == HOST_TO_DEVICE_TENSOR) {
-      const auto& device = habana::HPUDeviceContext::get_device();
-      params.is_hw_aligned = device.get_scale_attribute_is_hw_aligned();
-      params.scale_method_hash_id = device.get_scale_attribute_hash_id();
-    }
-  }
-
-  auto meta = Fp8GemmV2Meta(stack)[0];
-
-  auto gemm = OpBackend::BuildNode(
-      this,
-      graph,
-      {guid,
-       syn_inputs,
-       {{meta.shape, meta.dtype, 0}},
-       &params,
-       sizeof(params)});
-
-  syn_out(0) = std::move(gemm[0]);
 }
 
 /********** InPlaceInterleave **********/
@@ -627,13 +429,36 @@ OutputMetaDataVector Conv2dFp8Meta(const at::Stack& stack) {
   const auto dilation =
       expand_param_if_needed(stack[5].toIntList().vec(), "dilation", 2);
   const auto out_dtype =
-      stack[7].toOptional<c10::ScalarType>().value_or(at::ScalarType::BFloat16);
+      stack[7].toOptional<at::ScalarType>().value_or(at::ScalarType::BFloat16);
 
   OutputMetaData meta;
   meta.dtype = out_dtype;
   meta.shape = ComputeConv2dOutputSize(
       input_shape, weight_shape, stride, padding, dilation);
   return {meta};
+}
+
+SharedMetaDataVector Conv2dFp8SharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  const at::Tensor& inputTensor = stack_tensor(stack, 0);
+  const std::optional<at::Tensor> biasTensor =
+      stack.at(2).toOptional<at::Tensor>();
+  const at::ScalarType outDtype =
+      stack.at(7).toOptional<at::ScalarType>().value_or(
+          at::ScalarType::BFloat16);
+
+  SharedMetaData sharedMeta("conv2d_fp8");
+  sharedMeta.inputs_data.push_back(getSharedMetaFromTensor(inputTensor));
+  sharedMeta.inputs_data.push_back(
+      getSharedMetaFromTensor(stack_tensor(stack, 1)));
+  sharedMeta.inputs_data.push_back(getSharedMetaFromOptionalTensor(biasTensor));
+  sharedMeta.inputs_data.push_back(getSharedMetaTensorFromScale(stack.at(8)));
+  sharedMeta.inputs_data.push_back(getSharedMetaTensorFromScale(stack.at(9)));
+
+  sharedMeta.outputs_data.emplace_back(inputTensor.dim(), outDtype);
+
+  return {sharedMeta};
 }
 
 static synConvolutionParams FillConv2dFp8Params(
@@ -669,7 +494,7 @@ void Conv2dFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
       stackGetter.getNextInput<std::vector<int64_t>>(), "padding", 2);
   auto dilation = expand_param_if_needed(
       stackGetter.getNextInput<std::vector<int64_t>>(), "dilation", 2);
-  auto groups = stackGetter.getNextInput<int>();
+  auto groups = stackGetter.getNextInput<long>();
   auto out_dtype =
       stackGetter.getNextInput<std::optional<c10::ScalarType>>().value_or(
           at::ScalarType::BFloat16);
@@ -736,6 +561,7 @@ void Conv2dFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
 
 } // namespace habana
 
-static const auto& CastKernelRegistry = habana::KernelRegistry().add(
-    "hpu::in_place_interleave",
-    KERNEL_FN_GLOBAL(habana::InPlaceInterleave));
+static const auto& CastKernelRegistry =
+    habana::KernelRegistry().REGISTER_HPU_BACKEND(
+        "hpu::in_place_interleave",
+        habana::InPlaceInterleave);

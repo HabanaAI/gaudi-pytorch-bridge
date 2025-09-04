@@ -20,8 +20,7 @@
 #include "habana_lazy/ir.h"
 #include "torch/csrc/jit/ir/ir.h"
 
-namespace habana_lazy {
-namespace ir {
+namespace habana_lazy::ir {
 
 class AsStridedLayout : public ir::Node {
  public:
@@ -110,5 +109,4 @@ class Permute : public ir::Node {
   }
 };
 
-}; // namespace ir
-}; // namespace habana_lazy
+} // namespace habana_lazy::ir

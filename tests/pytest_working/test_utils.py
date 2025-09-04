@@ -45,6 +45,10 @@ def is_device(device_name):
     return hthpu.get_device_name() == device_name
 
 
+def is_gaudi1():
+    return is_device("GAUDI")
+
+
 def is_gaudi2():
     return is_device("GAUDI2")
 
@@ -192,7 +196,7 @@ def evaluate_fwd_inplace_kernel(
     return hpu_result, cpu_result
 
 
-def compare_tensors(hpu_tensors, cpu_tensors, atol, rtol, assert_enable=True):
+def compare_tensors(hpu_tensors, cpu_tensors, atol=0.0, rtol=0.0, assert_enable=True):
     hpu_tensors = _convert_to_tensor_list(hpu_tensors)
     cpu_tensors = _convert_to_tensor_list(cpu_tensors)
     assert len(hpu_tensors) == len(cpu_tensors)
@@ -235,9 +239,9 @@ def compare_tensors(hpu_tensors, cpu_tensors, atol, rtol, assert_enable=True):
 @contextmanager
 def env_var_in_scope(vars=None):
     def set_flag_in_env(name: str, value):
-        assert (
-            name != "PT_HPU_LAZY_MODE"
-        ), "Setting PT_HPU_LAZY_MODE during test is forbidden. Use python3 -m pytest --mode argument instead"
+        assert name != "PT_HPU_LAZY_MODE", (
+            "Setting PT_HPU_LAZY_MODE during test is forbidden. Use python3 -m pytest --mode argument instead"
+        )
         if value is None:
             os.environ[name] = ""
         else:
@@ -251,13 +255,12 @@ def env_var_in_scope(vars=None):
     try:
         yield
     finally:
-        for key in orig_vars.keys():
+        for key, orig_var in orig_vars.items():
             # restore environment variable
-            if orig_vars[key] is not None:
-                os.environ[key] = orig_vars[key]
-            else:
-                if key in os.environ:
-                    del os.environ[key]
+            if orig_var is not None:
+                os.environ[key] = orig_var
+            elif key in os.environ:
+                del os.environ[key]
 
 
 def generic_setup_teardown_env(temp_test_env: dict, callback: Callable | None = None):
@@ -309,7 +312,7 @@ def run_kernel_on_device(device, kernel, tensor_list=None, kernel_params=None, c
                     # in test-cases and convert it to dtype=long for CPU (CPU
                     # works for dtype=long only)
                     kernel_params_local[k] = tuple(
-                        [i.to(device, dtype=torch.long) if i.type() == "torch.IntTensor" else i.to(device) for i in v]
+                        [(i.to(device, dtype=torch.long) if i.type() == "torch.IntTensor" else i.to(device)) for i in v]
                     )
                 else:
                     kernel_params_local[k] = tuple([i.to(device) for i in v])
@@ -376,15 +379,11 @@ def _convert_to_tensor_list(tensor_or_tensors):
 def _is_simulator():
     status = False
     if os.path.exists("/sys/class/accel/accel0/device/device_type"):
-        import subprocess
+        # Importing subprocess is safe here as we control the command execution.
 
-        out = subprocess.Popen(
-            ["cat", "/sys/class/accel/accel0/device/device_type"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-        )
-        stdout, _ = out.communicate()
-        status = "SIM".lower() in str(stdout).lower()
+        with open("/sys/class/accel/accel0/device/device_type") as f:
+            out = f.read()
+        status = "SIM".lower() in out.lower()
     return status
 
 
@@ -435,7 +434,10 @@ class TcLimitedFormatter:
             return ret
         elif val is None:
             return "_None_"
-        elif isinstance(val, types.MethodDescriptorType | types.BuiltinMethodType | types.FunctionType):
+        elif isinstance(
+            val,
+            types.MethodDescriptorType | types.BuiltinMethodType | types.FunctionType,
+        ):
             return val.__name__
         else:
             s = str(val)
@@ -474,7 +476,6 @@ def is_pytest_mode_lazy():
 
 
 def clear_t_compile_logs():
-
     from habana_frameworks.torch.dynamo.compile_backend._helpers.helpers import (
         logger as helpers_logger,
     )
@@ -591,6 +592,73 @@ def check_ops_executed_in_jit_ir(op_names, verbose=False, allowed_fallbacks=set(
     assert not fallback_ops, f"These ops fell back to eager: {fallback_ops}"
     assert not op_names, f"Ops {op_names} were not found in the JIT IR graph"
     assert not found_forbidden, f"These forbidden ops were found in the JIT IR graph: {found_forbidden}"
+
+
+def check_eager_fallback_reason(op_name, reason, *, is_fallback=True, exception=None):
+    import re
+
+    from habana_frameworks.torch.dynamo.compile_backend.shared_layer import (
+        logger as fallback_logger,
+    )
+
+    fallback_data = fallback_logger.data
+
+    pattern_reason = (
+        r"\[PT_COMPILE\] Fallback reason: (.*)"
+        if is_fallback
+        else r"added to graph without shared layer validation. Reason: (.*)"
+    )
+    pattern_fallback = r"\[PT_COMPILE\] Node: (\w+) requires fallback: (\w+)"
+
+    reason_matched = False
+    fallback_matched = False
+    actual_reason = "Reason not found in logs"
+
+    is_fallback_str = "True" if is_fallback else "False"
+
+    for log in fallback_data:
+        m_reason = re.search(pattern_reason, log)
+        m_fallback = re.match(pattern_fallback, log)
+        if m_reason:
+            actual_reason = m_reason.group(1)
+            if actual_reason == reason:
+                reason_matched = True
+        elif m_fallback:
+            op = m_fallback.group(1)
+            actual_fallback = m_fallback.group(2)
+            if op == op_name and actual_fallback == is_fallback_str:
+                fallback_matched = True
+
+    assert reason_matched, f"Fallback reason doesn't match, expected: {reason}, actual: {actual_reason}"
+    assert fallback_matched, f"Fallback doesn't match, expected: {is_fallback} for op: {op_name}"
+    if exception:
+        assert f"Node: {op_name} requires fallback: True" in str(exception.value)
+
+
+def check_eager_placement_reason(op_name, reason, *, exception=None, full_op_name=""):
+    import re
+
+    from habana_frameworks.torch.dynamo.compile_backend.passes import (
+        logger as graph_logger,
+    )
+
+    placement_data = graph_logger.data
+    pattern_fallback = r"Node (\w+): (.*)"
+
+    reason_matched = False
+    actual_reason = "Reason not found in logs"
+
+    for log in placement_data:
+        m_fallback = re.search(pattern_fallback, log)
+        if m_fallback:
+            op = m_fallback.group(1)
+            actual_reason = m_fallback.group(2)
+            if op == op_name and actual_reason == reason:
+                reason_matched = True
+
+    assert reason_matched, f"Fallback reason doesn't match, expected: {reason}, actual: {actual_reason}"
+    if exception:
+        assert f"Eager fallback in nodes: ['{op_name}:{full_op_name}']" in str(exception.value)
 
 
 def get_fuser_debug_logs_path():
@@ -724,3 +792,23 @@ def inference_env_fixture():
     htcore.hpu_set_inference_env()
     yield
     htcore.hpu_teardown_inference_env()
+
+
+def filter_dtypes(
+    dtypes: list[torch.dtype],
+    filter_function: Callable[[torch.dtype], bool] | None = None,
+) -> list[torch.dtype]:
+    def default_filter_function(dtype: torch.dtype) -> bool:
+        if is_gaudi1() and dtype in [
+            torch.float16,
+            torch.float8_e5m2,
+            torch.float8_e4m3fn,
+        ]:
+            return False
+        return True
+
+    if filter_function is None:
+        filter_function = default_filter_function
+    filtered_dtypes = filter(filter_function, dtypes)
+
+    return list(filtered_dtypes)

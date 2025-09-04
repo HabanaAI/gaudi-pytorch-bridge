@@ -120,7 +120,7 @@ struct ParsedLiteral {
   bool b = false;
 
   int64_t i = 0;
-  std::string s = "";
+  std::string s;
   double f = 0.0;
   c10::complex<double> c = c10::complex<double>(0, 0);
   TypePtr ty;
@@ -309,7 +309,7 @@ ParsedLiteral IRParser::convertStrToNumericAttr(
   ParsedLiteral result;
   if (numeric_attr_str.find('j') != std::string::npos) {
     result.k = AttributeKind::c;
-    double imag = 0.0f;
+    double imag = 0.0F;
     try {
       imag = std::stod(numeric_attr_str.substr(0, numeric_attr_str.size() - 1));
     } catch (const std::invalid_argument& e) {
@@ -693,7 +693,6 @@ void IRParser::parseReturnOperator() {
 void IRParser::parse() {
   // Parse graph definition, it should look like the following:
   // graphName (input1, input2, ... inputN):
-  std::string graphName = L.expect(TK_IDENT).text();
   parseGraphInputs();
   L.expect(':');
 

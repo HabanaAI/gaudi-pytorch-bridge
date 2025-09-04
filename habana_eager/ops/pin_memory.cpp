@@ -17,8 +17,7 @@
 #include "backend/habana_device/PinnedMemoryAllocator.h"
 #include "hpu_ops/op_logger.h"
 
-namespace habana {
-namespace eager {
+namespace habana::eager {
 
 static inline at::Device ensure_has_index(at::Device device) {
   const c10::impl::DeviceGuardImplInterface* impl =
@@ -46,8 +45,7 @@ bool is_pinned_hpu(const at::Tensor& self, at::Device device) {
   return habana::PinnedMemoryAllocator_is_pinned(self.data_ptr());
 }
 
-} // namespace eager
-} // namespace habana
+} // namespace habana::eager
 
 namespace hpu_wrap {
 at::Tensor _pin_memory(

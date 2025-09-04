@@ -15,7 +15,7 @@
 #
 ###############################################################################
 
-import habana_frameworks.torch._torch_jit_C.jit as jit
+from habana_frameworks.torch._torch_jit_C import jit
 from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
 
 from .unfold_tuple_on_output import pass_unfold_tuple_on_output
@@ -31,6 +31,7 @@ def get_jit_fork_passes():
         pass_unfold_tuple_on_output,
         jit.getitem_folding_pass,
         jit.remove_duplicate_const_pass,
+        jit.remove_mutation_pass,  # same as torch._C._jit_pass_remove_mutation
     ]
     return passes_list
 

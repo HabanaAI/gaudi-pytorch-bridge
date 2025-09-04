@@ -108,9 +108,9 @@ class ColorGraph:
         key_to_remove = frozenset()
 
         while reverse_graph_dict:
-            assert (
-                key_to_remove in reverse_graph_dict
-            ), "Empty set not a key in reverse_graph_dict. Graph most likely cyclic."
+            assert key_to_remove in reverse_graph_dict, (
+                "Empty set not a key in reverse_graph_dict. Graph most likely cyclic."
+            )
             current_block = reverse_graph_dict.pop(key_to_remove)
             parallel_blocks.append(current_block)
             next_iter_dependencies = [(key - current_block, val) for key, val in reverse_graph_dict.items()]

@@ -18,13 +18,13 @@
 #include "backend/synapse_helpers/device_types.h"
 
 #define TO_GB(arg) ((arg) / (static_cast<double>(1024 * 1024) * 1024.))
-#define TO_REPORT_EVENT(key, value)                                         \
-  std::string(" \"") + key + std::string("\":\"") + std::to_string(value) + \
+#define TO_REPORT_EVENT(key, value)                                           \
+  std::string(" \"") + (key) + std::string("\":\"") + std::to_string(value) + \
       std::string("\"")
-#define TO_REPORT_EVENT_GB(key, value)                                      \
-  std::string(" \"") + key + std::string("\":\"") + std::to_string(value) + \
-      std::string(" (") +                                                   \
-      std::to_string(static_cast<double>(value) / (1024 * 1024 * 1024.)) +  \
+#define TO_REPORT_EVENT_GB(key, value)                                        \
+  std::string(" \"") + (key) + std::string("\":\"") + std::to_string(value) + \
+      std::string(" (") +                                                     \
+      std::to_string(static_cast<double>(value) / (1024 * 1024 * 1024.)) +    \
       std::string(" GB)\"")
 #define TO_GB_STR(value)                                                   \
   std::to_string(value) + std::string(" (") +                              \
@@ -33,21 +33,11 @@
 
 namespace synapse_helpers {
 struct MemoryConsumption {
-  uint64_t total_allocs_bytes; /* Total of bytes allocated. */
-  uint64_t max_alloc_bytes; /* The maximum single byte allocated. */
-  uint64_t
-      pre_allocated_bytes; /* Preallocate bytes allocated for HCL or other. */
-  uint64_t workspace_allocated; /* Scratch memory allocated. */
-  uint64_t persistent_tensor_size; /* Persistent memory allocated */
-  // uint64_t live_tensors_allocs_bytes; /* Live tensors bytes in use. */
-  // uint64_t ghost_tensors_allocs_bytes; /* Ghost tensors bytes in use. */
-
-  MemoryConsumption()
-      : total_allocs_bytes(0),
-        max_alloc_bytes(0),
-        pre_allocated_bytes(0),
-        workspace_allocated(0),
-        persistent_tensor_size(0) {}
+  uint64_t total_allocs_bytes{0}; // Total of bytes allocated
+  uint64_t max_alloc_bytes{0}; // The maximum single byte allocated
+  uint64_t pre_allocated_bytes{0}; // Preallocate bytes for HCL or other
+  uint64_t workspace_allocated{0}; // Scratch memory allocated
+  uint64_t persistent_tensor_size{0}; // Persistent memory allocated
 
   void update(synapse_helpers::MemoryStats& mem_stats) {
     this->total_allocs_bytes = mem_stats.bytes_in_use;
@@ -105,16 +95,10 @@ struct MemoryConsumption {
 };
 
 struct MemoryAllocatorStats {
-  uint64_t total_num_allocs; /* Total number of allocations. */
-  uint64_t new_num_allocs; /* New number of allocations. */
-  uint64_t total_num_frees; /* Total number of frees. */
-  uint64_t new_num_frees; /* New number of frees. */
-
-  MemoryAllocatorStats()
-      : total_num_allocs(0),
-        new_num_allocs(0),
-        total_num_frees(0),
-        new_num_frees(0) {}
+  uint64_t total_num_allocs{0};
+  uint64_t new_num_allocs{0};
+  uint64_t total_num_frees{0};
+  uint64_t new_num_frees{0};
 
   void update(synapse_helpers::MemoryStats& mem_stats) {
     this->total_num_allocs = mem_stats.total_allocs;
@@ -158,29 +142,16 @@ struct MemoryAllocatorStats {
 };
 
 struct FragmentationStats {
-  uint64_t fragmentation_percent; /* Fragmentation percentage. */
-  uint64_t total_num_chunks; /* Total number of chunks. */
-  uint64_t total_num_alloc_chunks; /* Total number of alloc chunks. */
-  uint64_t total_num_free_chunks; /* Total number of free chunks. */
-  uint64_t total_alloc_size; /* Total alloc size. */
-  uint64_t total_free_size; /* Total free size. */
-  uint64_t max_cntg_chunk_free_size; /* Maximum contiguous chunk free size
-                                        available. */
-  uint64_t min_chunk_size; /* Minimum chunk size. */
-  uint64_t max_chunk_size; /* Maximum Chunk size. */
-  std::string fragmentation_histogram; /* Fragmentation histogram. */
-
-  FragmentationStats()
-      : fragmentation_percent(0),
-        total_num_chunks(0),
-        total_num_alloc_chunks(0),
-        total_num_free_chunks(0),
-        total_alloc_size(0),
-        total_free_size(0),
-        max_cntg_chunk_free_size(0),
-        min_chunk_size(0),
-        max_chunk_size(0),
-        fragmentation_histogram("") {}
+  uint64_t fragmentation_percent{0};
+  uint64_t total_num_chunks{0};
+  uint64_t total_num_alloc_chunks{0};
+  uint64_t total_num_free_chunks{0};
+  uint64_t total_alloc_size{0};
+  uint64_t total_free_size{0};
+  uint64_t max_cntg_chunk_free_size{0};
+  uint64_t min_chunk_size{0};
+  uint64_t max_chunk_size{0};
+  std::string fragmentation_histogram;
 
   void update(synapse_helpers::MemoryStats& mem_stats) {
     this->fragmentation_percent = mem_stats.fragmentation_percent;

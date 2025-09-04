@@ -37,11 +37,6 @@ SharedMetaDataVector MaskedScaleSharedMeta(
   multSharedMeta.inputs_data = {{rank, dtype}, {mask.dim(), dtype}};
   multSharedMeta.outputs_data.emplace_back(rank, dtype);
 
-  if (rank > 1) {
-    SharedMetaData constantSharedMeta{"constant"};
-    constantSharedMeta.outputs_data.emplace_back(rank, dtype);
-    return {multSharedMeta, constantSharedMeta};
-  }
   return {multSharedMeta};
 }
 
@@ -60,7 +55,7 @@ void MaskedScale::AddNode(
       {syn_in(0), syn_in(1)},
       {{meta.shape, meta.dtype}});
 
-  auto scale_tensor = ConstantHelper(graph, scale, meta.dtype, meta.shape);
+  auto scale_tensor = ConstantHelper(graph, scale, meta.dtype);
 
   auto output = BuildOp(
       graph,

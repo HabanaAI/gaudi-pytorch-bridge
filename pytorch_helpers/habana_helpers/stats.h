@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -73,6 +73,7 @@
 #include <iostream>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <vector>
 
 template <class T>
@@ -99,7 +100,7 @@ class StatsBase {
       uint32_t dumpFreq,
       bool disable);
 
-  inline void collect(int point, uint64_t sum) {
+  void collect(int point, uint64_t sum) {
     if (!m_enabled)
       return;
     m_pPointData[point].last_measurement = sum;
@@ -122,16 +123,15 @@ class StatsBase {
 
   // Per-stat point attributes, only available when using
   // PT_HPU_PRINT_STATS_DUMP_FREQ > 0
-  inline void add_attribute(
-      int point,
-      std::string attr_key,
-      std::string attr_val) {
+  void add_attribute(int point, std::string attr_key, std::string attr_val) {
     if (!m_enabled)
       return;
+
+    std::lock_guard<std::mutex> lg(m_pointAttributesMutex);
     m_pointAttributes[point][attr_key] = attr_val;
   };
 
-  StatsBase();
+  StatsBase() = default;
   StatsBase(const StatsBase& other);
   StatsBase& operator=(const StatsBase& other) = delete;
 
@@ -154,14 +154,15 @@ class StatsBase {
   };
 
   std::string m_statName;
-  int m_maxEnum;
-  uint32_t m_dumpFreq;
+  size_t m_maxEnum{0};
+  uint32_t m_dumpFreq{0};
   bool m_enabled{false};
-  bool m_headerPrinted;
-  bool m_isTbl;
+  bool m_headerPrinted{false};
+  bool m_isTbl{false};
   std::unique_ptr<sumCollectData[]> m_pPointData;
   std::unique_ptr<std::string[]> m_pointMsg;
   std::unique_ptr<PointAttrMap[]> m_pointAttributes;
+  std::mutex m_pointAttributesMutex;
 
   const static std::string m_grep; // something to grep and cut on
 };
@@ -170,7 +171,7 @@ template <class T>
 class Stats : public StatsBase {
  public:
   Stats();
-  ~Stats(){};
+  ~Stats() {};
 
   Stats(
       std::string statName,

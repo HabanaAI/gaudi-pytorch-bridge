@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,9 +21,7 @@ namespace habana {
 static const bool is_sr_sftz =
     GET_ENV_FLAG_NEW(PT_HPU_STOCHASTIC_ROUNDING_MODE) == 1;
 
-std::shared_ptr<void> CastToFp8HybridParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT CastToFp8HybridParams(const at::Stack& stack) {
   const bool stochastic_rounding = stack[3].toBool();
   PARAMS_STUB(ns_CastKernel::Params);
   if (stochastic_rounding) {
@@ -33,7 +31,7 @@ std::shared_ptr<void> CastToFp8HybridParams(
   } else {
     params->round_mode = CAST_ROUND_HALF_NE;
   }
-  return params;
+  return paramsT;
 }
 
 OutputMetaDataVector CastToFp8HybridMeta(const at::Stack& stack) {
@@ -56,6 +54,36 @@ OutputMetaDataVector CastToFp8HybridMeta(const at::Stack& stack) {
   meta_amax.dtype = at::ScalarType::Float;
   meta_amax.shape = amax_shape;
   return {meta_152, meta_143, meta_amax};
+}
+
+SharedMetaDataVector CastToFp8HybridSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  const at::Tensor& input = stack.at(0).toTensor();
+  const int inputDim = input.dim();
+  const bool isAmax = stack.at(4).toBool();
+
+  const bool is152Scale = stack.at(1).isTensor();
+  const bool is143Scale = stack.at(2).isTensor();
+
+  SharedMetaData sharedMeta("convert_to_fp8_hybrid");
+  sharedMeta.inputs_data.emplace_back(inputDim, input.scalar_type());
+  sharedMeta.inputs_data.push_back(
+      is152Scale ? SharedMetaTensor{1, c10::ScalarType::Float}
+                 : createOptionalNotPresentSharedMetaTensor());
+  sharedMeta.inputs_data.push_back(
+      is143Scale ? SharedMetaTensor{1, c10::ScalarType::Float}
+                 : createOptionalNotPresentSharedMetaTensor());
+
+  sharedMeta.outputs_data.emplace_back(inputDim, c10::ScalarType::Float8_e5m2);
+  sharedMeta.outputs_data.emplace_back(
+      inputDim, c10::ScalarType::Float8_e4m3fn);
+
+  if (isAmax) {
+    sharedMeta.outputs_data.emplace_back(1, c10::ScalarType::Float);
+  }
+
+  return {sharedMeta};
 }
 
 void CastToFp8Hybrid::AddNode(
@@ -86,11 +114,12 @@ void CastToFp8Hybrid::AddNode(
     output_attrs.push_back({out_meta[2].shape, out_meta[2].dtype, 2});
   }
 
-  size_t size = 0;
-  const auto& params = CastToFp8HybridParams(stack, size);
+  const auto& params = CastToFp8HybridParams(stack);
 
   auto casted = OpBackend::BuildNode(
-      this, graph, {guid_, syn_inputs, output_attrs, params.get(), size});
+      this,
+      graph,
+      {guid_, syn_inputs, output_attrs, params.ptr(), params.size()});
 
   syn_out(0) = std::move(casted[0]);
   syn_out(1) = std::move(casted[1]);

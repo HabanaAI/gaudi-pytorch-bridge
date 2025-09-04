@@ -33,6 +33,7 @@
 #include "habana_kernels/topk_kernels.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/tensor_impl.h"
+#include "hpu_ops/hpu_op_helper.h"
 #include "kernel_utils.h"
 
 using namespace torch;
@@ -60,7 +61,7 @@ std::vector<int64_t> PadOperator::compute_output_shape(
 
   auto shape = self.sizes().vec();
 
-  for (unsigned int i = 0; i < lpad; i++) {
+  for (size_t i = 0; i < lpad; i++) {
     auto pad_start = pad[2 * i];
     auto pad_end = pad[2 * i + 1];
     shape[ndim - i - 1] += (pad_start + pad_end);
@@ -142,15 +143,15 @@ void PadOperator::AllocateAndAddSynapseNode(
     param.value.f = inputs[2].toScalar().to<float>();
   }
   memset(param.pads, 0, sizeof(param.pads));
-  for (unsigned int i = 0; i < lpad; i++) {
+  for (size_t i = 0; i < lpad; i++) {
     param.pads[i] = pad[2 * i];
     param.pads[i + ndim] = pad[2 * i + 1];
   }
 
   at::Tensor output;
-  if (!graph.is_dry_run() &&
-      output_metadata.at(0).allocated_tensor.has_value()) {
-    output = output_metadata.at(0).allocated_tensor.value();
+  auto allocated_tensor = output_metadata.at(0).allocated_tensor;
+  if (!graph.is_dry_run() && allocated_tensor.has_value()) {
+    output = allocated_tensor.value();
   } else {
     output = at::empty(shape, self.options());
   }
@@ -332,9 +333,11 @@ void EmbeddingBagSumBwdKernelModeOperator::AllocateAndAddSynapseNode(
 
 static auto& EmbeddingKernelsKernelRegistry =
     habana::KernelRegistry()
-        .add("hpu::constant_pad_nd_lazy", KERNEL_FN(PadOperator))
-        .add("hpu::constant_pad_nd_ht", KERNEL_FN(PadOperatorHT))
-        .add("hpu::embedding_bag_sum", KERNEL_FN(EmbeddingBagSumOperator))
-        .add(
+        .REGISTER_HPU_BACKEND("hpu::constant_pad_nd_lazy", habana::PadOperator)
+        .REGISTER_HPU_BACKEND("hpu::constant_pad_nd_ht", habana::PadOperatorHT)
+        .REGISTER_HPU_BACKEND(
+            "hpu::embedding_bag_sum",
+            habana::EmbeddingBagSumOperator)
+        .REGISTER_HPU_BACKEND(
             "hpu::embedding_bag_sum_bwd_out",
-            KERNEL_FN(EmbeddingBagSumBwdKernelModeOperator));
+            habana::EmbeddingBagSumBwdKernelModeOperator);

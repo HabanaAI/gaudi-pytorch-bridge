@@ -37,7 +37,7 @@ all_expr_hist = {}
 
 
 def substitute_sympyfn(expr):
-    import torch.utils._sympy.functions as functions
+    from torch.utils._sympy import functions
     from torch.utils._sympy.functions import CeilToInt, TruncToInt
 
     def get_torch_sympy_functions():
@@ -80,7 +80,8 @@ def substitute_sympyfn(expr):
 class CSEVariable:
     """A CSEVariable is just a name for an expression but it is useful to be able to annotate them on a backend dependent basis
     The backends can inherit from this class and overload the "create_cse_var" Kernel to do that.
-    The "update_on_args" method gives you a hook for annotations, see example of TritonCSEVariable in triton.py."""
+    The "update_on_args" method gives you a hook for annotations, see example of TritonCSEVariable in triton.py.
+    """
 
     def __init__(self, name):
         self.name = name
@@ -158,7 +159,6 @@ class PythonPrinter(ExprPrinter):
 
 
 class HPUExprPrinter(ExprPrinterPT):
-
     def _paren(self, expr, precedence=None):
         return self.parenthesize(expr, precedence)
 
@@ -177,7 +177,7 @@ class HPUExprPrinter(ExprPrinterPT):
 
     # WARNING: this is dangerous for Triton, which has C-style modulus
     def _print_PythonMod(self, expr):
-        return " % ".join(map(lambda e: self._paren(e, PRECEDENCE["Atom"] - 0.5), map(self._print, expr.args)))
+        return " % ".join(self._paren(e, PRECEDENCE["Atom"] - 0.5) for e in map(self._print, expr.args))
 
     # WARNING: this is dangerous for Triton, which has C-style modulus
     def _print_FloorDiv(self, expr):
@@ -244,7 +244,10 @@ class HPUExprPrinter(ExprPrinterPT):
         if exp > 0:
             return "*".join([self._paren(base, PRECEDENCE["Mul"])] * exp)
         elif exp < 0:
-            return "1/" + self._paren("*".join([self._paren(base, PRECEDENCE["Mul"])] * abs(exp)), PRECEDENCE["Mul"])
+            return "1/" + self._paren(
+                "*".join([self._paren(base, PRECEDENCE["Mul"])] * abs(exp)),
+                PRECEDENCE["Mul"],
+            )
         else:  # exp == 0
             return "1"
 
@@ -315,13 +318,21 @@ class SymExprNodeManager:
         self._sym_placeholder_dict = {}
         self._insert_point_node = None
 
-    def _create_symexpr_py_node(self, symbolic_expr, symbolic_expr_symbols, py_node_args, node_type, is_symengine):
-
+    def _create_symexpr_py_node(
+        self,
+        symbolic_expr,
+        symbolic_expr_symbols,
+        py_node_args,
+        node_type,
+        is_symengine,
+    ):
         node_name = SymExprNodeManager.node_name
         if is_symengine:
 
             def symexpr_python(
-                *arguments, sym_expr=copy.deepcopy(symbolic_expr), sym_expr_symbols=copy.deepcopy(symbolic_expr_symbols)
+                *arguments,
+                sym_expr=copy.deepcopy(symbolic_expr),
+                sym_expr_symbols=copy.deepcopy(symbolic_expr_symbols),
             ):
                 sym_value_dict = dict(zip(sym_expr_symbols, arguments, strict=False))
                 sym_value_set = frozenset(sym_value_dict.items())
@@ -336,13 +347,20 @@ class SymExprNodeManager:
             with self._graph_module.graph.inserting_after(self._insert_point_node):
                 new_kwargs = None
                 new_node = self._graph_module.graph.create_node(
-                    "call_function", symexpr_python, tuple(py_node_args), new_kwargs, node_name, node_type
+                    "call_function",
+                    symexpr_python,
+                    tuple(py_node_args),
+                    new_kwargs,
+                    node_name,
+                    node_type,
                 )
                 return new_node
         else:
 
             def symexpr_python(
-                *arguments, sym_expr=copy.deepcopy(symbolic_expr), sym_expr_symbols=copy.deepcopy(symbolic_expr_symbols)
+                *arguments,
+                sym_expr=copy.deepcopy(symbolic_expr),
+                sym_expr_symbols=copy.deepcopy(symbolic_expr_symbols),
             ):
                 sym_value_pairs = list(zip(sym_expr_symbols, arguments, strict=False))
                 sym_value_set = frozenset(sym_value_pairs)
@@ -358,7 +376,12 @@ class SymExprNodeManager:
             with self._graph_module.graph.inserting_after(self._insert_point_node):
                 new_kwargs = None
                 new_node = self._graph_module.graph.create_node(
-                    "call_function", symexpr_python, tuple(py_node_args), new_kwargs, node_name, node_type
+                    "call_function",
+                    symexpr_python,
+                    tuple(py_node_args),
+                    new_kwargs,
+                    node_name,
+                    node_type,
                 )
                 return new_node
 
@@ -409,7 +432,11 @@ class SymExprNodeManager:
             logger.debug("is symengin: ", is_symengine_expr)
 
             new_node = self._create_symexpr_py_node(
-                symbolic_expr, symbolic_expr_symbols, node_args, node_type, is_symengine_expr
+                symbolic_expr,
+                symbolic_expr_symbols,
+                node_args,
+                node_type,
+                is_symengine_expr,
             )
             self._sym_expr_to_node_map[sym_expr_str] = new_node
 
@@ -435,7 +462,7 @@ class SymbolicShapeEvaluator:
             elif isinstance(input, torch.Tensor):
                 value = input.shape[dim]
             else:
-                assert False, "Wrong input type to look for dimention value"
+                raise AssertionError("Wrong input type to look for dimention value")
             return value
 
         if expr_token in self._symbolic_value_dict:

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,9 +19,8 @@
 namespace habana {
 // mode_t = softshrink/hardshrink
 // index_lambda  = index position of lambda
-static std::shared_ptr<void> FillshrinkParams(
+static FillParamsT FillshrinkParams(
     const at::Stack& stack,
-    size_t& size,
     ShrinkMode_t mode_t,
     int index_lambda) {
   PARAMS_STUB(ns_ShrinkKernel::ParamsV2);
@@ -31,19 +30,15 @@ static std::shared_ptr<void> FillshrinkParams(
   params->lowerBound = -lambda;
   params->upperBound = lambda;
   params->mode = mode_t;
-  return params;
+  return paramsT;
 }
 
-std::shared_ptr<void> FillsoftshrinkfwdParams(
-    const at::Stack& stack,
-    size_t& size) {
-  return FillshrinkParams(stack, size, ShrinkMode_t::SOFT_SHRINK, 1);
+FillParamsT FillsoftshrinkfwdParams(const at::Stack& stack) {
+  return FillshrinkParams(stack, ShrinkMode_t::SOFT_SHRINK, 1);
 }
 
-std::shared_ptr<void> FillsoftshrinkbwdParams(
-    const at::Stack& stack,
-    size_t& size) {
-  return FillshrinkParams(stack, size, ShrinkMode_t::SOFT_SHRINK, 2);
+FillParamsT FillsoftshrinkbwdParams(const at::Stack& stack) {
+  return FillshrinkParams(stack, ShrinkMode_t::SOFT_SHRINK, 2);
 }
 
 SharedMetaDataVector HardShrinkFwdSharedMeta(
@@ -105,7 +100,6 @@ void HardShrinkFwd::AddNode(
       &params,
       sizeof(params));
   syn_out(0) = std::move(out[0]);
-  return;
 }
 
 void HardShrinkBwd::AddNode(
@@ -133,6 +127,5 @@ void HardShrinkBwd::AddNode(
       &params,
       sizeof(params));
   syn_out(0) = std::move(out[0]);
-  return;
 }
 } // namespace habana

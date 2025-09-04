@@ -149,7 +149,7 @@ def call_with_error_logging(cmd):
 
 
 def ensure_icecc_setup():
-    lsb_release = sp.check_output("lsb_release -d".split(), encoding="ascii")
+    lsb_release = sp.check_output(["lsb_release", "-d"], text=True)
     if "Ubuntu" not in lsb_release and "Debian" not in lsb_release:
         log.fatal("--use-icecc flag only supported for dpkg-based distros")
         sys.exit(1)
@@ -160,8 +160,8 @@ def ensure_icecc_setup():
         ensure_iceccd_started()
     else:
         log.info("icecc not installed. Installing and doing setup...")
-        sp.check_call("sudo apt update".split())
-        sp.check_call("sudo apt install icecc -y".split())
+        sp.check_call(["sudo", "apt", "update"])
+        sp.check_call(["sudo", "apt", "install", "icecc", "-y"])
         sp.check_call(
             [
                 "sudo",
@@ -171,7 +171,7 @@ def ensure_icecc_setup():
                 "/etc/icecc/icecc.conf",
             ]
         )
-        sp.check_call("sudo systemctl restart iceccd".split())
+        sp.check_call(["sudo", "systemctl", "restart", "iceccd"])
 
 
 def ensure_iceccd_started():
@@ -179,7 +179,7 @@ def ensure_iceccd_started():
 
     if iceccd_stopped:
         log.info("iceccd was stopped. Trying to start it...")
-        sp.check_call("sudo systemctl start iceccd".split())
+        sp.check_call(["sudo", "systemctl", "start", "iceccd"])
 
 
 def get_release_version():
@@ -312,14 +312,14 @@ def run(*args, venv=".") -> None:
         f"^^^ called by {inspect.stack()[1].function} at {inspect.stack()[1].filename}:{inspect.stack()[1].lineno}"
     )
     # must run through shell because otherwise changing PATH has no effect
-    sp.check_call(" ".join(args), env=prepare_env(venv), shell=True, executable="/bin/bash")
+    sp.check_call(" ".join(args), env=prepare_env(venv), shell=True, executable="/bin/bash")  # noqa S602
 
 
 def outof(*args, venv=".") -> str:
     log.debug(f"In {venv} capturing output of `{' '.join(args)}`")
     try:
         # must run through shell because otherwise changing PATH has no effect
-        result = sp.check_output(" ".join(args), encoding="ascii", env=prepare_env(venv), shell=True)
+        result = sp.check_output(" ".join(args), env=prepare_env(venv), shell=True, text=True)  # noqa S602
         log.debug(f"====\n{result}====")
         return result
     except sp.CalledProcessError as cpe:
@@ -331,7 +331,7 @@ def remove_venv(venv_dir):
     log.info(f"Removing virtual environment at {venv_dir} as requested")
 
     if os.path.islink(venv_dir):
-        log.info(f"Virtual environment at {venv_dir} is just a link, removing " f"fearlessly")
+        log.info(f"Virtual environment at {venv_dir} is just a link, removing fearlessly")
         os.remove(venv_dir)
         return
     if os.path.isdir(venv_dir):
@@ -656,8 +656,8 @@ class WheelSpec:
 
 
 def parse_wheel_spec(wheel_spec: str):
-    retval = list(map(lambda x: WheelSpec(serialized_spec=x), wheel_spec))
-    whl_name_list = list(map(lambda x: x.wheel_name, retval))
+    retval = [WheelSpec(serialized_spec=spec) for spec in wheel_spec]
+    whl_name_list = [x.wheel_name for x in retval]
     if len(whl_name_list) != len(set(whl_name_list)):
         raise RuntimeError("Duplicate wheel names detected in current configuration")
     return retval
@@ -772,7 +772,6 @@ def prepare_build_dirs(
 
         for build_envs, cmake_config in combinations:
             for build_env in build_envs:
-
                 # needs to do explicit copy, to support multiple -DPYTHON_EXECUTABLE flags
                 cmake_flags = CMakeFlags(cmake_configurations[cmake_config].copy())
                 log.info(
@@ -809,6 +808,7 @@ def prepare_build_dirs(
                         build_env,
                         current_ver_build_dir,
                         cmake_flags,
+                        args.build_tool_flag,
                     )
 
         wheel_configs = create_wheel_targets(
@@ -915,7 +915,7 @@ def create_wheel_target_for_single_python(
     verbose,
 ):
     venv_dir = venv_dirs[0]
-    pt_wheel_vers = ",".join(map(lambda x: str(x.version), pt_vers))
+    pt_wheel_vers = ",".join(str(x.version) for x in pt_vers)
 
     wheel_name = wheel_name_and_src.wheel_name
     wheel_target = "wheel_" + wheel_name
@@ -1106,20 +1106,6 @@ class CMakeFlags:
 def append_cmake_flags(cmake_flags: CMakeFlags, build_env: BuildEnv) -> CMakeFlags:
     if is_official_stable_cpu_version(build_env.pt_ver_and_src.version):
         cmake_flags.insert("UPSTREAM_COMPILE", "ON")
-    is_cxx11_abi = (
-        outof(
-            "TORCH_DEVICE_BACKEND_AUTOLOAD=0",
-            get_python_exec(build_env),
-            "-c",
-            "'import torch; print(torch.compiled_with_cxx11_abi())'",
-            venv=build_env.venv_dir,
-        ).strip()
-        == "True"
-    )
-    cmake_flags.insert("USE_CXX11_ABI", "ON" if is_cxx11_abi else "OFF")
-    lsb_release = sp.check_output("lsb_release -d".split(), encoding="ascii")
-    if "TencentOS" in lsb_release and "4.2" in lsb_release:
-        cmake_flags.insert("SKIP_AEON", "ON")
     return cmake_flags
 
 
@@ -1132,6 +1118,7 @@ def prepare_single_build_directory(
     build_env: BuildEnv,
     current_ver_build_dir,
     cmake_flags: CMakeFlags,
+    build_tool_flags: list[str],
 ):
     cmake_flags = append_cmake_flags(cmake_flags, build_env)
 
@@ -1151,9 +1138,10 @@ def prepare_single_build_directory(
         cmake_config,
     )
     activate = f"source {build_env.venv_dir}/bin/activate" if build_env.venv_dir != "." else "true"
+    joined_build_tool_flags = f"-- {' '.join(build_tool_flags)}" if build_tool_flags else ""
     pmake(f".PHONY: {subtarget}/all {subtarget}/wheel {subtarget}/ctest")
     pmake(f"{subtarget}/all:")
-    pmake(f"\t{activate} && cmake --build {current_ver_build_dir} $(filter -j%,$(MAKEFLAGS))")
+    pmake(f"\t{activate} && cmake --build {current_ver_build_dir} $(filter -j%,$(MAKEFLAGS)) {joined_build_tool_flags}")
     pmake(f"SUBNAMES += {subtarget}")
     pmake(f"SUBNAMES_PY_{build_env.py_ver}_{cmake_config.upper()} += {subtarget}")
     pmake(f"{subtarget}/wheel_install:")
@@ -1161,7 +1149,7 @@ def prepare_single_build_directory(
     wheel_installs = [
         f"\t{'-' if build_env.optional else ''} "
         f"DESTDIR={whl_build_dir}/py{build_env.py_ver}/pt{pt_ver_dir} "
-        f"cmake --build {current_ver_build_dir} $(filter -j%,$(MAKEFLAGS)) --target install"
+        f"cmake --build {current_ver_build_dir} $(filter -j%,$(MAKEFLAGS)) --target install {joined_build_tool_flags}"
     ]
     pmake("\n".join(wheel_installs))
     pmake(f"{subtarget}/ctest: {subtarget}/all")
@@ -1306,8 +1294,10 @@ def get_cmake_configurations(args) -> dict[str, list[str]]:
     cmake_flags = CMakeFlags(["-GNinja"] + (args.cmake_flag if args.cmake_flag else []))
     if args.no_swig:
         cmake_flags.set_if_missing("SWIG", "")
-    if not args.tidy:
+    if not args.tidy and not args.tidy_fix:
         cmake_flags.set_if_missing("CLANG_TIDY", "")
+    if args.tidy_fix:
+        cmake_flags.set_if_missing("CLANG_TIDY_FIX", "ON")
     if args.no_iwyu:
         cmake_flags.set_if_missing("IWYU", "")
     if args.sanitize:
@@ -1577,6 +1567,9 @@ def parse_args():
         help="Generate operator statistics",
     )
     parser.add_argument("--tidy", action="store_true", help="Build with clang-tidy")
+    parser.add_argument(
+        "--tidy-fix", action="store_true", help="Build with clang-tidy and apply fixes (implies --tidy)"
+    )
     parser.add_argument("--no-iwyu", action="store_true", help="Build without Include What You Use")
     parser.add_argument(
         "-v",
@@ -1594,6 +1587,13 @@ def parse_args():
         help="Args forwarded to CMake. "
         "Unless otherwise noted, when conflicting with flags imposed by other"
         "arguments, the effective setting is the one given explicitly.",
+    )
+    parser.add_argument(
+        "--build-tool-flag",
+        action="append",
+        default=[],
+        help="Pass an additional flag to the build tool (e.g. Ninja) when building. "
+        "Values starting with a dash ('-') must be passed with equals, e.g. --build-tool-flag=\"-k0\"",
     )
     available_profiles = profiles.get_available_profiles()
     parser.add_argument(
@@ -1693,7 +1693,6 @@ class ManylinuxRunner:
             f" -e PYTHONPATH={os.environ['PYTORCH_MODULES_ROOT_PATH']}/python"
             f" -e HABANA_SOFTWARE_STACK={os.environ['HABANA_SOFTWARE_STACK']}"
             f" -e BUILD_ROOT={os.environ['BUILD_ROOT']}"
-            f" -e THIRD_PARTIES_ROOT={os.environ['THIRD_PARTIES_ROOT']}"
             f" -e SYNAPSE_ROOT={os.environ['SYNAPSE_ROOT']}"
             f" -e HCL_INCLUDE_DIR={os.environ['HCL_INCLUDE_DIR']}"
             f" -e MEDIA_ROOT={os.environ['MEDIA_ROOT']}"
@@ -1716,9 +1715,7 @@ class ManylinuxRunner:
         )
         if self.with_icecc:
             options = (
-                options + " --net=host"
-                " -p ::10246/tcp -p ::8765/tcp -p ::8766/tcp -p ::8765/udp"
-                " -e CCACHE_PREFIX=icecc"
+                options + " --net=host -p ::10246/tcp -p ::8765/tcp -p ::8766/tcp -p ::8765/udp -e CCACHE_PREFIX=icecc"
             )
         command = (
             f"docker run --rm {options} {memory_limit} {self.image_name} {os.environ['PYTORCH_MODULES_ROOT_PATH']}/.devops/build.py "
@@ -1726,7 +1723,7 @@ class ManylinuxRunner:
             + "--cmake-flag -DMANYLINUX=ON"  # TODO: build_with_shim
         )
         log.debug(f"Running command: {command}")
-        sp.check_call(command, shell=True)
+        sp.check_call(command, shell=True)  # noqa S602
 
 
 def select_targets_and_configs(args, wheel_configs: list[WheelConfig]) -> tuple[set, list]:
@@ -1770,8 +1767,7 @@ def log_produced_wheels_and_dump_manifest(selected_wheel_configs: list[WheelConf
             fixed_venv_dirs = ", and in ".join(_fix_venv_dirs_if_manylinux(wheel_config.venv_dirs))
             install_info = f" and installed in {fixed_venv_dirs}" if args.install_ext else ""
             wheel_info = (
-                f"wheel {wheel_config.full_wheel_name}"
-                f"(pt_vers={wheel_config.pt_vers}, py_ver={wheel_config.py_ver})"
+                f"wheel {wheel_config.full_wheel_name}(pt_vers={wheel_config.pt_vers}, py_ver={wheel_config.py_ver})"
             )
             log.info(f" {no: 2}) Built {optional}{wheel_info} in {produced_wheel}{install_info}")
             wheel_manifest.append(
@@ -1812,35 +1808,36 @@ def list_wheel_specs_for_specific_pt_versions(
 
 # TODO: if source == build or is_specific_wheel(version): always reinstall package in venvs
 def prepare_wheel_specs(
-    wheel_spec: str, requested_pt_versions: list[str], preinstalled_pt_version: Version | None
+    wheel_spec: str,
+    requested_pt_versions: list[str],
+    preinstalled_pt_version: Version | None,
 ) -> tuple[Version | None, list[WheelSpec]]:
     if wheel_spec:
         wheel_specs = parse_wheel_spec(wheel_spec)
+    elif "all" in requested_pt_versions:
+        wheel_specs = list_wheel_specs_for_specific_pt_versions(set(supported_pt_versions))
     else:
-        if "all" in requested_pt_versions:
-            wheel_specs = list_wheel_specs_for_specific_pt_versions(set(supported_pt_versions))
-        else:
-            pt_versions: set[VersionAndSource] = set()
-            for requested in requested_pt_versions:
-                if requested == "preinstalled":
-                    decide_on_building_with_preinstalled_version(preinstalled_pt_version, pt_versions)
-                elif "://" in requested:  # URI
-                    pt_versions.add(VersionAndSource(Version(requested), "uri"))
-                else:
-                    try:  # support names matching those from 'pt_versions' in profiles.json (e.g. "current")
-                        version_literal_and_source = profiles.get_version_literal_and_source(requested)
-                        if version_literal_and_source is not None:
-                            pt_versions.add(_to_version_and_source(version_literal_and_source))
-                    except KeyError:  # if not given by name, try finding profile by PT version
-                        supported = get_supported_pt_version(Version(requested), supported_pt_versions)
-                        if not supported:
-                            log.fatal(
-                                f"Requested {requested} PT version which is not supported. Currently supported PT"
-                                f" versions are {supported_pt_versions}."
-                            )
-                        pt_versions.add(supported)
-            assert len(pt_versions) > 0
-            wheel_specs = list_wheel_specs_for_specific_pt_versions(pt_versions)
+        pt_versions: set[VersionAndSource] = set()
+        for requested in requested_pt_versions:
+            if requested == "preinstalled":
+                decide_on_building_with_preinstalled_version(preinstalled_pt_version, pt_versions)
+            elif "://" in requested:  # URI
+                pt_versions.add(VersionAndSource(Version(requested), "uri"))
+            else:
+                try:  # support names matching those from 'pt_versions' in profiles.json (e.g. "current")
+                    version_literal_and_source = profiles.get_version_literal_and_source(requested)
+                    if version_literal_and_source is not None:
+                        pt_versions.add(_to_version_and_source(version_literal_and_source))
+                except KeyError:  # if not given by name, try finding profile by PT version
+                    supported = get_supported_pt_version(Version(requested), supported_pt_versions)
+                    if not supported:
+                        log.fatal(
+                            f"Requested {requested} PT version which is not supported. Currently supported PT"
+                            f" versions are {supported_pt_versions}."
+                        )
+                    pt_versions.add(supported)
+        assert len(pt_versions) > 0
+        wheel_specs = list_wheel_specs_for_specific_pt_versions(pt_versions)
     return preinstalled_pt_version, wheel_specs
 
 
@@ -1906,7 +1903,7 @@ def select_python_versions(args) -> set[Version]:
         if ver == "current":
             supported = get_supported_python_version(system_python_version, supported_python_versions)
             if not supported:
-                log.fatal(f"Requested current python version " f"({system_python_version}), which is not supported")
+                log.fatal(f"Requested current python version ({system_python_version}), which is not supported")
                 sys.exit(1)
             selected.add(supported)
         else:
@@ -1917,7 +1914,7 @@ def select_python_versions(args) -> set[Version]:
 def setup_logging(args) -> StringIO:
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.INFO,
-        format="%(asctime)s %(levelname)05s [%(filename)s:%(lineno)d] %(" "message)s",
+        format="%(asctime)s %(levelname)05s [%(filename)s:%(lineno)d] %(message)s",
         datefmt="%Y-%m-%d:%H:%M:%S",
     )
     warning_stream = StringIO()
@@ -1970,7 +1967,7 @@ def run_doc_gen(selected_wheel_configs, pt_modules_root):
             run(
                 "python3",
                 f"{pt_modules_root}/sl_report_generator/report_parser.py",
-                f"--path {pt_modules_root}/docs/Pytorch_Operators.rst",
+                f"--path {pt_modules_root}/docs",
                 venv=wheel_config.venv_dirs[0],
             )
             run(

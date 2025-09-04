@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,11 +19,11 @@ namespace sh = synapse_helpers;
 
 namespace habana {
 
-HPU_OP_BACKEND(_StridedInsert_Backend)
+HPU_OP_BACKEND(StridedInsert_Backend_)
 
-struct StridedInsert_Backend : _StridedInsert_Backend {
+struct StridedInsert_Backend : StridedInsert_Backend_ {
   StridedInsert_Backend(int device_id, c10::ScalarType scalar_type)
-      : _StridedInsert_Backend(
+      : StridedInsert_Backend_(
             device_id,
             "strided_insert",
             scalar_type,
@@ -33,8 +33,7 @@ struct StridedInsert_Backend : _StridedInsert_Backend {
             false) {}
 };
 
-void _StridedInsert_Backend::AddNode(sh::graph& graph, const at::Stack& stack) {
-  size_t size = 0;
+void StridedInsert_Backend_::AddNode(sh::graph& graph, const at::Stack& stack) {
   PARAMS_STUB(synStridedOpParams);
   StridedInsertOperator::compute_params(*this, *params, stack, graph);
 
@@ -51,8 +50,8 @@ void _StridedInsert_Backend::AddNode(sh::graph& graph, const at::Stack& stack) {
       guid_,
       std::move(syn_inputs),
       {{outshape, ScalarType(), 0}},
-      params.get(),
-      size);
+      paramsT.ptr(),
+      paramsT.size());
   syn_out(0) = std::move(result[0]);
 }
 

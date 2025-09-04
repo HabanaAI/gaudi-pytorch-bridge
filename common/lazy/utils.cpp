@@ -38,7 +38,11 @@ bool IsRecordStreamEnabled() {
   return false;
 }
 
-bool IsRecordStreamNoHolderEnabled() {
+bool IsLaunchRecordStreamEnabled() {
+  return false;
+}
+
+bool IsStreamAllocatorEnabled() {
   return false;
 }
 

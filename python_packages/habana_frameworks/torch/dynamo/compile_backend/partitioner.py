@@ -19,6 +19,7 @@ import ctypes
 from collections.abc import Mapping
 
 from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
+from habana_frameworks.torch.utils.version_checker import is_pytorch_older_than
 
 import torch
 from torch.fx.passes.infra.partitioner import CapabilityBasedPartitioner, Partition
@@ -71,7 +72,10 @@ class HabanaPartitioner(CapabilityBasedPartitioner):
         mapping_address = {}
         mapping_prim_id = {}
         for idx, node in enumerate(self.graph_module.graph.nodes):
-            is_node_supported = self._CapabilityBasedPartitioner__is_node_supported(node)
+            if is_pytorch_older_than("2.8.0"):
+                is_node_supported = self._CapabilityBasedPartitioner__is_node_supported(node)
+            else:
+                is_node_supported = self._is_node_supported(node)
             wrapper = NodeWrapper(node, idx, is_node_supported)
             mapping_address[id(node)] = id(wrapper)
             mapping_prim_id[idx] = node

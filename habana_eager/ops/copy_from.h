@@ -15,12 +15,10 @@
 
 #pragma once
 #include <ATen/core/TensorBody.h>
-namespace habana {
-namespace eager {
+namespace habana::eager {
 at::Tensor _copy_from(
     const at::Tensor& self,
     const at::Tensor& dst,
     bool non_blocking);
 at::Tensor _copy_from_and_resize(const at::Tensor& self, const at::Tensor& dst);
-} // namespace eager
-} // namespace habana
+} // namespace habana::eager

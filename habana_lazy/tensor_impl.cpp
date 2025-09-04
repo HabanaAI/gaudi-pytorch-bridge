@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -123,7 +123,7 @@ c10::intrusive_ptr<c10::TensorImpl> HbLazyTensorImpl::shallow_copy_and_detach(
       /*dest_impl=*/impl.get(),
       /*version_counter=*/version_counter,
       /*allow_tensor_metadata_change=*/allow_tensor_metadata_change);
-  impl.get()->SetupSizeProperties();
+  impl->SetupSizeProperties();
   impl->refresh_numel();
   impl->refresh_contiguous();
 
@@ -154,7 +154,7 @@ c10::intrusive_ptr<c10::TensorImpl> HbLazyTensorImpl::shallow_copy_and_detach(
       /*dest_impl=*/impl.get(),
       /*version_counter=*/std::move(version_counter),
       /*allow_tensor_metadata_change=*/allow_tensor_metadata_change);
-  impl.get()->SetupSizeProperties();
+  impl->SetupSizeProperties();
   impl->refresh_numel();
   impl->refresh_contiguous();
 
@@ -231,7 +231,10 @@ void HbLazyTensorImpl::shallow_copy_from(
   PT_LAZY_TRACE;
   habana_lazy::NoAccThread no_acc_thread;
 
-  HbLazyTensorImpl* hl_impl = dynamic_cast<HbLazyTensorImpl*>(impl.get());
+  auto* hl_impl = dynamic_cast<HbLazyTensorImpl*>(impl.get());
+  HABANA_ASSERT(
+      hl_impl,
+      "HbLazyTensorImpl::shallow_copy_from called with non-HbLazyTensorImpl");
 
   handle_view_cycles(hl_impl->m_tensor, this->m_tensor);
 
@@ -250,7 +253,10 @@ void HbLazyTensorImpl::shallow_copy_from(
   // increase this refcount to preserve it alive till lambda execution
   auto this_ref = std::make_shared<intrusive_raii_t>(this);
   auto func = [impl, this, this_ref]() mutable {
-    HbLazyTensorImpl* hl_impl = dynamic_cast<HbLazyTensorImpl*>(impl.get());
+    auto* hl_impl = dynamic_cast<HbLazyTensorImpl*>(impl.get());
+    HABANA_ASSERT(
+        hl_impl,
+        "HbLazyTensorImpl::shallow_copy_from called with non-HbLazyTensorImpl");
     hl_impl->m_tensor.ShallowCopyTo(&this->m_tensor);
   };
   RUN_MANUAL_OP_NO_RETURN_WITH_ACC_THREAD_NO_FLUSH(__FUNCTION__, func);
@@ -419,8 +425,9 @@ void HbInternalTensorImpl::SetMemoryPermutation(
         smeta,
         "Trying to set memory permutations ",
         VecToString(permutation),
-        ", but no StorageExtraeta avilable for HbInternalTensorImpl ",
+        ", but no StorageExtraMeta available for HbInternalTensorImpl ",
         this);
-  smeta->set_memory_permutation(permutation);
+  if (smeta)
+    smeta->set_memory_permutation(permutation);
 }
 } // namespace habana_lazy

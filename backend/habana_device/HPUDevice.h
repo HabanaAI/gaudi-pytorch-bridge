@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,11 +14,10 @@
  */
 #pragma once
 #include <c10/core/Device.h>
-#include "backend/kernel/constant_information.h"
+#include "backend/h2d_scales_cache.h"
 #include "backend/kernel/hpu_recipe_cache.h"
 #include "backend/scalar_cache.h"
 #include "backend/synapse_helpers/device.h"
-#include "habana_helpers/logging.h"
 #include "pytorch_helpers/habana_helpers/python_utils.h"
 #include "pytorch_helpers/habana_helpers/thread_pool/thread_pool.h"
 
@@ -84,8 +83,9 @@ RecipeCacheLRU& recipe_cache();
 void recipe_cache_clear();
 void flush_disk_cache();
 backend::ScalarCache& scalar_cache();
+backend::H2dScalesCache& h2d_scales_cache();
 // TODO id should be removed
-synapse_helpers::device& get_device(int id = 0);
+synapse_helpers::device& get_device(synDeviceId id = 0);
 
 void synchronize();
 void synchronize_host_multistage_pipeline();

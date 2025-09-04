@@ -11,6 +11,7 @@
 #include "elu.h"
 #include "eq.h"
 #include "exp_fast_math.h"
+#include "ind2ptr.h"
 #include "isfinite.h"
 #include "linear_backward.h"
 #include "mul.h"
@@ -55,6 +56,7 @@ std::unordered_map<std::string, std::function<bool(c10::FunctionSchema&, bool, b
 {"elu", &check_support<habana::shared_layer_elu>},
 {"eq_out", &check_support<habana::shared_layer_eq_out>},
 {"exp_fast_math", &check_support<habana::shared_layer_exp_fast_math>},
+{"ind2ptr", &check_support<habana::shared_layer_ind2ptr>},
 {"isfinite", &check_support<habana::shared_layer_isfinite>},
 {"linear_backward", &check_support<habana::shared_layer_linear_backward>},
 {"mul_out", &check_support<habana::shared_layer_mul_out>},

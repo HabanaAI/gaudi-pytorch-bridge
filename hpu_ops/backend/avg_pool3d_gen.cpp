@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@
 
 #define CHECK_DIM(input_size)                                             \
   HABANA_ASSERT(                                                          \
-      input_size == 4 || input_size == 5,                                 \
+      (input_size) == 4 || (input_size) == 5,                             \
       "Averagepool3D expects input_size equals to 4 or 5, but got size ", \
       input_size);
 
@@ -29,14 +29,13 @@ static int64_t GetParam(const std::vector<int64_t>& params, size_t position) {
   return params.at(params.size() == 1 ? 0 : position);
 }
 
-static std::shared_ptr<void> FillAvgPool3dParams(
+static FillParamsT FillAvgPool3dParams(
     const std::vector<int64_t>& kernelSize,
     const std::vector<int64_t>& stride,
     const std::vector<int64_t>& pad,
     bool ceilMode,
     bool includePadding,
-    int64_t divOverride,
-    size_t& size) {
+    int64_t divOverride) {
   PARAMS_STUB(ns_AveragePooling3DWithDivisorOverride::Params);
   params->pad_w_begin = GetParam(pad, 2);
   params->pad_w_end = GetParam(pad, 2);
@@ -58,12 +57,10 @@ static std::shared_ptr<void> FillAvgPool3dParams(
   params->pooling_convention = ceilMode
       ? EPoolingConvention::POOLING_CONVENTION_FULL_PYTORCH
       : EPoolingConvention::POOLING_CONVENTION_VALID;
-  return params;
+  return paramsT;
 }
 
-std::shared_ptr<void> FillAvgPool3dParamsFwd(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillAvgPool3dParamsFwd(const at::Stack& stack) {
   std::vector<int64_t> defaultPadding = {0};
   auto kernelSize = stack.at(1).toIntVector();
   auto stride =
@@ -74,7 +71,7 @@ std::shared_ptr<void> FillAvgPool3dParamsFwd(
   const bool includePadding = stack.at(5).toBool();
   int64_t divOverride = stack.at(6).isNone() ? 0 : stack.at(6).toInt();
   return FillAvgPool3dParams(
-      kernelSize, stride, padding, ceilMode, includePadding, divOverride, size);
+      kernelSize, stride, padding, ceilMode, includePadding, divOverride);
 }
 
 OutputMetaDataVector AvgPool3dMeta(const at::Stack& stack) {
@@ -110,8 +107,7 @@ SharedMetaDataVector AvgPool3dFwdSharedMeta(
 void Avgpool3dFwd::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  size_t size = 0;
-  const auto& params = FillAvgPool3dParamsFwd(stack, size);
+  const auto& params = FillAvgPool3dParamsFwd(stack);
   auto meta = AvgPool3dMeta(stack)[0];
   const auto rank = stack_tensor(stack, 0).dim();
   if (rank == 4) {
@@ -130,14 +126,12 @@ void Avgpool3dFwd::AddNode(
       guid_,
       {syn_in(0)},
       {{meta.shape, meta.dtype, 0}},
-      params.get(),
-      size);
+      params.ptr(),
+      params.size());
   syn_out(0) = std::move(avgPool[0]);
 }
 
-std::shared_ptr<void> FillAvgPool3dParamsBwd(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillAvgPool3dParamsBwd(const at::Stack& stack) {
   std::vector<long int> padding = {0, 0, 0};
   auto kernelSize = stack.at(2).toIntVector();
   auto stride =
@@ -147,7 +141,7 @@ std::shared_ptr<void> FillAvgPool3dParamsBwd(
   const bool includePad = stack.at(6).toBool();
   int64_t divOverride = stack.at(7).isNone() ? 0 : stack.at(7).toInt();
   return FillAvgPool3dParams(
-      kernelSize, stride, pad, ceilMode, includePad, divOverride, size);
+      kernelSize, stride, pad, ceilMode, includePad, divOverride);
 }
 
 OutputMetaDataVector AvgPool3dBwdMeta(const at::Stack& stack) {
@@ -167,8 +161,7 @@ SharedMetaDataVector AvgPool3dBwdSharedMeta(
 void AvgPool3dBwd::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  size_t size = 0;
-  const auto& params = FillParams(stack, size);
+  const auto& params = FillParams(stack);
   auto meta = OutputMeta(stack)[0];
   const auto rank = stack_tensor(stack, 1).dim();
   if (rank == 4) {
@@ -190,8 +183,8 @@ void AvgPool3dBwd::AddNode(
       GetGuid(),
       std::move(inputs),
       {{meta.shape, meta.dtype, 0}},
-      params.get(),
-      size);
+      params.ptr(),
+      params.size());
 
   syn_out(0) = std::move(avgPool[0]);
 }

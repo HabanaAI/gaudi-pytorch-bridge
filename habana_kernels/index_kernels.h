@@ -291,6 +291,32 @@ class ScatterNdONNXOperator : public HabanaOperator {
   bool isInputValid(torch::jit::Stack& inputs);
 };
 
+// ScatterNdUpdate operator
+class ScatterNdUpdateOperator : public HabanaOperator {
+ public:
+  ScatterNdUpdateOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(get_guid_with_precision(
+            [] {
+              using namespace std::literals;
+              return "scatter_nd_update_fwd"sv;
+            }(),
+            scalarType)) {
+    this->CreateSynContext(device_id);
+    scalarType_ = scalarType;
+  }
+
+  virtual habana::InferOutputMetaRetType InferOutputMeta(
+      torch::jit::Stack& inputs) override;
+
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      const OutputMetaDataVector& output_metadata) final;
+
+ protected:
+  c10::ScalarType scalarType_;
+};
+
 // ScatterND operator
 class ScatterNdOperator : public HabanaOperator {
  public:

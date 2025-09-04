@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ class RecipeCacheConfig {
   void reload();
   const std::string& path() const;
   bool delete_on_init() const;
+  bool cache_on_nfs() const;
   void disable_delete_on_init();
   unsigned cache_dir_max_size_mb() const;
   static std::vector<std::string> split_params(const std::string& config);
@@ -33,6 +34,7 @@ class RecipeCacheConfig {
  private:
   std::string cache_directory_path_;
   bool delete_cache_on_init_;
+  bool cache_on_nfs_;
   unsigned int cache_dir_max_size_mb_;
 };
 } // namespace serialization

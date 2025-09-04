@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,18 +13,18 @@
  * limitations under the License.
  */
 
+#include "Stream.h"
 #include <pybind11/pybind11.h>
+#include <structmember.h>
 #include <torch/csrc/Device.h>
 #include <torch/csrc/THP.h>
 #include <torch/csrc/cuda/Module.h>
 #include <torch/csrc/utils/pybind.h>
 #include <torch/csrc/utils/python_numbers.h>
-
-#include <structmember.h>
-
-#include "Stream.h"
 #include "backend/habana_device/HPUDevice.h"
 #include "backend/habana_device/HPUEvent.h"
+#include "common/warning_suppress.h"
+#include "habana_helpers/logging.h"
 
 // namespace hpu {
 
@@ -66,7 +66,7 @@ static PyObject* THP_HPU_Stream_pynew(
   }
 
   THPObjectPtr ptr(type->tp_alloc(type, 0));
-  if (!ptr) {
+  SUPPRESS_WCONVERSION(if (!ptr)) {
     return nullptr;
   }
 
@@ -77,21 +77,27 @@ static PyObject* THP_HPU_Stream_pynew(
 
   const auto current_device = habana::HPUDeviceContext::get_device().id();
 
-  auto stream = is_default_stream ? c10::hpu::getDefaultHPUStream(device_index)
-                                  : (stream_id || device_index)
-          ? c10::hpu::HPUStream::unpack3(
-                stream_id,
-                device_index,
-                static_cast<c10::DeviceType>(device_type))
-          : stream_ptr
-              ? c10::hpu::getStreamByStreamPtr(
-                    reinterpret_cast<synapse_helpers::hpuStream_t>(stream_ptr),
-                    current_device)
-              : c10::hpu::getStreamFromPool((priority < 0), device_index);
+  HABANA_ASSERT(
+      device_index <= std::numeric_limits<at::DeviceIndex>::max(),
+      "Too large device index");
 
-  THP_HPU_Stream* self = (THP_HPU_Stream*)ptr.get();
+  auto stream = is_default_stream
+      ? c10::hpu::getDefaultHPUStream(static_cast<signed char>(device_index))
+      : (stream_id || device_index)
+      ? c10::hpu::HPUStream::unpack3(
+            stream_id,
+            static_cast<signed char>(device_index),
+            static_cast<c10::DeviceType>(device_type))
+      : stream_ptr
+      ? c10::hpu::getStreamByStreamPtr(
+            reinterpret_cast<synapse_helpers::hpuStream_t>(stream_ptr),
+            static_cast<signed char>(current_device))
+      : c10::hpu::getStreamFromPool(
+            (priority < 0), static_cast<signed char>(device_index));
+
+  auto* self = (THP_HPU_Stream*)ptr.get();
   self->stream_id = static_cast<int64_t>(stream.id());
-  self->device_index = static_cast<int64_t>(stream.device_index());
+  self->device_index = static_cast<int64_t>(static_cast<unsigned char>(stream.device_index()));
   self->device_type = static_cast<int64_t>(stream.device_type());
   new (&self->hpu_stream) c10::hpu::HPUStream(stream);
 
@@ -117,7 +123,7 @@ static PyObject* THP_HPU_Stream_get_hpu_stream(
     [[maybe_unused]] void* unused) {
   HANDLE_TH_ERRORS
 
-  return THPUtils_packInt64(self->hpu_stream.stream());
+  return THPUtils_packInt64(static_cast<int64_t>(self->hpu_stream.stream()));
   // return PyLong_FromVoidPtr(self->hpu_stream.stream());
   END_HANDLE_TH_ERRORS
 }
@@ -207,9 +213,9 @@ static PyMethodDef THP_HPU_Stream_methods[] = {
 
 PyTypeObject THP_HPU_StreamType = {
 #if PY_VERSION_HEX >= 0x03000000
-    PyVarObject_HEAD_INIT(NULL, 0)
+    PyVarObject_HEAD_INIT(nullptr, 0)
 #else
-    PyObject_HEAD_INIT(NULL) 0, /* ob_size */
+    PyObject_HEAD_INIT(nullptr) 0, /* ob_size */
 #endif
         "habana_frameworks.torch._hpu_C._HPUStreamBase", /* tp_name */
     sizeof(THP_HPU_Stream), /* tp_basicsize */
@@ -248,21 +254,21 @@ PyTypeObject THP_HPU_StreamType = {
     nullptr, /* tp_init */
     nullptr, /* tp_alloc */
     THP_HPU_Stream_pynew, /* tp_new */
-    0, /* tp_free */
-    0, /* tp_is_gc */
-    0, /* tp_bases */
-    0, /* tp_mro */
-    0, /* tp_cache */
-    0, /* tp_subclasses */
-    0, /* tp_weaklist */
+    nullptr, /* tp_free */
+    nullptr, /* tp_is_gc */
+    nullptr, /* tp_bases */
+    nullptr, /* tp_mro */
+    nullptr, /* tp_cache */
+    nullptr, /* tp_subclasses */
+    nullptr, /* tp_weaklist */
 #if PY_VERSION_HEX >= 0x02030000
-    0, /* tp_del */
+    nullptr, /* tp_del */
 #endif
 #if PY_VERSION_HEX >= 0x02060000
     0, /* tp_version_tag */
 #endif
 #if PY_VERSION_HEX >= 0x03040000
-    0, /* tp_finalize */
+    nullptr, /* tp_finalize */
 #endif
 #ifdef COUNT_ALLOCS
     0, /* tp_allocs */

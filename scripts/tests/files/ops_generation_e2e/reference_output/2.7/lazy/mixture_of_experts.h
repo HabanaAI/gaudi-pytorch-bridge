@@ -9,7 +9,7 @@
 namespace habana {
 
 
-at::Tensor mixture_of_experts(const at::Tensor & hidden_states, const at::Tensor & expert_routing_table, const at::Tensor & router_weights, at::TensorList w12, at::TensorList w3, const at::Tensor & d_scale_hidden_states, at::TensorList d_scale_intermediate_hidden_states, at::TensorList d_scale_w12, at::TensorList d_scale_w3, bool permuted_weights, std::string_view activation, int64_t experts_min, int64_t experts_max);
+at::Tensor mixture_of_experts_fp8_fused_weights(const at::Tensor & hidden_states, const at::Tensor & expert_routing_table, const at::Tensor & router_weights, at::TensorList w12, at::TensorList w3, const at::Tensor & d_scale_hidden_states, at::TensorList d_scale_intermediate_hidden_states, at::TensorList d_scale_w12, at::TensorList d_scale_w3, bool permuted_weights, std::string_view activation, int64_t experts_min, int64_t experts_max);
 OUTMETA_DECL(MixtureOfExpertsFp8Meta);
 
 }  // namespace habana

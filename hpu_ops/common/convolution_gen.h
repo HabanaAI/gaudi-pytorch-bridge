@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ namespace habana {
   synTensor at_input##_expanded = syn_in(input_idx);                  \
   std::optional<synapse_helpers::tensor> at_input##_expanded_storage; \
   if (is_conv_1d) {                                                   \
-    std::vector<int64_t> sizes_4d = at_input.sizes().vec();           \
+    std::vector<int64_t> sizes_4d = (at_input).sizes().vec();         \
     sizes_4d.push_back(1);                                            \
                                                                       \
     synAxisParams expandParams{0};                                    \
@@ -32,7 +32,7 @@ namespace habana {
         graph,                                                        \
         "expand_dims",                                                \
         {syn_in(input_idx)},                                          \
-        {{sizes_4d, at_input.scalar_type()}},                         \
+        {{sizes_4d, (at_input).scalar_type()}},                       \
         &expandParams,                                                \
         sizeof(expandParams))[0]);                                    \
     at_input##_expanded = (*at_input##_expanded_storage).get();       \
@@ -65,18 +65,18 @@ std::vector<int64_t> expand_param_if_needed(
     const char* param_name,
     int64_t expected_dim);
 
-#define FRONTEND_CONVOLUTION_COMMON(shift)                             \
-  auto weight = inputs[1 + shift].toTensor();                          \
-  const auto params_dim = weight.dim() - 2;                            \
-  auto& pt_inputs = get_inputs();                                      \
-                                                                       \
-  pt_inputs[3 + shift] = expand_param_if_needed(                       \
-      pt_inputs[3 + shift].toIntList().vec(), "stride", params_dim);   \
-  pt_inputs[4 + shift] = expand_param_if_needed(                       \
-      pt_inputs[4 + shift].toIntList().vec(), "padding", params_dim);  \
-  pt_inputs[5 + shift] = expand_param_if_needed(                       \
-      pt_inputs[5 + shift].toIntList().vec(), "dilation", params_dim); \
-  pt_inputs[7 + shift] = expand_param_if_needed(                       \
-      pt_inputs[7 + shift].toIntList().vec(), "outputPadding", params_dim);
+#define FRONTEND_CONVOLUTION_COMMON(shift)                               \
+  auto weight = inputs[1 + (shift)].toTensor();                          \
+  const auto params_dim = weight.dim() - 2;                              \
+  auto& pt_inputs = get_inputs();                                        \
+                                                                         \
+  pt_inputs[3 + (shift)] = expand_param_if_needed(                       \
+      pt_inputs[3 + (shift)].toIntList().vec(), "stride", params_dim);   \
+  pt_inputs[4 + (shift)] = expand_param_if_needed(                       \
+      pt_inputs[4 + (shift)].toIntList().vec(), "padding", params_dim);  \
+  pt_inputs[5 + (shift)] = expand_param_if_needed(                       \
+      pt_inputs[5 + (shift)].toIntList().vec(), "dilation", params_dim); \
+  pt_inputs[7 + (shift)] = expand_param_if_needed(                       \
+      pt_inputs[7 + (shift)].toIntList().vec(), "outputPadding", params_dim);
 
 } // namespace habana

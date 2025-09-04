@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@ bool isDeviceInLoweringMode() {
 
 std::unique_ptr<SingleTonExecThreadPool> SingleTonExecThreadPool::instance_{
     nullptr};
-std::once_flag SingleTonExecThreadPool::initialize_once_flag_{};
+std::once_flag SingleTonExecThreadPool::initialize_once_flag_;
 
 void SingleTonExecThreadPool::CreateInstance() {
   instance_.reset(new SingleTonExecThreadPool());
@@ -44,7 +44,7 @@ void SingleTonExecThreadPool::CreateInstance() {
 ////////////////////////////////////////////////////////////////////////////CONTEXT////////////////////////////////////////////////////////////////////////////////////////
 
 void HbExecutionContext::RegisterTensor(std::shared_ptr<Data> data) {
-  return MarkTensorStatus(data, kREGISTERED);
+  MarkTensorStatus(data, kREGISTERED);
 }
 
 void HbExecutionContext::UnregisterTensor(Data* data) {
@@ -185,13 +185,13 @@ void HbExecutionContext::updateInputs(ir::ValueList inputVals) {
 
 void HbExecutionContext::updateCurrentIndicesOfH2dScales() {
   for (auto& [key, scales] : m_scalar_to_h2d_scales_map) {
-    scales.second = scales.first.size() - 1;
+    scales.current_idx = scales.scales.size() - 1;
   }
 }
 
 //////////////////////////////////////////////////////////////////////////////ARENA/////////////////////////////////////////////////////////////////////////////////
-std::unique_ptr<HbExecutionContextArena> HbExecutionContextArena::instance_{};
-std::once_flag HbExecutionContextArena::initialize_once_flag_{};
+std::unique_ptr<HbExecutionContextArena> HbExecutionContextArena::instance_;
+std::once_flag HbExecutionContextArena::initialize_once_flag_;
 
 HbExecutionContext* HbExecutionContextArena::getDeviceExecutionContext() {
   return &execution_context_;

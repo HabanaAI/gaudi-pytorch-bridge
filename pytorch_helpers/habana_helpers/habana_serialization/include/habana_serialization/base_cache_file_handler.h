@@ -55,7 +55,7 @@ class BaseCacheFileHandler : public CacheFileHandler {
   uint64_t calculate_recipes_total_size(std::vector<RecipeInfo>& recipes);
   bool delete_recipe(RecipeInfo& r_info);
 
-  int eviction_lock_fd_;
+  int eviction_lock_fd_{-1};
 };
 
 } // namespace serialization

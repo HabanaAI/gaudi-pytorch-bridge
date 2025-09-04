@@ -77,7 +77,7 @@ TEST_SUITE("Stack Generator tests") {
       std::vector<at::ScalarType> blacklisted_types{};
       std::vector<at::ScalarType> whitelisted_types{};
       std::string op_name = "Dummy";
-      std::string op_overload_name = "";
+      std::string op_overload_name;
 
       std::vector<at::Stack> expected_stacks{};
 
@@ -170,16 +170,16 @@ TEST_SUITE("Stack Generator tests") {
 
           SUBCASE("Match precision_type") {
             input.match_precision_type = true;
-            input.values = {0.0f};
+            input.values = {0.0F};
 
-            expected_stacks.push_back(at::Stack{0.0f});
+            expected_stacks.push_back(at::Stack{0.0F});
           }
 
           SUBCASE("Multiple values") {
-            input.values = {0.0f, 1.0f};
+            input.values = {0.0F, 1.0F};
 
-            expected_stacks.push_back(at::Stack{0.0f});
-            expected_stacks.push_back(at::Stack{1.0f});
+            expected_stacks.push_back(at::Stack{0.0F});
+            expected_stacks.push_back(at::Stack{1.0F});
           }
         }
 
@@ -202,7 +202,7 @@ TEST_SUITE("Stack Generator tests") {
     std::vector<at::ScalarType> blacklisted_types{};
     std::vector<at::ScalarType> whitelisted_types{};
     std::string op_name = "Dummy";
-    std::string op_overload_name = "";
+    std::string op_overload_name;
 
     std::vector<at::Stack> expected_stacks{};
 
@@ -403,7 +403,9 @@ TEST_SUITE("Schema Stack Generator tests") {
     }
 
     stack_gen = std::make_unique<slrg::SchemaStackGenerator>(
-        "", "dummy", op_overload_name);
+        "",
+        "dummy",
+        op_overload_name);
 
     CHECK(stack_gen->getOpAndOverloadName() == expected_name);
   }

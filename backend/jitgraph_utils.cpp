@@ -43,7 +43,6 @@ torch::jit::Node* returnNodeUsesValue(
   auto uses = value->uses();
   for (auto u : uses) {
     auto restride_node = u.user;
-    std::string str1 = restride_node->kind().toQualString();
     auto it = std::find(
         Opslist.begin(), Opslist.end(), restride_node->kind().toQualString());
     if (it != Opslist.end()) {

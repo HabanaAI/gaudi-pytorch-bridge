@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,6 +32,7 @@
 #include "habana_kernels/resize.h"
 #include "habana_kernels/tensor_shape_kernels.h"
 #include "habana_lazy/hlexec.h"
+#include "hpu_ops/hpu_op_helper.h"
 
 using namespace torch;
 using namespace habana;
@@ -57,9 +58,6 @@ std::vector<int64_t> CatOperator::compute_output_shape(
 auto CatOperator::CreateParamsAndAddToContext(int64_t axis) {
   synConcatenateParams params;
   params.axis = axis;
-  p_context_->params_.emplace<synConcatenateParams>(params);
-  p_context_->params_size_ = sizeof(params);
-
   return params;
 }
 
@@ -286,9 +284,6 @@ void TransposeOperator::AllocateAndAddSynapseNode(
       params.permutation[self.dim() - 1 - dim0],
       params.permutation[self.dim() - 1 - dim1]);
 
-  p_context_->params_.emplace<synTransposeParamsNDims>(params);
-  p_context_->params_size_ = sizeof(params);
-
   AllocateSynapseOutput(graph, out, output_metadata.at(0));
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
@@ -407,8 +402,6 @@ void PermuteOperator::AllocateAndAddSynapseNode(
     params.permutation[i] = static_cast<TransposePermutationDim>(i);
   }
 
-  p_context_->params_.emplace<synTransposeParamsNDims>(params);
-  p_context_->params_size_ = sizeof(params);
   AllocateSynapseOutput(graph, output, mdata);
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
@@ -521,9 +514,9 @@ void ReshapeOperator::AllocateAndAddSynapseNode(
   }
 
   at::Tensor output;
-  if (!graph.is_dry_run() &&
-      output_metadata.at(0).allocated_tensor.has_value()) {
-    output = output_metadata.at(0).allocated_tensor.value();
+  auto allocated_tensor = output_metadata.at(0).allocated_tensor;
+  if (!graph.is_dry_run() && allocated_tensor.has_value()) {
+    output = allocated_tensor.value();
   } else {
     output = habana::createPTTensor(
         self,
@@ -539,7 +532,6 @@ void ReshapeOperator::AllocateAndAddSynapseNode(
       self.sizes(),
       " Size of output: ",
       output.sizes());
-  p_context_->params_size_ = 0;
 
   if (inputs[1].isIntList()) {
     // Allocate Shape tensor
@@ -549,7 +541,7 @@ void ReshapeOperator::AllocateAndAddSynapseNode(
   }
 
   AllocateSynapseOutput(graph, output, output_metadata.at(0));
-  AddNodeToSynapseGraph(graph, NULL, 0);
+  AddNodeToSynapseGraph(graph, nullptr, 0);
 }
 
 InferOutputMetaRetType ViewOperator::InferOutputMeta(
@@ -727,17 +719,17 @@ void BroadcastOperator::AllocateAndAddSynapseNode(
 
 static const auto& TensorShapeKernelsKernelRegistry =
     habana::KernelRegistry()
-        .add("aten::permute", KERNEL_FN_GLOBAL(PermuteOperator))
-        .add("hpu::permute_cl", KERNEL_FN_GLOBAL(PermuteCLOperator))
-        .add("hpu::permute_weight", KERNEL_FN_GLOBAL(PermuteOperator))
-        .add("hpu::permuted_weight_restride", KERNEL_FN_GLOBAL(PermuteOperator))
-        .add("aten::t", KERNEL_FN_GLOBAL(TOperator))
-        .add("aten::transpose.int", KERNEL_FN_GLOBAL(TransposeOperator))
-        .add("aten::reshape", KERNEL_FN_GLOBAL(ReshapeOperator))
-        .add("hpu::expand", KERNEL_FN_GLOBAL(BroadcastOperator))
-        .add("hpu::expand_ds", KERNEL_FN_GLOBAL(BroadcastOperator))
-        .add("aten::view", KERNEL_FN_GLOBAL(ViewOperator))
-        .add("hpu::view", KERNEL_FN_GLOBAL(ViewOperator))
-        .add("hpu::view_neg", KERNEL_FN_GLOBAL(ViewOperator))
-        .add("hpu::reshape", KERNEL_FN_GLOBAL(ViewOperator))
-        .add("aten::_unsafe_view", KERNEL_FN_GLOBAL(ViewOperator));
+        .REGISTER_HPU_BACKEND("aten::permute", PermuteOperator)
+        .REGISTER_HPU_BACKEND("hpu::permute_cl", PermuteCLOperator)
+        .REGISTER_HPU_BACKEND("hpu::permute_weight", PermuteOperator)
+        .REGISTER_HPU_BACKEND("hpu::permuted_weight_restride", PermuteOperator)
+        .REGISTER_HPU_BACKEND("aten::t", TOperator)
+        .REGISTER_HPU_BACKEND("aten::transpose.int", TransposeOperator)
+        .REGISTER_HPU_BACKEND("aten::reshape", ReshapeOperator)
+        .REGISTER_HPU_BACKEND("hpu::expand", BroadcastOperator)
+        .REGISTER_HPU_BACKEND("hpu::expand_ds", BroadcastOperator)
+        .REGISTER_HPU_BACKEND("aten::view", ViewOperator)
+        .REGISTER_HPU_BACKEND("hpu::view", ViewOperator)
+        .REGISTER_HPU_BACKEND("hpu::view_neg", ViewOperator)
+        .REGISTER_HPU_BACKEND("hpu::reshape", ViewOperator)
+        .REGISTER_HPU_BACKEND("aten::_unsafe_view", ViewOperator);

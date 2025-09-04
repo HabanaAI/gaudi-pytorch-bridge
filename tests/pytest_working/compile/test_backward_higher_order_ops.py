@@ -36,7 +36,6 @@ def _multiply_invoke(grad):
 
 
 class BackwardHigherOrderOpTests(torch._dynamo.test_case.TestCase):
-
     def test_invoke_in_pt2_compiled_autograd(self):
         graph = None
         device = "hpu"
@@ -46,7 +45,13 @@ class BackwardHigherOrderOpTests(torch._dynamo.test_case.TestCase):
             nonlocal graph
             self.assertEqual(graph, None)
             graph = gm
-            return torch.compile(gm, backend=backend, fullgraph=True, dynamic=True, options={"inference": False})
+            return torch.compile(
+                gm,
+                backend=backend,
+                fullgraph=True,
+                dynamic=True,
+                options={"inference": False},
+            )
 
         torch._dynamo.reset()
         x = torch.tensor([0.5, 0.5], device=device, requires_grad=True)

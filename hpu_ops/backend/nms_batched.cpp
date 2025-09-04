@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
  */
 
 #include "hpu_ops/nms_batched.h"
+#include "hpu_ops/hpu_op_helper.h"
 
 namespace sh = synapse_helpers;
 
@@ -26,7 +27,7 @@ OutputMetaDataVector ComputeNmsBatchedAlignMetadata(const at::Stack& stack) {
   return {
       OutputMetaData(
           c10::ScalarType::Long,
-          {static_cast<int>(indexes.sizes()[0]) * max_classes}),
+          {static_cast<int64_t>(indexes.sizes()[0]) * max_classes}),
       OutputMetaData(c10::ScalarType::Int, {5})};
 }
 
@@ -50,7 +51,7 @@ void NmsBatched::AddNode(
   auto scores = stackGetter.getNextInput<TensorsPair>();
   auto indexes = stackGetter.getNextInput<TensorsPair>();
   auto iou = stackGetter.getNextInput<double>();
-  auto max_classes = stackGetter.getNextInput<int>();
+  auto max_classes = stackGetter.getNextInput<long>();
   if (boxes.pt_t.numel() == 0 && scores.pt_t.numel() == 0 &&
       indexes.pt_t.numel() == 0) {
     auto zero_tensor = ConstantHelper(graph, 0, c10::ScalarType::Long, {0}, 0);
@@ -101,8 +102,11 @@ void NmsBatched::AddNode(
       true);
 
   ns_BatchedNmsKernel::Params params{};
-  params.nms_threshold = iou;
-  params.max_num_classes = max_classes;
+  params.nms_threshold = static_cast<float>(iou);
+  HABANA_ASSERT(
+      max_classes <= std::numeric_limits<int>::max(),
+      "Max number of classes exceeded");
+  params.max_num_classes = static_cast<int>(max_classes);
 
   const auto& output_meta = ComputeNmsBatchedAlignMetadata(stack);
   auto output = BuildNode(
@@ -121,6 +125,7 @@ void NmsBatched::AddNode(
 
 } // namespace habana
 
-static const auto& NmsBatchedKernelRegistry = habana::KernelRegistry().add(
-    "hpu::batched_nms_eager",
-    KERNEL_FN_GLOBAL(habana::NmsBatched));
+static const auto& NmsBatchedKernelRegistry =
+    habana::KernelRegistry().REGISTER_HPU_BACKEND(
+        "hpu::batched_nms_eager",
+        habana::NmsBatched);

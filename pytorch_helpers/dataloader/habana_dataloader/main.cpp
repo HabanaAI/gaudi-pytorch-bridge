@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@
 #include "nlohmann/json.hpp"
 #include "pybind11_json.hpp"
 
-using nlohmannV340::json;
+using nlohmann::json;
 
 namespace py = pybind11;
 namespace aeondataloader = scaleoutdemoloader;
@@ -53,7 +53,7 @@ class HabanaAcceleratedPytorchDL {
       bool channels_last,
       bool drop_last)
       : m_prefetchQueue(s_buffer_level) {
-    std::string config_path_name = saveDictToFile(dict_config);
+    const auto config_path_name = saveDictToFile(dict_config);
     m_record_count = initializeAeon(config_path_name);
 
     m_batch_size = m_json_config["batch_size"];
@@ -171,7 +171,7 @@ class HabanaAcceleratedPytorchDL {
     }
 
     const int image_size =
-        m_img_height * m_img_width * 3 * m_batch_size * sizeof(float);
+        static_cast<size_t>(m_img_height * m_img_width * 3 * m_batch_size) * sizeof(float);
     const int target_size = m_batch_size * sizeof(uint32_t);
 
     char* image_data_ptr = (char*)image.data_ptr();
@@ -200,6 +200,7 @@ class HabanaAcceleratedPytorchDL {
   }
 
   std::string saveDictToFile(py::dict dict_config) {
+    using namespace std::literals;
     char tmp_fname[] = "/tmp/dl_dict_XXXXXX";
     int fd = mkstemp(tmp_fname);
     if (fd == -1) {
@@ -216,11 +217,10 @@ class HabanaAcceleratedPytorchDL {
     return config_path_name;
   }
 
-  uint64_t initializeAeon(const std::string& config_path_name) {
+  uint64_t initializeAeon(const std::string_view config_path_name) {
     m_loader = aeondataloader::create_data_loader();
-    aeondataloader::data_loader_init(m_loader, config_path_name.c_str());
-    uint64_t record_count = aeondataloader::get_database_size(m_loader);
-    return record_count;
+    aeondataloader::data_loader_init(m_loader, config_path_name.data());
+    return aeondataloader::get_database_size(m_loader);
   }
 
   void runPrefetchThread() {
@@ -254,13 +254,12 @@ class HabanaAcceleratedPytorchDL {
     return {std::move(t)...};
   }
 
- protected:
   // Configuration
   json m_json_config;
-  int m_batch_size;
-  int m_img_height;
-  int m_img_width;
-  int m_total_batch_count;
+  long m_batch_size;
+  long m_img_height;
+  long m_img_width;
+  long m_total_batch_count;
   bool m_pin_memory;
   bool m_use_prefetch;
   uint64_t m_record_count;
@@ -323,7 +322,7 @@ class SsdHDL : public HabanaAcceleratedPytorchDL {
     }
 
     const int image_size =
-        m_img_height * m_img_width * 3 * m_batch_size * sizeof(float);
+        static_cast<size_t>(m_img_height * m_img_width * 3 * m_batch_size) * sizeof(float);
     char* image_data_ptr = (char*)image.data_ptr();
 
     const int bbox_size = m_batch_size * m_max_gt_boxes * 4 * sizeof(float);
@@ -332,7 +331,7 @@ class SsdHDL : public HabanaAcceleratedPytorchDL {
     const int img_id_size = m_batch_size * sizeof(uint32_t);
     char* label_ptr = (char*)label.data_ptr();
     char* img_id_ptr = (char*)img_id.data_ptr();
-    const int img_shape_size = 2 * m_batch_size * sizeof(uint32_t);
+    const auto img_shape_size = static_cast<size_t>(2 * m_batch_size) * sizeof(uint32_t);
     char* img_shape_ptr = (char*)img_shape.data_ptr();
 
     // // Copy data to the ptr

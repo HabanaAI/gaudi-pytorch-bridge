@@ -27,8 +27,8 @@ from torch._subclasses.fake_tensor import FakeTensorMode
 from ..random_utils import (
     backward_random_op_inputs,
     is_backward_checkpoint_op,
-    is_multi_output_op,
     is_random_op,
+    is_run_and_save_rng_state,
     random_op_inputs,
 )
 from ..symbolic_execution import (
@@ -84,22 +84,11 @@ def get_node_args(node: torch.fx.Node):
 
         # There are two cases, resulting unwrapped args could be again a tuple or directly a node.
         # Code assumes something iterable so if it's just a a single node, then do not unwrap it.
-        if (
-            isinstance(node.args[0], tuple)
-            or isinstance(node.args[0], list)
-            or isinstance(node.args[0], torch.fx.immutable_collections.immutable_list)
-        ):
+        if isinstance(node.args[0], tuple | list | torch.fx.immutable_collections.immutable_list):
             args = node.args[0]
 
-    if (
-        isinstance(args, tuple)
-        or isinstance(args, list)
-        or isinstance(args, torch.fx.immutable_collections.immutable_list)
-    ):
-        cleaned_args = []
-        for arg in args:
-            if isinstance(arg, torch.fx.Node):
-                cleaned_args.append(arg)
+    if isinstance(args, tuple | list | torch.fx.immutable_collections.immutable_list):
+        cleaned_args = [arg for arg in args if isinstance(arg, torch.fx.Node)]
     else:
         cleaned_args = args
 
@@ -222,6 +211,7 @@ def fill_propagated_tensor_metadata_to_node(result: torch.Tensor, node: torch.fx
         float: float,
         bool: bool,
         type(None): None,
+        torch.fx.experimental._backward_state.BackwardState: None,
     }
 
     logger.debug("node name: %s", node.name)
@@ -449,7 +439,6 @@ def remove_no_effect_inplace_add(graph_module: torch.fx.GraphModule):
             # this inplace add_ op doesn't have possbility to change the arg, so
             # convert it to out-of-place version.
             node.target = torch.ops.aten.add.Tensor
-    return
 
 
 def is_module_dynamic(input_module: torch.fx.GraphModule) -> bool:
@@ -495,6 +484,7 @@ def wrap_random_ops(input_module: torch.fx.GraphModule):
                 random_node = input_module.graph.call_function(*backward_random_op_inputs(node))
                 node.replace_all_uses_with(random_node, propagate_meta=True)
                 random_node.meta.update(node.meta)
+                random_node.meta["deterministic"] = True
                 input_module.graph.erase_node(node)
 
         input_module.recompile()
@@ -512,24 +502,26 @@ def wrap_random_ops(input_module: torch.fx.GraphModule):
         )
         _ = input_module.graph.call_function(torch.ops.aten.add_, (counter_pl, len(random_ops)), {})
 
-    multi_output_ops = []
-
     for i, node in enumerate(random_ops):
         with input_module.graph.inserting_before(node):
             seed = input_module.graph.call_function(torch.select, (seeds, 0, i), {})
             random_node = input_module.graph.call_function(*random_op_inputs(node, seed))
-            node.replace_all_uses_with(random_node, propagate_meta=True)
-            random_node.meta.update(node.meta)
-            if is_multi_output_op(node):
-                multi_output_ops.append(random_node)
-            input_module.graph.erase_node(node)
 
-    for node in multi_output_ops:
-        for getitem in list(node.users):
-            if getitem.args[1] == 1:
-                for selector in list(getitem.users):
-                    idx = selector.args[1]
-                    selector.args = (node, idx + 1)
+            if is_run_and_save_rng_state(node):
+                random_node.meta["deterministic"] = True
+                for getitem_node in list(node.users):
+                    index = getitem_node.args[1]
+                    if index not in [0, 1]:
+                        raise AssertionError(f"Expecting {node} to produce only two outputs")
+
+                    new_out = seed if index == 0 else random_node
+                    getitem_node.replace_all_uses_with(new_out, propagate_meta=False)
+                    input_module.graph.erase_node(getitem_node)
+            else:
+                node.replace_all_uses_with(random_node, propagate_meta=True)
+                random_node.meta.update(node.meta)
+
+            input_module.graph.erase_node(node)
 
     input_module.recompile()
     return True
@@ -643,6 +635,11 @@ def jit_node_annotation_propagation(jit_ir, fx_module):
         if "sfg" in fx_node.meta:
             jit_node.s_("sfg", "true")
             logger.debug("sfg marked for jit node", jit_node)
+            is_annotated_graph = True
+
+        if "deterministic" in fx_node.meta:
+            jit_node.i_("deterministic", True)
+            logger.debug("deterministic marked for jit node", jit_node)
             is_annotated_graph = True
 
     if is_annotated_graph:

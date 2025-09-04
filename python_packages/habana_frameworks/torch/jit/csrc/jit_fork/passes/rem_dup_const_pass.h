@@ -16,10 +16,7 @@
 
 #include "jit_fork/ir/ir.h"
 
-namespace habana_torch {
-namespace jit {
+namespace habana_torch::jit {
 
 bool RemoveDuplicateConstPass(habana_torch::jit::Graph& g);
-
-} // namespace jit
-} // namespace habana_torch
+} // namespace habana_torch::jit

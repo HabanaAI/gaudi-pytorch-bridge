@@ -98,16 +98,16 @@ def sdpa_fwd_wrapper(
     seq_padding_type="left",
     return_dropout_mask=False,
     return_attn_probs=False,
+    window_size=(-1, -1),
 ):
     requires_backward = q.requires_grad or k.requires_grad or v.requires_grad
 
     # Handle zero sized tensors(for now only in inference) by returning a dummy output.
-    if requires_backward is False:
-        if q.numel() == 0 or k.numel() == 0 or v.numel() == 0:
-            out_shape = list(q.shape)
-            out_shape[-1] = v.shape[-1]
-            dummy_out = q.new_empty(out_shape, requires_grad=requires_backward, layout=q.layout)
-            return dummy_out
+    if not requires_backward and (q.numel() == 0 or k.numel() == 0 or v.numel() == 0):
+        out_shape = list(q.shape)
+        out_shape[-1] = v.shape[-1]
+        dummy_out = q.new_empty(out_shape, requires_grad=requires_backward, layout=q.layout)
+        return dummy_out
 
     softmax_mode = softmax_mode.lower()
     seq_padding_type = seq_padding_type.lower()
@@ -124,7 +124,7 @@ def sdpa_fwd_wrapper(
     # and go via recmpute mode unless returing attn prob is requested (since attn prob
     # is returned only in non-recomp mode). For now take recomp path only in case Q seq len is 1.
     # Later see if this condition can be removed.
-    if requires_backward is False:
+    if not requires_backward:
         if q_seq_len == 1:
             recompute = True
         # force recomp to False if attn prob is to be returned
@@ -135,23 +135,36 @@ def sdpa_fwd_wrapper(
         assert requires_backward is False, "return_attn_probs is supported only for inference mode"
 
     if recompute and requires_backward and softmax_mode == "fast":
-        assert (
-            is_causal
-        ), "Optimized softmax mode is supported in recompute training mode only in causal(triangular) mask case"
+        assert is_causal, (
+            "Optimized softmax mode is supported in recompute training mode only in causal(triangular) mask case"
+        )
 
     if valid_seq_len is not None:
-        assert is_causal and (
-            requires_backward is False
-        ), "Valid sequence length is supported only in inference with is_causal(triangular) mask case"
+        assert is_causal and (requires_backward is False), (
+            "Valid sequence length is supported only in inference with is_causal(triangular) mask case"
+        )
 
     if recompute:
         assert return_dropout_mask is False, "Return_dropout_mask is not supported in recompute mode"
 
     if softmax_mode == "fp32":
         q_dtype = q.dtype
-        assert (
-            requires_backward is False and q_dtype == torch.bfloat16
-        ), "softmax_mode = fp32 is supported only for inference mode and when q/k/v inputs are BF16"
+        assert requires_backward is False and q_dtype == torch.bfloat16, (
+            "softmax_mode = fp32 is supported only for inference mode and when q/k/v inputs are BF16"
+        )
+
+    # if attention mask is 2D (Nt, Ns) expand it to Q rank
+    # along with the same batch size
+    if attn_mask is not None and attn_mask.dim() == 2:
+        assert attn_mask.shape[0] == q.shape[-2] and attn_mask.shape[1] == k.shape[-2], (
+            "unsupported 2D attention mask, the shape is not (Nt, Ns)"
+        )
+        new_attn_mask_shape = [q.shape[0], attn_mask.shape[0], attn_mask.shape[1]]
+        # the -1 is an already added batch_size
+        rank_diff = q.dim() - attn_mask.dim() - 1
+        if rank_diff > 0:
+            new_attn_mask_shape[1:1] = rank_diff * [1]
+        attn_mask = attn_mask.expand(new_attn_mask_shape)
 
     gqa = is_gqa(q, k)
     if gqa:
@@ -169,6 +182,7 @@ def sdpa_fwd_wrapper(
             softmax_mode,
             valid_seq_len,
             seq_padding_type,
+            window_size,
         )
         if gqa:
             out = gqa_output_reshape(out)
@@ -177,7 +191,16 @@ def sdpa_fwd_wrapper(
         ctx.save_for_backward(q, k, v, attn_mask, m, linv, seed, out)
     else:
         out, P, dm = torch.ops.hpu.sdpa_fwd(
-            q, k, v, attn_mask, dropout_p, scale, is_causal, softmax_mode, valid_seq_len, seq_padding_type
+            q,
+            k,
+            v,
+            attn_mask,
+            dropout_p,
+            scale,
+            is_causal,
+            softmax_mode,
+            valid_seq_len,
+            seq_padding_type,
         )
         if gqa:
             out = gqa_output_reshape(out)
@@ -198,11 +221,10 @@ def sdpa_fwd_wrapper(
                     return out, P, dm
                 else:
                     return out, dm
+            elif return_attn_probs:
+                return out, P
             else:
-                if return_attn_probs:
-                    return out, P
-                else:
-                    return out
+                return out
 
         ctx.save_for_backward(q, k, v, P, dm, out)
 
@@ -235,13 +257,25 @@ def sdpa_bwd_wrapper(ctx, dout, *args):
             dout = gqa_input_reshape_bwd(q, v, dout)
             fwd_out = gqa_input_reshape_bwd(q, v, fwd_out)
         dq, dk, dv = torch.ops.hpu.sdpa_recomp_bwd(
-            dout, q, k, v, attn_mask, m, linv, seed, is_causal, dropout_p, scale, softmax_mode, fwd_out
+            dout,
+            q,
+            k,
+            v,
+            attn_mask,
+            m,
+            linv,
+            seed,
+            is_causal,
+            dropout_p,
+            scale,
+            softmax_mode,
+            fwd_out,
         )
         if ctx.gqa:
             dq = gqa_output_reshape(dq)
             dk = gqa_output_reshape(dk)
             dv = gqa_output_reshape(dv)
-        return dq, dk, dv, None, None, None, None, None, None, None, None, None, None
+        return dq, dk, dv, None, None, None, None, None, None, None, None, None, None, None
     else:
         q, k, v, P, dm, fwd_out = ctx.saved_tensors
         scale = ctx.scale
@@ -255,7 +289,7 @@ def sdpa_bwd_wrapper(ctx, dout, *args):
             dq = gqa_output_reshape(dq)
             dk = gqa_output_reshape(dk)
             dv = gqa_output_reshape(dv)
-        return dq, dk, dv, None, None, None, None, None, None, None, None, None, None
+        return dq, dk, dv, None, None, None, None, None, None, None, None, None, None, None
 
 
 class FusedSDPA(torch.autograd.Function):
@@ -275,6 +309,7 @@ class FusedSDPA(torch.autograd.Function):
         seq_padding_type="left",
         return_dropout_mask=False,
         return_attn_probs=False,
+        window_size=(-1, -1),
     ):
         return sdpa_fwd_wrapper(
             ctx,
@@ -291,6 +326,7 @@ class FusedSDPA(torch.autograd.Function):
             seq_padding_type=seq_padding_type,
             return_dropout_mask=return_dropout_mask,
             return_attn_probs=return_attn_probs,
+            window_size=window_size,
         )
 
     @staticmethod

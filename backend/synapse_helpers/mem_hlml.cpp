@@ -14,15 +14,15 @@
  */
 
 #include "mem_hlml.h"
-#include <errno.h>
 #include <fcntl.h>
-#include <stdio.h>
-#include <string.h>
 #include <synapse_api.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
-#include <time.h>
 #include <unistd.h>
+#include <cerrno>
+#include <cstdio>
+#include <cstring>
+#include <ctime>
 #include "pytorch_helpers/habana_helpers/logging.h"
 
 namespace synapse_helpers {
@@ -111,7 +111,8 @@ hlml_shm_data* HlMlMemoryReporter::PrepareSharedObject(int fd) {
     throw Error("ftruncate", errno);
   }
 
-  void* ptr = ::mmap(0, file_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+  void* ptr =
+      ::mmap(nullptr, file_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
   if (ptr == (void*)MAP_FAILED) {
     throw Error("mmap", errno);
   }
@@ -162,7 +163,7 @@ void HlMlMemoryUpdater::stop() {
 void HlMlMemoryUpdater::thread_main() {
   while (not m_quit.load()) {
     std::uint64_t usage = m_get_used_memory();
-    std::uint64_t timestamp = ::time(NULL);
+    std::uint64_t timestamp = ::time(nullptr);
     m_reporter->PublishMemory(usage);
     m_reporter->PublishTimestamp(timestamp);
     synUpdateMemoryConsumption(usage, timestamp);

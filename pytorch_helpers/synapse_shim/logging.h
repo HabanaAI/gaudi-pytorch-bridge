@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ namespace shim {
 #define CHECK_TRUE(x) CHECK_TRUE_MSG(x, "")
 #define CHECK_TRUE_DL(x) CHECK_TRUE_MSG(x, " (" << dlerror() << ")")
 
+// NOLINTBEGIN(bugprone-macro-parentheses)
 #define CHECK_TRUE_MSG(x, msg)                                              \
   do {                                                                      \
     if (!(x)) {                                                             \
@@ -34,5 +35,5 @@ namespace shim {
       std::terminate();                                                     \
     }                                                                       \
   } while (0)
-
+// NOLINTEND(bugprone-macro-parentheses)
 } // namespace shim

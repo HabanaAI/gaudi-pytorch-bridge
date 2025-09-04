@@ -26,8 +26,7 @@
 #pragma GCC diagnostic pop
 #include "backend/profiling/profiling.h"
 
-namespace habana {
-namespace profile {
+namespace habana::profile {
 using namespace std::chrono;
 
 class GenericTraceActivitySink : public TraceSink {
@@ -141,8 +140,6 @@ class HPUActivityProfiler : public libkineto::IActivityProfiler {
 
  private:
   std::string name_{"HPU"};
-  int64_t AsyncProfileStartTime_{0};
-  int64_t AsyncProfilEndTimek_{0};
 
   const std::set<libkineto::ActivityType> supported_activities{
       libkineto::ActivityType::HPU_OP,
@@ -153,17 +150,13 @@ class Config {
  public:
   static Config& getInstance();
 
-  void setMemoryProfile(bool value);
   void setBridgeProfile(bool value);
-
-  bool isMemoryProfileEnabled();
   bool isBridgeProfileEnabled();
 
   Config(const Config&) = delete;
   Config& operator=(const Config&) = delete;
 
  private:
-  bool isMemoryProfile = false;
   bool isBridgeProfile = false;
   std::mutex mutex_;
 
@@ -189,6 +182,7 @@ class HpuActivityProfilerSession : public libkineto::IActivityProfilerSession {
   std::unique_ptr<libkineto::CpuTraceBuffer> getTraceBuffer() override;
 
  private:
+  bool isMemoryProfileEnabled();
   std::deque<std::unique_ptr<libkineto::GenericTraceActivity>> activities_;
   std::unique_ptr<GenericTraceActivitySink> sink_;
   std::unique_ptr<Profiler> profiler_;
@@ -197,5 +191,4 @@ class HpuActivityProfilerSession : public libkineto::IActivityProfilerSession {
   std::vector<std::string> errors_ = {};
 };
 
-}; // namespace profile
-}; // namespace habana
+}; // namespace habana::profile

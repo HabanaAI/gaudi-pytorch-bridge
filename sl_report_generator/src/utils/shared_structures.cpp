@@ -74,8 +74,7 @@ std::string InputDescriptor::getMatchPrecisionTypeStr() const {
       ? (match_precision_type.value() ? "true" : "false")
       : "None";
   std::string ret = "  InputDescriptor::match_precision_type=";
-  return "  InputDescriptor::match_precision_type=" + match_precision_type_str +
-      "\n";
+  return ret + match_precision_type_str + "\n";
 }
 
 std::string InputDescriptor::getMatchRankStr() const {
@@ -204,6 +203,8 @@ std::ostream& operator<<(std::ostream& os, const Report& report) {
   for (const auto& type : report.support_map)
     os << slrg::report_precision_types_string[type.first] << ":"
        << (type.second ? "true" : "false") << ", ";
+  os << "Fp4: " << (report.fp4_support ? "true" : "false") << ", ";
+  os << "Int4: " << (report.int4_support ? "true" : "false");
   os << "}\n";
   return os;
 }

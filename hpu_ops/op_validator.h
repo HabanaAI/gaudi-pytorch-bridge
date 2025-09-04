@@ -38,13 +38,22 @@ class TensorDescr {
       : m_rank(rank), m_dtype(dtype) {}
 
   explicit TensorDescr(const OutputMetaData& output_meta)
-      : TensorDescr(output_meta.shape.size(), output_meta.dtype) {}
+      : TensorDescr(
+            static_cast<uint32_t>(output_meta.shape.size()),
+            output_meta.dtype) {
+    HABANA_ASSERT(
+        output_meta.shape.size() <= std::numeric_limits<uint32_t>::max(),
+        "Output meta shape exceeds uint32_t limit");
+  }
 
   explicit TensorDescr(const SharedMetaTensor& shared_meta)
       : TensorDescr(shared_meta.first, shared_meta.second) {}
 
   uint32_t getRank() const {
-    return m_tensor ? m_tensor->dim() : m_rank;
+    HABANA_ASSERT(
+        !m_tensor || m_tensor->dim() <= std::numeric_limits<uint32_t>::max(),
+        "Tensor dimension exceeds uint32_t limit");
+    return m_tensor ? static_cast<uint32_t>(m_tensor->dim()) : m_rank;
   }
 
   at::ScalarType getType() const {

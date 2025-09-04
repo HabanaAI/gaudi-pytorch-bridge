@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@ using namespace habana_lazy;
 using namespace at;
 
 #define MAX_VALUE_TO_TEST 127
-#define MIN_VALUE_TO_TEST -127
+#define MIN_VALUE_TO_TEST (-127)
 
 #define HPU_LAZY_KERNEL_TEST(op_code, min_val, max_val)                        \
   TEST_F(LazySpecialKernelTest, op_code##Forward) {                            \

@@ -41,7 +41,7 @@ void TensorShape::add_dim(int64_t size) {
 }
 
 void TensorShape::set_size(const std::vector<int64_t>& sizes) {
-  n_elements = sizes.size() == 0 ? 0 : 1;
+  n_elements = sizes.empty() ? 0 : 1;
   for (size_t i = 0; i < sizes.size(); i++)
     n_elements *= sizes[i];
   m_sizes = sizes;

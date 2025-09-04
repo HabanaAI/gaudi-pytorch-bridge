@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,15 +20,13 @@ constexpr int64_t index_of_index_position = 2;
 
 namespace habana {
 
-std::shared_ptr<void> FillIndexSelectParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillIndexSelectParams(const at::Stack& stack) {
   PARAMS_STUB(ns_GatherKernel::Params);
 
   auto self = stack.at(index_of_self).toTensor();
   auto dim = stack.at(index_of_dim).toInt();
   params->axis = get_dim_in_tpc_order(dim, self.dim());
-  return params;
+  return paramsT;
 }
 
 OutputMetaDataVector IndexSelectMeta(const at::Stack& stack) {
@@ -40,7 +38,9 @@ OutputMetaDataVector IndexSelectMeta(const at::Stack& stack) {
 
   OutputMetaData meta;
   meta.dtype = self.scalar_type();
-  if (shape.size()) {
+  if (shape.empty()) {
+    meta.shape = shape;
+  } else {
     if (self.dim() == index.dim()) {
       meta.shape = index.sizes().vec();
     } else {
@@ -48,8 +48,6 @@ OutputMetaDataVector IndexSelectMeta(const at::Stack& stack) {
       shape.insert(shape.begin() + dim, index.numel());
       meta.shape = shape;
     }
-  } else {
-    meta.shape = shape;
   }
   return {meta};
 }

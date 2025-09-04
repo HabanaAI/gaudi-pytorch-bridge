@@ -19,7 +19,7 @@
 
 namespace common {
 void* GetDataPtrFromTensor(const at::Tensor& tensor) {
-  return reinterpret_cast<void*>(tensor.storage().data_ptr().get());
+  return tensor.storage().data_ptr().get();
 }
 
 bool IsStepMarkerSupported() {
@@ -45,29 +45,20 @@ LibraryType getLoadedLibraryType() {
   return LibraryType::EAGER;
 }
 
-namespace {
-bool _IsRecordStreamEnabled() {
+bool IsRecordStreamEnabled() {
   bool value = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_RECORD_STREAM);
   return value;
 }
 
-bool _IsRecordStreamNoHolderEnabled() {
-  bool value = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_RECORD_STREAM_NOHOLDER);
-  return value and _IsRecordStreamEnabled();
+bool IsLaunchRecordStreamEnabled() {
+  bool value = GET_ENV_FLAG_NEW(PT_HPU_USE_LAUNCH_RECORD_STREAM);
+  return value;
 }
 
-thread_local bool _recordStreamEnabled = _IsRecordStreamEnabled();
-thread_local bool _recordStreamNoHolderEnabled =
-    _IsRecordStreamNoHolderEnabled();
-
-} // namespace
-
-bool IsRecordStreamEnabled() {
-  return _recordStreamEnabled;
-}
-
-bool IsRecordStreamNoHolderEnabled() {
-  return _recordStreamNoHolderEnabled;
+bool IsStreamAllocatorEnabled() {
+  bool rs = IsRecordStreamEnabled();
+  bool ls = IsLaunchRecordStreamEnabled();
+  return rs and ls;
 }
 
 } // namespace common

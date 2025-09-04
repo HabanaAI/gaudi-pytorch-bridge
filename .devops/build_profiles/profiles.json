@@ -32,35 +32,36 @@
   },
   "pt_versions": {
     "previous": {
-      "version": "2.5.1",
-      "default_source": "build",
-      "extras": {
-        "torchvision": "v0.20.1",
-        "torchaudio": "v2.5.1",
-        "torchtext": "v0.18.0",
-        "torchdata": "v0.9.0"
-      }
-    },
-    "current": {
-      "version": "2.6.0",
+      "version": "2.7.0",
       "default_source": "build",
       "cpu_index_url": "default",
       "extras": {
-        "torchvision": "v0.21.0",
-        "torchaudio": "v2.6.0",
+        "torchvision": "v0.22.0",
+        "torchaudio": "v2.7.0",
         "torchtext": "v0.18.0",
         "torchdata": "v0.10.1"
       }
     },
-    "next": {
-      "version": "2.7.0",
+    "current": {
+      "version": "2.7.1",
       "default_source": "build",
-      "cpu_index_url": "https://download.pytorch.org/whl/nightly/cpu",
+      "cpu_index_url": "default",
       "extras": {
-        "torchvision": "v0.22.0-rc2",
-        "torchaudio": "v2.7.0-rc3",
+        "torchvision": "v0.22.1",
+        "torchaudio": "v2.7.1",
         "torchtext": "v0.18.0",
         "torchdata": "v0.11.0"
+      }
+    },
+    "next": {
+      "version": "2.8.0",
+      "default_source": "build",
+      "cpu_index_url": "https://download.pytorch.org/whl/test/cpu",
+      "extras": {
+        "torchvision": "v0.23.0-rc1",
+        "torchaudio": "v2.8.0-rc1",
+        "torchtext": "main",
+        "torchdata": "main"
       }
     },
     "rc": {
@@ -68,7 +69,7 @@
       "default_source": "https://download.pytorch.org/whl/test/cpu"
     },
     "future": {
-      "version": "2.8.0",
+      "version": "2.9.0",
       "default_source": "https://download.pytorch.org/whl/nightly/cpu"
     },
     "nightly": {

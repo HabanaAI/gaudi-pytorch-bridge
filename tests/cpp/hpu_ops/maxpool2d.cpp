@@ -13,11 +13,15 @@
  * limitations under the License.
  */
 
+#include "../utils/dtype_supported_on_device.h"
 #include "util.h"
 
 class HpuOpTest : public HpuOpTestUtil {
  public:
   void RetainTensorTypeTest(torch::ScalarType dtype) {
+    if (!IsDtypeSupportedOnCurrentDevice(dtype)) {
+      GTEST_SKIP();
+    }
     GenerateInputs(1, {{1, 2, 7, 9}}, {dtype});
     std::vector<int64_t> kernel_size = {{3, 3}};
     std::vector<int64_t> stride = {{3, 3}};

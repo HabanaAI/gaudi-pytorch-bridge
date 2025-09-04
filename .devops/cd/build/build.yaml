@@ -5,8 +5,6 @@ version: 1
 sourceControl:
   repos:
     - 3rd-parties
-    - automation
-    - devops/cd_release
     - embedded-specs
     - habana-transformer-engine
     - hcl

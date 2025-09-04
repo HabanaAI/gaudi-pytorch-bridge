@@ -31,6 +31,8 @@
 #include "jit_fork/ir/type_wrapper.h"
 #include "jit_fork/passes/getitem_folding_pass.h"
 #include "jit_fork/passes/rem_dup_const_pass.h"
+#include "jit_fork/passes/remove_mutation.h"
+#include "jit_fork/passes/restore_mutation.h"
 #include "jit_fork/python/forked_pybind_utils.h"
 
 #include <iostream>
@@ -55,8 +57,8 @@ namespace habana_torch::jit {
 template <typename T>
 class unwrapping_shared_ptr {
   static_assert(
-      std::is_same<T, Value>::value || std::is_same<T, Node>::value ||
-          std::is_same<T, Block>::value,
+      std::is_same_v<T, Value> || std::is_same_v<T, Node> ||
+          std::is_same_v<T, Block>,
       "unwrapping type only defined for Graph object types");
 
  private:
@@ -95,9 +97,8 @@ PYBIND11_DECLARE_HOLDER_TYPE(
     habana_torch::jit::unwrapping_shared_ptr<T>,
     true);
 
-namespace pybind11 {
-namespace detail {
-
+namespace pybind11::detail {
+// NOLINTBEGIN(bugprone-macro-parentheses)
 #define CREATE_UNWRAPPING_CASTER(Class)                                                   \
   template <>                                                                             \
   struct type_caster<Class> : public type_caster_base<Class> {                            \
@@ -129,6 +130,7 @@ namespace detail {
       }                                                                                   \
     }                                                                                     \
   }
+// NOLINTEND(bugprone-macro-parentheses)
 
 CREATE_UNWRAPPING_CASTER(Node);
 CREATE_UNWRAPPING_CASTER(Value);
@@ -227,12 +229,8 @@ struct type_caster<std::vector<habana_torch::jit::Node*>> : ListCasterBase {
     return cast(*src, pol, parent);
   }
 };
-
-} // namespace detail
-} // namespace pybind11
-
-namespace habana_torch {
-namespace jit {
+} // namespace pybind11::detail
+namespace habana_torch::jit {
 
 Node* findNode(c10::ArrayRef<Block*> blocks, Symbol kind, bool recurse = true) {
   for (Block* block : blocks) {
@@ -823,10 +821,10 @@ void defineRealTypeClasses(pybind11::module& m) {
           cpp_list.reserve(py_list.size());
           for (const auto& item : py_list) {
             if (py::isinstance<py::str>(item)) {
-              const std::string str_value = item.cast<std::string>();
+              const auto str_value = item.cast<std::string>();
               cpp_list.push_back(str_value);
             } else if (py::isinstance<py::int_>(item)) {
-              const int64_t int_value = item.cast<int64_t>();
+              const auto int_value = item.cast<int64_t>();
               cpp_list.push_back(int_value);
             } else {
               HABANA_ASSERT(
@@ -947,6 +945,13 @@ void defineJitPasses(pybind11::module& m) {
       "getitem_folding_pass",
       &habana_torch::jit::GetItemFoldingPass,
       py::arg("graph"));
+  m.def(
+      "remove_mutation_pass",
+      [](std::shared_ptr<Graph>& g) {
+        habana_torch::jit::RemoveListMutation(g);
+        return habana_torch::jit::RemoveTensorMutation(g);
+      },
+      py::arg("graph"));
 }
 
 void InitBindings(py::module& m) {
@@ -960,6 +965,4 @@ void InitBindings(py::module& m) {
   defineRealTypeClasses(m_jit);
   defineJitPasses(m_jit);
 }
-
-} // namespace jit
-} // namespace habana_torch
+} // namespace habana_torch::jit

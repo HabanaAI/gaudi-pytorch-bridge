@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -291,17 +291,16 @@ TEST_F(SifTest, AddMulRelu) {
 //
 TEST_F(SifTest, Cat_Reshape_Relu_Conv2DTransposeBias_Test) {
   validate_shape_start();
-  int kH = 3;
-  int kW = 3;
-  const int C = 16;
-  const int N = 16;
-  int H = 16;
+  int64_t kH = 3;
+  int64_t kW = 3;
+  const int64_t C = 16;
+  const int64_t N = 16;
+  int64_t H = 16;
 
-  std::vector<int> in_sizes{16, 32, 64};
+  std::vector<int64_t> in_sizes{16, 32, 64};
   for (int i = 0; i < in_sizes.size(); i++) {
     PT_TEST_DEBUG("PTI_DBG: Iteration Start -- ", i, " ----\n");
-    int W = in_sizes[i];
-    // 1. Cat Node
+    const auto W = in_sizes[i]; // 1. Cat Node
     auto tensor_1 =
         torch::randn({N * C * H * (W / 2)}, torch::requires_grad(false));
     auto tensor_2 =

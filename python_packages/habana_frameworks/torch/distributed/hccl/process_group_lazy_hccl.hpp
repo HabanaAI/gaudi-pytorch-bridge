@@ -159,12 +159,18 @@ class TORCH_API ProcessGroupLazyHCCL : public Backend {
   // Provides an API to abort the ProcessGroup (hcclCommAbort)
   // instead of relying on ProcessGroupHCCL destructor.
   // return true if abort is successful, otherwise false
+  using Backend::abort;
   bool abort(std::optional<std::string> abortReason);
 
   // Shutdown the processgroup. Invokes abort asynchronously
+  using Backend::shutdown;
   void shutdown(std::optional<std::string> reason);
 
   void destroy();
+
+  bool supportsCoalescing() const override {
+    return true;
+  }
 
   void startCoalescing() override;
 
@@ -202,7 +208,7 @@ class TORCH_API ProcessGroupLazyHCCL : public Backend {
   void destroyHandshake();
   void permutedSendTensorsToDense(at::Tensor& tensor);
   c10::intrusive_ptr<Store> store_;
-  size_t barrier_cnt_;
+  size_t barrier_cnt_{0};
   std::string group_name_;
   bool emulate_distributed_;
   bool is_destroyed_ = false;

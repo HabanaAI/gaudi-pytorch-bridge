@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,3 +36,19 @@
 #define DUMP_20ARGS(a1, ...) DUMP_ARG(a1), DUMP_19ARGS(__VA_ARGS__)
 #define DUMP_21ARGS(a1, ...) DUMP_ARG(a1), DUMP_20ARGS(__VA_ARGS__)
 #define DUMP_22ARGS(a1, ...) DUMP_ARG(a1), DUMP_21ARGS(__VA_ARGS__)
+#define DUMP_23ARGS(a1, ...) DUMP_ARG(a1), DUMP_22ARGS(__VA_ARGS__)
+#define DUMP_24ARGS(a1, ...) DUMP_ARG(a1), DUMP_23ARGS(__VA_ARGS__)
+#define DUMP_25ARGS(a1, ...) DUMP_ARG(a1), DUMP_24ARGS(__VA_ARGS__)
+#define DUMP_26ARGS(a1, ...) DUMP_ARG(a1), DUMP_25ARGS(__VA_ARGS__)
+#define DUMP_27ARGS(a1, ...) DUMP_ARG(a1), DUMP_26ARGS(__VA_ARGS__)
+#define DUMP_28ARGS(a1, ...) DUMP_ARG(a1), DUMP_27ARGS(__VA_ARGS__)
+#define DUMP_29ARGS(a1, ...) DUMP_ARG(a1), DUMP_28ARGS(__VA_ARGS__)
+#define DUMP_30ARGS(a1, ...) DUMP_ARG(a1), DUMP_29ARGS(__VA_ARGS__)
+#define DUMP_31ARGS(a1, ...) DUMP_ARG(a1), DUMP_30ARGS(__VA_ARGS__)
+#define DUMP_32ARGS(a1, ...) DUMP_ARG(a1), DUMP_31ARGS(__VA_ARGS__)
+#define DUMP_33ARGS(a1, ...) DUMP_ARG(a1), DUMP_32ARGS(__VA_ARGS__)
+#define DUMP_34ARGS(a1, ...) DUMP_ARG(a1), DUMP_33ARGS(__VA_ARGS__)
+#define DUMP_35ARGS(a1, ...) DUMP_ARG(a1), DUMP_34ARGS(__VA_ARGS__)
+#define DUMP_36ARGS(a1, ...) DUMP_ARG(a1), DUMP_35ARGS(__VA_ARGS__)
+#define DUMP_37ARGS(a1, ...) DUMP_ARG(a1), DUMP_36ARGS(__VA_ARGS__)
+#define DUMP_38ARGS(a1, ...) DUMP_ARG(a1), DUMP_37ARGS(__VA_ARGS__)

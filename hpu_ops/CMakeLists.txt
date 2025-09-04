@@ -31,6 +31,7 @@ set(GENERATED_FILES
     ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op9.cpp
     ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op_custom.cpp
     ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op_quant.cpp
+    ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op_torch_sparse.cpp
     ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op_torchvision.cpp
     ${CMAKE_BINARY_DIR}/generated/lazy/wrap_kernels_registrations.cpp
     ${CMAKE_BINARY_DIR}/generated/eager/hpu_op0.cpp
@@ -45,6 +46,7 @@ set(GENERATED_FILES
     ${CMAKE_BINARY_DIR}/generated/eager/hpu_op9.cpp
     ${CMAKE_BINARY_DIR}/generated/eager/hpu_op_custom.cpp
     ${CMAKE_BINARY_DIR}/generated/eager/hpu_op_quant.cpp
+    ${CMAKE_BINARY_DIR}/generated/eager/hpu_op_torch_sparse.cpp
     ${CMAKE_BINARY_DIR}/generated/eager/hpu_op_torchvision.cpp
     ${CMAKE_BINARY_DIR}/generated/eager/wrap_kernels_registrations.cpp
     ${CMAKE_BINARY_DIR}/generated/backend/hpu_op0.cpp
@@ -102,8 +104,10 @@ add_habana_library(
   backend/bincount_gen.cpp
   backend/bitwise_gen.cpp
   backend/bitwise_shift_gen.cpp
+  backend/block_softmax_adjustment_gen.cpp
   backend/bmm_gen.cpp
   backend/bucketize_gen.cpp
+  backend/cast_to_fp8_just_in_time_gen.cpp
   backend/cast_to_fp8_hybrid_gen.cpp
   backend/cat_gen.cpp
   backend/cdist_gen.cpp
@@ -113,6 +117,7 @@ add_habana_library(
   backend/clone_gen.cpp
   backend/compare_gen.cpp
   backend/constant_pad_gen.cpp
+  backend/convert_from_int4_gen.cpp
   backend/convolution_backward_overrideable_gen.cpp
   backend/convolution_overrideable_gen.cpp
   backend/count_nonzero_gen.cpp
@@ -120,6 +125,7 @@ add_habana_library(
   backend/ctc_loss_custom_gen.cpp
   backend/ctc_loss_gen.cpp
   backend/cumsum_gen.cpp
+  backend/calculate_scale_for_cast_gen.cpp
   backend/custom_softmax_gen.cpp
   backend/deform_conv2d_gen.cpp
   backend/diag_gen.cpp
@@ -136,13 +142,16 @@ add_habana_library(
   backend/expand_gen.cpp
   backend/exponential_gen.cpp
   backend/eye_gen.cpp
+  backend/fake_quant_fp4_gen.cpp
   backend/fbgemm.cpp
   backend/fill_gen.cpp
   backend/flip_gen.cpp
   backend/floor_divide_gen.cpp
   backend/foreach_gen.cpp
+  backend/fmin_gen.cpp
+  backend/fmax_gen.cpp
+  backend/fp8_gemm_gen.cpp
   backend/fp8_ops.cpp
-  backend/fp8_ops_gen.cpp
   backend/frexp_gen.cpp
   backend/full_gen.cpp
   backend/fused_clip_norm_gen.cpp
@@ -160,6 +169,7 @@ add_habana_library(
   backend/hpu_op_helper.cpp
   backend/huber_loss_gen.cpp
   backend/im2col_gen.cpp
+  backend/ind2ptr_gen.cpp
   backend/index_add_gen.cpp
   backend/index_copy_gen.cpp
   backend/index_reduce_gen.cpp
@@ -169,7 +179,6 @@ add_habana_library(
   backend/index_select_gen.cpp
   backend/instance_norm_backward_gen.cpp
   backend/instance_norm_gen.cpp
-  backend/int4_ops.cpp
   backend/isfinite_isinf_isnan_gen.cpp
   backend/isin_gen.cpp
   backend/isposneginf_gen.cpp
@@ -209,6 +218,7 @@ add_habana_library(
   backend/mv_gen.cpp
   backend/nansum_gen.cpp
   backend/nantonum_gen.cpp
+  backend/narrow_copy_gen.cpp
   backend/native_group_norm_gen.cpp
   backend/ne_gen.cpp
   backend/new_zeros_gen.cpp
@@ -239,6 +249,7 @@ add_habana_library(
   backend/reduce_std_var_gen.cpp
   backend/reduction_gen.cpp
   backend/reduction_template.cpp
+  backend/renorm_gen.cpp
   backend/reflection_pad_gen.cpp
   backend/repeat_gen.cpp
   backend/repeat_interleave_gen.cpp
@@ -275,6 +286,7 @@ add_habana_library(
   backend/split_gen.cpp
   backend/squeeze_dims_gen.cpp
   backend/strided_insert_gen.cpp
+  backend/sum_fp8_gen.cpp
   backend/take_gen.cpp
   backend/threshold_gen.cpp
   backend/topk_gen.cpp
@@ -282,17 +294,22 @@ add_habana_library(
   backend/trace_gen.cpp
   backend/triangular_gen.cpp
   backend/unique2_gen.cpp
+  backend/unique_dim_gen.cpp
   backend/unique_gen.cpp
   backend/upsample_gen.cpp
   backend/upsample_ops.cpp
   backend/vdot_gen.cpp
+  backend/view_dtype_gen.cpp
   backend/weight_norm_gen.cpp
   backend/where_gen.cpp
   backend/xlogy_gen.cpp
   backend/zero_gen.cpp
+  backend/mamba_pscan_gen.cpp
+  backend/mamba_pscan_update_gen.cpp
   common/batched_matmul_output_shape.cpp
   common/convolution_gen.cpp
   common/fp8_ops.cpp
+  common/mixture_of_experts.cpp
   common/reduction_template.cpp
   common/replication_pad.cpp
   common/scalar_dtype_range.cpp
@@ -336,6 +353,7 @@ target_include_directories(habana_pytorch_backend_ops PRIVATE ${PROJECT_SOURCE_D
 target_link_libraries(
   habana_pytorch_backend_ops
   PRIVATE habana_serialization
+          exprtk::exprtk
           torch
           Python::Python
           nlohmann_json::nlohmann_json
@@ -368,7 +386,6 @@ add_habana_library(
   lazy/optimizer_lamb_gen.cpp
   lazy/random_gen.cpp
   lazy/topk_gen.cpp
-  lazy/unique_gen.cpp
   lazy/upsample_gen.cpp
   lazy/xlogy_gen.cpp
   op_logger.cpp
@@ -386,6 +403,7 @@ add_habana_library(
   ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op9.cpp
   ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op_custom.cpp
   ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op_quant.cpp
+  ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op_torch_sparse.cpp
   ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op_torchvision.cpp
   ${CMAKE_BINARY_DIR}/generated/lazy/wrap_kernels_registrations.cpp)
 target_include_directories(habana_pytorch_frontend_ops PUBLIC ${PROJECT_SOURCE_DIR})
@@ -405,6 +423,7 @@ target_include_directories(habana_pytorch_frontend_ops PRIVATE ${PROJECT_SOURCE_
 target_link_libraries(
   habana_pytorch_frontend_ops
   PRIVATE habana_serialization
+          exprtk::exprtk
           pytorch_synapse_utils_shim
           torch
           Python::Python

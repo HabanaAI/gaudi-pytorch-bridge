@@ -301,15 +301,35 @@ def override_one_hot(*args):
 @contextmanager
 def override_composite_ops():
     ops = [
-        (DispatchKey.CompositeImplicitAutograd, torch.ops.aten.instance_norm.default, override_instance_norm),
-        (DispatchKey.CompositeImplicitAutograd, torch.ops.aten.one_hot.default, override_one_hot),
+        (
+            DispatchKey.CompositeImplicitAutograd,
+            torch.ops.aten.instance_norm.default,
+            override_instance_norm,
+        ),
+        (
+            DispatchKey.CompositeImplicitAutograd,
+            torch.ops.aten.one_hot.default,
+            override_one_hot,
+        ),
     ]
 
     # When below flag is enabled, aten.linear and aten.matmul decompositions
     # are overriden in eager and torch.compile.
     if bc.get_pt_hpu_override_linear_matmul_eager():
-        ops.append((DispatchKey.CompositeImplicitAutograd, torch.ops.aten.linear.default, override_linear))
-        ops.append((DispatchKey.CompositeImplicitAutograd, torch.ops.aten.matmul.default, override_matmul))
+        ops.append(
+            (
+                DispatchKey.CompositeImplicitAutograd,
+                torch.ops.aten.linear.default,
+                override_linear,
+            )
+        )
+        ops.append(
+            (
+                DispatchKey.CompositeImplicitAutograd,
+                torch.ops.aten.matmul.default,
+                override_matmul,
+            )
+        )
 
     old_tables = {}
 
@@ -469,7 +489,8 @@ def mixture_of_experts(*args, **kwargs):
 
 
 @register_custom_decomposition(
-    torch.ops.hpu.mixture_of_experts.fp8_measurement_fused_weights, hpu_backend_decompositions_common
+    torch.ops.hpu.mixture_of_experts.fp8_measurement_fused_weights,
+    hpu_backend_decompositions_common,
 )
 def mixture_of_experts_fp8_measurement_fused_weights(*args, **kwargs):
     return torch.ops.hpu.mixture_of_experts_fp8_measurement(*args, **kwargs)
@@ -498,8 +519,23 @@ def squeeze(input, dim):
 @register_custom_decomposition(torch.ops.aten.squeeze.default, hpu_backend_decompositions_common)
 def squeeze(input):
     inp_size = len(input.size())
-    dim_list = list(range(0, inp_size))
+    dim_list = list(range(inp_size))
     return torch.squeeze(input, dim_list)
+
+
+@register_custom_decomposition(getattr(torch.ops.aten.random, "from"), hpu_backend_decompositions_common)
+def random_from(self, low, high, *, generator=None):
+    return torch.ops.hpu.habana_random_wrapper(self, low, high)
+
+
+@register_custom_decomposition(torch.ops.aten.random.to, hpu_backend_decompositions_common)
+def random_from(self, high, *, generator=None):
+    return torch.ops.hpu.habana_random_wrapper(self, 0, high)
+
+
+@register_custom_decomposition(torch.ops.aten.random.default, hpu_backend_decompositions_common)
+def random_from(self, *, generator=None):
+    return torch.ops.hpu.habana_random_wrapper(self, 0, None)
 
 
 # Random op decompositions mainly based on pytorch/torch/_inductor/decomposition.py
@@ -554,6 +590,7 @@ def sdpa_recomp_fwd(
     fast_softmax_mode,
     valid_seq_len,
     seq_padding_type,
+    window_size=(-1, -1),
 ):
     op = torch.ops.hpu.sdpa_recomp_fwd_dropout if dropout_p > 0.0 else torch.ops.hpu.sdpa_recomp_fwd_non_dropout
     return op(
@@ -568,6 +605,7 @@ def sdpa_recomp_fwd(
         fast_softmax_mode,
         valid_seq_len,
         seq_padding_type,
+        window_size,
     )
 
 
@@ -585,7 +623,18 @@ def sdpa_fwd(
     seq_padding_type,
 ):
     op = torch.ops.hpu.sdpa_fwd_dropout if dropout_p > 0.0 else torch.ops.hpu.sdpa_fwd_non_dropout
-    return op(q, k, v, attn_mask, dropout_p, scale, is_causal, fast_softmax_mode, valid_seq_len, seq_padding_type)
+    return op(
+        q,
+        k,
+        v,
+        attn_mask,
+        dropout_p,
+        scale,
+        is_causal,
+        fast_softmax_mode,
+        valid_seq_len,
+        seq_padding_type,
+    )
 
 
 @register_custom_decomposition(torch.ops.hpu.fp8_sdpa_fwd.default, hpu_backend_decompositions_common)
@@ -651,8 +700,8 @@ def fp8_sdpa_recomp_fwd(
     is_amax_o,
     valid_seq_len,
     seq_padding_type,
+    window_size=(-1, -1),
 ):
-
     op = torch.ops.hpu.fp8_sdpa_recomp_fwd_dropout if dropout_p > 0.0 else torch.ops.hpu.fp8_sdpa_recomp_fwd_non_dropout
     return op(
         q,
@@ -674,6 +723,7 @@ def fp8_sdpa_recomp_fwd(
         is_amax_o,
         valid_seq_len,
         seq_padding_type,
+        window_size,
     )
 
 
@@ -725,9 +775,9 @@ def split(self, split_size, dim=0):
         dim += self.dim()
     assert dim < self.dim() and dim >= 0, " given dimension value is out of range"
     cur_size = self.size(dim)
-    assert (
-        type(split_size) is int or type(split_size) is list or type(split_size) is torch.SymInt
-    ), "split_size_or_sections is not a int value or list"
+    assert type(split_size) is int or type(split_size) is list or type(split_size) is torch.SymInt, (
+        "split_size_or_sections is not a int value or list"
+    )
     # create a new list based on split_size(int)
     if type(split_size) is not list:
         split_size = [split_size] * (cur_size // split_size)
@@ -796,7 +846,7 @@ def index_add(
     if alpha != 1:
         python_type = utils.dtype_to_type(x.dtype)
         torch._check(
-            python_type == bool or utils.is_weakly_lesser_type(type(alpha), python_type),
+            python_type is bool or utils.is_weakly_lesser_type(type(alpha), python_type),
             lambda: f"alpha argument of type {type(alpha)} cannot be safely cast to type {python_type}!",
         )
         tensor = tensor_in * alpha
@@ -810,35 +860,20 @@ def index_add(
         or tensor_in.dtype == torch.bool
     ):
         tensor = tensor.to(torch.float)
+
     zero_dim = x.ndim == 0
     x1 = x.unsqueeze(0) if zero_dim else x
+
     # Follow the implementation used in HPU Lazy mode
-    dim_size = x.numel()
-    if dim_size:
-        # for non-scalar tensor case
-        dim_size = x1.shape[dim]
-    # Implementation to take care of duplicate entries in index tensor and
-    # also the case where index tensor size can be greater than the self
-    # tensor size at the relevant dim.
-    sorted_index = torch.ops.aten.sort(index, stable=True)
-    # Note: sorted_index[0] = actual indices sorted. sorted_index_pos = orted_index[1] = original positions of the sorted indices in index
-    sorted_index_pos = sorted_index[1]
-    sorted_index_pos_reshape_shape = [1] * tensor.dim()
-    if len(sorted_index_pos.shape):
-        sorted_index_pos_reshape_shape[dim] = sorted_index_pos.shape[0]
+    expanded_sizes = [1] * tensor.dim()
+    if len(index.size()):
+        expanded_sizes[dim] = index.shape[0]
     else:
-        sorted_index_pos_reshape_shape[dim] = 1
-    sorted_index_pos_reshaped = torch.ops.aten.reshape(sorted_index[1], sorted_index_pos_reshape_shape).expand(
-        tensor.shape
-    )
-    gathered_values = torch.ops.aten.gather(tensor, dim, sorted_index_pos_reshaped)
-    index_expand_shape = [1] * gathered_values.dim()
-    if len(sorted_index[0].shape):
-        index_expand_shape[dim] = sorted_index[0].shape[0]
-    else:
-        index_expand_shape[dim] = 1
-    index_expanded = torch.ops.aten.reshape(sorted_index[0], index_expand_shape).expand(gathered_values.shape)
-    ret = torch.ops.aten.scatter_add(x1, dim, index_expanded, gathered_values)
+        expanded_sizes[dim] = 1
+
+    index_expanded = torch.ops.aten.reshape(index, expanded_sizes).expand(tensor.shape)
+    ret = torch.ops.aten.scatter_add(x1, dim, index_expanded, tensor)
+
     if x_in.dtype == torch.int32 or x_in.dtype == torch.uint8 or x_in.dtype == torch.int8 or x_in.dtype == torch.bool:
         return ret.to(x_in.dtype)
     else:

@@ -19,8 +19,8 @@ class HpuOpTest : public HpuOpTestUtil {};
 
 TEST_F(HpuOpTest, cosine_embedding_loss) {
   GenerateInputs(3, {{5, 6}, {5, 6}, {5}});
-  float margin = GenerateScalar<float>(0, 0.5);
-  int reduction = GenerateScalar<int>(0, 2);
+  auto margin = GenerateScalar<float>(0, 0.5);
+  auto reduction = GenerateScalar<int>(0, 2);
   auto expected = torch::cosine_embedding_loss(
       GetCpuInput(0), GetCpuInput(1), GetCpuInput(2), margin, reduction);
   auto result = torch::cosine_embedding_loss(
@@ -30,7 +30,7 @@ TEST_F(HpuOpTest, cosine_embedding_loss) {
 
 TEST_F(HpuOpTest, cosine_similarity) {
   GenerateInputs(2);
-  float eps = GenerateScalar<float>(1e-10, 1e-7);
+  auto eps = GenerateScalar<float>(1e-10, 1e-7);
   int dim = -1;
   auto expected =
       torch::cosine_similarity(GetCpuInput(0), GetCpuInput(1), dim, eps);

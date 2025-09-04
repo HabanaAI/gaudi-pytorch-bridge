@@ -72,7 +72,12 @@ class HPUGraph:
         """
         _hpu_C.replay(self.hpu_graph, asynchronous)
 
-    def replayV2(self, static_tlist: list[torch.Tensor], tlist: list[torch.Tensor], asynchronous=False):
+    def replayV2(
+        self,
+        static_tlist: list[torch.Tensor],
+        tlist: list[torch.Tensor],
+        asynchronous=False,
+    ):
         r"""
         Replays the HPU work captured by this graph.
 
@@ -104,17 +109,18 @@ class HPUGraph:
         """
         _hpu_C.clear_inputs(self.hpu_graph)
 
-    def mark_user_outputs(self, static_tlist: list[torch.Tensor]):
+    def mark_user_outputs(self, static_tlist: list[torch.Tensor], free_inplace=True):
         r"""
         Marks user needed output after graph capture
 
         Arguments:
             static_tlist: List of out tensors for the graph capture
+            free_inplace: If True, frees the inplace tensors in the graph.
 
         .. warning::
             This API is in beta and may change in future releases.
         """
-        _hpu_C.mark_user_outputs(self.hpu_graph, static_tlist)
+        _hpu_C.mark_user_outputs(self.hpu_graph, static_tlist, free_inplace)
 
     def mark_user_inputs(self, static_tlist: list[torch.Tensor]):
         r"""
@@ -136,7 +142,8 @@ class HPUGraph:
             _hpu_C.destroy(self.hpu_graph)
 
     def __del__(self):
-        self.reset()
+        if hasattr(self, "hpu_graph"):
+            self.reset()
 
     def get_user_input_match_indices(self):
         return _hpu_C.get_user_input_match_indices(self.hpu_graph)
@@ -287,7 +294,9 @@ def make_graphed_callables(
     per_callable_output_was_tensor = []
     for func, args, fwd_graph in zip(callables, sample_args, fwd_graphs, strict=False):
         with htorch.hpu.graph(
-            fwd_graph, stream=htorch.hpu.default_stream(), dry_run=True if disable_tensor_cache else dry_run
+            fwd_graph,
+            stream=htorch.hpu.default_stream(),
+            dry_run=True if disable_tensor_cache else dry_run,
         ):
             if disable_tensor_cache:
                 fwd_graph.mark_user_inputs(args)
@@ -314,7 +323,9 @@ def make_graphed_callables(
         static_grad_outputs = tuple(torch.empty_like(o) if o.requires_grad else None for o in static_outputs)
 
         with htorch.hpu.graph(
-            bwd_graph, stream=htorch.hpu.default_stream(), dry_run=True if disable_tensor_cache else dry_run
+            bwd_graph,
+            stream=htorch.hpu.default_stream(),
+            dry_run=True if disable_tensor_cache else dry_run,
         ):
             autograd_inputs = tuple(i for i in static_input_surface if i.requires_grad)
             if disable_tensor_cache:
@@ -349,7 +360,10 @@ def make_graphed_callables(
     if disable_tensor_cache:
         per_callable_input_surfaces_optim = []
         for fwd_graph, static_input_surface, len_user_args in zip(
-            fwd_graphs, per_callable_static_input_surfaces, per_callable_len_user_args, strict=False
+            fwd_graphs,
+            per_callable_static_input_surfaces,
+            per_callable_len_user_args,
+            strict=False,
         ):
             len_module_params = len(per_callable_static_input_surfaces) - len_user_args
             matched_input_index = fwd_graph.get_user_input_match_indices()
@@ -363,7 +377,10 @@ def make_graphed_callables(
 
         per_callable_grad_outputs_optim = []
         for bwd_graph, static_grad_outputs, bwd_uin_len in zip(
-            bwd_graphs, reversed(per_callable_static_grad_outputs), reversed(bwd_mark_user_inputs_len), strict=False
+            bwd_graphs,
+            reversed(per_callable_static_grad_outputs),
+            reversed(bwd_mark_user_inputs_len),
+            strict=False,
         ):
             matched_input_index = bwd_graph.get_user_input_match_indices()
             grad_outputs_list = list(static_grad_outputs)
@@ -484,7 +501,19 @@ def make_graphed_callables(
 
 
 class CachedParams:
-    def __init__(self, graph_inputs, graph_outputs, graph, out_tinfo_list=None, asynchronous=False):
+    cache_hits = {}  # {hash_key: hit_count}
+    iteration_cnt = 0
+    skip_replay_cnt = {}
+    bypass_hpu_graphs = 0
+
+    def __init__(
+        self,
+        graph_inputs,
+        graph_outputs,
+        graph,
+        out_tinfo_list=None,
+        asynchronous=False,
+    ):
         self.graph_inputs = graph_inputs
         self.graph_outputs = graph_outputs
         self.graph = graph
@@ -528,7 +557,7 @@ def get_user_input_tensor_list(inputs, tlist):
     if isinstance(inputs, dict):
         for inp in inputs.items():
             tlist = get_user_input_tensor_list(inp, tlist)
-    elif isinstance(inputs, list) or isinstance(inputs, tuple):
+    elif isinstance(inputs, list | tuple):
         for inp in inputs:
             tlist = get_user_input_tensor_list(inp, tlist)
     elif is_dataclass(inputs):
@@ -569,7 +598,18 @@ def get_tensor_info(tensor):
 
 
 def wrapped_hpugraph_forward(
-    cache, stream, orig_fwd, args, kwargs, disable_tensor_cache, asynchronous, dry_run, max_graphs
+    cache,
+    stream,
+    orig_fwd,
+    args,
+    kwargs,
+    disable_tensor_cache,
+    asynchronous,
+    dry_run,
+    max_graphs,
+    free_inplace,
+    verbose,
+    log_frequency,
 ):
     """
     Wrapped forward method that captures and replays the HPU graph.
@@ -584,6 +624,9 @@ def wrapped_hpugraph_forward(
         asynchronous (bool): Specifies whether the graph replay should be asynchronous.
         dry_run (bool): Enable dry run, which helps to run model without allocating memory.
         max_graphs: maximum graphs which will be cached
+        free_inplace (bool): whether to free the inplace tensors after graph replay, used with disable_tensor_cache = True
+        verbose (bool) : Enables verbose mode which allow to print the statistics of HPUGraph like total cached graphs, cache hits etc.
+        log_frequency (int) - Specifies the logging frequency of HPUGraph stats
 
     Returns:
         The output of the original forward method.
@@ -598,9 +641,10 @@ def wrapped_hpugraph_forward(
         - If `bypass_hpu_graphs=True` is present in kwargs the original fwd is called instead
         - If 'warmup_mode=True' is present in kwargs, we will skip replay for all iterations after the first one
     """
+    CachedParams.iteration_cnt += 1
     warmup_mode = kwargs.pop("warmup_mode", False)
-
     if kwargs.pop("bypass_hpu_graphs", False):
+        CachedParams.bypass_hpu_graphs += 1
         return orig_fwd(*args, **kwargs)
     inputs = (args, kwargs)
 
@@ -612,7 +656,7 @@ def wrapped_hpugraph_forward(
     env_tensor_cache = os.environ.get("PT_HPUGRAPH_DISABLE_TENSOR_CACHE")
     disable_tensor_cache = disable_tensor_cache if env_tensor_cache is None else env_tensor_cache == "1"
 
-    # Enable dry run if disable_tensor_cache is enabled and model has not provided
+    # Enable dry run if disable_tensor_cache is enabled and model has not provided.
     dry_run = disable_tensor_cache if dry_run is None else dry_run
 
     if cached is None:
@@ -639,7 +683,7 @@ def wrapped_hpugraph_forward(
                 tlist = extract_tensors(outputs)
                 tinfo_list = [get_tensor_info(t) for t in tlist]
                 tlist = cached_tlist + tlist
-                graph.mark_user_outputs(tlist)
+                graph.mark_user_outputs(tlist, free_inplace)
                 saved_inputs = []
                 for i in range(len(input_tensor_list)):
                     if i not in matched_input_index:
@@ -649,14 +693,20 @@ def wrapped_hpugraph_forward(
                     graph.replayV3(get_user_input_tensor_list(inputs, ()), asynchronous)
 
             cache[h] = CachedParams(graph_inputs, graph_outputs, graph, tinfo_list, asynchronous)
+            if verbose and log_frequency > 0 and CachedParams.iteration_cnt % log_frequency == 0:
+                log_stats(max_graphs, disable_tensor_cache, cache, asynchronous, dry_run)
 
         return outputs
 
     if warmup_mode:
         hpu_graph_print("In warmup mode, skipping replay")
         htcore.mark_step()
+        CachedParams.skip_replay_cnt[h] = CachedParams.skip_replay_cnt.get(h, 0) + 1
+        if verbose and log_frequency > 0 and CachedParams.iteration_cnt % log_frequency == 0:
+            log_stats(max_graphs, disable_tensor_cache, cache, asynchronous, dry_run)
         return cached.graph_outputs
 
+    CachedParams.cache_hits[h] = CachedParams.cache_hits.get(h, 0) + 1
     # use replayv1 here
     if not disable_tensor_cache:
         # Copy the user inputs
@@ -675,10 +725,21 @@ def wrapped_hpugraph_forward(
     out = cached.graph_outputs
     # Enable this line to see the graph counts and memory stats
     # print("Graph count: ", len(cache), htorch.hpu.memory.memory_stats())
+    if verbose and log_frequency > 0 and CachedParams.iteration_cnt % log_frequency == 0:
+        log_stats(max_graphs, disable_tensor_cache, cache, asynchronous, dry_run)
     return out
 
 
-def wrap_in_hpu_graph_func(func, asynchronous=False, disable_tensor_cache=False, dry_run=None, max_graphs=None):
+def wrap_in_hpu_graph_func(
+    func,
+    asynchronous=False,
+    disable_tensor_cache=False,
+    dry_run=None,
+    max_graphs=None,
+    free_inplace=True,
+    verbose=False,
+    log_frequency=100,
+):
     """
     Wraps the forward method of a module in an HPU graph capture and replay mechanism.
 
@@ -694,6 +755,9 @@ def wrap_in_hpu_graph_func(func, asynchronous=False, disable_tensor_cache=False,
             current graph depend on the outputs of previous graphs. For example, this can happen with a Nonzero
             operation that processes boolean inputs is fed as the input of next hpugraph.
         max_graphs: maximum graphs which will be cached
+        free_inplace (bool): Whether to free the inplace tensors after graph replay, used with disable_tensor_cache = True; Defaults to True.
+        verbose (bool) : Enables verbose mode which allow to print the statistics of HPUGraph like total cached graphs, cache hits etc.
+        log_frequency (int) - Specifies the logging frequency of HPUGraph stats
 
     Returns:
         torch.nn.Module: The module with the wrapped forward method.
@@ -716,13 +780,33 @@ def wrap_in_hpu_graph_func(func, asynchronous=False, disable_tensor_cache=False,
 
     def forward(*args, **kwargs):
         return wrapped_hpugraph_forward(
-            cache, stream, orig_fwd, args, kwargs, disable_tensor_cache, asynchronous, dry_run, max_graphs
+            cache,
+            stream,
+            orig_fwd,
+            args,
+            kwargs,
+            disable_tensor_cache,
+            asynchronous,
+            dry_run,
+            max_graphs,
+            free_inplace,
+            verbose,
+            log_frequency,
         )
 
     return forward
 
 
-def wrap_in_hpu_graph(module, asynchronous=False, disable_tensor_cache=False, dry_run=None, max_graphs=None):
+def wrap_in_hpu_graph(
+    module,
+    asynchronous=False,
+    disable_tensor_cache=False,
+    dry_run=None,
+    max_graphs=None,
+    free_inplace=True,
+    verbose=False,
+    log_frequency=100,
+):
     """
     Wraps the forward method of a module in an HPU graph capture and replay mechanism.
 
@@ -738,6 +822,9 @@ def wrap_in_hpu_graph(module, asynchronous=False, disable_tensor_cache=False, dr
             current graph depend on the outputs of previous graphs. For example, this can happen with a Nonzero
             operation that processes boolean inputs is fed as the input of next hpugraph.
         max_graphs: maximum graphs which will be cached
+        free_inplace (bool): Whether to free the inplace tensors after graph replay, used with disable_tensor_cache = True. Defaults to True.
+        verbose (bool) : Enables verbose mode which allow to print the statistics of HPUGraph like total cached graphs, cache hits etc.
+        log_frequency (int) - Specifies the logging frequency of HPUGraph stats
 
     Returns:
         torch.nn.Module: The module with the wrapped forward method.
@@ -761,7 +848,18 @@ def wrap_in_hpu_graph(module, asynchronous=False, disable_tensor_cache=False, dr
     @wraps(orig_fwd)
     def forward(*args, **kwargs):
         return wrapped_hpugraph_forward(
-            cache, stream, orig_fwd, args, kwargs, disable_tensor_cache, asynchronous, dry_run, max_graphs
+            cache,
+            stream,
+            orig_fwd,
+            args,
+            kwargs,
+            disable_tensor_cache,
+            asynchronous,
+            dry_run,
+            max_graphs,
+            free_inplace,
+            verbose,
+            log_frequency,
         )
 
     module.forward = forward
@@ -771,13 +869,54 @@ def wrap_in_hpu_graph(module, asynchronous=False, disable_tensor_cache=False, dr
         cache.clear()
 
     def clear_inputs():
-        for h in cache:
-            cache[h].graph.clear_inputs()
+        for _, cached in cache.items():
+            cached.graph.clear_inputs()
+
+    def log_statistics():
+        nonlocal disable_tensor_cache, dry_run
+        env_tensor_cache = os.environ.get("PT_HPUGRAPH_DISABLE_TENSOR_CACHE")
+        disable_tensor_cache = disable_tensor_cache if env_tensor_cache is None else env_tensor_cache == "1"
+        dry_run = disable_tensor_cache if dry_run is None else dry_run
+        log_stats(max_graphs, disable_tensor_cache, cache, asynchronous, dry_run)
 
     module.clear_inputs = clear_inputs
     module.clear_cache = clear_cache
+    module.log_statistics = log_statistics
 
     return module
+
+
+def log_stats(max_graphs, disable_tensor_cache, cache, asynchronous, dry_run):
+    if len(cache):
+        print("HPU Graph Inference Statistics")
+        print("  Configs ")
+        print("    Max graphs                              :-", max_graphs)
+        print("    Async execution config                  :-", asynchronous)
+        print("    Disable Tensor Cache                    :-", disable_tensor_cache)
+        print("    Dry Run                                 :-", dry_run)
+        print("  Cache info ")
+        print("    No. of HPUGraphs cached                 :-", len(cache))
+        print("    Input hash v. cached hits               :-", CachedParams.cache_hits)
+        print(
+            "    Total cached hits                       :-",
+            sum(CachedParams.cache_hits.values()),
+        )
+        print(
+            "    Total HPUGraph warmups                  :-",
+            sum(CachedParams.skip_replay_cnt.values()),
+        )
+        print(
+            "    Total HPUGraphs bypassed                :-",
+            CachedParams.bypass_hpu_graphs,
+        )
+    else:
+        print("  Bypassed HPUGraphs info ")
+        print(
+            "    Total HPUGraphs bypassed                :-",
+            CachedParams.bypass_hpu_graphs,
+        )
+    print("  HPU Memory info ")
+    print(htorch.hpu.memory.formatted_memory_stats())
 
 
 class TensorPacker:
@@ -856,7 +995,14 @@ class TensorPacker:
 
 
 class GraphModel(torch.nn.Module):
-    def __init__(self, model, allow_unused_input=False, asynchronous=False, disable_tensor_cache=False, dry_run=False):
+    def __init__(
+        self,
+        model,
+        allow_unused_input=False,
+        asynchronous=False,
+        disable_tensor_cache=False,
+        dry_run=False,
+    ):
         super().__init__()
         self.model = model
         self.input_packer = TensorPacker()
@@ -904,11 +1050,14 @@ class GraphModel(torch.nn.Module):
     def process_function_signature(function):
         func_parameters = collections.OrderedDict(inspect.signature(function).parameters)
 
-        UNSUPPORTED = [inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.VAR_POSITIONAL]
+        UNSUPPORTED = [
+            inspect.Parameter.POSITIONAL_ONLY,
+            inspect.Parameter.VAR_POSITIONAL,
+        ]
         for key in list(func_parameters):
-            assert (
-                func_parameters[key].kind not in UNSUPPORTED
-            ), f"Unsupported argument type : {func_parameters[key].kind}"
+            assert func_parameters[key].kind not in UNSUPPORTED, (
+                f"Unsupported argument type : {func_parameters[key].kind}"
+            )
             if func_parameters[key].kind == inspect.Parameter.VAR_KEYWORD:
                 print("[WARNING] Variable keyword arguments will not be supported.")
                 del func_parameters[key]
@@ -1012,7 +1161,11 @@ class ModuleCacher(torch.nn.Module):
     def cache_insert(self, input_id, *args, **kwargs):
         self.hpugraph_tracing = True
         graph_model = GraphModel(
-            self.orig_model, self.allow_unused_input, self.asynchronous, self.disable_tensor_cache, self.dry_run
+            self.orig_model,
+            self.allow_unused_input,
+            self.asynchronous,
+            self.disable_tensor_cache,
+            self.dry_run,
         )
         graph_model.init_hpu_graph(*args, **kwargs)
         self.model_dict[input_id] = graph_model
@@ -1056,9 +1209,11 @@ class ModuleCacher(torch.nn.Module):
         self.input_count_dict[input_id] = self.input_count_dict.get(input_id, 0) + 1
 
     def capture_end(self):
-        self.priority_keys = sorted(self.input_count_dict.keys(), key=lambda x: self.input_count_dict[x], reverse=True)[
-            : self.max_graphs
-        ]
+        self.priority_keys = sorted(
+            self.input_count_dict.keys(),
+            key=lambda x: self.input_count_dict[x],
+            reverse=True,
+        )[: self.max_graphs]
         self.is_capturing = False
         if self.verbose:
             self.log_stats()
@@ -1158,6 +1313,8 @@ class ModuleCacher(torch.nn.Module):
         )
         if self.use_lfu and self.input_count_dict:
             print("    Input hash v. count         :", self.input_count_dict)
+        print("  HPU Memory info ")
+        print(htorch.hpu.memory.formatted_memory_stats())
 
     def __del__(self):
         if self.verbose:

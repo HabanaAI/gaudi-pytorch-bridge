@@ -26,8 +26,7 @@
 
 #include "jit_fork/ir/ir.h"
 
-namespace habana_torch {
-namespace jit {
+namespace habana_torch::jit {
 
 struct HashType {
   size_t operator()(const TypePtr& type) const;
@@ -39,5 +38,4 @@ struct EqualType {
   bool operator()(const c10::ConstTypePtr& a, const c10::ConstTypePtr& b) const;
 };
 
-} // namespace jit
-} // namespace habana_torch
+} // namespace habana_torch::jit

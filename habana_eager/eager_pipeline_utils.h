@@ -73,7 +73,7 @@ class PipeliningTaskAllThreads {
 
 // Deduction guide
 template <typename F1, typename F2, typename F3, typename C>
-PipeliningTaskAllThreads(C&&, F1&&, F2&&, F3 &&) -> PipeliningTaskAllThreads<C>;
+PipeliningTaskAllThreads(C&&, F1&&, F2&&, F3&&) -> PipeliningTaskAllThreads<C>;
 
 template <ThreadType thread_type>
 class PipeliningTask {
@@ -109,22 +109,23 @@ template <typename T>
 class PipeliningExecutor {
   static_assert(std::is_base_of_v<
                 habana_helpers::SingleThreadPool,
-                std::remove_reference<decltype(
-                    habana::HPUDeviceContext::lowering_thread())>::type>);
-  static_assert(std::is_base_of_v<
-                habana_helpers::ThreadPool,
-                std::remove_reference<decltype(
-                    habana::HPUDeviceContext::compile_thread_pool())>::type>);
+                std::remove_reference_t<
+                    decltype(habana::HPUDeviceContext::lowering_thread())>>);
+  static_assert(
+      std::is_base_of_v<
+          habana_helpers::ThreadPool,
+          std::remove_reference_t<
+              decltype(habana::HPUDeviceContext::compile_thread_pool())>>);
   static_assert(std::is_base_of_v<
                 habana_helpers::SingleThreadPool,
-                std::remove_reference<decltype(
-                    habana::HPUDeviceContext::execute_thread())>::type>);
+                std::remove_reference_t<
+                    decltype(habana::HPUDeviceContext::execute_thread())>>);
 
  public:
   static void LoweringStage(T&& pipe_task) {
     pipe_task.LoweringCall();
 
-    if (!GET_ENV_FLAG_NEW(PT_HPU_EAGER_4_STAGE_PIPELINE_ENABLE)) {
+    if (!GET_ENV_FLAG_NEW(PT_HPU_EAGER_PIPELINE_ENABLE)) {
       habana::HPUDeviceContext::compile_thread_pool().waitWorkComplete();
       habana::HPUDeviceContext::execute_thread().waitWorkComplete();
       pipe_task.CompileCall();

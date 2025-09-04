@@ -184,8 +184,9 @@ def test_hpu_binary_op_broadcast_case2(N, H, W, C, binary_op, kernel_params_fwd)
 def test_hpu_binary_op_rsub_scalar(N, H, W, C):
     kernel_params_fwd = {}
     kernel_params_fwd["input"] = torch.randn(N, C, H, W)
-    kernel_params_fwd["other"] = round(random.random(), 2)
-    kernel_params_fwd["alpha"] = round(random.random(), 2)
+    # This is considered safe because it is not used for security or cryptographic operations.
+    kernel_params_fwd["other"] = round(random.random(), 2)  # nosec B311
+    kernel_params_fwd["alpha"] = round(random.random(), 2)  # nosec B311
     evaluate_fwd_kernel(kernel=torch.rsub, kernel_params=kernel_params_fwd)
 
 
@@ -203,7 +204,8 @@ def test_hpu_binary_op_pow(N, H, W, C):
 def test_hpu_binary_op_pow_tensor_scalar(N, H, W, C):
     kernel_params_fwd = {}
     kernel_params_fwd["input"] = torch.randn(N, C, H, W)
-    kernel_params_fwd["exponent"] = random.random()
+    # This is considered safe because it is not used for security or cryptographic operations.
+    kernel_params_fwd["exponent"] = random.random()  # nosec B311
     evaluate_fwd_kernel(kernel=torch.pow, kernel_params=kernel_params_fwd)
 
 

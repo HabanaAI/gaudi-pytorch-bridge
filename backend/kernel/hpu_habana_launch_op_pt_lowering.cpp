@@ -12,15 +12,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <absl/container/fixed_array.h>
 #include <cstdint>
 #include "backend/backend_meta.h"
-#include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/helpers/runtime_config.h"
 #include "backend/kernel/constant_information.h"
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
-#include "backend/synapse_helpers/env_flags.h"
+#include "backend/synapse_helpers/env_flags.h" // IWYU pragma: keep
 #include "backend/synapse_helpers/tcmalloc_helper.h"
 #include "habana_helpers/logging.h"
+#include "habana_helpers/towl.h"
 #include "habana_kernels/hccl_kernels.h"
 #include "hpu_habana_launch_op_pt.h"
 
@@ -105,6 +106,21 @@ void habana::HabanaLaunchOpPT::ClearStatics(bool is_shape_inference) {
   }
 }
 
+void habana::HabanaLaunchOpPT::ApplyOutputPermutations(
+    const std::vector<
+        OptimizedJITGraphAndMetaData::PermutationWithOutputPosition>&
+        permutations) {
+  for (auto& perm : permutations) {
+    auto iterator =
+        value_to_ivalue_.find(jit_ir_graph_->outputs().at(perm.output_index));
+    HABANA_ASSERT(iterator != value_to_ivalue_.end());
+    auto& pt_tensor = iterator->second;
+    HABANA_ASSERT(pt_tensor->isTensor());
+    habana_helpers::set_tensor_memory_permutations(
+        pt_tensor->toTensor(), perm.permutation);
+  }
+}
+
 void habana::HabanaLaunchOpPT::ApplyOutputPermutationsFromCache(
     bool is_dynamic_recipe) {
   for (auto& el : jit_graph_and_meta_data_->get_permute(is_dynamic_recipe)) {
@@ -134,7 +150,7 @@ void habana::HabanaLaunchOpPT::UpdateSynapsePermutations(
   }
 
   auto& tinfos = rvs.dtensorinfos;
-  if (tinfos.size() == 0) {
+  if (tinfos.empty()) {
     PT_BRIDGE_DEBUG("empty cur_rvalpsh->dtensorinfos, nothing to update");
     return;
   }
@@ -293,8 +309,8 @@ static std::vector<synRetrievedLaunchTensorInfo> getRecipeTensorInfos(
     const synRecipeHandle& recipeHandle,
     uint32_t numOfTensors) {
   synStatus status;
-  uint64_t ids[numOfTensors];
-  status = synTensorRetrieveLaunchIds(recipeHandle, ids, numOfTensors);
+  absl::FixedArray<size_t> ids(numOfTensors);
+  status = synTensorRetrieveLaunchIds(recipeHandle, ids.data(), numOfTensors);
   HABANA_ASSERT(
       status == synStatus::synSuccess, Logger::synStatusToStr(status));
   std::vector<synRetrievedLaunchTensorInfo> tensorInfos(numOfTensors);
@@ -353,7 +369,7 @@ void habana::HabanaLaunchOpPT::HandleChecksum(
         data_size,
         checksum,
         ConstantInformation::key_t{key},
-        (char*)data_ptr,
+        data_ptr,
         old_size,
         device_id);
   } else if (constant_information.GetDeviceChecksum(const_id) == checksum) {
@@ -687,7 +703,7 @@ void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
                   device_id);
               UpdateTensorInfoMap(
                   ivpsh,
-                  (void*)(ivpsh.get()->toTensor().storage().data_ptr().get()));
+                  ivpsh.get()->toTensor().storage().data_ptr().get());
 
               constSectionIds.emplace_back(tensorSectionId);
               SerializeConstSection(
@@ -708,7 +724,7 @@ void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
                   src, section_size, nullptr, cur_rargpsh_->hashCode());
               UpdateTensorInfoMap(
                   ivpsh,
-                  (void*)(ivpsh.get()->toTensor().storage().data_ptr().get()));
+                  ivpsh.get()->toTensor().storage().data_ptr().get());
             }
 
             // Assuming all the tensors with numel=1 are scale constant tensors.
@@ -727,7 +743,7 @@ void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
     }
   }
 
-  if (constSectionIds.size()) {
+  if (!constSectionIds.empty()) {
     synRecipeSectionHostBuffersClear(
         recipe.syn_recipe_handle_,
         constSectionIds.data(),
@@ -767,6 +783,8 @@ std::shared_ptr<synapse_helpers::graph::recipe_handle> habana::
   PT_EAGER_DEBUG(
       "[SHAPE AGNOSTIC] cur recipe syn recipe handle : ",
       recipe->syn_recipe_handle_);
+
+  towl::emitRecipeHandle(recipe->syn_recipe_handle_);
 
   if (habana_helpers::IsInferenceMode()) {
     HabanaLaunchOpPT::PostCompilationStepForConstTensors(*recipe);
@@ -1116,6 +1134,7 @@ void habana::HabanaLaunchOpPT::OrderInputs() {
   if (enable_caching_ || enable_shape_agnostic_caching_) {
     // Order the input_tivs_ according to the order of suggraph inputs
     size_t i = pt_stack_sh_.size() - num_inputs_;
+    size_t unused = 0;
     for (; i < pt_stack_sh_.size(); i++) {
       IValPtrShared ivpsh = pt_stack_sh_.at(i);
       if (ivpsh->isTensor() || ivpsh->isTensorList()) {
@@ -1123,14 +1142,24 @@ void habana::HabanaLaunchOpPT::OrderInputs() {
         if (it != input_tiv_map_.end()) {
           input_tivs_.push_back(it->second);
         } else {
-          HABANA_ASSERT(false, "synapse tensor not found for input index", i);
+          if (jit_ir_graph_->inputs().at(i)->uses().empty()) {
+            ++unused;
+
+            PT_BRIDGE_WARN(
+                "Input tensor ", i, " is not used in the subgraph, skipping.");
+          } else {
+            HABANA_ASSERT(
+                false, "synapse tensor not found for input index: ", i);
+          }
         }
       }
     }
+
+    auto expected = num_tensor_inputs_ - unused;
     HABANA_ASSERT(
-        input_tivs_.size() == num_tensor_inputs_,
-        "number of input tensors ",
-        num_tensor_inputs_,
+        input_tivs_.size() == expected,
+        "number of expected input tensors ",
+        expected,
         " mismatch with #input_tivs_ ",
         input_tivs_.size());
   }

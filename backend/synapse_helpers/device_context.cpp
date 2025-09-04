@@ -170,6 +170,7 @@ hcclResult_t device_context::lock_address(
   }
 
   std::vector<synapse_helpers::device_ptr> dev_addresses;
+  dev_addresses.reserve(addresses.size());
   for (auto& address : addresses)
     dev_addresses.push_back(
         reinterpret_cast<synapse_helpers::device_ptr>(address));

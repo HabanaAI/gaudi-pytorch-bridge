@@ -17,14 +17,12 @@
 #include "hpu_ops/habana_random_ops.h"
 
 namespace habana {
-std::shared_ptr<void> FillBernoulliWithPParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillBernoulliWithPParams(const at::Stack& stack) {
   PARAMS_STUB(ns_RandomBernoulli::ParamsV2);
   if (stack.at(1).isScalar()) {
     params->probability = stack.at(1).toScalar().toFloat();
   }
-  return params;
+  return paramsT;
 }
 
 SharedMetaDataVector BernoulliSharedMeta(
@@ -121,7 +119,7 @@ static auto bernoulli_impl(
 
   // Empty params with optional seed but still required to be filled to
   // bypass tpc kernel glue check
-  PARAMS_STUB_VARS(ns_RandomBernoulli::ParamsV2, params, params_size);
+  ns_RandomBernoulli::ParamsV2 params{};
   auto bernoulli = OpBackend::BuildNode(
       op,
       graph,
@@ -130,8 +128,8 @@ static auto bernoulli_impl(
            isIntegralType(dtype, false) ? c10::ScalarType::Float : dtype),
        inputs,
        {{outshape, dtype, final_result_index}},
-       params.get(),
-       params_size});
+       &params,
+       sizeof(params)});
   return bernoulli;
 }
 
@@ -159,8 +157,7 @@ void BernoulliWithP::AddNode(
   auto outshape = stack_tensor(stack, 0).sizes();
   auto dtype = ScalarType();
   if (stack.at(1).isScalar()) {
-    size_t size = 0;
-    auto params = FillParams(stack, size);
+    auto params = FillParams(stack);
     std::vector<synTensor> inputs = {nullptr, syn_in(1)};
     CreateShapeTensorInput(graph, dtype, outshape, inputs);
 
@@ -171,8 +168,8 @@ void BernoulliWithP::AddNode(
             isIntegralType(dtype, false) ? c10::ScalarType::Float : dtype),
         std::move(inputs),
         {{outshape, dtype, 0}},
-        params.get(),
-        size);
+        params.ptr(),
+        params.size());
     syn_out(0) = std::move(bernoulli[0]);
   } else {
     auto p = syn_in(1); // ignore self when p is present
@@ -182,20 +179,12 @@ void BernoulliWithP::AddNode(
   }
 }
 
-HabanaBernoulliBase::HabanaBernoulliBase(
-    int device_id,
-    c10::ScalarType scalar_type,
-    bool is_deterministic)
-    : HabanaRandomBase(
-          device_id,
-          "habana_bernoulli",
-          scalar_type,
-          {1},
-          is_deterministic) {
+HabanaBernoulli::HabanaBernoulli(int device_id, c10::ScalarType scalar_type)
+    : HabanaRandomBase(device_id, "habana_bernoulli", scalar_type, {1}) {
   SetSTMetaFn(DefaultSTMetaFnOneOutputShapeUpdate);
 }
 
-void HabanaBernoulliBase::AddNode(
+void HabanaBernoulli::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   const auto& input = stack_tensor(stack, 1);
@@ -208,36 +197,7 @@ void HabanaBernoulliBase::AddNode(
       input.sizes().vec(),
       input.scalar_type())[0]);
 }
-
-HabanaBernoulliCheckpoint::HabanaBernoulliCheckpoint(
-    int device_id,
-    c10::ScalarType scalar_type)
-    : HabanaRandCheckpointBase(
-          device_id,
-          "habana_bernoulli",
-          scalar_type,
-          {0, 1}) {}
-
-void HabanaBernoulliCheckpoint::AddNode(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
-  auto seed =
-      BuildOp(graph, "identity", {syn_in(0)}, {{{}, at::ScalarType::Int, 0}});
-  syn_out(0) = std::move(seed[0]);
-
-  const auto& input = stack_tensor(stack, 1);
-  syn_out(1) = std::move(bernoulli_impl(
-      this,
-      graph,
-      syn_in(1),
-      syn_in(0),
-      input.sizes().vec(),
-      input.scalar_type(),
-      1)[0]);
-}
 } // namespace habana
 
 static const auto& HabanaRandomKernelRegistry =
-    habana::KernelRegistry().REGISTER_RANDOM_CHECKPOINT_OP(
-        bernoulli,
-        Bernoulli);
+    habana::KernelRegistry().REGISTER_HABANA_RANDOM_OP(bernoulli, Bernoulli);

@@ -25,6 +25,7 @@
 #include "backend/kernel/hpu_habana_meta_op_list.h"
 #include "backend/synapse_helpers/devmem_logger.h"
 #include "common/utils.h"
+#include "common/warning_suppress.h"
 #include "habana_helpers/logging.h"
 #include "habana_helpers/towl.h"
 #include "habana_lazy/memlog.h"
@@ -38,10 +39,9 @@ namespace {
   for (auto& input : input_refs) {
     if (input.isTensor()) {
       auto pt_tensor = input.toTensor();
-      synapse_helpers::device_ptr storage_data_ptr_ =
-          reinterpret_cast<synapse_helpers::device_ptr>(
-              pt_tensor.storage().data_ptr().get());
-      synapse_helpers::device_ptr buffer_ptr =
+      auto storage_data_ptr_ = reinterpret_cast<synapse_helpers::device_ptr>(
+          pt_tensor.storage().data_ptr().get());
+      auto buffer_ptr =
           reinterpret_cast<synapse_helpers::device_ptr>(pt_tensor.data_ptr());
       auto offset = (buffer_ptr - storage_data_ptr_);
       offset_hash_code = at::hash_combine(offset_hash_code, offset);
@@ -64,17 +64,17 @@ namespace {
         std::vector<int64_t> h2d_vec;
         habana::HostDataType h2d_dt_type = tmeta->get_host_dt_type();
         if (h2d_dt_type == habana::HostDataType::INT32_T) {
-          int32_t* h2d_data = static_cast<int32_t*>(tmeta->get_host_ptr());
+          auto* h2d_data = static_cast<int32_t*>(tmeta->get_host_ptr());
           for (size_t i = 0; i < h2d_size; i++) {
             h2d_vec.push_back(static_cast<int64_t>(*h2d_data++));
           }
         } else if (h2d_dt_type == habana::HostDataType::UINT32_T) {
-          uint32_t* h2d_data = static_cast<uint32_t*>(tmeta->get_host_ptr());
+          auto* h2d_data = static_cast<uint32_t*>(tmeta->get_host_ptr());
           for (size_t i = 0; i < h2d_size; i++) {
             h2d_vec.push_back(static_cast<int64_t>(*h2d_data++));
           }
         } else if (h2d_dt_type == habana::HostDataType::UINT64_T) {
-          uint64_t* h2d_data = static_cast<uint64_t*>(tmeta->get_host_ptr());
+          auto* h2d_data = static_cast<uint64_t*>(tmeta->get_host_ptr());
           for (size_t i = 0; i < h2d_size; i++) {
             uint64_t h2d_elem = *h2d_data++;
             HABANA_ASSERT(
@@ -91,7 +91,8 @@ namespace {
 
         size_t h2d_single_value = 0;
         for (size_t i = 0; i < h2d_vec.size(); i++) {
-          h2d_single_value = h2d_single_value + ((i + 1) * h2d_vec[i]);
+          h2d_single_value =
+              h2d_single_value + ((i + 1) * static_cast<uint64_t>(h2d_vec[i]));
         }
         h2d_hash_code = at::hash_combine(h2d_hash_code, h2d_single_value);
       }
@@ -105,6 +106,39 @@ namespace habana {
 
 HbCas::HbCas(bool with_grad, at::ArrayRef<c10::IValue> inputs) {
   p_cas = std::make_shared<torch::jit::CompleteArgumentSpec>(with_grad, inputs);
+
+  // Count the number of tensors
+  size_t num_tensors = 0;
+  const auto num_inputs = inputs.size();
+  for (const auto i : c10::irange(num_inputs)) {
+    if (!inputs[i].isTensor())
+      continue;
+    num_tensors++;
+  }
+
+  // Fill the offsets data as a vector of uint64_t.
+  // Since CompleteArgumentSpec already consider the attributes of each inputs
+  // The offsets vector could just consider the tensors in order.
+  offsets_data.resize(num_tensors);
+  uint64_t* next_offset = offsets_data.data();
+  for (const auto i : c10::irange(num_inputs)) {
+    if (!inputs[i].isTensor())
+      continue;
+
+    auto pt_tensor = inputs[i].toTensor();
+    auto storage_data_ptr_ = reinterpret_cast<synapse_helpers::device_ptr>(
+        pt_tensor.storage().data_ptr().get());
+    auto buffer_ptr =
+        reinterpret_cast<synapse_helpers::device_ptr>(pt_tensor.data_ptr());
+    *next_offset = (buffer_ptr - storage_data_ptr_);
+    next_offset++;
+  }
+
+  // Combine the hash code
+  hash_code = c10::hash_combine(0, p_cas->hashCode());
+  for (auto d : offsets_data) {
+    hash_code = c10::hash_combine(hash_code, d);
+  }
 }
 
 RecipeArgumentSpec::RecipeArgumentSpec(
@@ -216,8 +250,9 @@ RecipeArgumentSpec::RecipeArgumentSpec(
       continue;
     }
 
-    hash_code =
-        at::hash_combine(hash_code, node->i(torch::jit::attr::deterministic));
+    hash_code = at::hash_combine(
+        hash_code,
+        static_cast<uint64_t>(node->i(torch::jit::attr::deterministic)));
   }
 }
 
@@ -244,6 +279,8 @@ std::ostream& operator<<(std::ostream& O, const RecipeLauncher& v) {
     << '\n';
   O << " workspace    : " << synapse_helpers::get_mem_str(v.workspace_size_)
     << '\n';
+  towl::emitRecipeRequireWorkspace(
+      synapse_helpers::get_mem_str(v.workspace_size_));
   O << " <addr : " << v.recipe_.get() << "> "
     << " <use_count : " << v.recipe_.use_count() << "> "
     << "\n";
@@ -283,6 +320,17 @@ std::ostream& operator<<(std::ostream& O, const RecipeValueSpec& v) {
     O << idx++ << " : ";
     O << *a << '\n';
   }
+  std::string dtensorinfo_dump;
+  {
+    std::ostringstream oss;
+    oss << '\n';
+    size_t sidx = 0;
+    for (auto& a : v.dtensorinfos) {
+      oss << sidx++ << " : " << *a << '\n';
+    }
+    dtensorinfo_dump = oss.str();
+  }
+  towl::emitRecipeTensorToUse(dtensorinfo_dump);
   if (!v.sif_tidx_to_tinfo_map.empty()) {
     O << "sif_tidx_to_tinfo_map #" << v.sif_tidx_to_tinfo_map.size() << "::";
     O << '\n';
@@ -371,7 +419,7 @@ RecipeValueSpec::RecipeValueSpec(std::istream& is) {
   using namespace serialization;
   int info_size = 0;
   deserialize(is, info_size);
-  dtensorinfos.reserve(info_size);
+  dtensorinfos.reserve(static_cast<size_t>(info_size));
   for (int i = 0; i < info_size; ++i) {
     dtensorinfos.emplace_back(std::make_shared<PtTensorInfo>(is));
   }
@@ -528,15 +576,17 @@ void RecipeValueSpec::update_tensor_shape(
   PT_EAGER_DEBUG("[SHAPE AGNOSTIC] shape used for patching : ", shape);
   PT_EAGER_DEBUG(
       "[SHAPE AGNOSTIC] tensor shape before patching : ", tinfo->get_shape());
-  if (shape.size() == 0 && !tinfo->is_ZST()) {
+  if (shape.empty() && !tinfo->is_ZST()) {
     shape = {1};
     PT_EAGER_DEBUG(
         "[SHAPE AGNOSTIC] settting the tensor shape to {1} for scalar");
   }
   tinfo->set_shape(shape);
   std::vector<int64_t> strides(shape.size(), 1);
-  for (int64_t i = (int64_t)shape.size() - 1; i > 0; i--) {
-    strides[i - 1] *= shape[i] * strides[i];
+  if (!shape.empty()) {
+    for (uint64_t i = shape.size() - 1; i > 0; i--) {
+      strides[i - 1] *= shape[i] * strides[i];
+    }
   }
   tinfo->set_strides(strides);
   PT_EAGER_DEBUG(
@@ -660,8 +710,10 @@ void RecipeValueSpec::update_patching_table(
         auto new_sizes = tidx_to_tensor_map.at(tensor_idx).sizes().vec();
 
         std::vector<int64_t> strides(new_sizes.size(), 1);
-        for (int64_t i = (int64_t)new_sizes.size() - 1; i > 0; i--) {
-          strides[i - 1] *= new_sizes[i] * strides[i];
+        if (!new_sizes.empty()) {
+          for (uint64_t i = new_sizes.size() - 1; i > 0; i--) {
+            strides[i - 1] *= new_sizes[i] * strides[i];
+          }
         }
         ti->set_shape(new_sizes);
         ti->set_strides(strides);
@@ -755,7 +807,8 @@ void RecipeValueSpec::update_patching_table(
       }
       ridx++;
     } else if (input.isTensorList()) {
-      for (const at::Tensor& t : input.toTensorList()) {
+      SUPPRESS_WDANGLING_REFERENCE(
+        for (const at::Tensor& t : input.toTensorList())) {
         auto tmeta{habana::get_tensor_extra_meta(t)};
         if (tmeta->has_valid_const_id()) {
           auto impl{t.unsafeGetTensorImpl()};
@@ -1319,7 +1372,10 @@ void RecipeValueSpec::update_node_params(
             ", params size: ",
             params_size);
         synapse_helpers::graph::setNodeParams(
-            duplicate_graph_handle, new_handle, params_data, params_size);
+            duplicate_graph_handle,
+            new_handle,
+            params_data,
+            static_cast<unsigned>(params_size));
       }
     }
   }
@@ -1345,7 +1401,7 @@ void RecipeValueSpec::populate_syn_tensor_ids(
       recipe.syn_recipe_handle_,
       tensor_names.data(),
       tensor_ids_.data(),
-      num_tinfos);
+      static_cast<unsigned>(num_tinfos));
   if (ABSL_PREDICT_FALSE(status != synStatus::synSuccess)) {
     PT_BRIDGE_FATAL(
         Logger::formatStatusMsg(status), "synTensorRetrieveIds launch failed");
@@ -1558,7 +1614,7 @@ void RecipeLauncher::Launch(
             input.toTensor().storage().data_ptr().get()));
       }
     }
-    if (dma_inputs.size() > 0) {
+    if (!dma_inputs.empty()) {
       for (auto& dma_input : dma_inputs) {
         HABANA_ASSERT(
             dma_input->isTensor(), "Only tensor is supported as dma_input");
@@ -1574,7 +1630,7 @@ void RecipeLauncher::Launch(
     // Hold on to the pytorch tensors for the intermediates untill the recipe
     // execution completes
     if (intermediate_tensors_ptr != nullptr &&
-        intermediate_tensors_ptr->size() > 0) {
+        !intermediate_tensors_ptr->empty()) {
       for (auto& intermediate_tensor : *intermediate_tensors_ptr) {
         at::Tensor tensor = intermediate_tensor->toTensor();
         ptRefs.push_back(std::move(tensor));
@@ -1663,8 +1719,7 @@ void RecipeLauncher::Launch(
       device.register_producer_on_stream(stream_handle, ext_events.at(i));
     }
 
-    if (!(common::IsRecordStreamEnabled() &&
-          GET_ENV_FLAG_NEW(PT_HPU_USE_LAUNCH_RECORD_STREAM))) {
+    if (!common::IsStreamAllocatorEnabled()) {
       // Use wrapper for resources that must survive async part of the compute.
       auto resource_holder = std::shared_ptr<GenericResourceHolder>(
           new GenericResourceHolder(),
@@ -1688,11 +1743,9 @@ void RecipeLauncher::Launch(
       // corresponding recipe is finished on stream
       const auto& recipe_ptr = recipe_;
       resource_holder->set_recipe_id(recipe_ptr);
-      if (not common::IsRecordStreamNoHolderEnabled()) {
-        resource_holder->set_output_tensors(outPtRefs);
-        resource_holder->set_address_lock(std::move(address_lock));
-        resource_holder->set_input_tensors(ptRefs);
-      }
+      resource_holder->set_output_tensors(outPtRefs);
+      resource_holder->set_address_lock(std::move(address_lock));
+      resource_holder->set_input_tensors(ptRefs);
       resource_holder->set_recipe_counter_ptr(&recipe_counter);
       resource_holder->set_active_graph_key(active_graph_key_);
       // ResourceHolder could be used directly as callback, if we would only
@@ -1739,9 +1792,7 @@ void RecipeLauncher::Launch(
       // corresponding recipe is finished on stream
       const auto& recipe_ptr = recipe_;
       resource_holder->set_recipe_id(recipe_ptr);
-      if (not common::IsRecordStreamNoHolderEnabled()) {
-        resource_holder->set_address_lock(std::move(address_lock));
-      }
+      resource_holder->set_address_lock(std::move(address_lock));
       resource_holder->set_recipe_counter_ptr(&recipe_counter);
       resource_holder->set_active_graph_key(active_graph_key_);
       // ResourceHolder could be used directly as callback, if we would only
@@ -1887,7 +1938,7 @@ void DynamicBucketInfoMap::Serialize(std::ostream& os) const {
       map_size++;
     }
   }
-  serialize(os, static_cast<int>(map_size));
+  serialize(os, map_size);
   for (auto const& p : map_) {
     if (!p.first->hasToken()) {
       p.first->Serialize(os);

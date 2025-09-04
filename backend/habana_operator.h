@@ -58,40 +58,18 @@ const std::string NO_TPC = "[NoTPCKernel]";
       at::IntArrayRef{1}, at::IntArrayRef{1});
 
 // Utility Macros to handle 0d tensors input
-#define CONVERT_0D_TO_1D(self)                         \
-  if (0 == self.dim()) {                               \
-    self.unsafeGetTensorImpl()->set_sizes_and_strides( \
-        at::IntArrayRef{1}, at::IntArrayRef{1});       \
+#define CONVERT_0D_TO_1D(self)                           \
+  if (0 == (self).dim()) {                               \
+    (self).unsafeGetTensorImpl()->set_sizes_and_strides( \
+        at::IntArrayRef{1}, at::IntArrayRef{1});         \
   }
-#define CONVERT_1D_TO_0D(self, out)                    \
-  if (0 == self.dim()) {                               \
-    self.unsafeGetTensorImpl()->set_sizes_and_strides( \
-        at::IntArrayRef{}, at::IntArrayRef{});         \
-    out.unsafeGetTensorImpl()->set_sizes_and_strides(  \
-        at::IntArrayRef{}, at::IntArrayRef{});         \
+#define CONVERT_1D_TO_0D(self, out)                      \
+  if (0 == (self).dim()) {                               \
+    (self).unsafeGetTensorImpl()->set_sizes_and_strides( \
+        at::IntArrayRef{}, at::IntArrayRef{});           \
+    (out).unsafeGetTensorImpl()->set_sizes_and_strides(  \
+        at::IntArrayRef{}, at::IntArrayRef{});           \
   }
-
-#define KERNEL_FN_DROP_ARG2(className)                     \
-  [](const int device_id, c10::ScalarType node_type) {     \
-    static_cast<void>(node_type);                          \
-    return std::make_shared<habana::className>(device_id); \
-  }
-
-#define KERNEL_FN(className)                                          \
-  [](const int device_id, c10::ScalarType node_type) {                \
-    return std::make_shared<habana::className>(device_id, node_type); \
-  }
-
-#define KERNEL_FN_ARG(className, arg)                                      \
-  [](const int device_id, c10::ScalarType node_type) {                     \
-    return std::make_shared<habana::className>(device_id, node_type, arg); \
-  }
-
-#define KERNEL_FN_GLOBAL(className)                           \
-  [](const int device_id, c10::ScalarType node_type) {        \
-    return std::make_shared<className>(device_id, node_type); \
-  }
-
 namespace habana {
 
 class HabanaOperator;
@@ -99,9 +77,9 @@ class PytorchKernelContext;
 using PytorchKernelContextPtr = std::unique_ptr<PytorchKernelContext>;
 using HabanaOperatorPtr = std::shared_ptr<HabanaOperator>;
 using RegisterFunc =
-    std::function<HabanaOperatorPtr(const int, c10::ScalarType)>;
+    std::function<HabanaOperatorPtr(const synDeviceId, c10::ScalarType)>;
 using RegisterCustomFunc =
-    std::function<HabanaOperatorPtr(const int, std::string)>;
+    std::function<HabanaOperatorPtr(const synDeviceId, std::string)>;
 
 const size_t NO_INPUTS = 0xFFFFFFFF;
 
@@ -140,7 +118,7 @@ class InferNodeParams {
     }
     return paramsVec.data();
   }
-  unsigned get_size() const {
+  std::size_t get_size() const {
     return paramsVec.size();
   }
 
@@ -189,6 +167,8 @@ class InferOutputMetaRetType {
   void MoveToOutput(IdxTensorTuple&& data);
 
   void RemoveOutput(size_t index);
+
+  void InsertOutputIdx(size_t index, IdxTensorTuple output_tensor);
 
   void PushOutputTensorAtFront(IdxTensorTuple output_tensor);
 
@@ -249,9 +229,9 @@ class InferOutputMetaRetType {
 };
 
 struct PtInputIdxAndSynHelpTensor {
-  int pt_input_idx;
+  size_t pt_input_idx;
   synapse_helpers::tensor_or_ref sh_t;
-  int syn_input_idx;
+  size_t syn_input_idx;
 };
 
 //
@@ -260,7 +240,7 @@ struct PtInputIdxAndSynHelpTensor {
 // params information for the operator
 class PytorchKernelContext {
  public:
-  int device_id_;
+  synDeviceId device_id_;
   std::string node_type_;
   std::vector<at::Tensor> pt_inputs_;
   std::vector<at::Tensor> pt_outputs_;
@@ -275,11 +255,7 @@ class PytorchKernelContext {
   // tensors, so additional handling is needed.
   std::deque<PtInputIdxAndSynHelpTensor> syn_implicit_outputs_;
 
-  std::set<unsigned int> excluded_output_indices_;
   size_t recipe_key_;
-
-  absl::any params_;
-  size_t params_size_;
   bool is_duplicate_input_{false};
   std::deque<synapse_helpers::tensor_or_ref> syn_input_orig_;
   std::optional<synapse_helpers::tensor_or_ref> syn_seed_;
@@ -328,11 +304,25 @@ class OutputMetaData {
 };
 using OutputMetaDataVector = std::vector<OutputMetaData>;
 
+inline OutputMetaData getMetaFromTensor(const at::Tensor& tensor) {
+  return {tensor.scalar_type(), tensor.sizes().vec()};
+}
+
 using SharedMetaTensor = std::pair<int, at::ScalarType>;
 using SharedMetaVector = std::vector<SharedMetaTensor>;
 
 inline SharedMetaTensor createOptionalNotPresentSharedMetaTensor() {
   return {0, at::ScalarType::Undefined};
+}
+
+inline SharedMetaTensor getSharedMetaFromTensor(const at::Tensor& tensor) {
+  return {tensor.dim(), tensor.scalar_type()};
+}
+
+inline SharedMetaTensor getSharedMetaFromOptionalTensor(
+    const std::optional<at::Tensor>& tensor) {
+  return tensor.has_value() ? getSharedMetaFromTensor(tensor.value())
+                            : createOptionalNotPresentSharedMetaTensor();
 }
 
 struct SharedMetaData {
@@ -398,7 +388,7 @@ class HabanaOperator {
 
   //
   // Creates graph builder context, based on the device
-  void CreateSynContext(int device_id, std::string node_type = "") {
+  void CreateSynContext(synDeviceId device_id, std::string node_type = "") {
     p_context_ = std::make_unique<PytorchKernelContext>();
     p_context_->device_id_ = device_id;
     p_context_->node_type_ = node_type;
@@ -584,10 +574,6 @@ class HabanaOperator {
     return p_context_->syn_inputs_;
   }
 
-  virtual std::set<unsigned int>& GetSynOutputIndicesExcludedInNode() const {
-    return p_context_->excluded_output_indices_;
-  }
-
   virtual const std::vector<HabanaOperatorPtr> GetKernels() const {
     return kernels_;
   }
@@ -635,11 +621,11 @@ class HabanaOperator {
     p_context_->pt_inputs_.clear();
   }
 
-  inline synapse_helpers::tensor_or_ref& get_syn_input_at(size_t index) {
+  synapse_helpers::tensor_or_ref& get_syn_input_at(size_t index) {
     return get_checked(p_context_->syn_inputs_, index);
   }
 
-  inline synapse_helpers::tensor_or_ref& get_syn_output_at(size_t index) {
+  synapse_helpers::tensor_or_ref& get_syn_output_at(size_t index) {
     return get_checked(p_context_->syn_outputs_, index);
   }
 
@@ -682,7 +668,7 @@ class HabanaOperator {
 
   template <class T, class U>
   static void CopyVecToHostPtr(const std::vector<T>& vec, void* host_ptr) {
-    if constexpr (std::is_same<T, U>::value) {
+    if constexpr (std::is_same_v<T, U>) {
       std::copy(vec.begin(), vec.end(), static_cast<T*>(host_ptr));
     } else {
       std::vector<U> vec_temp(vec.size());
@@ -697,7 +683,7 @@ class HabanaOperator {
   template <class T>
   synapse_helpers::tensor AllocateConstantSynapseTensor(
       synapse_helpers::graph& graph,
-      int device_id,
+      synDeviceId device_id,
       const std::vector<T>& vec,
       at::OptionalIntArrayRef sizes) {
     auto& device = habana::HPUDeviceContext::get_device(device_id);
@@ -707,8 +693,8 @@ class HabanaOperator {
 
     const bool is_int64_support_enabled = common::IsInt64Supported();
 
-    constexpr bool is_long = std::is_same<T, int64_t>::value;
-    constexpr bool is_double = std::is_same<T, double>::value;
+    constexpr bool is_long = std::is_same_v<T, int64_t>;
+    constexpr bool is_double = std::is_same_v<T, double>;
 
     if constexpr (is_long) {
       vec_type =
@@ -785,7 +771,6 @@ class HabanaOperator {
   std::vector<std::tuple<std::string, at::Tensor, uint64_t>>
       appended_tensor_infos;
 
-  //
   std::vector<HabanaOperatorPtr> kernels_;
   bool deterministic{false};
   habana_helpers::HabanaFrontendTypes execution_mode{
@@ -840,7 +825,7 @@ class RegisterKernel {
   }
 
   HabanaOperatorPtr get(
-      const int device_id,
+      const synDeviceId device_id,
       const at::OperatorName& opname,
       c10::ScalarType node_type) {
     if (kernels_.count(opname)) {
@@ -868,7 +853,6 @@ class RegisterKernel {
     return opname;
   }
 
- private:
   std::unordered_map<c10::OperatorName, RegisterFunc> kernels_;
   std::unordered_map<c10::OperatorName, RegisterCustomFunc>
       legacy_user_custom_ops;

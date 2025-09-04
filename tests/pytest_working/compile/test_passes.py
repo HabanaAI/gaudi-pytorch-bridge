@@ -43,7 +43,12 @@ def test_pass_fuse_view_chains():
     with FxGraphAnalyzer() as fga:
         inp_hpu = torch.randn(4, 3, device="hpu")
         inp_cpu = inp_hpu.to("cpu")
-        fnc_hpu = torch.compile(fn, dynamic=False, backend="hpu_backend", options={"use_eager_fallback": True})
+        fnc_hpu = torch.compile(
+            fn,
+            dynamic=False,
+            backend="hpu_backend",
+            options={"use_eager_fallback": True},
+        )
         fnc_cpu = torch.compile(fn, dynamic=False, backend="inductor")
         results_hpu = fnc_hpu(inp_hpu)
         results_cpu = fnc_cpu(inp_cpu)
@@ -51,6 +56,29 @@ def test_pass_fuse_view_chains():
     assert ops_summary[0]["torch.ops.hpu.batch_as_strided"].eager_count == 1
     for r_hpu, r_cpu in zip(results_hpu, results_cpu, strict=False):
         torch.allclose(r_hpu.to("cpu"), r_cpu)
+
+
+def test_pass_scalar_reorder_jitfork():
+    input_shape = (4, 4)
+    scalar = 2
+    op_lists = [
+        torch.ops.aten.add.Tensor,
+        torch.ops.aten.mul.Tensor,
+        torch.ops.aten.div.Tensor,
+        torch.ops.aten.sub.Tensor,
+    ]
+
+    def raw_function(op, input_tensor, scalar):
+        return op(scalar, input_tensor)
+
+    compiled_fn = torch.compile(raw_function, backend="hpu_backend")
+
+    for op in op_lists:
+        input_cpu = torch.randn(input_shape, requires_grad=False)
+        result = raw_function(op, input_cpu, scalar)
+        input_hpu = input_cpu.to("hpu")
+        h_result = compiled_fn(op, input_hpu, scalar)
+        assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)
 
 
 def test_as_strided_batching():
@@ -64,7 +92,6 @@ def test_as_strided_batching():
     compiled_func = torch.compile(func, backend="hpu_backend")
 
     with FxGraphAnalyzer() as fga:
-
         t1_cpu = torch.ones((8, 8))
         t2_cpu = t1_cpu.clone()
         t1_hpu, t2_hpu = t1_cpu.to("hpu"), t2_cpu.to("hpu")

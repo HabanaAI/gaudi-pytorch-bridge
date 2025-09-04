@@ -69,7 +69,7 @@ class FxGraphAnalyzer:
 
     def _at_exit_callback(self):
         def check_for_eager(graph_ops):
-            return any(map(lambda elem: elem.eager_count, graph_ops.values()))
+            return any(elem.eager_count for elem in graph_ops.values())
 
         fallback_ops = list(filter(check_for_eager, self.get_ops_summary()))
         if fallback_ops:

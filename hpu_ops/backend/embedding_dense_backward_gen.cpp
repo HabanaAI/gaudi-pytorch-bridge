@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ OutputMetaDataVector EmbeddingDenseBwdMeta(const at::Stack& stack) {
   OutputMetaData meta;
   meta.dtype = grad.scalar_type();
   meta.shape.push_back(num_weights);
-  meta.shape.push_back(grad.sizes().vec().back());
+  meta.shape.push_back(grad.sizes().back());
   return {meta};
 }
 
@@ -44,9 +44,7 @@ SharedMetaDataVector EmbeddingDenseBwdSharedMeta(
   return {embeddingDenseBwdSharedMeta};
 }
 
-std::shared_ptr<void> FillEmbeddingDenseBackwardParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillEmbeddingDenseBackwardParams(const at::Stack& stack) {
   PARAMS_STUB(ns_EmbeddingDensePtBwdKernel::Params);
   int num_weights = stack.at(2).toScalar().to<int>();
   int padding_idx = stack.at(3).toScalar().to<int>();
@@ -55,14 +53,13 @@ std::shared_ptr<void> FillEmbeddingDenseBackwardParams(
   params->num_weights = num_weights;
   params->padding_idx = padding_idx;
   params->scaleGradByFreq = scale_grad_by_freq;
-  return params;
+  return paramsT;
 }
 
 void EmbeddingDenseBwd::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  size_t size = 0;
-  const auto& params = FillEmbeddingDenseBackwardParams(stack, size);
+  const auto& params = FillEmbeddingDenseBackwardParams(stack);
   const auto meta = EmbeddingDenseBwdMeta(stack)[0];
   std::vector<synTensor> inputs = {syn_in(0), syn_in(1)};
   CreateShapeTensorInput(graph, meta.dtype, meta.shape, inputs);
@@ -72,8 +69,8 @@ void EmbeddingDenseBwd::AddNode(
       {guid_,
        std::move(inputs),
        {{meta.shape, meta.dtype, 0}},
-       params.get(),
-       size});
+       params.ptr(),
+       params.size()});
   syn_out(0) = std::move(embedding.at(0));
 }
 } // namespace habana

@@ -165,7 +165,8 @@ void restoreTensorsize(
     int extra_num_elems,
     int ori_input_size = -1) {
   if (extra_num_elems == 1) {
-    return restoreOddTensorsize(tensors, changed, sizeList, strideList, work);
+    restoreOddTensorsize(tensors, changed, sizeList, strideList, work);
+    return;
   }
 
   // Below for the case: extra_num_elems > 1
@@ -231,8 +232,7 @@ void restoreTensorsize(
 }
 
 bool is_valid_hccl_dtype(hcclDataType_t data_type) {
-  if (data_type == hcclBfloat16 || data_type == hcclFloat ||
-      data_type == hcclFloat16) {
+  if (data_type == hcclBfloat16 || data_type == hcclFloat || data_type == hcclFloat16) {
     return true;
   }
   return false;
@@ -248,11 +248,7 @@ ProcessGroupHcclBase::ProcessGroupHcclBase(
     int rank,
     int size,
     std::string group_name)
-    : Backend(rank, size),
-      always_support_int64_(false),
-      store_(store),
-      barrier_cnt_(0),
-      group_name_{group_name} {
+    : Backend(rank, size), store_(store), group_name_{group_name} {
   this->emulate_distributed_ = GET_ENV_FLAG_NEW(PT_HPU_EMULATE_DISTRIBUTED);
 }
 
@@ -721,7 +717,7 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::alltoall_base(
   std::vector<at::Tensor> outputTensors;
   inputTensors.push_back(alltoall_in_tensors);
   outputTensors.push_back(alltoall_out_tensors);
-  if (outputSplitSizes.size() == 0 && inputSplitSizes.size() == 0) {
+  if (outputSplitSizes.empty() && inputSplitSizes.empty()) {
     work = collective(
         inputTensors,
         outputTensors,
@@ -1376,8 +1372,7 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::gather(
       }
     }
   } else {
-    HABANA_ASSERT(
-        outputTensors.size() == 0, "Requires empty output on non-root");
+    HABANA_ASSERT(outputTensors.empty(), "Requires empty output on non-root");
     work = send(inputTensors, opts.rootRank, 0 /*tag*/);
   }
   if (coalescing_state_) {
@@ -1423,7 +1418,7 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::scatter(
       }
     }
   } else {
-    HABANA_ASSERT(inputTensors.size() == 0, "Requires empty input on non-root");
+    HABANA_ASSERT(inputTensors.empty(), "Requires empty input on non-root");
     work = recv(outputTensors, opts.rootRank, 0 /*tag*/);
   }
   if (coalescing_state_) {

@@ -133,6 +133,9 @@ class Op:
     def get_custom_op_schema(self):
         return self.op.get("custom_op_schema", None)
 
+    def get_custom_cpp_sig(self):
+        return self.op.get("custom_cpp_sig", None)
+
     def get_is_custom_op_out_variant(self):
         return self.op.get("is_custom_op_out_variant", False)
 
@@ -141,6 +144,9 @@ class Op:
 
     def get_only_shared_layer(self):
         return self.op.get("only_shared_layer", False)
+
+    def get_only_slrg(self):
+        return self.op.get("only_slrg", False)
 
     def get_overwritten_op_names_in_slrg(self):
         return self.op.get("overwritten_op_names_in_slrg", None)
@@ -168,14 +174,18 @@ class Op:
 
     def get_lazy(self):
         lazy_desc = self.op.get("lazy", {})
-        assert all(
-            key in allowed_lazy_keys for key in lazy_desc.keys()
-        ), f"Only {allowed_lazy_keys} are supported for lazy, but {lazy_desc.keys()} are provided for {self.opname}. In order to support another property, please add proper handling in Op class in {os.path.realpath(__file__)}"
+        assert all(key in allowed_lazy_keys for key in lazy_desc.keys()), (
+            f"Only {allowed_lazy_keys} are supported for lazy, but {lazy_desc.keys()} are provided for {self.opname}. In order to support another property, please add proper handling in Op class in {os.path.realpath(__file__)}"
+        )
 
         return lazy_desc
 
     def set_lazy(self):
         self.mode = "lazy"
+
+    def should_skip_inplace_param(self, pname: str) -> bool:
+        non_inplace_params = self.op.get("treat_as_non_inplace", [])
+        return pname in non_inplace_params
 
     @lazy_support
     def get_acc_thread(self):
@@ -183,7 +193,12 @@ class Op:
 
     def is_eager_op(self):
         override_fn = self.get_override_fn()
-        if override_fn:
-            if "lazy" in override_fn:
-                return False
+        if override_fn and "lazy" in override_fn:
+            return False
         return True
+
+    def treat_as_dtdf(self):
+        return self.op.get("treat_as_dtdf", False)
+
+    def handle_output_mask(self):
+        return self.op.get("handle_output_mask", None)

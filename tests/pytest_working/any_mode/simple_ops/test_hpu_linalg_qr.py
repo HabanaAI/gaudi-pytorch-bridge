@@ -85,7 +85,6 @@ def allocate_qr_for_out(aShape: list, mode: str, for_hpu: bool, dtype: torch.dty
 def run_linalg_qr_out(A, hpu_A, mode):
     def fn_out(A, mode, QR):
         torch.linalg.qr(A, mode, out=QR)
-        return
 
     QR = allocate_qr_for_out(list(A.shape), mode, for_hpu=False, dtype=A.dtype)
     fn_out(A, mode, QR)

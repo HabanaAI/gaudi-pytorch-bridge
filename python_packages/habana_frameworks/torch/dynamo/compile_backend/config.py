@@ -27,7 +27,7 @@ def _get_bool_from_env(env_var: str, default: str):
         return True
     if env_str_value in ["off", "0", "no", "false", "n", "f"]:
         return False
-    assert False, f"Unrecognized boolean value in env config:\n\t{env_var}: {env_str_value}"
+    raise AssertionError(f"Unrecognized boolean value in env config:\n\t{env_var}: {env_str_value}")
 
 
 def _get_decomp_mode(env_var: str, default: str):
@@ -37,7 +37,9 @@ def _get_decomp_mode(env_var: str, default: str):
         "inductor",
         "core_aten",
         "none",
-    ], f'Unrecognized string value in env config:\n\t{env_var}: {env_str_value}\n\tRecognized values: "habana", "core_aten", "none"\n'
+    ], (
+        f'Unrecognized string value in env config:\n\t{env_var}: {env_str_value}\n\tRecognized values: "habana", "core_aten", "none"\n'
+    )
     return env_str_value
 
 
@@ -63,7 +65,7 @@ inference = _get_bool_from_env("PT_HPU_USE_INFERENCE_COMPILER", "1")
 # enable sfg marking on collective inputs
 enable_sfg = _get_bool_from_env("PT_HPU_ENABLE_SFG", "0")
 # enables native implementation of the propose partitions pass
-use_cpp_partitioner = _get_bool_from_env("PT_HPU_USE_CPP_PARTITIONER", "1")
+use_cpp_partitioner = _get_bool_from_env("PT_HPU_USE_CPP_PARTITIONER", "0")
 enable_allreduce_graph_split = _get_bool_from_env("PT_HPU_ENABLE_ALLREDUCE_GRAPH_SPLIT", "1")
 enable_waittensor_graph_split = _get_bool_from_env("PT_HPU_ENABLE_WAITTENSOR_GRAPH_SPLIT", "1")
 # when set to 1, the compiled recipe is always static
@@ -76,6 +78,11 @@ reassign_copy_ = _get_bool_from_env("PT_HPU_REASSIGN_COPY_", "1")
 use_boxed_input = _get_bool_from_env("PT_HPU_USE_BOXED_INPUT", "1")
 use_generic_reinplacer = _get_bool_from_env("PT_HPU_USE_GENERIC_REINPLACER", "1")
 enable_synapse_input_reuse = _get_bool_from_env("PT_HPU_ENABLE_SYNAPSE_INPUT_REUSE", "1")
+enable_flex_attention = _get_bool_from_env("PT_HPU_ENABLE_FLEX_ATTENTION", "1")
+# when set to 1, keep only the static parts in cluster and fallback dynamic parts to eager
+fallback_dynamic_to_eager = _get_bool_from_env("PT_HPU_FALLBACK_DYNAMIC_TO_EAGER", "0")
+# insert debug NaN checks for compiled graphs
+enable_compile_debug_nan_checks = _get_bool_from_env("PT_HPU_COMPILE_DEBUG_NAN_ASSERTS", "0")
 
 # adds patch, save_config, etc
 install_config_module(sys.modules[__name__])

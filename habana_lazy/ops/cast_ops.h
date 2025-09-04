@@ -20,8 +20,7 @@
 #include "habana_lazy/ir.h"
 #include "torch/csrc/jit/ir/ir.h"
 
-namespace habana_lazy {
-namespace ir {
+namespace habana_lazy::ir {
 /*
  TODO: This is the Original implementation for Cast Operator
        where we pass the output of the cast as part of the input args,
@@ -74,5 +73,4 @@ class Cast : public Node {
   }
 };
 
-}; // namespace ir
-}; // namespace habana_lazy
+}; // namespace habana_lazy::ir

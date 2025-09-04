@@ -15,8 +15,8 @@
 
 #include <fcntl.h>
 #include <gtest/gtest.h>
-#include <stdio.h>
 #include <unistd.h>
+#include <cstdio>
 #include <memory>
 #include <stdexcept>
 #include "backend/synapse_helpers/mem_hlml.h"
@@ -91,7 +91,7 @@ TEST_F(MemHlMlReporterTests, PublishMemory) {
 
 TEST_F(MemHlMlReporterTests, PublishTimestamp) {
   auto old_value = ReadData().used_mem_in_bytes;
-  std::uint64_t ts = ::time(NULL);
+  std::uint64_t ts = ::time(nullptr);
   memory_reporter->PublishTimestamp(ts);
   ASSERT_EQ(ReadData().used_mem_in_bytes, old_value);
   AssertTimestamp(ts);
@@ -126,16 +126,16 @@ struct MemHlMlUpdaterTests : public MemHlMlReporterTests {
 TEST_F(MemHlMlUpdaterTests, InitialValue) {
   WaitForUpdate();
   ASSERT_EQ(memory_value, ReadData().used_mem_in_bytes);
-  AssertTimestamp(time(NULL));
+  AssertTimestamp(time(nullptr));
 }
 
 TEST_F(MemHlMlUpdaterTests, UpdatingValueInBackground) {
   memory_value = 0xbbcc;
   WaitForUpdate(2);
   ASSERT_EQ(memory_value, ReadData().used_mem_in_bytes);
-  AssertTimestamp(time(NULL), 3);
+  AssertTimestamp(time(nullptr), 3);
   memory_value = 0xddee;
   WaitForUpdate(2);
-  AssertTimestamp(time(NULL), 3);
+  AssertTimestamp(time(nullptr), 3);
   ASSERT_EQ(memory_value, ReadData().used_mem_in_bytes);
 }

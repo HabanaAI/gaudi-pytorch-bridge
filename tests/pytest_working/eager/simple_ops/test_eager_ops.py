@@ -24,7 +24,7 @@ import habana_frameworks.torch.utils.debug as htdebug
 import numpy as np
 import pytest
 import torch
-from test_utils import format_tc
+from test_utils import format_tc, is_gaudi1
 
 Verbose = False
 
@@ -52,7 +52,9 @@ def test_equal(data1, data2):
 
 
 @pytest.mark.parametrize(
-    "shape_in, shape_out", [((2, 3), (4, 6)), ((4, 6), (2, 3)), ((2, 3, 4, 5), (3, 4, 5, 6))], ids=format_tc
+    "shape_in, shape_out",
+    [((2, 3), (4, 6)), ((4, 6), (2, 3)), ((2, 3, 4, 5), (3, 4, 5, 6))],
+    ids=format_tc,
 )
 @pytest.mark.parametrize("blocking_flag", [True, False])
 def test_resize_inplace(shape_in, shape_out, blocking_flag):
@@ -776,16 +778,14 @@ def test_unique2_delegate(tensor_in, return_inverse, return_sorted, return_count
         feature_map_cpu = feature_map_cpu.sort()[0]
         feature_map = feature_map.sort()[0]
     assert torch.allclose(feature_map, feature_map_cpu)
-    if return_inverse:
+    if return_inverse and return_sorted:
         #     # NOTE - unique is nondeterministic when returning an unsorted result,
         #     # the inverse tensor will not be valid in such case, hence the disabled assertion
-        if return_sorted:
-            assert torch.equal(inverse, inverse_cpu)
-    if return_counts:
+        assert torch.equal(inverse, inverse_cpu)
+    if return_counts and return_sorted:
         #     # NOTE - unique is nondeterministic when returning an unsorted result,
         #     # the inverse tensor will not be valid in such case, hence the disabled assertion
-        if return_sorted:
-            assert torch.equal(counts, counts_cpu)
+        assert torch.equal(counts, counts_cpu)
 
 
 @pytest.mark.parametrize(
@@ -859,16 +859,14 @@ def test_unique2_tensor_delegate(tensor_in, return_inverse, return_sorted, retur
         feature_map_cpu = feature_map_cpu.sort()[0]
         feature_map = feature_map.sort()[0]
     assert torch.allclose(feature_map, feature_map_cpu)
-    if return_inverse:
+    if return_inverse and return_sorted:
         #     # NOTE - unique is nondeterministic when returning an unsorted result,
         #     # the inverse tensor will not be valid in such case, hence the disabled assertion
-        if return_sorted:
-            assert torch.equal(inverse, inverse_cpu)
-    if return_counts:
+        assert torch.equal(inverse, inverse_cpu)
+    if return_counts and return_sorted:
         #     # NOTE - unique is nondeterministic when returning an unsorted result,
         #     # the inverse tensor will not be valid in such case, hence the disabled assertion
-        if return_sorted:
-            assert torch.equal(counts, counts_cpu)
+        assert torch.equal(counts, counts_cpu)
 
 
 @pytest.mark.parametrize(
@@ -877,14 +875,23 @@ def test_unique2_tensor_delegate(tensor_in, return_inverse, return_sorted, retur
         torch.tensor([[11, 33, 22], [44, 55, 66], [77, 99, 99], [77, 99, 99]], dtype=torch.int32),
         torch.tensor([[11, 33, 11]], dtype=torch.int32),
         torch.tensor(
-            [[11.0, 33.0, 22.0], [44.0, 55.0, 66.0], [44.0, 55.0, 66.0], [44.0, 55.0, 66.0]], dtype=torch.float32
+            [
+                [11.0, 33.0, 22.0],
+                [44.0, 55.0, 66.0],
+                [44.0, 55.0, 66.0],
+                [44.0, 55.0, 66.0],
+            ],
+            dtype=torch.float32,
         ),
         torch.tensor([[11.0, 33.0, 11.0]], dtype=torch.float32),
         torch.empty((0, 4), dtype=torch.float32),
         torch.empty((0, 4), dtype=torch.int32),
         torch.randn([2, 4, 5, 7], dtype=torch.float32),
         torch.randint(-1000, 1000, (2, 4, 5, 7), dtype=torch.int32),
-        torch.tensor([[11.0, 33.0, 12.0], [44.0, 55.0, 66.0], [77.0, 99.0, 99.0]], dtype=torch.float32),
+        torch.tensor(
+            [[11.0, 33.0, 12.0], [44.0, 55.0, 66.0], [77.0, 99.0, 99.0]],
+            dtype=torch.float32,
+        ),
         torch.tensor([[44.0, 55.0, 66.0], [77.0, 99.0, 99.0]], dtype=torch.float32),
     ],
 )
@@ -909,6 +916,176 @@ def test_unique(tensor_in, return_inverse, return_sorted):
             assert torch.equal(inverse.to("cpu"), t2)
     else:
         assert isinstance(inverse, type(None))
+
+
+@pytest.mark.parametrize(
+    "tensor_in",
+    [
+        torch.tensor(
+            [[11, 33, 22], [44, 55, 66], [77, 99, 99], [77, 99, 99]],
+            dtype=torch.float32,
+        ),
+        torch.tensor([[11, 33, 11]], dtype=torch.int32),
+        torch.tensor(
+            [
+                [11.0, 33.0, 22.0],
+                [44.0, 55.0, 66.0],
+                [44.0, 55.0, 66.0],
+                [44.0, 55.0, 66.0],
+            ],
+            dtype=torch.float32,
+        ),
+        torch.tensor(
+            [
+                [[1, 2, 3, 2, 1], [4, 5, 6, 5, 4], [1, 2, 3, 2, 1]],
+                [[1, 2, 3, 2, 1], [4, 5, 6, 5, 4], [1, 2, 3, 2, 1]],
+            ],
+            dtype=torch.int32,
+        ),
+        torch.tensor([[11.0, 33.0, 11.0]], dtype=torch.float32),
+        torch.randn([2, 4, 5, 7], dtype=torch.float32),
+        torch.randint(-1000, 1000, (2, 4, 5, 7), dtype=torch.int32),
+        torch.randint(-1000, 1000, (2, 4), dtype=torch.int32),
+        torch.tensor(
+            [[11.0, 33.0, 12.0], [44.0, 55.0, 66.0], [77.0, 99.0, 99.0]],
+            dtype=torch.float32,
+        ),
+        torch.tensor([[44.0, 55.0, 66.0], [77.0, 99.0, 99.0]], dtype=torch.float32),
+    ],
+    ids=format_tc,
+)
+@pytest.mark.parametrize("return_inverse", [True, False])
+@pytest.mark.parametrize("return_counts", [True, False])
+def test_unique_dim_tensor(tensor_in, return_inverse, return_counts):
+    # Sorting works only on flattened intputs (dim == -5)
+    return_sorted = False
+    self = tensor_in
+    for dim_in in range(-tensor_in.dim(), tensor_in.dim()):
+        unique_cpu = torch.Tensor.unique(
+            self,
+            dim=dim_in,
+            sorted=return_sorted,
+            return_inverse=return_inverse,
+            return_counts=return_counts,
+        )
+
+        unique_hpu = torch.Tensor.unique(
+            self.to("hpu"),
+            dim=dim_in,
+            sorted=return_sorted,
+            return_inverse=return_inverse,
+            return_counts=return_counts,
+        )
+
+        if return_counts and return_inverse:
+            feature_map_cpu, inverse_cpu, counts_cpu = unique_cpu
+            feature_map, inverse, counts = unique_hpu
+        if return_counts and not return_inverse:
+            feature_map_cpu, counts_cpu = unique_cpu
+            feature_map, counts = unique_hpu
+        if not return_counts and return_inverse:
+            feature_map_cpu, inverse_cpu = unique_cpu
+            feature_map, inverse = unique_hpu
+        if not return_counts and not return_inverse:
+            feature_map_cpu = unique_cpu
+            feature_map = unique_hpu
+
+        feature_map_cpu = feature_map_cpu.sort(dim_in)[0]
+        feature_map = feature_map.to("cpu").sort(dim_in)[0]
+        assert torch.allclose(feature_map, feature_map_cpu)
+        if return_inverse:
+            inverse_cpu = inverse_cpu.sort()[0]
+            inverse = inverse.to("cpu").sort()[0]
+            assert torch.equal(inverse, inverse_cpu)
+        if return_counts:
+            counts_cpu = counts_cpu.sort()[0]
+            counts = counts.to("cpu").sort()[0]
+            assert torch.equal(counts, counts_cpu)
+
+
+@pytest.mark.parametrize(
+    "tensor_in",
+    [
+        torch.tensor(
+            [[11, 33, 22], [44, 55, 66], [77, 99, 99], [77, 99, 99]],
+            dtype=torch.float32,
+        ),
+        torch.tensor([[11, 33, 11]], dtype=torch.int32),
+        torch.tensor(
+            [
+                [11.0, 33.0, 22.0],
+                [44.0, 55.0, 66.0],
+                [44.0, 55.0, 66.0],
+                [44.0, 55.0, 66.0],
+            ],
+            dtype=torch.float32,
+        ),
+        torch.tensor(
+            [
+                [[1, 2, 3, 2, 1], [4, 5, 6, 5, 4], [1, 2, 3, 2, 1]],
+                [[1, 2, 3, 2, 1], [4, 5, 6, 5, 4], [1, 2, 3, 2, 1]],
+            ],
+            dtype=torch.int32,
+        ),
+        torch.tensor([[11.0, 33.0, 11.0]], dtype=torch.float32),
+        torch.randn([2, 4, 5, 7], dtype=torch.float32),
+        torch.randint(-1000, 1000, (2, 4, 5, 7), dtype=torch.int32),
+        torch.randint(-1000, 1000, (2, 4), dtype=torch.int32),
+        torch.tensor(
+            [[11.0, 33.0, 12.0], [44.0, 55.0, 66.0], [77.0, 99.0, 99.0]],
+            dtype=torch.float32,
+        ),
+        torch.tensor([[44.0, 55.0, 66.0], [77.0, 99.0, 99.0]], dtype=torch.float32),
+    ],
+    ids=format_tc,
+)
+@pytest.mark.parametrize("return_inverse", [True, False])
+@pytest.mark.parametrize("return_counts", [True, False])
+def test_unique_dim(tensor_in, return_inverse, return_counts):
+    # Sorting works only on flattened intputs (dim == -5)
+    return_sorted = False
+    self = tensor_in
+    for dim_in in range(-tensor_in.dim(), tensor_in.dim()):
+        unique_cpu = torch.unique(
+            self,
+            dim=dim_in,
+            sorted=return_sorted,
+            return_inverse=return_inverse,
+            return_counts=return_counts,
+        )
+
+        unique_hpu = torch.unique(
+            self.to("hpu"),
+            dim=dim_in,
+            sorted=return_sorted,
+            return_inverse=return_inverse,
+            return_counts=return_counts,
+        )
+
+        if return_counts and return_inverse:
+            feature_map_cpu, inverse_cpu, counts_cpu = unique_cpu
+            feature_map, inverse, counts = unique_hpu
+        if return_counts and not return_inverse:
+            feature_map_cpu, counts_cpu = unique_cpu
+            feature_map, counts = unique_hpu
+        if not return_counts and return_inverse:
+            feature_map_cpu, inverse_cpu = unique_cpu
+            feature_map, inverse = unique_hpu
+        if not return_counts and not return_inverse:
+            feature_map_cpu = unique_cpu
+            feature_map = unique_hpu
+
+        feature_map_cpu = feature_map_cpu.sort(dim_in)[0]
+        feature_map = feature_map.to("cpu").sort(dim_in)[0]
+        assert torch.allclose(feature_map, feature_map_cpu)
+        if return_inverse:
+            inverse_cpu = inverse_cpu.sort()[0]
+            inverse = inverse.to("cpu").sort()[0]
+            assert torch.equal(inverse, inverse_cpu)
+        if return_counts:
+            counts_cpu = counts_cpu.sort()[0]
+            counts = counts.to("cpu").sort()[0]
+            assert torch.equal(counts, counts_cpu)
 
 
 # For Scalars to() operator and item() are going with different paths for scalars
@@ -1172,6 +1349,7 @@ def test_sag_zst_1d():
     assert torch.equal(e.cpu(), torch.mul(d.cpu(), 2))
 
 
+@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported test")
 def test_sag_conv_bwd_view():
     for N, C, H, W, C2 in [
         [2, 4, 7, 7, 3],
@@ -1344,7 +1522,9 @@ def test_tensor_containing_scalar():
     assert torch.equal(output, output_hpu.cpu())
 
 
-dtypes = [torch.bfloat16, torch.float, torch.int, torch.long]
+dtypes = [torch.bfloat16, torch.float, torch.int]
+if not is_gaudi1():
+    dtypes.append(torch.long)
 
 
 @pytest.mark.parametrize("dtype", dtypes, ids=format_tc)
@@ -1386,6 +1566,7 @@ def test_shape_agnostic_helper():
 
 
 # test node params patching for cat op
+@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported test")
 def test_sag_cat_node_params():
     params = [0, 2]
 
@@ -1410,6 +1591,7 @@ def test_sag_cat_node_params():
 
 
 # test node params patching for topk op
+@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported test")
 def test_sag_topk_node_params_2():
     params = [3, 5]
 
@@ -1431,6 +1613,7 @@ def test_sag_topk_node_params_2():
 
 
 # test node params patching for arange op
+@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported test")
 def test_sag_arange_node_params():
     params = [1, 2]
 
@@ -1452,6 +1635,7 @@ def test_sag_arange_node_params():
 
 
 # test node params patching for upsample nearest 2d op
+@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported test")
 def test_sag_upsample_nearest_2d_node_params():
     params = [2, 3]
 
@@ -1474,6 +1658,7 @@ def test_sag_upsample_nearest_2d_node_params():
 
 
 # test node params patching for upsample nearest 1d op
+@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported test")
 def test_sag_upsample_nearest_1d_node_params():
     params = [2, 3]
 
@@ -1496,6 +1681,7 @@ def test_sag_upsample_nearest_1d_node_params():
 
 
 # test node params patching for upsample nearest 3d op
+@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported test")
 def test_sag_upsample_nearest_3d_node_params():
     params = [2, 3]
 
@@ -1518,6 +1704,7 @@ def test_sag_upsample_nearest_3d_node_params():
 
 
 # test node params patching for upsample bilinear 2d op
+@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported test")
 def test_sag_upsample_bilinear_2d_node_params():
     params = [2, 3]
 
@@ -1540,6 +1727,7 @@ def test_sag_upsample_bilinear_2d_node_params():
 
 
 # test node params patching for upsample bicubic 2d op
+@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported test")
 def test_sag_upsample_bicubic_2d_node_params():
     params = [2, 3]
 
@@ -1562,6 +1750,7 @@ def test_sag_upsample_bicubic_2d_node_params():
 
 
 # test node params patching for upsample linear 1d op
+@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported test")
 def test_sag_upsample_linear_1d_node_params():
     pytest.xfail("[SW-198691] Param agnostic flow disabled for UpsampleLinear1D, needs correction")
     params = [2, 3]
@@ -1585,6 +1774,7 @@ def test_sag_upsample_linear_1d_node_params():
 
 
 # test node params patching for upsample bilinear 2d backward op
+@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported test")
 def test_sag_upsample_bilinear_2d_backward_node_params():
     params = [True, False]
 
@@ -1615,6 +1805,7 @@ def test_sag_upsample_bilinear_2d_backward_node_params():
 
 
 # test node params patching for upsample bicubic 2d backward op
+@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported test")
 def test_sag_upsample_bicubic_2d_backward_node_params():
     params = [True, False]
 
@@ -1645,6 +1836,7 @@ def test_sag_upsample_bicubic_2d_backward_node_params():
 
 
 # test node params patching for resize op
+@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported test")
 def test_empty_resize_node_params():
     params = [10, 20]
 
@@ -1663,6 +1855,7 @@ def test_empty_resize_node_params():
 
 
 # test node params patching for scatter op
+@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported test")
 def test_scatter_node_params():
     params = [0, 1]
 
@@ -1703,6 +1896,7 @@ def test_sag_section_validation_issue():
         assert torch.equal(a, a_h.cpu())
 
 
+@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported test")
 def test_sag_lerp():
     params = [((2, 2), 10), ((4, 4), 20)]
 
@@ -1724,16 +1918,18 @@ def test_sag_lerp():
 def test_lop():
     metrics_pattern = r"metrics_pid\d+\.json"
     traces_pattern = r"events_pid\d+\.json"
-    files = os.listdir()
+    logpath = os.getenv("HABANA_LOGS")
+    files = os.listdir(logpath)
 
     metrics_files = [f for f in files if re.match(metrics_pattern, f)]
     traces_files = [f for f in files if re.match(traces_pattern, f)]
 
     for f in metrics_files + traces_files:
-        os.remove(f)
+        os.remove(os.path.join(logpath, f))
 
-    assert not any(re.match(metrics_pattern, f) for f in os.listdir()), "Metrics files already present before the test."
-    assert not any(re.match(traces_pattern, f) for f in os.listdir()), "Trace files already present before the test."
+    files = os.listdir(logpath)
+    assert not any(re.match(metrics_pattern, f) for f in files), "Metrics files already present before the test."
+    assert not any(re.match(traces_pattern, f) for f in files), "Trace files already present before the test."
 
     cpu_tensor = torch.Tensor(np.arange(-10.0, 10.0, 0.1))
     hpu_tensor = cpu_tensor.to("hpu")
@@ -1752,18 +1948,22 @@ def test_lop():
 
         if i == 9:
             lop.stop()
-            lop.flush()
+            lop.flush(
+                True
+            )  # enabling dump_traces which will help dumping the traces in json file even if PT_HPU_ENABLE_LOP_TRACES_COLLECTION is false
 
-    metrics_files = [f for f in os.listdir() if re.match(metrics_pattern, f)]
+    files = os.listdir(logpath)
+    metrics_files = [f for f in files if re.match(metrics_pattern, f)]
     assert metrics_files, "No metrics files found."
-    traces_files = [f for f in os.listdir() if re.match(traces_pattern, f)]
+    traces_files = [f for f in files if re.match(traces_pattern, f)]
     assert traces_files, "No traces files found."
 
     for f in metrics_files + traces_files:
-        os.remove(f)
+        os.remove(os.path.join(logpath, f))
 
 
 # test node params patching for masked_fill op
+@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported test")
 def test_sag_masked_fill_node_params():
     a = torch.rand((2, 3), dtype=torch.bfloat16)
     a_hpu = a.to("hpu")
@@ -1781,6 +1981,7 @@ def test_sag_masked_fill_node_params():
 
 
 # test node params patching for efficientzerotensor op
+@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported test")
 def test_efficientzerotensor_node_params():
     params = [(10), (20)]
 
@@ -1799,6 +2000,7 @@ def test_efficientzerotensor_node_params():
 
 
 # test node params patching for efficientzerotensor op
+@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported test")
 def test_efficientzerotensor_node_params_2():
     params = [torch.float32, torch.int32]
 
@@ -1817,8 +2019,8 @@ def test_efficientzerotensor_node_params_2():
 
 
 # test for fix in SW-192192
+@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported test")
 def test_h2d_copy_race_condition_fix():
-
     t1 = torch.arange(1, 5, dtype=torch.bfloat16)
     t2 = torch.arange(1, 5, dtype=torch.bfloat16)
     for _ in range(5):
@@ -1835,3 +2037,30 @@ def test_local_scalar_to_dense():
     t1 = torch.tensor(6, dtype=torch.bfloat16)
     t1_hpu = t1.to("hpu", non_blocking=True)
     assert t1.item() == t1_hpu.item()
+
+
+def test_compute_user_stream():
+    inp_linear = torch.randn(256, 256).to("hpu")
+    linear = torch.nn.Linear(256, 256).to("hpu")
+
+    inp_add = torch.zeros((256, 256), device="hpu")
+    out_add = torch.empty((256, 256), device="hpu")
+
+    # create user stream
+    stream = torch.Stream("hpu")
+    hpu_stream = torch.hpu.Stream(
+        stream_id=stream.stream_id,
+        device_index=stream.device_index,
+        device_type=stream.device_type,
+    )
+
+    # MME OP default compute stream
+    out_linear = linear(inp_linear)
+
+    # TPC ops on different compute stream
+    with torch.hpu.stream(hpu_stream):
+        torch.add(inp_add, 2, out=out_add)
+
+    t1 = out_add.to("cpu")
+    t2 = out_linear.to("cpu")
+    assert t1.shape == t2.shape

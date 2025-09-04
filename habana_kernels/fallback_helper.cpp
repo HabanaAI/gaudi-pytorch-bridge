@@ -20,7 +20,7 @@ void HpuFallbackHelper::enumerate_fallback() {
   std::string fallback_list = GET_ENV_FLAG_NEW(PT_HPU_PLACE_ON_CPU);
 
   if (!fallback_list.empty()) {
-    std::stringstream ss(fallback_list.c_str());
+    std::stringstream ss(fallback_list);
     while (ss.good()) {
       enable_fallback = false;
       std::string substr;

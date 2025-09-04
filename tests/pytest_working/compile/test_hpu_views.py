@@ -17,7 +17,10 @@
 import pytest
 import torch
 import torch.nn.functional as F
-from test_utils import compile_function_if_compile_mode
+from test_utils import (
+    compile_function_if_compile_mode,
+    env_var_in_scope,
+)
 
 
 def test_hpu_multilevel_noncontiguous_views():
@@ -108,7 +111,6 @@ def test_hpu_multilevel_views_inplace():
 
 def test_hpu_leaf_views_test():
     def fn(x, y, z):
-
         hx = x.to("hpu")
         hy = y.to("hpu")
         hz = z.to("hpu")
@@ -193,6 +195,23 @@ def test_hpu_multilevel_view_dtype():
     compiled_fn = compile_function_if_compile_mode(fn)
     res_hpu = compiled_fn(y_hpu)
 
+    assert torch.allclose(res_ref, res_hpu.cpu(), atol=0.001, rtol=0.001)
+
+
+@pytest.mark.parametrize("out_dtype", [torch.float16, torch.bfloat16, torch.int16, torch.int8])
+def test_hpu_view_dtype(out_dtype):
+    def fn(a):
+        b = a.to(torch.bfloat16)
+        return b.view(out_dtype)
+
+    x = torch.arange(8, dtype=torch.float32)
+
+    res_ref = fn(x)
+
+    compiled_fn = compile_function_if_compile_mode(fn)
+    res_hpu = compiled_fn(x.to("hpu"))
+
+    assert res_ref.dtype == res_hpu.dtype
     assert torch.allclose(res_ref, res_hpu.cpu(), atol=0.001, rtol=0.001)
 
 
@@ -405,7 +424,13 @@ def test_output_alias_of_intermidate_base_tensor():
     input_shape = [1, 8, 8]
 
     def raw_function(x):
-        y = torch.nn.AvgPool1d(kernel_size=[5], stride=[5], padding=0, ceil_mode=False, count_include_pad=True)(x)
+        y = torch.nn.AvgPool1d(
+            kernel_size=[5],
+            stride=[5],
+            padding=0,
+            ceil_mode=False,
+            count_include_pad=True,
+        )(x)
         return y
 
     compiled_fn = compile_function_if_compile_mode(raw_function)
@@ -447,3 +472,88 @@ def test_leaf_views_post_fx_partitions():
     hpu_out = hpu_model(t1.to("hpu"), t2.to("hpu"))
 
     assert torch.allclose(hpu_out.to("cpu"), ref_out, atol=0.001, rtol=0.001)
+
+
+def test_leaf_unsqueeze_post_partition():
+    """
+    In this test, the "unsafe_index" gets executed eagerly causing
+    a graph break. The "unsqueeze" becomes a leaf node in the first
+    submodule and returned for used by the second submodule.
+    """
+
+    def fn(input):
+        x = input * 3
+        # unsqueeze becomes a leaf node and returns from the first module.
+        y = torch.ops.aten.unsqueeze(input, 0)
+        z = y / 3
+        idx = torch.arange(64, device=input.device).to(torch.int64)
+        v = torch.ops.aten._unsafe_index(z, [None, idx])
+        w = y + v
+        return w
+
+    compiled_fn = compile_function_if_compile_mode(fn, options={"use_eager_fallback": True})
+
+    t = torch.rand(64, dtype=torch.float32)
+
+    # cpu
+    ref_out = fn(t)
+
+    # hpu
+    hpu_out = compiled_fn(t.to("hpu"))
+
+    assert torch.allclose(hpu_out.to("cpu"), ref_out, atol=0.001, rtol=0.001)
+
+
+def test_leaf_slice_post_partition():
+    """
+    In this test, the "unsafe_index" gets executed eagerly causing
+    a graph break. The "slice" becomes a leaf node in the first
+    submodule and returned for used by the second submodule.
+    """
+
+    def fn(input):
+        x = input * 3
+        # slice becomes a leaf node and returns from the first module.
+        y = x[0:64]
+        z = y / 3
+        idx = torch.arange(64, device=input.device).to(torch.int64)
+        v = torch.ops.aten._unsafe_index(z, [idx])
+        w = y + v
+        return w
+
+    compiled_fn = compile_function_if_compile_mode(fn, options={"use_eager_fallback": True})
+
+    t = torch.rand(128, dtype=torch.float32)
+
+    # cpu
+    ref_out = fn(t)
+
+    # hpu
+    hpu_out = compiled_fn(t.to("hpu"))
+
+    assert torch.allclose(hpu_out.to("cpu"), ref_out, atol=0.001, rtol=0.001)
+
+
+@pytest.mark.parametrize("shape", [(4,), (4, 8)])
+@pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16, torch.float16, torch.uint8])
+def test_view_dtype(shape, dtype):
+    with env_var_in_scope(
+        {
+            "PT_HPU_USE_JIT_FORK": "1",
+        }
+    ):
+
+        def fn(x):
+            x = x.view(torch.float16).float()
+            return x
+
+        # CPU
+        x = torch.randint(128, shape, dtype=dtype)
+        hx = x.to("hpu")
+        res = fn(x)
+
+        # HPU
+        compiled_fn = compile_function_if_compile_mode(fn)
+        hres = compiled_fn(hx)
+
+        assert torch.allclose(hres.cpu(), res, atol=0.001, rtol=0.001)

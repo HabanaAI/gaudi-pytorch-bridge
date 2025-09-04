@@ -40,7 +40,7 @@ from .quantization import (
 # expose lazy-only APIs
 from .step_closure import add_step_closure, iter_mark_step, mark_step
 from .torch_overwrites import (
-    overwrite_export_function,
+    overwrite_export_functions,
     overwrite_native_pt2e_quantization_interface,
     overwrite_torch_functions,
 )
@@ -50,7 +50,7 @@ torch._register_device_module("hpu", hpu)
 
 # wrap some torch functionalitis required to work with HPU
 overwrite_torch_functions()
-overwrite_export_function()
+overwrite_export_functions()
 
 # this is to prevent potential circular imports caused by the function *overwrite_native_pt2e_quantization_interface()*
 from functools import wraps

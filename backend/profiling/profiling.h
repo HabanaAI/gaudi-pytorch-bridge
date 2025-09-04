@@ -24,8 +24,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace habana {
-namespace profile {
+namespace habana::profile {
 
 std::string getThreadName();
 
@@ -148,5 +147,4 @@ void trace_end(std::string_view id);
 bool is_enabled(std::string_view id);
 }; // namespace bridge
 
-}; // namespace profile
-}; // namespace habana
+}; // namespace habana::profile

@@ -23,7 +23,13 @@ from habana_frameworks.torch.hpex.optimizers import FusedAdamW
 from habana_frameworks.torch.hpex.optimizers.distributed import (
     FusedAdamW as DistributedFusedAdamW,
 )
-from test_utils import format_tc, is_pytest_mode_compile
+from test_utils import (
+    compile_function_if_compile_mode,
+    format_tc,
+    is_gaudi1,
+    is_pytest_mode_compile,
+    is_pytest_mode_lazy,
+)
 from torch.optim import AdamW
 
 lr = 0.1
@@ -31,8 +37,12 @@ betas = (0.9, 0.99)
 weight_decay = 0.1
 eps = 1.0e-6
 shapes = [(3, 4), (5, 6)]
-moments_dtypes = [None, torch.bfloat16, torch.float32, (torch.float8_e4m3fn, torch.float8_e5m2)]
+moments_dtypes = [None, torch.bfloat16, torch.float32]
 dtypes = [torch.bfloat16, torch.float32]
+
+
+if not is_gaudi1():
+    moments_dtypes.append((torch.float8_e4m3fn, torch.float8_e5m2))
 
 
 class Net(torch.nn.Module):
@@ -88,9 +98,10 @@ def create_tensors(shapes, dtype):
         cpu_tensor.grad = torch.randn_like(cpu_tensor)
         cpu_tensors.append(cpu_tensor)
 
-        hpu_tensor = cpu_tensor.to("hpu")
+        hpu_tensor = cpu_tensor.detach().to("hpu")
+        hpu_tensor.requires_grad_(True)
         hpu_tensor.retain_grad()
-        hpu_tensor.grad = cpu_tensor.grad.to("hpu")
+        hpu_tensor.grad = cpu_tensor.grad.detach().to("hpu")
         hpu_tensors.append(hpu_tensor)
     return cpu_tensors, hpu_tensors
 
@@ -174,4 +185,31 @@ def test_adamw_distributed(dtype, moments_dtype):
 
     for cpu_tensor, hpu_tensor in zip(cpu_tensors, hpu_tensors, strict=False):
         rtol, atol = get_tolerances(cpu_tensor.dtype, moments_dtype)
+        torch.testing.assert_close(cpu_tensor, hpu_tensor.cpu(), rtol=rtol, atol=atol)
+
+
+@pytest.mark.skipif(is_pytest_mode_lazy(), reason="Test is not adjusted to lazy mode")
+@pytest.mark.parametrize("dtype", [torch.float32, torch.bfloat16], ids=format_tc)
+@pytest.mark.parametrize(
+    "fused",
+    [
+        True,
+    ],
+)
+def test_adamw_native(dtype, fused):
+    def fn(tensors, lr, weight_decay, betas, eps, fused):
+        return AdamW(tensors, lr=lr, weight_decay=weight_decay, betas=betas, eps=eps, foreach=False, fused=fused)
+
+    cpu_tensors, hpu_tensors = create_tensors(shapes, dtype)
+    cpu_optimizer = fn(cpu_tensors, lr, weight_decay, betas, eps, fused)
+
+    fn = compile_function_if_compile_mode(fn)
+    hpu_optimizer = fn(hpu_tensors, lr, weight_decay, betas, eps, fused)
+
+    for _ in range(10):
+        cpu_optimizer.step()
+        hpu_optimizer.step()
+
+    for cpu_tensor, hpu_tensor in zip(cpu_tensors, hpu_tensors, strict=False):
+        rtol, atol = get_tolerances(cpu_tensor.dtype, cpu_tensor.dtype)
         torch.testing.assert_close(cpu_tensor, hpu_tensor.cpu(), rtol=rtol, atol=atol)

@@ -24,8 +24,7 @@
 
 #include "jit_fork/ir/ir.h"
 
-namespace habana_torch {
-namespace jit {
+namespace habana_torch::jit {
 
 struct TORCH_API HashNode {
   size_t operator()(const Node* k) const;
@@ -35,5 +34,4 @@ struct TORCH_API EqualNode {
   bool operator()(const Node* lhs, const Node* rhs) const;
 };
 
-} // namespace jit
-} // namespace habana_torch
+} // namespace habana_torch::jit

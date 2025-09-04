@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,9 +20,12 @@
 #include <sys/syscall.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include "logging.h"
 
 // -------------- HL LOG ----------------
 namespace HlLogger {
+constexpr auto logFileSize3GB = 3U * 1024U * 1024U * 1024U;
+constexpr auto logFileBufferSize4MB = 4UL * 1024UL * 1024UL;
 // create loggers (all the log files are created immediately when the module is
 // loaded)
 static void createModuleLoggers(LoggerType) {}
@@ -39,8 +42,8 @@ static void createModuleLoggerOnDemandForTowl() {
   }
   default_params.rotateLogfileOnOpen = true;
   default_params.logFileAmount = GET_ENV_FLAG_NEW(PT_TOWL_LOG_FILE_AMOUNT);
-  default_params.logFileSize = 3u * 1024u * 1024ul * 1024u;
-  default_params.logFileBufferSize = 4u * 1024u * 1024u;
+  default_params.logFileSize = logFileSize3GB;
+  default_params.logFileBufferSize = logFileBufferSize4MB;
   default_params.defaultLoggingLevel = HLLOG_LEVEL_DEBUG;
   default_params.forceDefaultLoggingLevel = true;
   hl_logger::createLoggersOnDemand({LoggerType::PT_TOWL}, default_params);
@@ -49,9 +52,11 @@ static void createModuleLoggerOnDemandForTowl() {
 // log files created when the first message is logged into such logger
 // this is a recommended way of loggers creation
 static void createModuleLoggersOnDemand(LoggerType) {
-  hl_logger::LoggerCreateParams default_params, trace_params;
-  default_params.logFileName = "pytorch_log.txt";
-  default_params.logFileAmount = GET_ENV_FLAG_NEW(PT_LOG_FILE_AMOUNT);
+  hl_logger::LoggerCreateParams logging_params;
+  logging_params.logFileName = "pytorch_log.txt";
+  logging_params.logFileAmount = GET_ENV_FLAG_NEW(PT_LOG_FILE_AMOUNT);
+  logging_params.logFileSize =
+      GET_ENV_FLAG_NEW(PT_LOG_FILE_SIZE_MB) * 1024U * 1024U;
   hl_logger::createLoggersOnDemand(
       {LoggerType::PT_DEVICE,      LoggerType::PT_KERNEL,
        LoggerType::PT_BRIDGE,      LoggerType::PT_SYNHELPER,
@@ -66,14 +71,15 @@ static void createModuleLoggersOnDemand(LoggerType) {
        LoggerType::PT_EXEC_THREAD, LoggerType::PT_EAGER,
        LoggerType::PT_CUSTOM,      LoggerType::PT_RECIPE_STATS,
        LoggerType::PT_HPUGRAPH,    LoggerType::PT_CONST_SECTION,
-       LoggerType::PT_PYTHON},
-      default_params);
+       LoggerType::PT_PYTHON,      LoggerType::PT_CACHE},
+      logging_params);
 
-  trace_params.logFileName = "pytorch_log.txt";
-  trace_params.defaultLoggingLevel = HLLOG_LEVEL_TRACE;
-  trace_params.forceDefaultLoggingLevel = true;
+  // PT_TRACE logger category is a trick to support generic method
+  // for trace-level logging on any module within PTFuncLog class
+  logging_params.defaultLoggingLevel = HLLOG_LEVEL_TRACE;
+  logging_params.forceDefaultLoggingLevel = true;
+  hl_logger::createLoggerOnDemand(LoggerType::PT_TRACE, logging_params);
 
-  hl_logger::createLoggerOnDemand(LoggerType::PT_TRACE, trace_params);
   // Guarded by additional flag to not enable towl logger
   // by using common flags like LOG_LEVEL_ALL_PT
   if (true or GET_ENV_FLAG_NEW(PT_TOWL_LOG_ENABLE)) {
@@ -123,6 +129,7 @@ HLLOG_DEFINE_MODULE_LOGGER(
     PT_CONST_SECTION,
     PT_PYTHON,
     PT_TOWL,
+    PT_CACHE,
     LOG_MAX)
 // -------------- HL LOG ----------------
 
@@ -147,7 +154,7 @@ std::string synStatusToStr(synStatus statusArg) {
       return statusStr[idx];
     } else {
       PT_BRIDGE_WARN("Could not get translation for synStatus: ", statusArg);
-      return std::string("UnkownDescription");
+      return {"UnknownDescription"};
     }
   }
 
@@ -190,7 +197,7 @@ void habana_assert(
       c10::detail::StripBasename(file),
       ":",
       line);
-  typedef std::shared_ptr<c10::PrecomputedLazyValue<std::string>> MsgPtr;
+  using MsgPtr = std::shared_ptr<c10::PrecomputedLazyValue<std::string>>;
   MsgPtr msgPtr(new c10::PrecomputedLazyValue<std::string>(logmsg));
   throw c10::Error(msg, msgPtr);
 }

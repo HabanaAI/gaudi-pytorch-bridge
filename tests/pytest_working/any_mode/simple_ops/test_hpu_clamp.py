@@ -19,7 +19,7 @@ from enum import Enum
 import numpy as np
 import pytest
 import torch
-from test_utils import compare_tensors, compile_function_if_compile_mode
+from test_utils import compare_tensors, compile_function_if_compile_mode, is_gaudi1
 
 
 class Mode(Enum):
@@ -43,7 +43,9 @@ modes = [
     (Mode.NONE, Mode.TENSOR_FULL),
 ]
 
-dtypes = [torch.float32, torch.bfloat16, torch.int, torch.long, torch.half, torch.float8_e5m2, torch.float8_e4m3fn]
+dtypes = [torch.float32, torch.bfloat16, torch.int, torch.long]
+if not is_gaudi1():
+    dtypes += [torch.half, torch.float8_e5m2, torch.float8_e4m3fn]
 
 
 LIMIT_SCALE = 10
@@ -73,8 +75,7 @@ def test_clamp(shape, min_mode, max_mode, dtype):
     if pytest.mode == "compile":
         pytest.skip(reason="https://jira.habana-labs.com/browse/SW-167770")
     if (
-        pytest.mode == "compile"
-        and dtype in [torch.float8_e5m2, torch.float8_e4m3fn]
+        pytest.mode == "compile" and dtype in [torch.float8_e5m2, torch.float8_e4m3fn]
         # Below configuration is caused by https://jira.habana-labs.com/browse/SW-163439
         # but it's overriden by the SW-163692.
         # and min_mode == Mode.NONE

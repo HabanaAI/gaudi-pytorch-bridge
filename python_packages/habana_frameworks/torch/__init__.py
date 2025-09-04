@@ -41,9 +41,9 @@ with open(REQUIRED_VERSION_FILE_PATH) as req_ver_file:
 run_time_ver = Version(torch.__version__)
 is_torch_fork = run_time_ver.local.startswith("git") or run_time_ver.local.startswith("hpu")
 
-assert (
-    run_time_ver.major == compile_time_ver.major and run_time_ver.minor == compile_time_ver.minor
-), f"Error: Compile-time major/minor PyTorch version {compile_time_ver} differs from run-time {run_time_ver}."
+assert run_time_ver.major == compile_time_ver.major and run_time_ver.minor == compile_time_ver.minor, (
+    f"Error: Compile-time major/minor PyTorch version {compile_time_ver} differs from run-time {run_time_ver}."
+)
 
 if is_lazy():
     assert is_torch_fork, f"Stock PyTorch version {run_time_ver} is not supported in Lazy mode."
@@ -66,3 +66,10 @@ if bc.get_pt_hpu_gpu_migration():
             "ImportError: no module named habana_frameworks.torch.gpu_migration. "
             "Check if GPU Migration Toolkit package is installed. "
         )
+
+try:
+    from habana_frameworks.torch.version import __version__, version
+except ImportError:
+    warnings.warn(
+        "Failed loading version info for habana_frameworks.torch. You are probably importing directly from repository. The version info will not be available."
+    )

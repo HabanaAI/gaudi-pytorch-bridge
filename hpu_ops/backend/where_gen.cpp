@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -121,9 +121,7 @@ FALLBACK_CHECK(
     case torch::kUInt8:
     case torch::kInt16:
     case torch::kInt8:
-      return true;
-    // When Int64 isn't supported kInt64 is actually of type Int32
-    case torch::kInt64:
+    case torch::kInt64: // When Int64 isn't supported kInt64 is actually of type Int32
       return true;
     case torch::kHalf: {
       return synapse_helpers::device_supports_fp16(

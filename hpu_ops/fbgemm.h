@@ -66,19 +66,31 @@ struct LazyPermuteSparseDataCommon : OpBackend {
   }
 };
 
-struct LazyPermute1DSparseData : LazyPermuteSparseDataCommon {
-  LazyPermute1DSparseData(
+struct LazyPermute1DSparseDataWithWeights : LazyPermuteSparseDataCommon {
+  LazyPermute1DSparseDataWithWeights(
       int device_id,
-      c10::ScalarType scalar_type,
-      bool hasWeights);
+      c10::ScalarType scalar_type);
   void AddNode(synapse_helpers::graph&, const at::Stack&) override;
 };
 
-struct LazyPermute2DSparseData : LazyPermuteSparseDataCommon {
-  LazyPermute2DSparseData(
+struct LazyPermute1DSparseDataWithoutWeights : LazyPermuteSparseDataCommon {
+  LazyPermute1DSparseDataWithoutWeights(
       int device_id,
-      c10::ScalarType scalar_type,
-      bool hasWeights);
+      c10::ScalarType scalar_type);
+  void AddNode(synapse_helpers::graph&, const at::Stack&) override;
+};
+
+struct LazyPermute2DSparseDataWithWeights : LazyPermuteSparseDataCommon {
+  LazyPermute2DSparseDataWithWeights(
+      int device_id,
+      c10::ScalarType scalar_type);
+  void AddNode(synapse_helpers::graph&, const at::Stack&) override;
+};
+
+struct LazyPermute2DSparseDataWithoutWeights : LazyPermuteSparseDataCommon {
+  LazyPermute2DSparseDataWithoutWeights(
+      int device_id,
+      c10::ScalarType scalar_type);
   void AddNode(synapse_helpers::graph&, const at::Stack&) override;
 };
 

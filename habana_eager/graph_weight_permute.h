@@ -19,8 +19,7 @@
 
 #include "backend/backend_meta.h"
 
-namespace habana {
-namespace graph {
+namespace habana::graph {
 struct PermuteWeightTensor {
   explicit PermuteWeightTensor(const torch::Tensor& weight);
   void PermuteIfNeeded();
@@ -36,5 +35,4 @@ struct PermuteWeightTensor {
   StorageExtraMeta* m_storage_meta;
 };
 
-} // namespace graph
-} // namespace habana
+} // namespace habana::graph

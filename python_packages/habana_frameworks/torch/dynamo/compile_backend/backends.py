@@ -58,7 +58,7 @@ def hpu_backend(graph_module: torch.fx.GraphModule, example_inputs: list[torch.T
     if bc.get_pt_hpu_disallow_torch_compile():
         raise RuntimeError("Use of torch.compile is prohibited by PT_HPU_DISALLOW_TORCH_COMPILE.")
 
-    options = kwargs["options"] if "options" in kwargs else None
+    options = kwargs.get("options")
 
     inference_compiler = partial(hpu_inference_compiler, dyn_graph_module=graph_module)
 

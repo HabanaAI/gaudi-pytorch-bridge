@@ -120,9 +120,7 @@ def get_version_args(profile):
 def get_args_for_profile(profile_name):
     profiles_json = get_profiles_json()
     selected_profile = profiles_json["profiles"][profile_name]
-    additional_build_flags = (
-        selected_profile["additional_build_flags"] if "additional_build_flags" in selected_profile else []
-    )
+    additional_build_flags = selected_profile.get("additional_build_flags", [])
     version_args = get_version_args(selected_profile)
     return additional_build_flags + version_args
 
@@ -201,7 +199,7 @@ def get_cmakelists_supported_vers():
     return ";".join(
         {
             f"{version[0]}\\.{version[1]}\\..*"
-            for version in map(lambda ver_source: ver_source.version.split("."), get_available_versions())
+            for version in (ver_source.version.split(".") for ver_source in get_available_versions())
         }
     )
 

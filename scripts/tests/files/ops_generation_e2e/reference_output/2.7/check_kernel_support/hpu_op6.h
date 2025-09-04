@@ -13,6 +13,8 @@ using namespace torch::jit;
 
 namespace habana {
 
+static CheckNodeWithSharedLayerValidator validator_eq_Scalar_out("eq.Scalar_out", "equal_fwd", {-1}, {1}, CompareMeta, {0, 1}, false, false, false, true);
+static CheckNodeWithSharedLayerValidator validator_eq_Tensor_out("eq.Tensor_out", "equal_fwd", {-1}, {}, CompareMeta, {0, 1}, false, false, false, true);
 
 
 struct shared_layer_squeeze : SharedLayerOp {
@@ -42,8 +44,7 @@ bool func(torch::jit::Stack &stack, bool is_dynamic) {
 }
 private:
 bool impl(const at::Tensor & self, at::IntArrayRef dim, bool is_dynamic) {
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kInt, at::kFloat8_e5m2, at::kFloat8_e4m3fn, at::kDouble}},
-   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kInt, at::kFloat8_e5m2, at::kFloat8_e4m3fn, at::kDouble}}}))
+  HPU_SUPPORTED_DTYPES(({at::kBFloat16, at::kFloat, at::kInt, at::kFloat8_e5m2, at::kFloat8_e4m3fn, at::kDouble}))
   RETURN_IF_UNSUPPORTED_DTYPE2(self, squeeze, is_dynamic, dims, self, dim)
 
   return true;
@@ -68,6 +69,21 @@ bool func(torch::jit::Stack &stack, bool is_dynamic) {
       return is_supported;
     }
   }
+  if (stack.size() == 3) {
+    auto ivalue_arr = torch::jit::last(stack, 3);
+    if (ivalue_arr[0].isTensor() && ivalue_arr[1].isTensor() && ivalue_arr[2].isTensor() ) {
+
+      c10::IValue self = std::move(peek(stack, 0, 3));
+      c10::IValue other = std::move(peek(stack, 1, 3));
+      c10::IValue out = std::move(peek(stack, 2, 3));
+
+      at::Tensor self_base = self.to<at::Tensor>();
+      at::Tensor other_base = other.to<at::Tensor>();
+      at::Tensor out_base = out.to<at::Tensor>();
+      auto is_supported = impl(self_base, other_base, out_base, is_dynamic);
+      return is_supported;
+    }
+  }
   return false;
 }
 private:
@@ -75,9 +91,16 @@ bool impl(const at::Tensor & self, const at::Scalar & other, at::Tensor & out, b
   auto compute_type = DTypeHelper::get_compute_dtype({self, other}, out, DTypeHelper::DtypePromoteVariant::kPromoteToCommon, false/*safe_cast*/);
   static_cast<void>(compute_type);
 
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kInt, at::kChar, at::kByte, at::kLong, at::kShort, at::kDouble, at::kBool}},
-   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kHalf, at::kInt, at::kChar, at::kByte, at::kLong, at::kShort, at::kDouble, at::kBool}}}))
-  RETURN_IF_UNSUPPORTED_DTYPE2(compute_type, eq, is_dynamic, Scalar_out, self, other, out)
+  VAL_RETURN_IF_UNSUPPORTED_DTYPE2(eq, is_dynamic, Scalar_out, self, other, out)
+
+  return true;
+}
+
+bool impl(const at::Tensor & self, const at::Tensor & other, at::Tensor & out, bool is_dynamic) {
+  auto compute_type = DTypeHelper::get_compute_dtype({self, other}, out, DTypeHelper::DtypePromoteVariant::kPromoteToCommon, false/*safe_cast*/);
+  static_cast<void>(compute_type);
+
+  VAL_RETURN_IF_UNSUPPORTED_DTYPE2(eq, is_dynamic, Tensor_out, self, other, out)
 
   return true;
 }

@@ -9,7 +9,7 @@
 namespace habana {
 
 
-void _foreach_add_(at::TensorList self, const at::Scalar & scalar);
+void _foreach_add__Scalar(at::TensorList self, const at::Scalar & scalar);
 
 }  // namespace habana
 

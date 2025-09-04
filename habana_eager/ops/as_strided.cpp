@@ -20,8 +20,7 @@
 #include "habana_eager/ops/eager_op.h"
 #include "habana_eager/ops/view.h"
 #include "pytorch_helpers/habana_helpers/misc_utils.h"
-namespace habana {
-namespace eager {
+namespace habana::eager {
 at::Tensor as_strided_hpu(
     const at::Tensor& self,
     c10::SymIntArrayRef size,
@@ -48,5 +47,4 @@ at::Tensor as_strided_hpu(
   return result;
 }
 
-} // namespace eager
-} // namespace habana
+} // namespace habana::eager

@@ -15,6 +15,7 @@
 #include "towl.h"
 #include <unistd.h>
 #include "backend/habana_device/HPUDevice.h"
+#include "backend/synapse_helpers/memory_defragmentation.h"
 
 // Defined here, should not be used directly inside bridge.
 
@@ -43,22 +44,27 @@ int GetRankFromEnv() {
  * separated by semicolon.
  *
  * Parameters:
- *  log_devmem=[0|1]    - enables devmem logging category
- *  log_recipe=[0|1]    - enables recipe logging category
- *  log_python=[0|1]    - enables python logging category
- *  log_collective=[0|1]- enables collective logging category
- *  log_copy=[0|1]      - enables copy logging category
- *  rank=int            - logs only under given rank (determined by env RANK)
- *  any_rank=[0|1]      - ignore `rank` option and always log events
+ *  log_devmem=[0|1]       - enables devmem logging category
+ *  log_recipe=[0|1]       - enables recipe logging category
+ *  log_python=[0|1]       - enables python logging category
+ *  log_collective=[0|1]   - enables collective logging category
+ *  log_defrag=[0|1]       - enables defragmenter logging category
+ *  log_copy=[0|1]         - enables copy logging category
+ *  log_metrics=[0|1]      - enables metrics logging category
+ *  rank=int               - logs only under given rank (determined by env RANK)
+ *  any_rank=[0|1]         - ignore `rank` option and always log events
  */
 
 struct Config {
   bool log_devmem_buf = true;
   bool log_devmem_summary = true;
   bool log_recipe = true;
+  bool log_recipe_compile = true;
   bool log_python = true;
   bool log_collective = true;
+  bool log_defrag = true;
   bool log_copy = true;
+  bool log_metrics = false;
   int rank = -1;
   bool any_rank = false;
 
@@ -105,7 +111,9 @@ struct Config {
           config.log_recipe = flag;
           config.log_python = flag;
           config.log_collective = flag;
+          config.log_defrag = flag;
           config.log_copy = flag;
+          config.log_metrics = flag;
         } else if (key == "log_devmem_buf") {
           config.log_devmem_buf = value == "1";
         } else if (key == "log_devmem_summary") {
@@ -116,8 +124,12 @@ struct Config {
           config.log_recipe = value == "1";
         } else if (key == "log_collective") {
           config.log_collective = value == "1";
+        } else if (key == "log_defrag") {
+          config.log_defrag = value == "1";
         } else if (key == "log_copy") {
           config.log_copy = value == "1";
+        } else if (key == "log_metrics") {
+          config.log_metrics = value == "1";
         } else if (key == "rank") {
           if (value == "any") {
             config.any_rank = true;
@@ -157,7 +169,9 @@ struct Config {
     PT_TOWL_WARN("Config log_recipe=", config.log_recipe);
     PT_TOWL_WARN("Config log_python=", config.log_python);
     PT_TOWL_WARN("Config log_collective=", config.log_collective);
+    PT_TOWL_WARN("Config log_defrag=", config.log_defrag);
     PT_TOWL_WARN("Config log_copy=", config.log_copy);
+    PT_TOWL_WARN("Config log_metrics=", config.log_metrics);
     PT_TOWL_WARN(
         "Config rank=",
         config.rank,
@@ -174,34 +188,61 @@ Config config = Config::parseAndApply(GET_ENV_FLAG_NEW(PT_TOWL_LOG_CONFIG));
 } // namespace
 
 bool TowlEnabled::flag;
+bool g_is_physical = GET_ENV_FLAG_NEW(PT_TOWL_LOG_PHYSICAL);
 
 void emitDeviceMemoryAllocated(
     void* ptr,
     std::size_t size,
-    std::uint64_t stream) {
+    std::uint64_t stream,
+    bool is_physical) {
   if (not config.log_devmem_buf)
+    return;
+  if (is_physical != g_is_physical)
     return;
   PT_TOWL_DEBUG("devmem.malloc ", ptr, " size ", size, " stream ", stream);
 }
 
-void emitDeviceMemoryDeallocated(void* ptr) {
+void emitDeviceMemoryDeallocated(void* ptr, bool is_physical) {
   if (not config.log_devmem_buf)
+    return;
+  if (is_physical != g_is_physical)
     return;
   PT_TOWL_DEBUG("devmem.free ", ptr);
 }
 
+void emitDeviceMemoryAllocSuccess(
+    void* ptr,
+    std::size_t size,
+    bool is_workspace) {
+  if (not config.log_devmem_buf)
+    return;
+  PT_TOWL_DEBUG(
+      "devmem.alloc.success ptr ",
+      ptr,
+      " size ",
+      size,
+      " workspace ",
+      is_workspace);
+}
+
+void emitDeviceMemoryAllocFailed(std::size_t size, bool is_workspace) {
+  if (not config.log_devmem_buf)
+    return;
+  PT_TOWL_DEBUG("devmem.alloc.failed size ", size, " workspace ", is_workspace);
+}
+
 const char* getTensorTypeName(synTensorType tp) {
-#define _N(n) \
+#define N_(n) \
   case n:     \
     return #n
 
   switch (tp) {
-    _N(DATA_TENSOR);
-    _N(SHAPE_TENSOR);
-    _N(DATA_TENSOR_DYNAMIC);
-    _N(DEVICE_SHAPE_TENSOR);
-    _N(HOST_SHAPE_TENSOR);
-    _N(HOST_TO_DEVICE_TENSOR);
+    N_(DATA_TENSOR);
+    N_(SHAPE_TENSOR);
+    N_(DATA_TENSOR_DYNAMIC);
+    N_(DEVICE_SHAPE_TENSOR);
+    N_(HOST_SHAPE_TENSOR);
+    N_(HOST_TO_DEVICE_TENSOR);
     default:
       return "other";
   }
@@ -212,7 +253,7 @@ void emitRecipeFinished(
   if (not config.log_recipe)
     return;
 
-  void* ptr = 0x0;
+  void* ptr = nullptr;
   if (recipe_handle) {
     ptr = recipe_handle->syn_recipe_handle_;
   }
@@ -223,8 +264,12 @@ void emitRecipeLaunch(
     [[maybe_unused]] const synapse_helpers::graph::recipe_handle& recipe_handle,
     [[maybe_unused]] uint64_t workspace_size,
     [[maybe_unused]] const std::vector<std::uint64_t>& addresses,
-    [[maybe_unused]] const std::vector<synLaunchTensorInfo>& tensors) {
+    [[maybe_unused]] const std::vector<synLaunchTensorInfo>& tensors,
+    [[maybe_unused]] bool is_physical) {
   if (not config.log_recipe)
+    return;
+
+  if (is_physical != g_is_physical)
     return;
 
   PT_TOWL_DEBUG(
@@ -268,6 +313,35 @@ void emitCollectiveFinished(const std::string& info) {
     return;
   }
   PT_TOWL_DEBUG("collective.finished ", info);
+}
+
+void emitDefragLaunch(const std::string& info) {
+  if (not config.log_defrag) {
+    return;
+  }
+  PT_TOWL_DEBUG("defrag.launch ", info);
+}
+
+void emitDefragFinished(
+    const std::string& info,
+    const std::unique_ptr<synapse_helpers::defragment_helpers::Region>&
+        region) {
+  if (not config.log_defrag) {
+    return;
+  }
+
+  std::string addr_string;
+  if (region && (region->begin_ != region->end_)) {
+    addr_string.reserve(64);
+    addr_string += " @";
+    for (auto it = region->begin_; it != region->end_; ++it) {
+      char buffer[32];
+      std::snprintf(buffer, sizeof(buffer), " %zx", it->handle_);
+      addr_string += buffer;
+    }
+  }
+
+  PT_TOWL_DEBUG("defrag.finished ", info + addr_string);
 }
 
 void emitPythonString(const std::string& s) {
@@ -340,8 +414,7 @@ void emitCopyMultipleFinished(
   if (not config.log_copy) {
     return;
   }
-  size_t num_copies =
-      std::size_t(std::distance(locked->begin(), locked->end()));
+  auto num_copies = std::size_t(std::distance(locked->begin(), locked->end()));
   PT_TOWL_DEBUG("copy.multiple.finished ", tag, " num_copies ", num_copies);
   for (size_t i = 0; i < num_copies; ++i) {
     PT_TOWL_DEBUG(
@@ -352,6 +425,78 @@ void emitCopyMultipleFinished(
   }
 }
 
+void emitRecipeCompileSuccess(
+    const synapse_helpers::graph::recipe_handle& recipe_handle,
+    uint64_t workspace_size,
+    const std::string& name,
+    double compile_duration) {
+  if (not config.log_recipe_compile)
+    return;
+  PT_TOWL_DEBUG(
+      "recipe.compile.success name ",
+      name,
+      " handle ",
+      fmt::ptr(recipe_handle.syn_recipe_handle_),
+      " workspace ",
+      workspace_size,
+      " compile_time_ms ",
+      compile_duration);
+}
+
+void emitRecipeCompileFailed(
+    const std::string& error_info,
+    double compile_duration) {
+  if (not config.log_recipe_compile)
+    return;
+  PT_TOWL_DEBUG(
+      "recipe.compile.failed ",
+      error_info,
+      " compile_time_ms ",
+      compile_duration);
+}
+
+void emitMetrics(const std::string& name, float value) {
+  if (not config.log_metrics)
+    return;
+  auto msg = name + std::to_string(value);
+  PT_TOWL_DEBUG(msg);
+}
+
+void emitTimeDurationJit(const std::string& name, float value) {
+  if (not config.log_metrics)
+    return;
+  PT_TOWL_DEBUG("time.duration.jit pass ", name, " took(ms): ", value);
+}
+
+void emitTimeDurationFX(const std::string& name, float value) {
+  if (not config.log_metrics)
+    return;
+  PT_TOWL_DEBUG("time.duration.fx pass ", name, " took(ms): ", value);
+}
+
+void emitRecipeName(const std::string& param_data) {
+  if (not config.log_recipe)
+    return;
+  PT_TOWL_DEBUG("recipe.name ", param_data);
+}
+
+void emitRecipeHandle(synRecipeHandle recipe_handle) {
+  if (not config.log_recipe)
+    return;
+  PT_TOWL_DEBUG("recipe.handle ", recipe_handle);
+}
+
+void emitRecipeRequireWorkspace(const std::string& workspace) {
+  if (not config.log_recipe)
+    return;
+  PT_TOWL_DEBUG("recipe.require.workspace ", workspace);
+}
+
+void emitRecipeTensorToUse(const std::string& dtensorinfo_dump) {
+  if (not config.log_recipe)
+    return;
+  PT_TOWL_DEBUG("recipe.tensor.touse ", dtensorinfo_dump);
+}
 } // namespace towl::impl
 
 namespace towl {

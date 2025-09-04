@@ -18,6 +18,7 @@
 #include "absl/types/optional.h"
 #include "aten_lazy_bridge.h"
 #include "backend/habana_device/hpu_cached_devices.h"
+#include "backend/synapse_helpers/env_flags.h"
 #include "habana_lazy/hlexec.h"
 
 namespace habana_lazy {
@@ -51,6 +52,9 @@ void* get_hb_lazy_data_ptr(HbLazyTensor& hb_tensor) {
 // Live tensor collection is not allowed if the launch thread execution is
 // in progress.
 const std::pair<uint64_t, uint32_t> get_future_memory() {
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 0) {
+    return std::make_pair<uint64_t, uint32_t>(0, 0);
+  }
   auto& device = habana::HPUDeviceContext::get_device();
   auto context = habana_lazy::get_device_lazy_execution_context();
 
@@ -89,6 +93,10 @@ void log_dev_mem_stats(
     std::string_view msg,
     std::string_view name /* = "" */,
     uint64_t size /* = 0 */) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 0) {
+    return;
+  }
+
   static bool s_mem_log_enabled = IS_MEMLOG_DEBUG_ENABLED;
   if (!s_mem_log_enabled) {
     return;

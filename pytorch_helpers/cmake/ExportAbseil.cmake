@@ -15,25 +15,25 @@
 #
 ###############################################################################
 
-function(find_absl_targets DIRECTORY)
+function(find_absl_targets directory)
   get_property(
     ABSL_TARGETS_IN_DIRECTORY
-    DIRECTORY "${DIRECTORY}"
+    DIRECTORY "${directory}"
     PROPERTY BUILDSYSTEM_TARGETS)
   list(APPEND ABSL_TARGETS ${ABSL_TARGETS_IN_DIRECTORY})
 
   get_property(
     SUBDIRECTORIES
-    DIRECTORY "${DIRECTORY}"
+    DIRECTORY "${directory}"
     PROPERTY SUBDIRECTORIES)
-  foreach(SUBDIRECTORY IN LISTS SUBDIRECTORIES)
-    find_absl_targets("${SUBDIRECTORY}")
+  foreach(subdirectory IN LISTS SUBDIRECTORIES)
+    find_absl_targets("${subdirectory}")
   endforeach()
 
   return(PROPAGATE ABSL_TARGETS)
 endfunction()
 
-find_absl_targets($ENV{THIRD_PARTIES_ROOT}/abseil-cpp)
+find_absl_targets("${abseil-cpp_SOURCE_DIR}")
 
 export(
   TARGETS ${ABSL_TARGETS}

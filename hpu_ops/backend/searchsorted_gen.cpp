@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -45,9 +45,7 @@ OutputMetaDataVector SearchSortedMeta(const at::Stack& stack) {
   return {meta};
 }
 
-std::shared_ptr<void> FillSearchSortedParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillSearchSortedParams(const at::Stack& stack) {
   PARAMS_STUB(ns_SearchSorted::Params);
   bool right = stack.at(3).toBool();
   if (stack.at(4).isString()) {
@@ -55,7 +53,7 @@ std::shared_ptr<void> FillSearchSortedParams(
   }
 
   params->right = right;
-  return params;
+  return paramsT;
 }
 
 } // namespace habana

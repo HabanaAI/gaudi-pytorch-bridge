@@ -46,8 +46,8 @@ TEST_F(HpuOpTest, rrelu_with_noise) {
 
 TEST_F(HpuOpTest, rrelu_with_noise_train) {
   GenerateInputs(2);
-  float lower = GenerateScalar<float>(0.1, 0.3);
-  float upper = GenerateScalar<float>(0.6, 0.9);
+  auto lower = GenerateScalar<float>(0.1, 0.3);
+  auto upper = GenerateScalar<float>(0.6, 0.9);
   bool training = true;
   auto gen1 = at::detail::createCPUGenerator(/*seed_val=*/67280421310721);
   auto gen2 = at::detail::createCPUGenerator(/*seed_val=*/67280421310721);
@@ -60,8 +60,8 @@ TEST_F(HpuOpTest, rrelu_with_noise_train) {
 
 TEST_F(HpuOpTest, rrelu_with_noise_default) {
   GenerateInputs(2);
-  float lower = GenerateScalar<float>(0.1, 0.3);
-  float upper = GenerateScalar<float>(0.6, 0.9);
+  auto lower = GenerateScalar<float>(0.1, 0.3);
+  auto upper = GenerateScalar<float>(0.6, 0.9);
   bool training = false;
   SetSeed();
   auto expected = torch::rrelu_with_noise(
@@ -74,8 +74,8 @@ TEST_F(HpuOpTest, rrelu_with_noise_default) {
 
 TEST_F(HpuOpTest, rrelu_with_noise_inplace) {
   GenerateInputs(2);
-  float lower = GenerateScalar<float>(0.1, 0.3);
-  float upper = GenerateScalar<float>(0.6, 0.9);
+  auto lower = GenerateScalar<float>(0.1, 0.3);
+  auto upper = GenerateScalar<float>(0.6, 0.9);
   bool training = false;
   SetSeed();
   torch::rrelu_with_noise_(
@@ -98,8 +98,8 @@ TEST_F(HpuOpTest, rrelu_with_noise_inplace) {
 
 TEST_F(HpuOpTest, rrelu_with_noise_out) {
   GenerateInputs(2);
-  float lower = GenerateScalar<float>(0.1, 0.3);
-  float upper = GenerateScalar<float>(0.6, 0.9);
+  auto lower = GenerateScalar<float>(0.1, 0.3);
+  auto upper = GenerateScalar<float>(0.6, 0.9);
   bool training = false;
   torch::ScalarType dtype = torch::kFloat;
   auto expected = torch::empty(0, dtype);
@@ -151,8 +151,8 @@ TEST_F(HpuOpTest, rrelu_with_noise_backward) {
 
 TEST_F(HpuOpTest, rrelu_with_noise_backward_train) {
   GenerateInputs(3);
-  float lower = GenerateScalar<float>(0.1, 0.3);
-  float upper = GenerateScalar<float>(0.6, 0.9);
+  auto lower = GenerateScalar<float>(0.1, 0.3);
+  auto upper = GenerateScalar<float>(0.6, 0.9);
   bool training = true;
   auto expected = torch::rrelu_with_noise_backward(
       GetCpuInput(0),

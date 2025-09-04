@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,14 +26,13 @@ synapse_helpers::tensor ArangeCommon(
     std::optional<synTensor> syn_in1,
     std::string guid,
     std::vector<int64_t> outshape,
-    std::shared_ptr<void> params,
-    size_t size,
+    const FillParamsT& params,
     std::optional<int> final_result_index,
     bool is_eager = false);
-std::shared_ptr<void> FillArangeParamsInternal(
+
+FillParamsT FillArangeParamsInternal(
     c10::Scalar start,
     c10::Scalar end,
     c10::Scalar step,
-    c10::ScalarType out_scalar_type,
-    size_t& size);
+    c10::ScalarType out_scalar_type);
 } // namespace habana

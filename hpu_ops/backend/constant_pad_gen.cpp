@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,7 +39,7 @@ std::vector<int64_t> pad_output_shape(
 
   auto shape = self.sizes().vec();
 
-  for (unsigned int i = 0; i < lpad; i++) {
+  for (size_t i = 0; i < lpad; i++) {
     auto pad_start = pad[2 * i];
     auto pad_end = pad[2 * i + 1];
     shape[ndim - i - 1] += (pad_start + pad_end);
@@ -68,7 +68,7 @@ OutputMetaDataVector ConstantPadMeta(const at::Stack& stack) {
     auto lpad = pad.size() / 2;
     auto shape = stack.at(3).toIntVector();
 
-    for (unsigned int i = 0; i < lpad; i++) {
+    for (size_t i = 0; i < lpad; i++) {
       auto pad_start = pad[2 * i];
       auto pad_end = pad[2 * i + 1];
       shape[ndim - i - 1] += (pad_start + pad_end);
@@ -103,7 +103,7 @@ SharedMetaDataVector ConstantPadSharedMeta(
 }
 
 static void FillPadParamsValue(
-    std::shared_ptr<ns_PadKernelEx::Params> params,
+    ns_PadKernelEx::Params* params,
     const at::Tensor& self,
     const at::Scalar& scalar) {
   if (c10::isIntegralType(self.scalar_type(), false)) {
@@ -113,9 +113,7 @@ static void FillPadParamsValue(
   }
 }
 
-std::shared_ptr<void> FillConstantPadParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillConstantPadParams(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   PARAMS_STUB(ns_PadKernelEx::Params);
   params->mode = PadMode_t::PAD_MODE_CONSTANT;
@@ -124,10 +122,10 @@ std::shared_ptr<void> FillConstantPadParams(
 
   if ((stack.size() == 4) && (stack.at(1).isTensor())) {
     FillPadParamsValue(params, self, stack.at(3).toScalar());
-    return params;
+    return paramsT;
   } else if ((stack.size() == 4) && (!stack.at(1).isTensor())) {
     FillPadParamsValue(params, self, stack.at(2).toScalar());
-    return params;
+    return paramsT;
   } else {
     FillPadParamsValue(params, self, stack.at(2).toScalar());
     auto pad = stack.at(1).toIntVector();
@@ -135,12 +133,12 @@ std::shared_ptr<void> FillConstantPadParams(
     auto ndim = self.dim();
     auto lpad = pad.size() / 2;
 
-    for (unsigned int i = 0; i < lpad; i++) {
+    for (size_t i = 0; i < lpad; i++) {
       params->pads[i] = pad[2 * i];
       params->pads[i + ndim] = pad[2 * i + 1];
     }
 
-    return params;
+    return paramsT;
   }
 }
 
@@ -149,8 +147,7 @@ void ConstantPad::AddNode(
     const at::Stack& stack) {
   auto meta = ConstantPadMeta(stack)[0];
   auto self = stack[0].toTensor();
-  size_t size = 0;
-  const auto& param = FillConstantPadParams(stack, size);
+  const auto& param = FillConstantPadParams(stack);
   if ((stack.size() == 3) ||
       ((stack.size() == 4) && (!stack.at(1).isTensor()))) {
     auto op = BuildOp(
@@ -158,8 +155,8 @@ void ConstantPad::AddNode(
         guid_,
         {syn_in(0)},
         {{meta.shape, meta.dtype, 0}},
-        param.get(),
-        size);
+        param.ptr(),
+        param.size());
     syn_out(0) = std::move(op.at(0));
   } else {
     at::Tensor host_tensor = stack[1].toTensor();
@@ -193,8 +190,8 @@ void ConstantPad::AddNode(
         guid_,
         {syn_in(0), syn_in(1)},
         {{meta.shape, meta.dtype, 0}},
-        param.get(),
-        size);
+        param.ptr(),
+        param.size());
     syn_out(0) = std::move(op.at(0));
   }
 }
@@ -214,8 +211,7 @@ void ConstantPadDS::AddNode(
     const at::Stack& stack) {
   auto meta = ConstantPadMeta(stack)[0];
   auto self = stack[0].toTensor();
-  size_t size = 0;
-  const auto& param = FillConstantPadParams(stack, size);
+  const auto& param = FillConstantPadParams(stack);
   if ((stack.size() == 3) ||
       ((stack.size() == 4) && (!stack.at(1).isTensor()))) {
     auto op = BuildOp(
@@ -223,8 +219,8 @@ void ConstantPadDS::AddNode(
         guid_,
         {syn_in(0)},
         {{meta.shape, meta.dtype, 0}},
-        param.get(),
-        size);
+        param.ptr(),
+        param.size());
     syn_out(0) = std::move(op.at(0));
   } else {
     at::Tensor host_tensor = stack[1].toTensor();
@@ -258,8 +254,8 @@ void ConstantPadDS::AddNode(
         guid_,
         {syn_in(0), syn_in(1)},
         {{meta.shape, meta.dtype, 0}},
-        param.get(),
-        size);
+        param.ptr(),
+        param.size());
     syn_out(0) = std::move(op.at(0));
   }
 }
@@ -268,7 +264,5 @@ void ConstantPadDS::AddNode(
 
 static const auto& HabanaRandomKernelRegistry =
     habana::KernelRegistry()
-        .add("hpu::constant_pad_nd", KERNEL_FN_GLOBAL(habana::ConstantPadDS))
-        .add(
-            "hpu::constant_pad_nd_ds",
-            KERNEL_FN_GLOBAL(habana::ConstantPadDS));
+        .REGISTER_HPU_BACKEND("hpu::constant_pad_nd", habana::ConstantPadDS)
+        .REGISTER_HPU_BACKEND("hpu::constant_pad_nd_ds", habana::ConstantPadDS);

@@ -24,7 +24,7 @@
 #include "habana_lazy/aten_lazy_bridge.h"
 
 using namespace habana_helpers;
-using json = nlohmannV340::json;
+using json = nlohmann::json;
 namespace {
 std::string stringify(DynamicDimsPolicy policy) {
   switch (policy) {
@@ -251,7 +251,7 @@ void CompilationStatistics::LogSymbols(
   json json_symbol_map;
   for (auto& pair : symbol_value_map) {
     if (pair.second.get())
-      json_symbol_map[pair.first] = *pair.second.get();
+      json_symbol_map[pair.first] = *pair.second;
   }
   json_file_[GetStep(step)]["symbol values"] = json_symbol_map;
 }
@@ -362,7 +362,7 @@ void CompilationStatistics::GetDigest(
     size_t recipe_key,
     bool cache_hit) {
   std::string recipe_trace_path = GET_ENV_FLAG_NEW(PT_RECIPE_TRACE_PATH);
-  if (recipe_trace_path == "") {
+  if (recipe_trace_path.empty()) {
     return;
   } else {
     std::ofstream csv_(recipe_trace_path, std::ofstream::app);
@@ -389,7 +389,7 @@ std::string CompilationStatistics::GetStep(uint64_t step) {
       "%0*d", leading_zeros, step > 0 ? step : GetCurrentStep());
 }
 
-nlohmannV340::json CompilationStatistics::GetRanges(
+nlohmann::json CompilationStatistics::GetRanges(
     ResultShapes ranges,
     std::shared_ptr<torch::jit::Graph> jit_ir_graph) {
   json result;
@@ -416,12 +416,12 @@ CompilationStatistics::CompilationStatistics(std::istream& is) {
   deserialize(is, path_);
   deserialize(is, step_);
 
-  if (path_ == "") {
+  if (path_.empty()) {
     return;
   }
 
   std::ifstream infile(path_);
-  auto json_file = nlohmannV340::json::parse(infile, nullptr, false);
+  auto json_file = nlohmann::json::parse(infile, nullptr, false);
   if (json_file.is_discarded()) {
     PT_DYNAMIC_SHAPE_WARN("Json parsing failed");
   }

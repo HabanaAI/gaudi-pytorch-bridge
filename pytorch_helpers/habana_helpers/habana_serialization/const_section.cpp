@@ -19,6 +19,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <zlib.h>
+#include <ios>
+#include <limits>
 #include <string>
 #include "backend/helpers/runtime_config.h"
 #include "backend/synapse_helpers/env_flags.h" // IWYU pragma: keep
@@ -44,7 +46,7 @@ void ConstSectionFileHandler::internal_mkdir(std::string path) {
   // no checking of retval, the dir is queried below regardless
   PT_CONST_SECTION_DEBUG("Creating const section cache dir: ", path);
   mkdir(path.c_str(), S_IRWXU | S_IRWXG);
-  struct stat info {};
+  struct stat info{};
   if (stat(path.c_str(), &info) != 0 || !(info.st_mode & S_IFDIR)) {
     PT_CONST_SECTION_FATAL("Cannot create const cache directory: ", path);
   } else {
@@ -53,7 +55,7 @@ void ConstSectionFileHandler::internal_mkdir(std::string path) {
 }
 
 void ConstSectionFileHandler::init(std::string path) {
-  if (path == "") {
+  if (path.empty()) {
     return;
   }
   internal_mkdir(path);
@@ -112,7 +114,7 @@ std::string ConstSectionDataSerialize::getSerializedRecipeFullPath(
   static const std::string cache_path = [] {
     std::vector<std::string> split_config = RecipeCacheConfig::split_params(
         GET_ENV_FLAG_NEW(PT_HPU_RECIPE_CACHE_CONFIG));
-    return (split_config.size() > 0 ? split_config[0] : "") + "/";
+    return (split_config.empty() ? "" : split_config[0]) + "/";
   }();
   std::string result;
   result.reserve(
@@ -147,7 +149,7 @@ bool ConstSectionDataSerialize::isSerialized(int const_id) {
 
 void ConstSectionDataSerialize::serializePerRecipe(
     void* data,
-    int data_size,
+    size_t data_size,
     int const_id,
     const size_t key) {
   PT_CUSTOM_DEBUG(__func__, ": ", getSerializedRecipeFullPath(const_id, key))
@@ -170,14 +172,19 @@ void ConstSectionDataSerialize::serializePerRecipe(
 
   // if section size is 0, data pointer will be null
   if (data) {
-    outputFile.write(reinterpret_cast<const char*>(data), data_size);
+    HABANA_ASSERT(
+        data_size <= std::numeric_limits<std::streamsize>::max(),
+        "Data size exceeds maximum stream size limit for serialization.");
+    outputFile.write(
+        reinterpret_cast<const char*>(data),
+        static_cast<std::streamsize>(data_size));
   }
   outputFile.close();
 }
 
 void ConstSectionDataSerialize::compress_and_serialize(
     void* data,
-    int data_size,
+    size_t data_size,
     std::ofstream& outputFile) {
   z_stream zs;
   memset(&zs, 0, sizeof(zs));
@@ -197,18 +204,29 @@ void ConstSectionDataSerialize::compress_and_serialize(
   }
 
   zs.next_in = static_cast<Bytef*>(const_cast<void*>(data));
-  zs.avail_in = data_size;
+  HABANA_ASSERT(
+      data_size <= std::numeric_limits<unsigned int>::max(),
+      "Data size exceeds maximum unsigned int limit for compression.");
+  zs.avail_in = static_cast<unsigned int>(data_size);
 
   int ret;
   absl::FixedArray<char> outbuffer(CONST_SECTION_COMPRESSION_CHUNK_SIZE);
 
   do { // NOLINT(cppcoreguidelines-avoid-do-while)
     zs.next_out = reinterpret_cast<Bytef*>(outbuffer.data());
-    zs.avail_out = outbuffer.memsize();
+    static_assert(
+        CONST_SECTION_COMPRESSION_CHUNK_SIZE * sizeof(char) <=
+            std::numeric_limits<unsigned int>::max(),
+        "CONST_SECTION_COMPRESSION_CHUNK_SIZE exceeds maximum unsigned int limit for compression.");
+    zs.avail_out = static_cast<unsigned int>(outbuffer.memsize());
 
     ret = deflate(&zs, Z_FINISH);
 
-    outputFile.write(outbuffer.data(), zs.total_out - outputFile.tellp());
+    HABANA_ASSERT(
+        zs.total_out <= std::numeric_limits<std::streamsize>::max(),
+        "Compressed data size exceeds maximum stream size limit.");
+    outputFile.write(
+        outbuffer.data(), static_cast<long>(zs.total_out) - outputFile.tellp());
   } while (ret == Z_OK);
 
   deflateEnd(&zs);
@@ -220,7 +238,7 @@ void ConstSectionDataSerialize::compress_and_serialize(
 
 void ConstSectionDataSerialize::serialize(
     void* data,
-    int data_size,
+    size_t data_size,
     int const_id) {
   std::lock_guard<std::mutex> lock(m_mtx);
   PT_CUSTOM_DEBUG(__func__, ": ", getSerializedFullPath(const_id))
@@ -242,7 +260,12 @@ void ConstSectionDataSerialize::serialize(
   if (habana_helpers::IsCompressionEnabled()) {
     compress_and_serialize(data, data_size, outputFile);
   } else {
-    outputFile.write(reinterpret_cast<const char*>(data), data_size);
+    HABANA_ASSERT(
+        data_size <= std::numeric_limits<std::streamsize>::max(),
+        "Data size exceeds maximum stream size limit for serialization.");
+    outputFile.write(
+        reinterpret_cast<const char*>(data),
+        static_cast<std::streamsize>(data_size));
   }
   outputFile.close();
   m_isSerialized = true;
@@ -250,7 +273,7 @@ void ConstSectionDataSerialize::serialize(
 
 void ConstSectionDataSerialize::decompress_and_deserialize(
     void* data,
-    int data_size,
+    size_t data_size,
     std::ifstream& inputFile) {
   z_stream zs;
   memset(&zs, 0, sizeof(zs));
@@ -263,10 +286,17 @@ void ConstSectionDataSerialize::decompress_and_deserialize(
       std::istreambuf_iterator<char>());
   zs.next_in =
       reinterpret_cast<Bytef*>(const_cast<char*>(compressedData.data()));
-  zs.avail_in = inputFile.tellg();
+  const auto read_pos = inputFile.tellg();
+  HABANA_ASSERT(
+      read_pos <= std::numeric_limits<unsigned int>::max(),
+      "Input file size exceeds maximum unsigned int limit for decompression.");
+  zs.avail_in = static_cast<unsigned int>(inputFile.tellg());
 
   zs.next_out = static_cast<Bytef*>(data);
-  zs.avail_out = data_size;
+  HABANA_ASSERT(
+      data_size <= std::numeric_limits<unsigned int>::max(),
+      "Data size exceeds maximum unsigned int limit for decompression.");
+  zs.avail_out = static_cast<unsigned int>(data_size);
 
   int ret;
 
@@ -284,7 +314,7 @@ void ConstSectionDataSerialize::decompress_and_deserialize(
 
 void ConstSectionDataSerialize::deserializePerRecipe(
     void* data,
-    int data_size,
+    size_t data_size,
     int const_id,
     const size_t key) {
   PT_CUSTOM_DEBUG(__func__, ": ", getSerializedRecipeFullPath(const_id, key))
@@ -307,13 +337,17 @@ void ConstSectionDataSerialize::deserializePerRecipe(
       getSerializedRecipeFullPath(const_id, key),
       " size: ",
       data_size);
-  inputFile.read(reinterpret_cast<char*>(data), data_size);
+  HABANA_ASSERT(
+      data_size <= std::numeric_limits<std::streamsize>::max(),
+      "Data size exceeds maximum stream size limit for deserialization.");
+  inputFile.read(
+      reinterpret_cast<char*>(data), static_cast<std::streamsize>(data_size));
   inputFile.close();
 }
 
 void ConstSectionDataSerialize::deserialize(
     void* data,
-    int data_size,
+    size_t data_size,
     int const_id) {
   std::lock_guard<std::mutex> lock(m_mtx);
   PT_CUSTOM_DEBUG(__func__, ": ", getSerializedFullPath(const_id))
@@ -347,7 +381,12 @@ void ConstSectionDataSerialize::deserialize(
     if (habana_helpers::IsCompressionEnabled()) {
       decompress_and_deserialize(data, data_size, inputFile);
     } else {
-      inputFile.read(reinterpret_cast<char*>(data), data_size);
+      HABANA_ASSERT(
+          data_size <= std::numeric_limits<std::streamsize>::max(),
+          "Data size exceeds maximum stream size limit for deserialization.");
+      inputFile.read(
+          reinterpret_cast<char*>(data),
+          static_cast<std::streamsize>(data_size));
     }
     inputFile.close();
   }

@@ -9,8 +9,8 @@
 #include "sort.h"
 
 
-using habana_helpers::DTypeHelper;
-using synapse_helpers::graph;
+using habana_helpers::DTypeHelper; // NOLINT(misc-unused-using-decls)
+using synapse_helpers::graph; // NOLINT(misc-unused-using-decls)
 using torch::jit::Stack;
 
 
@@ -18,15 +18,14 @@ namespace habana {
 
 
 
-::std::tuple<at::Tensor &,at::Tensor &> sort_out(const at::Tensor & self, ::std::optional<bool> stable, int64_t dim, bool descending, at::Tensor & values, at::Tensor & indices) {
+::std::tuple<at::Tensor &,at::Tensor &> sort_values_stable(const at::Tensor & self, ::std::optional<bool> stable, int64_t dim, bool descending, at::Tensor & values, at::Tensor & indices) {
   PT_EAGER_TRACE;
   PT_OP_INFO("sort_out: ", DUMP_6ARGS(self, stable, dim, descending, values, indices));
 
   [[maybe_unused]] bool require_h2d = false;
   [[maybe_unused]] bool require_st = false;
 
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi2, {at::kFloat, at::kInt, at::kLong, at::kBFloat16, at::kShort, at::kHalf, at::kDouble}},
-   {synDeviceGaudi3, {at::kFloat, at::kInt, at::kLong, at::kBFloat16, at::kShort, at::kHalf, at::kDouble}}}))
+  HPU_SUPPORTED_DTYPES(({at::kFloat, at::kInt, at::kLong, at::kBFloat16, at::kShort, at::kHalf, at::kDouble}))
   FALLBACK_IF_UNSUPPORTED_DTYPE2(self, sort, values_stable, self, stable, dim, descending, values, indices)
   FALLBACK_IF_UNSUPPORTED_DTYPE2(values, sort, values_stable, self, stable, dim, descending, values, indices)
 
@@ -44,7 +43,7 @@ static const auto& kr_gen_7 = KernelRegistry()
 ;
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {
-  m.impl("sort.values_stable", static_cast<::std::tuple<at::Tensor &,at::Tensor &> (*)(const at::Tensor &, ::std::optional<bool>, int64_t, bool, at::Tensor &, at::Tensor &)>(&habana::sort_out));
+  m.impl("sort.values_stable", habana::sort_values_stable);
 
 }
 

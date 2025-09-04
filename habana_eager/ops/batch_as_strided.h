@@ -19,12 +19,10 @@
 #include "habana_eager/ops/as_strided.h"
 #include "habana_eager/ops/batch_as_strided.h"
 
-namespace habana {
-namespace eager {
+namespace habana::eager {
 std::vector<at::Tensor> batch_as_strided(
     at::TensorList inputs,
     c10::ArrayRef<std::vector<int64_t>> sizes,
     c10::ArrayRef<std::vector<int64_t>> strides,
     at::OptionalIntArrayRef storage_offsets);
-} // namespace eager
-} // namespace habana
+} // namespace habana::eager

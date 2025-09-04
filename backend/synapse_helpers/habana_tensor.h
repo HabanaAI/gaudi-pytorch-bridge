@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -70,7 +70,7 @@ class memory_section {
   ~memory_section() {
     if (memory_section_) {
       // To Do - make a provision to destroy at the end of use case for shape
-      // agnostic as sections would not be destoryed by graph destroy
+      // agnostic as sections would not be destroyed by graph destroy
       if (!is_sa_on_) {
         synSectionDestroy(memory_section_);
       }
@@ -206,8 +206,8 @@ class tensor final {
     std::string debug_string() const;
 
    private:
-    internal_storage dims_;
-    dimension_count_t rank_;
+    internal_storage dims_{};
+    dimension_count_t rank_{};
   };
 
   class dynamic_shape_t {
@@ -314,7 +314,7 @@ class tensor final {
 
   void set_identity_permutation() {
     for (size_t i = 0; i < permutation_.size(); ++i) {
-      permutation_[i] = i;
+      permutation_[i] = static_cast<uint8_t>(i);
     }
     set_permutation();
   }
@@ -526,7 +526,7 @@ class tensor final {
   /*
    * This pt_shape_ tensor is used to store the shape
    * as we receive from pytorch tensor. This value is only
-   * used for propogating the shape value when creating
+   * used for propagating the shape value when creating
    * placeholder tensor for shape inference. The format
    * of shape stored in pt_shape_ does not match with the
    * format stored in 'shape_'.
@@ -535,7 +535,7 @@ class tensor final {
   std::vector<int64_t> pt_strides_;
   static bool generate_placeholder_;
 
-  // permutaion representation for passing strided weight tensor to Synapse
+  // permutation representation for passing strided weight tensor to Synapse
   synapse_helpers::layouts::MemoryPermutation permutation_;
   bool dont_allow_permute_ = false;
 
@@ -552,14 +552,14 @@ class tensor final {
  * @param arg number of dimensions as integer
  * @return number of dimension as dimension_count_t
  */
-tensor::shape_t::dimension_count_t operator"" _D(unsigned long long arg);
+tensor::shape_t::dimension_count_t operator""_D(unsigned long long arg);
 
 inline std::ostream& operator<<(
     std::ostream& out,
     const tensor::shape_t& dimensions) {
   out << "syn_dimensions=(";
-  std::string delim = "";
-  for (auto i = 0u; i < dimensions.rank().value; ++i) {
+  std::string delim;
+  for (auto i = 0U; i < dimensions.rank().value; ++i) {
     out << delim << dimensions[i];
     delim = ", ";
   }
@@ -577,7 +577,7 @@ inline std::ostream& operator<<(
 
 template <
     typename Integer,
-    typename = std::enable_if_t<std::is_integral<Integer>::value>>
+    typename = std::enable_if_t<std::is_integral_v<Integer>>>
 inline std::ostream& operator<<(
     std::ostream& out,
     const std::vector<Integer>& d) {

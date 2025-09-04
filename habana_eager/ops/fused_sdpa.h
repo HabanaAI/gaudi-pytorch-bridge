@@ -14,10 +14,13 @@
  */
 #pragma once
 
+#include "common/warning_suppress.h"
+SUPPRESS_W_PREFIX
+SUPPRESS_WARRAY_BOUNDS_WSTRINGOP_OVERFLOW_P
 #include <ATen/core/TensorBody.h>
+SUPPRESS_W_SUFFIX
 
-namespace habana {
-namespace eager {
+namespace habana::eager {
 
 at::Tensor fused_sdpa_autograd_wrap(
     const at::Tensor& query,
@@ -53,5 +56,4 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_bwd_wrap(
     const double scale,
     const at::Tensor& fwd_out);
 
-} // namespace eager
-} // namespace habana
+} // namespace habana::eager

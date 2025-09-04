@@ -27,7 +27,6 @@ from habana_frameworks.torch.dynamo.compile_backend.passes import (
     pass_fake_propagation,
     pass_reinplace_inplaceable_ops_v2,
 )
-from habana_frameworks.torch.utils.version_checker import is_pytorch_older_than
 from test_utils import compile_function_if_compile_mode
 from torch.func import functionalize
 from torch.fx.experimental.proxy_tensor import make_fx
@@ -61,7 +60,15 @@ def test_reinplace_index_copy():
 
     graph_module = make_fx(functionalize(fn))(*example_inputs)
     ctx = OptimizerContext(
-        graph_module, "test", example_inputs, False, False, False, OptimizationPassPlacement.PARTITIONER, [], None
+        graph_module,
+        "test",
+        example_inputs,
+        False,
+        False,
+        False,
+        OptimizationPassPlacement.PARTITIONER,
+        [],
+        None,
     )
     reinplace_test_helper(ctx)
     reinplaced_fn_str = ctx.graph_module.print_readable(False)
@@ -96,7 +103,15 @@ def test_not_reinplace_index_copy():
     graph_module = make_fx(fn, tracing_mode="fake")(*example_inputs)
 
     ctx = OptimizerContext(
-        graph_module, "test", example_inputs, False, False, False, OptimizationPassPlacement.PARTITIONER, [], None
+        graph_module,
+        "test",
+        example_inputs,
+        False,
+        False,
+        False,
+        OptimizationPassPlacement.PARTITIONER,
+        [],
+        None,
     )
     graph_changed = reinplace_test_helper(ctx)
     assert not graph_changed, "pass_reinplace_inplaceable_ops_v2 should not do reinplace"
@@ -122,7 +137,15 @@ def test_reinplace_leaf_index_copy():
     graph_module = make_fx(functionalize(fn))(*example_inputs)
 
     ctx = OptimizerContext(
-        graph_module, "test", example_inputs, False, False, False, OptimizationPassPlacement.PRE_PARTITIONER, [], None
+        graph_module,
+        "test",
+        example_inputs,
+        False,
+        False,
+        False,
+        OptimizationPassPlacement.PRE_PARTITIONER,
+        [],
+        None,
     )
     for node in ctx.graph_module.graph.nodes:
         if node.op == "placeholder" or node.op == "output":
@@ -153,7 +176,15 @@ def test_reinpalce_all_add():
     graph_module = make_fx(fn)(*example_inputs)
 
     ctx = OptimizerContext(
-        graph_module, "test", example_inputs, False, False, False, OptimizationPassPlacement.PARTITIONER, [], None
+        graph_module,
+        "test",
+        example_inputs,
+        False,
+        False,
+        False,
+        OptimizationPassPlacement.PARTITIONER,
+        [],
+        None,
     )
 
     changed = reinplace_test_helper(ctx)
@@ -190,7 +221,15 @@ def test_reinpalce_only_1st_add():
     graph_module = make_fx(fn)(*example_inputs)
 
     ctx = OptimizerContext(
-        graph_module, "test", example_inputs, False, False, False, OptimizationPassPlacement.PARTITIONER, [], None
+        graph_module,
+        "test",
+        example_inputs,
+        False,
+        False,
+        False,
+        OptimizationPassPlacement.PARTITIONER,
+        [],
+        None,
     )
 
     changed = reinplace_test_helper(ctx)
@@ -320,7 +359,15 @@ def test_reinplace_allreduce():
     graph_module = make_fx(functionalize(fn))(*example_inputs)
 
     ctx = OptimizerContext(
-        graph_module, "test", example_inputs, False, False, False, OptimizationPassPlacement.PARTITIONER, [], None
+        graph_module,
+        "test",
+        example_inputs,
+        False,
+        False,
+        False,
+        OptimizationPassPlacement.PARTITIONER,
+        [],
+        None,
     )
 
     changed = reinplace_test_helper(ctx)
@@ -354,7 +401,15 @@ def test_reinplace_functionalized_allreduce():
     graph_module = make_fx(functionalize(fn))(*example_inputs)
 
     ctx = OptimizerContext(
-        graph_module, "test", example_inputs, False, False, False, OptimizationPassPlacement.PARTITIONER, [], None
+        graph_module,
+        "test",
+        example_inputs,
+        False,
+        False,
+        False,
+        OptimizationPassPlacement.PARTITIONER,
+        [],
+        None,
     )
 
     changed = reinplace_test_helper(ctx)
@@ -399,7 +454,12 @@ def test_partition_in_out_duplicates_caused_by_index_copy_():
     k_cache = torch.randn((2, 100, 4), dtype=torch.bfloat16, requires_grad=False)
     v_cache = torch.randn((2, 100, 4), dtype=torch.bfloat16, requires_grad=False)
 
-    x_, token_idx_, k_cache_, v_cache_ = x.to("hpu"), token_idx.to("hpu"), k_cache.to("hpu"), v_cache.to("hpu")
+    x_, token_idx_, k_cache_, v_cache_ = (
+        x.to("hpu"),
+        token_idx.to("hpu"),
+        k_cache.to("hpu"),
+        v_cache.to("hpu"),
+    )
     with use_eager_fallback():
         res = compiled_model(k_cache_, v_cache_, x_, token_idx_)
 
@@ -421,20 +481,13 @@ def get_model_with_observer(model):
         habana_quantizer,
     )
     from torch.ao.quantization.quantize_pt2e import prepare_pt2e
-
-    if is_pytorch_older_than("2.7.0"):
-        from torch._export import capture_pre_autograd_graph
-    else:
-        from torch.export import export_for_training
+    from torch.export import export_for_training
 
     quantizer = habana_quantizer()
     quant_config = habana_quant_config_symmetric(torch.float8_e4m3fn)
     quantizer.set_global(quant_config)
 
-    if is_pytorch_older_than("2.7.0"):
-        exported_model = capture_pre_autograd_graph(model)
-    else:
-        exported_model = export_for_training(model)
+    exported_model = export_for_training(model)
     prepared_model = prepare_pt2e(exported_model, quantizer)
 
     return prepared_model
@@ -474,10 +527,9 @@ def test_reinplace_index_copy_pt2e():
     k_cache = torch.randn((2, 100, 4), dtype=torch.bfloat16, requires_grad=False).to("hpu")
     v_cache = torch.randn((2, 100, 4), dtype=torch.bfloat16, requires_grad=False).to("hpu")
 
-    with use_eager_fallback():
-        with torch.no_grad():
-            model = get_model_with_observer(model)
-            calibrate_result = model(x, k_cache, v_cache, token_idx, cache_idx)
+    with use_eager_fallback(), torch.no_grad():
+        model = get_model_with_observer(model)
+        calibrate_result = model(x, k_cache, v_cache, token_idx, cache_idx)
 
 
 def test_avoid_cycle():
@@ -522,7 +574,15 @@ def test_reinplace_chain_of_inplaceable_ops():
 
     graph_module = make_fx(functionalize(fn))(*example_inputs)
     ctx = OptimizerContext(
-        graph_module, "test", example_inputs, False, False, False, OptimizationPassPlacement.PARTITIONER, [], None
+        graph_module,
+        "test",
+        example_inputs,
+        False,
+        False,
+        False,
+        OptimizationPassPlacement.PARTITIONER,
+        [],
+        None,
     )
 
     graph_changed = reinplace_test_helper(ctx)
@@ -540,3 +600,52 @@ def test_reinplace_chain_of_inplaceable_ops():
         return add_2
     """
     assert sub_str in ctx.graph_module.print_readable(False)
+
+
+def test_reinplace_broadcast_add_on_cpu():
+    """
+    Check whether a reinplace error occurs during the execution of
+    a broadcast add in compile mode when using data on the CPU.
+    """
+
+    def broadcast_add_cpu():
+        def fn(args):
+            device = args[0]
+            a = torch.randn(1, device=device)
+            b = torch.randn(2, device=device)
+            sum = a[:, None] + b
+            return sum
+
+        device = torch.device("cpu")
+        fn = torch.compile(fn, backend="hpu_backend")
+
+        result = fn([device])
+        print("the value of result is ", result)
+
+    broadcast_add_cpu()
+
+
+def test_reinplace_broadcast_add_on_hpu():
+    """
+    Verify the correctness of broadcast add in
+    compile mode when using data on the HPU.
+    """
+
+    def broadcast_add_hpu():
+        def fn(a, b):
+            sum = a[:, None] + b
+            return sum
+
+        device = torch.device("hpu")
+        a = torch.randn(1, device=device)
+        b = torch.randn(2, device=device)
+        result_eager = fn(a, b)
+        print("the value of result_eager is ", result_eager)
+        fn = torch.compile(fn, backend="hpu_backend")
+        result_compile = fn(a, b)
+        print("the value of result_compile is ", result_compile)
+        assert torch.allclose(result_eager, result_compile, atol=1e-5, rtol=1e-5), (
+            "the result under compile mode is wrong."
+        )
+
+    broadcast_add_hpu()

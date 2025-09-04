@@ -25,11 +25,9 @@
 #include <string>
 #include <unordered_map>
 
-
 #include <torch/csrc/Export.h>
 
-namespace habana_torch {
-namespace jit {
+namespace habana_torch::jit {
 
 struct Graph;
 struct Value;
@@ -57,5 +55,4 @@ TORCH_API void parseIR(
     std::unordered_map<std::string, Value*>& vmap,
     bool parse_tensor_constants = false);
 
-} // namespace jit
-} // namespace habana_torch
+} // namespace habana_torch::jit

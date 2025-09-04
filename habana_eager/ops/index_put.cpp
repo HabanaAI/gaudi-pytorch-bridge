@@ -27,8 +27,7 @@
 
 #define MAX_DIMS_FOR_ADVANCED_INDEXING (8)
 
-namespace habana {
-namespace eager {
+namespace habana::eager {
 
 static bool check_for_advanced_indexing(
     const c10::List<std::optional<at::Tensor>>& indices) {
@@ -144,8 +143,8 @@ generate_advanced_indexing_indices_list(const at::Stack& stack) {
   auto self_sizes = self.sizes().vec();
   std::vector<at::Tensor> indices_list;
   int64_t i = 0;
-  int64_t index_t_sizes[self.dim()];
-  bool index_all_elems[self.dim()];
+  std::vector<int64_t> index_t_sizes(self.dim());
+  std::vector<bool> index_all_elems(self.dim());
   for (auto index_input : indices) {
     auto input = index_input;
     if (input.has_value() &&
@@ -388,8 +387,7 @@ at::Tensor& _index_put_impl_eager(
     indices_vec.push_back(input.value());
   }
 
-  auto only_single_index_tensor = (indices_vec.size() == 1ull);
-  auto self_clone = self;
+  auto only_single_index_tensor = (indices_vec.size() == 1ULL);
   for (size_t i = 0; i < indices_vec.size(); i++) {
     if (indices_vec[i].device().type() != c10::DeviceType::HPU) {
       indices_vec[i] = indices_vec[i].to(c10::kHPU);
@@ -405,29 +403,35 @@ at::Tensor& _index_put_impl_eager(
     }
   }
 
-  at::Tensor result;
-  if (!advanced_indexing && only_single_index_tensor &&
-      (indices_vec[0].scalar_type() == c10::ScalarType::Bool) &&
-      GET_ENV_FLAG_NEW(PT_HPU_EAGER_INDEX_PUT_BOOL_OPTIMIZED)) {
-    habana::eager::EagerOp<at::Tensor> hpu_op{
-        "hpu::_index_put_impl_bool_eager",
-        {self, indices_vec, value, accumulate}};
-    result = hpu_op.call();
-  } else {
-    habana::eager::EagerOp<at::Tensor> hpu_op{
-        "hpu::_index_put_impl_eager", {self, indices_vec, value, accumulate}};
-    result = hpu_op.call();
-  }
-  self.copy_(result);
+  bool useBoolVariant =
+      (!advanced_indexing && only_single_index_tensor &&
+       (indices_vec[0].scalar_type() == c10::ScalarType::Bool) &&
+       GET_ENV_FLAG_NEW(PT_HPU_EAGER_INDEX_PUT_BOOL_OPTIMIZED));
+
+  const char* opName = useBoolVariant ? "hpu::_index_put_impl_bool_eager"
+                                      : "hpu::_index_put_impl_eager";
+
+  habana::eager::EagerOp<at::Tensor&> hpu_op{
+      opName, {self, indices_vec, value, accumulate}};
+
+  bool require_h2d = false;
+  bool require_st = false;
+  hpu_op.set_eager_op_info(
+      {eager::eagerOpKind::Inplace,
+       opName,
+       require_h2d,
+       require_st,
+       decltype(eager::EagerOpMetaData::out_indices_){0}});
+
+  hpu_op.call(self);
   return self;
 }
+
 TORCH_LIBRARY_FRAGMENT(hpu, m) {
   m.def(
       "_index_put_impl_eager(Tensor self, Tensor[] indices, Tensor value, bool accumulate=False) -> Tensor");
-}
-TORCH_LIBRARY_FRAGMENT(hpu, m) {
   m.def(
       "_index_put_impl_bool_eager(Tensor self, Tensor[] indices, Tensor value, bool accumulate=False) -> Tensor");
 }
-} // namespace eager
-} // namespace habana
+
+} // namespace habana::eager

@@ -18,7 +18,7 @@
 
 namespace habana {
 
-std::shared_ptr<void> FillHistcParams(const at::Stack& stack, size_t& size) {
+FillParamsT FillHistcParams(const at::Stack& stack) {
   PARAMS_STUB(ns_Histogram::ParamsV2);
   const auto bins = stack.at(1).toInt();
   const auto min = stack.at(2).toInt();
@@ -30,7 +30,7 @@ std::shared_ptr<void> FillHistcParams(const at::Stack& stack, size_t& size) {
   params->min = min;
   params->max = max;
 
-  return params;
+  return paramsT;
 }
 
 OutputMetaDataVector HistcMeta(const at::Stack& stack) {
@@ -42,8 +42,7 @@ OutputMetaDataVector HistcMeta(const at::Stack& stack) {
 }
 
 void Histc::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
-  size_t size = 0;
-  const auto params = FillHistcParams(stack, size);
+  const auto params = FillHistcParams(stack);
   const auto meta = HistogramBinCtMeta(stack);
 
   auto histogram = BuildOp(
@@ -52,14 +51,12 @@ void Histc::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
       {syn_in(0)},
       {{meta[0].shape, meta[0].dtype, 0},
        {meta[1].shape, meta[1].dtype, std::nullopt}},
-      params.get(),
-      size);
+      params.ptr(),
+      params.size());
   syn_out(0) = std::move(histogram[0]);
 }
 
-std::shared_ptr<void> FillHistogramBinCtParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillHistogramBinCtParams(const at::Stack& stack) {
   PARAMS_STUB(ns_Histogram::ParamsV2);
   const auto bins = stack.at(1).toScalar().toInt();
   const auto range = stack.at(2);
@@ -76,7 +73,7 @@ std::shared_ptr<void> FillHistogramBinCtParams(
     params->max = rangeList[1].toDouble();
   }
 
-  return params;
+  return paramsT;
 }
 
 OutputMetaDataVector HistogramBinCtMeta(const at::Stack& stack) {
@@ -94,16 +91,14 @@ OutputMetaDataVector HistogramBinCtMeta(const at::Stack& stack) {
   return {meta1, meta2};
 }
 
-std::shared_ptr<void> FillHistogramBinsParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillHistogramBinsParams(const at::Stack& stack) {
   PARAMS_STUB(ns_Histogram::ParamsV2);
 
   params->bins = stack.at(1).toTensor().sizes()[0] - 1;
   params->has_weights = stack.at(2).isTensor();
   params->density = stack.at(3).toScalar().toBool();
 
-  return params;
+  return paramsT;
 }
 
 OutputMetaDataVector HistogramBinsMeta(const at::Stack& stack) {
@@ -146,7 +141,7 @@ SharedMetaDataVector HistogramCommonSharedMeta(
         createOptionalNotPresentSharedMetaTensor());
 
   if (has_weights)
-    histogramMeta.inputs_data.emplace_back(1, c10::ScalarType::Float);
+    histogramMeta.inputs_data.emplace_back(1, self.scalar_type());
 
   histogramMeta.outputs_data.emplace_back(1, self.scalar_type());
   histogramMeta.outputs_data.emplace_back(1, self.scalar_type());

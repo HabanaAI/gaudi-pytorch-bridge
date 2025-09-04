@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,21 +13,17 @@
  * limitations under the License.
  */
 
+#include "Event.h"
 #include <pybind11/pybind11.h>
+#include <structmember.h>
 #include <torch/csrc/Device.h>
 #include <torch/csrc/THP.h>
 #include <torch/csrc/cuda/Module.h>
 #include <torch/csrc/utils/pybind.h>
 #include <torch/csrc/utils/pycfunction_helpers.h>
 #include <torch/csrc/utils/python_arg_parser.h>
-#include "backend/synapse_helpers/device_types.h"
-// #include <c10/cuda/CUDAGuard.h>
-
-// #include <cuda_runtime_api.h>
-#include <structmember.h>
-
-#include "Event.h"
 #include "Stream.h"
+#include "common/warning_suppress.h"
 
 PyObject* THP_HPU_EventClass = nullptr;
 
@@ -46,11 +42,11 @@ static PyObject* THP_HPU_Event_pynew(
   }
 
   THPObjectPtr ptr(type->tp_alloc(type, 0));
-  if (!ptr) {
+  SUPPRESS_WCONVERSION(if (!ptr)) {
     return nullptr;
   }
 
-  THP_HPU_Event* self = (THP_HPU_Event*)ptr.get();
+  auto* self = (THP_HPU_Event*)ptr.get();
   unsigned int flags = (enable_timing ? 1 : 0);
 
   new (&self->hpu_event) at::hpu::HPUEvent(flags);
@@ -156,9 +152,9 @@ static PyMethodDef THP_HPU_Event_methods[] = {
 
 PyTypeObject THP_HPU_EventType = {
 #if PY_VERSION_HEX >= 0x03000000
-    PyVarObject_HEAD_INIT(NULL, 0)
+    PyVarObject_HEAD_INIT(nullptr, 0)
 #else
-    PyObject_HEAD_INIT(NULL) 0, /* ob_size */
+    PyObject_HEAD_INIT(nullptr) 0, /* ob_size */
 #endif
         "habana_frameworks.torch._hpu_C._HpuEventBase", /* tp_name */
     sizeof(THP_HPU_Event), /* tp_basicsize */
@@ -197,21 +193,21 @@ PyTypeObject THP_HPU_EventType = {
     nullptr, /* tp_init */
     nullptr, /* tp_alloc */
     THP_HPU_Event_pynew, /* tp_new */
-    0, /* tp_free */
-    0, /* tp_is_gc */
-    0, /* tp_bases */
-    0, /* tp_mro */
-    0, /* tp_cache */
-    0, /* tp_subclasses */
-    0, /* tp_weaklist */
+    nullptr, /* tp_free */
+    nullptr, /* tp_is_gc */
+    nullptr, /* tp_bases */
+    nullptr, /* tp_mro */
+    nullptr, /* tp_cache */
+    nullptr, /* tp_subclasses */
+    nullptr, /* tp_weaklist */
 #if PY_VERSION_HEX >= 0x02030000
-    0, /* tp_del */
+    nullptr, /* tp_del */
 #endif
 #if PY_VERSION_HEX >= 0x02060000
     0, /* tp_version_tag */
 #endif
 #if PY_VERSION_HEX >= 0x03040000
-    0, /* tp_finalize */
+    nullptr, /* tp_finalize */
 #endif
 #ifdef COUNT_ALLOCS
     0, /* tp_allocs */

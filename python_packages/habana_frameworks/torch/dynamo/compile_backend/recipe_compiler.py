@@ -130,10 +130,14 @@ def get_input_symbolic(graph_module, inputs):
                             input_shape = input_meta.size()
                             logger.debug(f"Getting Min/Max for Tensor {input_node.name}")
                             min, max, expr = get_input(input_shape)
-                            expr_strides = [item for t in input_node.meta["output_strides"] for item in t]
+                            rank = len(input_shape)
+                            # Use output_strides if available, else fill with default strides of 1
+                            # Constant tensor doesn't have the "output_strides" meta information
+                            output_strides = input_node.meta.get("output_strides", [[1] * rank])
+                            expr_strides = [item for t in output_strides for item in t]
                             range_info = RangeInfo(min, max, str(expr), str(expr_strides), input_idx)
                             min_max_shapes.append(range_info)
-                        elif isinstance(input_meta, torch.SymInt) or isinstance(input_meta, int):
+                        elif isinstance(input_meta, torch.SymInt | int):
                             input_shape = [input_meta]
                             logger.debug(f"Getting Min/Max for Symbol {input_node.name}")
                             min, max, expr = get_input(input_shape)
@@ -189,7 +193,7 @@ class HabanaGraphModule(torch.nn.Module):
 
         logger.debug("Creating HabanaGraphModule")
         super().__init__()
-        self._name = f"{parent_graph_name}_{repr(graph_module)}"[:-2]
+        self._name = parent_graph_name.replace("base", f"{repr(graph_module)}"[:-2])
         self._jit_ir = jit_ir
         self._fx_module = graph_module
         self._in_to_out_dups = graph_module.meta.get("in_to_out_dups", None)
@@ -316,7 +320,8 @@ class HabanaGraphModule(torch.nn.Module):
             is_reusable = tuple(self.is_reusables)
             if self._has_randoms:
                 inputs = (None, None) + inputs
-                is_reusable = (False, False) + is_reusable
+                if len(is_reusable) > 0:
+                    is_reusable = (False, False) + is_reusable
 
             if self._get_pt_hpu_use_jit_fork:
                 graph = self._jit_ir
@@ -325,6 +330,7 @@ class HabanaGraphModule(torch.nn.Module):
 
             self._recipe_id = graph_compile(
                 graph=graph,
+                parent_graph_name=self._name,
                 inputs=inputs,
                 is_reusable=is_reusable,
                 dynamic=self._dynamic,
@@ -565,7 +571,7 @@ def get_outputs_metadata_dynamic(graph_module):
                             dynamic_shape_sym_expr_token.append(sym_expr_token)
                         else:
                             logger.debug("Symbolic type not supported:", sz)
-                            assert False
+                            raise AssertionError()
 
                     dim_size = len(dynamic_shape_sympy)
                     outputs_metadata.append(

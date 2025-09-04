@@ -41,22 +41,18 @@ void WrapScalarAsTensor(
   syn_inputs.push_back(scalar_tensors.back().get());
 }
 
-std::shared_ptr<void> FillQuantizePerChannelParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillQuantizePerChannelParams(const at::Stack& stack) {
   PARAMS_STUB(ns_QuantizationPerChannel::ParamsV2);
   params->axis = stack[3].toInt();
   params->quant_min = stack[4].toInt();
   params->quant_max = stack[5].toInt();
-  return params;
+  return paramsT;
 }
 
-std::shared_ptr<void> FillDequantizePerChannelParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillDequantizePerChannelParams(const at::Stack& stack) {
   PARAMS_STUB(ns_QuantizationPerChannel::ParamsV2);
   params->axis = stack[3].toInt();
-  return params;
+  return paramsT;
 }
 
 OutputMetaDataVector QuantizePerTensorMeta(const at::Stack& stack) {
@@ -179,8 +175,7 @@ void DequantizePerChannel::AddNode(
     syn_inputs.push_back(syn_in(2));
   }
 
-  size_t size = 0;
-  const auto& params = FillQuantizePerChannelParams(stack, size);
+  const auto& params = FillQuantizePerChannelParams(stack);
   const auto meta = DequantizePerChannelMeta(stack)[0];
 
   auto op = BuildOp(
@@ -188,8 +183,8 @@ void DequantizePerChannel::AddNode(
       update_guid_dtype(guid_, out_dtype),
       std::move(syn_inputs),
       {{meta.shape, meta.dtype, 0}},
-      params.get(),
-      size);
+      params.ptr(),
+      params.size());
   syn_out(0) = std::move(op[0]);
 }
 

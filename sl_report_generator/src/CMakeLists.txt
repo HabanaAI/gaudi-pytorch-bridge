@@ -15,19 +15,19 @@
 #
 ###############################################################################
 
-set(slrg_common_src slrg_functions.cpp shared_layer_report_generator.cpp stack_generator.cpp
+set(SLRG_COMMON_SRC slrg_functions.cpp shared_layer_report_generator.cpp stack_generator.cpp
                     utils/shared_structures.cpp ${CMAKE_BINARY_DIR}/generated/slrg/registry.cpp)
-set(slrg_py_src ${slrg_common_src} slrg_bindings.cpp)
+set(SLRG_PY_SRC ${SLRG_COMMON_SRC} slrg_bindings.cpp)
 
-set(slrg_links Python::Python torch habana_pytorch_backend habana_pytorch_plugin)
+set(SLRG_LINKS Python::Python torch habana_pytorch_backend habana_pytorch_plugin)
 
 set_source_files_properties(${CMAKE_BINARY_DIR}/generated/slrg/registry.cpp PROPERTIES COMPILE_FLAGS -w)
 
-add_habana_library(slrg_py SHARED ${slrg_py_src})
+add_habana_library(slrg_py SHARED ${SLRG_PY_SRC})
 
 target_compile_definitions(slrg_py PRIVATE TORCH_EXTENSION_NAME=slrg_py)
 set_target_properties(slrg_py PROPERTIES PREFIX "")
-target_link_libraries(slrg_py PUBLIC ${slrg_links})
+target_link_libraries(slrg_py PUBLIC ${SLRG_LINKS})
 target_include_directories(slrg_py PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 install(TARGETS slrg_py LIBRARY DESTINATION habana_torch_plugin)
 add_dependencies(slrg_py slrg_gen)

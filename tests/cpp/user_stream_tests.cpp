@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,8 +13,8 @@
  * limitations under the License.
  */
 #include <gtest/gtest.h>
-#include <math.h>
 #include <torch/torch.h>
+#include <cmath>
 #include <stdexcept>
 #include "backend/synapse_helpers/env_flags.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
@@ -34,16 +34,16 @@
 
 using namespace habana_lazy;
 
-#define ASSERT_EQ_HPU(X, Y) \
-  {                         \
-    bool isTRUE = X == Y;   \
-    ASSERT_TRUE(isTRUE);    \
+#define ASSERT_EQ_HPU(X, Y)   \
+  {                           \
+    bool isTRUE = (X) == (Y); \
+    ASSERT_TRUE(isTRUE);      \
   }
 
-#define ASSERT_NE_HPU(X, Y) \
-  {                         \
-    bool isFALSE = X == Y;  \
-    ASSERT_FALSE(isFALSE);  \
+#define ASSERT_NE_HPU(X, Y)    \
+  {                            \
+    bool isFALSE = (X) == (Y); \
+    ASSERT_FALSE(isFALSE);     \
   }
 
 class TestStream : public habana_lazy_test::LazyTest {};
@@ -127,7 +127,7 @@ void thread_fun(at::optional<c10::hpu::HPUStream>& cur_thread_stream) {
 }
 
 // Ensures streams are thread local
-TEST(TestStream, DISABLED_MultithreadGetAndSetTest) {
+TEST(TestStream, MultithreadGetAndSetTest) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
   auto& device = habana::HPUDeviceContext::get_device();
@@ -144,10 +144,17 @@ TEST(TestStream, DISABLED_MultithreadGetAndSetTest) {
   c10::hpu::HPUStream cur_stream = c10::hpu::getCurrentHPUStream();
   c10::hpu::HPUStream default_stream = c10::hpu::getDefaultHPUStream();
 
-  ASSERT_EQ_HPU(cur_stream, default_stream);
-  ASSERT_NE_HPU(cur_stream, *s0);
-  ASSERT_NE_HPU(cur_stream, *s1);
-  ASSERT_NE_HPU(s0, s1);
+  if (device.type() == synDeviceGaudi) {
+    ASSERT_EQ_HPU(cur_stream, default_stream);
+    ASSERT_NE_HPU(cur_stream, *s0);
+    ASSERT_NE_HPU(cur_stream, *s1);
+    ASSERT_EQ_HPU(s0, s1);
+  } else {
+    ASSERT_EQ_HPU(cur_stream, default_stream);
+    ASSERT_NE_HPU(cur_stream, *s0);
+    ASSERT_NE_HPU(cur_stream, *s1);
+    ASSERT_NE_HPU(s0, s1);
+  }
 }
 
 TEST(TestStream, StreamPoolTest) {
@@ -260,15 +267,17 @@ TEST(TestStream, ForceUseDefaultStream) {
 void thread_fun_add(bool& result) {
   auto new_stream = c10::hpu::getStreamFromPool();
   c10::hpu::setCurrentHPUStream(new_stream);
+  // CPU
   torch::Tensor tensor_A = torch::randn({200, 300});
+  auto out_A = torch::add(tensor_A, 4.0);
+  // HPU
   torch::Tensor tHabana_A = tensor_A.to(torch::kHPU);
   auto outHabana_A = torch::add(tHabana_A, 4.0);
-  auto out_A = torch::add(tensor_A, 4.0);
   bool equal = out_A.allclose(outHabana_A.to(torch::kCPU), 1e-3, 1e-3);
   result = equal;
 }
 
-TEST(TestStream, DISABLED_MultithreadStreamAddOP) {
+TEST(TestStream, MultithreadStreamAddOP) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
   auto& device = habana::HPUDeviceContext::get_device();
@@ -853,8 +862,7 @@ TEST(TestStream, record_stream) {
   auto& device = habana::HPUDeviceContext::get_device();
   void* ptr;
   c10::hpu::HPUStream default_s = c10::hpu::getDefaultHPUStream();
-  device.get_device_memory().malloc(
-      reinterpret_cast<void**>(&ptr), 104857600, default_s.stream());
+  device.get_device_memory().malloc(&ptr, 104857600, default_s.stream());
   c10::hpu::HPUStream compute1 = c10::hpu::getStreamFromPool();
   device.get_device_memory().recordStream(ptr, compute1.stream());
   device.get_device_memory().free(ptr);

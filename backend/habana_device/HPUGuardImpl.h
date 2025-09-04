@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,7 +38,7 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
     TORCH_INTERNAL_ASSERT(d.type() == type());
     at::Device old_device = getDevice();
     if (old_device.index() != d.index()) {
-      HPUDeviceAllocator::allocator_active_device_id = d.index();
+      HPUDeviceAllocator::allocator_active_device_id = synDeviceId(static_cast<unsigned char>(d.index()));
       HABANA_ASSERT(
           habana::HPUDeviceAllocator::allocator_active_device_id == 0,
           "habana active device: ",
@@ -75,12 +75,13 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
   }
 
   void uncheckedSetDevice(at::Device d) const noexcept override {
-    habana::HPUDeviceAllocator::allocator_active_device_id = d.index();
-    if (habana::HPUDeviceAllocator::allocator_active_device_id != 0)
+    habana::HPUDeviceAllocator::allocator_active_device_id = static_cast<unsigned char>(d.index());
+    if (habana::HPUDeviceAllocator::allocator_active_device_id != 0) {
       TORCH_WARN(
           "habana active device: ",
           habana::HPUDeviceAllocator::allocator_active_device_id,
           " != 0");
+    }
   }
   at::Stream getStream(at::Device d) const noexcept override {
     return c10::hpu::getCurrentHPUStream(d.index()).unwrap();
@@ -132,7 +133,7 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
     if (!event)
       return;
 
-    at::hpu::HPUEvent* hpu_event = static_cast<at::hpu::HPUEvent*>(event);
+    auto* hpu_event = static_cast<at::hpu::HPUEvent*>(event);
     delete hpu_event;
   }
 
@@ -161,7 +162,7 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
   void block(void* event, const at::Stream& stream) const override {
     if (!event)
       return;
-    at::hpu::HPUEvent* hpu_event = static_cast<at::hpu::HPUEvent*>(event);
+    auto* hpu_event = static_cast<at::hpu::HPUEvent*>(event);
     c10::hpu::HPUStream hpu_stream{stream};
     hpu_event->block(hpu_stream);
   }
@@ -170,7 +171,7 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
   bool queryEvent(void* event) const override {
     if (!event)
       return true;
-    at::hpu::HPUEvent* hpu_event = static_cast<at::hpu::HPUEvent*>(event);
+    auto* hpu_event = static_cast<at::hpu::HPUEvent*>(event);
     return hpu_event->query();
   }
 
@@ -183,7 +184,7 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
         "Both events must be recorded before calculating elapsed time.");
     auto* hpu_event1 = static_cast<at::hpu::HPUEvent*>(event1);
     auto* hpu_event2 = static_cast<at::hpu::HPUEvent*>(event2);
-    float time_ms = hpu_event1->elapsed_time(*hpu_event2) / 1e6;
+    float time_ms = hpu_event1->elapsed_time(*hpu_event2) / 1e6F;
     return static_cast<double>(time_ms);
   }
 };

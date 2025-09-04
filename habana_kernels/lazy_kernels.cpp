@@ -28,6 +28,7 @@
 #include "common/dump_args.h"
 #include "generated/lazy/fp8_gemm_v2.h"
 #include "habana_helpers/frontend_utils.h"
+#include "habana_helpers/pt_version_check.h"
 #include "habana_kernels/basic_kernels.h"
 #include "habana_kernels/binary_kernels.h"
 #include "habana_kernels/embedding_kernels.h"
@@ -87,6 +88,7 @@ void AddMemcpy(const Tensor& src, Tensor& dst) {
     // increase in host time
     auto t = dst;
     auto t_opt = c10::make_optional(t);
+
     HbLazyTensorViews::add_expand_lazy(
         src, dst.sizes().vec(), false /*implicit*/, t_opt);
     return;
@@ -190,7 +192,7 @@ void flush_op(
 template <typename SRC_DTYPE, typename DST_DTYPE>
 inline void validateDownCast(const at::Tensor& src, ScalarType dstScalarType) {
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_VALID_DATA_RANGE_CHECK)) {
-    if (IsDefined(src) && src.numel() > 0) {
+    if (src.defined() && src.numel() > 0) {
       auto max_int_val = (SRC_DTYPE)std::numeric_limits<DST_DTYPE>::max();
       auto min_int_val = (SRC_DTYPE)std::numeric_limits<DST_DTYPE>::lowest();
       auto src_detached = src.detach();
@@ -394,7 +396,7 @@ void strided_insert_hpu_lazy(
           auto& meta_data = mp_node->GetMetaData();
           auto outputSplitSizes = meta_data.get(2).toIntVector();
           auto inputSplitSizes = meta_data.get(3).toIntVector();
-          if (outputSplitSizes.size() == 0 && inputSplitSizes.size() == 0) {
+          if (outputSplitSizes.empty() && inputSplitSizes.empty()) {
             return true;
           }
         } else if (strcmp(node_name.c_str(), "hccl::allgather_out") == 0) {
@@ -438,7 +440,6 @@ void strided_insert_hpu_lazy(
 
   PT_VIEWTABLE_DEBUG(
       "orig tensor map entry created for ", GetHbLazyTensorId(params.base));
-  return;
 }
 
 /* checks if fallback to original op is possible*/
@@ -525,7 +526,7 @@ at::Tensor get_tensor_for_scalar(
 
   std::lock_guard<std::mutex> lock(context->GetScalarToTensorMutex());
   auto map_it =
-      context->scalar_to_tensor_map.find(std::make_pair(alpha, dtype));
+      context->scalar_to_tensor_map.find({alpha, dtype});
   if (map_it == context->scalar_to_tensor_map.end()) {
     if (false == GET_ENV_FLAG_NEW(PT_HPU_SCALAR_H2D_COPY_MULTIPLE)) {
       alpha_tensor = at::tensor(alpha).to(dtype).to(c10::kHPU, true);
@@ -534,7 +535,7 @@ at::Tensor get_tensor_for_scalar(
     }
 
     // Add to scalar value to device tensor cache
-    context->scalar_to_tensor_map[std::make_pair(alpha, dtype)] = alpha_tensor;
+    context->scalar_to_tensor_map.emplace(ScalarValueTypePair{alpha, dtype}, alpha_tensor);
     PT_LAZY_DEBUG(
         "scalar_to_tensor_map #miss: ",
         ++miss_count,
@@ -760,9 +761,9 @@ void copy_hpu_lazy_D2H_internal(
     if (_src.dtype() != tensor_data.dtype()) {
       auto tmp_hb_tensor = GetHbLazyTensor(_src);
       // try to find view_dtype in view chain (if available)
-      while (tmp_hb_tensor.getDataPtr()->stride_params.has_value()) {
-        const auto& stride_param =
-            tmp_hb_tensor.getDataPtr()->stride_params.value();
+      auto stride_params = tmp_hb_tensor.getDataPtr()->stride_params;
+      while (stride_params.has_value()) {
+        const auto& stride_param = stride_params.value();
         if (stride_param.optype == kStridedOpViewDtype) {
           tensor_data_ = at::empty_like(
               self, _src.options(), _src.suggest_memory_format());
@@ -771,6 +772,7 @@ void copy_hpu_lazy_D2H_internal(
           break;
         }
         tmp_hb_tensor = GetHbLazyTensor(stride_param.parent);
+        stride_params = tmp_hb_tensor.getDataPtr()->stride_params;
       }
     }
     self = copy_hpu_(self, tensor_data_, non_blocking, hpu_stream);
@@ -1013,7 +1015,7 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src_, bool non_blocking) {
   auto smeta{get_storage_extra_meta(self_internal_tesor)};
   if (smeta) {
     auto synapse_permute = smeta->get_memory_permutation();
-    if (synapse_permute.size() != 0) {
+    if (!synapse_permute.empty()) {
       PT_LAYOUTS_DEBUG(
           "clearing memory permute, id ",
           self_hb_tensor.getTensorUniqueId(),
@@ -1644,7 +1646,7 @@ Tensor view_dtype_hpu(const Tensor& self, ScalarType dtype) {
       "torch.Tensor.view is not supported for tensors with negative bit set when converting to a different dtype.");
 
   int64_t self_element_size = self.element_size();
-  int64_t new_element_size = static_cast<int64_t>(type_meta.itemsize());
+  auto new_element_size = static_cast<int64_t>(type_meta.itemsize());
 
   // Handle bool dtype when self_element_size == new_element_size
   if (self_element_size == new_element_size && dtype == c10::ScalarType::Bool) {
@@ -1778,7 +1780,7 @@ Tensor add_tensor_hpu_lazy(
   PT_LAZY_TRACE;
 
   LazyBinaryOp<at::Tensor> k{
-      "hpu::add",
+      "aten::add",
       {self, other, alpha},
       false,
       true,
@@ -1799,7 +1801,8 @@ Tensor add_scalar_hpu_lazy(
     const Scalar& other,
     const Scalar& alpha) {
   PT_LAZY_TRACE;
-  LazyOp<at::Tensor> op{"hpu::add", {self, other, alpha}, {self.sizes().vec()}};
+  LazyOp<at::Tensor> op{
+      "aten::add", {self, other, alpha}, {self.sizes().vec()}};
   RUN_MAYBE_WITH_ACC_THREAD(add, op)
 }
 
@@ -1896,14 +1899,22 @@ c10::ScalarType bincount_output_dtype(
 Tensor bincount_hpu_lazy(
     const Tensor& self,
     const std::optional<Tensor>& weights,
+#if IS_PYTORCH_AT_LEAST(2, 8)
+    c10::SymInt minlength) {
+#else
     int64_t minlength) {
+#endif
   PT_LAZY_TRACE;
   habana_lazy::NoAccThread no_acc_thread;
 
   auto elements = self.numel();
 
   if (elements == 0) {
+#if IS_PYTORCH_AT_LEAST(2, 8)
+    auto shape = DimVector{minlength.expect_int()};
+#else
     auto shape = DimVector{minlength};
+#endif
     return at::zeros(shape, TensorOptions(kHPU).dtype(at::kLong));
   }
   const auto self_dtype = self.scalar_type();
@@ -1914,7 +1925,11 @@ Tensor bincount_hpu_lazy(
 
   auto max_in_input =
       static_cast<int64_t>(at::max(maybe_casted_self).item<int64_t>());
+#if IS_PYTORCH_AT_LEAST(2, 8)
+  int64_t length = std::max(max_in_input + 1, minlength.expect_int());
+#else
   int64_t length = std::max(max_in_input + 1, minlength);
+#endif
   std::vector<int64_t> shape{length};
   // Add bincount node
   LazyOp<at::Tensor> hpu_op{
@@ -2031,7 +2046,7 @@ Tensor constant_pad_hpu_lazy(
       std::vector<uint32_t> pad_ht_vec(MAX_DIMENSIONS_NUM * 2, 0);
       // assuming that "pad" has a pair of pad values corresponding to each
       // dim that needs to be padded.
-      for (unsigned int i = 0; i < pad.size() / 2; i++) {
+      for (size_t i = 0; i < pad.size() / 2; i++) {
         // Host tensor layout 1D - 10 elements:
         // pad_before[0]...pad_before[4], pad_after[0] ... pad_after[4] (for
         // dimensionality IFM less then 5 some elements not in use)
@@ -2294,8 +2309,8 @@ generate_advanced_indexing_indices_list(const at::Stack& stack) {
   auto self_sizes = self.sizes().vec();
   std::vector<at::Tensor> indices_list;
   int64_t i = 0;
-  int64_t index_t_sizes[self.dim()];
-  bool index_all_elems[self.dim()];
+  std::vector<int64_t> index_t_sizes(self.dim());
+  std::vector<bool> index_all_elems(self.dim());
   for (auto index_input : indices) {
     auto input = index_input;
     if (input.has_value() &&
@@ -2352,8 +2367,8 @@ generate_advanced_indexing_indices_list(const at::Stack& stack) {
   // TODO:
   // adjust this algorithm to larger dim tensors as the r/ri logic
   // is applied dim wise and not on the flattened shape.
-  int64_t repeats_needed[self.dim()];
-  int64_t repeat_interleaves_needed[self.dim()];
+  std::vector<int64_t> repeats_needed(self.dim());
+  std::vector<int64_t> repeat_interleaves_needed(self.dim());
   int repeat_index = 0;
   // Array holding a schape that was already processed through the r/ri logic
   // keep the index of the indice in order to copy schema if necessary from
@@ -3828,6 +3843,15 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu_lazy(
     double eps,
     [[maybe_unused]] std::array<bool, 3> output_mask) {
   PT_LAZY_TRACE;
+
+  const bool has_running_mean =
+      (running_mean_.has_value() && running_mean_->defined());
+  const bool has_running_var =
+      (running_var_.has_value() && running_var_->defined());
+  TORCH_CHECK_VALUE(
+      has_running_mean == has_running_var,
+      "running_mean and running_var must either both be None or neither be None");
+
   auto in_sizes = input_.sizes().vec();
   auto running_tensor_mean = running_mean_.value_or(Tensor());
   auto preprocess_results = batch_norm_bwd_preprocess(
@@ -4017,7 +4041,7 @@ Tensor batch_norm_backward_elemt_lazy(
       true);
   fill_hpu_lazy_(const_tensor, 0);
   fill_hpu_lazy_(value_tensor, 0);
-  index_put_hpu_lazy_(tmp_partial_mean, {const_tensor}, value_tensor, 0);
+  index_put_hpu_lazy_(tmp_partial_mean, {const_tensor}, value_tensor, false);
 
   auto second_term = at::mul(
       at::mul(
@@ -4098,8 +4122,8 @@ native_group_norm_backward_hpu_lazy(
 
   Tensor bn_fwd_out;
   auto input_shape = input_.sizes().vec();
-  int64_t rszarr_bn_in[input_.dim()];
-  int64_t rszarr_bn_fwd_mean[input_.dim()];
+  std::vector<int64_t> rszarr_bn_in(input_.dim());
+  std::vector<int64_t> rszarr_bn_fwd_mean(input_.dim());
   int64_t m = input_.numel() / Nmod;
   for (int i = 0; i < input_.dim(); i++) {
     rszarr_bn_in[i] = 1;
@@ -4108,7 +4132,7 @@ native_group_norm_backward_hpu_lazy(
   rszarr_bn_in[1] = Nmod;
   rszarr_bn_in[input_.dim() - 1] = m;
   rszarr_bn_fwd_mean[1] = Nmod;
-  c10::IntArrayRef bn_in_view_shape(rszarr_bn_in, input_.dim());
+  c10::IntArrayRef bn_in_view_shape(rszarr_bn_in);
   auto bn_fwd_in = at::reshape(
       input_, bn_in_view_shape); // view_hpu(input, bn_in_view_shape);
   if (use_bn_fwd_in_gn_bwd) {
@@ -4118,7 +4142,7 @@ native_group_norm_backward_hpu_lazy(
     auto bn_fwd_out_tmp = std::get<0>(x);
     bn_fwd_out = at::reshape(bn_fwd_out_tmp, input_shape);
   } else {
-    c10::IntArrayRef mean_for_bn_fwd_shape(rszarr_bn_fwd_mean, input_.dim());
+    c10::IntArrayRef mean_for_bn_fwd_shape(rszarr_bn_fwd_mean);
     auto mean_for_bn_fwd = at::reshape(mean, mean_for_bn_fwd_shape);
     auto rstd_for_bn_fwd = at::reshape(rstd, mean_for_bn_fwd_shape);
     auto bn_fwd_out_tmp =
@@ -4126,19 +4150,19 @@ native_group_norm_backward_hpu_lazy(
     bn_fwd_out = at::reshape(bn_fwd_out_tmp, input_shape);
   }
 
-  int64_t dimarr[input_.dim() - 1];
+  std::vector<int64_t> dimarr(input_.dim() - 1);
   for (int i = 0; i < (input_.dim() - 1); i++)
     dimarr[i] = i + 1;
   dimarr[0] = 0;
-  c10::IntArrayRef reduce_dims(dimarr, input_.dim() - 1);
+  c10::IntArrayRef reduce_dims(dimarr);
 
   auto t1 = at::mul(grad_out, bn_fwd_out);
 
-  int64_t rszarr1[input_.dim()];
+  std::vector<int64_t> rszarr1(input_.dim());
   for (int i = 0; i < input_.dim(); i++)
     rszarr1[i] = 1;
   rszarr1[1] = C.expect_int();
-  c10::IntArrayRef wt_view_shape(rszarr1, input_.dim());
+  c10::IntArrayRef wt_view_shape(rszarr1);
   auto weight = weight_opt.value_or(Tensor());
   if (!weight.defined()) {
     auto options = torch::TensorOptions()
@@ -4775,17 +4799,6 @@ Tensor expand_hpu_lazy(const Tensor& self, SymIntArrayRef size, bool implicit) {
   // since it is throwing errors in that case we are forced to add this
   // work-around. E.g. self.sizes() = {1} size_in = {0}
   // TBD: Investigate and raise a JIRA on GC.
-  auto size_vec = size_in.vec();
-  auto flattened_size = std::accumulate(
-      size_vec.begin(), size_vec.end(), 1, std::multiplies<int64_t>());
-
-  if (flattened_size == 0) {
-    auto result = empty_hpu_lazy(
-        size_in.vec(), self.options(), self.suggest_memory_format(), true);
-    auto hl_result = GetHbLazyTensor(result);
-    flush_op();
-    return result;
-  }
 
   auto out = at::native::expand(self, size_in, implicit);
 
@@ -5344,8 +5357,8 @@ std::tuple<Tensor, Tensor, Tensor> unique_dim_hpu_lazy(
       }
       auto output_shape = at::DimVector(self.sizes());
       auto valid_shape = at::DimVector{1};
-      auto inverse_tensor_shape = DimVector{self.sizes().vec().at(dim)};
-      auto counts_tensor_shape = DimVector{self.sizes().vec().at(dim)};
+      auto inverse_tensor_shape = DimVector{self.sizes().at(dim)};
+      auto counts_tensor_shape = DimVector{self.sizes().at(dim)};
 
       auto result0 = empty_hpu_lazy(
           output_shape, self.options(), self.suggest_memory_format(), false);
@@ -5693,7 +5706,7 @@ at::Tensor roi_align_fwd_hpu_lazy(
     // Cast temp tensor to orig_out tensor data type
     cast_op_ptr = std::make_shared<LazyOp<Tensor>>(LazyOp<Tensor>{
         "hpu::cast", {rois, c10::ScalarType::Float}, {rois.sizes().vec()}});
-    rois_f32 = cast_op_ptr.get()->get_result();
+    rois_f32 = cast_op_ptr->get_result();
   }
   LazyOp<at::Tensor> k(
       "hpu::roi_align_fwd",
@@ -5862,60 +5875,47 @@ at::Tensor& recv_hpu_lazy_(
   RUN_INPLACE_MAYBE_WITH_ACC_THREAD(recv_, k, tensor)
 }
 
-at::Tensor convert_from_int4_common(
-    const std::string& op_name,
-    const at::Tensor& input,
-    const at::Tensor& scale,
-    const std::optional<at::Tensor>& zero_point,
-    at::ScalarType out_dtype) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(op_name + " :", DUMP_4ARGS(input, scale, zero_point, out_dtype));
-
-  auto output_shape = input.sizes().vec();
-  output_shape.back() *= 8;
-
-  LazyOp<at::Tensor> hpu_op{
-      "hpu::" + op_name, {input, scale, zero_point, out_dtype}, {output_shape}};
-  hpu_op.set_scalar_types({out_dtype});
-  RUN_MAYBE_WITH_ACC_THREAD(convert_from_int4, hpu_op)
-}
-
-at::Tensor convert_from_int4_lazy(
-    const at::Tensor& input,
-    const at::Tensor& scale,
-    const std::optional<at::Tensor>& zero_point,
-    at::ScalarType out_dtype) {
-  return convert_from_int4_common(
-      "convert_from_int4", input, scale, zero_point, out_dtype);
-}
-
-at::Tensor convert_from_uint4_lazy(
-    const at::Tensor& input,
-    const at::Tensor& scale,
-    const std::optional<at::Tensor>& zero_point,
-    at::ScalarType out_dtype) {
-  return convert_from_int4_common(
-      "convert_from_uint4", input, scale, zero_point, out_dtype);
-}
-
 at::Tensor dequantize_nf4_lazy(
     const at::Tensor& input,
     const at::Tensor& absmax,
     c10::SymInt blocksize,
     at::IntArrayRef out_shape,
-    at::ScalarType out_dtype) {
+    at::ScalarType out_dtype,
+    const bool use_big_endian) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
       "dequantize_nf4 :",
-      DUMP_5ARGS(input, absmax, blocksize, out_shape, out_dtype));
+      DUMP_6ARGS(
+          input, absmax, blocksize, out_shape, out_dtype, use_big_endian));
   LazyOp<at::Tensor> hpu_op{
       "hpu::dequantize_nf4",
-      {input, absmax, blocksize, out_shape, out_dtype},
+      {input, absmax, blocksize, out_shape, out_dtype, use_big_endian},
       {out_shape.vec()}};
   hpu_op.set_scalar_types({out_dtype});
   RUN_MAYBE_WITH_ACC_THREAD(dequantize_nf4, hpu_op);
+}
+
+Tensor block_softmax_adjustment_lazy(
+    const Tensor& block_maxes,
+    const Tensor& block_sums,
+    const Tensor& block_groups,
+    int64_t batch_size,
+    const at::OptionalIntArrayRef out_shape) {
+  PT_LAZY_OP_TRACE;
+  PT_LAZY_TRACE;
+
+  PT_OP_INFO(
+      "block_softmax_adjustment :",
+      DUMP_5ARGS(block_maxes, block_sums, block_groups, batch_size, out_shape));
+
+  LazyOp<at::Tensor> hpu_op{
+      "hpu::block_softmax_adjustment",
+      {block_maxes, block_sums, block_groups, batch_size, out_shape},
+      {out_shape.has_value() ? out_shape.value().vec()
+                             : block_maxes.sizes().vec()}};
+
+  RUN_MAYBE_WITH_ACC_THREAD(block_softmax_adjustment, hpu_op);
 }
 
 inline bool is_main_thread_and_lazy_collectives_enabled() {
@@ -6266,7 +6266,7 @@ void optimizer_lamb_phase1(
       std::vector<std::vector<int64_t>>{},
       -1};
 
-  return hpu_op.call(std::vector<at::TensorList>{
+  hpu_op.call(std::vector<at::TensorList>{
       exp_avg, exp_avg_sq, out_weight_norms, out_adam_norms, out_adam_steps});
 }
 
@@ -6387,12 +6387,13 @@ fp8_sdpa_recomp_fwd_common(
     const bool is_amax_o,
     const std::optional<at::Tensor>& valid_seq_len,
     std::string_view seq_padding_type,
-    c10::ScalarType fwdOutType) {
+    c10::ScalarType fwdOutType,
+    SymIntArrayRef window_size) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
       "fp8_sdpa_recomp_fwd :",
-      DUMP_19ARGS(
+      DUMP_20ARGS(
           q,
           k,
           v,
@@ -6411,7 +6412,8 @@ fp8_sdpa_recomp_fwd_common(
           is_amax_s,
           is_amax_o,
           valid_seq_len,
-          seq_padding_type));
+          seq_padding_type,
+          window_size));
 
   auto linvType = c10::ScalarType::Float;
 
@@ -6452,7 +6454,8 @@ fp8_sdpa_recomp_fwd_common(
          is_amax_s,
          is_amax_o,
          valid_seq_len,
-         seq_padding_type},
+         seq_padding_type,
+         window_size},
         Fp8SDPARecompFwdOutputShape};
     hpu_op.set_scalar_types(
         {fwdOutType,
@@ -6484,7 +6487,8 @@ fp8_sdpa_recomp_fwd_common(
          is_amax_s,
          is_amax_o,
          valid_seq_len,
-         seq_padding_type},
+         seq_padding_type,
+         window_size},
         Fp8SDPARecompFwdOutputShape};
     hpu_op.set_scalar_types(
         {fwdOutType,
@@ -6524,7 +6528,8 @@ fp8_sdpa_recomp_fwd_lazy(
     const bool is_amax_s,
     const bool is_amax_o,
     const std::optional<at::Tensor>& valid_seq_len,
-    std::string_view seq_padding_type) {
+    std::string_view seq_padding_type,
+    SymIntArrayRef window_size) {
   auto fwdOutType = q.scalar_type();
   if (q.scalar_type() == at::ScalarType::Float8_e4m3fn &&
       (!q_scale_o.has_value()))
@@ -6543,17 +6548,18 @@ fp8_sdpa_recomp_fwd_lazy(
       is_causal,
       requires_backward,
       softmax_mode,
-      maybe_convert_to_h2d(d_scale_q, h2d_scales_enabled, op_name),
-      maybe_convert_to_h2d(d_scale_k, h2d_scales_enabled, op_name),
-      maybe_convert_to_h2d(d_scale_v, h2d_scales_enabled, op_name),
-      maybe_convert_to_h2d(q_scale_s, h2d_scales_enabled, op_name),
-      maybe_convert_to_h2d(q_scale_o, h2d_scales_enabled, op_name),
-      maybe_convert_to_h2d(d_scale_s, h2d_scales_enabled, op_name),
+      maybe_convert_tensor_to_h2d(d_scale_q, h2d_scales_enabled, op_name),
+      maybe_convert_tensor_to_h2d(d_scale_k, h2d_scales_enabled, op_name),
+      maybe_convert_tensor_to_h2d(d_scale_v, h2d_scales_enabled, op_name),
+      maybe_convert_tensor_to_h2d(q_scale_s, h2d_scales_enabled, op_name),
+      maybe_convert_tensor_to_h2d(q_scale_o, h2d_scales_enabled, op_name),
+      maybe_convert_tensor_to_h2d(d_scale_s, h2d_scales_enabled, op_name),
       is_amax_s,
       is_amax_o,
       valid_seq_len,
       seq_padding_type,
-      fwdOutType);
+      fwdOutType,
+      window_size);
 }
 
 std::tuple<
@@ -6582,7 +6588,8 @@ fp8_sdpa_recomp_fwd_scalar_lazy(
     const bool is_amax_s,
     const bool is_amax_o,
     const std::optional<at::Tensor>& valid_seq_len,
-    std::string_view seq_padding_type) {
+    std::string_view seq_padding_type,
+    SymIntArrayRef window_size) {
   auto fwdOutType = q.scalar_type();
   if (q.scalar_type() == at::ScalarType::Float8_e4m3fn && (q_scale_o == 0.))
     fwdOutType = at::ScalarType::BFloat16;
@@ -6607,7 +6614,8 @@ fp8_sdpa_recomp_fwd_scalar_lazy(
       is_amax_o,
       valid_seq_len,
       seq_padding_type,
-      fwdOutType);
+      fwdOutType,
+      window_size);
 }
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> fp8_sdpa_fwd_lazy(
@@ -6660,12 +6668,12 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> fp8_sdpa_fwd_lazy(
       scale,
       is_causal,
       softmax_mode,
-      maybe_convert_to_h2d(d_scale_q, h2d_scales_enabled, op_name),
-      maybe_convert_to_h2d(d_scale_k, h2d_scales_enabled, op_name),
-      maybe_convert_to_h2d(d_scale_v, h2d_scales_enabled, op_name),
-      maybe_convert_to_h2d(q_scale_s, h2d_scales_enabled, op_name),
-      maybe_convert_to_h2d(q_scale_o, h2d_scales_enabled, op_name),
-      maybe_convert_to_h2d(d_scale_s, h2d_scales_enabled, op_name),
+      maybe_convert_tensor_to_h2d(d_scale_q, h2d_scales_enabled, op_name),
+      maybe_convert_tensor_to_h2d(d_scale_k, h2d_scales_enabled, op_name),
+      maybe_convert_tensor_to_h2d(d_scale_v, h2d_scales_enabled, op_name),
+      maybe_convert_tensor_to_h2d(q_scale_s, h2d_scales_enabled, op_name),
+      maybe_convert_tensor_to_h2d(q_scale_o, h2d_scales_enabled, op_name),
+      maybe_convert_tensor_to_h2d(d_scale_s, h2d_scales_enabled, op_name),
       is_amax_s,
       valid_seq_len,
       seq_padding_type};
@@ -6695,7 +6703,8 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_fwd_lazy(
     const bool requires_backward,
     std::string_view softmax_mode,
     const std::optional<at::Tensor>& valid_seq_len,
-    std::string_view seq_padding_type) {
+    std::string_view seq_padding_type,
+    SymIntArrayRef window_size) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   if (p > 0.0) {
@@ -6714,7 +6723,8 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_fwd_lazy(
          requires_backward,
          softmax_mode,
          valid_seq_len,
-         seq_padding_type},
+         seq_padding_type,
+         window_size},
         SDPARecompFwdOutputShape};
     hpu_op.set_scalar_types(
         {q.scalar_type(),
@@ -6735,7 +6745,8 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_fwd_lazy(
          requires_backward,
          softmax_mode,
          valid_seq_len,
-         seq_padding_type},
+         seq_padding_type,
+         window_size},
         SDPARecompFwdOutputShape};
     auto linvType = c10::ScalarType::Float;
 

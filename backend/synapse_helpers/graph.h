@@ -35,6 +35,7 @@
 
 namespace synapse_helpers {
 
+std::string check_and_prepare_graph_dump_dir();
 class graph {
  public:
   graph() = delete;

@@ -21,8 +21,8 @@
 using namespace habana_lazy;
 
 using ScalesMapRecord = std::pair<
-    std::pair<double, at::ScalarType>,
-    std::pair<std::vector<at::Tensor>, int>>;
+    ScalarValueTypePair,
+    ScalesIdxPair>;
 
 class LazyH2dScalesTest : public habana_lazy_test::LazyTest {
  protected:
@@ -74,19 +74,19 @@ class LazyH2dScalesTest : public habana_lazy_test::LazyTest {
   double validate_and_get_scale_from_map(
       const ScalesMapRecord& scales_record,
       std::optional<at::Tensor> scale_tensor = std::nullopt) {
-    const auto key_scale = scales_record.first.first;
-    const auto key_dtype = scales_record.first.second;
+    const auto key_scale = scales_record.first.value;
+    const auto key_dtype = scales_record.first.dtype;
     const auto was_scale_used = scale_tensor.has_value() and
         (scale_tensor.value().item().toDouble() == key_scale) and
         (scale_tensor.value().scalar_type() == key_dtype);
-    const auto& allocated_scale_tensor_vec = scales_record.second.first;
-    const auto scale_idx = scales_record.second.second;
+    const auto& allocated_scale_tensor_vec = scales_record.second.scales;
+    const auto scale_idx = scales_record.second.current_idx;
 
     EXPECT_EQ(allocated_scale_tensor_vec.size(), 1)
         << "Preallocated scales vector for each scale value should initially contain 1 element.";
     if (was_scale_used) {
-      EXPECT_EQ(scale_idx, -1)
-          << "Preallocated scale idx for used scale should be equal to -1.";
+      EXPECT_EQ(scale_idx, std::numeric_limits<decltype(scale_idx)>::max())
+          << "Preallocated scale idx for used scale should be equal to " << std::numeric_limits<decltype(scale_idx)>::max() << ".";
     } else {
       EXPECT_EQ(scale_idx, 0)
           << "Preallocated scale idx should be initially equal to 0.";
@@ -144,7 +144,7 @@ class LazyH2dScalesTest : public habana_lazy_test::LazyTest {
     for (const auto& pair : scales_map) {
       const auto allocated_scale =
           validate_and_get_scale_from_map(pair, scale_tensor);
-      if (pair.first.second == at::ScalarType::Float) {
+      if (pair.first.dtype == at::ScalarType::Float) {
         float_scales.push_back(allocated_scale);
       } else {
         bfloat16_scales.push_back(allocated_scale);
@@ -224,8 +224,8 @@ TEST_F(LazyH2dScalesTest, H2dScalesMapWithHwScale) {
                                ->getScalarToH2dScalesMapRef();
   const auto& used_scale_record = scales_map.at(
       {hw_cpu_scale.item().toDouble(), hw_cpu_scale.scalar_type()});
-  const auto& used_scale_tensor_vec = used_scale_record.first;
-  const auto used_scale_idx = used_scale_record.second;
+  const auto& used_scale_tensor_vec = used_scale_record.scales;
+  const auto used_scale_idx = used_scale_record.current_idx;
   EXPECT_EQ(used_scale_tensor_vec.size(), 2)
       << "Preallocated scales vector for scale value used twice should contain 2 elements.";
   EXPECT_EQ(used_scale_idx, -1) << "Current index of used scale should be -1.";
@@ -241,8 +241,8 @@ TEST_F(LazyH2dScalesTest, H2dScalesMapWithHwScale) {
   const auto& used_scale_record_after_mark = scales_map.at(
       {hw_cpu_scale.item().toDouble(), hw_cpu_scale.scalar_type()});
   const auto& used_scale_tensor_vec_after_mark =
-      used_scale_record_after_mark.first;
-  const auto used_scale_idx_after_mark = used_scale_record_after_mark.second;
+      used_scale_record_after_mark.scales;
+  const auto used_scale_idx_after_mark = used_scale_record_after_mark.current_idx;
   EXPECT_EQ(used_scale_tensor_vec_after_mark.size(), 2)
       << "Preallocated scales vector for scale value used twice should contain 2 elements.";
   EXPECT_EQ(used_scale_idx_after_mark, 1)

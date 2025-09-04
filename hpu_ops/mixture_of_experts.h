@@ -22,40 +22,10 @@ namespace sh = synapse_helpers;
 
 namespace habana {
 
-struct MixtureOfExperts : OpBackend {
-  MixtureOfExperts(
-      int device_id,
-      c10::ScalarType scalar_type,
-      bool measurement_mode);
-  void AddNode(sh::graph&, const at::Stack&) override;
-
- private:
-  bool measurement_mode;
-};
-struct MixtureOfExpertsFwd : OpBackend {
-  MixtureOfExpertsFwd(int device_id, c10::ScalarType scalar_type, bool recomp);
-  void AddNode(sh::graph&, const at::Stack&) override;
-
- private:
-  const bool recomp;
-};
-
-struct MixtureOfExpertsBwd : OpBackend {
-  MixtureOfExpertsBwd(int device_id, c10::ScalarType scalar_type);
-  void AddNode(sh::graph&, const at::Stack&) override;
-};
-
-struct MixtureOfExpertsRecompBwd : OpBackend {
-  MixtureOfExpertsRecompBwd(int device_id, c10::ScalarType scalar_type);
-  void AddNode(sh::graph&, const at::Stack&) override;
-};
-
 std::vector<std::vector<int64_t>> MixtureOfExpertsFwdShapes(const at::Stack&);
-
-OutputMetaDataVector MixtureOfExpertsFp8Meta(const at::Stack& stack);
-OutputMetaDataVector MixtureOfExpertsFwdMeta(const at::Stack& stack);
-OutputMetaDataVector MixtureOfExpertsFwdRecompMeta(const at::Stack& stack);
-
-OutputMetaDataVector MixtureOfExpertsBwdMeta(const at::Stack& stack);
+std::vector<std::vector<int64_t>> MixtureOfExpertsFwdFp8Shapes(
+    const at::Stack&);
+std::vector<std::vector<int64_t>> MixtureOfExpertsRecompFwdFp8Shapes(
+    const at::Stack&);
 
 } // namespace habana

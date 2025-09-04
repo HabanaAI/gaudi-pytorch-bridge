@@ -70,8 +70,9 @@ target_link_libraries(
          absl::variant
          absl::hash
          absl::raw_hash_set
+         exprtk::exprtk
          npu::hllogger
-         npu::fmt
+         fmt::fmt-header-only
          $<TARGET_NAME_IF_EXISTS:npu::specs_embedded>
          npu::specs_external
   PRIVATE Python::Python torch)
@@ -91,7 +92,7 @@ endif()
 
 separate_debug_symbols(pytorch_synapse_helpers)
 export(
-  TARGETS pytorch_synapse_helpers
+  TARGETS pytorch_synapse_helpers exprtk
   NAMESPACE synapse_helpers::
   FILE synapse_helpersConfig.cmake)
 set(CMAKE_EXPORT_PACKAGE_REGISTRY ON)

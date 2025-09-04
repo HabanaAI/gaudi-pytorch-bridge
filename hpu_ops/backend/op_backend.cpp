@@ -21,6 +21,7 @@
 #include "backend/helpers/create_tensor.h"
 #include "backend/helpers/tensor_utils.h"
 #include "common/utils.h"
+#include "common/warning_suppress.h"
 #include "habana_helpers/dtype_helpers.h"
 #include "habana_kernels/kernel_utils.h"
 #include "hpu_ops/common/scalar_dtype_range.h"
@@ -200,7 +201,7 @@ void OpBackend::HandleScalarToTensorSTMeta(
 
 bool OpBackend::STMeta(
     habana_helpers::IShapeList& inputs,
-    habana_helpers::IShapeList& outputs) const {
+    habana_helpers::IShapeList& outputs) {
   if (m_st_meta_fn) {
     HandleScalarToTensorSTMeta(inputs);
     return m_st_meta_fn(inputs, outputs);
@@ -291,13 +292,14 @@ void OpBackend::HandleInplaceFn(sh::graph& graph, const at::Stack& stack) {
     const auto& ival = stack[stack_id];
     const auto& tensors = ival.isTensor()
         ? static_cast<at::List<at::Tensor>>(ival.toTensor())
-        : ival.isTensorList() ? ival.toTensorList() : at::List<at::Tensor>{};
+        : ival.isTensorList() ? ival.toTensorList()
+                              : at::List<at::Tensor>{};
 
     const auto inplace_id = m_inplace_ids[inplace_ids_pos];
     if (inplace_id != (int)stack_id) {
       syn_counter += tensors.size();
     } else {
-      for (auto i = 0u; i < tensors.size(); ++i) {
+      for (auto i = 0U; i < tensors.size(); ++i) {
         p_context_->syn_outputs_.emplace_back(
             habana_helpers::duplicate_tensor_in_memory_section(
                 p_context_->syn_inputs_[syn_counter++],
@@ -454,6 +456,27 @@ sh::tensor OpBackend::ConstantHelper(
       this, graph, val, force_type, constant_outshape, final_result_index);
 }
 
+synapse_helpers::tensor OpBackend::CopyHelper(
+    at::IntArrayRef src_size,
+    c10::ScalarType src_type,
+    at::IntArrayRef dest_size,
+    c10::ScalarType dest_type,
+    synapse_helpers::graph& graph,
+    std::vector<synTensor> inputs,
+    const OutputMetaDataVector meta,
+    std::optional<int> result_index) {
+  return OpBackend::BuildCopy(
+      src_size,
+      src_type,
+      dest_size,
+      dest_type,
+      this,
+      graph,
+      std::move(inputs),
+      meta,
+      result_index);
+}
+
 sh::tensor OpBackend::BroadcastHelper(
     sh::graph& graph,
     synTensor syn_in,
@@ -546,7 +569,7 @@ void OpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
         const auto& tensors = ival.isTensor()
             ? static_cast<at::List<at::Tensor>>(ival.toTensor())
             : ival.toTensorList();
-        for (const at::Tensor& tensor : tensors) {
+        SUPPRESS_WDANGLING_REFERENCE(for (const at::Tensor& tensor : tensors)) {
           m_output_inf_meta.AddOutputTensor(TensorMetaData(
               tensor.sizes().vec(),
               tensor.strides().vec(),
@@ -573,7 +596,7 @@ void OpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
           const auto& tensors = ival.isTensor()
               ? static_cast<at::List<at::Tensor>>(ival.toTensor())
               : ival.toTensorList();
-          for (auto i = 0u; i < tensors.size(); ++i) {
+          for (auto i = 0U; i < tensors.size(); ++i) {
             const auto& outshape =
                 outshapes.empty() ? tensors[i].sizes() : outshapes[i];
             const auto& strides = HabanaOperator::CalculateStrides(
@@ -587,18 +610,19 @@ void OpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
         }
       }
     }
-    size_t size = 0;
-    auto params = FillParams(stack, size);
+    auto params = FillParams(stack);
     // populate node params
     PT_BRIDGE_DEBUG(
-        "OpBackend adding params data=", params.get(), ", params size=", size);
+        "OpBackend adding params data=",
+        params.ptr(),
+        ", params size=",
+        params.size());
 
-    m_output_inf_meta.AddNodeParams(params.get(), size);
+    m_output_inf_meta.AddNodeParams(params.ptr(), params.size());
     return;
   }
-  size_t size = 0;
-  const auto& params = FillParams(stack, size);
-  AddNodeToSynapseGraph(graph, params.get(), size);
+  const auto& params = FillParams(stack);
+  AddNodeToSynapseGraph(graph, params.ptr(), params.size());
 }
 
 InferOutputMetaRetType OpBackend::InferOutputMeta(at::Stack& stack) {
@@ -635,7 +659,7 @@ void OpBackend::PopulateMetadata(
       m_output_metadata[i].mem_format = meta[i].mem_format;
       m_output_metadata[i].undefined = meta[i].undefined;
     }
-  } else if (m_res_ids.size()) {
+  } else if (!m_res_ids.empty()) {
     auto outshapes = ComputeOutputShapes(stack);
     if (outshapes.empty()) {
       TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
@@ -849,22 +873,22 @@ std::vector<sh::tensor> OpBackend::BuildNode(
                     attr.tensor_type,
                     op->GetOpDynamicity())
               : attr.syn_data_type == syn_type_na
-                  ? habana_helpers::create_tensor(
-                        t,
-                        graph,
-                        is_persistent,
-                        is_external,
-                        attr.dtype,
-                        std::string(),
-                        std::string())
-                  : habana_helpers::create_tensor(
-                        t,
-                        graph,
-                        is_persistent,
-                        is_external,
-                        attr.syn_data_type,
-                        std::string(),
-                        std::string()));
+              ? habana_helpers::create_tensor(
+                    t,
+                    graph,
+                    is_persistent,
+                    is_external,
+                    attr.dtype,
+                    std::string(),
+                    std::string())
+              : habana_helpers::create_tensor(
+                    t,
+                    graph,
+                    is_persistent,
+                    is_external,
+                    attr.syn_data_type,
+                    std::string(),
+                    std::string()));
 
       if (is_persistent) {
         const auto& impl =
@@ -1105,6 +1129,54 @@ sh::tensor OpBackend::BuildConstant(
          sizeof(params)});
 
     return std::move(constant.at(0));
+  }
+}
+
+sh::tensor OpBackend::BuildCopy(
+    at::IntArrayRef src_size,
+    c10::ScalarType src_type,
+    at::IntArrayRef dest_size,
+    c10::ScalarType dest_type,
+    OpBackend* op,
+    synapse_helpers::graph& graph,
+    std::vector<synTensor> inputs,
+    OutputMetaDataVector meta,
+    std::optional<int> result_index) {
+  auto src_type_cast_type = habana_helpers::DataTypeToCastType(src_type);
+  auto dest_type_cast_type = habana_helpers::DataTypeToCastType(dest_type);
+  auto shape = src_size.vec();
+  if (src_size != dest_size) {
+    shape = at::infer_size(src_size, dest_size);
+    HABANA_ASSERT(
+        shape == dest_size or
+            // broadcast with src [1] to dst [] should be valid
+            (shape.size() == 1 and dest_size.empty()),
+        "Cannot broadcast src ",
+        src_size,
+        " to dst ",
+        dest_size);
+
+    ns_Copy::Params params;
+    params.isOutputBool = dest_type == at::ScalarType::Bool;
+    using namespace std::literals;
+    return std::move(OpBackend::BuildNode(
+        op,
+        graph,
+        {get_guid_with_precision("copy_fwd"sv, dest_type),
+         inputs,
+         {{meta[0].shape, meta[0].dtype, result_index}},
+         &params,
+         sizeof(params)})[0]);
+  }
+
+  if ((src_type_cast_type == dest_type_cast_type) &&
+      !(dest_type == at::ScalarType::Bool &&
+        src_type == at::ScalarType::Char)) {
+    return OpBackend::BuildIdentity(
+        op, graph, inputs[1], shape, src_type, result_index);
+  } else {
+    return OpBackend::BuildCast(
+        op, graph, inputs[1], shape, src_type, dest_type, result_index);
   }
 }
 

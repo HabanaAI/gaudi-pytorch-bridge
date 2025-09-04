@@ -104,6 +104,8 @@
   visitor(synLaunchWithExternalEvents);       \
   visitor(synTensorSetExternal);              \
   visitor(synTensorGetExternal);              \
+  visitor(synTensorSetMinimalLatency);        \
+  visitor(synTensorGetMinimalLatency);        \
   visitor(synTensorAssignToSection);          \
   visitor(synTensorSetSectionOffset);         \
   visitor(synNodeGetUserParams);              \
@@ -134,7 +136,7 @@
 #define DECL_SYN_FN(func)                       \
   using func##_pfn_t = decltype(::func);        \
   using func##_t = std::function<func##_pfn_t>; \
-  func##_t func{};
+  func##_t func;
 
 struct synapse_api_t {
   SYN_API_SYMBOL_VISIT(DECL_SYN_FN)
@@ -145,3 +147,4 @@ synapse_api_t* GetSynapseApi();
 void EnableSynapseApi();
 void EnableSynapseApiStub();
 void EnableNullHw();
+void EnsureSynApiLoaded();

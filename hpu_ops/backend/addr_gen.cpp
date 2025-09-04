@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 
 namespace habana {
 
-std::shared_ptr<void> FillAddrParams(const at::Stack& stack, size_t& size) {
+FillParamsT FillAddrParams(const at::Stack& stack) {
   constexpr int BETA_INDEX = 3;
   constexpr int ALPHA_INDEX = 4;
 
@@ -25,7 +25,7 @@ std::shared_ptr<void> FillAddrParams(const at::Stack& stack, size_t& size) {
   params->beta = stack.at(BETA_INDEX).toScalar().toFloat();
   params->alpha = stack.at(ALPHA_INDEX).toScalar().toFloat();
 
-  return params;
+  return paramsT;
 }
 
 OutputMetaDataVector AddRMeta(const at::Stack& stack) {

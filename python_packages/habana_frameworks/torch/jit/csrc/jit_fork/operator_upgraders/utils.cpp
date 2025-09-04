@@ -31,8 +31,7 @@
 
 #include "jit_fork/operator_upgraders/version_map.h"
 
-namespace habana_torch {
-namespace jit {
+namespace habana_torch::jit {
 
 std::optional<UpgraderEntry> findUpgrader(
     const std::vector<UpgraderEntry>& upgraders_for_schema,
@@ -118,5 +117,4 @@ std::vector<UpgraderRange> getUpgradersRangeForOp(const std::string& name) {
   return output;
 }
 
-} // namespace jit
-} // namespace habana_torch
+} // namespace habana_torch::jit

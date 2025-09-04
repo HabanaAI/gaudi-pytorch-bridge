@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 ###############################################################################
 #
 #  Copyright (c) 2021-2025 Intel Corporation
@@ -23,6 +22,24 @@ import shutil
 from setup_utils import InstallCMakeLibs, PrebuiltPtExtension, get_version
 from setuptools import find_namespace_packages, setup
 from setuptools.command.build_ext import build_ext
+
+abspath = os.path.dirname(os.path.realpath(__file__))
+license_header = [""]
+with open(os.path.realpath(__file__)) as file:
+    license_header = file.readlines()
+    license_header = license_header[
+        0 : license_header.index(
+            "###############################################################################\n",
+            1,
+        )
+        + 1
+    ]
+version = get_version()
+with open(os.path.join(abspath, "habana_frameworks/torch/version.py"), "w") as f:
+    f.writelines(license_header)
+    f.write(f'__version__ = "{version}"\n')
+    f.write("def version():\n")
+    f.write(f'   return "{version}"')
 
 modules_build_dir_var = "PYTORCH_MODULES_BUILD"
 modules_build_dir = os.getenv(modules_build_dir_var)
@@ -73,7 +90,7 @@ setup(
     license_files=("LICENSE.txt",),
     author="Habana Labs Ltd., an Intel Company",
     author_email="support@habana.ai",
-    version=get_version(),
+    version=version,
     zip_safe=False,
     packages=find_namespace_packages(include=["habana_frameworks.*", "habana_frameworks", "torch_hpu"]),
     package_data={"habana_frameworks.torch": ["*.txt"]},

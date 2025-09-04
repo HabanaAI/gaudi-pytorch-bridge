@@ -25,6 +25,7 @@
 #include <tuple>
 #include <unordered_map>
 #include <vector>
+#include "backend/habana_device/HPUStream.h"
 #include "backend/synapse_helpers/device_types.h"
 #include "backend/synapse_helpers/habana_tensor.h"
 
@@ -106,7 +107,8 @@ void copy_data_within_device(
 void copy_scalar_to_device(void* src_ptr, const at::Tensor& dst, uint64_t size);
 
 void copy_scalars_to_device(
-    const std::vector<std::pair<at::Tensor, at::Tensor>>& tensors_list);
+    const std::vector<std::pair<at::Tensor, at::Tensor>>& tensors_list,
+    const c10::hpu::HPUStream stream = c10::hpu::getCurrentHPUStream());
 
 size_t hash_combine_scalars(
     size_t hash_code,

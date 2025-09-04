@@ -57,6 +57,9 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       .value(
           "PROCESS_EXIT", habana_helpers::EventDispatcher::Topic::PROCESS_EXIT)
       .value(
+          "CTX_FINISH_BEFORE",
+          habana_helpers::EventDispatcher::Topic::CTX_FINISH_BEFORE)
+      .value(
           "DEVICE_ACQUIRED",
           habana_helpers::EventDispatcher::Topic::DEVICE_ACQUIRED)
       .value(

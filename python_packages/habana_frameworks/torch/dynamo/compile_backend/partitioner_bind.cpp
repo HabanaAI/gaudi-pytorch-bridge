@@ -86,7 +86,7 @@
  *https://github.com/pytorch/pytorch/blob/main/torch/fx/passes/infra/partitioner.py
  */
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -112,7 +112,7 @@
 #include <unordered_map>
 #include <vector>
 
-#define NO_PARTITION -1
+#define NO_PARTITION (-1)
 
 namespace py = pybind11;
 
@@ -341,10 +341,10 @@ class Partition {
   template <typename Iterable>
   Partition(int _id, const Iterable& nodes_iterable) : _id(_id) {
     static_assert(
-        std::is_same<
+        std::is_same_v<
             typename std::iterator_traits<
                 typename Iterable::iterator>::value_type,
-            Node*>::value,
+            Node*>,
         "Iterable must be a container of Node* type");
     for (auto& item : nodes_iterable) {
       _nodes.insert(item);
@@ -359,7 +359,7 @@ class Partition {
     _nodes.erase(node);
   }
 
-  int size() const {
+  size_t size() const {
     return _nodes.size();
   }
 
@@ -451,12 +451,11 @@ class BindedPartitioner {
       int prim_id = node_wrapper.attr("prim_id").cast<int>();
       Node* ptr = mapping.find(prim_id)->second;
 
-      std::vector<int> users =
-          node_wrapper.attr("users").cast<std::vector<int>>();
+      auto users = node_wrapper.attr("users").cast<std::vector<int>>();
       for (int& id : users)
         ptr->users().insert(mapping.find(id)->second);
 
-      std::vector<int> input_nodes =
+      auto input_nodes =
           node_wrapper.attr("input_nodes").cast<std::vector<int>>();
       for (int& id : input_nodes)
         ptr->all_input_nodes().insert(mapping.find(id)->second);

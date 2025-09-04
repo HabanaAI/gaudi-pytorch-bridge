@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -116,7 +116,14 @@ ir::NodePtr strided_insert_h2d(
       false,
       HOST_TO_DEVICE_TENSOR);
   auto hl_stride_st = GetOrCreateHbLazyTensor(stride_st, c10::kHPU);
-  auto hl_stride_internal = hl_stride_st.CurrentTensorAttached().value();
+
+  at::Tensor hl_stride_internal{};
+  if (hl_stride_st.CurrentTensorAttached().has_value()) {
+    hl_stride_internal = hl_stride_st.CurrentTensorAttached().value();
+  } else {
+    HABANA_ASSERT(hl_stride_st.CurrentTensorAttached(), "No tensor is attached");
+  }
+
   auto tmeta{get_tensor_extra_meta(hl_stride_internal)};
 
   tmeta->set_host_data(
@@ -442,12 +449,12 @@ Tensor HbLazyTensorViews::add_strided_view_node(
   IntArrayRef size = size_in;
   bool is_0d_tensor = false;
   std::vector<int64_t> initvec{1};
-  if (size_in.size() == 0) {
+  if (size_in.empty()) {
     size = initvec;
     is_0d_tensor = true;
   }
   IntArrayRef stride = stride_in;
-  if (stride_in.size() == 0) {
+  if (stride_in.empty()) {
     stride = initvec;
   }
 
@@ -517,12 +524,12 @@ Tensor HbLazyTensorViews::process_strided_view(
   IntArrayRef size = size_in;
   bool is_0d_tensor = false;
   std::vector<int64_t> initvec{1};
-  if (size_in.size() == 0) {
+  if (size_in.empty()) {
     size = initvec;
     is_0d_tensor = true;
   }
   IntArrayRef stride = stride_in;
-  if (stride_in.size() == 0) {
+  if (stride_in.empty()) {
     stride = initvec;
   }
 
@@ -573,7 +580,7 @@ Tensor HbLazyTensorViews::HandleViewsD2H(const Tensor& src) {
       auto synapse_permute = hb_impl->GetMemoryPermutation();
 
       // optimization cannot be performed for permuted tensors
-      if (synapse_permute.size() == 0) {
+      if (synapse_permute.empty()) {
         reuse_base_storage = true;
       }
     }
@@ -720,7 +727,7 @@ std::vector<StridedOpSliceParams> HbLazyTensorViews::getSliceInsertParams(
   // operation.
   if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SLICE_INSERT) ||
       (recent_orig_t.sizes().size() != recent_src_t.sizes().size())) {
-    return std::vector<StridedOpSliceParams>();
+    return {};
   }
   std::vector<StridedOpSliceParams> back_to_back_slices{};
   std::optional<StrideParams> params_link_opt = params;
@@ -731,7 +738,7 @@ std::vector<StridedOpSliceParams> HbLazyTensorViews::getSliceInsertParams(
     // If multiple times same dim exists, use strided insert.
     if (dims.find(params_link_opt.value().params.slice_param.dim) !=
         dims.end()) {
-      return std::vector<StridedOpSliceParams>();
+      return {};
     }
     dims.insert(params_link_opt.value().params.slice_param.dim);
     params_link_opt = GetHbLazyTensor(params_link_opt.value().parent)
@@ -820,8 +827,7 @@ Tensor HbLazyTensorViews::add_view_lazy(
   for (auto& i : self.sizes()) {
     sum_elm *= i;
   }
-  auto inferred_size =
-      habana_helpers::infer_size(size, static_cast<int64_t>(sum_elm));
+  auto inferred_size = habana_helpers::infer_size(size, sum_elm);
 
   HABANA_ASSERT(out_t.has_value());
   Tensor result = out_t.value();
@@ -983,10 +989,7 @@ Tensor HbLazyTensorViews::add_expand_lazy(
     std::optional<Tensor> out_t) {
   PT_LAZY_TRACE;
 
-  IntArrayRef size_in{sizes};
-  auto size = size_in;
-  std::vector<int64_t> initvec{1};
-  size = (size_in.vec().size() == 0) ? initvec : size_in;
+  IntArrayRef size{sizes};
 
   std::vector<at::Tensor> input_pt_vec;
   std::vector<int64_t> expandedSizes;
@@ -1100,7 +1103,8 @@ void HbLazyTensorViews::HandleViewsLiveTensors(
   // view outputs will be added only if the total grad view outputs match the
   // bucket size.
   std::vector<HbLazyTensor> maybe_view_outputs;
-
+  std::lock_guard<std::recursive_mutex> lock(
+      habana_lazy::HbContextArena::Get()->GetMutex());
   for (auto& uid : devctx->tensors_data_opt_order) {
     std::shared_ptr<Data> data = devctx->getDataPtr(uid);
     if (data != nullptr) {
@@ -1153,7 +1157,7 @@ void HbLazyTensorViews::HandleViewsLiveTensors(
     params.write_cnt = 0;
   }
 
-  if (!context->viewContext.view_outputs.size()) {
+  if (context->viewContext.view_outputs.empty()) {
     bucket_recent_id.clear();
     PT_LAZY_DEBUG(
         "Strided view outputs not present. Clearing bucket_recent_id.");
@@ -1183,7 +1187,7 @@ void HbLazyTensorViews::StepMarkerAllReduce(const std::vector<Tensor>& inputs) {
   }
 
   /* special processing of view outputs needed only for the bwd case*/
-  bool is_allreduce_bwd = (bucket_recent_id.size() > 0);
+  bool is_allreduce_bwd = !bucket_recent_id.empty();
   PT_IRGRAPH_DEBUG("step marker due to HbLazyTensorViews::StepMarkerAllReduce");
   habana_lazy::HbLazyTensor::StepMarker(
       {},
@@ -1279,7 +1283,7 @@ void HbLazyTensorViews::HandleViewsPermutedSend(const at::Tensor& src) {
       auto synapse_permute = hb_impl->GetMemoryPermutation();
 
       // optimization cannot be performed for permuted tensors
-      if (synapse_permute.size() == 0) {
+      if (synapse_permute.empty()) {
         reuse_base_storage = true;
       }
     }

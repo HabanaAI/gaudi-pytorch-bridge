@@ -21,8 +21,7 @@
 
 using SmallTensorVector = c10::SmallVector<at::Tensor, 8>;
 
-namespace habana {
-namespace eager {
+namespace habana::eager {
 
 using JitGraph = torch::jit::Graph;
 using JitNode = torch::jit::Node;
@@ -30,11 +29,6 @@ using JitValue = torch::jit::Value;
 
 class ViewParam {
  public:
-  ViewParam() : offset(-1), total_num_elements(-1) {
-    sizes = {-1};
-    strides = {-1};
-  }
-
   void setParam(const at::Tensor& t) {
     auto* impl = t.unsafeGetTensorImpl();
     sizes.clear();
@@ -65,10 +59,10 @@ class ViewParam {
   }
 
  private:
-  std::vector<int64_t> sizes;
-  std::vector<int64_t> strides;
-  int64_t offset;
-  int64_t total_num_elements;
+  std::vector<int64_t> sizes{-1};
+  std::vector<int64_t> strides{-1};
+  int64_t offset{-1};
+  int64_t total_num_elements{-1};
 };
 
 void HandleOutputInsert(
@@ -86,5 +80,4 @@ void HandleInputOutputViews(
 void set_as_strided_meta(JitNode* node);
 void set_deterministic(JitNode* node);
 
-} // namespace eager
-} // namespace habana
+} // namespace habana::eager

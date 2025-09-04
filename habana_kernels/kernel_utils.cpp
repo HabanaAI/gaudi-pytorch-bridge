@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -267,7 +267,7 @@ void habana_helpers::type_promotion_for_two_tensor_inputs(
     int& position_of_promoted_tensor,
     c10::ScalarType& compute_dtype) {
   c10::ScalarType dst_dtype = c10::ScalarType::Undefined;
-  return type_promotion_for_two_tensor_inputs(
+  type_promotion_for_two_tensor_inputs(
       inputs, position_of_promoted_tensor, compute_dtype, dst_dtype);
 }
 
@@ -323,6 +323,24 @@ std::vector<int64_t> habana_helpers::compute_broadcast_shape(
   // reverse output sizes to natural Pytorch order
   std::reverse(out_size.begin(), out_size.end());
   return out_size;
+}
+
+at::Tensor habana_helpers::get_or_create_output_tensor(
+    synapse_helpers::graph& graph,
+    const habana::OutputMetaData& output_metadata,
+    const at::Tensor& proxy,
+    at::IntArrayRef shape) {
+  if (!graph.is_dry_run() &&
+      output_metadata.allocated_tensor.has_value()) {
+    return output_metadata.allocated_tensor.value();
+  } else {
+    return habana::createPTTensor(
+        proxy,
+        shape,
+        proxy.options(),
+        proxy.suggest_memory_format(),
+        output_metadata.persistent);
+  }
 }
 
 /**
@@ -403,8 +421,6 @@ void CastOutOperator::AllocateAndAddSynapseNode(
 
   ns_CastKernel::Params params =
       synapse_cast_params_builder(output.scalar_type());
-  p_context_->params_.emplace<ns_CastKernel::Params>(params);
-  p_context_->params_size_ = sizeof(params);
   p_context_->syn_outputs_.emplace_back(
       habana_helpers::duplicate_tensor_in_memory_section(
           p_context_->syn_inputs_[1], graph, output_metadata.at(0).external));
@@ -466,9 +482,6 @@ void ConstantOperator::AllocateAndAddSynapseNode(
   } else {
     params.constant.f = value.to<float>();
   }
-
-  p_context_->params_.emplace<ns_ConstantKernel::Params>(params);
-  p_context_->params_size_ = sizeof(params);
 
   if (input.dim() == 0) {
     SET_SIZE_STRIDE_1D(input);

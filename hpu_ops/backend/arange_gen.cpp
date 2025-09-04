@@ -60,7 +60,7 @@ static int64_t get_arange_depth(
           elements <= static_cast<double>(std::numeric_limits<int64_t>::max()),
       "invalid number of elements, possible overflow");
 
-  int64_t num_elements = static_cast<int64_t>(elements);
+  auto num_elements = static_cast<int64_t>(elements);
   return num_elements;
 }
 
@@ -72,7 +72,7 @@ static int64_t get_arange_depth_ds(
   HABANA_ASSERT(!((start > end) && (step > 0)), "step must be negative.");
   HABANA_ASSERT(!((start < end) && (step < 0)), "step must be positive.");
 
-  int64_t num_elements = static_cast<int64_t>(ceil((end - start) / step));
+  auto num_elements = static_cast<int64_t>(ceil((end - start) / step));
   return num_elements;
 }
 
@@ -102,25 +102,24 @@ std::vector<T> GetArangeH2DParams(at::Tensor& params_t, bool dry_run) {
   size_t sif_offset = GetMInMaxSifOffset(dry_run, data_size);
   h2d_data = h2d_data + sif_offset;
   for (size_t i = 0; i < data_size; i++) {
-    params_data.push_back(static_cast<T>(*h2d_data++));
+    params_data.push_back(*h2d_data++);
   }
   return params_data;
 }
 
-std::shared_ptr<void> FillArangeParams(const at::Stack& stack, size_t& size) {
+FillParamsT FillArangeParams(const at::Stack& stack) {
   const c10::Scalar start = stack.at(0).toScalar();
   const c10::Scalar end = stack.at(1).toScalar();
   const c10::Scalar step = stack.at(2).toScalar();
   auto out_scalar_type = stack.back().toTensor().scalar_type();
-  return FillArangeParamsInternal(start, end, step, out_scalar_type, size);
+  return FillArangeParamsInternal(start, end, step, out_scalar_type);
 }
 
-std::shared_ptr<void> FillArangeParamsInternal(
+FillParamsT FillArangeParamsInternal(
     c10::Scalar start,
     c10::Scalar end,
     c10::Scalar step,
-    c10::ScalarType out_scalar_type,
-    size_t& size) {
+    c10::ScalarType out_scalar_type) {
   PARAMS_STUB(ns_RangeKernel::Params);
   if (!c10::isFloatingType(out_scalar_type)) {
     // These parameters are used within GUID (range_i32).
@@ -137,7 +136,7 @@ std::shared_ptr<void> FillArangeParamsInternal(
     params->limit.f = end.to<float>();
     params->delta.f = step.to<float>();
   }
-  return params;
+  return paramsT;
 }
 
 synapse_helpers::tensor ArangeCommon(
@@ -151,8 +150,7 @@ synapse_helpers::tensor ArangeCommon(
     std::optional<synTensor> syn_in1,
     std::string guid,
     std::vector<int64_t> outshape,
-    std::shared_ptr<void> params,
-    size_t size,
+    const FillParamsT& params,
     std::optional<int> final_result_index,
     bool is_eager) {
   std::vector<synTensor> inputs = {};
@@ -189,7 +187,7 @@ synapse_helpers::tensor ArangeCommon(
       inputs.emplace_back(syn_in1.value());
       op->CreateShapeTensorInput(graph, op->ScalarType(), outshape, inputs);
       arange_i32 = OpBackend::BuildNode(
-          op, graph, {range_guid, {}, {out_attr}, params.get(), size});
+          op, graph, {range_guid, {}, {out_attr}, params.ptr(), params.size()});
     }
 
     if (is_cast_not_required) {
@@ -219,7 +217,7 @@ synapse_helpers::tensor ArangeCommon(
     if (is_cast_not_required)
       out_attr.final_result_index = final_result_index;
     auto arange = OpBackend::BuildNode(
-        op, graph, {range_guid, {}, {out_attr}, params.get(), size});
+        op, graph, {range_guid, {}, {out_attr}, params.ptr(), params.size()});
 
     if (is_cast_not_required) {
       return std::move(arange[0]);
@@ -285,17 +283,16 @@ void Arange::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   const auto meta = ArangeStartOutMeta(stack)[0];
   auto outshape = meta.shape;
   auto out_dtype = meta.dtype;
-  size_t size = 0;
-  auto params = FillParams(stack, size);
+  auto params = FillParams(stack);
   auto start = stack.at(0).toScalar();
   auto end = stack.at(1).toScalar();
   auto step = stack.at(2).toScalar();
-  std::optional<synTensor> syn_in0 = (p_context_->syn_inputs_.size())
-      ? std::make_optional(syn_in(0))
-      : std::nullopt;
-  std::optional<synTensor> syn_in1 = (p_context_->syn_inputs_.size())
-      ? std::make_optional(syn_in(1))
-      : std::nullopt;
+  std::optional<synTensor> syn_in0 = p_context_->syn_inputs_.empty()
+      ? std::nullopt
+      : std::make_optional(syn_in(0));
+  std::optional<synTensor> syn_in1 = p_context_->syn_inputs_.empty()
+      ? std::nullopt
+      : std::make_optional(syn_in(1));
   syn_out(0) = ArangeCommon(
       this,
       graph,
@@ -308,7 +305,6 @@ void Arange::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
       guid_,
       outshape,
       params,
-      size,
       0,
       is_eager);
 }
@@ -408,12 +404,11 @@ OutputMetaDataVector ArangeDefaultStartEndStepMeta(const at::Stack& stack) {
   }
 }
 
-std::shared_ptr<void> FillArangeDefaultCommonParams(
+FillParamsT FillArangeDefaultCommonParams(
     c10::Scalar start,
     c10::Scalar end,
     c10::Scalar step,
-    c10::ScalarType out_dtype,
-    size_t& size) {
+    c10::ScalarType out_dtype) {
   auto internal_out_dtype = habana_helpers::getInternalDtype(out_dtype);
   PARAMS_STUB(ns_RangeKernel::Params);
   if (c10::isFloatingType(internal_out_dtype)) {
@@ -431,12 +426,10 @@ std::shared_ptr<void> FillArangeDefaultCommonParams(
     params->limit.i = static_cast<int>(ceil(end.to<float>()));
     params->delta.i = static_cast<int>(ceil(step.to<float>()));
   }
-  return params;
+  return paramsT;
 }
 
-std::shared_ptr<void> FillArangeDefaultEndParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillArangeDefaultEndParams(const at::Stack& stack) {
   const c10::Scalar defaultStart{0};
   const c10::Scalar defaultStep{1};
   const c10::Scalar end = stack.at(0).toScalar();
@@ -446,12 +439,10 @@ std::shared_ptr<void> FillArangeDefaultEndParams(
       setToIntegralDType ? at::ScalarType::Long
                          : torch::get_default_dtype_as_scalartype());
   return FillArangeDefaultCommonParams(
-      defaultStart, end, defaultStep, out_dtype, size);
+      defaultStart, end, defaultStep, out_dtype);
 }
 
-std::shared_ptr<void> FillArangeDefaultStartEndParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillArangeDefaultStartEndParams(const at::Stack& stack) {
   const c10::Scalar start = stack.at(0).toScalar();
   const c10::Scalar defaultStep{1};
   const c10::Scalar end = stack.at(1).toScalar();
@@ -463,13 +454,10 @@ std::shared_ptr<void> FillArangeDefaultStartEndParams(
       setToIntegralDType ? at::ScalarType::Long
                          : torch::get_default_dtype_as_scalartype());
 
-  return FillArangeDefaultCommonParams(
-      start, end, defaultStep, out_dtype, size);
+  return FillArangeDefaultCommonParams(start, end, defaultStep, out_dtype);
 }
 
-std::shared_ptr<void> FillArangeDefaultStartEndStepParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillArangeDefaultStartEndStepParams(const at::Stack& stack) {
   if (!stack[0].isTensor()) {
     const c10::Scalar start = stack.at(0).toScalar();
     const c10::Scalar step = stack.at(2).toScalar();
@@ -481,7 +469,7 @@ std::shared_ptr<void> FillArangeDefaultStartEndStepParams(
         setToIntegralDType ? at::ScalarType::Long
                            : torch::get_default_dtype_as_scalartype());
 
-    return FillArangeDefaultCommonParams(start, end, step, out_dtype, size);
+    return FillArangeDefaultCommonParams(start, end, step, out_dtype);
   } else {
     const auto meta = ArangeDefaultStartEndStepMeta(stack);
     const auto out_dtype = meta[0].dtype;
@@ -497,7 +485,7 @@ std::shared_ptr<void> FillArangeDefaultStartEndStepParams(
         params_data = GetArangeH2DParams<float>(params_t, false);
       }
       return FillArangeDefaultCommonParams(
-          params_data[0], params_data[1], params_data[2], out_dtype, size);
+          params_data[0], params_data[1], params_data[2], out_dtype);
     } else {
       std::vector<int32_t> params_data;
       at::Tensor params_t = stack[0].toTensor();
@@ -510,7 +498,7 @@ std::shared_ptr<void> FillArangeDefaultStartEndStepParams(
         params_data = GetArangeH2DParams<int32_t>(params_t, false);
       }
       return FillArangeDefaultCommonParams(
-          params_data[0], params_data[1], params_data[2], out_dtype, size);
+          params_data[0], params_data[1], params_data[2], out_dtype);
     }
   }
 }
@@ -519,8 +507,7 @@ synapse_helpers::tensor ArangeDefaultCommon(
     OpBackend* op,
     synapse_helpers::graph& graph,
     const OutputMetaDataVector& meta,
-    std::shared_ptr<void> params,
-    size_t params_size) {
+    const FillParamsT& params) {
   constexpr int FINAL_RESULT_INDEX = 0;
   const auto outshape = meta[0].shape;
   const auto out_dtype = meta[0].dtype;
@@ -539,7 +526,9 @@ synapse_helpers::tensor ArangeDefaultCommon(
     out_attr.final_result_index = FINAL_RESULT_INDEX;
 
   auto arange = OpBackend::BuildNode(
-      op, graph, {range_guid, {inputs}, {out_attr}, params.get(), params_size});
+      op,
+      graph,
+      {range_guid, {inputs}, {out_attr}, params.ptr(), params.size()});
 
   if (is_cast_not_required) {
     return std::move(arange[0]);
@@ -618,21 +607,16 @@ void ArangeDefaultEnd::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   const auto meta = OutputMeta(stack);
-
-  size_t params_size = 0; // Will be set in FillArangeDefaultParams function
-  auto params = FillParams(stack, params_size);
-  syn_out(0) = ArangeDefaultCommon(this, graph, meta, params, params_size);
+  auto params = FillParams(stack);
+  syn_out(0) = ArangeDefaultCommon(this, graph, meta, params);
 }
 
 void ArangeDefaultStartEnd::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   const auto meta = OutputMeta(stack);
-
-  size_t params_size = 0; // Will be set in FillArangeDefaultParams function
-  auto params = FillParams(stack, params_size);
-
-  syn_out(0) = ArangeDefaultCommon(this, graph, meta, params, params_size);
+  auto params = FillParams(stack);
+  syn_out(0) = ArangeDefaultCommon(this, graph, meta, params);
 }
 
 void ArangeDefaultStartEndStep::AddNode(
@@ -643,8 +627,7 @@ void ArangeDefaultStartEndStep::AddNode(
   const auto meta = OutputMeta(stack);
   const auto outshape = meta[0].shape;
   const auto out_dtype = meta[0].dtype;
-  size_t params_size = 0; // Will be set in FillArangeDefaultParams function
-  auto params = FillParams(stack, params_size);
+  auto params = FillParams(stack);
 
   const auto internal_out_dtype = habana_helpers::getInternalDtype(out_dtype);
 
@@ -653,7 +636,7 @@ void ArangeDefaultStartEndStep::AddNode(
     start = stack.at(0).toScalar();
     end = stack.at(1).toScalar();
     step = stack.at(2).toScalar();
-    syn_out(0) = ArangeDefaultCommon(this, graph, meta, params, params_size);
+    syn_out(0) = ArangeDefaultCommon(this, graph, meta, params);
   } else {
     if (c10::isFloatingType(internal_out_dtype)) {
       std::vector<float> params_data;
@@ -704,7 +687,6 @@ void ArangeDefaultStartEndStep::AddNode(
         update_guid_dtype(guid_, internal_out_dtype),
         outshape,
         params,
-        params_size,
         0,
         is_eager);
   }

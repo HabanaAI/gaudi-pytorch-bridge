@@ -15,8 +15,8 @@
 
 #include <ATen/ExpandUtils.h>
 #include <gtest/gtest.h>
-#include <math.h>
 #include <torch/torch.h>
+#include <cmath>
 #include <stdexcept>
 #include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/synapse_helpers/env_flags.h"
@@ -36,6 +36,17 @@ class EagerKernelTest : public habana_lazy_test::LazyTest {
   }
 };
 
+class UniqueDimEagerTest
+    : public ::testing::TestWithParam<std::tuple<torch::Tensor, bool, bool>>,
+      public habana_lazy_test::EnvHelper {
+  void SetUp() override {
+    SetEagerMode();
+  }
+  void TearDown() override {
+    RestoreMode();
+  }
+};
+
 class EagerKernelCacheTest : public habana_lazy_test::LazyTest {
   void SetUp() override {
     SetLazyMode(2);
@@ -47,8 +58,8 @@ class EagerKernelCacheTest : public habana_lazy_test::LazyTest {
 
 TEST_F(EagerKernelTest, LinspaceOutCache) {
   const int64_t constStepsValue = 11;
-  torch::Scalar start = 0.0f;
-  torch::Scalar end = 10.0f;
+  torch::Scalar start = 0.0F;
+  torch::Scalar end = 10.0F;
   int64_t step = constStepsValue;
   torch::Tensor out =
       torch::randn({constStepsValue}, torch::requires_grad(false));
@@ -68,8 +79,8 @@ TEST_F(EagerKernelTest, LinspaceOutCache) {
 
 TEST_F(EagerKernelTest, DISABLED_LinspaceOutNeToPosStep1) {
   const int64_t constStepsValue = 12; // set incorrect size
-  torch::Scalar start = -100.0f;
-  torch::Scalar end = 200.0f;
+  torch::Scalar start = -100.0F;
+  torch::Scalar end = 200.0F;
   int64_t step = 1;
   torch::Tensor out =
       torch::randn({constStepsValue}, torch::requires_grad(false));
@@ -609,4 +620,30 @@ TEST_F(EagerKernelTest, DISABLED_SumDimIntOut) {
   torch::Tensor out_hpu = torch::sum_outf(hA, {0}, false, std::nullopt, hOut);
 
   EXPECT_EQ(allclose(out_hpu.to(torch::kCPU), out_cpu), true);
+}
+
+INSTANTIATE_TEST_CASE_P(
+    UniqueDim,
+    UniqueDimEagerTest,
+    ::testing::Values(
+        std::make_tuple(torch::empty({0, 4}), false, false),
+        std::make_tuple(torch::empty({0, 4}), true, false),
+        std::make_tuple(torch::empty({0, 4}), false, true),
+        std::make_tuple(torch::empty({0, 4}), true, true)));
+
+TEST_P(UniqueDimEagerTest, test) {
+  torch::Tensor input = std::get<0>(GetParam());
+  bool return_inverse = std::get<1>(GetParam());
+  bool return_counts = std::get<2>(GetParam());
+  torch::Tensor input_hpu = input.to(torch::kHPU);
+  auto output =
+      torch::unique_dim(input, 0, false, return_inverse, return_counts);
+  auto output_hpu =
+      torch::unique_dim(input_hpu, 0, false, return_inverse, return_counts);
+
+  bool equal =
+      allclose(std::get<0>(output_hpu).to(torch::kCPU), std::get<0>(output)) &&
+      allclose(std::get<1>(output_hpu).to(torch::kCPU), std::get<1>(output)) &&
+      allclose(std::get<2>(output_hpu).to(torch::kCPU), std::get<2>(output));
+  EXPECT_TRUE(equal);
 }

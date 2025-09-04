@@ -27,6 +27,11 @@ from habana_frameworks.torch.hpex.experimental.transformer_engine.recipe import 
     DelayedScaling,
     Format,
 )
+from test_utils import is_gaudi1
+
+pytestmark = [
+    pytest.mark.skipif(is_gaudi1(), reason="Gaudi1 doesn't support fp8"),
+]
 
 
 @pytest.mark.parametrize("device", [torch.device("hpu:0")])
@@ -120,7 +125,13 @@ def test_te_linear_hpu_graph(device, dtype, amax_history_len, fp8_format, hpu_gr
 @pytest.mark.parametrize("restore_fp8_meta", [True], ids=["fp8_meta_restored"])
 @pytest.mark.parametrize("fp8_format", [Format.E5M2, Format.HYBRID], ids=["E5M2", "HYBRID"])
 def test_te_linear_module_cacher(
-    device, dtype, amax_history_len, zero_grad, graphed_callables, restore_fp8_meta, fp8_format
+    device,
+    dtype,
+    amax_history_len,
+    zero_grad,
+    graphed_callables,
+    restore_fp8_meta,
+    fp8_format,
 ):
     # Prepare te linear module
     torch.manual_seed(12345)
@@ -143,7 +154,19 @@ def test_te_linear_module_cacher(
     torch.manual_seed(12345)
     my_linear_test = te.Linear(4, 3, bias=True, params_dtype=dtype)
 
-    inputs = [input1, input2, input3, input2, input1, input2, input3, input3, input1, input1, input3]
+    inputs = [
+        input1,
+        input2,
+        input3,
+        input2,
+        input1,
+        input2,
+        input3,
+        input3,
+        input1,
+        input1,
+        input3,
+    ]
 
     with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
         # Run one iteration before capturing, because scales are not computed during first iteration (it's a different graph)
@@ -163,12 +186,12 @@ def test_te_linear_module_cacher(
             out_ref.cpu().to(torch.float).detach().numpy(),
             equal_nan=True,
         ), "Out data mismatch at init run"
-        assert np.array_equal(
-            grad_w_test.numpy(), grad_w_ref.numpy(), equal_nan=True
-        ), "Grad weight data mismatch at init run"
-        assert np.array_equal(
-            grad_b_test.numpy(), grad_b_ref.numpy(), equal_nan=True
-        ), "Grad bias data mismatch at init run"
+        assert np.array_equal(grad_w_test.numpy(), grad_w_ref.numpy(), equal_nan=True), (
+            "Grad weight data mismatch at init run"
+        )
+        assert np.array_equal(grad_b_test.numpy(), grad_b_ref.numpy(), equal_nan=True), (
+            "Grad bias data mismatch at init run"
+        )
         if zero_grad:
             my_linear_ref.zero_grad(set_to_none=False)
             my_linear_test.zero_grad(set_to_none=False)
@@ -198,7 +221,7 @@ def test_te_linear_module_cacher(
             ), "fp8_meta scaling_bwd data mismatch at init run"
 
         # Run recorded graph n times
-        for i in range(0, 11):
+        for i in range(11):
             out_test = my_linear_test(inputs[i])
             loss_test = out_test.sum()
             loss_test.backward()
@@ -229,12 +252,12 @@ def test_te_linear_module_cacher(
                 out_ref.cpu().to(torch.float).detach().numpy(),
                 equal_nan=True,
             ), f"Out data mismatch at {i}"
-            assert np.array_equal(
-                grad_w_test.numpy(), grad_w_ref.numpy(), equal_nan=True
-            ), f"Grad weight data mismatch at {i}"
-            assert np.array_equal(
-                grad_b_test.numpy(), grad_b_ref.numpy(), equal_nan=True
-            ), f"Grad bias data mismatch at {i}"
+            assert np.array_equal(grad_w_test.numpy(), grad_w_ref.numpy(), equal_nan=True), (
+                f"Grad weight data mismatch at {i}"
+            )
+            assert np.array_equal(grad_b_test.numpy(), grad_b_ref.numpy(), equal_nan=True), (
+                f"Grad bias data mismatch at {i}"
+            )
 
 
 @pytest.mark.parametrize("dtype", [torch.bfloat16])

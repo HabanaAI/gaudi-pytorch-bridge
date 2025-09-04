@@ -28,31 +28,25 @@ using namespace std::literals;
 std::vector<synapse_helpers::tensor> DropoutCommon(
     OpBackend* op,
     synapse_helpers::graph& graph,
-    std::shared_ptr<void> params,
+    const FillParamsT& params,
     OutputMetaDataVector metas,
-    std::vector<synTensor>& input_tensor,
-    size_t size,
-    int final_result_index = 0) {
+    std::vector<synTensor>& input_tensor) {
   auto dropout = OpBackend::BuildNode(
       op,
       graph,
-      {std::move(get_guid_with_precision("dropout_fwd"sv, metas[0].dtype)),
+      {get_guid_with_precision("dropout_fwd"sv, metas[0].dtype),
        input_tensor,
-       {NodeAttr::NodeOutputAttr{
-            metas[0].shape, metas[0].dtype, final_result_index},
-        NodeAttr::NodeOutputAttr{
-            metas[1].shape, metas[1].dtype, final_result_index + 1}},
-       params.get(),
-       size});
+       {NodeAttr::NodeOutputAttr{metas[0].shape, metas[0].dtype, 0},
+        NodeAttr::NodeOutputAttr{metas[1].shape, metas[1].dtype, 1}},
+       params.ptr(),
+       params.size()});
   return dropout;
 }
-std::shared_ptr<void> FillFusedNativeDropoutParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillFusedNativeDropoutParams(const at::Stack& stack) {
   PARAMS_STUB(ns_DropoutKernel::Params);
   auto ratioId = (stack.at(0).isTensor() && stack.at(1).isTensor()) ? 2 : 1;
   params->ratio = stack.at(ratioId).toScalar().toDouble();
-  return params;
+  return paramsT;
 }
 
 OutputMetaDataVector FusedNativeDropoutMeta(const at::Stack& stack) {
@@ -67,12 +61,6 @@ OutputMetaDataVector FusedNativeDropoutMeta(const at::Stack& stack) {
   metas[1].dtype = at::kChar;
 
   return metas;
-}
-
-OutputMetaDataVector FusedNativeDropoutCheckpointMeta(const at::Stack& stack) {
-  auto metas = FusedNativeDropoutMeta(stack);
-
-  return {SeedOutputMeta(), metas[0], metas[1]};
 }
 
 SharedMetaDataVector FusedNativeDropoutSharedMeta(
@@ -103,8 +91,7 @@ SharedMetaDataVector FusedNativeDropoutSharedMeta(
 
 void FusedNativeDropout::AddNode(sh::graph& graph, const at::Stack& stack) {
   auto seed = stack.at(2);
-  size_t size = 0;
-  auto params = FillParams(stack, size);
+  auto params = FillParams(stack);
   auto metas = FusedNativeDropoutMeta(stack);
 
   std::vector<synTensor> inputTensors = {syn_in(0)};
@@ -113,7 +100,7 @@ void FusedNativeDropout::AddNode(sh::graph& graph, const at::Stack& stack) {
   else
     inputTensors.push_back(syn_seed());
 
-  auto dropout = DropoutCommon(this, graph, params, metas, inputTensors, size);
+  auto dropout = DropoutCommon(this, graph, params, metas, inputTensors);
   syn_out(0) = std::move(dropout[0]);
   syn_out(1) = std::move(dropout[1]);
 }
@@ -184,57 +171,21 @@ void NativeDropoutBackward::AddNode(sh::graph& graph, const at::Stack& stack) {
 //===----------------------------------------------------------------------===//
 // This is the implementation of custom native dropout op in `torch.compile`
 //===----------------------------------------------------------------------===//
-HabanaNativeDropoutBase::HabanaNativeDropoutBase(
+HabanaNativeDropout::HabanaNativeDropout(
     int device_id,
-    c10::ScalarType scalar_type,
-    bool is_deterministic)
-    : HabanaRandomBase(
-          device_id,
-          "native_dropout",
-          scalar_type,
-          {1, 1},
-          is_deterministic) {
+    c10::ScalarType scalar_type)
+    : HabanaRandomBase(device_id, "native_dropout", scalar_type, {1, 1}) {
   SetOutputMetaFn(FusedNativeDropoutMeta);
 }
 
-void HabanaNativeDropoutCheckpoint::AddNode(
+void HabanaNativeDropout::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  auto seed =
-      BuildOp(graph, "identity", {syn_in(0)}, {{{}, at::ScalarType::Int, 0}});
-  syn_out(0) = std::move(seed[0]);
-
-  size_t size = 0;
-  auto params = FillFusedNativeDropoutParams(stack, size);
+  auto params = FillFusedNativeDropoutParams(stack);
   auto metas = FusedNativeDropoutMeta(stack);
 
   std::vector<synTensor> inputTensors = {syn_in(1), syn_in(0)};
-  auto dropout =
-      DropoutCommon(this, graph, params, metas, inputTensors, size, 1);
-  syn_out(1) = std::move(dropout[0]);
-  syn_out(2) = std::move(dropout[1]);
-}
-
-HabanaNativeDropoutCheckpoint::HabanaNativeDropoutCheckpoint(
-    int device_id,
-    c10::ScalarType scalar_type)
-    : HabanaRandCheckpointBase(
-          device_id,
-          "native_dropout",
-          scalar_type,
-          {0, 1, 1}) {
-  SetOutputMetaFn(FusedNativeDropoutCheckpointMeta);
-}
-
-void HabanaNativeDropoutBase::AddNode(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
-  size_t size = 0;
-  auto params = FillFusedNativeDropoutParams(stack, size);
-  auto metas = FusedNativeDropoutMeta(stack);
-
-  std::vector<synTensor> inputTensors = {syn_in(1), syn_in(0)};
-  auto dropout = DropoutCommon(this, graph, params, metas, inputTensors, size);
+  auto dropout = DropoutCommon(this, graph, params, metas, inputTensors);
   syn_out(0) = std::move(dropout[0]);
   syn_out(1) = std::move(dropout[1]);
 }
@@ -242,6 +193,6 @@ void HabanaNativeDropoutBase::AddNode(
 } // namespace habana
 
 static const auto& HabanaRandomKernelRegistry =
-    habana::KernelRegistry().REGISTER_RANDOM_CHECKPOINT_OP(
-        native_dropout,
-        NativeDropout);
+    habana::KernelRegistry()
+        .REGISTER_HABANA_RANDOM_OP(native_dropout, NativeDropout)
+        .REGISTER_HABANA_RANDOM_OP(_fused_dropout, NativeDropout);

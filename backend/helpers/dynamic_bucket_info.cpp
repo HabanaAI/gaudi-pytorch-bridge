@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,10 +32,6 @@
 
 using namespace synapse_helpers;
 namespace habana_helpers {
-
-constexpr int64_t DynamicBucketInfo::default_min_value_;
-constexpr uint64_t DynamicBucketInfo::min_iterations_to_split_;
-constexpr uint64_t DynamicBucketInfo::max_buckets_number_;
 
 size_t DynamicBucketInfo::original_recipe_count_{0};
 size_t DynamicBucketInfo::refined_recipe_count_{0};
@@ -81,7 +77,7 @@ void SplitStatImplDynamic::Increment(
       ", expected ",
       ranges.size());
 
-  std::vector<bool> pos(num_dyn_ranges_, 0);
+  std::vector<bool> pos(num_dyn_ranges_, false);
   for (size_t i = 0; i < ranges.size(); ++i) {
     auto mid{(ranges[i].second + ranges[i].first) / 2};
     pos[i] = (dims[i] > mid ? 1 : 0);
@@ -285,7 +281,7 @@ void Bucket::UpdateRunTime(uint64_t elapsed_time) {
     uint32_t time_improve_threshold =
         GET_ENV_FLAG_NEW(PT_HPU_DS_TIME_IMPROVE_THRESHOLD_PERCENT);
     double time_improve_factor = (100.0 - time_improve_threshold) / 100.0;
-    uint64_t time_to_beat = static_cast<uint64_t>(
+    auto time_to_beat = static_cast<uint64_t>(
         static_cast<double>(base_time_) * time_improve_factor);
 
     auto cur_avg_time{run_time_stat_.GetAvgTime()};
@@ -309,7 +305,7 @@ Bucket Bucket::CreateNewBucket(SplitPolicy sp) {
   DynamicRanges new_ranges;
   split_stat_impl_->CalculateNewRanges(ranges_, new_ranges);
   split_stat_impl_->ResetMax();
-  return Bucket(std::move(new_ranges), dynamic_dims_, true, sp);
+  return {std::move(new_ranges), dynamic_dims_, true, sp};
 }
 
 void Bucket::ResetBaseLine(const HistoryItemLog& hist) {
@@ -346,8 +342,7 @@ void Bucket::ResetBaseLine(const HistoryItemLog& hist) {
 
 DynamicBucketInfo::DynamicBucketInfo(size_t key)
     : min_policy_(DynamicDimsPolicy::HISTORIC),
-      max_policy_(DynamicDimsPolicy::CALCULATED),
-      split_policy_(SplitPolicy::DYNAMIC) {
+      max_policy_(DynamicDimsPolicy::CALCULATED) {
   SetGraphKey(key);
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_MIN_MAX_AS_CURRENT)) {
     min_policy_ = DynamicDimsPolicy::CURRENT;
@@ -870,8 +865,7 @@ Bucket DynamicBucketInfo::ConstructNewBucket(
     result_computed.max_shapes[input.first] = shape_max;
   }
 
-  return Bucket(
-      std::move(new_ranges), dynamic_dims, true, split_policy_, shapes_);
+  return {std::move(new_ranges), dynamic_dims, true, split_policy_, shapes_};
 }
 
 void DynamicBucketInfo::split_history(
@@ -1023,7 +1017,9 @@ bool DynamicBucketInfo::UpdateBucketWithPolicy(
 std::vector<int64_t> DynamicBucketInfo::ExtractDynamicDimsValue(
     const InpTensorShapes& shapes) {
   std::vector<int64_t> dims;
+  dims.reserve(dynamic_dims_helper_.flat_dd_.size());
   std::vector<int64_t> dims_new;
+  dims_new.reserve(dynamic_dims_helper_.flat_dd_.size());
   DimsHistoryElement dims_he;
   for (auto& el : dynamic_dims_helper_.flat_dd_) {
     auto dim_val = shapes.at(el.num).dim_size(el.pos);
@@ -1058,7 +1054,7 @@ std::vector<int64_t> DynamicBucketInfo::ExtractDynamicDimsValue(
 
 bool DynamicBucketInfo::IsInRangeStaticDims(
     const std::vector<int64_t>& dims,
-    int64_t num) const {
+    size_t num) const {
   HABANA_ASSERT(
       dynamic_dims_helper_.flat_dd_.size() >= dims.size(),
       "wrong dynamic dims size",
@@ -1154,7 +1150,7 @@ DynamicBucketInfo::DimMultipliers DynamicBucketInfo::
 
 size_t DynamicBucketInfo::CalculateHistoric(
     const InpTensorShapes& shapes,
-    std::string xin_name,
+    const std::string& xin_name,
     std::function<bool(int64_t, int64_t)> comp,
     int64_t xin_val) {
   auto& dims_history{input_history_.hist_items()};
@@ -1375,11 +1371,9 @@ void DynamicBucketInfo::CalculateLocalHistoricMax(
       int64_t current_dim_val = shapes.at(tensor_idx).dim_size(dim_idx);
       // Check if input recieved is lower than already stored,
       // If yes replace the input stored with recieved
-      if (local_max_history_tensor_shapes_.at(tensor_idx).at(dim_idx) <
-          current_dim_val) {
-        local_max_history_tensor_shapes_.at(tensor_idx).at(dim_idx) =
-            current_dim_val;
-      }
+      local_max_history_tensor_shapes_.at(tensor_idx).at(dim_idx) = std::max(
+          local_max_history_tensor_shapes_.at(tensor_idx).at(dim_idx),
+          current_dim_val);
     }
   }
 }
@@ -1524,15 +1518,14 @@ DynamicRanges DynamicBucketInfo::CalculateRanges(
         }
         break;
       case DynamicDimsPolicy::CURRENT:
-        max_value = int64_t(shapes.at(el.num).dim_size(el.pos));
+        max_value = shapes.at(el.num).dim_size(el.pos);
         break;
       case DynamicDimsPolicy::FLATTENED:
         HABANA_ASSERT(
             false,
             "Policy FLATTENED is currently unsupported for choosing max");
         dim_max_multiplier = dim_multipliers.at(el.num).at(el.pos).second;
-        max_value =
-            int64_t(shapes.at(el.num).dim_size(el.pos)) * dim_max_multiplier;
+        max_value = shapes.at(el.num).dim_size(el.pos) * dim_max_multiplier;
         break;
       case DynamicDimsPolicy::CALCULATED:
         // use default max multiplier
@@ -1540,8 +1533,7 @@ DynamicRanges DynamicBucketInfo::CalculateRanges(
             1 == min_value) {
           max_value = 1;
         } else {
-          max_value =
-              int64_t(shapes.at(el.num).dim_size(el.pos)) * dim_max_multiplier;
+          max_value = shapes.at(el.num).dim_size(el.pos) * dim_max_multiplier;
         }
         break;
     }
@@ -1549,7 +1541,7 @@ DynamicRanges DynamicBucketInfo::CalculateRanges(
     // determine min
     int64_t min = shapes.at(el.num).dim_size(el.pos) >= default_min_value_
         ? min_value
-        : int64_t(shapes.at(el.num).dim_size(el.pos));
+        : shapes.at(el.num).dim_size(el.pos);
 
     int64_t max{max_value};
 

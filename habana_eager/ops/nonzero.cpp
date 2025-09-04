@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,8 +25,7 @@
 #include "hpu_ops/nonzero.h"
 #include "hpu_ops/op_logger.h"
 
-namespace habana {
-namespace eager {
+namespace habana::eager {
 
 at::Tensor nonzero_eager(const at::Tensor& self) {
   auto input_shape = self.sizes();
@@ -46,10 +45,11 @@ at::Tensor nonzero_eager(const at::Tensor& self) {
   auto NonzeroMeta = [](const at::Stack& stack) {
     const auto& self = stack_tensor(stack, 0);
     OutputMetaDataVector meta(2);
-    NonZeroParams_t self_params;
-    self_params.dtype = self.scalar_type();
-    self_params.sizes = self.sizes().vec();
-    self_params.numel = self.numel();
+    NonZeroParams_t self_params{
+        .dtype = self.scalar_type(),
+        .sizes = self.sizes().vec(),
+        .numel = self.numel(),
+        .force_long = false};
     meta.at(0).shape = compute_nonzero_output_shape(self_params);
     meta.at(0).dtype = c10::ScalarType::Long;
     meta.at(1).shape = {5};
@@ -102,5 +102,4 @@ at::Tensor& nonzero_out_eager(
 TORCH_LIBRARY_FRAGMENT(hpu, m) {
   m.def("nonzero_eager(Tensor self) -> (Tensor, Tensor)");
 }
-} // namespace eager
-} // namespace habana
+} // namespace habana::eager

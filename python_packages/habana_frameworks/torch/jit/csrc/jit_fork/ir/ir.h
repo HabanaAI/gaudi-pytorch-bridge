@@ -66,20 +66,16 @@ class THPPointer;
 using THPObjectPtr = THPPointer<PyObject>;
 using pyobj_list = std::vector<THPObjectPtr>;
 
-namespace torch {
-namespace jit {
+namespace torch::jit {
 
 struct Function;
 struct GraphFunction;
-
-} // namespace jit
-} // namespace torch
-
-namespace habana_torch {
-namespace jit {
+} // namespace torch::jit
+namespace habana_torch::jit {
 
 namespace utils {
 TORCH_API std::string getNodesModuleHierarchy(const Node& n);
+std::string getHeader(const Node* node);
 } // namespace utils
 class AliasDb;
 
@@ -347,7 +343,7 @@ struct FunctionSchemaMap {
         break;
       }
     }
-    if (it->second.size() == 0) {
+    if (it->second.empty()) {
       map.erase(Symbol::fromQualString(schema.name()));
     }
   }
@@ -396,8 +392,7 @@ struct FunctionSchemaMap {
   MapType map;
 };
 
-} // namespace jit
-} // namespace habana_torch
+} // namespace habana_torch::jit
 
 CREATE_OSTREAM_FORMATTER(habana_torch::jit::Graph);
 CREATE_OSTREAM_FORMATTER(habana_torch::jit::Node);

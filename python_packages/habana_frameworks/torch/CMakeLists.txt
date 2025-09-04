@@ -34,19 +34,17 @@ else()
   set(PYBIND_INSTALL_DIRNAME "lib/fork_pybind")
 endif()
 
-include(pt_ver)
-detect_pt_version()
-
 target_compile_options(bindings INTERFACE -fopenmp -fpermissive)
 target_link_libraries(
   bindings
-  INTERFACE npu::fmt
+  INTERFACE fmt::fmt-header-only
             npu::hllogger
             npu::hcl
             npu::specs_external
             $<TARGET_NAME_IF_EXISTS:npu::specs_embedded>
             pytorch_helpers
-            Python::Python)
+            Python::Python
+            exprtk::exprtk)
 
 add_subdirectory(internal/bridge_config)
 add_subdirectory(activity_profiler/csrc)
@@ -61,5 +59,6 @@ add_subdirectory(low_overhead_profiler/csrc)
 add_subdirectory(utils/debug/csrc)
 add_subdirectory(utils/experimental/csrc)
 add_subdirectory(utils/event_dispatcher/csrc)
+add_subdirectory(utils/git_info/csrc)
 add_subdirectory(media_pyt_bridge/csrc)
 add_subdirectory(jit/csrc)

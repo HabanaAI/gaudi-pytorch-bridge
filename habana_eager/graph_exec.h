@@ -26,17 +26,18 @@
 #include "habana_eager/graph_dynamic.h"
 #include "habana_eager/graph_dynamic_ops.h"
 
-namespace habana {
-namespace graph {
+namespace habana::graph {
 
 using InputSymbolIndexMap = std::unordered_map<std::string, int64_t>;
-using H2dScalesIndicesNames = std::vector<std::pair<size_t, std::string>>;
+using H2dScalesIndicesNames =
+    std::vector<std::pair<std::vector<size_t>, std::string>>;
 
 class GraphExec {
  public:
   GraphExec(
       size_t recipe_id,
       std::shared_ptr<torch::jit::Graph> graph,
+      const std::string& parent_graph_name,
       torch::jit::Stack& example_inputs,
       bool dynamic,
       bool inference,
@@ -79,7 +80,8 @@ class GraphExec {
   void RunPass(
       std::function<bool()> pass,
       bool dump_graphs,
-      const std::string& pass_name);
+      const std::string& pass_name,
+      int& pass_counter);
   std::string LogRecipeInfo(torch::jit::Stack& example_inputs);
   bool IsDynamicGraph();
   void ProcessDynamicGraph(torch::jit::Stack& example_inputs);
@@ -125,5 +127,4 @@ class GraphExec {
   size_t m_initial_graph_key_with_perm = SIZE_MAX;
 };
 
-} // namespace graph
-} // namespace habana
+} // namespace habana::graph

@@ -30,8 +30,7 @@
 #include "jit_fork/frontend/lexer.h"
 #include "jit_fork/ir/type_wrapper.h"
 
-namespace habana_torch {
-namespace jit {
+namespace habana_torch::jit {
 
 using TypePtr = c10::TypePtr;
 
@@ -66,5 +65,4 @@ struct TORCH_API SchemaTypeParser {
   size_t next_id = 0;
 };
 
-} // namespace jit
-} // namespace habana_torch
+} // namespace habana_torch::jit

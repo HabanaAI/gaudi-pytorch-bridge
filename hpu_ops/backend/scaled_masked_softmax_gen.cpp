@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,12 +18,10 @@
 
 namespace habana {
 
-std::shared_ptr<void> FillScaledMaskedSoftmaxParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillScaledMaskedSoftmaxParams(const at::Stack& stack) {
   PARAMS_STUB(ns_SmoothL1Kernel::Params);
   params->sigma = stack[2].toDouble();
-  return params;
+  return paramsT;
 }
 
 OutputMetaDataVector ScaledMaskedTriangularSoftmaxMeta(const at::Stack& stack) {
@@ -35,6 +33,28 @@ OutputMetaDataVector ScaledMaskedTriangularSoftmaxMeta(const at::Stack& stack) {
   return {meta};
 }
 
+SharedMetaDataVector ScaledMaskedTriangularSoftmaxSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  const at::Tensor& input = stack_tensor(stack, 0);
+  const at::Tensor& startEnd = stack_tensor(stack, 1);
+  const at::ScalarType outDtype =
+      stack.at(6).toOptional<c10::ScalarType>().value_or(input.scalar_type());
+
+  SharedMetaData flattenFwdSharedMeta("flatten_fwd");
+  flattenFwdSharedMeta.inputs_data = {getSharedMetaFromTensor(startEnd)};
+  flattenFwdSharedMeta.outputs_data = {{1, startEnd.scalar_type()}};
+
+  SharedMetaData sharedMeta("scaled_masked_triangular_softmax_fwd");
+
+  sharedMeta.inputs_data = {
+      getSharedMetaFromTensor(input), {1, startEnd.scalar_type()}};
+
+  sharedMeta.outputs_data.emplace_back(input.dim(), outDtype);
+
+  return {flattenFwdSharedMeta, sharedMeta};
+}
+
 void ScaledMaskedTriangularSoftmax::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
@@ -43,9 +63,9 @@ void ScaledMaskedTriangularSoftmax::AddNode(
   const auto self = stackGetter.getNextInput<TensorsPair>();
   const auto start_end = stackGetter.getNextInput<TensorsPair>();
   const auto inv_scale_attn = stackGetter.getNextInput<double>();
-  const auto grouped_batch_size = stackGetter.getNextInput<int>();
+  const auto grouped_batch_size = stackGetter.getNextInput<long>();
   const auto use_max = stackGetter.getNextInput<bool>();
-  const auto mode = stackGetter.getNextInput<int>();
+  const auto mode = stackGetter.getNextInput<long>();
   const auto out_dtype =
       stackGetter.getNextInput<std::optional<c10::ScalarType>>().value_or(
           self.pt_t.scalar_type());

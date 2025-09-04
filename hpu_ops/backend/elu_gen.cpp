@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,15 +17,13 @@
 #include "generated/backend/elu_backward.h"
 
 namespace habana {
-std::shared_ptr<void> FillEluParams(const at::Stack& stack, size_t& size) {
+FillParamsT FillEluParams(const at::Stack& stack) {
   PARAMS_STUB(ns_EluKernel::Params);
   params->alpha = stack.at(1).toScalar().toFloat();
-  return params;
+  return paramsT;
 }
 
-std::shared_ptr<void> FillEluBackwardParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillEluBackwardParams(const at::Stack& stack) {
   PARAMS_STUB(ns_EluKernel::ParamsV2);
   float alpha = stack.at(1).toScalar().to<float>();
   float scale = stack.at(2).toScalar().to<float>();
@@ -36,7 +34,7 @@ std::shared_ptr<void> FillEluBackwardParams(
   HABANA_ASSERT(is_result == false, "is_result = false is only supported");
   params->alpha = alpha;
   params->isInputFeaturemap = true;
-  return params;
+  return paramsT;
 }
 
 } // namespace habana

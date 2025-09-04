@@ -170,9 +170,7 @@ Value* tryConvertToType(
     } else if (*value->type() == *BoolType::get()) {
       if (concrete_float) {
         value = graph.insert(aten::Float, {value}, {}, loc);
-      } else if (concrete_int) {
-        value = graph.insert(aten::Int, {value}, {}, loc);
-      } else if (concrete_number) {
+      } else if (concrete_int || concrete_number) {
         value = graph.insert(aten::Int, {value}, {}, loc);
       }
     }
@@ -372,15 +370,6 @@ static bool varargsCanBeUsedAsList(
 }
 
 bool isBlockListedSchema(const FunctionSchema& schema) {
-  // Note (@zasdfgbnm):
-  // This is a workaround for https://github.com/pytorch/pytorch/issues/47964
-  // Currently JIT does not distinguish ScalarType vs int, so there is really
-  // no way to distinguish x.view(1) vs x.view(torch.int8). So we have to
-  // hardcode the aten::view.dtype here to block this overload. This blocklist
-  // should be removed when JIT fully suports ScalarType as its own type.
-  if (schema.name() == "aten::view" && schema.overload_name() == "dtype") {
-    return true;
-  }
   // Note (@tugsbayasgalan)
   // TorchScript doesn't suport kwargs so this op collides with aten.max.others
   // since both of them have 2 Tensor inputs. Since we don't expect users to
@@ -556,7 +545,7 @@ static std::optional<MatchedSchema> tryMatchSchema(
   // Therefore, either all or none returns has field names.
   bool return_has_field_names =
       std::all_of(returns.begin(), returns.end(), [&](const Argument& r) {
-        return r.name().length() > 0;
+        return !r.name().empty();
       });
   c10::OptNameList return_field_names = std::nullopt;
   if (return_has_field_names) {
@@ -704,7 +693,6 @@ Value* emitBuiltinCall(
   // first let's set the graph's version
   auto graph_version = graph.get_op_version();
 
-  std::stringstream failure_messages;
   std::vector<const FunctionSchema*> schemas;
   // we append them later to schemas because
   // parseSchema returns rvalue which can not

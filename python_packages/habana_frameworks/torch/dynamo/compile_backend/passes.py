@@ -26,6 +26,9 @@ from typing import Any
 
 import habana_frameworks.torch.internal.bridge_config as bc
 import habana_frameworks.torch.utils.experimental as htexp
+from habana_frameworks.torch.dynamo._fx_to_jit_lowering import (
+    propagate_node_module_name,
+)
 from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
 from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
 from habana_frameworks.torch.dynamo.debug_utils.visualization.graph_dumping import (
@@ -58,11 +61,16 @@ from ._helpers import (
     wrap_random_ops,
 )
 from ._passes.batch_as_strided import batch_as_strided, group_batch_as_strided
+from ._passes.debug.insert_debug_nan_asserts import pass_insert_debug_nan_asserts
 from ._passes.fuse_allreduce_calls import pass_fuse_collectives
 from ._passes.fuse_view_chains import pass_fuse_view_chains
 from ._passes.pattern_rewriter import pass_pattern_rewriter
 from ._passes.propose_collective_blocks import pass_propose_collective_blocks
-from ._passes.reorder_custom_ops import pass_reorder_custom_ops
+from ._passes.reorder_custom_ops import (
+    pass_post_reorder_custom_ops,
+    pass_reorder_custom_ops,
+)
+from ._passes.scalar_reorder_jitfork import pass_scalar_reorder_jitfork
 from ._passes.utils import (
     ColorGraph,
     OptimizationPassPlacement,
@@ -80,6 +88,28 @@ logger = get_compile_backend_logger()
 
 host_call_functions = {"torch.ops.hpu.weight_permutation"}
 
+custom_pass_at_pre_stagepasses = []
+custom_pass_at_pre_partition = []
+custom_pass_at_fuse_partition = []
+custom_pass_at_post_partition = []
+
+stage_to_custom_passes = {
+    OptimizationPassPlacement.PRE_PLACEMENT: custom_pass_at_pre_stagepasses,
+    OptimizationPassPlacement.PRE_PARTITIONER: custom_pass_at_pre_partition,
+    OptimizationPassPlacement.PARTITIONER: custom_pass_at_fuse_partition,
+    OptimizationPassPlacement.POST_PARTITIONER: custom_pass_at_post_partition,
+}
+
+
+def register_pass_at_optimization_pass(
+    custom_pass: Callable[[OptimizerContext], bool], stage: OptimizationPassPlacement
+):
+    try:
+        stage_to_custom_passes[stage].append(custom_pass)
+    except KeyError:
+        logger.error(f"unknown optimization stage {stage}")
+        raise
+
 
 def get_passes(stage: OptimizationPassPlacement):
     """
@@ -91,8 +121,8 @@ def get_passes(stage: OptimizationPassPlacement):
           for some debug levels? Or to add dependencies between passes instead of order?
           Could be overkill tho.
     """
-    if stage == OptimizationPassPlacement.PRE_PLACEMENT:
-        return [
+    stage_to_passes = {
+        OptimizationPassPlacement.PRE_PLACEMENT: [
             # this pass will flatten nested submodules by inlining
             pass_annotate_nodes_and_inline_submodule,
             # These passes will be ran once, they always get and produce a flat graph without submodules.
@@ -102,6 +132,7 @@ def get_passes(stage: OptimizationPassPlacement):
             pass_fuse_collectives,
             pass_allreduce_parents,
             pass_pattern_rewriter,
+            pass_scalar_reorder_jitfork,
             pass_fake_propagation,
             pass_reinplace_inplaceable_ops_v2,
             pass_weight_permutation,
@@ -114,9 +145,8 @@ def get_passes(stage: OptimizationPassPlacement):
             pass_mark_collective_input,
             pass_mark_placement,
             pass_graph_print,
-        ]
-    elif stage == OptimizationPassPlacement.PRE_PARTITIONER:
-        passes = [
+        ],
+        OptimizationPassPlacement.PRE_PARTITIONER: [
             # These passes will prepare proper placement for some corner-cases.
             pass_graph_print,
             pass_eagerize_leaf_views,
@@ -125,10 +155,8 @@ def get_passes(stage: OptimizationPassPlacement):
             pass_handle_negative_dims,
             pass_replace_sym_size,
             pass_inference_fuse_linear,
-        ]
-        return passes
-    elif stage == OptimizationPassPlacement.PARTITIONER:
-        return [
+        ],
+        OptimizationPassPlacement.PARTITIONER: [
             pass_graph_print,
             pass_mark_frozen_params,
             pass_mark_waittensor_downstream_ops,
@@ -141,15 +169,15 @@ def get_passes(stage: OptimizationPassPlacement):
             # This is final pass that creates final submoduled graph.
             pass_fuse_partitions,
             pass_add_fused_op_metadata,
-            pass_reorder_collectives,
             pass_make_symints_available,
             pass_fuse_view_chains,
             pass_batch_as_strided_groups,
+            pass_reorder_collectives,
+            pass_post_reorder_custom_ops,
             pass_graph_print,
             pass_wa_fix_output,
-        ]
-    elif stage == OptimizationPassPlacement.POST_PARTITIONER:
-        return [
+        ],
+        OptimizationPassPlacement.POST_PARTITIONER: [
             # These passes will be ran once, they have to work on graph with submodules.
             pass_graph_print,
             pass_summarize_graph,
@@ -158,9 +186,20 @@ def get_passes(stage: OptimizationPassPlacement):
             pass_detect_reusable_inputs_for_partition,
             pass_compile_clusters,
             pass_make_boxed_graph,
-        ]
-    else:
-        logger.error("unknown optimization stage %s", stage)
+            pass_insert_debug_nan_asserts,
+        ],
+    }
+
+    try:
+        passes = stage_to_passes[stage]
+        for custom_pass in stage_to_custom_passes[stage]:
+            logger.info(f"adding {custom_pass.__name__} pass at stage {stage}")
+            passes.append(custom_pass)
+            passes.append(pass_graph_print)
+        return passes
+
+    except KeyError:
+        logger.error(f"unknown optimization stage {stage}")
         raise
 
 
@@ -196,24 +235,24 @@ def pass_batch_as_strided_groups(ctx: OptimizerContext):
 
 def pass_allreduce_parents(ctx: OptimizerContext) -> bool:
     # TODO: try to reuse torch.fx.passes.infra.partitioner._DependencyViewer
-    if hpu_backend_config.enable_allreduce_graph_split:
-        gm = ctx.graph_module
-        allreduces = [n for n in gm.graph.nodes if n.name.startswith("all_reduce")]
-        for allreduce in allreduces:
-            downstream_allreduce_name = allreduce.name
-            previous_nodes = allreduce.all_input_nodes
-            new_previous_nodes = []
-            while len(previous_nodes) > 0:
-                for previous_node in previous_nodes:
-                    if "downstream_allreduce_name" not in previous_node.meta:
-                        previous_node.meta["downstream_allreduce_name"] = downstream_allreduce_name
-                        previous_node.parent = downstream_allreduce_name
-                        new_previous_nodes.extend(previous_node.all_input_nodes)
-                previous_nodes = new_previous_nodes
-                new_previous_nodes = []
+    if not hpu_backend_config.enable_allreduce_graph_split:
+        return False
 
-        return len(allreduces) > 0
-    return False
+    gm = ctx.graph_module
+    allreduces = (n for n in gm.graph.nodes if n.name.startswith("all_reduce"))
+    len_allreduces = 0
+    for allreduce in allreduces:
+        len_allreduces += 1
+        downstream_allreduce_name = allreduce.name
+        previous_nodes = [allreduce.all_input_nodes]
+        while previous_nodes:
+            for previous_node in previous_nodes.pop(0):
+                if "downstream_allreduce_name" not in previous_node.meta:
+                    previous_node.meta["downstream_allreduce_name"] = downstream_allreduce_name
+                    previous_node.parent = downstream_allreduce_name
+                    previous_nodes.append(previous_node.all_input_nodes)
+
+    return len_allreduces > 0
 
 
 def pass_mark_waittensor_downstream_ops(ctx: OptimizerContext) -> bool:
@@ -221,20 +260,19 @@ def pass_mark_waittensor_downstream_ops(ctx: OptimizerContext) -> bool:
         return False
 
     gm = ctx.graph_module
-    waittensors = [n for n in gm.graph.nodes if n.name.startswith("wait_tensor")]
+    waittensors = (n for n in gm.graph.nodes if "wait_tensor" in str(n.target))
+    len_waittensors = 0
     for waittensor in waittensors:
+        len_waittensors += 1
         upstream_waittensor_name = waittensor.name
-        user_nodes = list(waittensor.users.keys())
-        new_user_nodes = []
-        while len(user_nodes) > 0:
-            for user_node in user_nodes:
+        user_nodes = [waittensor.users.keys()]
+        while user_nodes:
+            for user_node in user_nodes.pop(0):
                 if "upstream_waittensor_name" not in user_node.meta:
                     user_node.meta["upstream_waittensor_name"] = upstream_waittensor_name
-                    new_user_nodes.extend(list(user_node.users.keys()))
-            user_nodes = new_user_nodes
-            new_user_nodes = []
+                    user_nodes.append(user_node.users.keys())
 
-    return len(waittensors) > 0
+    return len_waittensors > 0
 
 
 def pass_reorder_collectives(ctx: OptimizerContext) -> bool:
@@ -265,9 +303,9 @@ def pass_reorder_collectives(ctx: OptimizerContext) -> bool:
         if n.op == "placeholder":
             traversed_nodes.append(n)
             col_move_target = n  # Finding last placeholder node
-        if n.op == "output":
+        elif n.op == "output":
             wt_move_target = n
-        if n.name.startswith("wait_tensor"):
+        elif "wait_tensor" in str(n.target):
             wait_tensor_nodes.append(n)
             for arg in n.all_input_nodes:
                 collective_nodes.append(arg)
@@ -343,18 +381,24 @@ class InplaceableOp:
 
 def _is_cpu_scale_allowed(node: torch.fx.Node, node_arg: torch.fx.Node, h2d_scales_enabled: bool) -> bool:
     # 0d float CPU scales of fp8 ops are left on the CPU device for H2D optimization.
+    # Indices is range [from, to)
     ops_to_scales_idx = {
         "cast_to_fp8_v2.default": (1, 2),
+        "cast_from_fp8.default": (1, 2),
         "fp8_gemm_v2.default": (6, 8),
         "fp8_sdpa_fwd_dropout.default": (8, 14),
         "fp8_sdpa_fwd_non_dropout.default": (8, 14),
         "fp8_sdpa_recomp_fwd_dropout.default": (9, 15),
         "fp8_sdpa_recomp_fwd_non_dropout.default": (9, 15),
+        "mixture_of_experts.fp8": (6, 11),
+        "mixture_of_experts.fp8_fused_weights": (5, 9),
+        "mixture_of_experts.fp8_dynamic": (6, 10),
+        "mixture_of_experts.fp8_fused_weights_dynamic": (5, 8),
     }
 
     if (
         h2d_scales_enabled
-        and node_arg.meta["output_dtypes"][0] == torch.float
+        and node_arg.meta["output_dtypes"][0] in [torch.float, torch.bfloat16]
         and node_arg.meta["output_shapes"][0] == torch.Size([])
     ):
         idx_range = ops_to_scales_idx.get(node.target.__name__)
@@ -366,19 +410,17 @@ def _is_cpu_scale_allowed(node: torch.fx.Node, node_arg: torch.fx.Node, h2d_scal
 def _check_unsupported_h2d_ops(node: torch.fx.Node):
     ops_not_yet_supported = [
         "conv2d_fp8.default",
-        "mixture_of_experts.fp8",
-        "mixture_of_experts.fp8_fused_weights",
-        "mixture_of_experts.fp8_dynamic",
-        "mixture_of_experts.fp8_fused_weights_dynamic",
     ]
 
     node_name = node.target.__name__
-    assert (
-        node_name not in ops_not_yet_supported
-    ), f"{node_name} doesn't support H2D scales feature yet, but received CPU scales."
+    assert node_name not in ops_not_yet_supported, (
+        f"{node_name} doesn't support H2D scales feature yet, but received CPU scales."
+    )
 
 
-def _is_cpu_scalar_copy_required(node: torch.fx.Node, node_arg: torch.fx.Node, h2d_scales_enabled: bool) -> bool:
+def _is_cpu_scalar_copy_required(
+    node: torch.fx.Node, arg_idx: int, node_arg: torch.fx.Node, h2d_scales_enabled: bool
+) -> bool:
     # This is list of scalar OPs
     scalar_ops = [
         "topk",
@@ -400,7 +442,13 @@ def _is_cpu_scalar_copy_required(node: torch.fx.Node, node_arg: torch.fx.Node, h
     copy_required = True
     if node.op == "call_function":
         node_target = node.target.__name__.split(".")[0]
-        if node_arg.type in [int, float] and node_target in scalar_ops:
+        if node.target.__name__.split(".")[-1] == "Scalar":
+            copy_required = False
+        elif (
+            node_arg.type in [int, float]
+            and isinstance(node.target._schema, torch.FunctionSchema)
+            and node.target._schema.arguments[arg_idx].type.annotation_str in ["number", "int"]
+        ) or (node_arg.type in [int, float] and node_target in scalar_ops):
             assert node_arg.meta["output_device"] == torch.device("cpu")
             copy_required = False
         elif _is_cpu_scale_allowed(node, node_arg, h2d_scales_enabled):
@@ -446,7 +494,7 @@ def is_call_function_dynamic(node: torch.fx.Node, dynamic_graph: bool) -> bool:
                 if is_dynamic:
                     break
 
-        logger.debug("Node %s dynamicity %s", node.name, is_dynamic)
+        logger.debug(f"Node {node.name} dynamicity {is_dynamic}")
     return is_dynamic
 
 
@@ -464,6 +512,22 @@ def get_dynamic_config_value():
     is_dynamic = not config.assume_static_by_default
 
     return is_dynamic
+
+
+def is_fallback_dynamic_to_eager():
+    from torch._dynamo import config
+
+    if not config.assume_static_by_default:
+        # User specifies the dynamic=True for running torch.compile
+        # For this case, most operators will be dynamic operators.
+        # We should not use fallback dynamic to eager for such cases.
+        return False
+
+    if hpu_backend_config.force_static_compile:
+        # If force static compile, we should not fallback dynamic to eager
+        return False
+
+    return hpu_backend_config.fallback_dynamic_to_eager
 
 
 def is_higher_order_node(node: torch.fx.Node) -> bool:
@@ -485,6 +549,14 @@ def is_constant_for_lift_fresh_copy(node: torch.fx.Node, arg: torch.fx.Node) -> 
         and arg.op == "get_attr"
         and arg.target.startswith("_tensor_constant")
     )
+
+
+def is_copy_op(node: torch.fx.Node) -> bool:
+    return node.op == "call_function" and node.target.__name__.split(".")[0] in [
+        "_to_copy",
+        "_foreach_copy",
+        "_foreach_copy_",
+    ]
 
 
 def optimize_graph(
@@ -510,8 +582,20 @@ def optimize_graph(
     is_dynamic = is_module_dynamic(graph_module)
 
     ctx = OptimizerContext(
-        graph_module, graph_name, example_inputs, is_training, is_backward, is_dynamic, stage, None, None, None, None
+        graph_module,
+        graph_name,
+        example_inputs,
+        is_training,
+        is_backward,
+        is_dynamic,
+        stage,
+        None,
+        None,
+        None,
+        None,
     )
+
+    from habana_frameworks.torch.utils.debug import _towl_emit_time_duration_fx
 
     def run_passes(ctx: OptimizerContext):
         graph_changed = False
@@ -522,10 +606,10 @@ def optimize_graph(
             pass_name = optimization_pass.__name__
             env_name = "PT_HPU_DISABLE_" + pass_name
             if os.getenv(env_name, "").upper() in ["ON", "1", "YES", "TRUE", "Y"]:
-                logger.debug("pass %s was disabled by env at stage %s", pass_name, stage)
+                logger.debug(f"pass {pass_name} was disabled by env at stage {stage}")
                 continue
 
-            logger.debug("running %s pass at stage %s", pass_name, stage)
+            logger.debug(f"running {pass_name} pass at stage {stage}")
 
             with Timer() as t:
                 current_graph_changed = optimization_pass(ctx)
@@ -535,12 +619,8 @@ def optimize_graph(
                 pass_counter = pass_counter + 1
                 dump_fx_graph(ctx.graph_module, graph_name, stage, pass_counter, pass_name)
 
-            logger.debug(
-                "pass %s at stage %s took: %.3f [s]",
-                pass_name,
-                stage,
-                t.elapsed,
-            )
+            _towl_emit_time_duration_fx(pass_name, t.elapsed * 1000)
+            logger.debug(f"pass {pass_name} at stage {stage} took: {t.elapsed:.3f} [s]")
         return graph_changed
 
     def _get_subgraph_names(gm):
@@ -579,9 +659,7 @@ def optimize_graph(
             graph_changed = recursive_run_passes(sub_ctx, graph_changed, submodule_qualified_name)
 
         logger.debug(
-            "Running passes of {} stage on module {}".format(
-                ctx.stage, "outer_most" if module_prefix == "" else module_prefix
-            )
+            f"Running passes of {ctx.stage} stage on module {'outer_most' if module_prefix == '' else module_prefix}"
         )
         graph_changed = run_passes(ctx) or graph_changed
         return graph_changed
@@ -634,7 +712,9 @@ def pass_annotate_nodes_and_inline_submodule(ctx: OptimizerContext) -> bool:
                     )
 
     def inline_hints_wrapper(
-        parent_module: torch.fx.GraphModule, node_to_replace: torch.fx.Node, inline_mod: torch.fx.GraphModule
+        parent_module: torch.fx.GraphModule,
+        node_to_replace: torch.fx.Node,
+        inline_mod: torch.fx.GraphModule,
     ):
         """ "
         This is adapted from torch.fx.experimental.constant_fold._inline_module function.
@@ -690,7 +770,6 @@ def pass_annotate_nodes_and_inline_submodule(ctx: OptimizerContext) -> bool:
             n.replace_all_uses_with(arg_node)
 
         parent_module.graph.eliminate_dead_code()
-        return
 
     def process_nested_submodule(
         parent_module: torch.fx.GraphModule,
@@ -719,7 +798,6 @@ def pass_annotate_nodes_and_inline_submodule(ctx: OptimizerContext) -> bool:
 
         inline_hints_wrapper(parent_module, wrapper_node, submodule)
         parent_module.delete_submodule(submodule_name)
-        return
 
     class StrictRunNode(torch.fx.Interpreter):
         def __init__(self, module: torch.fx.GraphModule):
@@ -755,12 +833,16 @@ def pass_annotate_nodes_and_inline_submodule(ctx: OptimizerContext) -> bool:
 
 
 def pass_mark_frozen_params(ctx: OptimizerContext) -> bool:
+    graph_changed = False
+
     for n in ctx.graph_module.graph.nodes:
-        if n.op == "get_attr" or n.op == "placeholder":
-            if "_frozen_param" in n.target:
-                n.meta["frozen_param"] = True
-    ctx.graph_module.graph.lint()
-    ctx.graph_module.recompile()
+        if (n.op in ["get_attr", "placeholder"]) and "_frozen_param" in n.target:
+            n.meta["frozen_param"] = True
+            graph_changed = True
+
+    if graph_changed:
+        ctx.graph_module.graph.lint()
+        ctx.graph_module.recompile()
 
 
 def pass_replace_sym_size(ctx: OptimizerContext) -> bool:
@@ -811,17 +893,16 @@ def pass_graph_print(ctx: OptimizerContext) -> bool:
 
     assert ctx.graph_module is not None
 
-    logger.debug("Readable:\n%s", ctx.graph_module.print_readable(False))
-    logger.debug("IR:\n%s", ctx.graph_module.graph)
+    logger.debug(f"Readable:\n{ctx.graph_module.print_readable(False)}")
+    logger.debug(f"IR:\n{ctx.graph_module.graph}")
     logger.debug("Nodes:")
     for node in ctx.graph_module.graph.nodes:
-        logger.debug("Node name: %s op: %s", node.name, node.op)
+        logger.debug(f"Node name: {node.name} op: {node.op}")
         if node.op == "call_function":
-            logger.debug("    target: %s", node.target.__name__)
-        if "output_device" in node.meta:
-            logger.debug("    meta.output_device: %s", node.meta["output_device"])
-        if "context_hints" in node.meta:
-            logger.debug("    meta.context_hints: %s", node.meta["context_hints"])
+            logger.debug(f"    target: {node.target.__name__}")
+        for item in ["tensor_meta", "output_device", "context_hints"]:
+            if item in node.meta:
+                logger.debug(f"    meta.{item}: {node.meta[item]}")
     return False
 
 
@@ -839,22 +920,20 @@ def pass_make_symints_available(ctx: OptimizerContext) -> bool:
         return symint_list
 
     def get_missing_symbolic_int_input_nodes(symint_list, node):
-        is_arguments_present = False
-        missing_symints = ()
+        if not node.args:
+            return ()
+
+        missing_symints = []
         for symint in symint_list:
-            symint_count = 0
+            missing_symint = True
             for node_in in node.args:
-                is_arguments_present = True
                 if node_in.target == symint.target:
-                    symint_count += 1
+                    missing_symint = False
                     break
-            if symint_count == 0:
-                missing_symints = missing_symints + (symint,)
+            if missing_symint:
+                missing_symints.append(symint)
 
-        if is_arguments_present:
-            return missing_symints
-
-        return ()
+        return tuple(missing_symints)
 
     symint_list = get_all_symbolic_int_nodes()
 
@@ -965,13 +1044,7 @@ def pass_weight_permutation(ctx: OptimizerContext):
                         weight_permutation_node.val_kwargs = weight_permutation_node.kwargs
                     node.replace_input_with(weight_node, weight_permutation_node)
                     graph_changed = True
-                    logger.info(
-                        "Permute node: {} op: {} target: {} dim: {}",
-                        node.name,
-                        node.op,
-                        node.target,
-                        dim,
-                    )
+                    logger.info(f"Permute node: {node.name} op: {node.op} target: {node.target} dim: {dim}")
             else:
                 logger.info("No permutation, permute weight support only 4/5D tensors")
 
@@ -994,32 +1067,36 @@ def pass_propose_partitions(ctx: OptimizerContext) -> bool:
 
     ctx.current_partitions = []
     ctx.current_partitions_non_mergeable = []
-    if hpu_backend_config.enable_allreduce_graph_split:
-        allreduces = [n for n in ctx.graph_module.graph.nodes if n.name.startswith("all_reduce")]
-        cls = FusedCollectiveOperatorSupport
-        cls.keyword = "downstream_allreduce_name"
-        ctx.habana_partitioner = HabanaPartitioner(ctx.graph_module, cls)
-        for allreduce in allreduces:
-            cls.target_value = allreduce.name
-            ctx.current_partitions_non_mergeable.extend(ctx.habana_partitioner.propose_partitions())
 
-    if hpu_backend_config.enable_waittensor_graph_split:
-        wait_tensors = [n for n in ctx.graph_module.graph.nodes if n.name.startswith("wait_tensor")]
-        cls = FusedCollectiveOperatorSupport
-        cls.keyword = "upstream_waittensor_name"
-        ctx.habana_partitioner = HabanaPartitioner(ctx.graph_module, cls)
-        for wait_tensor in wait_tensors:
-            cls.target_value = wait_tensor.name
-            ctx.current_partitions_non_mergeable.extend(ctx.habana_partitioner.propose_partitions())
+    def propose_partitions(node_name, nodename, stream):
+        if getattr(hpu_backend_config, f"enable_{nodename}_graph_split"):
+            nodes = (n for n in ctx.graph_module.graph.nodes if n.name.startswith(node_name))
+            cls = FusedCollectiveOperatorSupport
+            cls.keyword = f"{stream}_{nodename}_name"
+            ctx.habana_partitioner = HabanaPartitioner(ctx.graph_module, cls)
+            for node in nodes:
+                cls.target_value = node.name
+                ctx.current_partitions_non_mergeable.extend(ctx.habana_partitioner.propose_partitions())
+
+    propose_partitions("all_reduce", "allreduce", "downstream")
+    propose_partitions("wait_tensor", "waittensor", "upstream")
 
     ctx.habana_partitioner = HabanaPartitioner(ctx.graph_module)
     ctx.current_partitions.extend(ctx.habana_partitioner.propose_partitions())
+
+    if not hpu_backend_config.use_cpp_partitioner:
+        # Update partition ids of current_partitions and current_partitions_non_mergeable
+        # as every call to ctx.habana_partitioner.propose_partitions() the partition id resets from 0
+        for i, partition in enumerate(ctx.current_partitions + ctx.current_partitions_non_mergeable):
+            partition.id = i
 
     # Nothing was really changed.
     return False
 
 
-def match_full_copy_pattern(node: torch.fx.Node) -> tuple[bool, torch.fx.Node, torch.fx.Node]:
+def match_full_copy_pattern(
+    node: torch.fx.Node,
+) -> tuple[bool, torch.fx.Node, torch.fx.Node]:
     is_full_copy_pattern = (
         node.name.startswith("full") and len(node.users) == 1 and list(node.users.keys())[0].name.startswith("copy")
     )
@@ -1044,13 +1121,19 @@ def post_process_partitions(
     partition, to reduce some unnecessary tensor passing between partitions.
     Currently, the post process is mainly for device memory optimization.
     """
-    assert None not in [graph_module, current_partitions, current_partitions_non_mergeable]
+    assert None not in [
+        graph_module,
+        current_partitions,
+        current_partitions_non_mergeable,
+    ]
     from torch.fx.passes.infra.partitioner import Partition
 
     partition_changed = False
 
     def reassign_full_copy_to_upstream_partition(
-        graph_module, assignments: dict[torch.fx.Node, int], partitions_by_id: dict[int, Partition]
+        graph_module,
+        assignments: dict[torch.fx.Node, int],
+        partitions_by_id: dict[int, Partition],
     ):
         changed = False
         for node in graph_module.graph.nodes:
@@ -1062,9 +1145,7 @@ def post_process_partitions(
             copy_args = list(copy_node.args)
             copy_src_node = copy_args[1]
             if (
-                full_node not in assignments
-                or copy_node not in assignments
-                or copy_src_node not in assignments
+                any(node not in assignments for node in [full_node, copy_node, copy_src_node])
                 or assignments[full_node] != assignments[copy_node]
                 or assignments[full_node] == assignments[copy_src_node]
             ):
@@ -1083,7 +1164,9 @@ def post_process_partitions(
         return changed
 
     def reassign_copy__to_upstream_partition(
-        graph_module, assignments: dict[torch.fx.Node, int], partitions_by_id: dict[int, Partition]
+        graph_module,
+        assignments: dict[torch.fx.Node, int],
+        partitions_by_id: dict[int, Partition],
     ):
         changed = False
         for node in graph_module.graph.nodes:
@@ -1116,7 +1199,9 @@ def post_process_partitions(
         return changed
 
     def eagerize_partitions_with_only_view_ops(
-        graph_module, assignments: dict[torch.fx.Node, int], partitions_by_id: dict[int, Partition]
+        graph_module,
+        assignments: dict[torch.fx.Node, int],
+        partitions_by_id: dict[int, Partition],
     ):
         def is_partition_with_only_view_ops(part: Partition):
             return all(is_view_node(node) for node in part.nodes)
@@ -1199,9 +1284,9 @@ def pass_add_fused_op_metadata(ctx: OptimizerContext):
             args = subgraph_node.args
             if len(args) == 1 and isinstance(args[0], tuple):
                 args = args[0]
-            assert all(
-                map(lambda x: isinstance(x, torch.fx.Node), args)
-            ), "Currently we are assuming that all args of output should be Nodes"
+            assert all(isinstance(x, torch.fx.Node) for x in args), (
+                "Currently we are assuming that all args of output should be Nodes"
+            )
             meta_val = tuple([a.meta.get("val", None) for a in args])
 
         # it is possible to have zero graph outputs with KEEP_INPUT_MUTATIONS enabled
@@ -1230,18 +1315,16 @@ def pass_wa_mixed_devices(ctx: OptimizerContext) -> bool:
 
     for node in ctx.graph_module.graph.nodes:
         if (
-            node.op != "placeholder"
-            and node.op != "output"
-            and node.op != "get_attr"
+            node.op not in ["placeholder", "output", "get_attr"]
             and not (node.op == "call_function" and "to_copy" in node.target.__name__)
             and node.meta["output_device"].type == "hpu"
             and not is_backward_checkpoint_op(node)
         ):
-            for arg in node.args:
+            for arg_idx, arg in enumerate(node.args):
                 if (
                     isinstance(arg, torch.fx.Node)
                     and ("output_device" in arg.meta and arg.meta["output_device"].type != "hpu")
-                    and _is_cpu_scalar_copy_required(node, arg, h2d_scales_enabled)
+                    and _is_cpu_scalar_copy_required(node, arg_idx, arg, h2d_scales_enabled)
                 ):
                     nodes_to_fix_list.append(node)
                     break
@@ -1256,12 +1339,15 @@ def pass_wa_mixed_devices(ctx: OptimizerContext) -> bool:
                         {"device": torch.device("hpu")},
                     )
                     input_copy_node.meta["output_device"] = torch.device("hpu")
-                    input_copy_node.meta["output_dtypes"] = [arg.meta["output_dtypes"][0]]
-                    input_copy_node.meta["output_layouts"] = [arg.meta["output_layouts"][0]]
-                    input_copy_node.meta["output_shapes"] = [arg.meta["output_shapes"][0]]
-                    input_copy_node.meta["output_strides"] = [arg.meta["output_strides"][0]]
-                    input_copy_node.meta["output_contiguous"] = [arg.meta["output_contiguous"][0]]
-                    input_copy_node.meta["output_offset"] = [arg.meta["output_offset"][0]]
+                    for key in [
+                        "output_dtypes",
+                        "output_layouts",
+                        "output_shapes",
+                        "output_strides",
+                        "output_contiguous",
+                        "output_offset",
+                    ]:
+                        input_copy_node.meta[key] = [arg.meta[key][0]]
                     fill_propagated_tensor_metadata_jitfork(input_copy_node)
                     node.replace_input_with(arg, input_copy_node)
                 graph_changed = True
@@ -1285,6 +1371,7 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
     """
     assert ctx.graph_module is not None
     h2d_scales_enabled = htexp._get_scale_attribute_hash_id() > 0 and bc.get_pt_hpu_enable_h2d_scales()
+    fallback_dynamic_to_eager = is_fallback_dynamic_to_eager()
 
     for node in ctx.graph_module.graph.nodes:
         placement = None
@@ -1295,26 +1382,39 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
         elif node.op == "call_function" and is_higher_order_node(node):
             placement = "eager"
             logger.debug(f"Node {node}: eager placement as node is a higher order node")
-        elif node.op == "call_function" and "to_copy" in node.target.__name__:
-            input_node = None
-            for arg in node.args:
-                if isinstance(arg, torch.fx.Node):
-                    input_node = arg
-                    break
+        elif node.op == "call_function" and is_copy_op(node):
+            args_list_with_node = [node]
 
-            assert input_node is not None
+            if node.target.__name__.split(".")[0] == "_to_copy":
+                input_node = None
+                for arg in node.args:
+                    if isinstance(arg, torch.fx.Node):
+                        input_node = arg
+                        break
+
+                assert input_node is not None
+                args_list_with_node.append(input_node)
+            else:  # foreach_copy
+                for arg in node.args:
+                    if isinstance(arg, list):
+                        args_list_with_node.extend(arg)
 
             # Internal HPU copies should be placed in the clusters.
-            if all(n.meta["output_device"].type == "hpu" for n in [input_node, node]):
-                placement = "hpu_cluster"
+            if all(n.meta["output_device"].type == "hpu" for n in args_list_with_node):
+                if fallback_dynamic_to_eager and dynamic_call_function:
+                    placement = "eager"
+                    logger.debug(f"Node {node}: eager placement as dynamic node requires fallback to eager")
+                else:
+                    placement = "hpu_cluster"
             else:
                 placement = "eager"
-                logger.debug(
-                    f"{node._pretty_print_target(node.target)} fallback to eager because node was identified as non D2D copy"
-                )
+                logger.debug(f"Node {node}: eager placement as node is a non D2D copy")
         elif node.op == "call_function" and node._pretty_print_target(node.target) in host_call_functions:
             placement = "eager"
             logger.debug(f"Node {node}: eager placement as node is a host call function")
+        elif node.op == "call_function" and fallback_dynamic_to_eager and dynamic_call_function:
+            placement = "eager"
+            logger.debug(f"Node {node}: eager placement as dynamic node requires fallback to eager")
         elif node.op == "call_function" and is_eager_fallback_required(node, is_dynamic=dynamic_call_function):
             placement = "eager"
             logger.debug(f"Node {node}: eager placement as node require fallback to eager")
@@ -1327,16 +1427,16 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
                     # these OPs that also have all inputs on HPU. Or debug why this OP have mixed device
                     # tensors, that could be the original issue here.
                     if _is_cpu_scalar_or_symbolic_scalar(arg):
-                        logger.debug("Argument {} to node {} is a scalar or a symbolic scalar", arg, node)
+                        logger.debug(f"Argument {arg} to node {node} is a scalar or a symbolic scalar")
                         continue
                     elif is_backward_checkpoint_op(node) and arg.meta["output_device"] == torch.device("cpu"):
-                        logger.debug("Argument {} to node {} is an rng_state - a cpu tensor by definition", arg, node)
+                        logger.debug(f"Argument {arg} to node {node} is an rng_state - a cpu tensor by definition")
                         continue
                     elif is_constant_for_lift_fresh_copy(node, arg):
-                        logger.debug("Argument {} to node {} is a _tensor_constant get_attr", arg, node)
+                        logger.debug(f"Argument {arg} to node {node} is a _tensor_constant get_attr")
                         continue
                     elif _is_cpu_scale_allowed(node, arg, h2d_scales_enabled):
-                        logger.debug("Argument {} to node {} is a cpu tensor for H2D optimization", arg, node)
+                        logger.debug(f"Argument {arg} to node {node} is a cpu tensor for H2D optimization")
                         continue
                     assert arg.meta["output_device"].type == "hpu"
 
@@ -1349,15 +1449,10 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
             # This log line is used by the logging analysis tool. Please be cautious
             # when changing.
             logger.info(
-                "Node placement. Node: {} op: {} placement: {} target: {} dynamic: {}",
-                node.name,
-                node.op,
-                placement,
-                node.target,
-                dynamic_call_function,
+                f"Node placement. Node: {node.name} op: {node.op} placement: {placement} target: {node.target} dynamic: {dynamic_call_function}"
             )
         else:
-            logger.info("Node placement. Node: {} op: {} placement: {}", node.name, node.op, placement)
+            logger.info(f"Node placement. Node: {node.name} op: {node.op} placement: {placement}")
 
         assert placement is not None
 
@@ -1365,7 +1460,7 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
         # ...it happens that placeholder nodes might be reused between FWD and BWD.
         # They are always placed in eager though, so it should not be an issue.
         if "placement" in node.meta:
-            logger.debug("Node {} of type {} has had it's placement already set", node, node.op)
+            logger.debug(f"Node {node} of type {node.op} has had it's placement already set")
             assert node.meta["placement"] == placement
 
         node.meta["placement"] = placement
@@ -1373,13 +1468,15 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
     return True
 
 
-collective_ops = {torch.ops._c10d_functional.all_reduce_.default, torch.ops._c10d_functional.all_reduce.default}
+collective_ops = {
+    torch.ops._c10d_functional.all_reduce_.default,
+    torch.ops._c10d_functional.all_reduce.default,
+}
 
 view_ops_set = {torch.ops.aten.view.default, torch.ops.aten._unsafe_view.default}
 
 
 def pass_mark_collective_input(ctx: OptimizerContext) -> bool:
-
     assert ctx.graph_module is not None
 
     if not hpu_backend_config.enable_sfg:
@@ -1404,7 +1501,8 @@ def pass_mark_collective_input(ctx: OptimizerContext) -> bool:
 
 
 def merge_paths(
-    graph_module: torch.fx.Graph, current_partitions: list[torch.fx.passes.infra.partitioner.Partition]
+    graph_module: torch.fx.Graph,
+    current_partitions: list[torch.fx.passes.infra.partitioner.Partition],
 ) -> list[torch.fx.passes.infra.partitioner.Partition]:
     """
     This pass that will merge parallel partitions.
@@ -1447,7 +1545,7 @@ def merge_paths(
 
     # Update only if new partitioning is better than old one
     if len(new_partitions_desc_list) < len(current_partitions):
-        logger.debug("New partition list (by colors): %s", new_partitions_desc_list)
+        logger.debug(f"New partition list (by colors): {new_partitions_desc_list}")
         from torch.fx.passes.infra.partitioner import Partition
 
         new_partitions = []
@@ -1460,7 +1558,7 @@ def merge_paths(
 
         current_partitions = new_partitions
 
-        logger.debug("Merge paths done. Partition cnt: %s", len(new_partitions))
+        logger.debug(f"Merge paths done. Partition cnt: {len(new_partitions)}")
     else:
         logger.debug("No partitions suitable for merging found")
 
@@ -1502,7 +1600,7 @@ class resolve_negative_dim:
         from torch.fx.experimental.proxy_tensor import py_sym_types
 
         if node_name in negative_dim_ops:
-            if node_name == "slice" or node_name == "constant_pad_nd":
+            if node_name in ["slice", "constant_pad_nd"]:
                 for node_in in node.args:
                     if isinstance(node_in, torch.fx.Node):
                         meta_val = node_in.meta.get("val", node_in.meta.get("tensor_meta", None))
@@ -1517,10 +1615,9 @@ class resolve_negative_dim:
                     return False
 
                 for index, value in enumerate(in_args_1):
-                    if not isinstance(value, py_sym_types):
-                        if value == -1:
-                            resolve_negative_dim.view_dim_index = index
-                            return True
+                    if not isinstance(value, py_sym_types) and value == -1:
+                        resolve_negative_dim.view_dim_index = index
+                        return True
         return False
 
     @classmethod
@@ -1631,13 +1728,13 @@ class resolve_negative_dim:
         return True
 
     def __new__(cls, ctx, node):
-        if cls.node_name == "view":
-            return cls.__resolve_view_shapes(ctx, node)
-        if cls.node_name == "slice":
-            return cls.__resolve_slice_shapes(ctx, node)
-        if cls.node_name == "constant_pad_nd":
-            return cls.__resolve_constant_pad_nd_shapes(ctx, node)
-        return False
+        fmap = {
+            "view": cls.__resolve_view_shapes,
+            "slice": cls.__resolve_slice_shapes,
+            "constant_pad_nd": cls.__resolve_constant_pad_nd_shapes,
+        }
+        fun = fmap.get(cls.node_name, None)
+        return fun(ctx, node) if fun else False
 
 
 def pass_handle_negative_dims(ctx: OptimizerContext) -> bool:
@@ -1657,10 +1754,9 @@ def pass_handle_negative_dims(ctx: OptimizerContext) -> bool:
             tmeta_val = node.meta.get("val", node.meta.get("tensor_meta", None))
             if isinstance(tmeta_val, py_sym_types):
                 py_node_manager.add_sym_placeholder(tmeta_val, node)
-        if node.op == "call_function":
-            if resolve_negative_dim.required(node):
-                py_node_manager.set_insert_point(node.prev)
-                graph_changed = resolve_negative_dim(ctx, node) or graph_changed
+        if node.op == "call_function" and resolve_negative_dim.required(node):
+            py_node_manager.set_insert_point(node.prev)
+            graph_changed = resolve_negative_dim(ctx, node) or graph_changed
 
     if graph_changed:
         ctx.graph_module.recompile()
@@ -1708,13 +1804,11 @@ def pass_eagerize_leaf_views(ctx: OptimizerContext) -> bool:
     # Find HPU view chains used by eager OPs that are also used by non-eager HPU ops ('blue' color - to be cloned).
     for node in reverse_nodes_list:
         if node.meta["pass_meta_color"] == "red":
-            found_hpu_dst = False
-            for dst in node.users:
-                if (dst.meta["placement"] == "hpu_cluster" and dst.meta["pass_meta_color"] != "red") or (
-                    dst.meta["pass_meta_color"] == "blue"
-                ):
-                    found_hpu_dst = True
-                    break
+            found_hpu_dst = any(
+                (dst.meta["placement"] == "hpu_cluster" and dst.meta["pass_meta_color"] != "red")
+                or (dst.meta["pass_meta_color"] == "blue")
+                for dst in node.users
+            )
 
             if found_hpu_dst:
                 node.meta["pass_meta_color"] = "blue"
@@ -1731,10 +1825,11 @@ def pass_eagerize_leaf_views(ctx: OptimizerContext) -> bool:
                 new_node.meta = copy.copy(node.meta)
 
             # Move non-red (HPU path) edges to the new node.
-            nodes_to_change = []
-            for dst in node.users:
-                if dst.meta["pass_meta_color"] != "red" and dst.meta["placement"] == "hpu_cluster":
-                    nodes_to_change.append(dst)
+            nodes_to_change = [
+                dst
+                for dst in node.users
+                if dst.meta["pass_meta_color"] != "red" and dst.meta["placement"] == "hpu_cluster"
+            ]
             for dst in nodes_to_change:
                 dst.replace_input_with(node, new_node)
 
@@ -1752,7 +1847,7 @@ def pass_eagerize_leaf_views(ctx: OptimizerContext) -> bool:
             graph_changed = True
             node.meta["placement"] = "eager"
             logger.debug(
-                f"{node._pretty_print_target(node.target)} fellback to eager due to being identified as leaf view node"
+                f"{node._pretty_print_target(node.target)} fallback to eager due to being identified as leaf view node"
             )
         del node.meta["pass_meta_color"]
 
@@ -1825,7 +1920,7 @@ def pass_detect_reusable_inputs_for_partition(ctx: OptimizerContext):
         return node.meta.get("frozen_param", False)
 
     for node in reversed(ctx.graph_module.graph.nodes):
-        logger.debug("Node: %s Op: %s Target: %s", node, node.op, node.target)
+        logger.debug(f"Node: {node} Op: {node.op} Target: {node.target}")
 
         if is_graph_input(node):
             graph_inputs.append(node)
@@ -1833,11 +1928,10 @@ def pass_detect_reusable_inputs_for_partition(ctx: OptimizerContext):
         user_to_last_used_args[node] = []
         map_arg(node.args, lambda arg: register_last_uses(arg, node))
 
-    for user in user_to_last_used_args:
+    for user, last_used_args in user_to_last_used_args.items():
         if user.op != "call_module":
             continue
 
-        last_used_args = user_to_last_used_args[user]
         is_reusables: list[bool] = []
         for arg in user.args:
             is_last_use = arg in last_used_args
@@ -1865,6 +1959,35 @@ def pass_stable_topological_sort(ctx: OptimizerContext):
     ctx.graph_module.recompile()
 
     return True
+
+
+def propagate_module_names(fx_graph: torch.fx.Graph, jit_graph: torch.Graph) -> None:
+    """
+    This function propagates the module names from the FX graph to the JIT IR nodes.
+    This is done to propagate those name further to synapse graph.
+    """
+    fx_to_ir = {}
+    jit_graph_iter = iter(jit_graph.nodes())
+    for fx_node in fx_graph.nodes:
+        if fx_node.op != "call_function" or "getitem" in str(fx_node.target):
+            continue
+        while True:
+            try:
+                jit_node = next(jit_graph_iter)
+            except StopIteration:
+                # Not every fx node was successfully matched so we can't be certain our mapping is correct
+                # It's safer not to propagate module names at all to ensure they're not misleading
+                return
+
+            if str(fx_node.target).replace(".", "::") in jit_node.kind():
+                fx_to_ir[fx_node] = jit_node
+                break
+
+    filtered_fx_to_ir = filter(lambda elem: "nn_module_stack" in elem[0].meta, fx_to_ir.items())
+
+    for fx_node, jit_node in filtered_fx_to_ir:
+        for out in jit_node.outputs():
+            propagate_node_module_name(fx_node, out)
 
 
 def pass_compile_clusters(ctx: OptimizerContext):
@@ -1916,16 +2039,13 @@ def pass_compile_clusters(ctx: OptimizerContext):
             module._forward_pre_hooks = OrderedDict()
 
             f = torch.jit.script(module)
-
+            propagate_module_names(module.graph, f.graph)
             module._forward_hooks = saved_forward_hooks
             module._forward_pre_hooks = saved_pre_forward_hooks
 
             torch._C._jit_pass_remove_mutation(f.graph)
 
-        logger.debug(
-            "####PyTorch-generated JIT IR graph for this HPU graph:####\n%s",
-            f.graph,
-        )
+        logger.debug(f"####PyTorch-generated JIT IR graph for this HPU graph:####\n{f.graph}")
 
         return f, module, has_random_ops
 
@@ -1933,7 +2053,7 @@ def pass_compile_clusters(ctx: OptimizerContext):
     refine_dynamic = bc.get_pt_hpu_enable_refine_dynamic_shapes()
     optim_output_sif_ds = bc.get_pt_hpu_optim_dynamic_output_sif()
     for n in ctx.graph_module.graph.nodes:
-        logger.debug("Node: %s Op: %s Target: %s", n, n.op, n.target)
+        logger.debug(f"Node: {n} Op: {n.op} Target: {n.target}")
 
         if n.op == "call_module":
             assert not n.kwargs
@@ -1970,7 +2090,7 @@ def pass_compile_clusters(ctx: OptimizerContext):
 
             num_subgraphs += 1
 
-    logger.info("INFO: Number of subgraphs created:\n%s", num_subgraphs)
+    logger.info(f"INFO: Number of subgraphs created:\n{num_subgraphs}")
 
     return num_subgraphs != 0
 
@@ -2032,7 +2152,6 @@ def pass_reinplace_inplaceable_ops(ctx: OptimizerContext) -> bool:
                         len(wait_tensor_node_users) == 1
                         and wait_tensor_node_users[0].target == torch.ops.aten.copy.default
                     ):
-
                         copy_node = wait_tensor_node_users[0]
                         if copy_node.args[0] == mutated_arg:
                             replace_dict[copy_node] = copy_node.args[1]
@@ -2085,10 +2204,7 @@ def pass_reinplace_index_copy_ops(ctx: OptimizerContext) -> bool:
 
     def has_any_eager_users(node: torch.fx.Node):
         user_nodes = list(node.users.keys())
-        for user_node in user_nodes:
-            if user_node.meta.get("placement", "") == "eager":
-                return True
-        return False
+        return any(user_node.meta.get("placement", "") == "eager" for user_node in user_nodes)
 
     def reinplace_index_copy_ops(gm: torch.fx.GraphModule):
         inplaceable_index_copy_ops = {
@@ -2158,7 +2274,7 @@ def pass_reinplace_add_ops(ctx: OptimizerContext):
             and src0.meta["output_dtypes"][0] == src1.meta["output_dtypes"][0]
             and src0.meta["output_dtypes"][0] in (torch.float32, torch.bfloat16, torch.float16)
         )
-        is_eligible = is_float_dtype and not src0.op == "placeholder" and not is_view_op(src0)
+        is_eligible = is_float_dtype and src0.op != "placeholder" and not is_view_op(src0)
         if not is_eligible:
             return False
 
@@ -2226,7 +2342,7 @@ def pass_detect_partition_in_to_out_duplicates(ctx: OptimizerContext):
 
     changed = False
     for n in ctx.graph_module.graph.nodes:
-        logger.debug("Node: %s Op: %s Target: %s", n, n.op, n.target)
+        logger.debug(f"Node: {n} Op: {n.op} Target: {n.target}")
 
         if n.op == "call_module":
             assert not n.kwargs
@@ -2264,11 +2380,10 @@ def pass_remove_unnecessary_full_copy(ctx: OptimizerContext):
         dst, src = copy_args[0], copy_args[1]
         if not (
             match(dst.meta["output_device"], src.meta["output_device"])
-            and match(dst.meta["output_shapes"][0], src.meta["output_shapes"][0])
-            and match(dst.meta["output_dtypes"][0], src.meta["output_dtypes"][0])
-            and match(dst.meta["output_layouts"][0], src.meta["output_layouts"][0])
-            and match(dst.meta["output_strides"][0], src.meta["output_strides"][0])
-            and match(dst.meta["output_contiguous"][0], src.meta["output_contiguous"][0])
+            and all(
+                match(dst.meta[key][0], src.meta[key][0])
+                for key in ["output_shapes", "output_dtypes", "output_layouts", "output_strides", "output_contiguous"]
+            )
         ):
             continue
 
@@ -2304,9 +2419,8 @@ def pass_check_eager_fallbacks(ctx: OptimizerContext):
                     "habana_frameworks.torch.dynamo.compile_backend.symbolic_execution.symexpr_python",
                 }
                 and node._pretty_print_target(node.target) not in host_call_functions
-            ):
-                if node.meta["placement"] == "eager":
-                    eager_nodes.append(str(node) + ":" + node._pretty_print_target(node.target))
+            ) and node.meta["placement"] == "eager":
+                eager_nodes.append(str(node) + ":" + node._pretty_print_target(node.target))
         assert len(eager_nodes) == 0, f"Eager fallback in nodes: {eager_nodes}"
     return False
 
@@ -2383,12 +2497,10 @@ def pass_inference_fuse_linear(ctx: OptimizerContext) -> bool:
             continue
         before = node.args[0]
         after = next(iter(node.users))
-        cond_after = False
-        if len(node.users) == 1 and after.target == torch.ops.aten.view.default and is_node_supported(after):
-            cond_after = True
-        cond_before = False
-        if len(before.users) == 1 and before.target == torch.ops.aten.view.default and is_node_supported(before):
-            cond_before = True
+        cond = all(
+            len(nb.users) == 1 and ab.target == torch.ops.aten.view.default and is_node_supported(ab)
+            for nb, ab in [(node, after), (before, before)]
+        )
 
         """
         After replaced with Linear op if the subgraph looks like
@@ -2403,16 +2515,17 @@ def pass_inference_fuse_linear(ctx: OptimizerContext) -> bool:
         if it is same we will also check except last dim all the dims are same or not.
         if it is not same we are discarding this pattern matching using the below checks.
         """
-        if cond_after and cond_before:
-            if (len(before.args[0].meta["output_shapes"][0]) == len(after.meta["output_shapes"][0])) and (
-                before.args[0].meta["output_shapes"][0][:-1] == after.meta["output_shapes"][0][:-1]
-            ):
-                real_input = before.args[0]
-                new_args = list(node.args)
-                new_args[0] = real_input
-                node.args = tuple(new_args)
-                after.replace_all_uses_with(node)
-                node.meta.update(after.meta)
+        if (
+            cond
+            and (len(before.args[0].meta["output_shapes"][0]) == len(after.meta["output_shapes"][0]))
+            and (before.args[0].meta["output_shapes"][0][:-1] == after.meta["output_shapes"][0][:-1])
+        ):
+            real_input = before.args[0]
+            new_args = list(node.args)
+            new_args[0] = real_input
+            node.args = tuple(new_args)
+            after.replace_all_uses_with(node)
+            node.meta.update(after.meta)
 
     ctx.graph_module = post_pass_finalize(input_module=ctx.graph_module)
 

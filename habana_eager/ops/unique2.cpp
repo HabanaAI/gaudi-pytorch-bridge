@@ -17,8 +17,7 @@
 #include "habana_eager/ops/eager_op.h"
 #include "habana_eager/ops/view.h"
 
-namespace habana {
-namespace eager {
+namespace habana::eager {
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor> _unique2_eager(
     const at::Tensor& self,
@@ -83,12 +82,12 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> _unique2_eager(
     counts_tensor = at::slice(counts_tensor, 0, 0, end, 1);
 
   } else if (!return_inverse != !return_counts) {
-    auto hpu_op = habana::eager::EagerOp<
-        std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor>>{
-        "hpu::_unique2_eager",
-        {self, sorted, return_inverse, return_counts},
-        {output_shape, valid_count_shape, output_shape},
-        0};
+    auto hpu_op =
+        habana::eager::EagerOp<std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor>>{
+            "hpu::_unique2_eager",
+            {self, sorted, return_inverse, return_counts},
+            {output_shape, valid_count_shape, output_shape},
+            0};
 
     hpu_op.SetOutputMetaFn(UniqueMeta);
     auto result_unique = hpu_op.call();
@@ -115,8 +114,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> _unique2_eager(
     }
 
   } else {
-    auto hpu_op = habana::eager::EagerOp<
-        std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor>>{
+    auto hpu_op = habana::eager::EagerOp<std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor>>{
         "hpu::_unique2_eager",
         {self, sorted, return_inverse, return_counts},
         {output_shape, valid_count_shape},
@@ -139,5 +137,4 @@ TORCH_LIBRARY_FRAGMENT(hpu, m) {
   m.def(
       "_unique2_eager(Tensor self, bool sorted, bool return_inverse, bool return_counts) -> (Tensor, Tensor, Tensor, Tensor)");
 }
-} // namespace eager
-} // namespace habana
+} // namespace habana::eager

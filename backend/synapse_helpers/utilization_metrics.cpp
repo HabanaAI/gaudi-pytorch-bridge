@@ -21,14 +21,14 @@
 namespace synapse_helpers {
 namespace {
 
-typedef int hlml_return_t;
+using hlml_return_t = int;
 
 struct hlml_utilization_t {
   unsigned int aip; // Device (AIP) utilization percentage.
   unsigned int memory; // Memory utilization percentage.
 };
 
-int ResolveDeviceIndex(int device_index) {
+synDeviceId ResolveDeviceIndex(synDeviceId device_index) {
   synDeviceInfoV2 device_info;
   auto status = ::synDeviceGetInfoV2(device_index, &device_info);
   if (status == synFail) {
@@ -78,8 +78,8 @@ void HlmlPowerProvider::init() {
   if (ret != 0) {
     PT_SYNHELPER_FATAL("hlml_init failed with ret:", ret);
   }
-  int device_id = habana::HPUDeviceContext::get_device().id();
-  device_id = ResolveDeviceIndex(device_id);
+  auto device_id =
+      ResolveDeviceIndex(habana::HPUDeviceContext::get_device().id());
   device_ = getDevice(device_id);
 }
 
@@ -132,12 +132,7 @@ void HlmlPowerProvider::hlmlShutdown() {
 }
 
 HPUUtilizationPoller::HPUUtilizationPoller(int interval)
-    : interval_(interval),
-      started_(false),
-      totalUtil_(0.0),
-      sampleCount_(0),
-      usage_(0.0),
-      provider_() {}
+    : interval_(interval) {}
 
 HPUUtilizationPoller::~HPUUtilizationPoller() {
   if (started_.load()) {
@@ -171,7 +166,9 @@ void HPUUtilizationPoller::stop() {
   }
   {
     std::lock_guard<std::mutex> lock(mutex_);
-    usage_ = (sampleCount_ == 0) ? usage_ : (totalUtil_ / sampleCount_);
+    usage_ = (sampleCount_ == 0)
+        ? usage_
+        : (totalUtil_ / static_cast<double>(sampleCount_));
   }
 }
 
@@ -194,7 +191,8 @@ void HPUUtilizationPoller::resume() {
 
 double HPUUtilizationPoller::getUtilization() const {
   std::lock_guard<std::mutex> lock(mutex_);
-  return (sampleCount_ == 0) ? usage_ : (totalUtil_ / sampleCount_);
+  return (sampleCount_ == 0) ? usage_
+                             : (totalUtil_ / static_cast<double>(sampleCount_));
 }
 
 void HPUUtilizationPoller::pollLoop() {
@@ -247,9 +245,6 @@ Interval Timer::getInterval() {
   start_ = now;
   return ret;
 }
-
-StreamUtilizationMetric::StreamUtilizationMetric()
-    : started_(false), totalTime_(0), idleTime_(0) {}
 
 void StreamUtilizationMetric::start() {
   std::lock_guard<std::mutex> lock(mutex_);

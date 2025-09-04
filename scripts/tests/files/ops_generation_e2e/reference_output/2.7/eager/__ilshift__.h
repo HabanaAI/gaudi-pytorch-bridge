@@ -9,7 +9,7 @@
 namespace habana {
 
 
-at::Tensor & __ilshift__(at::Tensor & self, const at::Scalar & other);
+at::Tensor & __ilshift___Scalar(at::Tensor & self, const at::Scalar & other);
 FILL_PARAMS_DECL(FillLeftShiftParams);
 
 }  // namespace habana

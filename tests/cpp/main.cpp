@@ -16,6 +16,7 @@
 #include <gtest/gtest.h>
 #include <cstring>
 #include "utils/rerun_failures.h"
+#include "habana_helpers/logging.h"
 
 int main(int argc, char* argv[]) {
   bool reruns = false;
@@ -40,6 +41,11 @@ int main(int argc, char* argv[]) {
     listeners.Release(listener.get());
     return result;
   } else {
-    return RUN_ALL_TESTS();
+    try {
+      return RUN_ALL_TESTS();
+    } catch (...) {
+      PT_TEST_DEBUG("Caught unknown exception");
+      return 1;
+    }
   }
 }

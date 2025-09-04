@@ -19,6 +19,7 @@
 #include "backend/helpers/create_tensor.h"
 #include "backend/helpers/tensor_utils.h"
 #include "backend/synapse_helpers/recipe.h"
+#include "common/warning_suppress.h"
 #include "habana_helpers/logging.h"
 #include "habana_kernels/binary_inplace_kernels.h"
 #include "habana_kernels/binary_kernels.h"
@@ -26,6 +27,7 @@
 #include "habana_kernels/unary_kernels.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "hpu_ops/backend/reduction_template.h"
+#include "hpu_ops/hpu_op_helper.h"
 
 using namespace torch;
 using namespace habana;
@@ -112,7 +114,7 @@ void OptimizerSparseAdagradOperator::AllocateAndAddSynapseNode(
   // Even for dense, it applies decay param to the current grad whereas TPC
   // applies to the accumulated grad
   params.decay = 1.0;
-  params.eps = 1e-10f;
+  params.eps = 1e-10F;
 
   // execute in-place for weights & moments
   p_context_->syn_outputs_.emplace_back(
@@ -284,7 +286,7 @@ void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
 
     auto mul_wt = make_operator<habana::MulOperator>(device_id, scalar_type);
     mul_wt->SetSynapseInput(div_wt->GetSynOutputs()[0]);
-    mul_wt->SetSynapseInput(p_context_->syn_inputs_[4 * num_params]);
+    mul_wt->SetSynapseInput(p_context_->syn_inputs_[4 * static_cast<size_t>(num_params)]);
     stack.emplace_back(IValue(div_wt->GetOutputs()[0]));
     stack.emplace_back(IValue(neg_step_size));
     mul_wt->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
@@ -424,7 +426,7 @@ void OptimizerFusedAdagradOperator::AllocateAndAddSynapseNode(
     op->SetSynapseInput(p_context_->syn_inputs_[i]);
     op->SetSynapseInput(p_context_->syn_inputs_[num_params + i]);
     op->SetSynapseInput(p_context_->syn_inputs_[2 * num_params + i]);
-    op->SetSynapseInput(p_context_->syn_inputs_[3 * num_params]);
+    op->SetSynapseInput(p_context_->syn_inputs_[3 * static_cast<size_t>(num_params)]);
     op->SetSynapseInput(p_context_->syn_inputs_[3 * num_params + 1]);
 
     stack.emplace_back(IValue(gradients.get(i)));
@@ -523,7 +525,7 @@ void OptimizerFusedSGDOperator::AllocateAndAddSynapseNode(
         make_operator<OptimizerSGDOperator>(device_id, at::ScalarType::Float);
     op->SetSynapseInput(p_context_->syn_inputs_[i]);
     op->SetSynapseInput(p_context_->syn_inputs_[num_params + i]);
-    op->SetSynapseInput(p_context_->syn_inputs_[2 * num_params]);
+    op->SetSynapseInput(p_context_->syn_inputs_[2 * static_cast<size_t>(num_params)]);
 
     stack.emplace_back(IValue(gradients.get(i)));
     stack.emplace_back(IValue(weights.get(i)));
@@ -588,7 +590,7 @@ void OptimizerFusedEMAOperator::AllocateAndAddSynapseNode(
     auto mul_in_exp =
         make_operator<habana::MulOperator>(device_id, scalar_type);
     mul_in_exp->SetSynapseInput(p_context_->syn_inputs_[num_params + i]);
-    mul_in_exp->SetSynapseInput(p_context_->syn_inputs_[2 * num_params]);
+    mul_in_exp->SetSynapseInput(p_context_->syn_inputs_[2 * static_cast<size_t>(num_params)]);
     stack.emplace_back(IValue(updated_ema.get(i)));
     stack.emplace_back(IValue(decay));
     mul_in_exp->AllocateAndAddSynapseNode(
@@ -596,7 +598,7 @@ void OptimizerFusedEMAOperator::AllocateAndAddSynapseNode(
     stack.clear();
 
     auto sub_exp = make_operator<habana::SubOperator>(device_id, scalar_type);
-    sub_exp->SetSynapseInput(p_context_->syn_inputs_[2 * num_params]);
+    sub_exp->SetSynapseInput(p_context_->syn_inputs_[2 * static_cast<size_t>(num_params)]);
     stack.emplace_back(IValue(1.0));
     stack.emplace_back(IValue(decay));
     stack.emplace_back(IValue(1.0));
@@ -759,7 +761,7 @@ void OptimizerFusedSGDMomentumOperator::AllocateAndAddSynapseNode(
     op->SetSynapseInput(p_context_->syn_inputs_[i]);
     op->SetSynapseInput(p_context_->syn_inputs_[num_params + i]);
     op->SetSynapseInput(p_context_->syn_inputs_[2 * num_params + i]);
-    op->SetSynapseInput(p_context_->syn_inputs_[3 * num_params]);
+    op->SetSynapseInput(p_context_->syn_inputs_[3 * static_cast<size_t>(num_params)]);
     op->SetSynapseInput(p_context_->syn_inputs_[3 * num_params + 1]);
     op->SetSynapseInput(
         p_context_->syn_inputs_[3 * num_params + 2]); // mom tensor
@@ -818,7 +820,7 @@ OutputMetaDataVector OptimizerFusedLarsOperatorLazy::OptimizerFusedLarsMeta(
   OutputMetaDataVector meta_vec;
   meta_vec.reserve(tlSize);
 
-  for (const at::Tensor& grad : grads) {
+  SUPPRESS_WDANGLING_REFERENCE(for (const at::Tensor& grad : grads)) {
     OutputMetaData meta;
     meta.shape = grad.sizes().vec();
     meta.dtype = grad.scalar_type();
@@ -850,8 +852,8 @@ void OptimizerFusedLarsOperatorLazy::AddNode(
     auto grad = grads.get(i);
     auto param = params.get(i);
     auto outshape = grad.sizes();
-    auto zero_constant = ConstantHelper(graph, 0.0f, dtype, outshape);
-    auto one_constant = ConstantHelper(graph, 1.0f, dtype, outshape);
+    auto zero_constant = ConstantHelper(graph, 0.0F, dtype, outshape);
+    auto one_constant = ConstantHelper(graph, 1.0F, dtype, outshape);
     auto eetaTensor = ConstantHelper(graph, eeta, dtype, outshape);
     auto weightDecayTensor =
         ConstantHelper(graph, weightDecay, dtype, outshape);
@@ -1032,23 +1034,27 @@ void OptimizerFusedLarsOperatorLazy::AddNode(
 
 static auto& OptimizerKernelsKernelRegistry =
     habana::KernelRegistry()
-        .add(
+        .REGISTER_HPU_BACKEND(
             "hpu::habanaOptimizerSparseSgd",
-            KERNEL_FN(OptimizerSparseSgdOperator))
-        .add(
+            habana::OptimizerSparseSgdOperator)
+        .REGISTER_HPU_BACKEND(
             "hpu::habanaOptimizerSparseAdagrad",
-            KERNEL_FN(OptimizerSparseAdagradOperator))
-        .add("hpu::habanaOptimizerAdamW", KERNEL_FN(OptimizerAdamwOperator))
-        .add(
+            habana::OptimizerSparseAdagradOperator)
+        .REGISTER_HPU_BACKEND(
+            "hpu::habanaOptimizerAdamW",
+            habana::OptimizerAdamwOperator)
+        .REGISTER_HPU_BACKEND(
             "hpu::habanaOptimizerFusedAdagrad",
-            KERNEL_FN(OptimizerFusedAdagradOperator))
-        .add("hpu::habanaOptimizerSgd", KERNEL_FN(OptimizerFusedSGDOperator))
-        .add(
+            habana::OptimizerFusedAdagradOperator)
+        .REGISTER_HPU_BACKEND(
+            "hpu::habanaOptimizerSgd",
+            habana::OptimizerFusedSGDOperator)
+        .REGISTER_HPU_BACKEND(
             "hpu::habanaOptimizerSgdMomentum",
-            KERNEL_FN(OptimizerFusedSGDMomentumOperator))
-        .add(
+            habana::OptimizerFusedSGDMomentumOperator)
+        .REGISTER_HPU_BACKEND(
             "hpu::habanaOptimizerLars",
-            KERNEL_FN(OptimizerFusedLarsOperatorLazy))
-        .add(
+            habana::OptimizerFusedLarsOperatorLazy)
+        .REGISTER_HPU_BACKEND(
             "hpu::habanaOptimizerFusedEMA",
-            KERNEL_FN(OptimizerFusedEMAOperator));
+            habana::OptimizerFusedEMAOperator);

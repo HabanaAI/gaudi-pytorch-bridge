@@ -22,11 +22,11 @@ import habana_frameworks.torch.core as htcore
 import numpy as np
 import pytest
 import torch
-import torch.nn as nn
 from habana_frameworks.torch.hpex.optimizers import (
     FusedLars,
     FusedResourceApplyMomentum,
 )
+from torch import nn
 
 from lars import Lars, ResourceApplyMomentum
 
@@ -83,13 +83,13 @@ def set_skip_mask(model, mode, every=2):
             else:
                 skip_mask.append(0)
         elif mode == RANDOM:
-            skip_mask.append(random.randint(0, 1))
+            # This is considered safe because it is not used for security or cryptographic operations.
+            skip_mask.append(random.randint(0, 1))  # nosec B311
         k = k + 1
     return skip_mask
 
 
 def run_model(dev, m, x, optim):
-
     model_output = m(x)
     loss = torch.sum(model_output)
     loss.backward()

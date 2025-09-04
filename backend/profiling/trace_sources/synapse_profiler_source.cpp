@@ -17,8 +17,7 @@
 #include <vector>
 #include "backend/habana_device/HPUGuardImpl.h"
 
-namespace habana {
-namespace profile {
+namespace habana::profile {
 
 uint64_t NowNanos() {
   return static_cast<uint64_t>(
@@ -159,5 +158,4 @@ void SynapseProfilerSource::initHpuDetails(TraceSink& output) {
   output.addDeviceDetails({{"name", name}});
   output.addDeviceDetails({{"totalGlobalMem", memory}});
 }
-} // namespace profile
-} // namespace habana
+} // namespace habana::profile

@@ -85,7 +85,6 @@ void Rrelu_with_noise::AddNode(
   auto training = stack.at(4).toBool();
   auto lower = stack.at(2).toScalar().to<float>();
   auto upper = stack.at(3).toScalar().to<float>();
-  size_t size = 0;
   bool is_functional = is_rrelu_functional(*this);
   std::optional<int> noise_out_idx{std::nullopt};
   if (is_functional) {
@@ -119,9 +118,9 @@ void Rrelu_with_noise::AddNode(
         get_guid_with_precision("random_uniform_fwd"sv, ScalarType()),
         std::move(inputs),
         {{outshape, ScalarType()}},
-        params.get(),
-        size);
-    auto ones = ConstantHelper(graph, 1.0f, ScalarType(), outshape);
+        paramsT.ptr(),
+        paramsT.size());
+    auto ones = ConstantHelper(graph, 1.0F, ScalarType(), outshape);
     auto zeros = ConstantHelper(graph, 0, ScalarType(), outshape);
     // cond: condition tensor
     auto cond = BuildOp(
@@ -152,7 +151,9 @@ void Rrelu_with_noise::AddNode(
       syn_out(1) = std::move(noise[0]);
     } else {
       GetSynImplicitOutputs().emplace_back(PtInputIdxAndSynHelpTensor{
-          1, std::move(noise[0]), std::get<int>(noise_in_storage_or_idx)});
+          1,
+          std::move(noise[0]),
+          static_cast<size_t>(std::get<int>(noise_in_storage_or_idx))});
     }
   } else {
     PARAMS_STUB(ns_LeakyReluKernel::Params);
@@ -163,8 +164,8 @@ void Rrelu_with_noise::AddNode(
         get_guid_with_precision("leakyrelu_fwd"sv, ScalarType()),
         {syn_in(0)},
         {{outshape, ScalarType(), 0}},
-        params.get(),
-        size);
+        paramsT.ptr(),
+        paramsT.size());
     syn_out(0) = std::move(output[0]);
     if (is_functional) { // return an empty tensor for non-training cases
       auto result = habana::OpBackend::BuildOp(
@@ -211,7 +212,6 @@ void Rrelu_with_noise_bwd::AddNode(
         {{outshape, ScalarType(), 0}});
     syn_out(0) = std::move(output[0]);
   } else {
-    size_t size = 0;
     PARAMS_STUB(ns_LeakyReluKernel::Params);
     auto negative_slope = (lower + upper) / 2;
     params->alpha = negative_slope;
@@ -220,8 +220,8 @@ void Rrelu_with_noise_bwd::AddNode(
         get_guid_with_precision("leakyrelu_bwd"sv, ScalarType()),
         {syn_in(0), syn_in(1)},
         {{outshape, ScalarType(), 0}},
-        params.get(),
-        size);
+        paramsT.ptr(),
+        paramsT.size());
     syn_out(0) = std::move(output[0]);
   }
 }

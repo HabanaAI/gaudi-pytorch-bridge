@@ -19,8 +19,7 @@ import copy
 from typing import Any
 
 import torch
-import torch.fx as fx
-import torch.nn as nn
+from torch import fx, nn
 
 
 def check_for_inference_mode(model):
@@ -44,7 +43,13 @@ def fuse_conv_bn_eval(conv, bn):
     fused_conv = copy.deepcopy(conv)
 
     fused_conv.weight, fused_conv.bias = fuse_conv_bn_weights(
-        fused_conv.weight, fused_conv.bias, bn.running_mean, bn.running_var, bn.eps, bn.weight, bn.bias
+        fused_conv.weight,
+        fused_conv.bias,
+        bn.running_mean,
+        bn.running_var,
+        bn.eps,
+        bn.weight,
+        bn.bias,
     )
 
     return fused_conv
@@ -81,7 +86,6 @@ def replace_node_module(node: fx.Node, modules: dict[str, Any], new_module: torc
 
 
 def fuse(model: torch.nn.Module) -> torch.nn.Module:
-
     try:
         check_for_inference_mode(model)
     except RuntimeError:

@@ -99,8 +99,10 @@ std::vector<int64_t> habana::HabanaOperator::CalculateStrides(
       ((sizes.size() == 4) && (format == c10::MemoryFormat::ChannelsLast))) {
     std::vector<int64_t> prod(sizes.begin() + 2, sizes.end());
     prod.push_back(sizes[1]);
-    for (int i = prod.size() - 2; i >= 0; --i) {
-      prod[i] *= prod[i + 1];
+    if (prod.size() >= 2ULL) {
+      for (auto it = prod.rbegin() + 1; it != prod.rend(); ++it) {
+        *it *= *(it - 1);
+      }
     }
 
     result.push_back(prod[0]);
@@ -112,8 +114,10 @@ std::vector<int64_t> habana::HabanaOperator::CalculateStrides(
       result.push_back(1);
     }
 
-    for (int i = result.size() - 3; i >= 0; --i) {
-      result[i] *= result[i + 1];
+    if (result.size() >= 3ULL) {
+      for (auto it = result.rbegin() + 2; it != result.rend(); ++it) {
+        *it *= *(it - 1);
+      }
     }
   }
   return result;
@@ -311,7 +315,7 @@ void habana::HabanaOperator::SetPTOutputs(torch::jit::Stack& inputs) {
 
 void habana::HabanaOperator::SetPTOutputs(
     const std::vector<at::Tensor>& outputs) {
-  HABANA_ASSERT(outputs.size() != 0, "Outputs cannot be null");
+  HABANA_ASSERT(!outputs.empty(), "Outputs cannot be null");
 
   for (auto& output : outputs) {
     p_context_->pt_outputs_.emplace_back(output);
@@ -348,7 +352,8 @@ synapse_helpers::tensor& habana::HabanaOperator::AllocateSynapseInput(
   }
   if (!habana_helpers::is_shape_tensor(shape_tensor_type)) {
     if (p_context_->is_duplicate_input_) {
-      uint64_t syn_offset = input.storage_offset() * input.itemsize();
+      size_t syn_offset =
+          static_cast<size_t>(input.storage_offset()) * input.itemsize();
       auto sizes = input.sizes().vec();
       auto strides = input.strides().vec();
       synapse_helpers::layouts::MemoryPermutation permutation;
@@ -365,25 +370,6 @@ synapse_helpers::tensor& habana::HabanaOperator::AllocateSynapseInput(
               permutation);
 
       p_context_->syn_inputs_.emplace_back(std::move(syn_tensor_input));
-    } else if (
-        // int4/uint4 tensors are exposed to Pytorch via torch.int type,
-        // therefor for int4 ops synTensors must have manually set
-        // syn_type_int4/uint4 type
-        (guid_ == "convert_from_int4_i32" ||
-         guid_ == "convert_from_uint4_i32") &&
-        input.scalar_type() == c10::ScalarType::Int) {
-      auto syn_type =
-          guid_ == "convert_from_int4_i32" ? syn_type_int4 : syn_type_uint4;
-      p_context_->syn_inputs_.emplace_back(habana_helpers::create_tensor(
-          input, graph, is_persistent, false, syn_type));
-    } else if (
-        // packed_nf4 dtype tensors are exposed to Pytorch via torch.uint8
-        // type, therefore for uint8 ops synTensors must have manually set
-        // syn_type_packed_nf4 type
-        (guid_.find("cast_packed_nf4_to") != std::string::npos) &&
-        input.scalar_type() == c10::ScalarType::Byte) {
-      p_context_->syn_inputs_.emplace_back(habana_helpers::create_tensor(
-          input, graph, is_persistent, false, syn_type_packed_nf4));
     } else {
       p_context_->syn_inputs_.emplace_back(habana_helpers::create_tensor(
           input, graph, is_persistent, false, std::nullopt, idx, idx));
@@ -455,15 +441,28 @@ void habana::HabanaOperator::AllocateSynapseOutput(
     const OutputMetaData& output_metadata,
     bool is_shape_tensor) {
   if (is_shape_tensor == false) {
-    p_context_->syn_outputs_.emplace_back(habana_helpers::create_tensor(
-        output,
-        graph,
-        output_metadata.persistent,
-        output_metadata.external,
-        std::nullopt,
-        output_metadata.name,
-        output_metadata.module_name + '.' +
-            std::to_string(p_context_->syn_outputs_.size())));
+    if (guid_.find("cast_packed_nf4_from") != std::string::npos &&
+        output.scalar_type() == c10::ScalarType::Byte) {
+      p_context_->syn_outputs_.emplace_back(habana_helpers::create_tensor(
+          output,
+          graph,
+          output_metadata.persistent,
+          output_metadata.external,
+          syn_type_packed_nf4,
+          output_metadata.name,
+          output_metadata.module_name + '.' +
+              std::to_string(p_context_->syn_outputs_.size())));
+    } else {
+      p_context_->syn_outputs_.emplace_back(habana_helpers::create_tensor(
+          output,
+          graph,
+          output_metadata.persistent,
+          output_metadata.external,
+          std::nullopt,
+          output_metadata.name,
+          output_metadata.module_name + '.' +
+              std::to_string(p_context_->syn_outputs_.size())));
+    }
   } else {
     p_context_->syn_outputs_.emplace_back(
         habana_helpers::create_shape_tensor_backend(
@@ -520,8 +519,8 @@ void habana::HabanaOperator::AllocateSynapseInplaceOutput(
     synapse_helpers::graph& graph,
     bool external) {
   static_cast<void>(graph);
-  HABANA_ASSERT(p_context_->syn_inputs_.size() > 0);
-  HABANA_ASSERT(p_context_->pt_inputs_.size() > 0);
+  HABANA_ASSERT(!p_context_->syn_inputs_.empty());
+  HABANA_ASSERT(!p_context_->pt_inputs_.empty());
 
   p_context_->syn_outputs_.emplace_back(
       habana_helpers::duplicate_tensor_in_memory_section(
@@ -533,7 +532,7 @@ void habana::HabanaOperator::AllocateSynapseOutputs(
     synapse_helpers::graph& graph,
     const std::vector<at::Tensor>& outputs,
     const OutputMetaDataVector& output_metadata) {
-  HABANA_ASSERT(outputs.size() != 0, "Outputs cannot be null");
+  HABANA_ASSERT(!outputs.empty(), "Outputs cannot be null");
   HABANA_ASSERT(
       outputs.size() == output_metadata.size(),
       "#output should match #output_metadata");
@@ -576,8 +575,8 @@ void habana::HabanaOperator::ReuseMemoryAndAddSynapseNode(
       0, "Should never reach this empty base ReuseMemoryAndAddSynapseNode");
 };
 
-synapse_helpers::tensor_or_ref& habana::HabanaOperator::SetSynapseInput([
-    [maybe_unused]] synapse_helpers::tensor_or_ref&& tensor) {
+synapse_helpers::tensor_or_ref& habana::HabanaOperator::SetSynapseInput(
+    [[maybe_unused]] synapse_helpers::tensor_or_ref&& tensor) {
   HABANA_ASSERT(
       0, "Should never reach this SetSynapseInput, avoid using std::move");
 }
@@ -616,7 +615,7 @@ void habana::HabanaOperator::AddNodeToSynapseGraph(
   std::vector<synTensor> syn_inputs;
   std::vector<synTensor> syn_outputs;
 
-  if (kernel_meta_data_.tpc_input_order.size()) {
+  if (!kernel_meta_data_.tpc_input_order.empty()) {
     auto no_inputs = kernel_meta_data_.tpc_input_order.size() == 1 &&
         NO_INPUTS == kernel_meta_data_.tpc_input_order[0];
     if (no_inputs == false) {
@@ -659,7 +658,7 @@ void habana::HabanaOperator::AddNodeToSynapseGraph(
       std::move(syn_inputs),
       std::move(syn_outputs),
       params,
-      params_size,
+      static_cast<uint32_t>(params_size),
       guid_,
       nullptr,
       input_layouts.empty() ? nullptr : input_layouts.data(),
@@ -788,7 +787,7 @@ synapse_helpers::tensor& habana::HabanaOperator::AllocateSeed(
 }
 
 habana::RegisterKernel& habana::KernelRegistry() {
-  static habana::RegisterKernel* Registry = new habana::RegisterKernel();
+  static auto* Registry = new habana::RegisterKernel();
   return *Registry;
 }
 
@@ -800,7 +799,7 @@ void habana::HabanaOperator::dump(
   PT_OP_DEBUG([&]() {
     auto stack_printer = [](const at::Stack& stack) {
       std::ostringstream ss;
-      std::string sep = "";
+      std::string sep;
       for (const auto& s : stack) {
         ss << sep;
         sep = ", ";
@@ -826,7 +825,7 @@ void habana::HabanaOperator::dump(
 
     auto pt_tensor_printer = [](const std::vector<at::Tensor>& tensors) {
       std::ostringstream ss;
-      std::string sep = "";
+      std::string sep;
       for (const auto& t : tensors) {
         ss << sep << habana::to_string(t);
         sep = ", ";
@@ -920,6 +919,21 @@ void habana::InferOutputMetaRetType::MoveToOutput(
 void habana::InferOutputMetaRetType::RemoveOutput(size_t index) {
   HABANA_ASSERT(index < output_tensors_.size(), "index out of range");
   output_tensors_.erase(output_tensors_.begin() + index);
+}
+
+/**
+ * Replaces the output tensor at the specified index with a new tensor.
+ *
+ * @param index The position in the output_tensors_ vector to replace.
+ *              Must be within the bounds of the vector.
+ * @param output_tensor The new tensor to insert at the specified index.
+ *                      Ownership of the tensor is transferred.
+ */
+void habana::InferOutputMetaRetType::InsertOutputIdx(
+    size_t index,
+    IdxTensorTuple output_tensor) {
+  HABANA_ASSERT(index < output_tensors_.size(), "index out of range");
+  output_tensors_.at(index) = std::move(output_tensor);
 }
 
 void habana::InferOutputMetaRetType::PushOutputTensorAtFront(

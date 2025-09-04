@@ -31,6 +31,9 @@ class LogLevel(Enum):
 
 def format_args(args):
     if args and isinstance(args[0], str):
+        if len(args) == 1:
+            return args[0]
+
         format_string = args[0]
         format_args = args[1:]
 
@@ -104,7 +107,7 @@ def get_log_level(logger_level):
     if logger_level == "trace":
         return LogLevel.TRACE
 
-    assert False, f"unsupported logger_level = {logger_level}"
+    raise ValueError(f"unsupported logger_level = {logger_level}")
 
 
 def enable_logging(logger_name, logger_level):

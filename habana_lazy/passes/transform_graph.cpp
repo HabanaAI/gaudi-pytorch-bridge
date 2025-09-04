@@ -19,7 +19,7 @@
 
 #include <fstream>
 
-using json = nlohmannV340::json;
+using json = nlohmann::json;
 
 namespace habana_lazy {
 using Graph = torch::jit::Graph;
@@ -55,12 +55,12 @@ void get_patterns(Patterns& patterns) {
     reader >> j;
     for (json::iterator it = j.begin(); it != j.end(); ++it) {
       auto k = it.value()["Pattern"];
-      std::string p = R"()";
+      std::string p;
       for (auto lk : k) {
         p += lk;
         p += "\n";
       }
-      std::string r = R"()";
+      std::string r;
       k = it.value()["ReplacePattern"];
       for (auto lk : k) {
         r += lk;

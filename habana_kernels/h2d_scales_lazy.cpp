@@ -34,19 +34,24 @@ at::Tensor create_h2d_scale_tensor(
 
   auto hl_scale_tensor =
       habana_lazy::GetOrCreateHbLazyTensor(scale_tensor, at::kHPU);
-  auto hl_scale_tensor_internal =
-      hl_scale_tensor.CurrentTensorAttached().value();
-  auto tmeta{habana::get_tensor_extra_meta(hl_scale_tensor_internal)};
   const auto is_float = dtype == at::ScalarType::Float;
   const auto scale_value_size =
       is_float ? sizeof(float_t) : sizeof(at::BFloat16);
   const auto dt_type = is_float ? habana::HostDataType::FLOAT_T
                                 : habana::HostDataType::BFLOAT16_T;
 
+  if (!hl_scale_tensor.CurrentTensorAttached().has_value()) {
+    return scale_tensor;
+  }
+
+  auto hl_scale_tensor_internal =
+      hl_scale_tensor.CurrentTensorAttached().value();
+  auto tmeta{habana::get_tensor_extra_meta(hl_scale_tensor_internal)};
+
   if (nullptr == alloc_pointer and nullptr == h2d_pointer) {
     // Allocate memory for a single H2D scale tensor. This is the case for scale
     // tensors added to cache in runtime.
-    tmeta->set_host_data(scale_ptr, {1}, scale_value_size, dt_type);
+    tmeta->set_host_data(scale_ptr, 1, scale_value_size, dt_type);
   } else {
     // Use memory from preallocated chunk. This is the case for the initial
     // cache of H2D scales tensors created at startup. Set the host and compile
@@ -63,7 +68,7 @@ at::Tensor create_h2d_scale_tensor(
     char* ptr = static_cast<char*>(*h2d_pointer) + host_total_elem;
     *h2d_pointer = static_cast<char*>(ptr + host_total_elem);
     tmeta->set_compile_host_ptr(ptr);
-    tmeta->update_host_data(scale_ptr, {1}, scale_value_size, true);
+    tmeta->update_host_data(scale_ptr, 1, scale_value_size, true);
   }
 
   return scale_tensor;
@@ -117,20 +122,18 @@ bool create_h2d_scale_tensors() {
                                     const double scale_value,
                                     void* scale_ptr,
                                     const at::ScalarType dtype) {
-    std::pair<double, at::ScalarType> key{scale_value, dtype};
-    ScalesIdxPair scales_and_idx{
+    h2d_scales_map.emplace(ScalarValueTypePair{scale_value, dtype}, ScalesIdxPair{
         {create_h2d_scale_tensor(
             scale_ptr, dtype, &alloc_pointer, &h2d_pointer)},
-        0};
-    h2d_scales_map.emplace(std::move(key), std::move(scales_and_idx));
+        0});
   };
 
   for (const auto bias : biases) {
     double scale_f64 = std::pow(2.0, default_bias - bias);
-    float scale_f32 = static_cast<float>(scale_f64);
+    auto scale_f32 = static_cast<float>(scale_f64);
 
     // at::BFloat16 is stored internally in uint16_t.
-    at::BFloat16 scale_bf16 = at::BFloat16(scale_f32);
+    auto scale_bf16 = at::BFloat16(scale_f32);
 
     insert_scales_into_map(scale_f64, &scale_f32, at::ScalarType::Float);
     insert_scales_into_map(scale_f64, &scale_bf16, at::ScalarType::BFloat16);
@@ -148,7 +151,7 @@ at::Tensor create_h2d_scale(const at::Tensor& scale) {
   if (h2d_scales_map.count({scale.item().toDouble(), dtype}) == 1) {
     auto& [scales_vec, current_idx] =
         h2d_scales_map.at({scale.item().toDouble(), dtype});
-    if (current_idx >= 0) {
+    if (current_idx != std::numeric_limits<decltype(current_idx)>::max()) {
       PT_BRIDGE_DEBUG("H2D scale taken from cache, current idx: ", current_idx);
       return scales_vec[current_idx--];
     }
@@ -163,34 +166,66 @@ at::Tensor create_h2d_scale(const at::Tensor& scale) {
   return create_h2d_scale_tensor(scale);
 }
 
-bool is_cpu_float_0d_tensor(const std::optional<at::Tensor>& tensor) {
+bool is_cpu_float_bfloat_0d_tensor(const std::optional<at::Tensor>& tensor) {
   return tensor.has_value() and tensor.value().defined() and
       tensor->device().is_cpu() and
-      tensor->scalar_type() == at::ScalarType::Float and tensor->dim() == 0;
+      (tensor->scalar_type() == at::ScalarType::Float or
+       tensor->scalar_type() == at::ScalarType::BFloat16) and
+      tensor->dim() == 0;
 }
 
 } // namespace
 
-std::optional<at::Tensor> maybe_convert_to_h2d(
+std::optional<at::Tensor> maybe_convert_tensor_to_h2d(
+    const std::optional<at::Tensor>& tensor,
+    const std::string_view op_name) {
+  if (tensor.has_value() && is_cpu_float_bfloat_0d_tensor(tensor)) {
+    PT_BRIDGE_DEBUG(
+        "CPU scale of op ",
+        op_name,
+        " was converted to H2D tensor with value=",
+        tensor->item().toDouble());
+    return create_h2d_scale(tensor.value());
+  }
+  PT_BRIDGE_WARN(
+      "H2D scales flow is enabled, but op ",
+      op_name,
+      " received non cpu-float-0D scale.");
+  return tensor;
+}
+
+std::optional<at::Tensor> maybe_convert_tensor_to_h2d(
     const std::optional<at::Tensor>& tensor,
     const bool enabled,
     const std::string_view op_name) {
   if (enabled) {
-    if (is_cpu_float_0d_tensor(tensor)) {
+    return maybe_convert_tensor_to_h2d(tensor, op_name);
+  }
+  return tensor;
+}
+
+std::vector<at::Tensor> maybe_convert_list_to_h2d(
+    const at::TensorList& tensors,
+    const std::string_view op_name) {
+  std::vector<at::Tensor> converted_tensors;
+  converted_tensors.reserve(tensors.size());
+  for (const auto& tensor : tensors) {
+    if (is_cpu_float_bfloat_0d_tensor(tensor)) {
       PT_BRIDGE_DEBUG(
           "CPU scale of op ",
           op_name,
           " was converted to H2D tensor with value=",
-          tensor->item().toDouble());
-      return create_h2d_scale(tensor.value());
+          tensor.item().toDouble());
+      converted_tensors.push_back(create_h2d_scale(tensor));
     } else {
       PT_BRIDGE_WARN(
           "H2D scales flow is enabled, but op ",
           op_name,
           " received non cpu-float-0D scale.");
+      converted_tensors.push_back(tensor);
     }
   }
-  return tensor;
+  return converted_tensors;
 }
 
 void verify_no_h2d_scales(

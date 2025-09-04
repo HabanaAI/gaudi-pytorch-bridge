@@ -33,10 +33,24 @@
 #include "pybind11/pybind11.h"
 
 namespace py = pybind11;
-namespace nl = nlohmannV340;
+namespace nl = nlohmann;
 
 namespace pyjson
 {
+    template <typename T>
+    std::optional<T> try_cast_exact(const py::handle& obj) {
+        try {
+            auto val = obj.cast<T>();
+            if (py::int_(val).equal(obj)) {
+                return val;
+            }
+        } catch (const py::cast_error&) {
+            return std::nullopt;
+        }
+
+        return std::nullopt;
+    }
+
     inline py::object from_json(const nl::json& j)
     {
         if (j.is_null())
@@ -95,29 +109,15 @@ namespace pyjson
         }
         if (py::isinstance<py::int_>(obj))
         {
-            try
-            {
-                nl::json::number_integer_t s = obj.cast<nl::json::number_integer_t>();
-                if (py::int_(s).equal(obj))
-                {
-                    return s;
-                }
+            if (auto s = try_cast_exact<nl::json::number_integer_t>(obj)) {
+                return *s;
+            } else if (auto s = try_cast_exact<nl::json::number_unsigned_t>(obj)) {
+                return *s;
+            } else {
+                throw std::runtime_error(
+                    "to_json received an integer out of range for both nl::json::number_integer_t and"
+                    "nl::json::number_unsigned_t: " + py::repr(obj).cast<std::string>());
             }
-            catch (...)
-            {
-            }
-            try
-            {
-                nl::json::number_unsigned_t u = obj.cast<nl::json::number_unsigned_t>();
-                if (py::int_(u).equal(obj))
-                {
-                    return u;
-                }
-            }
-            catch (...)
-            {
-            }
-            throw std::runtime_error("to_json received an integer out of range for both nl::json::number_integer_t and nl::json::number_unsigned_t type: " + py::repr(obj).cast<std::string>());
         }
         if (py::isinstance<py::float_>(obj))
         {
@@ -155,7 +155,7 @@ namespace pyjson
 }
 
 // nlohmann_json serializers
-namespace nlohmannV340
+namespace nlohmann
 {
     #define MAKE_NLJSON_SERIALIZER_DESERIALIZER(T)         \
     template <>                                            \
@@ -206,34 +206,30 @@ namespace nlohmannV340
 }
 
 // pybind11 caster
-namespace pybind11
-{
-    namespace detail
+namespace pybind11::detail {
+    template <> struct type_caster<nl::json>
     {
-        template <> struct type_caster<nl::json>
+    public:
+        PYBIND11_TYPE_CASTER(nl::json, _("json"));
+
+        bool load(handle src, bool)
         {
-        public:
-            PYBIND11_TYPE_CASTER(nl::json, _("json"));
-
-            bool load(handle src, bool)
-            {
-                try {
-                    value = pyjson::to_json(src);
-                    return true;
-                }
-                catch (...)
-                {
-                    return false;
-                }
+            try {
+                value = pyjson::to_json(src);
+                return true;
             }
-
-            static handle cast(nl::json src, return_value_policy /* policy */, handle /* parent */)
+            catch (...)
             {
-                object obj = pyjson::from_json(src);
-                return obj.release();
+                return false;
             }
-        };
-    }
+        }
+
+        static handle cast(nl::json src, return_value_policy /* policy */, handle /* parent */)
+        {
+            object obj = pyjson::from_json(src);
+            return obj.release();
+        }
+    };
 }
 
 #endif

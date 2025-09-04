@@ -8,14 +8,13 @@
 #include "habana_kernels/lazy_kernels.h"
 #include "habana_lazy/hpu_stage_submission.h"
 using habana_lazy::LazyOp;
-using habana_lazy::GraphHashBuilder;
 
 #include "_fused_dropout.h"
 #include "native_dropout.h"
 
 
-using habana_helpers::DTypeHelper;
-using synapse_helpers::graph;
+using habana_helpers::DTypeHelper; // NOLINT(misc-unused-using-decls)
+using synapse_helpers::graph; // NOLINT(misc-unused-using-decls)
 using torch::jit::Stack;
 
 
@@ -31,8 +30,7 @@ namespace habana {
   [[maybe_unused]] bool require_h2d = false;
   [[maybe_unused]] bool require_st = false;
 
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}},
-   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}}}))
+  HPU_SUPPORTED_DTYPES(({at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}))
   FALLBACK_IF_UNSUPPORTED_DTYPE(self, _fused_dropout, self, p, generator)
 
   GeneratorToSeed<::std::tuple<at::Tensor,at::Tensor>> hpu_op{"hpu::_fused_dropout", {self, p, generator}};
@@ -48,8 +46,7 @@ namespace habana {
   [[maybe_unused]] bool require_h2d = false;
   [[maybe_unused]] bool require_st = false;
 
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}},
-   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}}}))
+  HPU_SUPPORTED_DTYPES(({at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}))
   FALLBACK_IF_UNSUPPORTED_DTYPE(input, native_dropout, input, p, train)
 
   if (auto eePath = NativeDropoutEarlyExitCondition(input, p, train))
@@ -68,8 +65,8 @@ static const auto& kr_gen_1 = KernelRegistry()
 ;
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {
-  m.impl("_fused_dropout", static_cast<::std::tuple<at::Tensor,at::Tensor> (*)(const at::Tensor &, double, ::std::optional<at::Generator>)>(&habana::_fused_dropout));
-  m.impl("native_dropout", static_cast<::std::tuple<at::Tensor,at::Tensor> (*)(const at::Tensor &, double, ::std::optional<bool>)>(&habana::native_dropout));
+  m.impl("_fused_dropout", habana::_fused_dropout);
+  m.impl("native_dropout", habana::native_dropout);
 
 }
 

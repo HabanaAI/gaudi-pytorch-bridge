@@ -96,7 +96,6 @@ class _ClusterCompiler(torch.fx.Interpreter):
             fx_to_jit_lowering.jit_ir,
         )
 
-        # todo verify run_jit_passes https://jira.habana-labs.com/browse/SW-199897
         run_jit_fork_passes(fx_to_jit_lowering.jit_ir)
         logger.debug(
             "####PyTorch-generated JIT IR graph after jit passes:####\n%s",
@@ -106,11 +105,6 @@ class _ClusterCompiler(torch.fx.Interpreter):
         converted_jit_ir = fx_to_jit_lowering.jit_ir.copyToUpstreamGraph()
         logger.debug(
             "####PyTorch-generated JIT IR graph after copyToUpstreamGraph():####\n%s",
-            converted_jit_ir,
-        )
-        torch._C._jit_pass_remove_mutation(converted_jit_ir)
-        logger.debug(
-            "####PyTorch-generated JIT IR graph after jit_pass_remove_mutation:####\n%s",
             converted_jit_ir,
         )
 
@@ -156,7 +150,7 @@ class _ClusterCompiler(torch.fx.Interpreter):
             if is_submod_dynamic and optim_output_sif_ds:
                 jit_node_shape_propagation(jit_ir, submod_updated)
 
-        is_reusables: list[bool] = submod.meta["is_reusables"] if "is_reusables" in submod.meta else []
+        is_reusables: list[bool] = submod.meta.get("is_reusables", [])
         syngraph_module = get_callable_recipe(
             jit_ir,
             submod,

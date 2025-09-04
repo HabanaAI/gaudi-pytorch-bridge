@@ -30,32 +30,39 @@ HABANA_RANDOM_OPS_LIST = [
     "aten.multinomial.default",
     "aten.randperm.default",
     "aten.native_dropout.default",
+    "aten._fused_dropout.default",
     "aten.uniform.default",
+    "aten.exponential.default",
+]
+
+HABANA_RANDOM_OPS_VARIANTS_LIST = [
+    "aten.normal.Tensor_Tensor",
+    "aten.normal.Tensor_float",
+    "aten.normal.float_Tensor",
+    "aten.normal.float_float",
 ]
 
 # Supported habana wrappers for random ops to proper handling in torch.compile
 HABANA_RANDOM_OPS = {op: getattr(torch.ops.hpu, "habana_" + op.split(".")[1]) for op in HABANA_RANDOM_OPS_LIST}
+
+for variant_op in HABANA_RANDOM_OPS_VARIANTS_LIST:
+    _, op_name, variant = tuple(variant_op.split("."))
+    HABANA_RANDOM_OPS[variant_op] = getattr(getattr(torch.ops.hpu, "habana_" + op_name), variant)
+
 HABANA_RANDOM_OPS.update(
     {
         "hpu.sdpa_recomp_fwd_dropout.default": torch.ops.hpu.sdpa_recomp_fwd_dropout_seed,
         "hpu.sdpa_fwd_dropout.default": torch.ops.hpu.sdpa_fwd_dropout_seed,
         "hpu.fp8_sdpa_fwd_dropout.default": torch.ops.hpu.fp8_sdpa_fwd_dropout_seed,
         "hpu.fp8_sdpa_recomp_fwd_dropout.default": torch.ops.hpu.fp8_sdpa_recomp_fwd_dropout_seed,
-        "aten.uniform.default": torch.ops.hpu.habana_uniform,
+        "hpu.habana_random_wrapper.default": torch.ops.hpu.habana_random,
     }
 )
 HABANA_RANDOM_OPS = HABANA_RANDOM_OPS if bc.get_pt_hpu_wrap_random_ops_compile() else {}
 
-HABANA_CHECKPOINT_OPS_BACKWARD = HABANA_RANDOM_OPS.copy()
-for op in HABANA_RANDOM_OPS_LIST:
-    HABANA_CHECKPOINT_OPS_BACKWARD[op] = getattr(torch.ops.hpu, "habana_" + op.split(".")[1] + "_checkpoint_backward")
 
-# Supported habana checkpoint wrappers for random ops to proper handling in torch.compile activation checkpoint
-HABANA_CHECKPOINT_OPS = (
-    {op: getattr(torch.ops.hpu, "habana_" + op.split(".")[1] + "_checkpoint") for op in HABANA_RANDOM_OPS_LIST}
-    if bc.get_pt_hpu_wrap_random_ops_compile()
-    else {}
-)
+def is_run_and_save_rng_state(node):
+    return node.op == "call_function" and str(node.target) == "run_and_save_rng_state"
 
 
 def is_random_op(node):
@@ -68,13 +75,9 @@ def is_backward_checkpoint_op(node):
     return node.op == "call_function" and str(node.target) == "run_with_rng_state"
 
 
-def is_multi_output_op(node):
-    return str(node.target) == "run_and_save_rng_state" and str(node.args[0]) == "aten.native_dropout.default"
-
-
 def random_op_inputs(node, seed):
     if str(node.target) == "run_and_save_rng_state":
-        op = HABANA_CHECKPOINT_OPS[str(node.args[0])]
+        op = HABANA_RANDOM_OPS[str(node.args[0])]
         args = (seed,) + node.args[1:]
     else:
         op = HABANA_RANDOM_OPS[str(node.target)]
@@ -86,7 +89,7 @@ def random_op_inputs(node, seed):
 
 
 def backward_random_op_inputs(node):
-    op = HABANA_CHECKPOINT_OPS_BACKWARD[str(node.args[1])]
+    op = HABANA_RANDOM_OPS[str(node.args[1])]
     args = (node.args[0],) + node.args[2:]
     kwargs = node.kwargs.copy()
     kwargs.pop("generator", None)
@@ -118,7 +121,7 @@ old_fn = run_and_save_rng_state.python_key_table.pop(FakeTensorMode)
 
 @run_and_save_rng_state.py_impl(FakeTensorMode)
 def impl_fake_tensor_mode(mode, op, *args, **kwargs):
-    if is_hpu(args, kwargs) and str(op) in HABANA_CHECKPOINT_OPS:
+    if is_hpu(args, kwargs) and str(op) in HABANA_RANDOM_OPS:
         with mode:
             return torch.empty([], dtype=torch.int, device="hpu"), op(*args, **kwargs)
     return old_fn(mode, op, *args, **kwargs)

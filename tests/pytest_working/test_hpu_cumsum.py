@@ -17,9 +17,9 @@
 
 
 import torch
-import torch.nn as nn
 from habana_frameworks.torch.hpu import random as hpu_random
 from test_utils import cpu, hpu
+from torch import nn
 
 
 class Model(nn.Module):

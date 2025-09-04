@@ -24,6 +24,7 @@ from test_utils import (
     compare_tensors,
     compile_function_if_compile_mode,
     format_tc,
+    is_gaudi1,
     is_pytest_mode_compile,
 )
 
@@ -46,10 +47,14 @@ test_data = [
     (torch.int64, -42),
     (torch.int64, 123456789123456789),
     (torch.int64, -123456789123456789),
-    (torch.float8_e5m2, 16.0),
-    (torch.float8_e4m3fn, 16.0),
-    (torch.float16, 42.0),
 ]
+
+if not is_gaudi1():
+    test_data += [
+        (torch.float8_e5m2, 16.0),
+        (torch.float8_e4m3fn, 16.0),
+        (torch.float16, 42.0),
+    ]
 
 
 @pytest.mark.parametrize("size", [(1,), (1, 1), (2, 3)], ids=format_tc)
@@ -57,9 +62,6 @@ test_data = [
 def test_full(size, dtype, fill_value):
     if abs(fill_value) > 0x7FFFFFFF and bc.get_pt_enable_int64_support() is False:
         pytest.skip(reason="fill_value exceed int32 range which is unsupported")
-
-    if is_pytest_mode_compile() and dtype == torch.bool:
-        pytest.skip(reason="For bool input fallback to eager is expected in compile mode")
 
     def fn(size, fill_value, device, dtype):
         return torch.full(size, fill_value, device=device, dtype=dtype)

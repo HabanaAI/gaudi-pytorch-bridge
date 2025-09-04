@@ -15,6 +15,7 @@
 
 #include "hpu_ops/lazy_cast.h"
 #include "backend/helpers/cast_sequence.h"
+#include "hpu_ops/hpu_op_helper.h"
 
 namespace habana {
 
@@ -58,71 +59,6 @@ void LazyCast::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   }
 }
 
-static void copy_impl(
-    const at::Tensor& src,
-    const at::IntArrayRef& dst_size,
-    const c10::ScalarType& dst_type,
-    OpBackend* op,
-    synapse_helpers::graph& graph,
-    const OutputMetaDataVector& meta,
-    std::vector<synTensor>&& inputs,
-    synapse_helpers::tensor& output) {
-  auto src_type = src.scalar_type();
-
-  auto src_type_cast_type = habana_helpers::DataTypeToCastType(src_type);
-  auto dst_type_cast_type = habana_helpers::DataTypeToCastType(dst_type);
-
-  auto shape = src.sizes().vec();
-  if (src.sizes() != dst_size) {
-    shape = at::infer_size(src.sizes(), dst_size);
-    HABANA_ASSERT(
-        shape == dst_size or
-            // broadcast with src [1] to dst [] should be valid
-            (shape.size() == 1 and dst_size.size() == 0),
-        "Cannot broadcast src ",
-        src.sizes(),
-        " to dst ",
-        dst_size);
-
-    ns_Copy::Params params;
-    params.isOutputBool = dst_type == at::ScalarType::Bool;
-    using namespace std::literals;
-    output = std::move(OpBackend::BuildNode(
-        op,
-        graph,
-        {get_guid_with_precision("copy_fwd"sv, dst_type),
-         inputs,
-         {{meta[0].shape, meta[0].dtype, 0}},
-         &params,
-         sizeof(params)})[0]);
-    return;
-  }
-
-  if ((src_type_cast_type == dst_type_cast_type) &&
-      !(dst_type == at::ScalarType::Bool && src_type == at::ScalarType::Char)) {
-    output = std::move(OpBackend::BuildNode(
-        op, graph, {"identity", {inputs[1]}, {{shape, src_type, 0}}})[0]);
-  } else {
-    output = OpBackend::BuildCast(
-        op, graph, inputs[1], shape, src_type, dst_type, 0);
-  }
-}
-
-static void copy_impl(
-    const at::Tensor& src,
-    const at::Tensor& dst,
-    OpBackend* op,
-    synapse_helpers::graph& graph,
-    const OutputMetaDataVector& meta,
-    std::vector<synTensor>&& inputs,
-    synapse_helpers::tensor& output) {
-  auto dst_size = dst.sizes();
-  auto dst_type = dst.scalar_type();
-
-  copy_impl(
-      src, dst_size, dst_type, op, graph, meta, std::move(inputs), output);
-}
-
 CopyFrom::CopyFrom(int device_id, c10::ScalarType scalar_type)
     : OpBackend(device_id, "copy_guid", scalar_type, {}, {}, {}, true) {
   SetOutputMetaFn(CopyFrom::CopyFromMeta);
@@ -139,17 +75,19 @@ OutputMetaDataVector CopyFrom::CopyFromMeta(const at::Stack& stack) {
 
 void CopyFrom::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   StackGetter stackGetter(this, stack, "CopyFrom::AddNode");
-  auto src = stackGetter.getNextInput<TensorsPair>();
+  auto self = stackGetter.getNextInput<TensorsPair>();
   auto dst = stackGetter.getNextInput<TensorsPair>();
   const auto meta = CopyFromMeta(stack);
-  copy_impl(
-      src.pt_t,
-      dst.pt_t,
-      this,
+  auto out = CopyHelper(
+      self.pt_t.sizes(),
+      self.pt_t.scalar_type(),
+      dst.pt_t.sizes(),
+      dst.pt_t.scalar_type(),
       graph,
+      {dst.syn_t, self.syn_t},
       meta,
-      {dst.syn_t, src.syn_t},
-      syn_out(0));
+      0);
+  syn_out(0) = std::move(out);
 }
 
 OutputMetaDataVector CopyMeta(const at::Stack& stack) {
@@ -168,16 +106,18 @@ struct Copy : OpBackend {
   void AddNode(synapse_helpers::graph& graph, const at::Stack& stack) override {
     const auto meta = CopyMeta(stack);
     StackGetter stackGetter(this, stack, "Copy::AddNode");
-    auto dst = stackGetter.getNextInput<TensorsPair>();
+    auto self = stackGetter.getNextInput<TensorsPair>();
     auto src = stackGetter.getNextInput<TensorsPair>();
-    copy_impl(
-        src.pt_t,
-        dst.pt_t,
-        this,
+    auto out = CopyHelper(
+        src.pt_t.sizes(),
+        src.pt_t.scalar_type(),
+        self.pt_t.sizes(),
+        self.pt_t.scalar_type(),
         graph,
+        {self.syn_t, src.syn_t},
         meta,
-        {dst.syn_t, src.syn_t},
-        syn_out(0));
+        0);
+    syn_out(0) = std::move(out);
   }
 };
 
@@ -260,26 +200,27 @@ OutputMetaDataVector ToCopy::ToCopyMeta(const at::Stack& stack) {
 
 void ToCopy::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   StackGetter stackGetter(this, stack, "ToCopy::AddNode");
-  auto src = stackGetter.getNextInput<TensorsPair>();
+  auto self = stackGetter.getNextInput<TensorsPair>();
   const auto meta = GetOutputMetaData();
-  copy_impl(
-      src.pt_t,
+  auto out = CopyHelper(
+      self.pt_t.sizes(),
+      self.pt_t.scalar_type(),
       meta[0].shape,
       meta[0].dtype,
-      this,
       graph,
+      {self.syn_t, self.syn_t},
       meta,
-      {src.syn_t, src.syn_t},
-      syn_out(0));
+      0);
+  syn_out(0) = std::move(out);
 }
 
 } // namespace habana
 
 static const auto& CastKernelRegistry =
     habana::KernelRegistry()
-        .add("aten::copy", KERNEL_FN_GLOBAL(habana::Copy<false>))
-        .add("aten::copy_", KERNEL_FN_GLOBAL(habana::Copy<true>))
-        .add("aten::_to_copy", KERNEL_FN_GLOBAL(habana::ToCopy))
-        .add("hpu::_copy_from", KERNEL_FN_GLOBAL(habana::CopyFrom))
-        .add("hpu::cast", KERNEL_FN_GLOBAL(habana::LazyCast))
-        .add("hpu::habana_cast_sr_mode", KERNEL_FN_GLOBAL(habana::LazyCast));
+        .REGISTER_HPU_BACKEND("aten::copy", habana::Copy<false>)
+        .REGISTER_HPU_BACKEND("aten::copy_", habana::Copy<true>)
+        .REGISTER_HPU_BACKEND("aten::_to_copy", habana::ToCopy)
+        .REGISTER_HPU_BACKEND("hpu::_copy_from", habana::CopyFrom)
+        .REGISTER_HPU_BACKEND("hpu::cast", habana::LazyCast)
+        .REGISTER_HPU_BACKEND("hpu::habana_cast_sr_mode", habana::LazyCast);

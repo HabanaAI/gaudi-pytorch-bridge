@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,9 +24,7 @@
 #include "habana_eager/eager_view.h"
 #include "habana_helpers/logging_pt.h"
 
-namespace habana {
-namespace graph {
-namespace pass {
+namespace habana::graph::pass {
 
 uint32_t const_id = 0;
 
@@ -78,9 +76,7 @@ struct MarkParamsAsConstPass {
             "is_view_tensor:",
             tmeta->is_view_tensor())
         if (!tmeta->is_view_tensor()) {
-          if (mark_scales && (tensor.numel() == 1)) {
-            mark_tensor_as_const(tensor);
-          } else if (mark_non_scales) {
+          if ((mark_scales && (tensor.numel() == 1)) || mark_non_scales) {
             mark_tensor_as_const(tensor);
           }
         }
@@ -121,6 +117,4 @@ bool MarkParamsAsConst(
   return changed;
 }
 
-} // namespace pass
-} // namespace graph
-} // namespace habana
+} // namespace habana::graph::pass

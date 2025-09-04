@@ -25,7 +25,8 @@
 namespace synapse_helpers::realtime_logger {
 
 PipeClient::PipeClient(const std::string& file_out) {
-  if ((wfd_ = open(file_out.c_str(), O_WRONLY)) < 0)
+  wfd_ = open(file_out.c_str(), O_WRONLY);
+  if (wfd_ < 0)
     PT_BRIDGE_WARN("RealTimer Logger: open() error for read end");
 }
 PipeClient::~PipeClient() {

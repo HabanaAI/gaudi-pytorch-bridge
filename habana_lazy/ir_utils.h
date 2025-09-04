@@ -17,8 +17,7 @@
 #include <vector>
 #include "ir.h"
 
-namespace habana_lazy {
-namespace ir {
+namespace habana_lazy::ir {
 
 // Tracks the emission status of the nodes during the post-order generation.
 // It helps tracking loops within the computation graphs.
@@ -58,5 +57,4 @@ class Utils {
   static void ComputePostOrder(NodePtrList& p_nodes, PostOrderData& po_data);
 };
 
-} // namespace ir
-} // namespace habana_lazy
+} // namespace habana_lazy::ir

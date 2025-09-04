@@ -8,7 +8,6 @@
 #include "habana_kernels/lazy_kernels.h"
 #include "habana_lazy/hpu_stage_submission.h"
 using habana_lazy::LazyOp;
-using habana_lazy::GraphHashBuilder;
 
 #include "cast_to_fp8_v2.h"
 #include "exp_fast_math.h"
@@ -16,14 +15,14 @@ using habana_lazy::GraphHashBuilder;
 #include "softmax_fp8.h"
 
 
-using habana_helpers::DTypeHelper;
-using synapse_helpers::graph;
+using habana_helpers::DTypeHelper; // NOLINT(misc-unused-using-decls)
+using synapse_helpers::graph; // NOLINT(misc-unused-using-decls)
 using torch::jit::Stack;
 
 
 namespace habana {
 
-static CheckNodeWithSharedLayerValidator validator_exp_fast_math("exp_fast_math", "exp_fast_math_fwd", {0}, {}, nullptr, {}, false, false, false, false);
+CheckNodeWithSharedLayerValidator validator_exp_fast_math("exp_fast_math", "exp_fast_math_fwd", {0}, {}, nullptr, {}, false, false, false, false);
 
 
 at::Tensor softmax_fp8(const at::Tensor & input, int64_t dim, const ::std::optional<at::Tensor> & input_scale, const ::std::optional<at::Tensor> & output_scale, const ::std::optional<at::Tensor> & inv_attn_heads, const ::std::optional<at::Tensor> & fused_add) {
@@ -53,7 +52,7 @@ at::Tensor exp_fast_math(const at::Tensor & self) {
   RUN_MAYBE_WITH_ACC_THREAD(exp_fast_math, hpu_op);
 }
 
-at::Tensor mixture_of_experts(const at::Tensor & hidden_states, const at::Tensor & expert_routing_table, const at::Tensor & router_weights, at::TensorList w12, at::TensorList w3, const at::Tensor & d_scale_hidden_states, at::TensorList d_scale_intermediate_hidden_states, at::TensorList d_scale_w12, at::TensorList d_scale_w3, bool permuted_weights, std::string_view activation, int64_t experts_min, int64_t experts_max) {
+at::Tensor mixture_of_experts_fp8_fused_weights(const at::Tensor & hidden_states, const at::Tensor & expert_routing_table, const at::Tensor & router_weights, at::TensorList w12, at::TensorList w3, const at::Tensor & d_scale_hidden_states, at::TensorList d_scale_intermediate_hidden_states, at::TensorList d_scale_w12, at::TensorList d_scale_w3, bool permuted_weights, std::string_view activation, int64_t experts_min, int64_t experts_max) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO("mixture_of_experts: ", DUMP_13ARGS(hidden_states, expert_routing_table, router_weights, w12, w3, d_scale_hidden_states, d_scale_intermediate_hidden_states, d_scale_w12, d_scale_w3, permuted_weights, activation, experts_min, experts_max));
@@ -87,10 +86,10 @@ static const auto& kr_gen__custom = KernelRegistry()
 ;
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {
-  m.impl("softmax_fp8", static_cast<at::Tensor (*)(const at::Tensor &, int64_t, const ::std::optional<at::Tensor> &, const ::std::optional<at::Tensor> &, const ::std::optional<at::Tensor> &, const ::std::optional<at::Tensor> &)>(&habana::softmax_fp8));
-  m.impl("exp_fast_math", static_cast<at::Tensor (*)(const at::Tensor &)>(&habana::exp_fast_math));
-  m.impl("mixture_of_experts.fp8_fused_weights", static_cast<at::Tensor (*)(const at::Tensor &, const at::Tensor &, const at::Tensor &, at::TensorList, at::TensorList, const at::Tensor &, at::TensorList, at::TensorList, at::TensorList, bool, std::string_view, int64_t, int64_t)>(&habana::mixture_of_experts));
-  m.impl("cast_to_fp8_v2", static_cast<::std::tuple<at::Tensor,at::Tensor> (*)(const at::Tensor &, const ::std::optional<at::Tensor> &, bool, bool, at::ScalarType, at::OptionalIntArrayRef)>(&habana::cast_to_fp8_v2));
+  m.impl("softmax_fp8", habana::softmax_fp8);
+  m.impl("exp_fast_math", habana::exp_fast_math);
+  m.impl("mixture_of_experts.fp8_fused_weights", habana::mixture_of_experts_fp8_fused_weights);
+  m.impl("cast_to_fp8_v2", habana::cast_to_fp8_v2);
 
 }
 

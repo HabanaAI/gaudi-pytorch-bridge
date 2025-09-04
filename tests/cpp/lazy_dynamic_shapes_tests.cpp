@@ -269,7 +269,7 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeTest3) {
     torch::Tensor h_weight_tensor = torch::add(h_bias1, h_bias2);
     // out_conv = Conv3x3(Data, weight)
     torch::Tensor in_tensor =
-        torch::randn(N * C * H * W, torch::requires_grad(false));
+        torch::randn(static_cast<int64_t>(N * C * H * W), torch::requires_grad(false));
     torch::Tensor h_in_tensor = in_tensor.to(torch::kHPU);
     torch::Tensor h_weight_tensor_hwck = h_weight_tensor;
     torch::Tensor h_out_conv = torch::conv2d(
@@ -544,8 +544,7 @@ TEST_F(LazyDynamicShapesTest, SetDynamicModeTest_UniqueGraph) {
       {3, 2},
       {5, 3},
       {5, 3}};
-  for (std::vector<std::pair<int, int>>::iterator it = std::begin(v);
-       it != std::end(v);) {
+  for (auto it = std::begin(v); it != std::end(v);) {
     HbLazyTensor::IterStepMarker();
     auto size1 = *it++;
     auto in1 = torch::randn(
@@ -1188,10 +1187,10 @@ void compute_iou(
     std::vector<float> iou_vec;
     for (size_t j = i + 1; j < num_boxes; j++) {
       float iou{0.0};
-      float x0i = boxes[i][X0].item<float>();
-      float y0i = boxes[i][Y0].item<float>();
-      float x1i = boxes[i][X1].item<float>();
-      float y1i = boxes[i][Y1].item<float>();
+      auto x0i = boxes[i][X0].item<float>();
+      auto y0i = boxes[i][Y0].item<float>();
+      auto x1i = boxes[i][X1].item<float>();
+      auto y1i = boxes[i][Y1].item<float>();
       HABANA_ASSERT(
           x0i < x1i && y0i < y1i,
           "invalid box coordinate received ",
@@ -1216,10 +1215,10 @@ void compute_iou(
           ", y1i=",
           y1i);
 
-      float x0j = boxes[j][X0].item<float>();
-      float y0j = boxes[j][Y0].item<float>();
-      float x1j = boxes[j][X1].item<float>();
-      float y1j = boxes[j][Y1].item<float>();
+      auto x0j = boxes[j][X0].item<float>();
+      auto y0j = boxes[j][Y0].item<float>();
+      auto x1j = boxes[j][X1].item<float>();
+      auto y1j = boxes[j][Y1].item<float>();
       HABANA_ASSERT(
           x0j < x1j && y0j < y1j,
           "invalid box coordinate received ",
@@ -1391,7 +1390,7 @@ TEST_F(LazyDynamicShapesTest, BatchedNmsSmall) {
 
     auto num_expected_boxes{0};
     for (size_t i = 0; i < num_boxes_cur; i++) {
-      float score = scores_cur[i].item<float>();
+      auto score = scores_cur[i].item<float>();
       if (score >= score_th) {
         num_expected_boxes++;
       }
@@ -2252,16 +2251,18 @@ TEST_F(LazyDynamicShapesTest, BatchNormFwdBwdDS) {
         torch::randn(C, torch::dtype(torch::kFloat).requires_grad(false));
     torch::Tensor beta =
         torch::randn(C, torch::dtype(torch::kFloat).requires_grad(false));
-    std::optional<at::Tensor> mean;
+    torch::Tensor mean =
+        torch::randn(C, torch::dtype(torch::kFloat).requires_grad(false));
     torch::Tensor var =
         torch::ones(C, torch::dtype(torch::kFloat).requires_grad(false));
     torch::Tensor h_gamma = gamma.to(torch::kHPU);
     torch::Tensor h_beta = beta.to(torch::kHPU);
+    torch::Tensor h_mean = mean.to(torch::kHPU);
     torch::Tensor h_var = var.to(torch::kHPU);
     float mom = 0.1;
     float eps = 1e-5;
     auto h_bn_outs = torch::native_batch_norm(
-        h_in_tensor, h_gamma, h_beta, mean, h_var, true, mom, eps);
+        h_in_tensor, h_gamma, h_beta, h_mean, h_var, true, mom, eps);
     auto bn_outs = torch::native_batch_norm(
         in_tensor, gamma, beta, mean, var, true, mom, eps);
     auto h_bn_out = std::get<0>(h_bn_outs);
@@ -2296,7 +2297,7 @@ TEST_F(LazyDynamicShapesTest, BatchNormFwdBwdDS) {
         tHabanaGrad,
         h_in_tensor,
         h_gamma,
-        mean,
+        h_mean,
         h_var,
         tHabanaSaveMean,
         tHabanaSaveIVar,
@@ -2643,8 +2644,8 @@ TEST_F(LazyDynamicShapesTest, gather_dynamic_test) {
   auto inp2 = torch::randint(0, 4, {2, 10, 20}, torch::kLong);
   auto hinp1 = inp1.to(torch::kHPU);
   auto hinp2 = inp2.to(torch::kHPU);
-  auto cpu = torch::gather(inp1, 2, inp2, 0);
-  auto hpu = torch::gather(hinp1, 2, hinp2, 0);
+  auto cpu = torch::gather(inp1, 2, inp2, false);
+  auto hpu = torch::gather(hinp1, 2, hinp2, false);
   HbLazyTensor::StepMarker({});
   EXPECT_EQ(allclose(cpu, hpu.cpu()), true);
   // dynamic cache Miss
@@ -2653,8 +2654,8 @@ TEST_F(LazyDynamicShapesTest, gather_dynamic_test) {
     auto inp2 = torch::randint(0, 4, {2, 100, 5}, torch::kLong);
     auto hinp1 = inp1.to(torch::kHPU);
     auto hinp2 = inp2.to(torch::kHPU);
-    auto cpu = torch::gather(inp1, 2, inp2, 0);
-    auto hpu = torch::gather(hinp1, 2, hinp2, 0);
+    auto cpu = torch::gather(inp1, 2, inp2, false);
+    auto hpu = torch::gather(hinp1, 2, hinp2, false);
     HbLazyTensor::StepMarker({});
     EXPECT_EQ(allclose(cpu, hpu.cpu()), true);
   }

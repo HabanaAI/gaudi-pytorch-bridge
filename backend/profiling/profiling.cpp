@@ -21,13 +21,13 @@
 #include "backend/profiling/trace_sources/memory_source.h"
 #include "backend/profiling/trace_sources/synapse_profiler_source.h"
 #include "backend/synapse_helpers/env_flags.h"
+#include "habana_helpers/logging.h"
 
 namespace {
 constexpr size_t kMaxThreadName = 32;
 } // namespace
 
-namespace habana {
-namespace profile {
+namespace habana::profile {
 
 std::string getThreadName() {
   std::array<char, kMaxThreadName + 1> name{};
@@ -37,20 +37,12 @@ std::string getThreadName() {
     return "UnnamedThread";
   } else {
     name[kMaxThreadName] = '\0';
-    return std::string(name.data());
+    return {name.data()};
   }
 }
 
 int64_t getOffset(TraceSourceVariant variant) {
-  switch (variant) {
-    case TraceSourceVariant::SYNAPSE_PROFILER:
-      return 0;
-    case TraceSourceVariant::BRIDGE_LOGS:
-      return 0;
-    case TraceSourceVariant::MEMORY_LOGS:
-      return 30000;
-  }
-  return 0;
+  return (variant == TraceSourceVariant::MEMORY_LOGS) ? 30000 : 0;
 }
 
 Profiler::Profiler(TraceSink& sink) : trace_sink_{sink} {}
@@ -74,7 +66,13 @@ void Profiler::init_sources(
   }
   // simple trace grouping by log category
   for (auto& trace_source : trace_sources_) {
-    trace_source->set_offset(getOffset(trace_source->get_variant()));
+    const auto offset = getOffset(trace_source->get_variant());
+    HABANA_ASSERT(
+        offset <= std::numeric_limits<unsigned>::max(),
+        "Offset for trace source {} is too large: {}",
+        static_cast<unsigned>(trace_source->get_variant()),
+        offset);
+    trace_source->set_offset(static_cast<unsigned>(offset));
   }
 }
 
@@ -93,5 +91,4 @@ void Profiler::stop() {
     trace_source->extract(trace_sink_);
   }
 }
-} // namespace profile
-} // namespace habana
+} // namespace habana::profile

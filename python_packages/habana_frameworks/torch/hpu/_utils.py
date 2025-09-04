@@ -19,7 +19,7 @@
 import os
 from typing import Any
 
-import habana_frameworks.torch.hpu as hpu
+from habana_frameworks.torch import hpu
 
 import torch
 
@@ -75,12 +75,12 @@ def _get_module_id_from_environ():
 
 def _get_available_modules_from_environ():
     visible_modules_str = os.getenv(HABANA_VISIBLE_MODULES_VAR, default="0,1,2,3,4,5,6,7")
-    visible_modules = list(map(lambda x: int(x), visible_modules_str.split(",")))
+    visible_modules = [int(x) for x in visible_modules_str.split(",")]
     if not visible_modules:
         # For handling situation when {HABANA_VISIBLE_MODULES_VAR}
         # is set, but empty
         return [0, 1, 2, 3, 4, 5, 6, 7]
-    assert (
-        len(visible_modules) > 0 and len(visible_modules) <= 8
-    ), f"{HABANA_VISIBLE_MODULES_VAR} does not have valid value."
+    assert len(visible_modules) > 0 and len(visible_modules) <= 8, (
+        f"{HABANA_VISIBLE_MODULES_VAR} does not have valid value."
+    )
     return visible_modules

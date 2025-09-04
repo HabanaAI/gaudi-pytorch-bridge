@@ -31,7 +31,7 @@
 #include "habana_lazy/lazy_graph_hash_builder.h"
 #include "habana_lazy_test_infra.h"
 
-using json = nlohmannV340::json;
+using json = nlohmann::json;
 
 using namespace habana_lazy;
 using namespace at;
@@ -60,7 +60,7 @@ TEST_F(GraphOptimizeTest, PeepholeOptimTest) {
   std::vector<int> indices = {0};
   auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
 
-  exec::HlExec* hlexec = new exec::HlExec();
+  auto hlexec = std::make_unique<exec::HlExec>();
   exec::OptPassCfg::GetInstance()->SetPeepholeOpt(true);
 
   std::vector<at::Tensor> input_list{hl_tensor_in};
@@ -81,24 +81,6 @@ TEST_F(GraphOptimizeTest, SubGraphRewriteTest) {
   setenv("HABANA_TRANSFORM_GRAPH_FILE", fpath, 1);
 
   // write to .json file patterens
-  std::string patterns =
-      "{\n"
-      " \"MmReluPattern\" :\n"
-      " {\n"
-      "   \"Pattern\" : [\n"
-      "                   \"graph(%a, %b):\",\n"
-      "                   \" %c = aten::mm(%a, %b)\",\n"
-      "                   \" %r = aten::relu(%c)\",\n"
-      "                   \" return (%r)\"\n"
-      "                 ],\n"
-      "   \"ReplacePattern\" : [\n"
-      "                   \"graph(%a, %b):\",\n"
-      "                   \" %r = aten::matmul(%a, %b)\",\n"
-      "                   \" return (%r)\"\n"
-      "                 ]\n"
-      " }\n"
-      "}\n";
-
   std::string marker_begin = "{\n";
 
   std::string patterns0 =
@@ -154,7 +136,7 @@ TEST_F(GraphOptimizeTest, SubGraphRewriteTest) {
   std::vector<int> indices = {0};
   auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
 
-  exec::HlExec* hlexec = new exec::HlExec();
+  auto hlexec = std::make_unique<exec::HlExec>();
 
   std::vector<at::Tensor> input_list{hA, hB};
   auto stack = torch::jit::Stack(
@@ -198,7 +180,7 @@ TEST_F(GraphOptimizeTest, FuseMmTransposeTest) {
   std::vector<int> indices = {0};
   auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
 
-  exec::HlExec* hlexec = new exec::HlExec();
+  auto hlexec = std::make_unique<exec::HlExec>();
   exec::OptPassCfg::GetInstance()->SetFuseTMM(true);
 
   std::vector<at::Tensor> input_list{hl_tensor_in1, hl_tensor_in2};
@@ -250,7 +232,7 @@ TEST_F(GraphOptimizeTest, BnReluOptTest) {
   std::vector<int> indices = {0};
   auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
 
-  exec::HlExec* hlexec = new exec::HlExec();
+  auto hlexec = std::make_unique<exec::HlExec>();
   exec::OptPassCfg::GetInstance()->SetFuseTMM(true);
 
   std::vector<at::Tensor> input_list{hl_tensor_in1, hl_tensor_in2};
@@ -279,7 +261,6 @@ TEST_F(GraphOptimizeTest, BnReluOptTest) {
 // input(NCHW) -> permute_cl -> conv2d -> relu
 TEST_F(GraphOptimizeTest, PermutePassTest_CL) {
   // TODO: Removed once make sure removed from all tests lists
-  return;
 }
 
 // input(CL) -> conv2d -> relu
@@ -578,7 +559,7 @@ TEST_F(GraphOptimizeTest, RemoveInplaceOps_pass1) {
   std::vector<int> indices = {0};
   auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
 
-  exec::HlExec* hlexec = new exec::HlExec();
+  auto hlexec = std::make_unique<exec::HlExec>();
   exec::OptPassCfg::GetInstance()->SetReplaceInplaceOps(true);
 
   std::vector<at::Tensor> input_list{hA, hB};
@@ -610,7 +591,7 @@ TEST_F(GraphOptimizeTest, RemoveInplaceOps_pass2) {
   std::vector<int> indices = {0};
   auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
 
-  exec::HlExec* hlexec = new exec::HlExec();
+  auto hlexec = std::make_unique<exec::HlExec>();
   exec::OptPassCfg::GetInstance()->SetReplaceInplaceOps(true);
 
   std::vector<at::Tensor> input_list{hA, hB};
@@ -647,7 +628,7 @@ TEST_F(GraphOptimizeTest, RemoveInplaceOps_pass3) {
   std::vector<int> indices = {0};
   auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
 
-  exec::HlExec* hlexec = new exec::HlExec();
+  auto hlexec = std::make_unique<exec::HlExec>();
   exec::OptPassCfg::GetInstance()->SetReplaceInplaceOps(true);
 
   std::vector<at::Tensor> input_list{hA, hB};

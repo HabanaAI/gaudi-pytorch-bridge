@@ -28,7 +28,7 @@ dtypes = [torch.half, torch.bfloat16, torch.float, torch.int]
 
 
 @pytest.mark.parametrize("alpha", [1, 2])
-@pytest.mark.parametrize("dim", [0, 1, 2])
+@pytest.mark.parametrize("dim", [-1, 0, 1, 2])
 @pytest.mark.parametrize("shape", [[5, 4, 7], [12, 5, 3, 5]], ids=format_tc)
 @pytest.mark.parametrize("index_dtype", [torch.int32, torch.int64], ids=format_tc)
 @pytest.mark.parametrize("dtype", dtypes, ids=format_tc)
@@ -44,7 +44,12 @@ def test_hpu_index_add(dtype, index_dtype, shape, dim, alpha, out_variant):
 
     compiled_fn_hpu = compile_function_if_compile_mode(fn)
 
-    idx_cpu = torch.randint(size=[shape[dim] - 2], low=0, high=shape[dim], dtype=index_dtype)
+    if dim == -1:
+        # To generate corner case test when index is a zero size tensor
+        idx_cpu = torch.randint(size=[], low=0, high=shape[dim], dtype=index_dtype)
+    else:
+        idx_cpu = torch.randint(size=[shape[dim] - 2], low=0, high=shape[dim], dtype=index_dtype)
+
     idx_cpu = torch.unique(idx_cpu)
 
     source_shape = deepcopy(shape)

@@ -29,6 +29,7 @@
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/resize.h"
 #include "habana_kernels/tensor_shape_kernels.h"
+#include "hpu_ops/hpu_op_helper.h"
 
 using namespace torch;
 
@@ -841,5 +842,5 @@ void habana::BinaryWrapperOperatorWithAlpha::SetPTOutputs(
 
 static auto& BinaryKernelsKernelRegistry =
     habana::KernelRegistry()
-        .add("hpu::add.Tensor", KERNEL_FN(AddOperator))
-        .add("hpu::add.Scalar", KERNEL_FN(AddOperator));
+        .REGISTER_HPU_BACKEND("hpu::add.Tensor", habana::AddOperator)
+        .REGISTER_HPU_BACKEND("hpu::add.Scalar", habana::AddOperator);

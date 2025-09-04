@@ -20,8 +20,8 @@ class HpuOpTest : public HpuOpTestUtil {};
 TEST_F(HpuOpTest, softplus_f32) {
   GenerateInputs(1, {{2, 3, 4}});
 
-  float beta = 1.5f;
-  float threshold = 20.0f;
+  float beta = 1.5F;
+  float threshold = 20.0F;
   auto exp = torch::softplus(GetCpuInput(0), beta, threshold);
   auto res = torch::softplus(GetHpuInput(0), beta, threshold);
 
@@ -31,8 +31,8 @@ TEST_F(HpuOpTest, softplus_f32) {
 TEST_F(HpuOpTest, softplus_bf16) {
   GenerateInputs(1, {{2, 3, 4}}, torch::kBFloat16);
 
-  float beta = 1.5f;
-  float threshold = 20.0f;
+  float beta = 1.5F;
+  float threshold = 20.0F;
   auto exp = torch::softplus(GetCpuInput(0), beta, threshold);
   auto res = torch::softplus(GetHpuInput(0), beta, threshold);
 
@@ -42,8 +42,8 @@ TEST_F(HpuOpTest, softplus_bf16) {
 TEST_F(HpuOpTest, softplus_out_f32) {
   GenerateInputs(1, {{2, 3, 4}});
 
-  float beta = 1.5f;
-  float threshold = 20.0f;
+  float beta = 1.5F;
+  float threshold = 20.0F;
 
   auto exp = torch::empty(0, torch::kFloat32);
   auto res = exp.to(torch::kHPU);
@@ -57,8 +57,8 @@ TEST_F(HpuOpTest, softplus_out_f32) {
 TEST_F(HpuOpTest, softplus_out_bf16) {
   GenerateInputs(1, {{2, 3, 4}}, torch::kBFloat16);
 
-  float beta = 1.5f;
-  float threshold = 20.0f;
+  float beta = 1.5F;
+  float threshold = 20.0F;
 
   auto exp = torch::empty(0, torch::kBFloat16);
   auto res = exp.to(torch::kHPU);
@@ -73,8 +73,8 @@ TEST_F(HpuOpTest, softplus_out_bf16) {
 TEST_F(HpuOpTest, softplus_bwd_f32) {
   GenerateInputs(2, {{2, 3, 4}, {2, 3, 4}});
 
-  float beta = 1.5f;
-  float threshold = 20.0f;
+  float beta = 1.5F;
+  float threshold = 20.0F;
   auto exp = torch::softplus_backward(
       GetCpuInput(0) /*grad_output*/, GetCpuInput(1) /*self*/, beta, threshold);
   auto res = torch::softplus_backward(
@@ -86,8 +86,8 @@ TEST_F(HpuOpTest, softplus_bwd_f32) {
 TEST_F(HpuOpTest, softplus_bwd_bf16) {
   GenerateInputs(2, {{2, 3, 4}, {2, 3, 4}}, torch::kBFloat16);
 
-  float beta = 1.5f;
-  float threshold = 20.0f;
+  float beta = 1.5F;
+  float threshold = 20.0F;
   auto exp = torch::softplus_backward(
       GetCpuInput(0) /*grad_output*/, GetCpuInput(1) /*self*/, beta, threshold);
   auto res = torch::softplus_backward(
@@ -99,8 +99,8 @@ TEST_F(HpuOpTest, softplus_bwd_bf16) {
 TEST_F(HpuOpTest, softplus_out_bwd_f32) {
   GenerateInputs(2, {{2, 3, 4}, {2, 3, 4}});
 
-  float beta = 1.5f;
-  float threshold = 20.0f;
+  float beta = 1.5F;
+  float threshold = 20.0F;
 
   auto exp = torch::empty(0, torch::kFloat32);
   auto res = exp.to(torch::kHPU);
@@ -124,8 +124,8 @@ TEST_F(HpuOpTest, softplus_out_bwd_f32) {
 TEST_F(HpuOpTest, softplus_out_bwd_bf16) {
   GenerateInputs(2, {{2, 3, 4}, {2, 3, 4}}, torch::kBFloat16);
 
-  float beta = 1.5f;
-  float threshold = 20.0f;
+  float beta = 1.5F;
+  float threshold = 20.0F;
 
   auto exp = torch::empty(0, torch::kBFloat16);
   auto res = exp.to(torch::kHPU);

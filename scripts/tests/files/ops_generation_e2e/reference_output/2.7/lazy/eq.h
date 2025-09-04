@@ -9,8 +9,12 @@
 namespace habana {
 
 
-at::Tensor & eq_out(const at::Tensor & self, const at::Scalar & other, at::Tensor & out);
+struct CheckNodeWithSharedLayerValidator;
+at::Tensor & eq_Scalar_out(const at::Tensor & self, const at::Scalar & other, at::Tensor & out);
+at::Tensor & eq_Tensor_out(const at::Tensor & self, const at::Tensor & other, at::Tensor & out);
 OUTMETA_DECL(CompareMeta);
+extern CheckNodeWithSharedLayerValidator validator_eq_Scalar_out;
+extern CheckNodeWithSharedLayerValidator validator_eq_Tensor_out;
 
 }  // namespace habana
 

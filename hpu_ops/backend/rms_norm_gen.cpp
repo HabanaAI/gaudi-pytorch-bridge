@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,41 +36,37 @@ OutputMetaDataVector RMSNormMeta(const at::Stack& stack) {
   first_output.dtype = data_in_dtype;
   OutputMetaData second_output;
   second_output.shape = inverse_root_mean_square_sizes;
-  second_output.dtype = data_in_dtype;
+  second_output.dtype = c10::ScalarType::Float;
   return {first_output, second_output};
 }
 
-std::shared_ptr<void> RMSNormParams(const at::Stack& stack, std::size_t& size) {
+FillParamsT RMSNormParams(const at::Stack& stack) {
   const auto epsilon = stack.at(2).toScalar().toFloat();
 
   PARAMS_STUB(ns_LayerNormKernel::ParamsRmsNorm);
   params->epsValid = true;
   params->eps = epsilon;
   params->fastMath = false;
-  return params;
+  return paramsT;
 }
 
-std::shared_ptr<void> RMSNormFastParams(
-    const at::Stack& stack,
-    std::size_t& size) {
+FillParamsT RMSNormFastParams(const at::Stack& stack) {
   const auto epsilon = stack.at(2).toScalar().toFloat();
 
   PARAMS_STUB(ns_LayerNormKernel::Params);
   params->epsValid = true;
   params->eps = epsilon;
-  return params;
+  return paramsT;
 }
 
-std::shared_ptr<void> RMSNormBwdParams(
-    const at::Stack& stack,
-    std::size_t& size) {
+FillParamsT RMSNormBwdParams(const at::Stack& stack) {
   auto use_stages = stack.at(4).toScalar().to<bool>();
   auto bwd_mode = stack.at(5).toScalar().to<int>();
 
   PARAMS_STUB(ns_RmsNorm::ParamsV3);
   params->useStages = use_stages;
   params->bwdMode = static_cast<RmsNormBwdMode_t>(bwd_mode);
-  return params;
+  return paramsT;
 }
 
 OutputMetaDataVector RMSNormBwdMeta(const at::Stack& stack) {
@@ -79,7 +75,7 @@ OutputMetaDataVector RMSNormBwdMeta(const at::Stack& stack) {
 
   auto type = data_in.scalar_type();
   bool types_match = true;
-  for (std::size_t i{0}; i < 4; ++i) {
+  for (std::size_t i{0}; i < 3; ++i) {
     if (type != stack.at(i).toTensor().scalar_type()) {
       types_match = false;
       break;

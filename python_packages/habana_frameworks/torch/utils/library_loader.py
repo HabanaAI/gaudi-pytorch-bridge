@@ -18,7 +18,10 @@
 
 import atexit
 import os
-import subprocess
+
+# We ensure that all commands are constructed safely,
+# without user input that could lead to command injection.
+import subprocess  # nosec B404
 import sys
 
 from habana_frameworks.torch import _hpu_C
@@ -64,8 +67,6 @@ def _get_modules_directory(library_list=[]):
 
 
 def is_habana_available():
-    from subprocess import STDOUT, check_output
-
     cmd = "hl-smi -v"
     status = False
     enable_console = True
@@ -73,14 +74,14 @@ def is_habana_available():
         enable_console = False
         os.environ["ENABLE_CONSOLE"] = "true"
     try:
-        result = check_output(cmd, stderr=STDOUT, shell=True).decode()
+        result = subprocess.check_output(cmd, stderr=subprocess.STDOUT, shell=True).decode()  # noqa S602
         if result.find("Habana") != -1:
             status = True
     except Exception:
         # Workaround to mitigate hl-smi usage on simulators
         if os.environ.get("ENABLE_EXEUTION_ON_GAUDI_SIM") in ["true", "True", "1"]:
             print("Enabling Gaudi Simulator As Habana Device !!")
-            p = subprocess.Popen(["pgrep", "coral"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            p = subprocess.Popen(["pgrep", "coral"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)  # noqa S603 # noqa S607
             num_cards = sum(1 for _ in p.stdout)
             if num_cards >= 1:
                 status = True

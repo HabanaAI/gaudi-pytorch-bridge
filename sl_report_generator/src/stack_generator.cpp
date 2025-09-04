@@ -21,7 +21,7 @@
 
 namespace slrg {
 namespace {
-static std::unordered_map<std::string, InputType> input_type_map = {
+std::unordered_map<std::string, InputType> input_type_map = {
     {"Tensor", InputType::PT_TENSOR},
     {"Scalar", InputType::PT_SCALAR},
     {"float", InputType::NATIVE_FLOAT},
@@ -36,7 +36,7 @@ static std::unordered_map<std::string, InputType> input_type_map = {
     {"Generator", InputType::GENERATOR},
     {"Storage", InputType::STORAGE}};
 
-static std::unordered_map<
+std::unordered_map<
     std::string,
     std::unordered_map<std::string, std::vector<std::any>>>
     default_values_specific_ops = {
@@ -53,18 +53,20 @@ static std::unordered_map<
             std::string("mean"),
             std::string("amax"),
             std::string("amin")}}}},
-        {"searchsorted",
-         {{"right", {false}}, {"side", {std::string("left")}}}}};
+        {"searchsorted", {{"right", {false}}, {"side", {std::string("left")}}}},
+        {"narrow_copy",
+         {{"dim", {0}},
+          {"start", {c10::SymInt{0}}},
+          {"length", {c10::SymInt{1}}}}}};
 
-static std::unordered_map<std::string, std::vector<std::any>>
-    default_values_all_ops = {
-        {"approximate", {std::string("none"), std::string("tanh")}},
-        {"dim", {0}},
-        {"dims", {0}},
-        {"p", {0.5f}},
-        {"pin_memory", {false}}};
+std::unordered_map<std::string, std::vector<std::any>> default_values_all_ops =
+    {{"approximate", {std::string("none"), std::string("tanh")}},
+     {"dim", {0}},
+     {"dims", {0}},
+     {"p", {0.5F}},
+     {"pin_memory", {false}}};
 
-static std::unordered_map<std::string, std::vector<at::ScalarType>>
+std::unordered_map<std::string, std::vector<at::ScalarType>>
     blacklisted_precision_types_op_map = {
         {"one_hot", // I32/I16 not supported in compile mode
          {at::ScalarType::Int, at::ScalarType::Short}},
@@ -77,7 +79,7 @@ static std::unordered_map<std::string, std::vector<at::ScalarType>>
           c10::ScalarType::Char,
           c10::ScalarType::Bool}}};
 
-static std::unordered_map<std::string, std::vector<at::ScalarType>>
+std::unordered_map<std::string, std::vector<at::ScalarType>>
     whitelisted_precision_types_op_map = {};
 } // namespace
 
@@ -219,7 +221,7 @@ std::vector<c10::IValue> StackGenerator::generateIValues<InputType::PT_TENSOR>(
   std::vector<c10::IValue> values;
   for (const auto& dtype : dtypes) {
     for (const auto& tensor_rank : ranks) {
-      auto t = c10::IValue(createTensor(tensor_rank, dtype));
+      auto t = c10::IValue(createTensor(tensor_rank, dtype, dim_size));
       values.push_back(t);
     }
   }
@@ -536,11 +538,15 @@ SchemaStackGenerator::SchemaStackGenerator(
     const std::string& schema,
     const std::string& op_name,
     const std::string& op_name_and_overload_name,
-    const std::vector<int64_t>& ranks)
+    const std::vector<int64_t>& ranks,
+    const int default_array_length,
+    const int dim_size)
     : StackGenerator(ranks) {
   this->op_name = op_name;
   this->op_and_overload_name =
       op_name_and_overload_name.empty() ? op_name : op_name_and_overload_name;
+  this->default_array_length = default_array_length;
+  this->dim_size = dim_size;
   blacklisted_precision_types = getBlacklistedPrecisionTypes();
   whitelisted_precision_types = getWhitelistedPrecisionTypes();
   inputs = generateInputs(schema);
@@ -685,12 +691,12 @@ void configureInputDescriptor(
     }
     case InputType::NATIVE_FLOAT: {
       if (!default_value_found) {
-        input_descriptor.values = std::vector<std::any>{1.0f};
+        input_descriptor.values = std::vector<std::any>{1.0F};
         if (verbose) {
           std::cout << "WARNING: Op '" + op_and_overload_name +
                   "' has no default value for '"
                     << param_name
-                    << "' (float). Using generic default value: 1.0f\n";
+                    << "' (float). Using generic default value: 1.0F\n";
         }
       }
       break;
@@ -825,7 +831,8 @@ std::vector<InputDescriptor> SchemaStackGenerator::generateInputs(
 
     if (isArrayParam(param_type)) {
       input_descriptor.is_array = true;
-      input_descriptor.array_length = extractArrayLength(param_type);
+      input_descriptor.array_length =
+          std::max(extractArrayLength(param_type), default_array_length);
       param_type = eraseArrayCharacters(param_type);
     }
 

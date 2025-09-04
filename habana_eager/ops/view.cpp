@@ -23,8 +23,7 @@
 #include "habana_eager/eager_pipeline_utils.h"
 #include "habana_eager/ops/eager_op.h"
 #include "habana_kernels/kernel_utils.h"
-namespace habana {
-namespace eager {
+namespace habana::eager {
 
 at::Tensor view_hpu(const at::Tensor& self, c10::SymIntArrayRef size) {
   PT_EAGER_TRACE;
@@ -112,8 +111,7 @@ at::Tensor create_base(const at::Tensor& self) {
   return base;
 }
 
-} // namespace eager
-} // namespace habana
+} // namespace habana::eager
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {
   m.impl(

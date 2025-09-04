@@ -50,7 +50,7 @@ namespace habana_torch::jit {
 namespace utils {
 std::string getNodesModuleHierarchy(const Node& n) {
   if (!n.callstack().has_value()) {
-    return std::string();
+    return {};
   }
   InlinedCallStackPtr callstack_ptr = n.callstack().value();
   std::string module_hierarchy;
@@ -67,6 +67,14 @@ std::string getNodesModuleHierarchy(const Node& n) {
     }
   }
   return module_hierarchy;
+}
+
+// gets a string representation of a node header
+// (e.g. outputs, a node kind and outputs)
+std::string getHeader(const Node* node) {
+  std::stringstream ss;
+  node->print(ss, 0, {}, false, false, false, false);
+  return ss.str();
 }
 } // namespace utils
 
@@ -316,14 +324,14 @@ SourceRange Node::sourceRange() const {
   if (source_range_) {
     return *source_range_;
   }
-  return SourceRange();
+  return {};
 }
 
 std::string Node::stackTrace() const {
   if (stack_trace_) {
     return *stack_trace_;
   }
-  return std::string();
+  return {};
 }
 
 static std::ostream& indent(std::ostream& out, size_t level) {
@@ -468,7 +476,7 @@ static void checkSameDevice(const Node* node) {
 }
 
 using node_set = std::set<const Node*>;
-#define ALL_OF(container) container.begin(), container.end()
+#define ALL_OF(container) (container).begin(), (container).end()
 
 // These functions purposely operate on the internal members directly, to
 // force you to think about how the invariants change if you change the data
@@ -499,16 +507,6 @@ void Node::lint() const {
    *         HABANA_ASSERT(graph_->all_nodes.count(this) == 1);
    *         i++;
    * }
-   * }
-   */
-  /*
-   * for (auto o : outputs()) {
-   *   for (auto use : o->uses()) {
-   *     // Use invariants
-   *     // - Use is consistent with inputs
-   *     // - Every user node is live (checked in Graph)
-   *     HABANA_ASSERT(use.user->inputs_[use.offset] == o);
-   *   }
    * }
    */
 
@@ -1343,11 +1341,9 @@ void Node::assignTopoPosition() {
 Node::Node(Graph* graph_, NodeKind kind_)
     : kind_(kind_),
       graph_(graph_),
-      owning_block_(nullptr),
       scope_(graph_->current_scope_),
       callstack_(std::nullopt),
-      op_(nullptr),
-      topo_position_(0) {
+      op_(nullptr) {
   graph_->all_nodes.emplace(this);
 }
 
@@ -1813,7 +1809,7 @@ Node* Graph::createTupleSlice(
   int64_t i = beg;
   for (const auto j : c10::irange(num_values)) {
     (void)j; // Suppress unused variable warning
-    auto idx = insertConstant(IValue(static_cast<int64_t>(i)));
+    auto idx = insertConstant(IValue(i));
     auto tupleIndex = insertNode(createTupleIndex(tup, idx, tt->elements()[i]));
 
     new_vals.push_back(tupleIndex->output());
@@ -2223,7 +2219,7 @@ void Graph::cloneToUpstreamGraph(
   auto src_inputs = src_graph->inputs();
   auto src_inputs_count = src_inputs.size();
 
-  for (auto i = 0u; i < src_inputs_count; i++) {
+  for (auto i = 0U; i < src_inputs_count; i++) {
     auto new_input = dst_graph->addInput();
     auto src_type = src_inputs[i]->type();
     new_input->setType(src_type);
@@ -2243,8 +2239,13 @@ void Graph::cloneToUpstreamGraph(
         dst_inputs.data(), dst_inputs.size());
     auto num_outputs = src_node->outputs().size();
     auto dst_node = dst_graph->create(kind, dst_node_inputs_ref, num_outputs);
-    for (auto i = 0u; i < num_outputs; i++) {
-      dst_node->outputs()[i]->setType(src_node->outputs()[i]->type());
+    for (auto i = 0U; i < num_outputs; i++) {
+      auto dst_output = dst_node->outputs()[i];
+      auto src_output = src_node->outputs()[i];
+      dst_output->setType(src_output->type());
+      if (habana_torch::jit::Value::isValidName(src_output->debugName())) {
+        dst_output->setDebugName(src_output->debugName());
+      }
     }
 
     dst_graph->insertNode(dst_node);

@@ -12,11 +12,51 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "hpu_ops/hpu_op_helper.h"
 #include "hpu_ops/stack_getter.h"
 
 namespace sh = synapse_helpers;
 
 namespace habana {
+
+SharedMetaDataVector OptimizerResourceApplyMomentumSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  SharedMetaDataVector shared_meta_vec;
+  const auto& params_momentum_buf_list = stack.at(0).toTensorVector();
+  const auto& dp_list = stack.at(1).toTensorVector();
+  const auto precision_type = params_momentum_buf_list[0].scalar_type();
+
+  SharedMetaTensor momentum_tensor{1, precision_type};
+  size_t dp_list_size = dp_list.size();
+  for (size_t i = 0; i < dp_list_size; i++) {
+    const auto i2 = 2 * i;
+    const auto i2p1 = i2 + 1;
+    const auto& param = params_momentum_buf_list[i2];
+    const auto param_rank = param.dim();
+    const auto& momentum_buffer = params_momentum_buf_list[i2p1];
+    const auto& dp = dp_list[i];
+
+    SharedMetaData mul_shared_meta{"mult_fwd"};
+    mul_shared_meta.inputs_data = {
+        {momentum_buffer.dim(), precision_type}, momentum_tensor};
+    mul_shared_meta.outputs_data.emplace_back(param_rank, precision_type);
+    shared_meta_vec.push_back(mul_shared_meta);
+
+    SharedMetaData sub_shared_meta{"sub_fwd"};
+    sub_shared_meta.inputs_data = {
+        mul_shared_meta.outputs_data[0], {dp.dim(), precision_type}};
+    sub_shared_meta.outputs_data = mul_shared_meta.outputs_data;
+    shared_meta_vec.push_back(sub_shared_meta);
+
+    SharedMetaData add_shared_meta{"add_fwd"};
+    add_shared_meta.inputs_data = {
+        {param_rank, precision_type}, sub_shared_meta.outputs_data[0]};
+    add_shared_meta.outputs_data = sub_shared_meta.outputs_data;
+    shared_meta_vec.push_back(add_shared_meta);
+  }
+  return shared_meta_vec;
+}
 
 class OptimizerFusedResourceApplyMomentumOperator : public OpBackend {
  public:
@@ -94,6 +134,7 @@ void OptimizerFusedResourceApplyMomentumOperator::AddNode(
 
 } // namespace habana
 
-static auto& OptimizerKernelsKernelRegistry = habana::KernelRegistry().add(
-    "hpu::optimizer_resource_apply_momentum",
-    KERNEL_FN(OptimizerFusedResourceApplyMomentumOperator));
+static auto& OptimizerKernelsKernelRegistry =
+    habana::KernelRegistry().REGISTER_HPU_BACKEND(
+        "hpu::optimizer_resource_apply_momentum",
+        habana::OptimizerFusedResourceApplyMomentumOperator);

@@ -13,8 +13,7 @@
  * limitations under the License.
  */
 #include <Python.h>
-namespace habana {
-namespace eager {
+namespace habana::eager {
 
 struct gil_scoped_release_if_held {
   gil_scoped_release_if_held() {
@@ -30,5 +29,4 @@ struct gil_scoped_release_if_held {
   PyThreadState* save_state = nullptr;
 };
 
-} // namespace eager
-} // namespace habana
+} // namespace habana::eager

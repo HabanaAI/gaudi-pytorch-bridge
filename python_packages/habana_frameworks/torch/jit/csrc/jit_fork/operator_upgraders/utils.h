@@ -31,8 +31,7 @@
 
 #include "jit_fork/operator_upgraders/version_map.h"
 
-namespace habana_torch {
-namespace jit {
+namespace habana_torch::jit {
 
 struct UpgraderRange {
   int min_version;
@@ -74,5 +73,4 @@ TORCH_API uint64_t getMaxOperatorVersion();
 TORCH_API std::vector<UpgraderRange> getUpgradersRangeForOp(
     const std::string& name);
 
-} // namespace jit
-} // namespace habana_torch
+} // namespace habana_torch::jit

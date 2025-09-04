@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,8 +23,9 @@
 #include "backend/kernel/hpu_shape_inference.h"
 #include "backend/synapse_helpers/tcmalloc_helper.h"
 #include "common/utils.h"
-#include "habana_helpers/dtype_helpers.h"
 #include "habana_helpers/logging.h"
+#include "habana_kernels/lazy_kernels_declarations.h"
+#include "pytorch_helpers/habana_helpers/misc_utils.h"
 
 namespace {
 void handle_const_section_tensor(const at::Tensor& tensor) {
@@ -89,7 +90,7 @@ synapse_helpers::tensor create_tensor(
     std::tie(min, max) = habana::ShapeInference::GetMinMaxShape(tensor_id);
   }
 
-  if (min.size() && max.size() && (min != max)) {
+  if (!min.empty() && !max.empty() && (min != max)) {
     // if the min represents the max value and if the max represents the min
     // value, swap them during tensor creation
     if (min > max) {
@@ -177,7 +178,7 @@ synapse_helpers::tensor create_tensor(
     std::tie(min, max) = habana::ShapeInference::GetMinMaxShape(tensor_id);
   }
 
-  if (min.size() && max.size() && (min != max)) {
+  if (!min.empty() && !max.empty() && (min != max)) {
     // if the min represents the max value and if the max represents the min
     // value, swap them during tensor creation
     if (min > max) {
@@ -273,21 +274,21 @@ synapse_helpers::tensor create_tensor(
     bool range_found = false;
     std::string module_name = std::string();
     PtTensorInferenceData::InferenceRangePair inference_range;
-    if (name.size() > 0 &&
+    if (!name.empty() &&
         inference_name.find("placeholder") == std::string::npos) {
       module_name =
           PtTensorInferenceData::get_instance().extract_key_name(name, "/");
       inference_range =
           PtTensorInferenceData::get_instance().GetInferenceTensorRange(
-              module_name.c_str(), range_found_with_module_name);
+              module_name, range_found_with_module_name);
     }
     if (!range_found_with_module_name) {
       inference_range =
           PtTensorInferenceData::get_instance().GetInferenceTensorRange(
-              inference_name.c_str(), range_found);
-      if (range_found && (name.size() > 0)) {
+              inference_name, range_found);
+      if (range_found && !name.empty()) {
         PtTensorInferenceData::get_instance().duplicate_key(
-            inference_name.c_str(), name.c_str());
+            inference_name, name);
       }
     }
     if (range_found_with_module_name || range_found) {
@@ -333,12 +334,6 @@ synapse_helpers::tensor create_tensor(
   uint64_t tensor_id{synapse_helpers::INVALID_SYN_TENSOR_ID};
   auto tensor_shape = tensor.sizes().vec();
 
-  // int4/uint4 data comes to the bridge packed into int32 tensors,
-  // so the real tensor shape must have FCD dimension multiplied by 8
-  if (synType == syn_type_int4 || synType == syn_type_uint4) {
-    tensor_shape.back() *= 8;
-  }
-
   // In case of dynamic graph update the name shape map
   if (graph.is_dynamic_graph() &&
       (graph.is_optim_output_sif_enabled() == false ||
@@ -363,7 +358,7 @@ synapse_helpers::tensor create_tensor(
     std::tie(min, max) = habana::ShapeInference::GetMinMaxShape(tensor_id);
   }
 
-  if (min.size() && max.size() && (min != max)) {
+  if (!min.empty() && !max.empty() && (min != max)) {
     // if the min represents the max value and if the max represents the min
     // value, swap them during tensor creation
     if (min > max) {
@@ -426,21 +421,21 @@ synapse_helpers::tensor create_tensor(
     bool range_found = false;
     std::string module_name = std::string();
     PtTensorInferenceData::InferenceRangePair inference_range;
-    if (name.size() > 0 &&
+    if (!name.empty() &&
         inference_name.find("placeholder") == std::string::npos) {
       module_name =
           PtTensorInferenceData::get_instance().extract_key_name(name, "/");
       inference_range =
           PtTensorInferenceData::get_instance().GetInferenceTensorRange(
-              module_name.c_str(), range_found_with_module_name);
+              module_name, range_found_with_module_name);
     }
     if (!range_found_with_module_name) {
       inference_range =
           PtTensorInferenceData::get_instance().GetInferenceTensorRange(
-              inference_name.c_str(), range_found);
-      if (range_found && (name.size() > 0)) {
+              inference_name, range_found);
+      if (range_found && !name.empty()) {
         PtTensorInferenceData::get_instance().duplicate_key(
-            inference_name.c_str(), name.c_str());
+            inference_name, name);
       }
     }
     if (range_found_with_module_name || range_found) {
@@ -569,7 +564,7 @@ synapse_helpers::tensor create_shape_tensor(
     std::tie(min, max) = habana::ShapeInference::GetMinMaxShape(tensor_id);
   }
 
-  if (min.size() && max.size() && (min != max)) {
+  if (!min.empty() && !max.empty() && (min != max)) {
     // if the min represents the max value and if the max represents the min
     // value, swap them during tensor creation
     if (min > max) {
@@ -693,7 +688,7 @@ synapse_helpers::tensor create_shape_tensor(
     std::tie(min, max) = habana::ShapeInference::GetMinMaxShape(tensor_id);
   }
 
-  if (min.size() && max.size() && (min != max)) {
+  if (!min.empty() && !max.empty() && (min != max)) {
     // if the min represents the max value and if the max represents the min
     // value, swap them during tensor creation
     if (min > max) {
@@ -812,7 +807,7 @@ synapse_helpers::tensor create_const_tensor(
     const c10::IntArrayRef& stride,
     synapse_helpers::graph& graph,
     bool persistent,
-    int devid,
+    synDeviceId devid,
     const c10::ScalarType dtype,
     void* host_ptr,
     const uint64_t host_ptr_size,
@@ -989,7 +984,7 @@ synapse_helpers::tensor duplicate_tensor_in_memory_section_with_size(
     auto tensor_id =
         synapse_helpers::detail::tensor_name_generator::get_tensor_id();
     std::tie(min, max) = habana::ShapeInference::GetMinMaxShape(tensor_id);
-    if (min.size() && max.size() && (min != max)) {
+    if (!min.empty() && !max.empty() && (min != max)) {
       auto dynamic_shape = synapse_helpers::tensor::dynamic_shape_t{
           synapse_helpers::to_shape_t(min), synapse_helpers::to_shape_t(max)};
       builder.with_dynamic_shape(dynamic_shape);
@@ -1216,7 +1211,13 @@ void update_tensor_layout_and_permutation(
 }
 
 at::Tensor create_empty_tensor(const PtTensorInfo& ti) {
-  auto pt_tensor = at::empty(ti.get_shape(), ti.get_topts(), ti.get_mf());
+  at::Tensor pt_tensor;
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 1) {
+    pt_tensor = habana_lazy::empty_hpu_lazy(
+        ti.get_shape(), ti.get_topts(), ti.get_mf());
+  } else {
+    pt_tensor = at::empty(ti.get_shape(), ti.get_topts(), ti.get_mf());
+  }
   update_tensor_layout_and_permutation(pt_tensor, ti);
   return pt_tensor;
 }

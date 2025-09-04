@@ -14,12 +14,11 @@
  */
 
 #pragma once
-#include <string.h>
+#include <cstring>
 #include <string_view>
 #include <vector>
 
-namespace habana {
-namespace profile {
+namespace habana::profile {
 void export_profiler_logs(std::string_view path);
 void setup_profiler_sources(
     bool bridge,
@@ -27,6 +26,5 @@ void setup_profiler_sources(
     const std::vector<std::string>& mandatory_events);
 void start_profiler_session();
 void stop_profiler_session();
-void setup_habana_profiler_configs(bool bridge, bool memory);
-}; // namespace profile
-}; // namespace habana
+void setup_habana_profiler_configs(bool bridge);
+}; // namespace habana::profile

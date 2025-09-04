@@ -37,8 +37,7 @@ std::shared_ptr<ConstantInformation>& ConstantInformationPtr() {
 
 ConstantInformation& ConstantInformationValue() {
   // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-  static ConstantInformation& constant_checksum =
-      *ConstantInformationPtr().get();
+  static ConstantInformation& constant_checksum = *ConstantInformationPtr();
   return constant_checksum;
 }
 
@@ -191,7 +190,7 @@ ConstantInformation::ConstantChecksums ConstantInformation::
   }
   HABANA_ASSERT(
       false, "No checksum found for const_id: ", id, " for recipe: ", key);
-  return {checksum_iterator->second.device_checksum_, checksum_t{0ul}};
+  return {checksum_iterator->second.device_checksum_, checksum_t{0UL}};
 }
 
 bool ConstantInformation::IsCheckSumExistInAnyConstInfo(
@@ -270,7 +269,7 @@ ConstantInformation::id_t ConstantInformation::GetMatchedConstIdForRecipe(
   HABANA_ASSERT(recipe_input_iter != recipe_iterator->second.end())
   auto const_id_set = recipe_input_iter->second;
   HABANA_ASSERT(
-      const_id_set.size(),
+      !const_id_set.empty(),
       "Const id list is empty for recipe ",
       recipe_key,
       " const_id ",
@@ -458,7 +457,6 @@ void ConstantInformation::CopyMatchedDataPtrForRecipe(
       StorePrevDataPtr(const_id, std::move(old_data_ptr), host_checksum);
     }
   }
-  return;
 }
 
 bool ConstantInformation::IsNewConstIdForRecipe(

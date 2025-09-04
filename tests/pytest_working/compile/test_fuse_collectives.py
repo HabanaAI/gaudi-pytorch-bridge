@@ -128,5 +128,5 @@ def test_allreduce_reordering(fn_shape_fallbackop_tuple):
 
         pg = dist.new_group(ranks=[0], backend="hpu:hccl")
         with FxGraphAnalyzer(reset_dynamo=False) as fga:
-            args = map(lambda shape: torch.ones(shape, device="hpu"), in_shapes)
+            args = (torch.ones(shape, device="hpu") for shape in in_shapes)
             fn(*args, pg)

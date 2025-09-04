@@ -37,6 +37,9 @@
 #define BRACED_PARAM(p) "{}"
 #define FORMAT_AND_MSG(...) \
   HLLOG_APPLY(HLLOG_EMPTY, BRACED_PARAM, ##__VA_ARGS__), ##__VA_ARGS__
+#define S1(x) #x
+#define S2(x) S1(x)
+#define FILE_AND_LINE __FILE__ "@" S2(__LINE__)
 
 namespace HlLogger {
 // Define an enum with all the logger types the last item must be LOG_MAX
@@ -71,6 +74,7 @@ enum class LoggerType {
   PT_CONST_SECTION,
   PT_PYTHON,
   PT_TOWL,
+  PT_CACHE,
   LOG_MAX // Don't use it
 };
 } // namespace HlLogger
@@ -129,12 +133,13 @@ inline std::string DebugString(const HlLogger::LoggerType& mod) {
       {HlLogger::LoggerType::PT_CONST_SECTION, "PT_CONST_SECTION"},
       {HlLogger::LoggerType::PT_PYTHON, "PT_PYTHON"},
       {HlLogger::LoggerType::PT_TOWL, "PT_TOWL"},
+      {HlLogger::LoggerType::PT_CACHE, "PT_CACHE"},
       // {HlLogger::LoggerType::LOG_MAX, "LOG_MAX"},
   };
   if (auto result = names.find(mod); result != names.end())
     return result->second;
   else
-    return std::string("UNDEFINED");
+    return {"UNDEFINED"};
 };
 
 template <typename T>
@@ -181,14 +186,14 @@ inline std::string _str_wrapper(const Args&... args) {
 uint64_t get_tid_internal();
 
 inline uint64_t get_tid() {
-  static thread_local uint64_t tid{static_cast<uint64_t>(get_tid_internal())};
+  static thread_local uint64_t tid{get_tid_internal()};
   return tid;
 }
 
 uint64_t get_rank_internal();
 
 inline uint64_t get_rank() {
-  static uint64_t tid{static_cast<uint64_t>(get_rank_internal())};
+  static uint64_t tid{get_rank_internal()};
   return tid;
 }
 
@@ -270,60 +275,22 @@ template <class... Args>
 inline void nop(__attribute__((unused)) const Args&... args){};
 } // namespace Logger
 
-class PTFuncLog {
- private:
-  const std::string_view module;
-  const std::string_view pName;
-  const std::string_view name;
-  bool isActive;
-
- public:
-  PTFuncLog(
-      const std::string_view module,
-      const std::string_view pn,
-      const std::string_view n,
-      bool isActive)
-      : module(module), pName(pn), name(n), isActive(isActive) {
-    if (isActive) {
-      HLLOG_TRACE(
-          PT_TRACE,
-          FORMAT_AND_MSG(
-              "[Rank:",
-              Logger::get_rank(),
-              "] ",
-              module,
-              ": begin of ",
-              pName));
-    }
-    habana::profile::bridge::trace_start(name);
-  }
-  ~PTFuncLog() {
-    if (isActive) {
-      HLLOG_TRACE(
-          PT_TRACE,
-          FORMAT_AND_MSG(
-              "[Rank:", Logger::get_rank(), "] ", module, ": end of ", pName));
-    }
-    habana::profile::bridge::trace_end(name);
-  }
-};
-
 #define HABANA_CHECK_MSG(cond, ...) \
   Logger::CheckMsgImpl(             \
       "Expected " #cond " to be true, but got false.", ##__VA_ARGS__)
 
-#define HABANA_ASSERT(condition, ...)                                    \
-  if (__builtin_expect(static_cast<bool>(!(condition)), 0)) {            \
-    auto MSG_ = std::string(HABANA_CHECK_MSG(condition, ##__VA_ARGS__)); \
-    const char* synErrorMsg = synGetLastErrorMessage();                  \
-    if (synErrorMsg) {                                                   \
-      MSG_ += std::string("\nLast synapse error: ") + synErrorMsg;       \
-    }                                                                    \
-    HLLOG_ERR_F(PT_BRIDGE, FORMAT_AND_MSG(__FILE__, __LINE__, MSG_));    \
-    hl_logger::logStacktrace(                                            \
-        HlLogger::LoggerType::PT_BRIDGE, HLLOG_LEVEL_ERROR);             \
-    Logger::habana_assert(                                               \
-        __func__, __FILE__, static_cast<uint32_t>(__LINE__), MSG_);      \
+#define HABANA_ASSERT(condition, ...)                                          \
+  if (__builtin_expect(static_cast<bool>(!(condition)), 0)) {                  \
+    auto MSG_ = std::string(HABANA_CHECK_MSG(condition, ##__VA_ARGS__));       \
+    const char* synErrorMsg = synGetLastErrorMessage();                        \
+    if (synErrorMsg) {                                                         \
+      MSG_ += std::string("\nLast synapse error: ") + synErrorMsg;             \
+    }                                                                          \
+    HLLOG_ERR_F(PT_BRIDGE, FORMAT_AND_MSG(FILE_AND_LINE, MSG_));               \
+    hl_logger::logStacktrace(                                                  \
+        HlLogger::LoggerType::PT_BRIDGE, HLLOG_LEVEL_ERROR);                   \
+    Logger::habana_assert(                                                     \
+        __PRETTY_FUNCTION__, __FILE__, static_cast<uint32_t>(__LINE__), MSG_); \
   }
 
 /************************CRITICAL MACROS************************/
@@ -367,6 +334,7 @@ class PTFuncLog {
 #define PT_LAZY_EAGER_FATAL(...) PT_MOD_FATAL(PT_LAZY_EAGER, __VA_ARGS__)
 #define PT_EAGER_FATAL(...) PT_MOD_FATAL(PT_EAGER, __VA_ARGS__)
 #define PT_CONST_SECTION_FATAL(...) PT_MOD_FATAL(PT_CONST_SECTION, __VA_ARGS__)
+#define PT_CACHE_FATAL(...) PT_MOD_FATAL(PT_CACHE, __VA_ARGS__)
 
 /************************WARNING MACROS************************/
 #define PT_MOD_WARN(MOD, ...) \
@@ -392,11 +360,11 @@ class PTFuncLog {
   PT_MOD_WARN_WITHOUT_LINE_FILE(PT_DYNAMIC_SHAPE, __VA_ARGS__)
 #define PT_LAZY_EAGER_WARN(...) \
   PT_MOD_WARN_WITHOUT_LINE_FILE(PT_LAZY_EAGER, __VA_ARGS__)
+#define PT_CACHE_WARN(...) PT_MOD_WARN(PT_CACHE, __VA_ARGS__)
 
 /************************TRACE MACROS************************************/
 #define PT_MOD_BEGIN(MOD) PT_MOD_SCOPE(MOD, __PRETTY_FUNCTION__, __FUNCTION__)
 
-#define PT_DEVICE_BEGIN PT_MOD_BEGIN(PT_DEVICE)
 #define PT_KERNEL_BEGIN                                           \
   {                                                               \
     bool lazy_mode = GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE);          \
@@ -413,23 +381,17 @@ class PTFuncLog {
 // following macro is a non-asserting version of PT_KERNEL_BEGIN
 #define PT_OTHER_OPS_BEGIN PT_MOD_BEGIN(PT_KERNEL)
 #define PT_BRIDGE_BEGIN PT_MOD_BEGIN(PT_BRIDGE)
+#define PT_BRIDGE_LAMBDA_BEGIN(LAMBDA_NAME) PT_MOD_SCOPE(PT_BRIDGE, __PRETTY_FUNCTION__, LAMBDA_NAME)
 #define PT_SYNHELPER_BEGIN PT_MOD_BEGIN(PT_SYNHELPER)
-#define PT_HABHELPER_BEGIN PT_MOD_BEGIN(PT_HABHELPER)
-#define PT_DEVMEM_BEGIN PT_MOD_BEGIN(PT_DEVMEM)
 #define PT_DISTRIBUTED_BEGIN PT_MOD_BEGIN(PT_DISTRIBUTED)
-#define PT_LAZY_BEGIN PT_MOD_BEGIN(PT_LAZY)
 
 #define PT_MOD_END(MOD)
 
-#define PT_DEVICE_END PT_MOD_END(PT_DEVICE)
 #define PT_KERNEL_END PT_MOD_END(PT_KERNEL)
 #define PT_OTHER_OPS_END PT_MOD_END(PT_KERNEL)
 #define PT_BRIDGE_END PT_MOD_END(PT_BRIDGE)
 #define PT_SYNHELPER_END PT_MOD_END(PT_SYNHELPER)
-#define PT_HABHELPER_END PT_MOD_END(PT_HABHELPER)
-#define PT_DEVMEM_END PT_MOD_END(PT_DEVMEM)
 #define PT_DISTRIBUTED_END PT_MOD_END(PT_DISTRIBUTED)
-#define PT_LAZY_END PT_MOD_END(PT_LAZY)
 
 #define PT_MOD_SCOPE(MOD, PNAME, NAME)                             \
   std::optional<PTFuncLog> ptFuncLogger{};                         \
@@ -463,6 +425,7 @@ class PTFuncLog {
   PT_MOD_TRACE(PT_DEVMEM, __PRETTY_FUNCTION__, __FUNCTION__)
 #define PT_LAZY_EAGER_TRACE \
   PT_MOD_TRACE(PT_LAZY_EAGER, __PRETTY_FUNCTION__, __FUNCTION__)
+#define PT_CACHE_TRACE PT_MOD_TRACE(PT_CACHE, __PRETTY_FUNCTION__, __FUNCTION__)
 
 /************************DEBUG MACROS************************************/
 #define IS_MOD_DEBUG_ENABLED(MOD) \
@@ -501,11 +464,14 @@ class PTFuncLog {
 #define PT_SYNHELPER_DEBUG(...) PT_MOD_DEBUG(PT_SYNHELPER, __VA_ARGS__)
 #define PT_TEST_DEBUG(...) PT_MOD_DEBUG(PT_TEST, __VA_ARGS__)
 #define PT_VIEWTABLE_DEBUG(...) PT_MOD_DEBUG(PT_VIEWTABLE, __VA_ARGS__)
+#define PT_CACHE_DEBUG(...) PT_MOD_DEBUG(PT_CACHE, __VA_ARGS__)
 
 #define PT_MOD_INFO(MOD, ...) HLLOG_INFO(MOD, FORMAT_AND_MSG(__VA_ARGS__));
 
 #define PT_EAGER_INFO(...) PT_MOD_INFO(PT_EAGER, __VA_ARGS__);
 #define PT_HABHELPER_INFO(...) PT_MOD_INFO(PT_HABHELPER, __VA_ARGS__)
+#define PT_HABHELPER_ERROR(...) \
+  HLLOG_ERR(PT_HABHELPER, FORMAT_AND_MSG(__VA_ARGS__))
 
 #define PT_PYTHON_TRACE(...) HLLOG_TRACE(PT_PYTHON, FORMAT_AND_MSG(__VA_ARGS__))
 #define PT_PYTHON_DEBUG(...) HLLOG_DEBUG(PT_PYTHON, FORMAT_AND_MSG(__VA_ARGS__))
@@ -533,9 +499,58 @@ class PTFuncLog {
 
 // End of logging macros
 
+class PTFuncLog {
+ private:
+  const std::string_view module;
+  const std::string_view pName;
+  const std::string_view name;
+  bool isActive;
+
+ public:
+  PTFuncLog(
+      const std::string_view module,
+      const std::string_view pn,
+      const std::string_view n,
+      bool isActive)
+      : module(module), pName(pn), name(n), isActive(isActive) {
+    if (isActive) {
+      HLLOG_TRACE(
+          PT_TRACE,
+          FORMAT_AND_MSG(
+              "[Rank:",
+              Logger::get_rank(),
+              "] ",
+              module,
+              ": begin of ",
+              pName));
+    }
+    habana::profile::bridge::trace_start(name);
+  }
+  ~PTFuncLog() noexcept {
+    try {
+      if (isActive) {
+        HLLOG_TRACE(
+            PT_TRACE,
+            FORMAT_AND_MSG(
+                "[Rank:",
+                Logger::get_rank(),
+                "] ",
+                module,
+                ": end of ",
+                pName));
+      }
+      habana::profile::bridge::trace_end(name);
+    } catch (const std::exception& e) {
+      PT_BRIDGE_WARN("Exception in destructor PTFuncLog. Message: ", e.what());
+    } catch (...) {
+      PT_BRIDGE_WARN("Unknown exception in destructor PTFuncLog");
+    }
+  }
+};
+
 template <
     typename Integer,
-    typename = std::enable_if_t<std::is_integral<Integer>::value>>
+    typename = std::enable_if_t<std::is_integral_v<Integer>>>
 std::string VecToString(const std::vector<Integer>& vec) {
   std::ostringstream sstr;
   sstr << "[";

@@ -15,6 +15,7 @@
 #include "event_dispatcher.h"
 #include <memory>
 #include "habana_helpers/logging.h"
+#include "habana_helpers/towl.h"
 
 namespace habana_helpers {
 
@@ -166,6 +167,9 @@ void EventDispatcher::log_publish_request(
     auto param_name = entry.first;
     auto param_data = entry.second;
     PT_HABHELPER_DEBUG("param | [", param_name, "]=", param_data, " |");
+    if (param_name == "recipe") {
+      towl::emitRecipeName(param_data);
+    }
   }
 }
 }; // namespace habana_helpers

@@ -93,7 +93,7 @@ TEST_F(PostOrderTest, poTestFill) {
       std::make_move_iterator(input_list.begin()),
       std::make_move_iterator(input_list.end()));
 
-  exec::HlExec* hlexec = new exec::HlExec();
+  auto hlexec = std::make_unique<exec::HlExec>();
   hlexec->GetOrCreate(po_data, stack);
 
   torch::jit::testing::FileCheck()
@@ -108,7 +108,7 @@ TEST_F(PostOrderTest, poTestCommonInput) {
   // result = add(t, tensor2, beta)
   torch::Tensor tensor_in1 = torch::randn({2, 3}).to(torch::kHPU);
   torch::Tensor tensor_in2 = torch::randn({2, 3}).to(torch::kHPU);
-  Scalar alpha = 1.0f, beta = 2.0f;
+  Scalar alpha = 1.0F, beta = 2.0F;
   auto result = add_tensor_hpu_lazy(tensor_in1, tensor_in2, alpha);
 
   auto result2 = add_tensor_hpu_lazy(result, tensor_in2, beta);
@@ -397,6 +397,5 @@ TEST_F(PostOrderTest, poTestCat) {
   std::vector<HbLazyTensor> tensors = {hl_result};
   std::vector<int> indices = {0};
   auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
-  auto str = po_data.post_order[0]->ToString();
   EXPECT_TRUE(po_data.outputs.size() == 1);
 }

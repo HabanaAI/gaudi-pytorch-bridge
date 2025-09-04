@@ -47,7 +47,7 @@ def test_adagrad():
     optim_x = torch.optim.Adagrad([x1, x2], lr=lr)
 
     # print('before adam.step x ::\n{}'.format(x.to(cpu)))
-    for _ in range(0, 1):
+    for _ in range(1):
         x = torch.add(x1, x2)
 
         # Compute loss
@@ -69,7 +69,7 @@ def test_adagrad():
     optim_y = FusedAdagrad([y1, y2], lr=lr)
 
     # print('before adam_habana.step y ::\n{}'.format(y.to(cpu)))
-    for _ in range(0, 1):
+    for _ in range(1):
         y = torch.add(y1, y2)
 
         # Compute loss

@@ -42,7 +42,9 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
             at::ScalarType precision_type =
                 reinterpret_cast<THPDtype*>(py_dtype.ptr())->scalar_type;
             report[precision_type] = value;
-          });
+          })
+      .def_readwrite("fp4_support", &slrg::Report::fp4_support)
+      .def_readwrite("int4_support", &slrg::Report::int4_support);
   py::class_<slrg::OperatorDescriptor>(m, "OperatorDescriptor")
       .def(py::init<>())
       .def(py::init<std::string, std::string, std::string>())

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -55,7 +55,6 @@ bool isInList(const std::vector<Value*>& l, const Value* v) {
 }
 
 bool checkOps(const Node* n) {
-  std::string kind = n->kind().toQualString();
   return isInplaceOp(n) || isControlNode(n);
 }
 
@@ -66,7 +65,7 @@ bool isGraphInput(const std::shared_ptr<Graph>& graph, const Value* v) {
   }
 
   auto n = v->node();
-  if (n && (n->inputs().size() >= 1)) {
+  if (n && !n->inputs().empty()) {
     auto in = n->input(0);
     if (checkOps(n) && isGraphInput(graph, in)) {
       return true;
@@ -84,7 +83,7 @@ bool isGraphOutput(const std::shared_ptr<Graph>& graph, const Value* v) {
 
   for (auto& u : v->uses()) {
     auto n = u.user;
-    if (n && checkOps(n) && (n->outputs().size() >= 1)) {
+    if (n && checkOps(n) && !n->outputs().empty()) {
       auto o = n->output(0);
       if (isGraphOutput(graph, o)) {
         return true;
@@ -109,7 +108,7 @@ If below conditions are satisfied, then check for graph output is avoided.
  */
 bool canReplaceOp(const std::shared_ptr<Graph>& graph, const Node* node) {
   if ((nullptr == node) || (node->outputs().size() > 1) ||
-      (node->inputs().size() < 1)) {
+      node->inputs().empty()) {
     return false;
   }
 
@@ -124,10 +123,10 @@ void replace_inplace_ops(
     std::shared_ptr<Graph>& graph,
     const std::vector<Node*>& nodes) {
   for (auto& node : nodes) {
-    torch::jit::WithInsertPoint insert_point(node);
     if (nullptr == node) {
       continue;
     }
+    torch::jit::WithInsertPoint insert_point(node);
 
     std::string kind = node->kind().toQualString();
     std::string new_kind = inPlaceToOutOfPlace.at(kind);

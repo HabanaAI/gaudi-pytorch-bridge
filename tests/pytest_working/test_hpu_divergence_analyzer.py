@@ -17,9 +17,9 @@
 
 import os
 
-import habana_frameworks.torch.hpu as hpu
 import pytest
 import torch
+from habana_frameworks.torch import hpu
 
 TRAIN_CMD = f"python {os.path.abspath(__file__)}"
 DEBUG_MODE = os.getenv("ENABLE_DIVERGENCE_ANALYSER_TESTS_DEBUG")
@@ -58,7 +58,16 @@ def _test_hpu_ops():
         out = run(shape=(4, c, 3))
 
 
-def predict_status(train_cmd, do_train, do_compare, to_csv, do_split, enable_parallel, outdir, exit_on_first_mismatch):
+def predict_status(
+    train_cmd,
+    do_train,
+    do_compare,
+    to_csv,
+    do_split,
+    enable_parallel,
+    outdir,
+    exit_on_first_mismatch,
+):
     if outdir == "":
         return 512  # error: argument --outdir: expected one argument
     elif (
@@ -71,8 +80,18 @@ def predict_status(train_cmd, do_train, do_compare, to_csv, do_split, enable_par
         return 0
 
 
-def get_cmd(train_cmd, do_train, do_compare, to_csv, do_split, enable_parallel, outdir, exit_on_first_mismatch):
-    cmd = f"python $PYTORCH_MODULES_ROOT_PATH/python_packages/habana_frameworks/torch/utils/debug/divergence_analyzer.py \
+def get_cmd(
+    train_cmd,
+    do_train,
+    do_compare,
+    to_csv,
+    do_split,
+    enable_parallel,
+    outdir,
+    exit_on_first_mismatch,
+):
+    cmd = (
+        f"python $PYTORCH_MODULES_ROOT_PATH/python_packages/habana_frameworks/torch/utils/debug/divergence_analyzer.py \
         --train_cmd '{train_cmd}' \
         --do_train {do_train} \
         --do_compare {do_compare} \
@@ -81,6 +100,7 @@ def get_cmd(train_cmd, do_train, do_compare, to_csv, do_split, enable_parallel, 
         --enable_parallel {enable_parallel} \
         --outdir {outdir} \
         --exit_on_first_mismatch {exit_on_first_mismatch}"
+    )
     return cmd
 
 
@@ -93,14 +113,28 @@ def get_cmd(train_cmd, do_train, do_compare, to_csv, do_split, enable_parallel, 
 @pytest.mark.parametrize("outdir", outdir)
 @pytest.mark.parametrize("exit_on_first_mismatch", exit_on_first_mismatch)
 def test_divergence_tool(
-    train_cmd, do_train, do_compare, to_csv, do_split, enable_parallel, outdir, exit_on_first_mismatch
+    train_cmd,
+    do_train,
+    do_compare,
+    to_csv,
+    do_split,
+    enable_parallel,
+    outdir,
+    exit_on_first_mismatch,
 ):
     n_devices = hpu.device_count()
     if enable_parallel == 1 and n_devices < 2:
         return
 
     expected_status = predict_status(
-        train_cmd, do_train, do_compare, to_csv, do_split, enable_parallel, outdir, exit_on_first_mismatch
+        train_cmd,
+        do_train,
+        do_compare,
+        to_csv,
+        do_split,
+        enable_parallel,
+        outdir,
+        exit_on_first_mismatch,
     )
 
     if do_train == 0 and do_compare == 1:
@@ -114,10 +148,19 @@ def test_divergence_tool(
             outdir=outdir,
             exit_on_first_mismatch=exit_on_first_mismatch,
         )
-        os.system(cmd_train)
+        os.system(cmd_train)  # noqa S605
 
-    cmd = get_cmd(train_cmd, do_train, do_compare, to_csv, do_split, enable_parallel, outdir, exit_on_first_mismatch)
-    test_status = os.system(cmd)
+    cmd = get_cmd(
+        train_cmd,
+        do_train,
+        do_compare,
+        to_csv,
+        do_split,
+        enable_parallel,
+        outdir,
+        exit_on_first_mismatch,
+    )
+    test_status = os.system(cmd)  # noqa S605
 
     assert expected_status == test_status
     assert os.path.exists(os.path.join(outdir, "dumps", "mismatch.txt")) is False

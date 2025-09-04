@@ -38,7 +38,8 @@ void ComputeGraphHashCode(
     const std::string& id,
     at::ArrayRef<torch::jit::IValue> input_refs,
     std::string& op_strs,
-    size_t& graphHashCode,
+    size_t& graphHashCode, /**[in,out]*/
+    size_t& shapelessWithDimsHash, /**[in,out]*/
     uint64_t unique_graph_cntr = 0,
     std::vector<bool> node_bcast_details = {},
     bool dynamic_graph = false,
@@ -163,7 +164,10 @@ class NodeParamAgnosticOpList {
         c10::Symbol::fromQualString("aten::masked_fill"),
         c10::Symbol::fromQualString("aten::masked_fill_"),
         c10::Symbol::fromQualString("aten::_efficientzerotensor"),
-        c10::Symbol::fromQualString("aten::scatter")};
+        c10::Symbol::fromQualString("aten::scatter"),
+        c10::Symbol::fromQualString("aten::repeat_interleave"),
+        c10::Symbol::fromQualString("aten::eye"),
+        c10::Symbol::fromQualString("hpu::randperm")};
     return ops_list;
   }
 
@@ -227,7 +231,15 @@ struct OptimizedJITGraphAndMetaData {
     opstrs = op_strs;
   }
 
-  size_t get_cached_graph_key() {
+  size_t get_shapeless_with_dims_hash() const {
+    return this->shapelessGraphWithDimsHash;
+  }
+
+  void set_shapeless_with_dims_hash(size_t hash) {
+    this->shapelessGraphWithDimsHash = hash;
+  }
+
+  size_t get_cached_graph_key() const {
     return graphKey;
   }
 
@@ -489,6 +501,7 @@ struct OptimizedJITGraphAndMetaData {
   std::shared_ptr<torch::jit::Graph> jit_graph_to_lowering = nullptr;
   std::string opstrs = std::string();
   size_t graphKey = 0;
+  size_t shapelessGraphWithDimsHash{0};
   bool dbg = false;
   size_t graph_index = 0;
   uint64_t unique_graph_cntr = 0;
@@ -669,7 +682,11 @@ class OptimizedJitGraphCache {
           "hpu::fused_clip_norm"sv,
           "hpu::custom_foreach_add_"sv,
           "hpu::sdpa"sv,
-          "hpu::fp8_sdpa"sv};
+          "hpu::fp8_sdpa"sv,
+          "hpu::mixture_of_experts_fwd"sv,
+          "hpu::mixture_of_experts_bwd"sv,
+          "hpu::mixture_of_experts_recomp_fwd"sv,
+          "hpu::mixture_of_experts_recomp_bwd"sv};
 };
 
 class OptimizedJitGraphCacheBackup {

@@ -30,7 +30,7 @@ void CompileSynapseTaskWrapper(
   LOP::ScopeEvent scope_event(
       "EagerCompileTask()",
       launch_op.get_jit_graph_and_meta_data()->GetOpName(),
-      (int32_t)LOP::PipelineStageID::PIPELIE_STAGE_COMPILE_ID,
+      (int32_t)LOP::PipelineStageID::PIPELINE_STAGE_COMPILE_ID,
       launch_op.get_graph_key(),
       launch_op.get_jit_graph_cache_hit_count(),
       HPUDeviceContext::compile_thread_pool().get_active_task_count(),
@@ -38,9 +38,6 @@ void CompileSynapseTaskWrapper(
 
   if (func)
     func(launch_op);
-
-  if (!launch_op.get_enable_4stage_pipeline())
-    HPUDeviceContext::execute_thread().waitWorkComplete();
 }
 }; // namespace HabanaLaunchOpPipeline
 

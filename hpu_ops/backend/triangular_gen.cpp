@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@
 #include "hpu_ops/shared_meta_common.h"
 
 namespace habana {
-std::shared_ptr<void> FillTriuParams(const at::Stack& stack, size_t& size) {
+FillParamsT FillTriuParams(const at::Stack& stack) {
   PARAMS_STUB(ns_MatrixBandPartKernel::triParams);
   auto self = stack.at(0).toTensor();
   auto diagonal = stack.at(1).toInt();
@@ -28,10 +28,10 @@ std::shared_ptr<void> FillTriuParams(const at::Stack& stack, size_t& size) {
   params->numLower = diagonal;
   params->numUpper = INT_MAX;
   params->excludeDiag = 1;
-  return params;
+  return paramsT;
 }
 
-std::shared_ptr<void> FillTrilParams(const at::Stack& stack, size_t& size) {
+FillParamsT FillTrilParams(const at::Stack& stack) {
   PARAMS_STUB(ns_MatrixBandPartKernel::triParams);
   auto self = stack.at(0).toTensor();
   auto diagonal = stack.at(1).toInt();
@@ -39,31 +39,26 @@ std::shared_ptr<void> FillTrilParams(const at::Stack& stack, size_t& size) {
   params->numLower = INT_MIN;
   params->numUpper = diagonal;
   params->excludeDiag = 1;
-  return params;
+  return paramsT;
 }
 
-std::shared_ptr<void> FillTriluIndicesParams(
+FillParamsT FillTriluIndicesParams(
     const at::Stack& stack,
-    size_t& size,
     const bool lowerTriangle) {
   PARAMS_STUB(ns_TriluIndicesKernel::Params);
   params->row = stack.at(0).toInt();
   params->col = stack.at(1).toInt();
   params->offset = stack.at(2).toInt();
   params->lowerTriangle = lowerTriangle;
-  return params;
+  return paramsT;
 }
 
-std::shared_ptr<void> FillTrilIndicesParams(
-    const at::Stack& stack,
-    size_t& size) {
-  return FillTriluIndicesParams(stack, size, true);
+FillParamsT FillTrilIndicesParams(const at::Stack& stack) {
+  return FillTriluIndicesParams(stack, true);
 }
 
-std::shared_ptr<void> FillTriuIndicesParams(
-    const at::Stack& stack,
-    size_t& size) {
-  return FillTriluIndicesParams(stack, size, false);
+FillParamsT FillTriuIndicesParams(const at::Stack& stack) {
+  return FillTriluIndicesParams(stack, false);
 }
 
 inline int GetTrilNumel(int row, int col, int offset) {
@@ -148,8 +143,7 @@ SharedMetaDataVector TrilTriuIndicesSharedMeta(
 void TriluIndices::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  size_t size = 0;
-  const auto& params = FillParams(stack, size);
+  const auto& params = FillParams(stack);
   auto meta = OutputMeta(stack)[0];
 
   if (meta.shape[1] == 0) {
@@ -163,8 +157,8 @@ void TriluIndices::AddNode(
         guid_,
         {},
         {{meta.shape, meta.dtype, 0}},
-        params.get(),
-        sizeof(params));
+        params.ptr(),
+        params.size());
     syn_out(0) = std::move(triluIndices[0]);
   }
 }

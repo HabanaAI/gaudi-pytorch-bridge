@@ -237,7 +237,7 @@ TEST_F(LazyConvKernelGraphTest, ConvolutionBackward) {
       false,
       {0, 0},
       1,
-      {1, 1, 1});
+      {true, true, true});
 
   std::vector<HbLazyTensor> tensors = {
       SyncAndGetHbLazyTensor(out1),
@@ -260,7 +260,7 @@ TEST_F(LazyConvKernelGraphTest, ConvolutionBackward) {
       std::make_move_iterator(input_list.begin()),
       std::make_move_iterator(input_list.end()));
 
-  exec::HlExec* hlexec = new exec::HlExec();
+  auto hlexec = std::make_unique<exec::HlExec>();
   hlexec->GetOrCreate(po_data, stack);
 
   torch::jit::testing::FileCheck()

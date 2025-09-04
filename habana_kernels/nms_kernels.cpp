@@ -353,9 +353,9 @@ InferOutputMetaRetType BatchedNMSOperator::InferOutputMeta(
       "Shape tensor 2 calculation mismatch for batched_nms");
 
   out.AddOutputTensor(TensorMetaData(
-      {static_cast<int>(indexes.sizes()[0]) * max_classes},
+      {static_cast<int64_t>(indexes.sizes()[0]) * max_classes},
       HabanaOperator::CalculateStrides(
-          {static_cast<int>(indexes.sizes()[0]) * max_classes},
+          {static_cast<int64_t>(indexes.sizes()[0]) * max_classes},
           indexes.suggest_memory_format()),
       indexes.scalar_type(),
       indexes.suggest_memory_format()));
@@ -413,7 +413,7 @@ void BatchedNMSOperator::AllocateAndAddSynapseNode(
 
   auto box_id_out = habana::createPTTensor(
       indexes,
-      {static_cast<int>(indexes.sizes()[0]) * max_classes},
+      {static_cast<int64_t>(indexes.sizes()[0]) * max_classes},
       indexes.options(),
       output_metadata.at(0).persistent);
   AllocateSynapseOutput(

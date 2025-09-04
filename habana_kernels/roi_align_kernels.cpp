@@ -23,6 +23,7 @@
 #include "habana_helpers/logging.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/roi_align_kernels.h"
+#include "hpu_ops/hpu_op_helper.h"
 
 using namespace habana;
 
@@ -117,9 +118,11 @@ InferOutputMetaRetType RoiAlignBwdOperator::InferOutputMeta(
     out.call_InferOutputMeta(cast_op, castOp_stack);
   }
 
-  auto quad_tree_op = make_operator<habana::QuadTreeFwdImplOperator>(
-      this->p_context_->device_id_, c10::ScalarType::Float);
-  out.call_InferOutputMeta(quad_tree_op, inputs);
+  if (habana::HPUDeviceContext::get_device().type() == synDeviceGaudi) {
+    auto quad_tree_op = make_operator<habana::QuadTreeFwdImplOperator>(
+        this->p_context_->device_id_, c10::ScalarType::Float);
+    out.call_InferOutputMeta(quad_tree_op, inputs);
+  }
 
   auto roi_bwd_impl_op = make_operator<habana::RoiAlignBwdImplOperator>(
       this->p_context_->device_id_, inputs[0].toTensor().scalar_type());
@@ -135,10 +138,12 @@ void RoiAlignBwdOperator::AllocateAndAddSynapseNode(
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
   auto rois = inputs[1].toTensor();
-  // quad_tree supports f32 only, therefore rois need to be casted to f32 before
-  // feeding into quad_tree
+  const bool isGaudi1 =
+      habana::HPUDeviceContext::get_device().type() == synDeviceGaudi;
+  // quad_tree supports f32 only, therefore rois need to be casted to
+  // f32 before feeding into quad_tree
   std::shared_ptr<HabanaOperator> cast_op;
-  if (rois.scalar_type() == c10::ScalarType::BFloat16) {
+  if (rois.scalar_type() == c10::ScalarType::BFloat16 && isGaudi1) {
     cast_op =
         make_operator<CastOperator>(rois.device().index(), "cast_bf16_to_f32");
     cast_op->SetSynapseInput(p_context_->syn_inputs_[1]);
@@ -147,26 +152,28 @@ void RoiAlignBwdOperator::AllocateAndAddSynapseNode(
     md[0].dtype = stack[1].toScalarType();
     cast_op->AllocateAndAddSynapseNode(graph, stack, md);
   }
-  auto quad_tree_op = make_operator<habana::QuadTreeFwdImplOperator>(
-      this->p_context_->device_id_, c10::ScalarType::Float);
-  quad_tree_op->SetSynapseInput(
-      (rois.scalar_type() == c10::ScalarType::BFloat16)
-          ? cast_op->GetSynOutputs()[0]
-          : p_context_->syn_inputs_[1]);
-  quad_tree_op->SetSynapseInput(p_context_->syn_inputs_[2]);
-  quad_tree_op->SetSynapseInput(p_context_->syn_inputs_[3]);
-  quad_tree_op->AllocateAndAddSynapseNode(
-      graph, inputs, OutputMetaDataVector(1));
 
   auto roi_bwd_op = make_operator<habana::RoiAlignBwdImplOperator>(
       this->p_context_->device_id_, inputs[0].toTensor().scalar_type());
   roi_bwd_op->SetSynapseInput(p_context_->syn_inputs_[0]);
   roi_bwd_op->SetSynapseInput(
-      (rois.scalar_type() == c10::ScalarType::BFloat16)
+      (rois.scalar_type() == c10::ScalarType::BFloat16 && isGaudi1)
           ? cast_op->GetSynOutputs()[0]
           : p_context_->syn_inputs_[1]);
   roi_bwd_op->SetSynapseInput(p_context_->syn_inputs_[2]);
-  roi_bwd_op->SetSynapseInput(quad_tree_op->GetSynOutputs()[0]);
+  if (isGaudi1) {
+    auto quad_tree_op = make_operator<habana::QuadTreeFwdImplOperator>(
+        this->p_context_->device_id_, c10::ScalarType::Float);
+    quad_tree_op->SetSynapseInput(
+        (rois.scalar_type() == c10::ScalarType::BFloat16)
+            ? cast_op->GetSynOutputs()[0]
+            : p_context_->syn_inputs_[1]);
+    quad_tree_op->SetSynapseInput(p_context_->syn_inputs_[2]);
+    quad_tree_op->SetSynapseInput(p_context_->syn_inputs_[3]);
+    quad_tree_op->AllocateAndAddSynapseNode(
+        graph, inputs, OutputMetaDataVector(1));
+    roi_bwd_op->SetSynapseInput(quad_tree_op->GetSynOutputs()[0]);
+  }
   roi_bwd_op->AllocateAndAddSynapseNode(graph, inputs, output_metadata);
 
   p_context_->syn_outputs_.emplace_back(
@@ -312,5 +319,7 @@ void QuadTreeFwdImplOperator::AllocateAndAddSynapseNode(
 
 static auto& RoiAlignKernelsKernelRegistry =
     habana::KernelRegistry()
-        .add("hpu::roi_align_fwd", KERNEL_FN(RoiAlignFwdOperator))
-        .add("hpu::roi_align_bwd", KERNEL_FN(RoiAlignBwdOperator));
+        .REGISTER_HPU_BACKEND("hpu::roi_align_fwd", habana::RoiAlignFwdOperator)
+        .REGISTER_HPU_BACKEND(
+            "hpu::roi_align_bwd",
+            habana::RoiAlignBwdOperator);

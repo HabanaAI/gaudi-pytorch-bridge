@@ -259,10 +259,9 @@ def comm_fusion_with_concat(
             bucket_size = bucket_cap_size
             begin = end
             curr_size = 0
-        else:
-            if begin < len(comm_blocks):
-                _fuse_with_cat(gm, comm_blocks[begin:end], node_indices)
-                graph_changed = True
+        if begin < len(comm_blocks):
+            _fuse_with_cat(gm, comm_blocks[begin:end], node_indices)
+            graph_changed = True
 
     return graph_changed
 
@@ -285,13 +284,17 @@ def _create_meta_tensor_meta(
 def _create_meta_val(
     val: FakeTensor,
 ) -> FakeTensor:
-
     from torch._dynamo.utils import detect_fake_mode
 
     fake_mode = detect_fake_mode(val)
 
     if fake_mode:
-        return torch.empty(val.shape, dtype=val.dtype, device=val.device, requires_grad=val.requires_grad)
+        return torch.empty(
+            val.shape,
+            dtype=val.dtype,
+            device=val.device,
+            requires_grad=val.requires_grad,
+        )
 
 
 def _call_function(
@@ -369,7 +372,14 @@ def _fuse_with_cat(
             if tensor_meta:
                 num_of_elements = math.prod(tensor_meta.shape)
             cat_inputs.append(
-                _call_function(gm, fake_tensor_mode, None, torch.ops.aten.view.default, input_node, [num_of_elements])
+                _call_function(
+                    gm,
+                    fake_tensor_mode,
+                    None,
+                    torch.ops.aten.view.default,
+                    input_node,
+                    [num_of_elements],
+                )
             )
     with gm.graph.inserting_after(cat_inputs[0]):
         cat_node = _call_function(gm, fake_tensor_mode, None, torch.ops.aten.cat.default, cat_inputs)

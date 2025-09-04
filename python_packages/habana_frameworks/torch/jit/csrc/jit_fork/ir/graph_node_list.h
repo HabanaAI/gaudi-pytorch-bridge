@@ -24,8 +24,7 @@
 
 #include "habana_helpers/logging.h"
 
-namespace habana_torch {
-namespace jit {
+namespace habana_torch::jit {
 
 // Intrusive doubly linked lists with sane reverse iterators.
 // The header file is named generic_graph_node_list.h because it is ONLY
@@ -206,8 +205,7 @@ static inline bool operator!=(
   return *a != *b;
 }
 
-} // namespace jit
-} // namespace habana_torch
+} // namespace habana_torch::jit
 
 namespace std {
 

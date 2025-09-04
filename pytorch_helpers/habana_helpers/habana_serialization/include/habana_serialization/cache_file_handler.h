@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,6 +35,7 @@ namespace serialization {
 
 constexpr const char* RECIPE_SUFFIX = ".recipe";
 constexpr const char* METADATA_SUFFIX = ".metadata";
+constexpr const char* TEMP_FILE_PREFIX = "temp_";
 
 std::string recipe_file_path(
     std::string const& path,
@@ -43,6 +44,12 @@ std::string recipe_file_path(
 std::string metadata_file_path(
     std::string const& path,
     const std::string& cache_id);
+
+// inserts TEMP_FILE_PREFIX into file name in path
+std::string insert_temp_prefix_filename(std::string const& path);
+
+// appends PID and MAC address to a given path
+std::string append_unique_node_id(std::string const& path);
 
 class CacheFileHandler {
   // This is an Abstract class
@@ -101,7 +108,9 @@ class CacheFileHandler {
       bool block,
       size_t& size);
   // Add the size of new file and delete something if required
-  void addFileInfo(const std::string& cache_id);
+  void addFileInfo(
+      const std::string& recipe_file_path,
+      const std::string& metadata_file_path);
 };
 
 } // namespace serialization

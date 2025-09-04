@@ -17,8 +17,11 @@
 
 import pytest
 import torch
+from test_utils import is_gaudi1
 
-dtypes = [torch.float32, torch.bfloat16, torch.float8_e5m2, torch.float8_e4m3fn]
+dtypes = [torch.float32, torch.bfloat16]
+if not is_gaudi1():
+    dtypes += [torch.float8_e5m2, torch.float8_e4m3fn]
 
 
 @pytest.mark.parametrize("input_shape", [(4,), (2, 4), (2, 1, 4), (2, 2, 6, 4)])

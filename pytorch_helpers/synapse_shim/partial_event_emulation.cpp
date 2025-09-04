@@ -14,7 +14,6 @@
  */
 
 #include "synapse_shim/partial_event_emulation.h"
-#include <iostream>
 
 synStatus PartialEventEmulation::synTensorExtExtractExecutionOrder(
     const synRecipeHandle,
@@ -34,7 +33,7 @@ synStatus PartialEventEmulation::synLaunchWithExternalEvents(
     uint32_t flags) {
   auto status = synLaunch(
       streamHandle,
-      reinterpret_cast<const synLaunchTensorInfo*>(launchTensorsInfo),
+      launchTensorsInfo,
       numberOfTensors,
       pWorkspace,
       pRecipeHandle,
@@ -84,7 +83,7 @@ synStatus PartialEventEmulation::synTensorGetExternal(
 bool UsePartialEventEmulation() {
   static bool flag{
       std::string_view(
-          getenv("PT_HPU_EMULATE_SIGNALING_FROM_ENCAP_OP") == NULL
+          getenv("PT_HPU_EMULATE_SIGNALING_FROM_ENCAP_OP") == nullptr
               ? "false"
               : getenv("PT_HPU_EMULATE_SIGNALING_FROM_ENCAP_OP")) == "true"};
   return flag;

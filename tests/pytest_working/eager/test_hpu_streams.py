@@ -136,7 +136,7 @@ def testIf():
         ht.hpu.default_stream()
         ht.hpu.current_stream()
         print(
-            f"Id/device of default stream={ht.hpu.default_stream().id(),ht.hpu.default_stream().device_index} Id/dev of current stream={ht.hpu.current_stream().id(),ht.hpu.current_stream().device_index}"
+            f"Id/device of default stream={ht.hpu.default_stream().id(), ht.hpu.default_stream().device_index} Id/dev of current stream={ht.hpu.current_stream().id(), ht.hpu.current_stream().device_index}"
         )
     print("TEST:Exiting Context")
 
@@ -175,7 +175,6 @@ def testInfo():
 
 
 def testProfiling():
-
     in_shape = (10, 2)
     torch.zeros(in_shape).to("hpu")
     torch.ones(in_shape).to("hpu")
@@ -194,7 +193,6 @@ def testProfiling():
 
 
 def testProfiling2():
-
     in_shape = (10, 2)
     tA_h = torch.zeros(in_shape).to("hpu")
     tB_h = torch.ones(in_shape).to("hpu")
@@ -249,7 +247,6 @@ def testEventSync():
 
 
 def testEventSyncUserStream():
-
     print("Starting testEventSyncUserStream TEST")
     print("Create s0")
     s0 = ht.hpu.Stream()
@@ -616,7 +613,6 @@ def testCopyNonBlocking():
 
 
 def testProfiling_default_stream():
-
     in_shape = (10, 2)
     tA_h = torch.zeros(in_shape).to("hpu")
     tB_h = torch.ones(in_shape).to("hpu")

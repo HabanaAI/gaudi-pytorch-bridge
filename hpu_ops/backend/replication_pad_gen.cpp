@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,22 +41,16 @@ OutputMetaDataVector ReplicationPad3DMeta(const at::Stack& stack) {
   return {meta};
 }
 
-std::shared_ptr<void> FillReplicationPad1dFwdParams(
-    const at::Stack& stack,
-    size_t& size) {
-  return FillPadFwdBwdParams(stack, pad1D, size, false);
+FillParamsT FillReplicationPad1dFwdParams(const at::Stack& stack) {
+  return FillPadFwdBwdParams(stack, pad1D, false);
 }
 
-std::shared_ptr<void> FillReplicationPad2dFwdParams(
-    const at::Stack& stack,
-    size_t& size) {
-  return FillPadFwdBwdParams(stack, pad2D, size, false);
+FillParamsT FillReplicationPad2dFwdParams(const at::Stack& stack) {
+  return FillPadFwdBwdParams(stack, pad2D, false);
 }
 
-std::shared_ptr<void> FillReplicationPad3dFwdParams(
-    const at::Stack& stack,
-    size_t& size) {
-  return FillPadFwdBwdParams(stack, pad3D, size, false);
+FillParamsT FillReplicationPad3dFwdParams(const at::Stack& stack) {
+  return FillPadFwdBwdParams(stack, pad3D, false);
 }
 
 } // namespace habana

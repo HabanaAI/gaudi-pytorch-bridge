@@ -22,9 +22,9 @@ from collections.abc import Callable
 import habana_frameworks.torch as ht
 import torch
 import torch._dynamo
-import torch.nn as nn
 import torch.nn.functional as F
 from test_utils import compile_function_if_compile_mode
+from torch import nn
 from torch.nn.parameter import Parameter
 
 try:
@@ -507,7 +507,9 @@ def run_single_node(rank, *arguments):
 
     if do_device_profile:
         if SynapseProfilerApi is None or TraceType is None:
-            assert False, "SynapseProfilerApi or TraceType is None, please set PYTORCH_MODULES_ROOT_PATH correctly"
+            raise AssertionError(
+                "SynapseProfilerApi or TraceType is None, please set PYTORCH_MODULES_ROOT_PATH correctly"
+            )
         prof = HabanaDeviceProfile(SynapseProfilerApi(), 5)
         prof.start()
         run_iterations(prof)
@@ -538,8 +540,7 @@ if __name__ == "__main__":
     start = time.time()
     world_size = args.world_size
     device_count = ht.hpu.device_count()
-    if device_count < world_size:
-        world_size = device_count
+    world_size = min(world_size, device_count)
     input_args = (world_size,)
     torch.multiprocessing.spawn(run_single_node, args=(args,), nprocs=world_size)
     print("Time taken :", time.time() - start)

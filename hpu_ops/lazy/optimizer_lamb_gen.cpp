@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
  */
 
 #include "hpu_ops/optimizer_lamb_gen.h"
+#include "common/warning_suppress.h"
 
 namespace habana {
 
@@ -28,7 +29,8 @@ HPU_OP_FRONTEND_CREATE_RESULT_ONLY(
     LazyOptimizerLambNorm,
     at::Tensor) {
   const auto& inputs = habana_lazy::LazyOp<at::Tensor>::get_inputs();
-  const auto& t = inputs.at(0).toTensorList().get(0);
+  SUPPRESS_WDANGLING_REFERENCE(const auto& t =
+                                   inputs.at(0).toTensorList().get(0);)
   return habana_lazy::empty_hpu_lazy(
       {1}, t.options(), t.suggest_memory_format(), false);
 }

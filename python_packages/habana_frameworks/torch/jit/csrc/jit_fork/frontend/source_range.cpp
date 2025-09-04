@@ -97,7 +97,7 @@ StringCordView StringCordView::substr(size_t start, size_t size) const {
   std::vector<std::shared_ptr<std::string>> ownerships;
   if (start >= this->size()) {
     // out of bounds
-    return StringCordView();
+    return {};
   }
   if (start + size >= this->size()) {
     size = this->size() - start;
@@ -130,7 +130,7 @@ StringCordView StringCordView::substr(size_t start, size_t size) const {
       owned_strings_.end(),
       std::back_inserter(ownerships));
 
-  return StringCordView(std::move(pieces), std::move(ownerships));
+  return {std::move(pieces), std::move(ownerships)};
 }
 
 bool StringCordView::operator==(const std::string& rhs) const {
@@ -166,7 +166,7 @@ StringCordView::Iterator StringCordView::iter_for_pos(size_t pos) const {
   size_t line = upper - accumulated_sizes_.begin() - 1;
   assert(accumulated_sizes_[line] <= pos);
   assert(accumulated_sizes_[line + 1] > pos);
-  return Iterator(this, line, pos - accumulated_sizes_[line], size() - pos);
+  return {this, line, pos - accumulated_sizes_[line], size() - pos};
 }
 
 size_t SourceRangeHasher::operator()(
@@ -191,6 +191,7 @@ void format_stack_trace(
     std::ostream& out,
     const std::vector<StackEntry>& entries) {
   std::vector<SourceRange> orig_ranges;
+  orig_ranges.reserve(entries.size());
   // gather original ranges. if we have a situation where we do not have orig
   // ranges for some frames, we still want to report them for the frames we do
   // have,

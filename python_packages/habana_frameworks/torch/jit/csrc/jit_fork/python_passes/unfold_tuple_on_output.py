@@ -15,7 +15,7 @@
 #
 ###############################################################################
 
-import habana_frameworks.torch._torch_jit_C.jit as jit
+from habana_frameworks.torch._torch_jit_C import jit
 
 
 def pass_unfold_tuple_on_output(jit_graph: jit.Graph):

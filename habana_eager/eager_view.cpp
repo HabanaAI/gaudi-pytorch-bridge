@@ -17,9 +17,9 @@
 #include <cstddef>
 #include <string_view>
 #include "backend/habana_device/hpu_cached_devices.h"
+#include "habana_helpers/logging.h"
 
-namespace habana {
-namespace eager {
+namespace habana::eager {
 
 namespace {
 
@@ -114,11 +114,13 @@ JitNode* insert_strided_view_node(
       op_strided_view,
       {jitval_in, value_sizes, value_strides, value_offset},
       1);
-  jit_node->output(0)->setType(c10::TensorType::createContiguous(
-      input.scalar_type(), input.device(), p.getViewSizes()));
+  jit_node->output(0)->setType(
+      c10::TensorType::createContiguous(
+          input.scalar_type(), input.device(), p.getViewSizes()));
   auto sizes = habana::get_base_tensor_size(input);
-  jit_node->input(0)->setType(c10::TensorType::createContiguous(
-      input.scalar_type(), input.device(), sizes));
+  jit_node->input(0)->setType(
+      c10::TensorType::createContiguous(
+          input.scalar_type(), input.device(), sizes));
   PT_EAGER_DEBUG(
       "update graph view input's sizes: ",
       input.sizes(),
@@ -152,7 +154,7 @@ bool is_schema_incompatible_between_hpu_aten(const std::string_view op_name) {
   return ops_replace_within_hpu.find(op_name) != ops_replace_within_hpu.end();
 }
 
-static JitNode* replace_with_out_of_place_op(
+JitNode* replace_with_out_of_place_op(
     JitGraph& graph,
     JitNode* node,
     const EagerOpMetaData& eager_op_meta_data) {
@@ -220,18 +222,21 @@ JitNode* insert_strided_insert_node(
        value_offset},
       1);
 
-  jit_node->input(0)->setType(c10::TensorType::createContiguous(
-      input_tensor.scalar_type(),
-      input_tensor.device(),
-      {p.getTotalElements()}));
+  jit_node->input(0)->setType(
+      c10::TensorType::createContiguous(
+          input_tensor.scalar_type(),
+          input_tensor.device(),
+          {p.getTotalElements()}));
 
-  jit_node->input(1)->setType(c10::TensorType::createContiguous(
-      input_tensor.scalar_type(), input_tensor.device(), p.getViewSizes()));
+  jit_node->input(1)->setType(
+      c10::TensorType::createContiguous(
+          input_tensor.scalar_type(), input_tensor.device(), p.getViewSizes()));
 
-  jit_node->output(0)->setType(c10::TensorType::createContiguous(
-      input_tensor.scalar_type(),
-      input_tensor.device(),
-      {p.getTotalElements()}));
+  jit_node->output(0)->setType(
+      c10::TensorType::createContiguous(
+          input_tensor.scalar_type(),
+          input_tensor.device(),
+          {p.getTotalElements()}));
 
   set_deterministic(jit_node);
   graph.insertNode(jit_node);
@@ -263,16 +268,19 @@ JitNode* replace_copy_with_strided_insert(
   inputs.push_back(value_strides);
   inputs.push_back(value_offset);
 
-  jit_node->input(0)->setType(c10::TensorType::createContiguous(
-      input_tensor.scalar_type(),
-      input_tensor.device(),
-      habana::get_base_tensor_size(input_tensor)));
+  jit_node->input(0)->setType(
+      c10::TensorType::createContiguous(
+          input_tensor.scalar_type(),
+          input_tensor.device(),
+          habana::get_base_tensor_size(input_tensor)));
 
-  jit_node->input(1)->setType(c10::TensorType::createContiguous(
-      input_tensor.scalar_type(), input_tensor.device(), p.getViewSizes()));
+  jit_node->input(1)->setType(
+      c10::TensorType::createContiguous(
+          input_tensor.scalar_type(), input_tensor.device(), p.getViewSizes()));
   auto new_output_size = habana::get_base_tensor_size(input_tensor);
-  jit_node->output(0)->setType(c10::TensorType::createContiguous(
-      input_tensor.scalar_type(), input_tensor.device(), new_output_size));
+  jit_node->output(0)->setType(
+      c10::TensorType::createContiguous(
+          input_tensor.scalar_type(), input_tensor.device(), new_output_size));
   eager_op_meta_data.new_strided_insert_output_shape_ = new_output_size;
   set_deterministic(jit_node);
   graph.insertNode(jit_node);
@@ -449,8 +457,7 @@ void set_as_strided_meta(JitNode* node) {
 void set_deterministic(JitNode* node) {
   node->i_(
       torch::jit::attr::deterministic,
-      HPUGlobalConfig::get().getDeterministic() ||
-          at::globalContext().deterministicAlgorithms());
+      at::globalContext().deterministicAlgorithms());
   PT_EAGER_DEBUG(
       "Deterministic val during Jit Node creation: ",
       node->i(torch::jit::attr::deterministic));
@@ -490,6 +497,7 @@ void HandleOutputInsert(
     }
   }
 
+  HABANA_ASSERT(node, "Node is null, expected at least one node in the graph");
   PT_EAGER_DEBUG("[HandleOutputInsert] Op Name: ", node->kind().toQualString());
 
   PtEagerGraphDebug pt_eager_graph_debug(graph);
@@ -575,6 +583,7 @@ void HandleInputOutputViews(
     }
   }
 
+  HABANA_ASSERT(node, "Node is null, expected at least one node in the graph");
   PT_EAGER_DEBUG(
       "[HandleInputOutputViews] Op Name: ", node->kind().toQualString());
 
@@ -665,5 +674,4 @@ void HandleInputOutputViews(
   }
 }
 
-} // namespace eager
-} // namespace habana
+} // namespace habana::eager

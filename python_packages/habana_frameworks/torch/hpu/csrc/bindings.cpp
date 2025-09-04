@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -114,15 +114,15 @@ const std::string get_mem_stat_summary(int device_id) {
       "  ActiveAllocs:      %20lld\n"
       "%s\n",
       stats.memory_limit,
-      stats.memory_limit / (1024 * 1024 * 1024.),
+      static_cast<double>(stats.memory_limit) / (1024 * 1024 * 1024.),
       stats.bytes_in_use,
-      stats.bytes_in_use / (1024 * 1024.),
+      static_cast<double>(stats.bytes_in_use) / (1024 * 1024.),
       stats.peak_bytes_in_use,
-      stats.peak_bytes_in_use / (1024 * 1024.),
+      static_cast<double>(stats.peak_bytes_in_use) / (1024 * 1024.),
       stats.num_allocs,
       stats.num_frees,
       stats.largest_alloc_size,
-      stats.largest_alloc_size / (1024 * 1024.),
+      static_cast<double>(stats.largest_alloc_size) / (1024 * 1024.),
       (int64_t)stats.num_allocs - (int64_t)stats.num_frees,
       "");
   return summary;
@@ -267,12 +267,10 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       auto& params = hl_t->getDataPtr()->stride_params.value();
       if (params.optype != habana_lazy::StridedOPType::kStridedOpView) {
         if (hl_view.has_value()) {
-          hash = habana_lazy::HbLazyTensorViews::updateViewHash(
-              *hl_view, (size_t)hash);
+          hash = habana_lazy::HbLazyTensorViews::updateViewHash(*hl_view, hash);
           hl_view = std::nullopt;
         }
-        hash =
-            habana_lazy::HbLazyTensorViews::updateViewHash(*hl_t, (size_t)hash);
+        hash = habana_lazy::HbLazyTensorViews::updateViewHash(*hl_t, hash);
       } else {
         hl_view = hl_t;
       }
@@ -282,8 +280,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       hl_t = habana_lazy::TryGetHbLazyTensor(t);
     }
     if (hl_view.has_value()) {
-      hash = habana_lazy::HbLazyTensorViews::updateViewHash(
-          *hl_view, (size_t)hash);
+      hash = habana_lazy::HbLazyTensorViews::updateViewHash(*hl_view, hash);
     }
     return hash;
   });
@@ -314,8 +311,10 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("clear_inputs", [](at::hpu::HPUGraph& graph) { graph.clear_inputs(); });
   m.def(
       "mark_user_outputs",
-      [](at::hpu::HPUGraph& graph, std::vector<at::Tensor>& outputs) {
-        graph.mark_user_outputs(outputs);
+      [](at::hpu::HPUGraph& graph,
+         std::vector<at::Tensor>& outputs,
+         bool free_inplace = true) {
+        graph.mark_user_outputs(outputs, free_inplace);
       });
   m.def(
       "mark_user_inputs",
@@ -383,12 +382,6 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   });
   m.def("is_matmul3d_2d_reshape_enabled", []() {
     return habana_helpers::IsMatmul3d2dReshapeEnabled();
-  });
-  m.def("enable_recompute_FSDPA", [](bool recompute) {
-    habana_helpers::enableRecomputeFSDPA(recompute);
-  });
-  m.def("is_recompute_FSDPA_enabled", []() {
-    return habana_helpers::isRecomputeFSDPAEnabled();
   });
 
   m.def(

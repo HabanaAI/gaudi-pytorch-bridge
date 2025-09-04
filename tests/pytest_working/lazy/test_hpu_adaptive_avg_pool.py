@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -127,9 +127,12 @@ def test_hpu_pool_chlast_fwd_bwd(N, H, W, C, Ho, Wo):
     bwd_tensor = torch.randn(N, C, H, W)
     bwd_tensors = [bwd_tensor.contiguous(memory_format=torch.channels_last)]
     # don't check fwd results because indices can have different values
-    (hpu_result_fwd, hpu_result_bwd), (
-        cpu_result_fwd,
-        cpu_result_bwd,
+    (
+        (hpu_result_fwd, hpu_result_bwd),
+        (
+            cpu_result_fwd,
+            cpu_result_bwd,
+        ),
     ) = evaluate_fwd_bwd_kernel(
         kernel=kernel,
         tensor_list_bwd=bwd_tensors,

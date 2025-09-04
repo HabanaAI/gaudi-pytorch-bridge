@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,9 +17,7 @@
 
 namespace habana {
 
-std::shared_ptr<void> IndexReduceFillParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT IndexReduceFillParams(const at::Stack& stack) {
   PARAMS_STUB(ns_IndexReduce::Params);
   params->axis = stack.at(1).toScalar().toInt();
   if (params->axis < 0) {
@@ -40,7 +38,7 @@ std::shared_ptr<void> IndexReduceFillParams(
 
   params->mode = it->second;
   params->include_self = stack.at(5).toBool();
-  return params;
+  return paramsT;
 }
 
 } // namespace habana

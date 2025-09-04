@@ -27,8 +27,7 @@
 #include "habana_helpers/logging.h"
 #include "jit_fork/ir/ir.h"
 
-namespace habana_torch {
-namespace jit {
+namespace habana_torch::jit {
 
 struct IfView {
   explicit IfView(Node* node) : node_(node) {
@@ -185,5 +184,4 @@ struct LoopView {
   }
 };
 
-} // namespace jit
-} // namespace habana_torch
+} // namespace habana_torch::jit

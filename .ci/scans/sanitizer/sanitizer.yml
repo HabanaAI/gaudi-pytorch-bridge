@@ -10,8 +10,8 @@
 # default is false
 
 customConfig:
-  runtimeErrors : false
-  leaks         : false
-  bufferOF      : false
-  termination   : false
-  undefined     : false
+  runtimeErrors: false
+  leaks: false
+  bufferOF: false
+  termination: false
+  undefined: false

@@ -16,6 +16,7 @@
 #include <pybind11/stl.h>
 #include <torch/csrc/jit/python/pybind_utils.h>
 #include <torch/extension.h>
+#include <string>
 #include "backend/habana_device/HPUAllocator.h"
 #include "backend/helpers/tensor_utils.h"
 #include "habana_eager/graph_storage.h"
@@ -97,6 +98,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def(
       "graph_compile",
       [](std::shared_ptr<torch::jit::Graph> graph,
+         const std::string& parent_graph_name,
          const py::tuple& inputs,
          const py::tuple& is_reusable,
          bool dynamic,
@@ -120,6 +122,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
         auto& graph_storage{habana::graph::GraphStorage::get()};
         return graph_storage.add_new_recipe(
             graph,
+            parent_graph_name,
             stack,
             is_reusable_vec,
             dynamic,
@@ -133,6 +136,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       },
       py::return_value_policy::copy,
       py::arg("graph"),
+      py::arg("parent_graph_name"),
       py::arg("inputs"),
       py::arg("is_reusable"),
       py::arg("dynamic"),
@@ -157,7 +161,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
         auto& graph_storage{habana::graph::GraphStorage::get()};
         stack = graph_storage.launch_recipe(recipe_id, stack, outputs);
 
-        if (outputs.size() == 0) {
+        if (outputs.empty()) {
           return torch::jit::createPyObjectForStack(std::move(stack));
         }
 

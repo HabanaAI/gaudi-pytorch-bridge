@@ -21,12 +21,15 @@ from test_utils import (
     check_ops_executed_in_jit_ir,
     compile_function_if_compile_mode,
     format_tc,
+    is_gaudi1,
     is_pytest_mode_compile,
 )
 
 Verbose = False
 
-dtypes = [torch.float32, torch.bfloat16, torch.float16, torch.int8, torch.uint8, torch.int16, torch.int32, torch.bool]
+dtypes = [torch.float32, torch.bfloat16, torch.int8, torch.uint8, torch.int16, torch.int32, torch.bool]
+if not is_gaudi1():
+    dtypes.append(torch.float16)
 
 
 @pytest.mark.parametrize("shape_self", [[], [1], [3, 4]], ids=format_tc)
@@ -82,7 +85,7 @@ def test_randn(shape, dtype):
 
 
 @pytest.mark.parametrize("shape", [[], [1], [3, 4]], ids=format_tc)
-@pytest.mark.parametrize("dtype", dtypes + [torch.long], ids=format_tc)
+@pytest.mark.parametrize("dtype", dtypes if is_gaudi1() else dtypes + [torch.long], ids=format_tc)
 def test_randint(shape, dtype):
     def fn():
         if dtype == torch.bool:

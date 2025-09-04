@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,7 +12,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "common/warning_suppress.h"
+SUPPRESS_W_PREFIX
+SUPPRESS_WARRAY_BOUNDS_WSTRINGOP_OVERFLOW_P
 #include "instance_norm.h"
+SUPPRESS_W_SUFFIX
 #include <ATen/ATen.h>
 #include <ATen/Tensor.h>
 #include <torch/library.h>
@@ -25,8 +29,7 @@
 #include "habana_lazy/hpu_stage_submission.h"
 #include "hpu_ops/op_logger.h"
 
-namespace habana {
-namespace eager {
+namespace habana::eager {
 
 namespace {
 constexpr size_t INPUT_BATCH_INDEX = 0;
@@ -366,5 +369,4 @@ TORCH_LIBRARY_IMPL(aten, AutogradHPU, m) {
   m.impl("instance_norm", instance_norm_autograd_wrap);
 }
 
-} // namespace eager
-} // namespace habana
+} // namespace habana::eager

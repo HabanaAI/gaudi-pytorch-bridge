@@ -1,4 +1,3 @@
-#!/usr/bin/python3
 ###############################################################################
 #
 #  Copyright (c) 2021-2025 Intel Corporation
@@ -44,9 +43,9 @@ def test_fun():
     for _ in range(3):
         model(inp).sum().backward()
 
-    assert (
-        len(model.mymod1.par._backward_hooks) == 1
-    ), f"actual len(model.mymod1.par._backward_hooks) = {len(model.mymod1.par._backward_hooks)}, expected = 1"
+    assert len(model.mymod1.par._backward_hooks) == 1, (
+        f"actual len(model.mymod1.par._backward_hooks) = {len(model.mymod1.par._backward_hooks)}, expected = 1"
+    )
 
 
 def test_module_hooks():

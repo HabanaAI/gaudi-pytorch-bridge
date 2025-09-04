@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,24 +19,20 @@
 
 namespace habana {
 
-std::shared_ptr<void> FillAdaptiveAvgPool2dParamsFwd(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillAdaptiveAvgPool2dParamsFwd(const at::Stack& stack) {
   const auto output_size = stack[1].toIntList().vec();
   PARAMS_STUB(ns_AdaptiveAvgPool::Params);
   params->outputHeight = output_size[0];
   params->outputWidth = output_size[1];
-  return params;
+  return paramsT;
 }
 
-std::shared_ptr<void> FillAdaptiveAvgPool2dParamsBwd(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillAdaptiveAvgPool2dParamsBwd(const at::Stack& stack) {
   const auto input = stack_tensor(stack, 1);
   PARAMS_STUB(ns_AdaptiveAvgPool::Params);
   params->outputHeight = input.size(-2);
   params->outputWidth = input.size(-1);
-  return params;
+  return paramsT;
 }
 
 OutputMetaDataVector AdaptiveAvgPool2dMeta(const at::Stack& stack) {
@@ -75,8 +71,7 @@ SharedMetaDataVector AdaptiveAvgPool2dFwdSharedMeta(
 void AdaptiveAvgPool2dFwd::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  size_t size = 0;
-  const auto& params = FillAdaptiveAvgPool2dParamsFwd(stack, size);
+  const auto& params = FillAdaptiveAvgPool2dParamsFwd(stack);
   auto meta = AdaptiveAvgPool2dMeta(stack)[0];
 
   if (stack_tensor(stack, 0).dim() == 4) {
@@ -90,8 +85,8 @@ void AdaptiveAvgPool2dFwd::AddNode(
       GetGuid(),
       {syn_in(0)},
       {{meta.shape, meta.dtype, 0}},
-      params.get(),
-      size);
+      params.ptr(),
+      params.size());
 
   syn_out(0) = std::move(adaptive_avg_pool[0]);
 }
