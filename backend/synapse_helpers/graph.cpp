@@ -394,7 +394,7 @@ std::
   dup_graph.numInterTensors = other.numInterTensors;
   dup_graph.is_shape_agnostic_graph_ = other.is_shape_agnostic_graph_;
   dup_graph.eager_mode_ = other.eager_mode_;
-  dup_graph.dynamic_graph_ = dup_graph.dynamic_graph_;
+  dup_graph.dynamic_graph_ = other.dynamic_graph_;
   dup_graph.enable_optim_output_sif_ = other.enable_optim_output_sif_;
   dup_graph.numTensors = other.numTensors;
   dup_graph.numConstTensors = other.numConstTensors;

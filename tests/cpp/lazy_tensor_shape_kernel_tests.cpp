@@ -1136,8 +1136,8 @@ TEST_F(LazyTensorShapeKernelTest, SplitViewSliceTest2D_2) {
   auto cout = torch::slice(input, 0, 0, 3);
   Tensor h_out = torch::slice(h_input, 0, 0, 3);
 
-  auto sliceCout2 = cout[1, 1];
-  auto sliceRes2 = h_out[1, 1];
+  auto sliceCout2 = cout.index({1, 1});
+  auto sliceRes2 = h_out.index({1, 1});
 
   sliceRes2.add_(2);
   sliceCout2.add_(2);
@@ -1247,8 +1247,8 @@ TEST_F(LazyTensorShapeKernelTest, SplitViewSliceTest4D_2) {
   auto cout = torch::slice(input, 0, 0, 3);
   Tensor h_out = torch::slice(h_input, 0, 0, 3);
 
-  auto sliceCout2 = cout[0, 1, 2];
-  auto sliceRes2 = h_out[0, 1, 2];
+  auto sliceCout2 = cout.index({0, 1, 2});
+  auto sliceRes2 = h_out.index({0, 1, 2});
 
   sliceRes2.add_(2);
   sliceCout2.add_(2);
