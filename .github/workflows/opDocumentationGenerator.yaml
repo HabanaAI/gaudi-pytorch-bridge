@@ -24,6 +24,14 @@ jobs:
                 rm -rf ${HOME}/.ssh/id_rsa.pub
                 sed -i '/Host gerrit/a\    User jenkins\' ~/.ssh/config
                 ssh -o StrictHostKeyChecking=accept-new github.com || true
+            - name: temp fix for gcc version
+              run: |
+                sudo apt-get update
+                sudo apt-get install -y software-properties-common
+                sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
+                sudo apt-get update
+                sudo apt-get install -y gcc-13 g++-13
+                sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 10 --slave /usr/bin/g++ g++ /usr/bin/g++-13
             - name: checkout repo tool
               run: |
                 git clone https://gerrit.googlesource.com/git-repo /tmp/git-repo
