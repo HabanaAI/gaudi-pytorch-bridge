@@ -566,7 +566,7 @@ SharedMetaDataVector MatrixMulWithAddSharedMeta(
   const auto& input = stack_tensor(stack, 0);
   const auto& mat1 = stack_tensor(stack, 1);
   const auto& mat2 = stack_tensor(stack, 2);
-  const bool isAddMM = guid == "addmm";
+  const bool isAddMM = guid == "addmm" || guid == "addbmm";
   const auto outputRank = isAddMM ? 2 : 1;
   const auto precisionType = mat1.scalar_type();
 

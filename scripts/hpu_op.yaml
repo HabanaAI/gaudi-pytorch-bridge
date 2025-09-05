@@ -1115,24 +1115,24 @@ add.Scalar_out:
   op_validator: BinaryWithAlphaAddSharedMeta
 
 addbmm:
-  guid: batch_gemm
-  op_backend: AddBMM
+  guid: addbmm
+  op_backend: AddMM
   output_meta: AddBMMMeta
   out_ids: [0]
   namespaces: [torch, torch.Tensor]
   op_validator: AddBMMSharedMeta
 
 addbmm_:
-  guid: batch_gemm
-  op_backend: AddBMM
+  guid: addbmm
+  op_backend: AddMM
   inplace_ids: [0]
   output_meta: AddBMMMeta
   namespaces: [torch.Tensor]
   op_validator: AddBMMSharedMeta
 
 addbmm.out:
-  guid: batch_gemm
-  op_backend: AddBMM
+  guid: addbmm
+  op_backend: AddMM
   output_meta: AddBMMMeta
   namespaces: [torch, torch.Tensor]
   op_validator: AddBMMSharedMeta

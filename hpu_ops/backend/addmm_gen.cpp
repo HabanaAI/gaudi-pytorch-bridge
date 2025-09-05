@@ -74,6 +74,12 @@ SharedMetaDataVector AddMMSharedMeta(
   return MatrixMulWithAddSharedMeta(stack, "addmm", false);
 }
 
+SharedMetaDataVector AddBMMSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode /*unused*/) {
+  return MatrixMulWithAddSharedMeta(stack, "addbmm", false);
+}
+
 SharedMetaDataVector AddMMActivationSharedMeta(
     const at::Stack& stack,
     habana_helpers::HabanaExecutionMode /*unused*/) {
@@ -110,158 +116,8 @@ OutputMetaDataVector AddBMMMeta(const at::Stack& stack) {
 
 using namespace std::literals;
 
-static std::vector<synapse_helpers::tensor> ComputeBetaSide(
-    OpBackend* op,
-    synapse_helpers::graph& graph,
-    std::vector<synTensor> input_tensor,
-    const at::IntArrayRef output_shape,
-    const float beta_val,
-    std::optional<int> final_idx = std::nullopt) {
-  synapse_helpers::tensor beta_tensor = OpBackend::BuildConstant(
-      op, graph, beta_val, op->ScalarType(), output_shape);
-  std::vector<synTensor> node_inputs{input_tensor.at(0), beta_tensor.get()};
-  std::vector<synapse_helpers::tensor> beta_side_out = OpBackend::BuildNode(
-      op,
-      graph,
-      {get_guid_with_precision("mult"sv, op->ScalarType()),
-       std::move(node_inputs),
-       {{output_shape, op->ScalarType(), final_idx}}});
-
-  return beta_side_out;
-}
-
-static std::vector<synapse_helpers::tensor> ComputeGEMM(
-    OpBackend* op,
-    synapse_helpers::graph& graph,
-    std::vector<synTensor> input_tensor,
-    const at::IntArrayRef output_shape,
-    const at::IntArrayRef gemm_output_shape,
-    const bool is_batch,
-    std::optional<int> final_idx = std::nullopt) {
-  NodeAttr::NodeOutputAttr gemm_node_output_attr = {
-      gemm_output_shape, op->ScalarType()};
-  if (!is_batch)
-    gemm_node_output_attr.final_result_index = final_idx;
-  synGEMMParams matmul_params{};
-  std::vector<synapse_helpers::tensor> gemm_out = OpBackend::BuildNode(
-      op,
-      graph,
-      {op->GetGuid(),
-       std::move(input_tensor),
-       {gemm_node_output_attr},
-       &matmul_params,
-       sizeof(matmul_params)});
-
-  if (!is_batch) {
-    return gemm_out;
-  } else {
-    return HandleReduction(
-        op,
-        graph,
-        gemm_out[0].get(),
-        "reduce_sum_multi_dim_fwd",
-        {0} /*dimsToReduce*/,
-        3 /*inputRank*/,
-        false /*keepdim*/,
-        {{output_shape, op->ScalarType(), final_idx}});
-  }
-}
-
-static std::vector<synapse_helpers::tensor> ComputeAlphaSide(
-    OpBackend* op,
-    synapse_helpers::graph& graph,
-    std::vector<synTensor> input_tensor,
-    const at::IntArrayRef output_shape,
-    const at::IntArrayRef gemm_output_shape,
-    const float alpha_val,
-    const bool is_batch,
-    std::optional<int> final_idx = std::nullopt) {
-  std::optional<int> is_gemm_final_node = std::nullopt;
-  if (alpha_val == 1.0) {
-    is_gemm_final_node = final_idx;
-  }
-
-  std::vector<synapse_helpers::tensor> gemm_out = ComputeGEMM(
-      op,
-      graph,
-      input_tensor,
-      output_shape,
-      gemm_output_shape,
-      is_batch,
-      is_gemm_final_node);
-
-  if (alpha_val == 1.0) {
-    return gemm_out;
-  } else {
-    auto alpha_tensor = OpBackend::BuildConstant(
-        op, graph, alpha_val, op->ScalarType(), output_shape);
-    std::vector<synTensor> mul_node_inputs{
-        gemm_out[0].get(), alpha_tensor.get()};
-    std::vector<synapse_helpers::tensor> alpha_mul_out = OpBackend::BuildNode(
-        op,
-        graph,
-        {get_guid_with_precision("mult"sv, op->ScalarType()),
-         std::move(mul_node_inputs),
-         {{output_shape, op->ScalarType(), final_idx}}});
-    return alpha_mul_out;
-  }
-}
-
-static std::vector<synapse_helpers::tensor> AddMMCommon(
-    OpBackend* op,
-    synapse_helpers::graph& graph,
-    const at::Stack& stack,
-    std::vector<synTensor> input_tensor,
-    const at::IntArrayRef output_shape,
-    const at::IntArrayRef gemm_output_shape,
-    const bool is_batch) {
-  std::vector<synapse_helpers::tensor> addmm_out;
-
-  const float beta_val = stack.at(3).toScalar().toFloat();
-  const float alpha_val = stack.at(4).toScalar().toFloat();
-
-  if (alpha_val == 0.0 && beta_val == 0.0) {
-    addmm_out.emplace_back(
-        OpBackend::BuildConstant(
-            op, graph, 0.0, op->ScalarType(), output_shape, 0));
-  } else if (alpha_val == 0.0 && beta_val != 0.0) {
-    addmm_out = ComputeBetaSide(
-        op, graph, {input_tensor.at(0)}, output_shape, beta_val, 0);
-  } else if (alpha_val != 0.0 && beta_val == 0.0) {
-    addmm_out = ComputeAlphaSide(
-        op,
-        graph,
-        {input_tensor.at(1), input_tensor.at(2)},
-        output_shape,
-        gemm_output_shape,
-        alpha_val,
-        is_batch,
-        0);
-  } else {
-    auto beta_out = ComputeBetaSide(
-        op, graph, {input_tensor.at(0)}, output_shape, beta_val);
-    auto alpha_out = ComputeAlphaSide(
-        op,
-        graph,
-        {input_tensor.at(1), input_tensor.at(2)},
-        output_shape,
-        gemm_output_shape,
-        alpha_val,
-        is_batch);
-    std::vector<synTensor> add_node_inputs{
-        beta_out[0].get(), alpha_out[0].get()};
-    addmm_out = OpBackend::BuildNode(
-        op,
-        graph,
-        {get_guid_with_precision("add"sv, op->ScalarType()),
-         std::move(add_node_inputs),
-         {{output_shape, op->ScalarType(), 0}}});
-  }
-  return addmm_out;
-}
-
 void AddMM::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
-  const auto meta = AddMMMeta(stack);
+  const auto meta = OutputMeta(stack);
 
   const float beta_val = stack.at(3).toScalar().toFloat();
   const float alpha_val = stack.at(4).toScalar().toFloat();
@@ -273,8 +129,7 @@ void AddMM::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   // because we want to support configuration: inputs(fp8), output(bf16/fp32).
   // Formula: out = beta * input0 + alpha * (input1 @ input2)
   // GEMM returns higher precision dtype, so input0 has to be (bf16/fp32).
-  auto guid =
-      get_guid_with_precision("addmm"sv, stack_tensor(stack, 1).scalar_type());
+  update_guid_dtype(guid_, stack_tensor(stack, 1).scalar_type());
 
   if (shouldUseParams) {
     ns_AddmmKernel::Params params{};
@@ -283,7 +138,7 @@ void AddMM::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
     auto addmv = BuildOp(
         graph,
-        guid,
+        GetGuid(),
         {syn_in(0), syn_in(1), syn_in(2)},
         {{meta[0].shape, meta[0].dtype, 0}},
         &params,
@@ -294,7 +149,7 @@ void AddMM::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
     auto beta_tensor = ConstantHelper(graph, beta_val, ScalarType(), 1);
     auto addmm = BuildOp(
         graph,
-        guid,
+        GetGuid(),
         {syn_in(0),
          syn_in(1),
          syn_in(2),
@@ -369,104 +224,4 @@ void AddMMActivation::AddNode(
   }
 }
 
-namespace {
-
-SharedMetaDataVector BetaSharedMeta(
-    const int input_rank,
-    const at::ScalarType& input_dtype) {
-  SharedMetaData constantSharedMeta{"constant"};
-  constantSharedMeta.outputs_data.emplace_back(2, input_dtype);
-
-  SharedMetaData mul{"mult_fwd"};
-  mul.inputs_data = {{input_rank, input_dtype}, {1, input_dtype}};
-  mul.outputs_data = {mul.inputs_data[0]};
-  return {mul, constantSharedMeta};
-}
-
-SharedMetaDataVector AlphaSharedMeta(
-    const at::ScalarType& input_dtype,
-    const at::ScalarType& batch1_dtype,
-    const at::ScalarType& batch2_dtype,
-    const float alpha) {
-  SharedMetaTensor meta_3d_1{3, batch1_dtype};
-  SharedMetaTensor meta_2d_1{2, batch1_dtype};
-
-  SharedMetaData bmm{"batch_gemm"};
-  bmm.inputs_data = {meta_3d_1, {3, batch2_dtype}};
-  bmm.outputs_data = {meta_3d_1};
-
-  SharedMetaData reduce{"reduce_sum_multi_dim_fwd"};
-  reduce.inputs_data = {meta_3d_1};
-  reduce.outputs_data = {meta_2d_1};
-
-  SharedMetaDataVector meta{bmm, reduce};
-
-  if (alpha != 1.0) {
-    SharedMetaData constantSharedMeta{"constant"};
-    constantSharedMeta.outputs_data.emplace_back(2, input_dtype);
-    meta.push_back(constantSharedMeta);
-
-    SharedMetaData mul{"mult_fwd"};
-    mul.inputs_data = {meta_2d_1, {1, batch1_dtype}};
-    mul.outputs_data = {meta_2d_1};
-    meta.push_back(mul);
-  }
-
-  return meta;
-}
-
-} // namespace
-
-SharedMetaDataVector AddBMMSharedMeta(
-    const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode /*unused*/) {
-  const float beta = stack.at(3).toScalar().toFloat();
-  const float alpha = stack.at(4).toScalar().toFloat();
-
-  const auto& input = stack_tensor(stack, 0);
-  const auto input_dtype = input.scalar_type();
-  if (alpha == 0.0 and beta == 0.0) {
-    SharedMetaData constantSharedMeta{"constant"};
-    constantSharedMeta.outputs_data.emplace_back(2, input_dtype);
-    return {constantSharedMeta};
-  }
-
-  const auto input_rank = input.dim();
-
-  if (alpha == 0.0) {
-    return BetaSharedMeta(input_rank, input_dtype);
-  }
-
-  const auto& batch1 = stack_tensor(stack, 1);
-  const auto batch1_dtype = batch1.scalar_type();
-
-  const auto& batch2 = stack_tensor(stack, 2);
-  const auto batch2_dtype = batch2.scalar_type();
-
-  if (beta == 0.0) {
-    return AlphaSharedMeta(input_dtype, batch1_dtype, batch2_dtype, alpha);
-  }
-
-  auto meta = AlphaSharedMeta(input_dtype, batch1_dtype, batch2_dtype, alpha);
-  const auto betaVec = BetaSharedMeta(input_rank, input_dtype);
-  meta.insert(std::end(meta), std::begin(betaVec), std::end(betaVec));
-
-  SharedMetaData add{"add_fwd"};
-  add.inputs_data = {{2, batch1_dtype}, {1, batch1_dtype}};
-  add.outputs_data = {add.inputs_data[0]};
-  meta.push_back(add);
-
-  return meta;
-}
-
-void AddBMM::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
-  auto outshape = AddBMMMeta(stack)[0].shape;
-  std::vector<synTensor> input_tensor{syn_in(0), syn_in(1), syn_in(2)};
-  const int64_t batch_size = stack_tensor(stack, 1).sizes()[0];
-  auto gemm_outshape = {batch_size, outshape[0], outshape[1]};
-  auto addbmm_out = AddMMCommon(
-      this, graph, stack, input_tensor, outshape, gemm_outshape, true);
-
-  syn_out(0) = std::move(addbmm_out[0]);
-}
 } // namespace habana
