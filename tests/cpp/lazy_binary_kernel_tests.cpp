@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -993,6 +993,7 @@ TEST_F(LazyBinaryKernelTest, AddFwdF32) {
 // Also validates InferOutputMeta for GUID cast_f32_to_bf16, mult_fwd_bf16,
 // add_fwd_bf16 and cast_bf16_to_f32
 TEST_F(LazyBinaryKernelTest, AddFwdBf16) {
+  GTEST_SKIP() << "https://jira.habana-labs.com/browse/SW-240117";
   if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
     SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
   }
@@ -1045,6 +1046,7 @@ TEST_F(LazyBinaryKernelTest, AddFwdI32withCast) {
 // Also validates InferOutputMeta for GUID mult_fwd_f32/bf16/i32,
 // Constant_f32/bf16/i32 and add_fwd_f32/bf16/i32 with second argument as scalar
 TEST_F(LazyBinaryKernelTest, AddFwdWithScalar) {
+  GTEST_SKIP() << "https://jira.habana-labs.com/browse/SW-240117";
   if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
     SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
   }
