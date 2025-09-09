@@ -16,6 +16,7 @@
 #include "recalculate_batchnorm_params.h"
 #include <torch/script.h>
 #include <cmath>
+#include <limits>
 #include "backend/habana_device/HPUDevice.h"
 #include "backend/helpers/get_n_bytes.h"
 #include "habana_helpers/logging.h"
@@ -45,13 +46,12 @@ GetBackEndTensorMeta(
     std::shared_ptr<torch::jit::Graph>& graph,
     torch::jit::Stack& stack,
     torch::jit::Node* node,
-    const int idx) {
+    const std::optional<size_t> idx) {
   habana::TensorExtraMeta* tmeta_ptr{nullptr};
   habana::StorageExtraMeta* smeta_ptr{nullptr};
 
-  if (idx != -1) {
-    HABANA_ASSERT(idx >= 0, "Index has to be -1 or greater equal 0");
-    const auto uidx = static_cast<size_t>(idx);
+  if (idx.has_value()) {
+    const auto uidx = idx.value();
     if (node->input(uidx)->type() == torch::jit::NoneType::get()) {
       return std::tie(tmeta_ptr, smeta_ptr);
     }
@@ -155,12 +155,11 @@ void* GetDataInHostBuffer(
     std::shared_ptr<torch::jit::Graph>& graph,
     torch::jit::Stack& stack,
     torch::jit::Node* node,
-    const int idx) {
+    const std::optional<size_t> idx) {
   void* host_ptr{nullptr};
 
-  if (idx != -1) {
-    HABANA_ASSERT(idx >= 0, "Index has to be -1 or greater equal 0");
-    const auto uidx = static_cast<size_t>(idx);
+  if (idx.has_value()) {
+    const auto uidx = idx.value();
     if (node->input(uidx)->type() == torch::jit::NoneType::get()) {
       // std::cout << "[GetDataInHostBuffer] [" << idx << "] NoneType" <<
       // std::endl << std::flush;
@@ -258,16 +257,16 @@ void UpdateDataInDeviceMem(
     std::shared_ptr<torch::jit::Graph>& graph,
     torch::jit::Stack& stack,
     torch::jit::Node* node,
-    const int idx,
+    const std::optional<size_t> idx,
     void* host_ptr) {
   at::Tensor tensor;
-  if (idx != -1) {
-    const auto* value = node->input(static_cast<size_t>(idx));
+  if (idx.has_value()) {
+    const auto* value = node->input(idx.value());
     const auto index = getValuePosInStack(graph, value);
     tensor = stack[index].toTensor();
   } else {
-    const auto* value = node->input(0);
-    const auto index = getValuePosInStack(graph, value);
+    auto value = node->input(0);
+    auto index = getValuePosInStack(graph, value);
     tensor = stack[index].toTensor();
   }
 
@@ -306,7 +305,7 @@ void RecalculateBatchnormParams(
       PT_LAZY_DEBUG("[RecalculateBatchnormParams] [Apply]");
 
       auto bn = node;
-      int idx_bias = 1;
+      std::optional<size_t> idx_bias{1};
 
       habana::TensorExtraMeta* bn_b_tmeta_ptr{nullptr};
       habana::StorageExtraMeta* bn_b_smeta_ptr{nullptr};

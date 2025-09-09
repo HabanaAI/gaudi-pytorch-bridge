@@ -53,7 +53,7 @@ TEST_F(LazyJITTest, CreateGraph) {
   auto hl_result = SyncAndGetHbLazyTensor(result2);
 
   std::vector<HbLazyTensor> tensors = {hl_result};
-  std::vector<int> indices = {0};
+  std::vector<size_t> indices = {0};
   auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
 
   std::vector<at::Tensor> input_list{tensor_in1, tensor_in2};

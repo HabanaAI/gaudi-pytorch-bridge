@@ -115,6 +115,10 @@ struct StrideParams {
     return size;
   }
 };
+
+static constexpr auto InvalidRunningTensorId =
+    std::numeric_limits<uint64_t>::max();
+
 struct Data {
   Data(at::Tensor tensor_data, const c10::Device& device)
       : data_ptr(nullptr),
@@ -181,7 +185,8 @@ struct Data {
   // graph generated it will be reset to 0. We are only tracking version for
   // that particular graph execution.
   int version = 0;
-  std::atomic<int64_t> running_cntr = -1; // -1 is invalid tensor ID.
+  std::atomic<uint64_t> running_cntr =
+      InvalidRunningTensorId; // size_t::max() is invalid tensor ID.
   // used for carrying constant tensor metadata from aten::tensor to lazy to
   // backend tensor
   bool is_const_tensor = false;
@@ -374,11 +379,11 @@ class HbLazyTensor {
   void IrInitAsInputNode() const;
   // Unconditionally assigns tensor to an Input IR node. Preserves data pointer.
   void IrReconnectAsInputNode() const;
-  static std::vector<int> CollectSyncTensors(
+  static std::vector<size_t> CollectSyncTensors(
       const std::vector<HbLazyTensor>& tensors);
   static ir::PostOrderData RunPostOrder(
       const std::vector<HbLazyTensor>& tensors,
-      std::vector<int> indices);
+      std::vector<size_t> indices);
 
   static void SyncTensorsGraph(
       std::vector<HbLazyTensor>* tensors,
@@ -446,11 +451,11 @@ class HbLazyTensor {
       return -1;
   }
 
-  int64_t getTensorRunningId() const {
+  uint64_t getTensorRunningId() const {
     if (mp_data.get()) {
       return mp_data->running_cntr;
     } else
-      return -1;
+      return InvalidRunningTensorId;
   }
 
   std::shared_ptr<Data> getDataPtr() const {

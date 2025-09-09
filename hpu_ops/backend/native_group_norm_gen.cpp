@@ -15,6 +15,8 @@
 #include <perf_lib_layer_params.h>
 #include "generated/backend/native_group_norm.h"
 #include "generated/backend/native_group_norm_backward.h"
+#include "pytorch_helpers/habana_helpers/conversion.h"
+#include "pytorch_helpers/habana_helpers/logging.h"
 
 namespace habana {
 
@@ -22,8 +24,8 @@ namespace sh = synapse_helpers;
 
 sizes_vec NativeGroupNormFwdOutputShape(const at::Stack& stack) {
   const auto input_size = stack[0].toTensor().sizes().vec();
-  const int N = stack[3].toInt();
-  const int G = stack[6].toInt();
+  const auto N = stack[3].toInt();
+  const auto G = stack[6].toInt();
 
   return {input_size, {N, G}, {N, G}};
 }
@@ -200,17 +202,19 @@ SharedMetaDataVector NativeGroupNormBwdSharedMeta(
 
 FillParamsT FillNativeGroupNormParams(const at::Stack& stack) {
   PARAMS_STUB(ns_NativeGroupNorm::Params);
-  params->N = stack[3].toInt();
-  params->G = stack[6].toInt();
-  params->epsilon = stack[7].toDouble();
+  using namespace std::literals;
+  params->N = safe_convert<unsigned>(stack[3].toInt(), "N"sv);
+  params->G = safe_convert<unsigned>(stack[6].toInt(), "G"sv);
+  params->epsilon = static_cast<float>(stack[7].toDouble());
 
   return paramsT;
 }
 
 FillParamsT FillNativeGroupNormBwdParams(const at::Stack& stack) {
   PARAMS_STUB(ns_NativeGroupNorm::Params);
-  params->N = stack[5].toInt();
-  params->G = stack[8].toInt();
+  using namespace std::literals;
+  params->N = safe_convert<unsigned>(stack[5].toInt(), "N"sv);
+  params->G = safe_convert<unsigned>(stack[8].toInt(), "G"sv);
 
   return paramsT;
 }
@@ -219,7 +223,7 @@ sizes_vec NativeGroupNormBwdOutputShape(const at::Stack& stack) {
   auto input = stack[1].toTensor();
   auto input_size = input.sizes().vec();
 
-  int weight_size = stack[6].toInt();
+  const auto weight_size = stack[6].toInt();
 
   return {input_size, {weight_size}, {weight_size}};
 }

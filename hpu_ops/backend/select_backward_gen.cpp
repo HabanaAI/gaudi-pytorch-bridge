@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 #include "generated/backend/select_backward.h"
+#include "pytorch_helpers/habana_helpers/conversion.h"
 
 using namespace synapse_helpers::layouts;
 
@@ -40,7 +41,7 @@ SharedMetaDataVector SelectBwdSharedMeta(
   return {stridedSliceGrad};
 }
 
-static int normalize_idx(int idx, int64_t size) {
+static long normalize_idx(long idx, int64_t size) {
   if (size <= 0) {
     return 0;
   }
@@ -69,10 +70,11 @@ void SelectBackward::AddNode(
   StackGetter stackGetter(this, stack, "SelectBackward::AddNode");
   auto grad = stackGetter.getNextInput<TensorsPair>();
   auto input_sizes = stackGetter.getNextInput<std::vector<int64_t>>();
-  auto dim = stackGetter.getNextInput<long>();
+  auto dim_unwrapped = stackGetter.getNextInput<long>();
   auto index = stackGetter.getNextInput<long>();
 
-  dim = at::maybe_wrap_dim(dim, input_sizes.size());
+  const auto dim = static_cast<size_t>(at::maybe_wrap_dim(
+      dim_unwrapped, static_cast<int64_t>(input_sizes.size())));
 
   const auto grad_scalar_type = grad.pt_t.scalar_type();
   const auto grad_shape = grad.pt_t.sizes();
@@ -87,15 +89,18 @@ void SelectBackward::AddNode(
   std::fill_n(params.ends, HABANA_DIM_MAX, 0);
   std::fill_n(params.steps, HABANA_DIM_MAX, 1);
 
+  using namespace std::literals;
   // Synapse indexes dims in opposite order then PT
   for (size_t i = 0; i < input_sizes.size(); ++i) {
-    params.axes[i] = input_sizes.size() - i - 1;
-    if (static_cast<int>(i) == dim) {
-      params.starts[i] = normalize_idx(index, input_sizes[i]);
+    params.axes[i] =
+        safe_convert<unsigned>(input_sizes.size() - i - 1, "axes"sv);
+    if (i == dim) {
+      params.starts[i] = safe_convert<unsigned>(
+          normalize_idx(index, input_sizes[i]), "starts"sv);
       params.ends[i] = params.starts[i] + 1;
     } else {
       params.starts[i] = 0;
-      params.ends[i] = input_sizes[i];
+      params.ends[i] = safe_convert<unsigned>(input_sizes[i], "ends"sv);
     }
   }
 
@@ -108,9 +113,11 @@ void SelectBackward::AddNode(
   if (is_reshape_required) {
     std::vector<int64_t> reshaped_grad_size = grad_shape.vec();
 
-    reshaped_grad_size.insert(reshaped_grad_size.begin() + dim, 1);
+    reshaped_grad_size.insert(
+        reshaped_grad_size.begin() + static_cast<int64_t>(dim), 1);
 
-    auto dim_tpc = get_dim_in_tpc_order(dim, grad_shape.size() + 1);
+    auto dim_tpc = get_dim_in_tpc_order(
+        static_cast<int64_t>(dim), static_cast<int64_t>(grad_shape.size()) + 1);
 
     reshaped_grad = OpBackend::BuildExpandDims(
         this, graph, grad.syn_t, reshaped_grad_size, grad_scalar_type, dim_tpc);

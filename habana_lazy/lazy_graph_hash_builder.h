@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -136,14 +136,14 @@ class GraphHashBuilder {
 
   void validateAccumJitOps(std::shared_ptr<torch::jit::Graph> mp_g);
 
-  int64_t getRunningCntr() {
+  uint64_t getRunningCntr() {
     return global_cntr++;
   }
 
   void invalidateDeviceTids(c10::Device& device);
-  int64_t combineSyncData(
+  uint64_t combineSyncData(
       const std::vector<HbLazyTensor>& tensors,
-      const std::vector<int>& indices);
+      const std::vector<size_t>& indices);
 
   void set_graph_input_stack_uids(std::vector<uint64_t>&& uids) {
     graph_input_stack_uids = std::move(uids);
@@ -194,7 +194,7 @@ class GraphHashBuilder {
 
   uint64_t fwd_inputs_running_hash{0};
 
-  int64_t global_cntr{0};
+  uint64_t global_cntr{0};
 };
 
 } // namespace habana_lazy

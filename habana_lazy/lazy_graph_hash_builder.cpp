@@ -14,6 +14,7 @@
  */
 
 #include "habana_lazy/lazy_graph_hash_builder.h"
+#include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/lazy_executor.h"
 
 namespace habana_lazy {
@@ -137,7 +138,7 @@ void GraphHashBuilder::prepareInputsStackMap(
         " is index ",
         indx);
     HABANA_ASSERT(
-        d->running_cntr != -1,
+        d->running_cntr != InvalidRunningTensorId,
         "Producing graph metadata with input that has no running ID");
   }
 }
@@ -154,13 +155,13 @@ void GraphHashBuilder::invalidateDeviceTids(c10::Device& device) {
   for (auto& uid_wptr : devctx->tensors_data) {
     std::shared_ptr<Data> data = uid_wptr.second.lock();
     if (data != nullptr) {
-      data->running_cntr = -1;
+      data->running_cntr = InvalidRunningTensorId;
     }
   }
   for (auto& uid : devctx->tensors_data_opt_order) {
     std::shared_ptr<Data> data = devctx->getDataPtr(uid);
     if (data != nullptr) {
-      data->running_cntr = -1;
+      data->running_cntr = InvalidRunningTensorId;
     }
   }
 }
@@ -200,7 +201,7 @@ void GraphHashBuilder::rememberIfInput(const at::Tensor& tensor) {
   const auto& hl_t = GetHbLazyTensor(tensor);
   std::shared_ptr<Data> input_data{hl_t.getDataPtr()};
   // this can be further optimized with unorder map -> vector complexityO(1)
-  if (input_data->running_cntr == -1) {
+  if (input_data->running_cntr == InvalidRunningTensorId) {
     input_data->running_cntr = getRunningCntr();
     PT_LAZY_DEBUG(
         "Tensor ",
@@ -299,7 +300,7 @@ void GraphHashBuilder::hashCombineTensor(
 
   // add scalar type, dim to hash
   hash = at::hash_combine(hash, static_cast<size_t>(tensor.scalar_type()));
-  hash = at::hash_combine(hash, tensor.dim());
+  hash = at::hash_combine(hash, static_cast<size_t>(tensor.dim()));
   PT_LAZY_DEBUG(
       "Updated input hash ",
       hash,
@@ -312,7 +313,7 @@ void GraphHashBuilder::hashCombineTensor(
 void GraphHashBuilder::addInputTensors(
     const std::vector<c10::IValue>& input_tensors) {
   PT_LAZY_TRACE;
-  auto idx = 0;
+  size_t idx = 0;
   for (auto& t : input_tensors) {
     fwd_running_hash =
         at::hash_combine(fwd_running_hash, idx++); // this is pointless
@@ -338,9 +339,9 @@ void GraphHashBuilder::addInputTensors(
   }
 }
 
-int64_t GraphHashBuilder::combineSyncData(
+uint64_t GraphHashBuilder::combineSyncData(
     const std::vector<HbLazyTensor>& tensors,
-    const std::vector<int>& indices) {
+    const std::vector<size_t>& indices) {
   PT_LAZY_TRACE;
   PT_LAZY_DEBUG("Fwd_running_hash before view combine : ", fwd_running_hash);
 
@@ -352,7 +353,8 @@ int64_t GraphHashBuilder::combineSyncData(
     fwd_running_hash = HbLazyTensorViews::updateViewHash(
         tensors[indices[0]], fwd_running_hash);
     for (auto& s : tensors[indices[0]].GetSizes()) {
-      fwd_running_hash = at::hash_combine(fwd_running_hash, s);
+      fwd_running_hash =
+          at::hash_combine(fwd_running_hash, static_cast<size_t>(s));
     }
   }
 

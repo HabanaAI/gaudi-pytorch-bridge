@@ -192,7 +192,7 @@ TEST_F(LazyCustomKernelKernelTest, BinaryOp) {
   auto hl_result = SyncAndGetHbLazyTensor(result);
 
   std::vector<HbLazyTensor> tensors = {hl_result};
-  std::vector<int> indices = {0};
+  std::vector<size_t> indices = {0};
   auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
 
   std::vector<at::Tensor> input_list{input_a, input_b};
@@ -227,7 +227,7 @@ TEST_F(LazyCustomKernelKernelTest, MultipleOutputs) {
   auto hl_result = SyncAndGetHbLazyTensor(result);
 
   std::vector<HbLazyTensor> tensors = {hl_result};
-  std::vector<int> indices = {0};
+  std::vector<size_t> indices = {0};
   auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
 
   std::vector<at::Tensor> input_list{input_a};

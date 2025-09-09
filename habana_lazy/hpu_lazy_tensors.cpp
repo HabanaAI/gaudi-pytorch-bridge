@@ -587,10 +587,10 @@ HbLazyTensor HbLazyTensor::CreateHbLazyTensor(
  * @brief Returns indices of tensors corresponding to tensors with valid IR
  * values which feeds in to RunPostOrder
  ************************************************************************/
-std::vector<int> HbLazyTensor::CollectSyncTensors(
+std::vector<size_t> HbLazyTensor::CollectSyncTensors(
     const std::vector<HbLazyTensor>& tensors) {
   PT_LAZY_TRACE;
-  std::vector<int> indices = {};
+  std::vector<size_t> indices = {};
   for (size_t i = 0; i < tensors.size(); ++i) {
     auto ir_value = tensors[i].CurrentIrValue();
     // Skip the tensors which don't have any node to evaluate and points
@@ -613,7 +613,7 @@ std::vector<int> HbLazyTensor::CollectSyncTensors(
  ************************************************************************/
 habana_lazy::ir::PostOrderData HbLazyTensor::RunPostOrder(
     const std::vector<HbLazyTensor>& tensors,
-    std::vector<int> indices) {
+    std::vector<size_t> indices) {
   PT_LAZY_TRACE;
   static int idx{1};
   habana_lazy::ir::PostOrderData po_data;
@@ -846,7 +846,7 @@ void HbLazyTensor::SyncLiveTensorsGraph(
 
 std::vector<ir::NodePtr> GetNodePtrRoots(
     std::vector<HbLazyTensor>* tensors,
-    std::vector<int>& indices) {
+    std::vector<size_t>& indices) {
   std::vector<ir::NodePtr> p_roots;
   p_roots.reserve(indices.size());
   for (auto index : indices) {
@@ -860,7 +860,7 @@ std::vector<ir::NodePtr> GetNodePtrRoots(
 
 void ValidateSyncInputTensors(
     std::vector<HbLazyTensor>* tensors,
-    std::vector<int>& indices,
+    std::vector<size_t>& indices,
     habana_lazy::ir::ValueList& inputs,
     habana_lazy::ir::NodePtrList* ptr_post_order = nullptr) {
   for (const auto& in : inputs) {
@@ -903,7 +903,7 @@ void SetLaunchContextFlags(
 
 torch::jit::Stack PrepareInputStack(
     std::vector<HbLazyTensor>* tensors,
-    std::vector<int>& indices,
+    std::vector<size_t>& indices,
     ir::ValueList& inputs,
     bool is_OptimizedLazyEager [[maybe_unused]],
     habana_lazy::ir::NodePtrList* ptr_post_order = nullptr,
@@ -972,7 +972,7 @@ torch::jit::Stack PrepareInputStack(
 void PostLaunch(
     std::vector<HbLazyTensor>* tensors,
     torch::jit::Stack& stack,
-    std::vector<int>& indices,
+    std::vector<size_t>& indices,
     std::vector<int64_t>& executing_indices,
     std::set<int64_t>& accumulated_indices,
     std::vector<at::Tensor>& retained_tensor_list,
@@ -1014,7 +1014,7 @@ void PostLaunch(
 struct LaunchTensorsInfo {
   std::vector<HbLazyTensor> tensors_ptr;
   std::vector<std::shared_ptr<Data>> input_list;
-  std::vector<int> indices;
+  std::vector<size_t> indices;
   // Tensorids list which is part of current exec thread
   std::vector<int64_t> executing_tids;
   // Tensorids list that are marked in accumulation phase
@@ -1185,7 +1185,7 @@ void SetupExecutionFromRunningHash(
     c10::Device& device,
     exec::HlExec& hlexec,
     const std::vector<HbLazyTensor>& tensors,
-    const std::vector<int>& indices,
+    const std::vector<size_t>& indices,
     habana_lazy::ir::PostOrderData& po_data) {
   auto& graph_hash_builder = GraphHashBuilder::getInstance();
   uint64_t fwd_running_hash =
@@ -1322,7 +1322,7 @@ void HbLazyTensor::SyncTensorsGraphInternal(
     isOptimizedLazyEager = lazyFrontEndInfo->get_is_optimized_lazy_eager();
   }
 
-  std::vector<int> indices = {};
+  std::vector<size_t> indices = {};
   // collect_sync_tensors will be true when the markstep is invoked and the live
   // tensors are collected. In this scenario tensors list wont contain any input
   // tensors.

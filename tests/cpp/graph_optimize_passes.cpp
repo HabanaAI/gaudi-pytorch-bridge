@@ -17,17 +17,11 @@
 #include <torch/csrc/jit/testing/file_check.h>
 #include <torch/torch.h>
 #include <fstream>
-#include <iostream>
-#include <stdexcept>
 #include <string>
-#include "backend/habana_device/HPUGuardImpl.h"
-#include "backend/habana_operator.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_lazy/aten_lazy_bridge.h"
-#include "habana_lazy/debug_utils.h"
 #include "habana_lazy/hlexec.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
-#include "habana_lazy/ir_utils.h"
 #include "habana_lazy/lazy_graph_hash_builder.h"
 #include "habana_lazy_test_infra.h"
 
@@ -57,7 +51,7 @@ TEST_F(GraphOptimizeTest, PeepholeOptimTest) {
   auto hl_result = SyncAndGetHbLazyTensor(result_t_t);
 
   std::vector<HbLazyTensor> tensors = {hl_result};
-  std::vector<int> indices = {0};
+  std::vector<size_t> indices = {0};
   auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
 
   auto hlexec = std::make_unique<exec::HlExec>();
@@ -133,7 +127,7 @@ TEST_F(GraphOptimizeTest, SubGraphRewriteTest) {
 
   auto hl_result = SyncAndGetHbLazyTensor(outHabana);
   std::vector<HbLazyTensor> tensors = {hl_result};
-  std::vector<int> indices = {0};
+  std::vector<size_t> indices = {0};
   auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
 
   auto hlexec = std::make_unique<exec::HlExec>();
@@ -177,7 +171,7 @@ TEST_F(GraphOptimizeTest, FuseMmTransposeTest) {
 
   auto hl_result = SyncAndGetHbLazyTensor(result);
   std::vector<HbLazyTensor> tensors = {hl_result};
-  std::vector<int> indices = {0};
+  std::vector<size_t> indices = {0};
   auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
 
   auto hlexec = std::make_unique<exec::HlExec>();
@@ -229,7 +223,7 @@ TEST_F(GraphOptimizeTest, BnReluOptTest) {
 
   auto hl_result = SyncAndGetHbLazyTensor(result);
   std::vector<HbLazyTensor> tensors = {hl_result};
-  std::vector<int> indices = {0};
+  std::vector<size_t> indices = {0};
   auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
 
   auto hlexec = std::make_unique<exec::HlExec>();
@@ -556,7 +550,7 @@ TEST_F(GraphOptimizeTest, RemoveInplaceOps_pass1) {
 
   auto hl_result = SyncAndGetHbLazyTensor(h_Out);
   std::vector<HbLazyTensor> tensors = {hl_result};
-  std::vector<int> indices = {0};
+  std::vector<size_t> indices = {0};
   auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
 
   auto hlexec = std::make_unique<exec::HlExec>();
@@ -588,7 +582,7 @@ TEST_F(GraphOptimizeTest, RemoveInplaceOps_pass2) {
 
   auto hl_result = SyncAndGetHbLazyTensor(h_Out);
   std::vector<HbLazyTensor> tensors = {hl_result};
-  std::vector<int> indices = {0};
+  std::vector<size_t> indices = {0};
   auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
 
   auto hlexec = std::make_unique<exec::HlExec>();
@@ -625,7 +619,7 @@ TEST_F(GraphOptimizeTest, RemoveInplaceOps_pass3) {
 
   auto hl_result = SyncAndGetHbLazyTensor(h_Out);
   std::vector<HbLazyTensor> tensors = {hl_result};
-  std::vector<int> indices = {0};
+  std::vector<size_t> indices = {0};
   auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
 
   auto hlexec = std::make_unique<exec::HlExec>();

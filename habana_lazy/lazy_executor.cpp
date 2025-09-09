@@ -130,7 +130,7 @@ void HbExecutionContext::saveInputsAndOutputs(
     ir::ValueList inputVals,
     ir::ValueList outputVals,
     std::vector<habana_lazy::HbLazyTensor>& tensors,
-    const std::vector<int>& indices) {
+    const std::vector<size_t>& indices) {
   m_user_input_positions.clear();
   m_user_input_match_index.clear();
   m_input_vals.clear();

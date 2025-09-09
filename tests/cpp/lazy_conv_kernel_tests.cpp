@@ -245,7 +245,7 @@ TEST_F(LazyConvKernelGraphTest, ConvolutionBackward) {
       SyncAndGetHbLazyTensor(out3)};
 
   std::vector<ir::NodePtr> a{tensors[0].CurrentIrValue().mp_node};
-  std::vector<int> indices1{0, 1, 2};
+  std::vector<size_t> indices1{0, 1, 2};
   auto po_data = HbLazyTensor::RunPostOrder(tensors, indices1);
 
   auto hl_grad_output = SyncAndGetHbLazyTensor(h_grad_output);

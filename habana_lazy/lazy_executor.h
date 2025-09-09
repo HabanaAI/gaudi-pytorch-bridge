@@ -282,7 +282,7 @@ class HbExecutionContext {
       ir::ValueList inputVals,
       ir::ValueList outputVals,
       std::vector<habana_lazy::HbLazyTensor>& tensors,
-      const std::vector<int>& indices);
+      const std::vector<size_t>& indices);
 
   bool updateInputsRequired(std::vector<size_t>& indices);
 

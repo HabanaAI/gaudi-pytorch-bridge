@@ -29,19 +29,19 @@ GetBackEndTensorMeta(
     std::shared_ptr<torch::jit::Graph>& graph,
     torch::jit::Stack& stack,
     torch::jit::Node* node,
-    const int idx);
+    std::optional<size_t> idx);
 
 void* GetDataInHostBuffer(
     std::shared_ptr<torch::jit::Graph>& graph,
     torch::jit::Stack& stack,
     torch::jit::Node* node,
-    const int idx);
+    std::optional<size_t> idx);
 
 void UpdateDataInDeviceMem(
     std::shared_ptr<torch::jit::Graph>& graph,
     torch::jit::Stack& stack,
     torch::jit::Node* node,
-    const int idx,
+    std::optional<size_t> idx,
     void* host_ptr);
 
 void RecalculateBatchnormParams(

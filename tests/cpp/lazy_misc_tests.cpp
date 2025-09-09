@@ -71,7 +71,7 @@ TEST_F(LazyMiscTest, CloneIRTest) {
   auto hl_result = SyncAndGetHbLazyTensor(tensor_in1);
 
   std::vector<HbLazyTensor> tensors = {hl_result};
-  std::vector<int> indices = {0};
+  std::vector<size_t> indices = {0};
   auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
   auto str = po_data.post_order[0]->ToString();
   auto cond = (str.find("hpu::input") != string::npos);
@@ -120,7 +120,7 @@ TEST_F(LazyMiscTest, SliceInsertIRTest) {
 
     auto hl_result = SyncAndGetHbLazyTensor(tensor_in2);
     std::vector<HbLazyTensor> tensors = {hl_result};
-    std::vector<int> indices = {0};
+    std::vector<size_t> indices = {0};
 
     auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
     std::vector<at::Tensor> input_list{tensor_in1, tensor_in2};

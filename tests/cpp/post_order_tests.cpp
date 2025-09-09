@@ -44,7 +44,7 @@ TEST_F(PostOrderTest, poTestAdd) {
   auto hl_result = SyncAndGetHbLazyTensor(result);
 
   std::vector<HbLazyTensor> tensors = {hl_result};
-  std::vector<int> indices = {0};
+  std::vector<size_t> indices = {0};
   auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
   auto str = po_data.post_order[0]->ToString();
   bool cond = (str.find("prim::constant") != string::npos);
@@ -72,7 +72,7 @@ TEST_F(PostOrderTest, poTestFill) {
   auto hl_result = SyncAndGetHbLazyTensor(tensor_in1);
 
   std::vector<HbLazyTensor> tensors = {hl_result};
-  std::vector<int> indices = {0};
+  std::vector<size_t> indices = {0};
   auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
 
   auto str = po_data.post_order[0]->ToString();
@@ -115,7 +115,7 @@ TEST_F(PostOrderTest, poTestCommonInput) {
   auto hl_result = SyncAndGetHbLazyTensor(result2);
 
   std::vector<HbLazyTensor> tensors = {hl_result};
-  std::vector<int> indices = {0};
+  std::vector<size_t> indices = {0};
   auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
   auto str = po_data.post_order[0]->ToString();
   bool cond = (str.find("prim::constant") != string::npos);
@@ -154,7 +154,7 @@ TEST_F(PostOrderTest, poTestAddInplace) {
   auto hl_result = SyncAndGetHbLazyTensor(tensor_in1);
 
   std::vector<HbLazyTensor> tensors = {hl_result};
-  std::vector<int> indices = {0};
+  std::vector<size_t> indices = {0};
   auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
   auto str = po_data.post_order[0]->ToString();
   bool cond = (str.find("prim::constant") != string::npos);
@@ -180,7 +180,7 @@ TEST_F(PostOrderTest, poTestReluInplace) {
   auto hl_result = SyncAndGetHbLazyTensor(tensor_in1);
 
   std::vector<HbLazyTensor> tensors = {hl_result};
-  std::vector<int> indices = {0};
+  std::vector<size_t> indices = {0};
   auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
   auto str = po_data.post_order[0]->ToString();
   auto cond = (str.find("hpu::input") != string::npos);
@@ -395,7 +395,7 @@ TEST_F(PostOrderTest, poTestCat) {
   auto hl_result = SyncAndGetHbLazyTensor(result);
 
   std::vector<HbLazyTensor> tensors = {hl_result};
-  std::vector<int> indices = {0};
+  std::vector<size_t> indices = {0};
   auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
   EXPECT_TRUE(po_data.outputs.size() == 1);
 }

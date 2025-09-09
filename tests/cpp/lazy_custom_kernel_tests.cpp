@@ -58,7 +58,7 @@ TEST_F(LazyCustomKernelTest, OptSparseSgdCustomOp) {
   auto hl_weight = SyncAndGetHbLazyTensor(out1);
   auto hl_moment = SyncAndGetHbLazyTensor(out2);
   std::vector<HbLazyTensor> tensors{hl_weight, hl_moment};
-  std::vector<int> indices1{0, 1};
+  std::vector<size_t> indices1{0, 1};
   auto po_data = HbLazyTensor::RunPostOrder(tensors, indices1);
 
   std::vector<at::Tensor> input_list{
@@ -266,7 +266,7 @@ TEST_F(LazyCustomKernelTest, OptAdagradCustomOp) {
   auto hl_weight = SyncAndGetHbLazyTensor(out1);
   auto hl_moment = SyncAndGetHbLazyTensor(out2);
   std::vector<HbLazyTensor> tensors{hl_weight, hl_moment};
-  std::vector<int> indices1{0, 1};
+  std::vector<size_t> indices1{0, 1};
   auto po_data = HbLazyTensor::RunPostOrder(tensors, indices1);
 
   std::vector<at::Tensor> input_list{

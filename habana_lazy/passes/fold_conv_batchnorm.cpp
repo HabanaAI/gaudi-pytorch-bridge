@@ -18,14 +18,9 @@
 #include <torch/csrc/jit/passes/fold_conv_bn.h>
 #include <torch/script.h>
 #include <cmath>
-#include <iterator>
-#include "backend/habana_device/hpu_cached_devices.h"
-#include "backend/kernel/hpu_habana_launch_op_pt.h"
-#include "backend/synapse_helpers/env_flags.h"
-#include "habana_lazy/aten_lazy_bridge.h"
-#include "habana_lazy/hpu_lazy_tensors.h"
+#include "backend/habana_device/HPUDevice.h"
+#include "backend/helpers/tensor_info.h"
 #include "habana_lazy/lazy_executor.h"
-#include "pass_utils.h"
 #include "pytorch_helpers/habana_helpers/logging.h"
 #include "recalculate_batchnorm_params.h"
 
@@ -47,10 +42,10 @@ bool computeUpdatedConvWeightAndBias(
     return false;
   }
 
-  int kx = sizes.at(3);
-  int ky = sizes.at(2);
-  int ci = sizes.at(1);
-  int co = sizes.at(0);
+  const auto kx = static_cast<size_t>(sizes.at(3));
+  const auto ky = static_cast<size_t>(sizes.at(2));
+  const auto ci = static_cast<size_t>(sizes.at(1));
+  const auto co = static_cast<size_t>(sizes.at(0));
 
   auto& device = habana::HPUDeviceContext::get_device();
   auto device_id = device.id();
@@ -61,7 +56,7 @@ bool computeUpdatedConvWeightAndBias(
   HABANA_ASSERT(
       status == synStatus::synSuccess, Logger::synStatusToStr(status));
   auto* s = (double*)host_ptr;
-  for (auto i = 0; i < co; i++) {
+  for (size_t i = 0; i < co; i++) {
     s[i] = ((double)w[i] / sqrt((double)v[i] + bn_eps));
   }
 
@@ -72,11 +67,11 @@ bool computeUpdatedConvWeightAndBias(
     HABANA_ASSERT(
         status == synStatus::synSuccess, Logger::synStatusToStr(status));
     cb = (float*)cb_host_ptr;
-    for (auto i = 0; i < co; i++) {
+    for (size_t i = 0; i < co; i++) {
       cb[i] = 0;
     }
   } else {
-    for (auto i = 0; i < co; i++) {
+    for (size_t i = 0; i < co; i++) {
       if (cb[i] != 0) {
         all_bias_zero = false;
         break;
@@ -92,17 +87,17 @@ bool computeUpdatedConvWeightAndBias(
   // Weight calculation
   // Ref: at::Tensor new_w = p.conv_w * (p.bn_w * bn_var_rsqrt).reshape(sizes);
   if (cw_permutation_in_hpu) {
-    for (auto i = 0; i < co; i++) {
+    for (size_t i = 0; i < co; i++) {
       auto t = s[i];
-      for (auto a = 0; a < ci * ky * kx; a++) {
+      for (size_t a = 0; a < ci * ky * kx; a++) {
         cw[a] = (float)((double)cw[a] * t);
       }
       cw += (static_cast<ptrdiff_t>(ci * ky * kx));
     }
   } else {
-    for (auto a = 0; a < (ky * kx); a++) {
-      for (auto j = 0; j < ci; j++) {
-        for (auto i = 0; i < co; i++) {
+    for (size_t a = 0; a < (ky * kx); a++) {
+      for (size_t j = 0; j < ci; j++) {
+        for (size_t i = 0; i < co; i++) {
           auto t = s[i];
           cw[i] = (float)((double)cw[i] * t);
         }
@@ -114,7 +109,7 @@ bool computeUpdatedConvWeightAndBias(
   // Bias calculation
   // Ref: at::Tensor new_b = (p.conv_b - p.bn_rm) * bn_var_rsqrt * p.bn_w +
   // p.bn_b;
-  for (auto i = 0; i < co; i++) {
+  for (size_t i = 0; i < co; i++) {
     auto t = s[i];
 
     auto cb_old = cb[i];
@@ -126,7 +121,7 @@ bool computeUpdatedConvWeightAndBias(
 
   PT_LAZY_DEBUG(
       "[computeUpdatedConvWeightAndBias] Update remaining batch-norm parameters");
-  for (auto i = 0; i < co; i++) {
+  for (size_t i = 0; i < co; i++) {
     v[i] = 1.0;
     m[i] = 0;
     w[i] = 1.0;
@@ -205,7 +200,7 @@ bool FuseConvBatchnorm(
       auto w_auto_cast_en = !w_auto_cast.empty();
       auto b_auto_cast_en = !b_auto_cast.empty();
 
-      auto ib = b_auto_cast_en ? -1 : 2;
+      auto ib = b_auto_cast_en ? std::nullopt : std::optional<size_t>{2};
       auto nb = b_auto_cast_en ? b_auto_cast.at(0) : conv;
 
       habana::TensorExtraMeta* conv_b_tmeta_ptr{nullptr};
@@ -217,7 +212,7 @@ bool FuseConvBatchnorm(
         PT_LAZY_DEBUG("[FuseConvBatchnorm] Convolution bias not found");
       }
 
-      auto iw = w_auto_cast_en ? -1 : 1;
+      auto iw = w_auto_cast_en ? std::nullopt : std::optional<size_t>{1};
       auto nw = w_auto_cast_en ? w_auto_cast.at(0) : conv;
 
       habana::TensorExtraMeta* conv_w_tmeta_ptr{nullptr};
@@ -244,7 +239,7 @@ bool FuseConvBatchnorm(
       //     continue;
       // }
 
-      int idx_bias = 1;
+      size_t idx_bias = 1;
       auto bn_b = habana_lazy::GetDataInHostBuffer(graph, stack, bn, idx_bias);
       if (!bn_b) {
         PT_LAZY_DEBUG("[FuseConvBatchnorm] BN without bias not yet supported");
@@ -259,7 +254,7 @@ bool FuseConvBatchnorm(
             bn->input(idx_bias)->debugName());
       }
 
-      int idx_weight = 2;
+      size_t idx_weight = 2;
       auto bn_w =
           habana_lazy::GetDataInHostBuffer(graph, stack, bn, idx_weight);
       if (!bn_w) {
@@ -271,7 +266,7 @@ bool FuseConvBatchnorm(
           "[FuseConvBatchnorm] redundant_input: ",
           bn->input(idx_weight)->debugName());
 
-      int idx_running_mean = 3;
+      size_t idx_running_mean = 3;
       auto bn_rm =
           habana_lazy::GetDataInHostBuffer(graph, stack, bn, idx_running_mean);
       if (!bn_rm) {
@@ -284,7 +279,7 @@ bool FuseConvBatchnorm(
           "[FuseConvBatchnorm] redundant_input: ",
           bn->input(idx_running_mean)->debugName());
 
-      int idx_running_var = 4;
+      size_t idx_running_var = 4;
       auto bn_rv =
           habana_lazy::GetDataInHostBuffer(graph, stack, bn, idx_running_var);
       if (!bn_rv) {
@@ -350,12 +345,12 @@ bool FuseConvBatchnorm(
               graph->create(nw->kind(), {bn->input(idx_bias), to_cast_type}, 1);
           bn_bias_cast_node->setScope(nw->scope());
           bn_bias_cast_node->copyAttributes(*nw);
-          conv->replaceInput(ib, bn_bias_cast_node->output(0));
+          conv->replaceInput(ib.value(), bn_bias_cast_node->output(0));
           // TODO - is this correct?
           stack.emplace_back(conv->input(2));
           graph->insertNode(bn_bias_cast_node);
         } else {
-          conv->replaceInput(ib, bn->input(idx_bias));
+          conv->replaceInput(ib.value(), bn->input(idx_bias));
         }
       }
 
