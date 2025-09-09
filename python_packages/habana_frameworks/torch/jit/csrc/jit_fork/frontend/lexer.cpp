@@ -86,8 +86,7 @@ C10_EXPORT int stringToKind(const std::string& str) {
   static std::unordered_map<std::string, int> str_to_kind = []() {
     std::unordered_map<std::string, int> ret_str_to_kind;
     for (char tok : std::string(valid_single_char_tokens))
-      // NOLINTNEXTLINE(bugprone-signed-char-misuse)
-      ret_str_to_kind[std::string(1, tok)] = tok;
+      ret_str_to_kind[std::string(1, tok)] = static_cast<unsigned char>(tok);
 #define DEFINE_CASE(tok, _, str) \
   if (!std::string(str).empty()) \
     ret_str_to_kind[str] = tok;
