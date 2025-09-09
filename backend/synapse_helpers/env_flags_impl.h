@@ -432,6 +432,9 @@ typename std::
     enable_if_t<!has_min_max_methods<E>::value, decltype(E::default_value)>
     getenv_E_new(const char* name, const bool& skip_cache) {
   check_flag_status(name, E::flag_status);
+
+  bool need_check = !E::is_cached || skip_cache;
+
   auto result = getenv_by_type_new(
       name,
       skip_cache,
@@ -439,7 +442,8 @@ typename std::
       E::is_defined,
       E::actual_value,
       E::default_value);
-  if (result && result[0] != '\0') {
+
+  if (need_check && result && result[0] != '\0') {
     std::string constrains_type =
         E::constrains_type ? E::constrains_type : CONSTRAINTS_EMPTY;
     if (!constrains_type.empty() && constrains_type == CUSTOM_CONSTRAINT_TYPE) {
@@ -450,6 +454,7 @@ typename std::
           name, E::constrains_type, result, E::constrains);
     }
   }
+
   return result;
 }
 
@@ -458,6 +463,9 @@ typename std::
     enable_if_t<has_min_max_methods<E>::value, decltype(E::default_value)>
     getenv_E_new(const char* name, const bool& skip_cache) {
   check_flag_status(name, E::flag_status);
+
+  bool need_check = !E::is_cached || skip_cache;
+
   auto result = getenv_by_type_new(
       name,
       skip_cache,
@@ -468,8 +476,11 @@ typename std::
       E::min(),
       E::max());
 
-  validate_constraint_with_type(
-      name, E::constrains_type, result, E::constrains);
+  if (need_check) {
+    validate_constraint_with_type(
+        name, E::constrains_type, result, E::constrains);
+  }
+
   return result;
 }
 
