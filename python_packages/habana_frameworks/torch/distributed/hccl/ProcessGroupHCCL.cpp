@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -453,7 +453,9 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::pointToPoint(
 }
 
 void ProcessGroupHCCL::groupStart() {
+  // NOLINTBEGIN(clang-analyzer-core.uninitialized.Assign)
   initComms();
+  // NOLINTEND(clang-analyzer-core.uninitialized.Assign)
 
   auto pr = std::make_shared<std::promise<bool>>();
   auto func = [pr = pr]() mutable {

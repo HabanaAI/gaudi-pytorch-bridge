@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -109,7 +109,7 @@ class TensorShape {
   size_t m_dim{0};
   int64_t n_elements{0};
   bool is_scalar_initialized{false};
-  at::ScalarType scalar_type_;
+  at::ScalarType scalar_type_{at::ScalarType::Undefined};
   std::vector<int64_t> m_sizes;
   synTensorType m_tensor_type{TENSOR_TYPE_INVALID};
 };

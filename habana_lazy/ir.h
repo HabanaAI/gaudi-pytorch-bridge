@@ -308,9 +308,11 @@ struct Value final {
   }
 
   Value(const Value& other) = default;
-  Value(Value&& other) = default;
   Value& operator=(const Value&) = default;
+  // NOLINTBEGIN(clang-analyzer-core.uninitialized.Assign)
+  Value(Value&& other) = default;
   Value& operator=(Value&&) = default;
+  // NOLINTEND(clang-analyzer-core.uninitialized.Assign)
 
   /* Assigns Node and metadata to Value instance. You should prefer using
    * IrSetNode api instead of calling this directly
