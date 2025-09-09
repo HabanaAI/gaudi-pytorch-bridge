@@ -5,8 +5,8 @@ common:
       githubOrg: habana-internal
     - repository: pytorch-integration
       githubOrg: habana-internal
-    - repository: devops/cd_release
-      githubOrg: gerrit
+    - repository: cd_release
+      githubOrg: habana-internal
   dependencies:
     - HABANA_TRANSFORMER_ENGINE
     - HUDA
