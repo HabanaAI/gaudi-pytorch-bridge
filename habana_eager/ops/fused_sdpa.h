@@ -32,7 +32,8 @@ at::Tensor fused_sdpa_autograd_wrap(
     ::std::optional<double> scale,
     bool enable_gqa);
 
-std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_fwd_wrap(
+std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor>
+dispatch_sdpa_recomp_fwd_wrap(
     const at::Tensor& q,
     const at::Tensor& k,
     const at::Tensor& v,
@@ -40,20 +41,26 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_fwd_wrap(
     const double p,
     const double scale,
     const bool is_causal,
+    const bool requires_backward,
     std::string_view softmax_mode,
     const std::optional<at::Tensor>& valid_seq_len,
-    std::string_view seq_padding_type);
+    std::string_view seq_padding_type,
+    c10::SymIntArrayRef window_size = {-1, -1},
+    const std::optional<at::Tensor>& sink = std::nullopt);
 
-std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_bwd_wrap(
+std::tuple<at::Tensor, at::Tensor, at::Tensor> dispatch_sdpa_recomp_bwd_wrap(
     const at::Tensor& grad,
     const at::Tensor& q,
     const at::Tensor& k,
     const at::Tensor& v,
-    const at::Tensor& P,
-    const std::optional<at::Tensor>& dm,
+    const std::optional<at::Tensor>& attention_mask,
+    const at::Tensor& m,
+    const at::Tensor& linv,
+    const std::optional<at::Tensor>& seed,
     const bool is_causal,
     const double p,
     const double scale,
+    std::string_view softmax_mode,
     const at::Tensor& fwd_out);
 
 } // namespace habana::eager

@@ -40,9 +40,9 @@ def _create_sdpa_forward_strategy(
     """
     Creates a shared SDPA forward strategy for all SDPA forward variants.
 
-    We create a list of Replicate, and Shard strategies for batch and tensor
-    parallelism. Attention output has the same dimension as the qkv tensors
-    so we use the same sharding as inputs. Other outputs are replicated.
+    We create a list of Replicate, and Shard strategies for batch, tensor
+    parallelism, and context parallelism. Attention output has the same dimension
+    as the qkv tensors so we use the same sharding as inputs. Other outputs are replicated.
 
     We replicate the attention mask if provided.
 
@@ -117,6 +117,27 @@ def _create_sdpa_forward_strategy(
             num_heads_dim_sharding.append(None)  # Non-tensor arguments
     single_mesh_dim_strategies.append(num_heads_dim_sharding)
 
+    # Strategy 4: Context Parallelism - shard on the sequence dimension (dim 2)
+    qkv_sharding = Shard(2)  # sequence dim
+    output_sharding = Shard(2)  # sequence dim
+
+    seq_dim_sharding = []
+    # Add output placements
+    seq_dim_sharding.append(output_sharding)  # primary output
+    for _ in range(num_outputs - 1):
+        seq_dim_sharding.append(Replicate())
+
+    # Add input placements - map to all schema args
+    for i, arg_spec in enumerate(op_schema.args_schema):
+        if isinstance(arg_spec, OpStrategy):
+            if qkv_input_start_idx <= i < qkv_input_start_idx + 3:  # Q, K, V tensors
+                seq_dim_sharding.append(qkv_sharding)
+            else:  # Other tensor inputs (mask, scales, etc.)
+                seq_dim_sharding.append(Replicate())
+        else:
+            seq_dim_sharding.append(None)  # Non-tensor arguments
+    single_mesh_dim_strategies.append(seq_dim_sharding)
+
     # input indices start after outputs, so the offset for inputs is num_outputs
     # expand_to_full_mesh_op_strategy is a pytorch distributed helper that helps one
     # extrapolate 1D mesh strategies to ND mesh without having to describe them manually
@@ -127,6 +148,7 @@ def _create_sdpa_backward_strategy(op_schema: OpSchema) -> OpStrategy:
     """
     Creates a shared SDPA backward strategy for all SDPA backward variants.
 
+    Supports batch parallelism, tensor parallelism, and context parallelism.
     Grad-In and Q, K, V inputs are sharded across the same dimension.
 
     GradQ, GradK, and GradV are sharded across the same dimension as the inputs.
@@ -196,6 +218,28 @@ def _create_sdpa_backward_strategy(op_schema: OpSchema) -> OpStrategy:
         else:
             num_heads_dim_sharding.append(None)  # Non-tensor arguments
     single_mesh_dim_strategies.append(num_heads_dim_sharding)
+
+    # Strategy 4: Context Parallelism - shard on the sequence dimension (dim 2)
+    grad_sharding = Shard(2)
+    seq_dim_sharding = []
+    # Add output placements - grad_q, grad_k, grad_v
+    for _ in range(min(3, num_outputs)):
+        seq_dim_sharding.append(grad_sharding)
+    if num_outputs > 3:  # FP8 operations may have amax output
+        seq_dim_sharding.append(Replicate())
+
+    # Add input placements - first few are typically grad_out, q, k, v
+    tensor_input_count = 0
+    for arg_spec in op_schema.args_schema:
+        if isinstance(arg_spec, OpStrategy):
+            if tensor_input_count < 4:  # First 4 tensor inputs get sequence sharding
+                seq_dim_sharding.append(grad_sharding)
+            else:  # Remaining inputs are replicated
+                seq_dim_sharding.append(Replicate())
+            tensor_input_count += 1
+        else:
+            seq_dim_sharding.append(None)  # Non-tensor arguments
+    single_mesh_dim_strategies.append(seq_dim_sharding)
 
     # input indices start after outputs, so the offset for inputs is num_outputs
     # expand_to_full_mesh_op_strategy is a pytorch distributed helper that helps one

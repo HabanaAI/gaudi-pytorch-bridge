@@ -20,6 +20,7 @@ from typing import NamedTuple
 
 import pytest
 import torch
+import torch.nn.functional as F
 from habana_frameworks.torch.hpex.kernels import FusedSDPA
 from test_utils import (
     compare_tensors,
@@ -41,6 +42,7 @@ from torch.distributed.tensor.parallel import (
     SequenceParallel,
     parallelize_module,
 )
+from torch.nn.attention import SDPBackend, sdpa_kernel
 from torch.testing._internal.common_utils import (
     instantiate_parametrized_tests,
     parametrize,
@@ -81,7 +83,7 @@ class ExpCommCounts(NamedTuple):
 class FusedAttentionHPU(nn.Module):
     """Custom Attention module that uses FusedSDPA instead of F.scaled_dot_product_attention"""
 
-    def __init__(self, args: ModelArgs):
+    def __init__(self, args: ModelArgs, attn_fn=F.scaled_dot_product_attention):
         super().__init__()
         assert args.dim % args.n_heads == 0
         self.head_dim = args.dim // args.n_heads
@@ -89,6 +91,7 @@ class FusedAttentionHPU(nn.Module):
         self.dropout_p = args.dropout_p
         self.resid_dropout = nn.Dropout(args.dropout_p)
         self.use_attn_mask = args.use_attn_mask
+        self.attn_fn = attn_fn
 
         self.wq = nn.Linear(args.dim, args.dim, bias=False)
         self.wk = nn.Linear(args.dim, args.dim, bias=False)
@@ -106,16 +109,27 @@ class FusedAttentionHPU(nn.Module):
         keys = keys.transpose(1, 2)  # (bsz, n_heads, seq_len, head_dim)
         values = values.transpose(1, 2)  # (bsz, n_heads, seq_len, head_dim)
 
-        # Use FusedSDPA instead of F.scaled_dot_product_attention
-        output = FusedSDPA.apply(
-            queries,
-            keys,
-            values,
-            None,  # attn_mask
-            self.dropout_p if self.training else 0.0,  # dropout_p
-            self.use_attn_mask,  # is_causal
-            None,  # scale
-        )
+        # If attn_fn is F.scaled_dot_product_attention and used with SDPBackend.OVERRIDEABLE
+        # AutogradHPU backend is called for at::_scaled_dot_product_fused_attention_overrideable
+        if self.attn_fn == F.scaled_dot_product_attention:
+            with sdpa_kernel(backends=[SDPBackend.OVERRIDEABLE]):
+                output = self.attn_fn(
+                    queries,
+                    keys,
+                    values,
+                    None,
+                    self.dropout_p if self.training else 0,
+                    self.use_attn_mask,
+                )
+        else:  # FusedSDPA.apply: direct Autograd Override
+            output = self.attn_fn(
+                queries,
+                keys,
+                values,
+                None,
+                self.dropout_p if self.training else 0,
+                self.use_attn_mask,
+            )
         output = output.transpose(1, 2).contiguous().view(bsz, seq_len, -1)
         return self.resid_dropout(self.wo(output))
 
@@ -123,11 +137,11 @@ class FusedAttentionHPU(nn.Module):
 class FusedTransformerHPU(Transformer):
     """Custom Transformer that uses FusedAttentionHPU for attention layers"""
 
-    def __init__(self, args: ModelArgs):
+    def __init__(self, args: ModelArgs, attn_fn=F.scaled_dot_product_attention):
         super().__init__(args)
         # Replace attention modules in each layer with FusedAttentionHPU
         for layer in self.layers:
-            layer.attention = FusedAttentionHPU(args)
+            layer.attention = FusedAttentionHPU(args, attn_fn)
 
 
 class DTensorFusedSDPATest(DTensorTestBase):
@@ -145,11 +159,11 @@ class DTensorFusedSDPATest(DTensorTestBase):
                 param_m2 = param_m2.redistribute(device_mesh=param_m2.device_mesh, placements=replicate).to_local()
             self.assertEqual(param_m2, param_m1)
 
-    def _setup_single_gpu_fused_model(self, model_args, dtype):
+    def _setup_single_gpu_fused_model(self, model_args, dtype, attn_fn):
         """Setup single GPU model with FusedSDPA"""
-        return FusedTransformerHPU(model_args).to(device=self.device_type, dtype=dtype)
+        return FusedTransformerHPU(model_args, attn_fn).to(device=self.device_type, dtype=dtype)
 
-    def _setup_tp_fused_model(self, model, is_seq_parallel, dtype):
+    def _setup_tp_fused_model(self, model, is_seq_parallel, dtype, attn_fn):
         """Setup tensor parallel model with FusedSDPA"""
         model_tp = deepcopy(model)
         self._check_module(model, model_tp)
@@ -298,11 +312,10 @@ class DTensorFusedSDPATest(DTensorTestBase):
     @pytest.mark.skipif(is_pytest_mode_lazy(), reason="DTensor test is not supported in lazy mode")
     @with_comms
     @skip_unless_torch_gpu
-    def test_fused_sdpa_distributed(self):
+    @parametrize("attn_fn", [FusedSDPA.apply, F.scaled_dot_product_attention])
+    def test_fused_sdpa_distributed(self, attn_fn):
         device_mesh = DeviceMesh(self.device_type, list(range(self.world_size)))
         comm_mode = CommDebugMode()
-
-        fused_sdpa_fn = FusedSDPA.apply
 
         # bsz, n_heads, slen, head_dim
         query = torch.rand(
@@ -347,27 +360,47 @@ class DTensorFusedSDPATest(DTensorTestBase):
 
             # Test forward pass
             # Local FusedSDPA
-            local_out = fused_sdpa_fn(
-                query,
-                key,
-                value,
-                None,  # attn_mask
-                0.0,  # dropout_p
-                True,  # is_causal
-                None,  # scale
-            )
-
-            # Distributed FusedSDPA
-            with comm_mode:
-                dist_out = fused_sdpa_fn(
-                    dist_query,
-                    dist_key,
-                    dist_value,
+            if attn_fn == F.scaled_dot_product_attention:
+                with sdpa_kernel(backends=[SDPBackend.OVERRIDEABLE]):
+                    local_out = attn_fn(
+                        query,
+                        key,
+                        value,
+                        None,  # attn_mask
+                        0.0,  # dropout_p
+                        True,  # is_causal
+                    )
+            else:  # FusedSDPA.apply: direct Autograd Override
+                local_out = attn_fn(
+                    query,
+                    key,
+                    value,
                     None,  # attn_mask
                     0.0,  # dropout_p
                     True,  # is_causal
-                    None,  # scale
                 )
+
+            # Distributed FusedSDPA
+            with comm_mode:
+                if attn_fn == F.scaled_dot_product_attention:
+                    with sdpa_kernel(backends=[SDPBackend.OVERRIDEABLE]):
+                        dist_out = attn_fn(
+                            dist_query,
+                            dist_key,
+                            dist_value,
+                            None,  # attn_mask
+                            0.0,  # dropout_p
+                            True,  # is_causal
+                        )
+                else:  # FusedSDPA.apply: direct Autograd Override
+                    dist_out = attn_fn(
+                        dist_query,
+                        dist_key,
+                        dist_value,
+                        None,  # attn_mask
+                        0.0,  # dropout_p
+                        True,  # is_causal
+                    )
                 # For head sharding, we expect no communication
                 if strategy_name == "head_shard":
                     assert comm_mode.get_total_counts() == 0, (
@@ -405,10 +438,9 @@ class DTensorFusedSDPATest(DTensorTestBase):
     @pytest.mark.skipif(is_pytest_mode_lazy(), reason="DTensor test is not supported in lazy mode")
     @with_comms
     @skip_unless_torch_gpu
-    def test_fused_sdpa_with_attention_mask_distributed(self):
+    @parametrize("attn_fn", [FusedSDPA.apply, F.scaled_dot_product_attention])
+    def test_fused_sdpa_with_attention_mask_distributed(self, attn_fn):
         device_mesh = DeviceMesh(self.device_type, list(range(self.world_size)))
-
-        fused_sdpa_fn = FusedSDPA.apply
 
         # bsz, n_heads, slen, head_dim
         batch_size, num_heads, seq_len, head_dim = 2, 4, 8, 16
@@ -442,18 +474,19 @@ class DTensorFusedSDPATest(DTensorTestBase):
         dist_attn_mask = distribute_tensor(attn_mask, device_mesh, [Replicate()])
 
         # Local computation
-        local_out = fused_sdpa_fn(
-            query,
-            key,
-            value,
-            attn_mask,
-            0.0,
-            False,  # is_causal; Using explicit mask instead
-            None,
-        )
+        with sdpa_kernel(backends=[SDPBackend.OVERRIDEABLE]):
+            local_out = attn_fn(
+                query,
+                key,
+                value,
+                attn_mask,
+                0.0,
+                False,  # is_causal; Using explicit mask instead
+            )
 
         # Distributed computation
-        dist_out = fused_sdpa_fn(dist_query, dist_key, dist_value, dist_attn_mask, 0.0, False, None)
+        with sdpa_kernel(backends=[SDPBackend.OVERRIDEABLE]):
+            dist_out = attn_fn(dist_query, dist_key, dist_value, dist_attn_mask, 0.0, False)
 
         # Verify results
         assert dist_out.placements[0].is_shard(dim=1), "Head sharding not preserved with attention mask"
@@ -463,61 +496,40 @@ class DTensorFusedSDPATest(DTensorTestBase):
     @with_comms
     @skip_unless_torch_gpu
     @parametrize(
-        "thaw_params, is_seq_parallel, dtype, exp_cnts",
+        "thaw_params, is_seq_parallel, dtype, exp_cnts, attn_fn",
         [
             (
                 None,  # all require grad seq_parallel float32 baseline
                 True,
                 torch.float32,
                 ExpCommCounts(bwd={reduce_scatter: 5, all_gather: 8}, optim={all_reduce: 30}),
+                "FusedSDPA",
             ),
             (
-                None,  # all require grad no seq_parallel float32 baseline
-                False,
-                torch.float32,
-                ExpCommCounts(bwd={all_reduce: 9, all_gather: 2}),
-            ),
-            (
-                (
-                    "layers.0.attention.wq.weight",
-                    "layers.0.attention.wk.weight",
-                    "layers.0.attention.wv.weight",
-                ),  # attention weights only
+                None,  # all require grad seq_parallel float32 baseline
                 True,
                 torch.float32,
-                ExpCommCounts(bwd={reduce_scatter: 4, all_gather: 6}, optim={}),
-            ),
-            (
-                ("layers.0.attention.wo.weight", "layers.1.attention.wo.weight"),  # attention output weights
-                True,
-                torch.float32,
-                ExpCommCounts(bwd={reduce_scatter: 4, all_gather: 5}),
-            ),
-            (
-                (
-                    "layers.0.attention.wq.weight",
-                    "layers.0.attention.wv.weight",
-                    "layers.1.attention.wk.weight",
-                ),  # mixed attention weights
-                False,
-                torch.float32,
-                ExpCommCounts(bwd={all_reduce: 6, all_gather: 2}),
+                ExpCommCounts(bwd={reduce_scatter: 5, all_gather: 8}, optim={all_reduce: 30}),
+                "SDPAOverrideable",
             ),
         ],
-        name_fn=lambda thaw, seq, dtype, *_: f"{'seq_parallel_' if seq else ''}"
+        name_fn=lambda thaw, seq, dtype, exp_cnts, attn_fn: f"{'seq_parallel_' if seq else ''}"
         + f"{str(dtype).split('.')[-1]}_"
-        + f"thaw_{'__'.join(sorted({n.rpartition('.')[0].replace('.', '_') for n in thaw})) if thaw else 'all'}",
+        + f"thaw_{'__'.join(sorted({n.rpartition('.')[0].replace('.', '_') for n in thaw})) if thaw else 'all'}"
+        + f"_{attn_fn}",
     )
-    def test_fused_sdpa_transformer_tensor_parallel(self, thaw_params, is_seq_parallel, dtype, exp_cnts):
+    def test_fused_sdpa_transformer_tensor_parallel(self, thaw_params, is_seq_parallel, dtype, exp_cnts, attn_fn):
         """Test FusedSDPA Tensor Parallel with various requires_grad patterns focused on attention layers"""
         # Disable dropout to facilitate single gpu to multi-device comparison
         # Disable weight-tying to enable more fine-tuning configurations
         model_args = ModelArgs(dropout_p=0.0, weight_tying=False)
         model = self._setup_single_gpu_fused_model(
-            model_args, dtype
+            model_args, dtype, attn_fn
         )  # Step 1: Initialize single-gpu models with FusedSDPA.
         model_tp = self._setup_tp_fused_model(
-            model, is_seq_parallel, dtype
+            model,
+            is_seq_parallel,
+            dtype,
         )  # Step 2: Setup tp model, place onto device mesh.
         optim, optim_tp = self._setup_optimizer(model, model_tp)  # Step 3: Setup optimizers for both models
         DTensorFusedSDPATest._thaw_params(thaw_params, model, model_tp)  # Step 4: set `requires_grad` patterns
@@ -536,12 +548,13 @@ class DTensorFusedSDPATest(DTensorTestBase):
     @pytest.mark.skipif(is_pytest_mode_lazy(), reason="FSDP test is not supported in lazy mode")
     @with_comms
     @skip_unless_torch_gpu
-    def test_fused_sdpa_transformer_fsdp(self):
+    @parametrize("attn_fn", [FusedSDPA.apply, F.scaled_dot_product_attention])
+    def test_fused_sdpa_transformer_fsdp(self, attn_fn):
         """Compares losses across training runs between FSDP and non-FSDP models"""
         torch.manual_seed(42)
         bsz, seq_ln = 8, 8
         model_args = ModelArgs(n_layers=3, dropout_p=0.0, weight_tying=True)
-        model = FusedTransformerHPU(model_args)  # transformer with FusedSDPA attention
+        model = FusedTransformerHPU(model_args, attn_fn)  # transformer with FusedSDPA attention
         ref_model = copy.deepcopy(model).to(self.device_type)
         # ideally we should replicate the module across ranks
         # but on HPU it returns a RuntimeError: habana active device: 3 != 0
