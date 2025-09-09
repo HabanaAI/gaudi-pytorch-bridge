@@ -21,12 +21,16 @@
 #include <ostream>
 #include <string>
 
+//  NOLINTBEGIN(cert-dcl37-c)
+//  NOLINTBEGIN(cert-dcl51-cpp)
 extern "C" {
 int _PyArg_ParseTuple_SizeT(PyObject* args, const char* format, ...);
 #if PY_VERSION_HEX >= 0x030b0000 // Python 3.11+
 PyThreadState* _PyThreadState_GetCurrent();
 #endif
 }
+//  NOLINTEND(cert-dcl51-cpp)
+//  NOLINTEND(cert-dcl37-c)
 
 namespace {
 
@@ -112,7 +116,9 @@ class Proxy {
   }
 
 // GCC gives us a parentheses warning when we change to (name)
-// NOLINTNEXTLINE(bugprone-macro-parentheses)
+//  NOLINTBEGIN(cert-dcl37-c)
+//  NOLINTBEGIN(cert-dcl51-cpp)
+//  NOLINTNEXTLINE(bugprone-macro-parentheses)
 #define WRAP_SYMBOL(name) decltype(&::name) name = TypedLoad(embed_, #name)
   WRAP_SYMBOL(PyBaseObject_Type);
   WRAP_SYMBOL(PyBool_Type);
@@ -447,6 +453,8 @@ class Proxy {
   WRAP_SYMBOL(PyUnstable_Eval_RequestCodeExtraIndex);
 #endif
 #undef WRAP_SYMBOL
+  //  NOLINTEND(cert-dcl51-cpp)
+  //  NOLINTEND(cert-dcl37-c)
 
  private:
   Proxy() = default;

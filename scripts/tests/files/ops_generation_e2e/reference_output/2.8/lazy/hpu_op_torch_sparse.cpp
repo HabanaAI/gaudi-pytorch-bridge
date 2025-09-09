@@ -43,7 +43,7 @@ at::Tensor ind2ptr(at::Tensor ind, int64_t M) {
 
 
 
-static const auto& kr_gen__torch_sparse = KernelRegistry()
+static const auto& kr_gen_torch_sparse = KernelRegistry()
 ;
 
 TORCH_LIBRARY_IMPL(torch_sparse, HPU, m) {

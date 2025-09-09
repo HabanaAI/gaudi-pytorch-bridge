@@ -18,28 +18,28 @@ namespace habana {
 
 
 
-struct Gensoftmax_fp8 : SoftmaxFp8 {
-  Gensoftmax_fp8(int device_id, c10::ScalarType scalar_type) :
+struct Gen_softmax_fp8 : SoftmaxFp8 {
+  Gen_softmax_fp8(int device_id, c10::ScalarType scalar_type) :
       SoftmaxFp8(device_id, "softmax_fwd", scalar_type, {0}, {}, {}, false) {
         SetOutputMetaFn(SoftmaxFp8Meta);
   }
 };
 
-struct Genexp_fast_math : OpBackend {
-  Genexp_fast_math(int device_id, c10::ScalarType scalar_type) :
+struct Gen_exp_fast_math : OpBackend {
+  Gen_exp_fast_math(int device_id, c10::ScalarType scalar_type) :
       OpBackend(device_id, "exp_fast_math_fwd", scalar_type, {0}, {}, {}, false) {
   }
 };
 
-struct Genmixture_of_experts_fp8_fused_weights : MixtureOfExpertsFp8 {
-  Genmixture_of_experts_fp8_fused_weights(int device_id, c10::ScalarType scalar_type) :
+struct Gen_mixture_of_experts_fp8_fused_weights : MixtureOfExpertsFp8 {
+  Gen_mixture_of_experts_fp8_fused_weights(int device_id, c10::ScalarType scalar_type) :
       MixtureOfExpertsFp8(device_id, "None", scalar_type, {2}, {}, {}, false) {
         SetOutputMetaFn(MixtureOfExpertsFp8Meta);
   }
 };
 
-struct Gencast_to_fp8_v2 : CastToFp8V2 {
-  Gencast_to_fp8_v2(int device_id, c10::ScalarType scalar_type) :
+struct Gen_cast_to_fp8_v2 : CastToFp8V2 {
+  Gen_cast_to_fp8_v2(int device_id, c10::ScalarType scalar_type) :
       CastToFp8V2(device_id, "None", scalar_type, {0, 0}, {}, {}, false) {
         SetOutputMetaFn(CastToFp8V2Meta);
   }
@@ -47,11 +47,11 @@ struct Gencast_to_fp8_v2 : CastToFp8V2 {
 
 
 
-static const auto& kr_gen__custom = KernelRegistry()
-.REGISTER_HPU_BACKEND("hpu::softmax_fp8", Gensoftmax_fp8)
-.REGISTER_HPU_BACKEND("hpu::exp_fast_math", Genexp_fast_math)
-.REGISTER_HPU_BACKEND("hpu::mixture_of_experts.fp8_fused_weights", Genmixture_of_experts_fp8_fused_weights)
-.REGISTER_HPU_BACKEND("hpu::cast_to_fp8_v2", Gencast_to_fp8_v2)
+static const auto& kr_gen_custom = KernelRegistry()
+.REGISTER_HPU_BACKEND("hpu::softmax_fp8", Gen_softmax_fp8)
+.REGISTER_HPU_BACKEND("hpu::exp_fast_math", Gen_exp_fast_math)
+.REGISTER_HPU_BACKEND("hpu::mixture_of_experts.fp8_fused_weights", Gen_mixture_of_experts_fp8_fused_weights)
+.REGISTER_HPU_BACKEND("hpu::cast_to_fp8_v2", Gen_cast_to_fp8_v2)
 ;
 
 

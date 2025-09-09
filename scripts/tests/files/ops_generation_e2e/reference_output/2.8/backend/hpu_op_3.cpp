@@ -16,8 +16,8 @@ namespace habana {
 
 
 
-struct Genbucketize_Scalar : OpBackend {
-  Genbucketize_Scalar(int device_id, c10::ScalarType scalar_type) :
+struct Gen_bucketize_Scalar : OpBackend {
+  Gen_bucketize_Scalar(int device_id, c10::ScalarType scalar_type) :
       OpBackend(device_id, "search_sorted_fwd", scalar_type, {1}, {}, {0}, false) {
         SetOutputMetaFn(BucketizeMeta);
         SetFillParams(FillBucketizeParams);
@@ -26,8 +26,8 @@ struct Genbucketize_Scalar : OpBackend {
   }
 };
 
-struct Genelu : OpBackend {
-  Genelu(int device_id, c10::ScalarType scalar_type) :
+struct Gen_elu : OpBackend {
+  Gen_elu(int device_id, c10::ScalarType scalar_type) :
       OpBackend(device_id, "elu_fwd", scalar_type, {0}, {}, {}, false) {
         SetFillParams(FillEluParams);
   }
@@ -36,8 +36,8 @@ struct Genelu : OpBackend {
 
 
 static const auto& kr_gen_3 = KernelRegistry()
-.REGISTER_HPU_BACKEND("aten::bucketize.Scalar", Genbucketize_Scalar)
-.REGISTER_HPU_BACKEND("aten::elu", Genelu)
+.REGISTER_HPU_BACKEND("aten::bucketize.Scalar", Gen_bucketize_Scalar)
+.REGISTER_HPU_BACKEND("aten::elu", Gen_elu)
 ;
 
 

@@ -16,8 +16,8 @@ namespace habana {
 
 
 
-struct Geneq_Tensor_out : OpBackend {
-  Geneq_Tensor_out(int device_id, c10::ScalarType scalar_type) :
+struct Gen_eq_Tensor_out : OpBackend {
+  Gen_eq_Tensor_out(int device_id, c10::ScalarType scalar_type) :
       OpBackend(device_id, "equal_fwd", scalar_type, {}, {}, {}, true) {
         SetOutputMetaFn(CompareMeta);
         EnableTypePromotion();
@@ -25,8 +25,8 @@ struct Geneq_Tensor_out : OpBackend {
   }
 };
 
-struct Genisfinite : _IsFiniteInfNan {
-  Genisfinite(int device_id, c10::ScalarType scalar_type) :
+struct Gen_isfinite : _IsFiniteInfNan {
+  Gen_isfinite(int device_id, c10::ScalarType scalar_type) :
       _IsFiniteInfNan(device_id, "isfinite_fwd", scalar_type, {0}, {}, {}, false) {
   }
 };
@@ -34,8 +34,8 @@ struct Genisfinite : _IsFiniteInfNan {
 
 
 static const auto& kr_gen_7 = KernelRegistry()
-.REGISTER_HPU_BACKEND("aten::eq.Tensor_out", Geneq_Tensor_out)
-.REGISTER_HPU_BACKEND("aten::isfinite", Genisfinite)
+.REGISTER_HPU_BACKEND("aten::eq.Tensor_out", Gen_eq_Tensor_out)
+.REGISTER_HPU_BACKEND("aten::isfinite", Gen_isfinite)
 ;
 
 

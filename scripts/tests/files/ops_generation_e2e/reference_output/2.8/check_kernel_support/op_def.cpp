@@ -33,16 +33,16 @@
 
 using habana_helpers::DTypeHelper;
 using namespace torch::jit;
-#include<hpu_op0.h>
-#include<hpu_op1.h>
-#include<hpu_op2.h>
-#include<hpu_op3.h>
-#include<hpu_op4.h>
-#include<hpu_op5.h>
-#include<hpu_op6.h>
-#include<hpu_op7.h>
-#include<hpu_op8.h>
-#include<hpu_op9.h>
+#include<hpu_op_0.h>
+#include<hpu_op_1.h>
+#include<hpu_op_2.h>
+#include<hpu_op_3.h>
+#include<hpu_op_4.h>
+#include<hpu_op_5.h>
+#include<hpu_op_6.h>
+#include<hpu_op_7.h>
+#include<hpu_op_8.h>
+#include<hpu_op_9.h>
 #include<hpu_op_custom.h>
 std::unordered_map<std::string, std::function<bool(c10::FunctionSchema&, bool, bool, const py::list&, py::args& args, const py::kwargs& kwargs)>> fallback_support_check_map = {
 {"__ilshift__", &check_support<habana::shared_layer___ilshift__>},

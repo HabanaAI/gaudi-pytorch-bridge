@@ -124,8 +124,8 @@ CP_TYPE_CHECK_MAP = {
 }
 
 NAMESPACE_TO_POSTFIX = {
-    "hpu": "_custom",
-    "quantized_decomposed": "_quant",
-    "torchvision": "_torchvision",
-    "torch_sparse": "_torch_sparse",
+    "hpu": "custom",
+    "quantized_decomposed": "quant",
+    "torchvision": "torchvision",
+    "torch_sparse": "torch_sparse",
 }

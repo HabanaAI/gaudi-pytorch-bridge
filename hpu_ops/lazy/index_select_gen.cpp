@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,10 +16,11 @@
 
 namespace habana {
 
-FALLBACK_CHECK(IndexSelectFallbackCheck, const at::Tensor& self) {
+bool IndexSelectFallbackCheck(const at::Tensor& self) {
   if (self.dim() > 5) {
     return false;
   }
   return true;
-};
+}
+
 } // namespace habana

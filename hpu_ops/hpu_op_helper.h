@@ -528,5 +528,3 @@ auto get_or_create_tensor(
     return;                                                                  \
   }                                                                          \
   return (lazy_op).call(result);
-
-#define FALLBACK_CHECK(fn, args...) bool fn(args...)

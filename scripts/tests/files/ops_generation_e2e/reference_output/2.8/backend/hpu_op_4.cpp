@@ -16,14 +16,14 @@ namespace habana {
 
 
 
-struct Genprod_int_out : OpBackend {
-  Genprod_int_out(int device_id, c10::ScalarType scalar_type) :
+struct Gen_prod_int_out : OpBackend {
+  Gen_prod_int_out(int device_id, c10::ScalarType scalar_type) :
       OpBackend(device_id, "reduce_prod_multi_dim_fwd", scalar_type, {}, {}, {}, true) {
   }
 };
 
-struct Genclone : OpBackend {
-  Genclone(int device_id, c10::ScalarType scalar_type) :
+struct Gen_clone : OpBackend {
+  Gen_clone(int device_id, c10::ScalarType scalar_type) :
       OpBackend(device_id, "identity", scalar_type, {0}, {}, {}, false) {
         setNoComputeFlag();
         SetOutputMetaFn(CloneMeta);
@@ -33,8 +33,8 @@ struct Genclone : OpBackend {
 
 
 static const auto& kr_gen_4 = KernelRegistry()
-.REGISTER_HPU_BACKEND("aten::prod.int_out", Genprod_int_out)
-.REGISTER_HPU_BACKEND("aten::clone", Genclone)
+.REGISTER_HPU_BACKEND("aten::prod.int_out", Gen_prod_int_out)
+.REGISTER_HPU_BACKEND("aten::clone", Gen_clone)
 ;
 
 

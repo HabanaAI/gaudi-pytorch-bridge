@@ -53,16 +53,14 @@ static bool DivCommonCheck(
   }
 }
 
-FALLBACK_CHECK(
-    DivTensorModeFallbackCheck,
+bool DivTensorModeFallbackCheck(
     const at::Tensor& self,
     const at::Tensor& other,
     std::optional<std::string_view> rounding_mode) {
   return DivCommonCheck(self, other, std::move(rounding_mode));
 }
 
-FALLBACK_CHECK(
-    DivScalarModeFallbackCheck,
+bool DivScalarModeFallbackCheck(
     const at::Tensor& self,
     const at::Scalar& other,
     std::optional<std::string_view> rounding_mode) {

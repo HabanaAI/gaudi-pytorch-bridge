@@ -19,8 +19,7 @@ namespace habana {
 
 // SW-215089
 // Only this specific configuration is supported by TPC for now.
-FALLBACK_CHECK(
-    Im2ColFallbackCheck,
+bool Im2ColFallbackCheck(
     at::IntArrayRef kernel_size,
     at::IntArrayRef dilation,
     at::IntArrayRef padding,

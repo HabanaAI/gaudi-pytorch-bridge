@@ -37,7 +37,7 @@ namespace habana {
 
 
 
-static const auto& kr_gen__torchvision = KernelRegistry()
+static const auto& kr_gen_torchvision = KernelRegistry()
 ;
 
 TORCH_LIBRARY_IMPL(torchvision, HPU, m) {

@@ -10,7 +10,7 @@ namespace habana {
 
 
 ::std::tuple<at::Tensor &,at::Tensor &> sort_values_stable(const at::Tensor & self, ::std::optional<bool> stable, int64_t dim, bool descending, at::Tensor & values, at::Tensor & indices);
-FALLBACK_CHECK(SortStableFallbackCheck, const at::Tensor & self, ::std::optional<bool> stable, int64_t dim, bool descending);
+bool SortStableFallbackCheck(const at::Tensor & self, ::std::optional<bool> stable, int64_t dim, bool descending);
 
 }  // namespace habana
 

@@ -101,8 +101,7 @@ void WhereBackend::AddNode(
   syn_out(0) = std::move(result[0]);
 }
 
-FALLBACK_CHECK(
-    WhereFallbackCheck,
+bool WhereFallbackCheck(
     const at::Tensor& condition,
     const at::Tensor& self,
     const at::Tensor& other) {

@@ -15,46 +15,46 @@
 
 set(GENERATED_FILES
     ${CMAKE_BINARY_DIR}/generated/autograd/autograd_ops.cpp
-    ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op0.cpp
-    ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op1.cpp
-    ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op2.cpp
-    ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op3.cpp
-    ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op4.cpp
-    ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op5.cpp
-    ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op6.cpp
-    ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op7.cpp
-    ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op8.cpp
-    ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op9.cpp
+    ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op_0.cpp
+    ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op_1.cpp
+    ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op_2.cpp
+    ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op_3.cpp
+    ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op_4.cpp
+    ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op_5.cpp
+    ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op_6.cpp
+    ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op_7.cpp
+    ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op_8.cpp
+    ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op_9.cpp
     ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op_custom.cpp
     ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op_quant.cpp
     ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op_torch_sparse.cpp
     ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op_torchvision.cpp
     ${CMAKE_BINARY_DIR}/generated/lazy/wrap_kernels_registrations.cpp
-    ${CMAKE_BINARY_DIR}/generated/eager/hpu_op0.cpp
-    ${CMAKE_BINARY_DIR}/generated/eager/hpu_op1.cpp
-    ${CMAKE_BINARY_DIR}/generated/eager/hpu_op2.cpp
-    ${CMAKE_BINARY_DIR}/generated/eager/hpu_op3.cpp
-    ${CMAKE_BINARY_DIR}/generated/eager/hpu_op4.cpp
-    ${CMAKE_BINARY_DIR}/generated/eager/hpu_op5.cpp
-    ${CMAKE_BINARY_DIR}/generated/eager/hpu_op6.cpp
-    ${CMAKE_BINARY_DIR}/generated/eager/hpu_op7.cpp
-    ${CMAKE_BINARY_DIR}/generated/eager/hpu_op8.cpp
-    ${CMAKE_BINARY_DIR}/generated/eager/hpu_op9.cpp
+    ${CMAKE_BINARY_DIR}/generated/eager/hpu_op_0.cpp
+    ${CMAKE_BINARY_DIR}/generated/eager/hpu_op_1.cpp
+    ${CMAKE_BINARY_DIR}/generated/eager/hpu_op_2.cpp
+    ${CMAKE_BINARY_DIR}/generated/eager/hpu_op_3.cpp
+    ${CMAKE_BINARY_DIR}/generated/eager/hpu_op_4.cpp
+    ${CMAKE_BINARY_DIR}/generated/eager/hpu_op_5.cpp
+    ${CMAKE_BINARY_DIR}/generated/eager/hpu_op_6.cpp
+    ${CMAKE_BINARY_DIR}/generated/eager/hpu_op_7.cpp
+    ${CMAKE_BINARY_DIR}/generated/eager/hpu_op_8.cpp
+    ${CMAKE_BINARY_DIR}/generated/eager/hpu_op_9.cpp
     ${CMAKE_BINARY_DIR}/generated/eager/hpu_op_custom.cpp
     ${CMAKE_BINARY_DIR}/generated/eager/hpu_op_quant.cpp
     ${CMAKE_BINARY_DIR}/generated/eager/hpu_op_torch_sparse.cpp
     ${CMAKE_BINARY_DIR}/generated/eager/hpu_op_torchvision.cpp
     ${CMAKE_BINARY_DIR}/generated/eager/wrap_kernels_registrations.cpp
-    ${CMAKE_BINARY_DIR}/generated/backend/hpu_op0.cpp
-    ${CMAKE_BINARY_DIR}/generated/backend/hpu_op1.cpp
-    ${CMAKE_BINARY_DIR}/generated/backend/hpu_op2.cpp
-    ${CMAKE_BINARY_DIR}/generated/backend/hpu_op3.cpp
-    ${CMAKE_BINARY_DIR}/generated/backend/hpu_op4.cpp
-    ${CMAKE_BINARY_DIR}/generated/backend/hpu_op5.cpp
-    ${CMAKE_BINARY_DIR}/generated/backend/hpu_op6.cpp
-    ${CMAKE_BINARY_DIR}/generated/backend/hpu_op7.cpp
-    ${CMAKE_BINARY_DIR}/generated/backend/hpu_op8.cpp
-    ${CMAKE_BINARY_DIR}/generated/backend/hpu_op9.cpp
+    ${CMAKE_BINARY_DIR}/generated/backend/hpu_op_0.cpp
+    ${CMAKE_BINARY_DIR}/generated/backend/hpu_op_1.cpp
+    ${CMAKE_BINARY_DIR}/generated/backend/hpu_op_2.cpp
+    ${CMAKE_BINARY_DIR}/generated/backend/hpu_op_3.cpp
+    ${CMAKE_BINARY_DIR}/generated/backend/hpu_op_4.cpp
+    ${CMAKE_BINARY_DIR}/generated/backend/hpu_op_5.cpp
+    ${CMAKE_BINARY_DIR}/generated/backend/hpu_op_6.cpp
+    ${CMAKE_BINARY_DIR}/generated/backend/hpu_op_7.cpp
+    ${CMAKE_BINARY_DIR}/generated/backend/hpu_op_8.cpp
+    ${CMAKE_BINARY_DIR}/generated/backend/hpu_op_9.cpp
     ${CMAKE_BINARY_DIR}/generated/backend/hpu_op_custom.cpp
     ${CMAKE_BINARY_DIR}/generated/backend/hpu_autocast_ops0.cpp
     ${CMAKE_BINARY_DIR}/generated/backend/hpu_autocast_ops1.cpp
@@ -329,16 +329,16 @@ add_habana_library(
   ${CMAKE_BINARY_DIR}/generated/backend/hpu_autocast_ops7.cpp
   ${CMAKE_BINARY_DIR}/generated/backend/hpu_autocast_ops8.cpp
   ${CMAKE_BINARY_DIR}/generated/backend/hpu_autocast_ops9.cpp
-  ${CMAKE_BINARY_DIR}/generated/backend/hpu_op0.cpp
-  ${CMAKE_BINARY_DIR}/generated/backend/hpu_op1.cpp
-  ${CMAKE_BINARY_DIR}/generated/backend/hpu_op2.cpp
-  ${CMAKE_BINARY_DIR}/generated/backend/hpu_op3.cpp
-  ${CMAKE_BINARY_DIR}/generated/backend/hpu_op4.cpp
-  ${CMAKE_BINARY_DIR}/generated/backend/hpu_op5.cpp
-  ${CMAKE_BINARY_DIR}/generated/backend/hpu_op6.cpp
-  ${CMAKE_BINARY_DIR}/generated/backend/hpu_op7.cpp
-  ${CMAKE_BINARY_DIR}/generated/backend/hpu_op8.cpp
-  ${CMAKE_BINARY_DIR}/generated/backend/hpu_op9.cpp
+  ${CMAKE_BINARY_DIR}/generated/backend/hpu_op_0.cpp
+  ${CMAKE_BINARY_DIR}/generated/backend/hpu_op_1.cpp
+  ${CMAKE_BINARY_DIR}/generated/backend/hpu_op_2.cpp
+  ${CMAKE_BINARY_DIR}/generated/backend/hpu_op_3.cpp
+  ${CMAKE_BINARY_DIR}/generated/backend/hpu_op_4.cpp
+  ${CMAKE_BINARY_DIR}/generated/backend/hpu_op_5.cpp
+  ${CMAKE_BINARY_DIR}/generated/backend/hpu_op_6.cpp
+  ${CMAKE_BINARY_DIR}/generated/backend/hpu_op_7.cpp
+  ${CMAKE_BINARY_DIR}/generated/backend/hpu_op_8.cpp
+  ${CMAKE_BINARY_DIR}/generated/backend/hpu_op_9.cpp
   ${CMAKE_BINARY_DIR}/generated/backend/hpu_op_custom.cpp)
 target_include_directories(habana_pytorch_backend_ops PUBLIC ${PROJECT_SOURCE_DIR})
 target_include_directories(
@@ -392,16 +392,16 @@ add_habana_library(
   op_logger.cpp
   op_validator.cpp
   # autogenerated files:
-  ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op0.cpp
-  ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op1.cpp
-  ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op2.cpp
-  ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op3.cpp
-  ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op4.cpp
-  ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op5.cpp
-  ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op6.cpp
-  ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op7.cpp
-  ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op8.cpp
-  ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op9.cpp
+  ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op_0.cpp
+  ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op_1.cpp
+  ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op_2.cpp
+  ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op_3.cpp
+  ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op_4.cpp
+  ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op_5.cpp
+  ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op_6.cpp
+  ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op_7.cpp
+  ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op_8.cpp
+  ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op_9.cpp
   ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op_custom.cpp
   ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op_quant.cpp
   ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op_torch_sparse.cpp

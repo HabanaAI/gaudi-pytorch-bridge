@@ -15,8 +15,8 @@ namespace habana {
 
 
 
-struct Genaddbmm : AddBMM {
-  Genaddbmm(int device_id, c10::ScalarType scalar_type) :
+struct Gen_addbmm : AddBMM {
+  Gen_addbmm(int device_id, c10::ScalarType scalar_type) :
       AddBMM(device_id, "batch_gemm", scalar_type, {0}, {}, {}, false) {
         SetOutputMetaFn(AddBMMMeta);
         SetSharedLayerMetaFn(AddBMMSharedMeta);
@@ -26,7 +26,7 @@ struct Genaddbmm : AddBMM {
 
 
 static const auto& kr_gen_2 = KernelRegistry()
-.REGISTER_HPU_BACKEND("aten::addbmm", Genaddbmm)
+.REGISTER_HPU_BACKEND("aten::addbmm", Gen_addbmm)
 ;
 
 

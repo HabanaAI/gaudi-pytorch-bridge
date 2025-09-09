@@ -395,8 +395,9 @@ def generate_header_decls(fgens, gen_check_node_with_sl_val=False):
         fill_params_decls += build(fgen.ctxop.get_custom_fill_params(), fill_params, "FILL_PARAMS_DECL")
 
         fc = fgen.ctxop.get_fallback_check()
-        if fc:
-            fallback_check_decls += build(fc[0], fc_fns, "FALLBACK_CHECK", fgen.fc_params)
+        if fc and fc[0] not in fc_fns:
+            fc_fns.add(fc[0])
+            fallback_check_decls += f"bool {fc[0]}({', '.join(fgen.fc_params)});\n"
 
     if len(check_node_with_sl_decls) > 0:
         forward_decls += "struct CheckNodeWithSharedLayerValidator;\n"
@@ -1092,7 +1093,10 @@ def generate_op(fndef, op_name, ctxop, op_params, is_check_kernel_support=False,
             if not (ctxop.get_op_frontend_class() == "LazyOp" and ctxop.get_op_backend_class() == "OpBackend"):
                 raise AssertionError(f"{op_name} has defined override_fn, it cannot take op_frontend or op_backend")
         elif not ctxop.get_only_shared_layer():
-            op_backend_class = f"Gen{op_name.replace('.', '_')}"
+            op_name_with_inplace = re.sub(r"_\.", "_inplace_", op_name)
+            op_name_with_dots = re.sub(r"\.", "_", op_name_with_inplace)
+            op_name_processed = re.sub(r"_+", "_", op_name_with_dots)
+            op_backend_class = f"Gen_{'priv' if op_name_processed.startswith('_') else ''}{op_name_processed}"
             op_backend = get_op_backend_class_impl(ctxop, fname, op_backend_class, len(call_args), param_vars)
 
     op_frontend_eager = None
@@ -1289,7 +1293,7 @@ def print_backend_to_file(op_groups, op_backend, kr_regs, custom_schema_regs, ge
             custom_schema_regs=torch_library_fragment(custom_schema_regs),
             file_idx=gen_file_idx,
         ),
-        file=gen_cpp_output_file(args, f"backend/hpu_op{gen_file_idx}"),
+        file=gen_cpp_output_file(args, f"backend/hpu_op_{gen_file_idx}"),
     )
 
 
@@ -1345,7 +1349,7 @@ def generate_backend(args, fgens, is_custom=False):
             op_groups = set()
 
     if is_custom:
-        print_backend_to_file(op_groups, op_backend, kr_regs, custom_schema_regs, "_custom", args)
+        print_backend_to_file(op_groups, op_backend, kr_regs, custom_schema_regs, "custom", args)
 
     backend_class_headers = {}
 
@@ -1412,7 +1416,7 @@ def print_frontend_to_file(op_groups, dtype_defs, functions, torch_regs, gen_fil
             custom_schema_regs="",
             file_idx=gen_file_idx,
         ),
-        file=gen_cpp_output_file(args, f"{out_dir}/hpu_op{gen_file_idx}"),
+        file=gen_cpp_output_file(args, f"{out_dir}/hpu_op_{gen_file_idx}"),
     )
 
 
@@ -2118,7 +2122,7 @@ def generate_check_kernel_support_frontend(args, fgens, fgens_hpu_wrap, fgens_cu
         functions, dtype_defs = generate_functions_code(fgens, fgen_pos, native_func_dict, functions, dtype_defs)
 
         if should_write_and_go_to_next_file(idx, num_fgens_per_shard, gen_file_idx, len(unique_func_map)):
-            file_name = gen_h_output_file(args, f"{OUT_DIR}/hpu_op{gen_file_idx}")
+            file_name = gen_h_output_file(args, f"{OUT_DIR}/hpu_op_{gen_file_idx}")
             print(
                 templates.CPP_HEADER_CHECK_KERNEL_SUPPORT.format(
                     gen=os.path.basename(sys.argv[0]),
@@ -2130,7 +2134,7 @@ def generate_check_kernel_support_frontend(args, fgens, fgens_hpu_wrap, fgens_cu
                 ),
                 file=file_name,
             )
-            gen_hdr_file_includes += f"#include<hpu_op{gen_file_idx}.h>\n"
+            gen_hdr_file_includes += f"#include<hpu_op_{gen_file_idx}.h>\n"
             gen_file_idx += 1
             dtype_defs = ""
             functions = ""
