@@ -16,16 +16,16 @@ namespace habana {
 
 
 
-struct Genmul_Scalar_out : OpBackend {
-  Genmul_Scalar_out(int device_id, c10::ScalarType scalar_type) :
+struct Gen_mul_Scalar_out : OpBackend {
+  Gen_mul_Scalar_out(int device_id, c10::ScalarType scalar_type) :
       OpBackend(device_id, "mult_fwd", scalar_type, {}, {}, {1}, true) {
         SetOutputMetaFn(PointwiseMeta<static_cast<int>(DTypeHelper::DtypePromoteVariant::kPromoteToCommon), true, 0, 1>);
         EnableTypePromotion();
   }
 };
 
-struct Gensort_values_stable : SortStable {
-  Gensort_values_stable(int device_id, c10::ScalarType scalar_type) :
+struct Gen_sort_values_stable : SortStable {
+  Gen_sort_values_stable(int device_id, c10::ScalarType scalar_type) :
       SortStable(device_id, "None", scalar_type, {}, {}, {}, true) {
         SetNumOutTensors(2);
   }
@@ -34,8 +34,8 @@ struct Gensort_values_stable : SortStable {
 
 
 static const auto& kr_gen_5 = KernelRegistry()
-.REGISTER_HPU_BACKEND("aten::mul.Scalar_out", Genmul_Scalar_out)
-.REGISTER_HPU_BACKEND("aten::sort.values_stable", Gensort_values_stable)
+.REGISTER_HPU_BACKEND("aten::mul.Scalar_out", Gen_mul_Scalar_out)
+.REGISTER_HPU_BACKEND("aten::sort.values_stable", Gen_sort_values_stable)
 ;
 
 

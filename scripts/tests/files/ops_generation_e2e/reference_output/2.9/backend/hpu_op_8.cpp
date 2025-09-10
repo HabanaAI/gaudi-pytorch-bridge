@@ -16,8 +16,8 @@ namespace habana {
 
 
 
-struct Genbitwise_left_shift_Tensor_Scalar : OpBackend {
-  Genbitwise_left_shift_Tensor_Scalar(int device_id, c10::ScalarType scalar_type) :
+struct Gen_bitwise_left_shift_Tensor_Scalar : OpBackend {
+  Gen_bitwise_left_shift_Tensor_Scalar(int device_id, c10::ScalarType scalar_type) :
       OpBackend(device_id, "bitshift_fwd", scalar_type, {0}, {}, {1}, false) {
         SetFillParams(FillLeftShiftParams);
   }
@@ -31,8 +31,8 @@ struct Genbitwise_left_shift_Tensor_Scalar : OpBackend {
   }
 };
 
-struct Gen_native_batch_norm_legit : BatchNormOpBackend {
-  Gen_native_batch_norm_legit(int device_id, c10::ScalarType scalar_type) :
+struct Gen_priv_native_batch_norm_legit : BatchNormOpBackend {
+  Gen_priv_native_batch_norm_legit(int device_id, c10::ScalarType scalar_type) :
       BatchNormOpBackend(device_id, "None", scalar_type, {0, 0, 0}, {}, {}, false) {
         SetSynapseLayouts({synapse_helpers::layouts::SynapseLayoutFormat::WHCN, synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE, synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE, synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE, synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE}, {synapse_helpers::layouts::SynapseLayoutFormat::WHCN, synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE, synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE, synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE, synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE});
         SetOutputMetaFn(BatchNormFwdMeta);
@@ -43,8 +43,8 @@ struct Gen_native_batch_norm_legit : BatchNormOpBackend {
 
 
 static const auto& kr_gen_8 = KernelRegistry()
-.REGISTER_HPU_BACKEND("aten::bitwise_left_shift.Tensor_Scalar", Genbitwise_left_shift_Tensor_Scalar)
-.REGISTER_HPU_BACKEND("aten::_native_batch_norm_legit", Gen_native_batch_norm_legit)
+.REGISTER_HPU_BACKEND("aten::bitwise_left_shift.Tensor_Scalar", Gen_bitwise_left_shift_Tensor_Scalar)
+.REGISTER_HPU_BACKEND("aten::_native_batch_norm_legit", Gen_priv_native_batch_norm_legit)
 ;
 
 

@@ -84,7 +84,7 @@ at::Tensor mixture_of_experts_fp8_fused_weights(const at::Tensor & hidden_states
 
 
 
-static const auto& kr_gen__custom = KernelRegistry()
+static const auto& kr_gen_custom = KernelRegistry()
 ;
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {

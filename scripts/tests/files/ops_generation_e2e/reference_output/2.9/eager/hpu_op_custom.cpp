@@ -67,7 +67,7 @@ at::Tensor exp_fast_math(const at::Tensor & self) {
 
 
 
-static const auto& kr_gen__custom = KernelRegistry()
+static const auto& kr_gen_custom = KernelRegistry()
 ;
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {

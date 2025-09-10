@@ -16,15 +16,15 @@ namespace habana {
 
 
 
-struct Gensqueeze_dims : SqueezeDims {
-  Gensqueeze_dims(int device_id, c10::ScalarType scalar_type) :
+struct Gen_squeeze_dims : SqueezeDims {
+  Gen_squeeze_dims(int device_id, c10::ScalarType scalar_type) :
       SqueezeDims(device_id, "squeeze", scalar_type, {0}, {}, {}, false) {
         SetOutputMetaFn(SqueezeDimsMeta);
   }
 };
 
-struct Geneq_Scalar_out : OpBackend {
-  Geneq_Scalar_out(int device_id, c10::ScalarType scalar_type) :
+struct Gen_eq_Scalar_out : OpBackend {
+  Gen_eq_Scalar_out(int device_id, c10::ScalarType scalar_type) :
       OpBackend(device_id, "equal_fwd", scalar_type, {}, {}, {1}, true) {
         SetOutputMetaFn(CompareMeta);
         EnableTypePromotion();
@@ -35,8 +35,8 @@ struct Geneq_Scalar_out : OpBackend {
 
 
 static const auto& kr_gen_6 = KernelRegistry()
-.REGISTER_HPU_BACKEND("aten::squeeze.dims", Gensqueeze_dims)
-.REGISTER_HPU_BACKEND("aten::eq.Scalar_out", Geneq_Scalar_out)
+.REGISTER_HPU_BACKEND("aten::squeeze.dims", Gen_squeeze_dims)
+.REGISTER_HPU_BACKEND("aten::eq.Scalar_out", Gen_eq_Scalar_out)
 ;
 
 

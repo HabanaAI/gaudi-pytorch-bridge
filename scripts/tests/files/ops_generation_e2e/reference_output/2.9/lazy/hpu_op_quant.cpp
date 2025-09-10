@@ -40,7 +40,7 @@ at::Tensor quantize_per_channel(const at::Tensor & input, const at::Tensor & sca
 
 
 
-static const auto& kr_gen__quant = KernelRegistry()
+static const auto& kr_gen_quant = KernelRegistry()
 ;
 
 TORCH_LIBRARY_IMPL(quantized_decomposed, HPU, m) {

@@ -16,15 +16,15 @@ namespace habana {
 
 
 
-struct Gen__ilshift___Scalar : OpBackend {
-  Gen__ilshift___Scalar(int device_id, c10::ScalarType scalar_type) :
+struct Gen_priv_ilshift_inplace_Scalar : OpBackend {
+  Gen_priv_ilshift_inplace_Scalar(int device_id, c10::ScalarType scalar_type) :
       OpBackend(device_id, "bitshift_fwd", scalar_type, {}, {0}, {1}, false) {
         SetFillParams(FillLeftShiftParams);
   }
 };
 
-struct Gen_foreach_add__Scalar : ForeachBinary {
-  Gen_foreach_add__Scalar(int device_id, c10::ScalarType scalar_type) :
+struct Gen_priv_foreach_add_inplace_Scalar : ForeachBinary {
+  Gen_priv_foreach_add_inplace_Scalar(int device_id, c10::ScalarType scalar_type) :
       ForeachBinary(device_id, "add_fwd", scalar_type, {}, {0}, {}, false) {
   }
 };
@@ -32,8 +32,8 @@ struct Gen_foreach_add__Scalar : ForeachBinary {
 
 
 static const auto& kr_gen_0 = KernelRegistry()
-.REGISTER_HPU_BACKEND("aten::__ilshift__.Scalar", Gen__ilshift___Scalar)
-.REGISTER_HPU_BACKEND("aten::_foreach_add_.Scalar", Gen_foreach_add__Scalar)
+.REGISTER_HPU_BACKEND("aten::__ilshift__.Scalar", Gen_priv_ilshift_inplace_Scalar)
+.REGISTER_HPU_BACKEND("aten::_foreach_add_.Scalar", Gen_priv_foreach_add_inplace_Scalar)
 ;
 
 
