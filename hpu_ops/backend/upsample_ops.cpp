@@ -70,18 +70,6 @@ struct UpsampleBilinear2dVec : OpBackend {
   }
 };
 
-struct UpsampleBicubic2dVec : OpBackend {
-  UpsampleBicubic2dVec(int device_id, c10::ScalarType scalar_type)
-      : OpBackend(device_id, "resize_fwd", scalar_type, {0}, {}, {}, false) {
-    SetSynapseLayouts(
-        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
-         synapse_helpers::layouts::SynapseLayoutFormat::WHCN},
-        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
-    SetOutputMetaFn(UpsampleBicubic2DFwdMeta);
-    SetFillParams(FillBicubicFwdParams);
-  }
-};
-
 struct UpsampleNearest2dVec : UpSampleNearest2DOperator {
   UpsampleNearest2dVec(int device_id, c10::ScalarType scalar_type)
       : UpSampleNearest2DOperator(
@@ -130,9 +118,6 @@ static const auto& UpsampleKernelRegistry =
         .REGISTER_HPU_BACKEND(
             "aten::upsample_bilinear2d.vec",
             UpsampleBilinear2dVec)
-        .REGISTER_HPU_BACKEND(
-            "aten::upsample_bicubic2d.vec",
-            UpsampleBicubic2dVec)
         .REGISTER_HPU_BACKEND(
             "aten::upsample_nearest2d.vec",
             UpsampleNearest2dVec)

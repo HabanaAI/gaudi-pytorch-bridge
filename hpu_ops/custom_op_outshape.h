@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,7 +41,13 @@ using sym_sizes_vec = std::vector<std::vector<c10::SymInt>>;
       params_float,                                                \
       (inputs, params),                                            \
       const std::vector<at::Tensor>& inputs,                       \
-      const std::vector<float>& params)
+      const std::vector<float>& params)                            \
+  ITEM(                                                            \
+      params_opt_int_opt_float,                                    \
+      (inputs, ints, floats),                                      \
+      const std::vector<at::Tensor>& inputs,                       \
+      const std::optional<std::vector<int64_t>>& ints,             \
+      const std::optional<std::vector<float>>& floats)
 
 class CustomOpOutShapeFunRegistrar {
  public:

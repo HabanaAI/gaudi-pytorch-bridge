@@ -19,6 +19,7 @@
 #include <ATen/autocast_mode.h>
 #include <absl/strings/str_format.h>
 #include <pybind11/chrono.h>
+#include <pybind11/stl.h>
 #include <synapse_common_types.h>
 #include <torch/extension.h>
 //clang-format on
@@ -408,6 +409,15 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
          const std::vector<float>& params) {
         return habana::CustomOpOutShapeFunRegistrar::GetInstance().CalcOutShape(
             opname, inputs, params);
+      });
+  m.def(
+      "custom_op_calc_out_shape_params_opt_int_opt_float",
+      [](const char* opname,
+         const std::vector<at::Tensor>& inputs,
+         const std::optional<std::vector<int64_t>>& ints,
+         const std::optional<std::vector<float>>& floats) {
+        return habana::CustomOpOutShapeFunRegistrar::GetInstance().CalcOutShape(
+            opname, inputs, ints, floats);
       });
 
   m.doc() = "This module registers hpu backend.";

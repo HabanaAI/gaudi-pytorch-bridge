@@ -7488,7 +7488,7 @@ unsqueeze:
   op_validator: EmptySharedMeta
 
 upsample_bicubic2d:
-  custom_fill_params: FillBicubicFwdParams
+  custom_fill_params: FillUpsampleBicubic2DFwdParams
   output_meta: UpsampleBicubic2DFwdMeta
   guid: resize_fwd
   synapse_layouts:
@@ -7498,8 +7498,21 @@ upsample_bicubic2d:
   op_validator: check-node-with-shared-layer
   skip_slrg: true # TORCH_CHECK inside output_meta
 
+upsample_bicubic2d_custom.vec:
+  custom_op_schema: "hpu::upsample_bicubic2d_custom.vec(Tensor input, SymInt[]? output_size, bool align_corners, float[]? scale_factors) -> Tensor"
+  custom_fill_params: FillUpsampleBicubic2DFwdParams
+  output_meta: UpsampleBicubic2DFwdMeta
+  guid: resize_fwd
+  synapse_layouts:
+  - [WHCN, WHCN]
+  - [WHCN]
+  out_ids: [0]
+  autograd: true
+  op_validator: check-node-with-shared-layer
+  namespaces: [torch.ops.hpu]
+
 upsample_bicubic2d.out:
-  custom_fill_params: FillBicubicFwdParams
+  custom_fill_params: FillUpsampleBicubic2DFwdParams
   output_meta: UpsampleBicubic2DFwdMeta
   guid: resize_fwd
   synapse_layouts:
@@ -7508,12 +7521,8 @@ upsample_bicubic2d.out:
   op_validator: check-node-with-shared-layer
   skip_slrg: true # TORCH_CHECK inside output_meta
 
-upsample_bicubic2d.vec:
-  only_shared_layer: true
-  dtypes: [BFloat16, Float, Half]
-
 upsample_bicubic2d_backward:
-  custom_fill_params: FillBicubicBwdParams
+  custom_fill_params: FillUpsampleBicubic2DBwdParams
   output_meta: UpsampleBicubic2DBwdMeta
   guid: resize_bwd
   synapse_layouts:
@@ -7566,7 +7575,7 @@ _upsample_bicubic2d_aa_backward.grad_input:
   skip_slrg: true
 
 upsample_bicubic2d_backward.grad_input:
-  custom_fill_params: FillBicubicBwdParams
+  custom_fill_params: FillUpsampleBicubic2DBwdParams
   output_meta: UpsampleBicubic2DBwdMeta
   guid: resize_bwd
   synapse_layouts:
@@ -7599,19 +7608,54 @@ upsample_bilinear2d.out:
 upsample_trilinear3d:
   output_meta: UpsampleTrilinear3DFwdMeta
   guid: resize_fwd
-  op_backend: UpSampleTrilinear3DFwdOperator
-  op_validator: UpssampleTrilinear3DSharedMeta
+  op_backend: UpsampleTrilinear3DFwd
+  op_validator: UpsampleTrilinear3DFwdSharedMeta
   synapse_layouts:
   - [WHDCN, WHDCN]
   - [WHDCN]
   out_ids: [0]
   skip_slrg: true # TORCH_CHECK inside output_meta
 
+upsample_trilinear3d_custom.vec:
+  custom_op_schema: "hpu::upsample_trilinear3d_custom.vec(Tensor input, SymInt[]? output_size, bool align_corners, float[]? scale_factors) -> Tensor"
+  custom_fill_params: FillUpsampleTrilinear3DFwdParams
+  output_meta: UpsampleTrilinear3DFwdMeta
+  guid: resize_fwd
+  op_backend: UpsampleTrilinear3DFwd
+  synapse_layouts:
+  - [WHDCN, WHDCN]
+  - [WHDCN]
+  out_ids: [0]
+  autograd: true
+  op_validator: UpsampleTrilinear3DFwdSharedMeta
+  namespaces: [torch.ops.hpu]
+
 upsample_trilinear3d.out:
   output_meta: UpsampleTrilinear3DFwdMeta
   guid: resize_fwd
-  op_backend: UpSampleTrilinear3DFwdOperator
-  op_validator: UpssampleTrilinear3DSharedMeta
+  op_backend: UpsampleTrilinear3DFwd
+  op_validator: UpsampleTrilinear3DFwdSharedMeta
+  synapse_layouts:
+  - [WHDCN, WHDCN]
+  - [WHDCN]
+  skip_slrg: true # TORCH_CHECK inside output_meta
+
+upsample_trilinear3d_backward:
+  output_meta: UpsampleTrilinear3DBwdMeta
+  guid: resize_bwd
+  op_backend: UpsampleTrilinear3DBwd
+  op_validator: UpsampleTrilinear3DBwdSharedMeta
+  synapse_layouts:
+  - [WHDCN, WHDCN]
+  - [WHDCN]
+  out_ids: [0]
+  skip_slrg: true # TORCH_CHECK inside output_meta
+
+upsample_trilinear3d_backward.grad_input:
+  output_meta: UpsampleTrilinear3DBwdMeta
+  guid: resize_bwd
+  op_backend: UpsampleTrilinear3DBwd
+  op_validator: UpsampleTrilinear3DBwdSharedMeta
   synapse_layouts:
   - [WHDCN, WHDCN]
   - [WHDCN]

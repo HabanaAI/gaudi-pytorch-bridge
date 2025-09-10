@@ -272,6 +272,21 @@ def override_instance_norm(*args):
         return out
 
 
+def override_one_hot(*args):
+    if args[0].device.type == "hpu":
+        return torch.ops.hpu.one_hot.default(*args)
+
+
+def override_upsample_bicubic2d_vec(*args):
+    if args[0].device.type == "hpu":
+        return torch.ops.hpu.upsample_bicubic2d_custom.vec(*args)
+
+
+def override_upsample_trilinear3d_vec(*args):
+    if args[0].device.type == "hpu":
+        return torch.ops.hpu.upsample_trilinear3d_custom.vec(*args)
+
+
 def override_function(dispatch_key, aten_op, hpu_override, original_decomp=None):
     def internal(*args):
         maybe_out = hpu_override(*args)
@@ -292,11 +307,6 @@ def override_function(dispatch_key, aten_op, hpu_override, original_decomp=None)
     return internal
 
 
-def override_one_hot(*args):
-    if args[0].device.type == "hpu":
-        return torch.ops.hpu.one_hot.default(*args)
-
-
 @contextmanager
 def override_composite_ops():
     ops = [
@@ -309,6 +319,16 @@ def override_composite_ops():
             DispatchKey.CompositeImplicitAutograd,
             torch.ops.aten.one_hot.default,
             override_one_hot,
+        ),
+        (
+            DispatchKey.CompositeImplicitAutograd,
+            torch.ops.aten.upsample_bicubic2d.vec,
+            override_upsample_bicubic2d_vec,
+        ),
+        (
+            DispatchKey.CompositeImplicitAutograd,
+            torch.ops.aten.upsample_trilinear3d.vec,
+            override_upsample_trilinear3d_vec,
         ),
     ]
 

@@ -1710,6 +1710,28 @@ def meta_block_softmax_adjustment(block_maxes, block_sums, block_groups, batch_s
     return block_maxes.new_empty(out_shape if out_shape is not None else block_maxes.shape)
 
 
+@register_meta([torch.ops.hpu.upsample_bicubic2d_custom.vec])
+def meta_upsample_bicubic2d_vec(input, output_size, align_corners, scale_factors):
+    out_shape = _hpu_C.custom_op_calc_out_shape_params_opt_int_opt_float(
+        "upsample_bicubic2d_vec",
+        [input],
+        output_size,
+        scale_factors,
+    )[0]
+    return input.new_empty(out_shape, dtype=input.dtype)
+
+
+@register_meta([torch.ops.hpu.upsample_trilinear3d_custom.vec])
+def meta_upsample_trilinear3d_vec(input, output_size, align_corners, scale_factors):
+    out_shape = _hpu_C.custom_op_calc_out_shape_params_opt_int_opt_float(
+        "upsample_trilinear3d_vec",
+        [input],
+        output_size,
+        scale_factors,
+    )[0]
+    return input.new_empty(out_shape, dtype=input.dtype)
+
+
 @register_meta([torch.ops.hpu.gather_csr.default])
 def meta_gather_csr(src, indprt, output_size):
     return src.new_empty(output_size)

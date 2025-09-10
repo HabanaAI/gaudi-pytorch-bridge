@@ -296,8 +296,11 @@ add_habana_library(
   backend/unique2_gen.cpp
   backend/unique_dim_gen.cpp
   backend/unique_gen.cpp
+  backend/upsample_bicubic2d_gen.cpp
   backend/upsample_gen.cpp
   backend/upsample_ops.cpp
+  backend/upsample_trilinear3d_gen.cpp
+  backend/upsample_utils.cpp
   backend/vdot_gen.cpp
   backend/view_dtype_gen.cpp
   backend/weight_norm_gen.cpp
@@ -314,6 +317,7 @@ add_habana_library(
   common/reduction_template.cpp
   common/replication_pad.cpp
   common/scalar_dtype_range.cpp
+  common/upsample.cpp
   custom_op_outshape.cpp
   indexing_ops_helper.cpp
   shared_meta_common.cpp
