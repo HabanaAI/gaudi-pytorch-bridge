@@ -14,6 +14,12 @@
  */
 #pragma once
 
+#include <c10/core/Scalar.h>
+#include "backend/synapse_helpers/graph.h"
+#include "backend/synapse_helpers/habana_tensor.h"
+#include "hpu_ops/fillparams.h"
+#include "hpu_ops/op_backend.h"
+
 namespace habana {
 synapse_helpers::tensor ArangeCommon(
     OpBackend* op,

@@ -16,6 +16,7 @@
 #include "generated/backend/addcdiv.h"
 #include "generated/backend/addcmul.h"
 #include "hpu_ops/shared_meta_common.h"
+#include "pytorch_helpers/habana_helpers/logging.h"
 
 namespace habana {
 
@@ -114,11 +115,17 @@ FillParamsT FillAddCompositeParams(
   const bool isAddcdiv =
       mode == BinaryWithAlphaMode_t::BINARY_WITH_ALPHA_MODE_CDIV;
   if (isOutputIntegral && !isAddcdiv) {
-    params->alpha.i =
-        scalar.isFloatingPoint() ? scalar.to<float>() : scalar.to<int>();
+    if (scalar.isFloatingPoint()) {
+      params->alpha.i = static_cast<int>(scalar.to<float>());
+    } else {
+      params->alpha.i = scalar.to<int>();
+    }
   } else {
-    params->alpha.f =
-        scalar.isFloatingPoint() ? scalar.to<float>() : scalar.to<int>();
+    if (scalar.isFloatingPoint()) {
+      params->alpha.f = scalar.to<float>();
+    } else {
+      params->alpha.f = static_cast<float>(scalar.to<int>());
+    }
   }
 
   return paramsT;
@@ -211,11 +218,17 @@ void ForeachCompound::AddNode(
           value.isScalar() ? value.toScalar() : value.toListRef()[i].toScalar();
 
       if (isOutputIntegral && !isAddcdiv) {
-        params.alpha.i =
-            scalar.isFloatingPoint() ? scalar.to<float>() : scalar.to<int>();
+        if (scalar.isFloatingPoint()) {
+          params.alpha.i = static_cast<int>(scalar.to<float>());
+        } else {
+          params.alpha.i = scalar.to<int>();
+        }
       } else {
-        params.alpha.f =
-            scalar.isFloatingPoint() ? scalar.to<float>() : scalar.to<int>();
+        if (scalar.isFloatingPoint()) {
+          params.alpha.f = scalar.to<float>();
+        } else {
+          params.alpha.f = static_cast<float>(scalar.to<int>());
+        }
       }
     }
     auto out = BuildOp(

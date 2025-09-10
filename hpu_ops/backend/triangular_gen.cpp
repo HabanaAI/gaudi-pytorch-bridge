@@ -18,6 +18,8 @@
 #include "generated/backend/triu.h"
 #include "generated/backend/triu_indices.h"
 #include "hpu_ops/shared_meta_common.h"
+#include "pytorch_helpers/habana_helpers/conversion.h"
+#include "pytorch_helpers/habana_helpers/logging.h"
 
 namespace habana {
 FillParamsT FillTriuParams(const at::Stack& stack) {
@@ -25,7 +27,7 @@ FillParamsT FillTriuParams(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   auto diagonal = stack.at(1).toInt();
 
-  params->numLower = diagonal;
+  params->numLower = safe_convert<int>(diagonal, "diagonal"sv);
   params->numUpper = INT_MAX;
   params->excludeDiag = 1;
   return paramsT;
@@ -37,7 +39,7 @@ FillParamsT FillTrilParams(const at::Stack& stack) {
   auto diagonal = stack.at(1).toInt();
 
   params->numLower = INT_MIN;
-  params->numUpper = diagonal;
+  params->numUpper = safe_convert<int>(diagonal, "diagonal"sv);
   params->excludeDiag = 1;
   return paramsT;
 }
@@ -46,9 +48,9 @@ FillParamsT FillTriluIndicesParams(
     const at::Stack& stack,
     const bool lowerTriangle) {
   PARAMS_STUB(ns_TriluIndicesKernel::Params);
-  params->row = stack.at(0).toInt();
-  params->col = stack.at(1).toInt();
-  params->offset = stack.at(2).toInt();
+  params->row = safe_convert<int>(stack.at(0).toInt(), "row"sv);
+  params->col = safe_convert<int>(stack.at(1).toInt(), "col"sv);
+  params->offset = safe_convert<int>(stack.at(2).toInt(), "offset"sv);
   params->lowerTriangle = lowerTriangle;
   return paramsT;
 }
@@ -94,9 +96,9 @@ inline int GetTriuNumel(int row, int col, int offset) {
 OutputMetaDataVector TriluIndicesMeta(
     const at::Stack& stack,
     const bool lowerTriangle) {
-  const int row = stack.at(0).toInt();
-  const int col = stack.at(1).toInt();
-  const int offset = stack.at(2).toInt();
+  const auto row = safe_convert<int>(stack.at(0).toInt(), "row"sv);
+  const auto col = safe_convert<int>(stack.at(1).toInt(), "col"sv);
+  const auto offset = safe_convert<int>(stack.at(2).toInt(), "offset"sv);
   const auto out_dtype =
       stack.at(3).toOptional<at::ScalarType>().value_or(at::ScalarType::Long);
 

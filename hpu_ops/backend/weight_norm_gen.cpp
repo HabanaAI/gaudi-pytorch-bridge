@@ -14,7 +14,9 @@
  */
 #include "generated/backend/_weight_norm_interface.h"
 #include "generated/backend/_weight_norm_interface_backward.h"
-#include "hpu_ops/backend/reduction_template.h"
+#include "hpu_ops/common/reduction_template.h"
+#include "pytorch_helpers/habana_helpers/conversion.h"
+#include "pytorch_helpers/habana_helpers/logging.h"
 
 namespace habana {
 
@@ -32,9 +34,9 @@ sh::tensor NormCommon(
     const std::vector<NodeAttr::NodeOutputAttr>& output_attr,
     bool is_vec_norm);
 
-static c10::DimVector getDimsToNorm(const int rank, const int dim) {
+static c10::DimVector getDimsToNorm(const int64_t rank, const int64_t dim) {
   c10::DimVector dims_to_norm;
-  dims_to_norm.reserve(rank);
+  dims_to_norm.reserve(static_cast<std::size_t>(rank));
 
   for (int64_t i = 0; i < rank; ++i) {
     if (i != dim) // skip given dimension
@@ -140,11 +142,11 @@ OutputMetaDataVector WeightNormBwdMeta(const at::Stack& stack) {
       dim == 0 || dim == last_dim,
       "Expected dim to be the first or last dimension");
   int64_t last_size = saved_v.size(last_dim);
-  std::vector<int64_t> bcast_size(saved_v.dim(), 1);
+  std::vector<int64_t> bcast_size(static_cast<std::size_t>(saved_v.dim()), 1);
   if (dim == 0) {
     bcast_size[0] = saved_v.size(0);
   } else {
-    bcast_size[last_dim] = last_size;
+    bcast_size[static_cast<std::size_t>(last_dim)] = last_size;
   }
 
   OutputMetaDataVector metaVec(2);
@@ -158,8 +160,10 @@ FillParamsT FillWeightNormBwdParams(const at::Stack& stack) {
   auto input = stack.at(0).toTensor();
   auto dim = at::maybe_wrap_dim(stack.at(4).toInt(), input.dim());
 
+  using namespace std::literals;
   PARAMS_STUB(ns_Reduction::Params);
-  params->reductionDimension = dim;
+  params->reductionDimension =
+      safe_convert<unsigned int>(dim, "reductionDimension assignment"sv);
   return paramsT;
 }
 

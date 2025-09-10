@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,8 @@
 #include "generated/lazy/index.h"
 #include "hpu_ops/common/index.h"
 #include "hpu_ops/indexing_ops_helper.h"
+#include "pytorch_helpers/habana_helpers/conversion.h"
+#include "pytorch_helpers/habana_helpers/logging.h"
 
 namespace habana {
 
@@ -40,7 +42,7 @@ static inline void index_fe(torch::jit::Stack& in_stack) {
   int dim = 0;
   at::Tensor t_nz;
   bool has_bool_mask = false;
-  int num_index_tensors = (int)indices_in_orig.size();
+  auto num_index_tensors = indices_in_orig.size();
   bool advanced_indexing = false;
   advanced_indexing = check_for_adv_indexing(indices_in_orig);
 
@@ -85,17 +87,24 @@ static inline void index_fe(torch::jit::Stack& in_stack) {
     }
 
     bool dims_permuted = false;
-    std::tie(dims_permuted, num_index_tensors, self_permute_dims, indices_vec) =
+    int num_index_tensors_int = 0;
+    std::tie(
+        dims_permuted, num_index_tensors_int, self_permute_dims, indices_vec) =
         generate_advanced_indexing_indices_list(inputs_vec);
+    num_index_tensors =
+        safe_convert<size_t>(num_index_tensors_int, "num_index_tensors"sv);
     if (dims_permuted)
       for (const auto i : c10::irange(num_index_tensors))
-        advanced_indexing_present.emplace_back(i >= num_explicit_indices);
+        advanced_indexing_present.emplace_back(
+            safe_convert<int>(i, "irange index"sv) >= num_explicit_indices);
     else if (num_explicit_indices > 0)
       for (const auto i : c10::irange(num_index_tensors))
         advanced_indexing_present.emplace_back(
-            (i < index_tensor_group_start) || (i > index_tensor_group_end));
+            (safe_convert<int>(i, "irange index"sv) <
+             index_tensor_group_start) ||
+            (safe_convert<int>(i, "irange index"sv) > index_tensor_group_end));
 
-    for (int i = num_index_tensors; i < (int)indices_in.size(); i++)
+    for (size_t i = num_index_tensors; i < indices_in.size(); i++)
       advanced_indexing_present.emplace_back(true);
 
   } else { // advanced_indexing end
@@ -151,12 +160,12 @@ static inline void index_fe(torch::jit::Stack& in_stack) {
     auto out = sub_inputs.at(2).toTensor();
     in_stack.at(2) = advanced_indexing_present;
     in_stack.at(3) = self_permute_dims;
-    in_stack.at(4) = num_index_tensors;
+    in_stack.at(4) = static_cast<int64_t>(num_index_tensors);
     in_stack.at(5) = out;
   } else {
     in_stack.at(2) = advanced_indexing_present;
     in_stack.at(3) = self_permute_dims;
-    in_stack.at(4) = num_index_tensors;
+    in_stack.at(4) = static_cast<int64_t>(num_index_tensors);
   }
 }
 

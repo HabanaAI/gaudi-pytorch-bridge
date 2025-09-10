@@ -80,14 +80,33 @@ TEST(TestCustomAutocast, IsOperatorCorrect) {
   // Generate a temporary file for tests.
   std::random_device rd;
   std::mt19937 generator(rd());
-  std::uniform_int_distribution<> sufix(1000, 9999);
+  std::uniform_int_distribution<> suffix(1000, 9999);
 
-  std::stringstream temporary_file_name;
-  temporary_file_name << std::tmpnam(nullptr) << sufix(generator) << ".txt";
-  std::filesystem::path temp_file_path(temporary_file_name.str());
+  using namespace std::literals;
+  auto temporary_file_name = "/tmp/test_custom_autocast_list_XXXXXX_"s
+                                 .append(std::to_string(suffix(generator)))
+                                 .append(".txt"sv);
+  std::ofstream temp_file;
+  auto temp_file_path = [&]() mutable {
+    struct temp_fd {
+      temp_fd(std::string& name) : fd{mkstemps(name.data(), 9)} {
+        if (fd == -1)
+          throw std::runtime_error(
+              "Failed to create temporary file descriptor");
+      }
+      ~temp_fd() {
+        if (fd != -1)
+          close(fd);
+      }
+      int fd;
+    };
+    temp_fd fd(temporary_file_name);
+    std::filesystem::path temp_file_path(temporary_file_name.data());
+    temp_file.open(temp_file_path, std::ios::out | std::ios::trunc);
+    return temp_file_path;
+  }();
 
   // Fill file with test ops
-  std::ofstream temp_file(temp_file_path);
   temp_file << "div" << std::endl
             << "add" << std::endl
             << "invalid_op" << std::endl;

@@ -17,6 +17,10 @@
 #include "backend/habana_operator.h"
 #include "hpu_ops/hpu_op_helper.h"
 #include "hpu_ops/repeat_interleave.h"
+#include "pytorch_helpers/habana_helpers/conversion.h"
+#include "pytorch_helpers/habana_helpers/logging.h"
+
+using namespace std::literals;
 
 namespace habana {
 
@@ -37,9 +41,10 @@ OutputMetaDataVector RepeatInterleaveMeta(const at::Stack& stack) {
 
 FillParamsT RepeatInterleaveParams(const at::Stack& stack) {
   PARAMS_STUB(ns_RepeatInterleave::Params);
-  auto opt_val = stack.at(1).toOptional<int64_t>();
+  const auto opt_val = stack.at(1).toOptional<int64_t>();
   if (opt_val.has_value()) {
-    params->outputSize = opt_val.value();
+    params->outputSize =
+        safe_convert<unsigned int>(opt_val.value(), "outputSize"sv);
   }
 
   return paramsT;

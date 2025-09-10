@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@ struct Unique2Eager : OpBackend {
 
 OutputMetaDataVector UniqueMeta(const at::Stack& stack) {
   const auto& self = stack_tensor(stack, 0);
-  int elements = self.numel();
+  const auto elements = self.numel();
   auto inputShape = self.sizes().vec();
   auto dtype = self.scalar_type();
   std::vector<int64_t> output_shape{elements};

@@ -12,13 +12,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "generated/backend/arange.h"
 #include "generated/backend/randperm.h"
-#include "habana_kernels/random_gen_kernels.h"
 #include "hpu_ops/backend/arange.h"
-#include "hpu_ops/common/arange_gen.h"
 #include "hpu_ops/habana_random_ops.h"
 #include "hpu_ops/hpu_op_helper.h"
+#include "pytorch_helpers/habana_helpers/conversion.h"
+#include "pytorch_helpers/habana_helpers/logging.h"
+
+using namespace std::literals;
 
 namespace habana {
 synapse_helpers::tensor RandPermCommon(
@@ -155,9 +156,9 @@ SharedMetaDataVector RandPermSharedMeta(
 void RandPermOp::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
+  auto n = safe_convert<int>(stack.at(0).toInt(), "n"sv);
   bool is_compile =
       GetExecutionMode() == habana_helpers::HabanaFrontendTypes::COMPILE;
-  int n = stack.at(0).toInt();
   const auto meta = RandPermMeta(stack)[0];
   auto out_dtype = meta.dtype;
   auto out_shape = meta.shape;
@@ -205,7 +206,7 @@ void HabanaRandPerm::AddNode(
       stack.at(0).isTensor(),
       "For a custom schema(Randperm) seed tensor should be the",
       "first argument.");
-  int n = stack.at(1).toInt();
+  auto n = safe_convert<int>(stack.at(1).toInt(), "n"sv);
   const auto meta = HabanaRandPermMeta(stack)[0];
   auto out_dtype = meta.dtype;
   auto out_shape = meta.shape;
@@ -239,7 +240,7 @@ size_t GetMInMaxSifOffsetRP(bool dry_run, size_t data_size) {
 template <typename T>
 std::vector<T> GetArangeH2DParams(at::Tensor& params_t, bool dry_run) {
   std::vector<T> params_data;
-  size_t data_size = params_t.sizes()[0];
+  auto data_size = safe_convert<size_t>(params_t.sizes()[0], "data_size"sv);
   auto tmeta{get_tensor_extra_meta(params_t)};
   void* host_ptr = nullptr;
   if (dry_run) {

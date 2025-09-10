@@ -14,7 +14,6 @@
  */
 
 #include "generated/backend/embedding.h"
-#include "generated/backend/embedding_dense_backward.h"
 
 namespace habana {
 OutputMetaDataVector EmbeddingMeta(const at::Stack& stack) {

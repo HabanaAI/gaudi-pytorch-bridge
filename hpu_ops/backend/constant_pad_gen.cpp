@@ -14,13 +14,15 @@
  */
 
 #include "generated/backend/constant_pad_nd.h"
+#include "pytorch_helpers/habana_helpers/conversion.h"
+#include "pytorch_helpers/habana_helpers/logging.h"
 
 namespace habana {
 
 std::vector<int64_t> pad_output_shape(
     const at::Tensor& self,
     c10::IntArrayRef pad) {
-  auto ndim = self.dim();
+  auto ndim = static_cast<size_t>(self.dim());
   auto lpad = pad.size() / 2;
 
   HABANA_ASSERT(
@@ -29,7 +31,7 @@ std::vector<int64_t> pad_output_shape(
       pad.size());
 
   HABANA_ASSERT(
-      ndim >= (int64_t)lpad,
+      ndim >= lpad,
       "Length of pad should be no more than twice the number of "
       "dimensions of the input. Pad length is ",
       pad.size(),
@@ -64,7 +66,7 @@ OutputMetaDataVector ConstantPadMeta(const at::Stack& stack) {
   OutputMetaData meta;
   if ((stack.size() == 4) && (!stack.at(1).isTensor())) {
     auto pad = stack.at(1).toIntVector();
-    auto ndim = self.dim();
+    auto ndim = static_cast<size_t>(self.dim());
     auto lpad = pad.size() / 2;
     auto shape = stack.at(3).toIntVector();
 
@@ -130,12 +132,15 @@ FillParamsT FillConstantPadParams(const at::Stack& stack) {
     FillPadParamsValue(params, self, stack.at(2).toScalar());
     auto pad = stack.at(1).toIntVector();
 
-    auto ndim = self.dim();
+    auto ndim = static_cast<size_t>(self.dim());
     auto lpad = pad.size() / 2;
 
     for (size_t i = 0; i < lpad; i++) {
-      params->pads[i] = pad[2 * i];
-      params->pads[i + ndim] = pad[2 * i + 1];
+      // Pads can be negative, but params store it in unsigned.
+      params->pads[i] = static_cast<unsigned int>(
+          safe_convert<int>(pad[2 * i], "pad_value"sv));
+      params->pads[i + ndim] = static_cast<unsigned int>(
+          safe_convert<int>(pad[2 * i + 1], "pad_value"sv));
     }
 
     return paramsT;
@@ -165,23 +170,27 @@ void ConstantPad::AddNode(
     auto input_shape = stack[0].toTensor().sizes().vec();
     if (habana::ShapeInference::GetCurrentPass() ==
         habana::ShapeInfo::InferencePass::MIN_SHAPE) {
-      auto ndim = self.dim();
+      auto ndim = static_cast<size_t>(self.dim());
       auto in_data = self.sizes().vec();
       std::vector<uint32_t> data(MAX_DIMENSIONS_NUM * 2, 0);
-      for (unsigned int i = 0; i < ndim; i++) {
+      for (size_t i = 0; i < ndim; i++) {
         // order of dims is reversed in H2D tensor
-        data[ndim - i - 1] = output_shape[i] - input_shape[i];
+        // Pads can be negative, but data store it in unsigned.
+        data[ndim - i - 1] = static_cast<uint32_t>(safe_convert<int32_t>(
+            output_shape[i] - input_shape[i], "data_value"sv));
       }
       tmeta->set_min<uint32_t>(data);
     } else if (
         habana::ShapeInference::GetCurrentPass() ==
         habana::ShapeInfo::InferencePass::MAX_SHAPE) {
-      auto ndim = self.dim();
+      auto ndim = static_cast<size_t>(self.dim());
       auto in_data = self.sizes().vec();
       std::vector<uint32_t> data(MAX_DIMENSIONS_NUM * 2, 0);
-      for (unsigned int i = 0; i < ndim; i++) {
+      for (size_t i = 0; i < ndim; i++) {
         // order of dims is reversed in H2D tensor
-        data[ndim - i - 1] = output_shape[i] - input_shape[i];
+        // Pads can be negative, but data store it in unsigned.
+        data[ndim - i - 1] = static_cast<uint32_t>(safe_convert<int32_t>(
+            output_shape[i] - input_shape[i], "data_value"sv));
       }
       tmeta->set_max<uint32_t>(data);
     }
@@ -230,23 +239,27 @@ void ConstantPadDS::AddNode(
     auto input_shape = stack[0].toTensor().sizes().vec();
     if (habana::ShapeInference::GetCurrentPass() ==
         habana::ShapeInfo::InferencePass::MIN_SHAPE) {
-      auto ndim = self.dim();
+      auto ndim = static_cast<size_t>(self.dim());
       auto in_data = self.sizes().vec();
       std::vector<uint32_t> data(MAX_DIMENSIONS_NUM * 2, 0);
-      for (unsigned int i = 0; i < ndim; i++) {
+      for (size_t i = 0; i < ndim; i++) {
         // order of dims is reversed in H2D tensor
-        data[ndim - i - 1] = output_shape[i] - input_shape[i];
+        // Pads can be negative, but data store it in unsigned.
+        data[ndim - i - 1] = static_cast<uint32_t>(safe_convert<int32_t>(
+            output_shape[i] - input_shape[i], "data_value"sv));
       }
       tmeta->set_min<uint32_t>(data);
     } else if (
         habana::ShapeInference::GetCurrentPass() ==
         habana::ShapeInfo::InferencePass::MAX_SHAPE) {
-      auto ndim = self.dim();
+      auto ndim = static_cast<size_t>(self.dim());
       auto in_data = self.sizes().vec();
       std::vector<uint32_t> data(MAX_DIMENSIONS_NUM * 2, 0);
-      for (unsigned int i = 0; i < ndim; i++) {
+      for (size_t i = 0; i < ndim; i++) {
         // order of dims is reversed in H2D tensor
-        data[ndim - i - 1] = output_shape[i] - input_shape[i];
+        // Pads can be negative, but data store it in unsigned.
+        data[ndim - i - 1] = static_cast<uint32_t>(safe_convert<int32_t>(
+            output_shape[i] - input_shape[i], "data_value"sv));
       }
       tmeta->set_max<uint32_t>(data);
     }

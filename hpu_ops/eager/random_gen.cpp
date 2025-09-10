@@ -26,10 +26,10 @@ static void ConvertGeneratorToSeedTensor(
   symbol = at::Symbol::fromQualString(
       "hpu::" + std::string(symbol.toUnqualString()));
 
-  int seed = get_seed_hpu(gen_to_seed.toOptional<at::Generator>());
+  const auto seed = get_seed_hpu(gen_to_seed.toOptional<at::Generator>());
   at::TensorOptions o;
   o = o.dtype(at::kInt).device(at::kHPU);
-  gen_to_seed = at::tensor(seed, o);
+  gen_to_seed = at::tensor(static_cast<int>(seed), o);
 }
 
 HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(eager::EagerOp, GeneratorToSeed, at::Tensor&) {
@@ -37,16 +37,17 @@ HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(eager::EagerOp, GeneratorToSeed, at::Tensor&) {
 }
 
 HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(eager::EagerOp, GeneratorToSeed, at::Tensor) {
-  int stack_size = (int)get_inputs().size();
+  const auto stack_size = get_inputs().size();
   int gen_pos = -1; // first position of generator or None type in the stack
-  for (int i = 0; i < stack_size; i++) {
+  for (size_t i = 0; i < stack_size; i++) {
     if (get_inputs()[i].isNone() || get_inputs()[i].isGenerator()) {
-      gen_pos = i;
+      gen_pos = static_cast<int>(i);
       break;
     }
   }
   if (gen_pos != -1) {
-    ConvertGeneratorToSeedTensor(m_symbol, get_inputs()[gen_pos]);
+    ConvertGeneratorToSeedTensor(
+        m_symbol, get_inputs()[static_cast<size_t>(gen_pos)]);
   } else {
     ConvertGeneratorToSeedTensor(m_symbol, get_inputs().back());
   }

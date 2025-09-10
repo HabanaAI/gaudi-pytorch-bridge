@@ -16,12 +16,14 @@
 #include "generated/backend/_cdist_backward.h"
 #include "generated/backend/_cdist_forward.h"
 #include "hpu_ops/common/batched_matmul_output_shape.h"
-#include "hpu_ops/op_backend.h"
+#include "pytorch_helpers/habana_helpers/logging.h"
+
+using namespace std::literals;
 
 namespace habana {
 FillParamsT FillCdistFwdParams(const at::Stack& stack) {
   PARAMS_STUB(ns_Cdist::Params);
-  params->p = stack.at(2).toScalar().toDouble();
+  params->p = static_cast<float>(stack.at(2).toScalar().toDouble());
   c10::IValue cmVal = stack.at(3);
   params->compute_mode =
       static_cast<CdistComputeMode_t>(cmVal.isInt() ? cmVal.toInt() : 0);
@@ -54,7 +56,7 @@ OutputMetaDataVector CdistFwdMeta(const at::Stack& stack) {
 
 FillParamsT FillCdistBwdParams(const at::Stack& stack) {
   PARAMS_STUB(ns_Cdist::Params);
-  params->p = stack.at(3).toScalar().toDouble();
+  params->p = static_cast<float>(stack.at(3).toScalar().toDouble());
   return paramsT;
 }
 

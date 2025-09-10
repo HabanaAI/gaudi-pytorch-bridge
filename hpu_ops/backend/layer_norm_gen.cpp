@@ -17,6 +17,8 @@
 #include "generated/backend/native_layer_norm_backward.h"
 
 #include "backend/helpers/cast_sequence.h"
+#include "pytorch_helpers/habana_helpers/conversion.h"
+#include "pytorch_helpers/habana_helpers/logging.h"
 
 namespace habana {
 
@@ -28,7 +30,8 @@ FillParamsT FillNativeLayerNormPtParams(const at::Stack& stack) {
   PARAMS_STUB(ns_LayerNormKernel::ParamsPt);
   params->eps = static_cast<float>(eps);
   params->epsValid = true;
-  params->normalizedShapeDims = normalized_ndim;
+  params->normalizedShapeDims =
+      safe_convert<unsigned int>(normalized_ndim, "normalized_ndim"sv);
 
   return paramsT;
 }
@@ -48,7 +51,7 @@ sizes_vec LayerNormOutputShape(const at::Stack& stack) {
 
   const auto input_shape = input.sizes();
   auto output_sizes = input_shape.vec();
-  const int axis = input.dim() - normalized_shape.size();
+  const auto axis = static_cast<size_t>(input.dim()) - normalized_shape.size();
   std::vector<int64_t> shape_mean_rstd = output_sizes;
   for (size_t i = axis; i < shape_mean_rstd.size(); ++i) {
     shape_mean_rstd[i] = 1;
@@ -177,7 +180,8 @@ void LayerNormHabanaOperator::AddNode(
   } else {
     const auto input_shape = input.pt_t.sizes();
     const auto input_ndim = input.pt_t.dim();
-    const int normalized_ndim = normalized_shape.size();
+    const auto normalized_ndim = safe_convert<int>(
+        normalized_shape.size(), "normalized shape too large for int"sv);
     const int64_t normalized_shape_numel = c10::multiply_integers(
         normalized_shape.cbegin(), normalized_shape.cend());
 
@@ -209,7 +213,7 @@ void LayerNormHabanaOperator::AddNode(
         weightOrBias_shape);
 
     if (input_ndim < normalized_ndim ||
-        !input_shape.slice(input_ndim - normalized_ndim)
+        !input_shape.slice(static_cast<size_t>(input_ndim - normalized_ndim))
              .equals(normalized_shape)) {
       std::stringstream ss;
       ss << "Given normalized_shape=" << normalized_shape
@@ -261,7 +265,8 @@ FillParamsT FillNativeLayerNormBwdParams(const at::Stack& stack) {
   const auto normalized_ndim = stack.at(2).toIntList().size();
   PARAMS_STUB(ns_LayerNormKernel::ParamsPt);
   params->epsValid = false;
-  params->normalizedShapeDims = normalized_ndim;
+  params->normalizedShapeDims =
+      safe_convert<unsigned int>(normalized_ndim, "normalized_ndim"sv);
   return paramsT;
 }
 
@@ -359,8 +364,9 @@ void LayerNormBwdHabanaOperator::AddNode(
   } else {
     const auto input_shape = input.pt_t.sizes();
     const auto input_ndim = input.pt_t.dim();
-    const int normalized_ndim = normalized_shape.size();
-    const int axis = input_ndim - normalized_ndim;
+    const auto normalized_ndim =
+        safe_convert<int>(normalized_shape.size(), "normalized_ndim"sv);
+    const auto axis = safe_convert<int>(input_ndim - normalized_ndim, "axis"sv);
     int64_t m = c10::multiply_integers(
         input_shape.cbegin(), input_shape.cbegin() + axis);
     int64_t n =
@@ -408,7 +414,8 @@ void LayerNormBwdHabanaOperator::AddNode(
             src.pt_t.scalar_type(),
             c10::kFloat));
       }
-      storage_indices[i] = storage.size() - 1;
+      storage_indices[i] =
+          safe_convert<unsigned int>(storage.size() - 1, "storage_indices"sv);
     }
 
     synTensor mean_as_4D = storage[storage_indices[0]].get();
@@ -444,7 +451,8 @@ void LayerNormBwdHabanaOperator::AddNode(
     for (size_t i = 0; i < outIds.size(); ++i) {
       auto reshaped = ReshapeHelper(
           graph, lnbwd[i].get(), metas[i].shape, metas[i].dtype, outIds[i]);
-      syn_out(outIds[i]) = std::move(reshaped);
+      syn_out(safe_convert<size_t>(outIds[i], "outIds"sv)) =
+          std::move(reshaped);
     }
   }
 }

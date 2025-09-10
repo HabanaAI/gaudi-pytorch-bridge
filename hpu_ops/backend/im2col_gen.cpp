@@ -14,6 +14,7 @@
  */
 
 #include "generated/backend/im2col.h"
+#include "pytorch_helpers/habana_helpers/logging.h"
 
 namespace habana {
 
@@ -68,14 +69,18 @@ FillParamsT FillIm2ColParams(const at::Stack& stack) {
   auto stride = stack.at(4).toIntVector();
 
   PARAMS_STUB(ns_Im2Col::Params);
-  params->kernel_h = kernel_size[0];
-  params->kernel_w = kernel_size[1];
-  params->dilation_h = dilation[0];
-  params->dilation_w = dilation[1];
-  params->pad_h = padding[0];
-  params->pad_w = padding[1];
-  params->stride_h = stride[0];
-  params->stride_w = stride[1];
+  check_range<int>(0, 1, kernel_size);
+  params->kernel_h = static_cast<int>(kernel_size[0]);
+  params->kernel_w = static_cast<int>(kernel_size[1]);
+  check_range<int>(0, 1, dilation);
+  params->dilation_h = static_cast<int>(dilation[0]);
+  params->dilation_w = static_cast<int>(dilation[1]);
+  check_range<int>(0, 1, padding);
+  params->pad_h = static_cast<int>(padding[0]);
+  params->pad_w = static_cast<int>(padding[1]);
+  check_range<int>(0, 1, stride);
+  params->stride_h = static_cast<int>(stride[0]);
+  params->stride_w = static_cast<int>(stride[1]);
   return paramsT;
 }
 

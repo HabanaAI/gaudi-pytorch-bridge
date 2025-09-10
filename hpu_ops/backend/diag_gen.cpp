@@ -14,14 +14,16 @@
  */
 
 #include "generated/backend/diag.h"
+#include "pytorch_helpers/habana_helpers/conversion.h"
+#include "pytorch_helpers/habana_helpers/logging.h"
 
 namespace habana {
 
 FillParamsT FillDiagParams(const at::Stack& stack) {
   auto diagonal = stack.at(1).toInt();
   PARAMS_STUB(ns_MatrixDiag::Params);
-  params->kMin = diagonal;
-  params->kMax = diagonal;
+  params->kMin = safe_convert<int>(diagonal, "diagonal"sv);
+  params->kMax = safe_convert<int>(diagonal, "diagonal"sv);
   return paramsT;
 }
 
@@ -46,7 +48,7 @@ OutputMetaDataVector DiagMeta(const at::Stack& stack) {
   } else if (self.dim() == 2) {
     int64_t m = self.sizes().vec()[0];
     int64_t n = self.sizes().vec()[1];
-    int size;
+    int64_t size;
     if (diagonal == 1) { // diagonal=1
       if (m >= n) { // R>=C
         size = n - abs(diagonal);

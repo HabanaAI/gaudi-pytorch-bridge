@@ -16,6 +16,9 @@
 #include "generated/backend/norm.h"
 
 #include "hpu_ops/backend/reduction_template.h"
+#include "pytorch_helpers/habana_helpers/logging.h"
+
+using namespace std::literals;
 
 constexpr const auto INF = std::numeric_limits<float>::infinity();
 
@@ -137,7 +140,8 @@ static void VecNormCheck(
     at::ScalarType dtype,
     const at::Scalar& ord,
     c10::IntArrayRef dim) {
-  auto p = (ord.isFloatingPoint()) ? ord.toFloat() : ord.toInt();
+  auto p =
+      (ord.isFloatingPoint()) ? ord.toFloat() : static_cast<float>(ord.toInt());
   TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
       dtype == torch::kBFloat16 || dtype == torch::kFloat,
       "linalg.vector_norm: Expected input dtype to be Float or kBFloat16, but got ",
@@ -185,7 +189,8 @@ sh::tensor NormCommon(
     const at::Scalar& ord,
     const std::vector<NodeAttr::NodeOutputAttr>& output_attr,
     const bool is_vec_norm) {
-  auto p = (ord.isFloatingPoint()) ? ord.toFloat() : ord.toInt();
+  auto p =
+      (ord.isFloatingPoint()) ? ord.toFloat() : static_cast<float>(ord.toInt());
   auto self_shape = self.sizes().vec();
 
   if (is_vec_norm)

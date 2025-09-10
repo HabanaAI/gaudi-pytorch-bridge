@@ -15,6 +15,8 @@
 
 #include "generated/backend/histc.h"
 #include "generated/backend/histogram.h"
+#include "pytorch_helpers/habana_helpers/conversion.h"
+#include "pytorch_helpers/habana_helpers/logging.h"
 
 namespace habana {
 
@@ -24,11 +26,11 @@ FillParamsT FillHistcParams(const at::Stack& stack) {
   const auto min = stack.at(2).toInt();
   const auto max = stack.at(3).toInt();
 
-  params->bins = bins;
+  params->bins = safe_convert<int>(bins, "bins"sv);
   params->density = false;
   params->has_weights = false;
-  params->min = min;
-  params->max = max;
+  params->min = static_cast<float>(min);
+  params->max = static_cast<float>(max);
 
   return paramsT;
 }
@@ -69,8 +71,8 @@ FillParamsT FillHistogramBinCtParams(const at::Stack& stack) {
 
   if (range.isList()) {
     const auto rangeList = range.toListRef();
-    params->min = rangeList[0].toDouble();
-    params->max = rangeList[1].toDouble();
+    params->min = static_cast<float>(rangeList[0].toDouble());
+    params->max = static_cast<float>(rangeList[1].toDouble());
   }
 
   return paramsT;
@@ -94,7 +96,8 @@ OutputMetaDataVector HistogramBinCtMeta(const at::Stack& stack) {
 FillParamsT FillHistogramBinsParams(const at::Stack& stack) {
   PARAMS_STUB(ns_Histogram::ParamsV2);
 
-  params->bins = stack.at(1).toTensor().sizes()[0] - 1;
+  params->bins =
+      safe_convert<int>(stack.at(1).toTensor().sizes()[0] - 1, "bins"sv);
   params->has_weights = stack.at(2).isTensor();
   params->density = stack.at(3).toScalar().toBool();
 
@@ -127,7 +130,7 @@ SharedMetaDataVector HistcSharedMeta(
 
 SharedMetaDataVector HistogramCommonSharedMeta(
     const at::Stack& stack,
-    int ranges_offset) {
+    size_t ranges_offset) {
   const auto self = stack.at(0).toTensor();
   const auto has_ranges = stack.at(ranges_offset).isTensor();
   const auto has_weights = stack.at(ranges_offset + 1).isTensor();

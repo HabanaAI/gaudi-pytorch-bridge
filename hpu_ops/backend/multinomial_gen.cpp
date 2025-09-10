@@ -14,9 +14,9 @@
  */
 
 #include "generated/backend/multinomial.h"
-#include "habana_kernels/random_gen_kernels.h"
-#include "habana_kernels/reduction_kernels.h"
 #include "hpu_ops/habana_random_ops.h"
+#include "pytorch_helpers/habana_helpers/conversion.h"
+#include "pytorch_helpers/habana_helpers/logging.h"
 
 namespace habana {
 
@@ -34,7 +34,8 @@ static FillParamsT MultinomialParams(
     const at::Stack& stack,
     unsigned idx_shift = 0) {
   at::ScalarType type = stack_tensor(stack, 0 + idx_shift).scalar_type();
-  float num_samples = stack.at(1 + idx_shift).toInt();
+  auto num_samples =
+      safe_convert<int>(stack.at(1 + idx_shift).toInt(), "num_samples"sv);
   bool replacement = stack.at(2 + idx_shift).toBool();
   const torch::Tensor& t = stack_tensor(stack, 0 + idx_shift);
 
@@ -46,7 +47,7 @@ static FillParamsT MultinomialParams(
     case at::ScalarType::Half:
       params->num_samples = num_samples;
       params->replacement = replacement;
-      params->outcomes = t.sizes()[0];
+      params->outcomes = safe_convert<int>(t.sizes()[0], "outcomes"sv);
       break;
     default:
       HABANA_ASSERT(false, "Unsupported type for random multinomial: ", type);

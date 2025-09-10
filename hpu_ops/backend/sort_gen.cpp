@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,10 @@
 #include "generated/backend/argsort.h"
 #include "generated/backend/sort.h"
 #include "hpu_ops/hpu_op_helper.h"
+#include "pytorch_helpers/habana_helpers/conversion.h"
+#include "pytorch_helpers/habana_helpers/logging.h"
+
+using namespace std::literals;
 
 namespace habana {
 
@@ -42,7 +46,7 @@ void ArgSortStable::AddNode(
   // It is ok to set params.bsw = k irrespective of static or DS case
   // As per CGUID doc, bsw is ignored if params.kType = K_TENSOR_SHAPE;
   // which is set in DS case.
-  params.bsw = k;
+  params.bsw = safe_convert<unsigned int>(k, "k"sv);
   params.axis = get_dim_in_tpc_order(dim, self.dim());
   params.bottomK = !descending;
   params.isVcData = false;
@@ -109,7 +113,7 @@ void SortStable::AddNode(
   // It is ok to set params.bsw = k irrespective of static or DS case
   // As per CGUID doc, bsw is ignored if params.kType = K_TENSOR_SHAPE;
   // which is set in DS case.
-  params.bsw = k;
+  params.bsw = safe_convert<unsigned int>(k, "k"sv);
   params.axis = get_dim_in_tpc_order(dim, self.dim());
   params.bottomK = !descending;
   params.isVcData = false;

@@ -13,6 +13,8 @@
  * limitations under the License.
  */
 #include "generated/backend/masked_fill.h"
+#include "pytorch_helpers/habana_helpers/conversion.h"
+#include "pytorch_helpers/habana_helpers/logging.h"
 
 namespace habana {
 
@@ -64,11 +66,17 @@ FillParamsT FillMaskedFillParams(const at::Stack& stack) {
   if ((self_dtype == c10::ScalarType::Long ||
        self_dtype == c10::ScalarType::UInt64) &&
       common::IsInt64Supported()) {
-    int64_t val = scalarValue.isIntegral(true)
-        ? scalarValue.to<int64_t>()
-        : static_cast<int64_t>(scalarValue.toFloat());
-    params->value_low = val;
-    params->value_high = val >> 32;
+    params->value_low = safe_convert<int>(
+        scalarValue.isIntegral(true)
+            ? scalarValue.to<int64_t>()
+            : static_cast<int64_t>(scalarValue.toFloat()),
+        "value_low"sv);
+    params->value_high = safe_convert<int>(
+        (scalarValue.isIntegral(true)
+             ? scalarValue.to<int64_t>()
+             : static_cast<int64_t>(scalarValue.toFloat())) >>
+            32,
+        "value_high"sv);
   } else if (c10::isIntegralType(self_dtype, true)) {
     params->value.i = scalarValue.isIntegral(true)
         ? scalarValue.toInt()
