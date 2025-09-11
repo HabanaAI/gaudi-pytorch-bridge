@@ -180,8 +180,12 @@ struct HandleDynamicOpsPass {
       std::string node_name = it->kind().toQualString();
       habana_torch::jit::Node* node{*it};
 
-      if (!maxTensorDimsCheck(node, node_name))
+      // Shouldn't we return from this function when static fallback occurs?
+      if (!maxTensorDimsCheck(node, node_name)) {
         m_dmeta->static_fallback = true;
+        PT_DYNAMIC_SHAPE_WARN(
+            "Number of tensor dims exceeds the limit, falling back to static!");
+      }
       DynamicOpPtr dsOp = DSOpsRegistry().get(node_name);
       if (!dsOp)
         continue;
@@ -318,7 +322,7 @@ void HandleDynamicInputPatching(
     torch::jit::Stack& stack,
     std::shared_ptr<DynamicGraphMetaData> dmeta,
     LaunchDynamicShapes& launch_shapes,
-    bool is_first_launch) {
+    [[maybe_unused]] bool is_first_launch) {
   PT_EAGER_TRACE;
 
   PT_EAGER_DEBUG(
@@ -350,15 +354,13 @@ void HandleDynamicInputPatching(
       mixed_list.emplace_back(dmeta->ds_mixed_map[it]);
     }
 
-    if (!is_first_launch) {
-      dtensor_info.first(
-          dtensor_list,
-          scalar_list,
-          tensor_list,
-          mixed_list,
-          stack,
-          launch_shapes);
-    }
+    dtensor_info.first(
+        dtensor_list,
+        scalar_list,
+        tensor_list,
+        mixed_list,
+        stack,
+        launch_shapes);
   }
 
   // We want to remove elements from stack in reverse order so that

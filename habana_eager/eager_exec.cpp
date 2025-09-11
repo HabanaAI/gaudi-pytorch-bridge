@@ -14,10 +14,15 @@
  */
 
 #include "habana_eager/eager_exec.h"
+#include <ATen/core/TensorBody.h>
 #include <absl/strings/str_cat.h>
 #include <absl/strings/str_join.h>
+#include <c10/core/DeviceType.h>
 #include <c10/util/hash.h>
+#include <synapse_common_types.h>
+#include <torch/csrc/jit/ir/ir.h>
 #include <memory>
+#include "backend/backend_meta.h"
 #include "backend/habana_device/HPUStream.h"
 #include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/jit_graph_cache.h"
@@ -181,6 +186,12 @@ std::vector<at::IValue> convert_ivalues_to_backend_tensors(
               return;
             }
 
+            // Case for scale h2d tensors
+            if (t.device().type() == c10::DeviceType::CPU) {
+              stack.emplace_back(HbEagerTensorPool::get_backend_tensor(t));
+              return;
+            }
+
             if (t.unsafeGetTensorImpl()->is_wrapped_number()) {
               stack.emplace_back(t);
               return;
@@ -203,7 +214,10 @@ std::vector<at::IValue> convert_ivalues_to_backend_tensors(
                 return;
               }
             }
-            HABANA_ASSERT(t.device().type() == c10::DeviceType::HPU)
+            // Allowing CPU tensors as those are h2d scales
+            HABANA_ASSERT(
+                t.device().type() == c10::DeviceType::HPU ||
+                t.device().type() == c10::DeviceType::CPU);
           },
           [&stack](const c10::ArrayRef<habana_torch::jit::IValue>& list) {
             c10::List<at::Tensor> backend_tensor_list;

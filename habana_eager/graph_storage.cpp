@@ -38,7 +38,7 @@ size_t GraphStorage::add_new_recipe(
     InputSymbolIndexMap& in_symbol_idx_map,
     std::vector<habana_helpers::RangeInfo>& range_infos,
     std::vector<int64_t>& const_indexes,
-    bool mark_dynamic) {
+    bool has_dynamic_marked_tensors) {
   PT_EAGER_TRACE;
   size_t output_recipe_group_id{m_storage_vec.size()};
   m_storage_vec.emplace_back(
@@ -54,7 +54,7 @@ size_t GraphStorage::add_new_recipe(
       in_symbol_idx_map,
       range_infos,
       const_indexes,
-      mark_dynamic);
+      has_dynamic_marked_tensors);
   PT_EAGER_DEBUG(
       "Recipe group added to storage. recipe_group_id: ",
       output_recipe_group_id);

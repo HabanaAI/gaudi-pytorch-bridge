@@ -35,10 +35,8 @@ void ReplaceInplaceOpsDS(
     Block* block,
     const std::vector<std::string> DSOpsRegistryInplace) {
   auto graph = block->owningGraph();
-  auto it = block->nodes().begin();
-  while (it != block->nodes().end()) {
+  for (auto it = block->nodes().begin(); it != block->nodes().end(); ++it) {
     auto node = *it;
-    ++it;
     for (auto block : node->blocks()) {
       ReplaceInplaceOpsDS(block, DSOpsRegistryInplace);
     }

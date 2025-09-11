@@ -45,7 +45,7 @@ struct GraphExecsGroup {
       InputSymbolIndexMap in_symbol_idx_map,
       std::vector<habana_helpers::RangeInfo>& range_infos,
       std::vector<int64_t>& const_indexes,
-      bool mark_dynamic);
+      bool m_has_dynamic_marked_tensors);
 
   torch::jit::Stack launch(
       torch::jit::Stack& inputs,
@@ -71,7 +71,7 @@ struct GraphExecsGroup {
   InputSymbolIndexMap m_in_symbol_idx_map;
   std::vector<habana_helpers::RangeInfo> m_range_infos;
   std::vector<int64_t> m_const_indexes;
-  bool m_mark_dynamic = false;
+  bool m_has_dynamic_marked_tensors = false;
 
   std::vector<bool> m_is_reusable;
 
@@ -79,7 +79,7 @@ struct GraphExecsGroup {
 
   std::size_t generate_key(torch::jit::Stack& stack);
 
-  void CopyGraphAndEmplace(size_t key, torch::jit::Stack& stack);
+  void CopyGraphAndEmplace(size_t key);
 
   size_t generate_graph_index();
 

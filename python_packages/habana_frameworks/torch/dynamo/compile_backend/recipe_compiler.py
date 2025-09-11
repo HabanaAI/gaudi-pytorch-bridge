@@ -61,13 +61,6 @@ def get_input_symbolic(graph_module, inputs):
     MAX_UPPER_SIZE = 1_00_00_000
     MAX_LOWER_SIZE = -1_00_00_000
 
-    def is_mark_dynamic(inputs):
-        for input in inputs:
-            if hasattr(input, "_dynamo_dynamic_range"):
-                logger.debug("Enabling user min/max flow")
-                return True
-        return False
-
     def get_input(input_shape):
         min_shape = []
         max_shape = []
@@ -115,7 +108,11 @@ def get_input_symbolic(graph_module, inputs):
         return min_shape, max_shape, shape_expr
 
     min_max_shapes = []
-    mark_dynamic = is_mark_dynamic(inputs)
+
+    has_dynamic_marked_tensors = next((True for t in inputs if hasattr(t, "_dynamo_dynamic_range")), False)
+    if has_dynamic_marked_tensors:
+        logger.debug("Enabling user min/max flow")
+
     with unset_fake_temporarily():
         input_idx = 0
         for input_node in graph_module.graph.nodes:
@@ -170,7 +167,7 @@ def get_input_symbolic(graph_module, inputs):
     if not len(inputs) == len(min_max_shapes):
         raise AssertionError("Inputs and shapes don't match")
 
-    return min_max_shapes, mark_dynamic
+    return min_max_shapes, has_dynamic_marked_tensors
 
 
 class HabanaGraphModule(torch.nn.Module):
@@ -204,7 +201,7 @@ class HabanaGraphModule(torch.nn.Module):
         self._inference = not is_training
         self._recipe_id = None
         self._dynamic = dynamic
-        self._mark_dynamic = False
+        self._has_dynamic_marked_tensors = False
         self._force_static_compile = force_static_compile
         # To reuse a input tensor's memory, we have to satisfy two conditions:
         # - Current partition is the last user of the input tensor
@@ -307,7 +304,7 @@ class HabanaGraphModule(torch.nn.Module):
         if self._recipe_id is None:
             # self.check_for_random_ops()
             if self._dynamic:
-                self._range_list, self._mark_dynamic = get_input_symbolic(self._fx_module, inputs)
+                self._range_list, self._has_dynamic_marked_tensors = get_input_symbolic(self._fx_module, inputs)
                 if self._has_randoms:
                     self._range_list.insert(0, RangeInfo([1], [1], "1", "1", 0))
                     self._range_list.insert(1, RangeInfo([1], [1], "1", "1", 1))
@@ -330,7 +327,7 @@ class HabanaGraphModule(torch.nn.Module):
                 in_symbol_idx_map=self._pholder_symbolic_dict,
                 range_infos=self._range_list,
                 const_indexes=self._const_input_indexes,
-                mark_dynamic=self._mark_dynamic,
+                has_dynamic_marked_tensors=self._has_dynamic_marked_tensors,
             )
 
             if curr_symval_hash is not None:

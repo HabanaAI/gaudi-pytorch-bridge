@@ -17,22 +17,18 @@
 #include <cstddef>
 #include <string>
 #include "backend/habana_device/HPUStream.h"
-#include "backend/habana_device/hpu_cached_devices.h"
+#include "backend/helpers/dynamic_graph_utils.h"
 #include "backend/helpers/dynamic_shape_info.h"
 #include "backend/jit_graph_cache.h"
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
-#include "backend/synapse_helpers/env_flags.h"
 #include "habana_eager/eager_context.h"
 #include "habana_eager/eager_exec.h"
 #include "habana_eager/eager_tensor.h"
 #include "habana_eager/graph_dynamic.h"
 #include "habana_eager/graph_exec_passes.h"
 #include "habana_eager/graph_storage.h"
-#include "habana_eager/graph_weight_permute.h"
 #include "habana_helpers/logging.h"
-#include "habana_helpers/thread_pool/thread_pool.h"
 
-#include "habana_eager/eager_view.h"
 #include "pytorch_helpers/habana_helpers/h2d_scales.h"
 #include "pytorch_helpers/habana_helpers/towl.h"
 #include "pytorch_helpers/visualize/visualize.h"
@@ -200,101 +196,83 @@ void ProcessRangeInfos(
   }
 }
 
+bool GraphExec::HasOptimizedGraph() {
+  return this->m_graph_and_meta != nullptr;
+}
+
 void GraphExec::LaunchRecipeTask(
     GraphExec* gexec,
     torch::jit::Stack&& inputs,
     std::vector<at::Tensor>&& outputs,
-    LaunchDynamicShapes launch_shapes,
     InputSymbolMap&& in_symbol_value_map) {
   PT_EAGER_TRACE_WITH_NAME(gexec->m_graph_name);
   auto lowering_queue_length =
       HPUDeviceContext::lowering_thread().get_active_task_count();
+
+  //          WARNING!!!
+  // OptimizeGraph modifies backend_inputs
+  // Any operations that require original stack
+  // need to be executed before.
+  if (!gexec->HasOptimizedGraph())
+    gexec->OptimizeGraph(inputs);
+  gexec->m_graph_and_meta->set_is_pipeline_supported(true);
+  gexec->PrepareOptimizedGraphForLaunch(inputs);
+
+  //      WARNING!!!
+  // ms_ds_patch_data.launch_shapes is populated in ProcessDynamicStack
+  // This queue only looks like it's used as some obscure return value
+  // Please do not shoot the messenger I'm trying to untangle this mess
+  LaunchDynamicShapes launch_shapes;
+  if (!gexec->m_ds_patch_data.launch_shapes.empty()) {
+    launch_shapes = gexec->m_ds_patch_data.launch_shapes.front();
+    gexec->m_ds_patch_data.launch_shapes.pop();
+  }
+
   LOP::emit_event_fast(
       true,
       "GraphLoweringTask()",
       gexec->m_graph_and_meta->GetOpOrGraphName(),
       LOP::PipelineStageID::PIPELINE_STAGE_LOWERING_ID,
       lowering_queue_length);
+
   PatchDynamicTensors(launch_shapes);
   gexec->LaunchRecipe(std::move(inputs), outputs, in_symbol_value_map);
 }
 
-GraphExec::GraphExec(
-    size_t recipe_id,
-    std::shared_ptr<habana_torch::jit::Graph> graph,
-    const std::string& parent_graph_name,
-    torch::jit::Stack& example_inputs,
-    bool dynamic,
-    bool inference,
-    bool has_preallocated_outputs,
-    bool has_randoms,
-    InputSymbolIndexMap in_symbol_idx_map,
-    std::vector<habana_helpers::RangeInfo>& range_infos,
-    std::vector<int64_t>& const_indexes,
-    bool mark_dynamic,
-    const std::vector<bool>& is_reusable)
-    : m_graph_index(recipe_id),
-      m_graph(graph),
-      m_dynamic(dynamic),
-      m_inference(inference),
-      m_has_preallocated_outputs(has_preallocated_outputs),
-      m_has_randoms(has_randoms),
-      m_in_symbol_idx_map(in_symbol_idx_map),
-      m_range_infos(range_infos),
-      m_const_indexes(const_indexes),
-      m_mark_dynamic(mark_dynamic && dynamic) {
+void GraphExec::OptimizeGraph(torch::jit::Stack& backend_inputs) {
   PT_EAGER_TRACE;
 
-  m_graph_name = parent_graph_name;
-  if (m_graph_name.find("_fx") != std::string::npos)
-    m_graph_name = m_graph_name.replace(m_graph_name.find("fx"), 2, "jit") +
-        "_" + std::to_string(recipe_id);
-
-  m_is_pipeline_supported = GET_ENV_FLAG_NEW(PT_HPU_EAGER_PIPELINE_ENABLE);
-
+  bool compile_as_dynamic = IsDynamicGraph();
   // Temporailly record the original jit graph input to reusable info map
   std::unordered_map<habana_torch::jit::Value*, bool> input_reusable_pairs;
-  if (!is_reusable.empty()) {
+  if (!m_is_reusable.empty()) {
     size_t jit_graph_inputs_size = m_graph->inputs().size();
-    HABANA_ASSERT(jit_graph_inputs_size == is_reusable.size());
+    HABANA_ASSERT(jit_graph_inputs_size == m_is_reusable.size());
     for (size_t i = 0; i < jit_graph_inputs_size; ++i) {
       auto input = m_graph->inputs().at(i);
-      bool reusable = is_reusable[i];
+      bool reusable = m_is_reusable[i];
       input_reusable_pairs.emplace(input, reusable);
+      m_is_reusable.clear();
     }
   }
 
-  UpdateSeedTensors(example_inputs);
+  RunGraphPasses(backend_inputs);
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_OUTPUT_PERMUTE)) {
-    // we need sync because graph pass HandleInputViews uses permutation info
-    HPUDeviceContext::join_lowering_thread();
-  }
-  RunGraphPasses(example_inputs);
-
-  LogRecipeInfo(example_inputs);
-
-  torch::jit::Stack in_stack = example_inputs;
   PT_DYNAMIC_SHAPE_DEBUG("Is Dynamic Graph = ", IsDynamicGraph());
   if (IsDynamicGraph()) {
-    ProcessDynamicGraph(example_inputs);
-    if (m_static_fallback) {
-      PT_DYNAMIC_SHAPE_WARN(
-          "Number of tensor dims exceeds the limit, falling back to static!");
-      m_mark_dynamic = false;
-    }
-    in_stack = ProcessDynamicStack(example_inputs, true);
+    compile_as_dynamic = ProcessDynamicGraph(backend_inputs);
+    // Shouldn't it escape if when dynamic processing fails?
+    backend_inputs = ProcessDynamicStack(backend_inputs, m_is_first_launch);
     m_sym_expr_hash = habana::ComputeNodeSymOutputHashCode(m_graph);
 
     // Check if any of the symbols where replaced with concrete values.
     // If then, make the m_sym_expr_hash invalid.
-    bool invalid_symbols = HasInvalidDynamicSymbols();
-    if (invalid_symbols) {
+    if (HasInvalidDynamicSymbols()) {
       m_sym_expr_hash = ULONG_MAX;
       PT_DYNAMIC_SHAPE_DEBUG(
           "Graph input symbols are invalid, symbol replacement happend!!!");
     }
-    if (m_mark_dynamic) {
+    if (compile_as_dynamic && m_has_dynamic_marked_tensors) {
       PT_DYNAMIC_SHAPE_DEBUG(
           "mark_dynamic flow is enabled for user min max ranges");
       PrintRangeInfos(m_range_infos);
@@ -305,9 +283,11 @@ GraphExec::GraphExec(
         m_range_infos.erase(list_begin + idx);
       }
       PrintRangeInfos(m_range_infos);
-      HABANA_ASSERT(in_stack.size() == m_range_infos.size());
+      HABANA_ASSERT(backend_inputs.size() == m_range_infos.size());
     }
   }
+
+  LogRecipeInfo(backend_inputs);
 
   AdjacentCastFp8Indices adjacent_cast_fp8_indices{};
   if (habana_helpers::is_h2d_scales_enabled()) {
@@ -317,13 +297,13 @@ GraphExec::GraphExec(
         HPUDeviceContext::h2d_scales_cache().CreateH2dScales();
     pass::HandleH2dScales(
         m_graph,
-        example_inputs,
+        backend_inputs,
         m_h2d_scales_idx_names,
         adjacent_cast_fp8_indices);
   }
 
   at::ArrayRef<habana_torch::jit::IValue> input_refs =
-      torch::jit::last(in_stack, m_graph->inputs().size());
+      torch::jit::last(backend_inputs, m_graph->inputs().size());
 
   std::string jit_graph_name;
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_JIT_GRAPH_NAME_HASH)) {
@@ -342,14 +322,13 @@ GraphExec::GraphExec(
     }
   }
 
-  bool is_dynamic_compile = IsDynamicGraph() && !m_static_fallback;
   m_graph_and_meta = std::make_shared<habana::OptimizedJITGraphAndMetaData>(
       m_graph,
       input_refs,
       0ULL /*unique_cntr*/,
       std::vector<bool>{} /*node_bcast_map_*/,
       jit_graph_name,
-      is_dynamic_compile,
+      compile_as_dynamic,
       m_input_new_base_sizes,
       habana_helpers::HabanaFrontendTypes::COMPILE,
       m_is_reusable);
@@ -361,18 +340,56 @@ GraphExec::GraphExec(
   m_graph_and_meta->set_is_eager_compiler_supported(false);
   m_graph_and_meta->set_is_pipeline_supported(m_is_pipeline_supported);
   m_graph_and_meta->set_sym_expr_hash(m_sym_expr_hash);
-  m_graph_and_meta->SetUserMarkDynamic(m_mark_dynamic);
+  m_graph_and_meta->SetUserMarkDynamic(
+      compile_as_dynamic && m_has_dynamic_marked_tensors);
   m_graph_and_meta->SetUserRangesDynamic(m_range_infos);
   if (habana_helpers::is_h2d_scales_enabled()) {
     m_graph_and_meta->set_adjacent_cast_fp8_indices(adjacent_cast_fp8_indices);
   }
+}
+
+GraphExec::GraphExec(
+    size_t recipe_id,
+    std::shared_ptr<habana_torch::jit::Graph> graph,
+    const std::string& parent_graph_name,
+    bool dynamic,
+    bool inference,
+    bool has_preallocated_outputs,
+    bool has_randoms,
+    InputSymbolIndexMap in_symbol_idx_map,
+    std::vector<habana_helpers::RangeInfo>& range_infos,
+    std::vector<int64_t>& const_indexes,
+    bool has_dynamic_marked_tensors,
+    const std::vector<bool>& is_reusable)
+    : m_graph_index(recipe_id),
+      m_graph(graph),
+      m_graph_name(parent_graph_name),
+      m_dynamic(dynamic),
+      m_is_reusable(is_reusable),
+      m_inference(inference),
+      m_has_preallocated_outputs(has_preallocated_outputs),
+      m_has_randoms(has_randoms),
+      m_in_symbol_idx_map(in_symbol_idx_map),
+      m_range_infos(range_infos),
+      m_const_indexes(const_indexes),
+      m_has_dynamic_marked_tensors(has_dynamic_marked_tensors) {
+  PT_EAGER_TRACE;
+
+  if (m_graph_name.find("_fx") != std::string::npos)
+    m_graph_name = m_graph_name.replace(m_graph_name.find("fx"), 2, "jit") +
+        "_" + std::to_string(recipe_id);
+
+  m_is_pipeline_supported = GET_ENV_FLAG_NEW(PT_HPU_EAGER_PIPELINE_ENABLE);
 };
 
 bool GraphExec::IsDynamicGraph() {
   return m_dynamic;
 }
 
-void GraphExec::ProcessDynamicGraph(torch::jit::Stack& example_inputs) {
+/**
+ * @return bool returns whether static fallback HAS NOT!!! occured
+ */
+bool GraphExec::ProcessDynamicGraph(torch::jit::Stack& example_inputs) {
   m_dgraph_meta = std::make_shared<DynamicGraphMetaData>();
   pass::HandleDynamicOps(
       m_graph,
@@ -380,10 +397,10 @@ void GraphExec::ProcessDynamicGraph(torch::jit::Stack& example_inputs) {
       m_dgraph_meta,
       &m_input_new_base_sizes,
       &m_range_infos);
-  m_static_fallback = m_dgraph_meta->static_fallback;
   pass::HandlePostDynamic(m_dgraph_meta, m_input_new_base_sizes);
   PT_EAGER_DEBUG(
       "Jit for ", m_graph_name, " after processing dynamicity\n", *m_graph);
+  return !m_dgraph_meta->static_fallback;
 }
 
 std::vector<at::IValue> GraphExec::ProcessDynamicStack(
@@ -400,11 +417,10 @@ std::vector<at::IValue> GraphExec::ProcessDynamicStack(
   HABANA_ASSERT(
       m_graph->inputs().size() == new_stack.size(),
       "Graph inputs size not patching with stack size!!");
-  if (!is_first_launch && !m_dgraph_meta->negative_size_nodes.empty())
+  if (!m_dgraph_meta->negative_size_nodes.empty())
     pass::ResolveNegativeSTSizes(
         m_graph, new_stack, m_dgraph_meta, launch_shapes);
-  if (!is_first_launch)
-    m_ds_patch_data.launch_shapes.push(launch_shapes);
+  m_ds_patch_data.launch_shapes.push(launch_shapes);
   return new_stack;
 }
 
@@ -742,32 +758,35 @@ void GraphExec::PopulateSymbolValueMap(
       });
 }
 
+void GraphExec::PrepareOptimizedGraphForLaunch(
+    torch::jit::Stack& stack /**[in,out]*/
+) {
+  if (IsDynamicGraph()) {
+    PT_EAGER_INFO(
+        "Launch dynamic recipe. is_first_launch: ", m_is_first_launch);
+
+    // Has been already processed during OptimizeGraph stage
+    // Can't say for now why it has to be also processed over there
+    if (!m_is_first_launch)
+      stack = ProcessDynamicStack(stack, m_is_first_launch);
+    // Might be better to set it before the actual launch
+    // But it's the place where it's used so let's keep it over here for now
+    m_is_first_launch = false;
+
+    // [TODO] Disable hybrid sif until SW-153320
+    // Ticket appears to be done however when bellow line is removed tests fail
+    habana_helpers::SetHybridSIFTorchCompile(false);
+
+    PT_EAGER_INFO("Dynamic graph Info:", LogRecipeInfo(stack));
+  }
+
+  PatchScaleH2dTensors(stack);
+}
+
 torch::jit::Stack GraphExec::launch(
     torch::jit::Stack& stack,
     std::vector<at::Tensor>& outputs) {
   PT_EAGER_TRACE_WITH_NAME(m_graph_name);
-
-  UpdateSeedTensors(stack);
-
-  InputSymbolMap in_symbol_value_map;
-  if (IsDynamicGraph()) {
-    PT_EAGER_INFO("Launch dynamic recipe. is_first_launch: ", is_first_launch);
-    torch::jit::Stack original_stack = stack;
-    is_first_launch = false;
-    stack = ProcessDynamicStack(original_stack, is_first_launch);
-
-    // [TODO] Disable hybrid sif until SW-153320
-    // Ticket appears to be done however when bellow line is removed tests fail
-
-    habana_helpers::SetHybridSIFTorchCompile(false);
-
-    PT_EAGER_INFO("Dynamic graph Info:", LogRecipeInfo(stack));
-    if (GET_ENV_FLAG_NEW(PT_HPU_OPTIM_DYNAMIC_OUTPUT_SIF)) {
-      PopulateSymbolValueMap(original_stack, in_symbol_value_map);
-    }
-  }
-
-  PatchScaleH2dTensors(stack);
 
   torch::jit::Stack backend_inputs =
       habana::eager::convert_ivalues_to_backend_tensors(stack);
@@ -780,12 +799,14 @@ torch::jit::Stack GraphExec::launch(
             tensor));
   }
 
-  m_graph_and_meta->set_is_pipeline_supported(m_is_pipeline_supported);
-  LaunchDynamicShapes launch_shapes;
-  if (!m_ds_patch_data.launch_shapes.empty()) {
-    launch_shapes = m_ds_patch_data.launch_shapes.front();
-    m_ds_patch_data.launch_shapes.pop();
-  }
+  // Requires original stack
+  InputSymbolMap in_symbol_value_map;
+  if (GET_ENV_FLAG_NEW(PT_HPU_OPTIM_DYNAMIC_OUTPUT_SIF) && IsDynamicGraph())
+    PopulateSymbolValueMap(stack, in_symbol_value_map);
+
+  // UpdateSeedTensors has to run before passes
+  UpdateSeedTensors(backend_inputs);
+
   if (m_is_pipeline_supported) {
     // Check if condition needed specific to dynamic
     habana::eager::ScheduleWorkAndUpdateLoweringThreadHandle(
@@ -793,15 +814,30 @@ torch::jit::Stack GraphExec::launch(
         this,
         std::move(backend_inputs),
         std::move(backend_outputs),
-        std::move(launch_shapes),
         std::move(in_symbol_value_map));
     return {};
   }
+
+  // If pipeline is not supported then
+  // we have to make sure that all the pipeline threads
+  // have finished execution
+  habana::eager::JoinPendingPipelineThreads();
+
+  if (!this->HasOptimizedGraph())
+    this->OptimizeGraph(backend_inputs);
+  m_graph_and_meta->set_is_pipeline_supported(m_is_pipeline_supported);
+  PrepareOptimizedGraphForLaunch(backend_inputs);
+
+  LaunchDynamicShapes launch_shapes;
+  if (!m_ds_patch_data.launch_shapes.empty()) {
+    launch_shapes = m_ds_patch_data.launch_shapes.front();
+    m_ds_patch_data.launch_shapes.pop();
+  }
+
   std::optional<std::vector<at::Tensor>> maybe_backend_outputs;
   if (!backend_outputs.empty()) {
     maybe_backend_outputs = backend_outputs;
   }
-  habana::eager::JoinPendingPipelineThreads();
   PatchDynamicTensors(launch_shapes);
 
   torch::jit::Stack ret_stack = LaunchRecipe(
@@ -952,22 +988,25 @@ torch::jit::Stack GraphExec::LaunchRecipe(
 void GraphExec::UpdateSeedTensors(torch::jit::Stack& stack) {
   PT_EAGER_TRACE;
 
-  if (m_has_randoms) {
-    if (m_reset_seed) {
-      m_seed_tensors.seed =
-          torch::randint(std::numeric_limits<int32_t>::max(), {}, torch::kInt)
-              .to("hpu");
-      m_seed_tensors.counter = torch::tensor(0, {torch::kInt}).to("hpu");
-      m_reset_seed = false;
-    }
+  if (!m_has_randoms)
+    return;
 
-    if (m_seed_tensors.seed.has_value()) {
-      stack[0] = *m_seed_tensors.seed;
-    }
+  if (m_reset_seed) {
+    m_seed_tensors.seed =
+        torch::randint(std::numeric_limits<int32_t>::max(), {}, torch::kInt)
+            .to("hpu");
+    m_seed_tensors.counter = torch::tensor(0, {torch::kInt}).to("hpu");
+    m_reset_seed = false;
+  }
 
-    if (m_seed_tensors.counter.has_value()) {
-      stack[1] = *m_seed_tensors.counter;
-    }
+  // Those are tensors not passed from user
+  // Safe to remove constness
+  if (m_seed_tensors.seed.has_value()) {
+    stack[0] = *m_seed_tensors.seed;
+  }
+
+  if (m_seed_tensors.counter.has_value()) {
+    stack[1] = *m_seed_tensors.counter;
   }
 }
 

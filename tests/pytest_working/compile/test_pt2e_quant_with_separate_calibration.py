@@ -165,6 +165,7 @@ def use_pt2e_quant_flow_with_separate_calibration(
             assert torch.allclose(cpu_result2[0].float(), hpu_result2[0].to(CPU).float(), rtol=2e-2, atol=2e-2)
 
 
+@pytest.mark.xfail(reason="https://jira.habana-labs.com/browse/SW-240329")
 @pytest.mark.parametrize("save_or_load", ["save", "load"])
 @pytest.mark.parametrize("weight_qscheme", ["ptq", "pcq"])
 @pytest.mark.parametrize("test_case", test_case_list)

@@ -109,7 +109,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
          InputSymbolIndexMap& in_symbol_idx_map,
          std::vector<habana_helpers::RangeInfo>& range_infos,
          std::vector<int64_t>& const_indexes,
-         bool mark_dynamic) {
+         bool has_dynamic_marked_tensors) {
         torch::jit::Stack stack;
         stack.reserve(inputs.size());
         for (auto& obj : inputs) {
@@ -158,7 +158,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
             in_symbol_idx_map,
             range_infos,
             const_indexes,
-            mark_dynamic);
+            has_dynamic_marked_tensors);
       },
       py::return_value_policy::copy,
       py::arg("graph"),
@@ -172,7 +172,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       py::arg("in_symbol_idx_map"),
       py::arg("range_infos"),
       py::arg("const_indexes"),
-      py::arg("mark_dynamic"));
+      py::arg("has_dynamic_marked_tensors"));
   m.def(
       "graph_launch",
       [](size_t recipe_id,

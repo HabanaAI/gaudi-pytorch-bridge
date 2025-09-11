@@ -141,14 +141,8 @@ def propagate_for_random_ops(
     full_args = additional_inputs + args
 
     class _RandomOpsPropagation(torch.fx.Interpreter):
-        def __init__(
-            self,
-            graph_module: torch.fx.GraphModule,
-            fake_mode: FakeTensorMode | None = None,
-        ):
+        def __init__(self, graph_module: torch.fx.GraphModule, fake_mode: FakeTensorMode = FakeTensorMode()):
             super().__init__(graph_module)
-            if fake_mode is None:
-                fake_mode = FakeTensorMode()
             self._mode = fake_mode
 
         def run_node(self, node: torch.fx.Node):

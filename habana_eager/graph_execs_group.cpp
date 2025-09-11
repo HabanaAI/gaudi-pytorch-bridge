@@ -59,9 +59,7 @@ size_t GraphExecsGroup::generate_graph_index() {
       m_graph_exec_storage.size();
 }
 
-void GraphExecsGroup::CopyGraphAndEmplace(
-    size_t key,
-    torch::jit::Stack& stack) {
+void GraphExecsGroup::CopyGraphAndEmplace(size_t key) {
   auto graph_copy = m_original_graph->copy();
 
   m_graph_exec_storage.emplace(
@@ -71,7 +69,6 @@ void GraphExecsGroup::CopyGraphAndEmplace(
           generate_graph_index(),
           graph_copy,
           m_parent_graph_name,
-          stack,
           m_dynamic,
           m_inference,
           m_has_preallocated_outputs,
@@ -79,7 +76,7 @@ void GraphExecsGroup::CopyGraphAndEmplace(
           m_in_symbol_idx_map,
           m_range_infos,
           m_const_indexes,
-          m_mark_dynamic,
+          m_has_dynamic_marked_tensors,
           m_is_reusable));
 }
 
@@ -96,7 +93,7 @@ GraphExecsGroup::GraphExecsGroup(
     InputSymbolIndexMap in_symbol_idx_map,
     std::vector<habana_helpers::RangeInfo>& range_infos,
     std::vector<int64_t>& const_indexes,
-    bool mark_dynamic)
+    bool has_dynamic_marked_tensors)
     : m_graph_group_index(recipe_id),
       m_original_graph(graph),
       m_parent_graph_name(parent_graph_name),
@@ -107,7 +104,7 @@ GraphExecsGroup::GraphExecsGroup(
       m_in_symbol_idx_map(in_symbol_idx_map),
       m_range_infos(range_infos),
       m_const_indexes(const_indexes),
-      m_mark_dynamic(mark_dynamic),
+      m_has_dynamic_marked_tensors(has_dynamic_marked_tensors),
       m_is_reusable(is_reusable) {
   PT_EAGER_TRACE;
 
@@ -116,7 +113,7 @@ GraphExecsGroup::GraphExecsGroup(
   RunGraphGroupPasses();
 
   auto key = generate_key(example_inputs);
-  CopyGraphAndEmplace(key, example_inputs);
+  CopyGraphAndEmplace(key);
 }
 
 torch::jit::Stack GraphExecsGroup::launch(
@@ -131,7 +128,7 @@ torch::jit::Stack GraphExecsGroup::launch(
         "Not found proper subversion of " + m_graphs_group_name +
         ", create new flavor");
 
-    CopyGraphAndEmplace(key, stack);
+    CopyGraphAndEmplace(key);
   }
 
   return m_graph_exec_storage.at(key).launch(stack, outputs);

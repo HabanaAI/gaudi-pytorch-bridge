@@ -542,14 +542,8 @@ class TensorInfoPropagation(torch.fx.Interpreter):
     fake_tensors so it does not make any real computations.
     """
 
-    def __init__(
-        self,
-        graph_module: torch.fx.GraphModule,
-        fake_mode: FakeTensorMode | None = None,
-    ):
+    def __init__(self, graph_module: torch.fx.GraphModule, fake_mode: FakeTensorMode = FakeTensorMode()):
         super().__init__(graph_module)
-        if fake_mode is None:
-            fake_mode = FakeTensorMode()
         self._mode = fake_mode
 
     def run_node(self, node: torch.fx.Node):

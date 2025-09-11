@@ -60,99 +60,101 @@ struct HandleInputViewsPass {
         // CPU scale tensors will be processed later.
         continue;
       }
+
       [[maybe_unused]] auto storage_meta{
           habana::get_storage_extra_meta(input_tensor)};
 
-      if (habana::is_view_lowering(input_tensor) ||
-          !input_tensor.is_contiguous()) {
-        auto& uses = input->uses();
-        auto& first_use = uses[0];
-        habana_torch::jit::Node* first_user = first_use.user;
-        auto& last_use = uses.back();
-        habana_torch::jit::Node* last_user = last_use.user;
+      if (!habana::is_view_lowering(input_tensor) &&
+          input_tensor.is_contiguous())
+        continue;
 
-        static const std::array<c10::Symbol, 4> view_ops_symbols{
-            c10::Symbol::fromQualString("aten::as_strided"),
-            c10::Symbol::fromQualString("aten::slice_scatter"),
-            c10::Symbol::fromQualString("aten::select_scatter"),
-            c10::Symbol::fromQualString("aten::as_strided_scatter")};
+      auto& uses = input->uses();
+      auto& first_use = uses[0];
+      habana_torch::jit::Node* first_user = first_use.user;
+      auto& last_use = uses.back();
+      habana_torch::jit::Node* last_user = last_use.user;
 
-        if (std::find(
-                view_ops_symbols.begin(),
-                view_ops_symbols.end(),
-                first_user->kind()) != view_ops_symbols.end()) {
-          // Moving for next input as view for this one are already handled in
-          // graph
-          continue;
+      static const std::array<c10::Symbol, 4> view_ops_symbols{
+          c10::Symbol::fromQualString("aten::as_strided"),
+          c10::Symbol::fromQualString("aten::slice_scatter"),
+          c10::Symbol::fromQualString("aten::select_scatter"),
+          c10::Symbol::fromQualString("aten::as_strided_scatter")};
+
+      if (std::find(
+              view_ops_symbols.begin(),
+              view_ops_symbols.end(),
+              first_user->kind()) != view_ops_symbols.end()) {
+        // Moving for next input as view for this one are already handled in
+        // graph
+        continue;
+      }
+      habana::eager::ViewParam view_params;
+      view_params.setParam(input_tensor);
+
+      bool needs_strided_insert = false;
+      // copy+copy_ will be rewriten to copy_, so uses.size() can be only 1
+      if (!uses.empty() && (last_use.offset == 0)) {
+        std::string_view node_name = last_user->kind().toQualString();
+        if (node_name.back() == '_') {
+          needs_strided_insert = true;
         }
-        habana::eager::ViewParam view_params;
-        view_params.setParam(input_tensor);
+      }
 
-        bool needs_strided_insert = false;
-        // copy+copy_ will be rewriten to copy_, so uses.size() can be only 1
-        if (!uses.empty() && (last_use.offset == 0)) {
-          std::string_view node_name = last_user->kind().toQualString();
-          if (node_name.back() == '_') {
-            needs_strided_insert = true;
-          }
+      m_input_base_sizes_to_set[input_idx] = std::vector<int64_t>();
+
+      std::string output_size;
+      if (range_infos.empty()) {
+        // node attribute "output_size" remains used in static
+        output_size = "[STATIC]";
+      } else {
+        output_size = "[" + range_infos[input_idx].expr + "]";
+      }
+
+      insert_strided_view_node(
+          input_tensor,
+          first_user,
+          input,
+          view_params,
+          m_input_base_sizes_to_set.at(input_idx),
+          output_size);
+
+      // @TODO : Check if we can fill min and max shapes in form of symbols.
+      // Till we find a way, since the strided tensor is replaced by base
+      // tensor in the stack, we have to do the same in range_info DS. The
+      // problem being we dont have a way currently to fetch shapes of base
+      // tensor in form of symbolic so that min max can be inferred.
+      if (!range_infos.empty()) {
+        std::stringstream ss;
+        ss << "[";
+        for (auto value : m_input_base_sizes_to_set.at(input_idx)) {
+          ss << value << ", ";
         }
-
-        m_input_base_sizes_to_set[input_idx] = std::vector<int64_t>();
-
-        std::string output_size;
-        if (range_infos.empty()) {
-          // node attribute "output_size" remains used in static
-          output_size = "[STATIC]";
-        } else {
-          output_size = "[" + range_infos[input_idx].expr + "]";
+        std::string result = ss.str();
+        if (!result.empty()) {
+          result.erase(result.size() - 2);
         }
+        result += "]";
+        range_infos[input_idx].expr = result;
+        PT_DYNAMIC_SHAPE_DEBUG(
+            "HandleViewPass filling RangeInfo at index ",
+            range_infos[input_idx].index,
+            " with static min and max = ",
+            result);
+        // Change the index to -1 so that min and max range be processed
+        range_infos[input_idx].index = -1;
+      }
 
-        insert_strided_view_node(
+      changed = true;
+
+      if (needs_strided_insert) {
+        insert_strided_insert_node(
             input_tensor,
-            first_user,
             input,
+            last_user->output(0),
             view_params,
-            m_input_base_sizes_to_set.at(input_idx),
             output_size);
 
-        // @TODO : Check if we can fill min and max shapes in form of symbols.
-        // Till we find a way, since the strided tensor is replaced by base
-        // tensor in the stack, we have to do the same in range_info DS. The
-        // problem being we dont have a way currently to fetch shapes of base
-        // tensor in form of symbolic so that min max can be inferred.
-        if (!range_infos.empty()) {
-          std::stringstream ss;
-          ss << "[";
-          for (auto value : m_input_base_sizes_to_set.at(input_idx)) {
-            ss << value << ", ";
-          }
-          std::string result = ss.str();
-          if (!result.empty()) {
-            result.erase(result.size() - 2);
-          }
-          result += "]";
-          range_infos[input_idx].expr = result;
-          PT_DYNAMIC_SHAPE_DEBUG(
-              "HandleViewPass filling RangeInfo at index ",
-              range_infos[input_idx].index,
-              " with static min and max = ",
-              result);
-          // Change the index to -1 so that min and max range be processed
-          range_infos[input_idx].index = -1;
-        }
-
-        changed |= true;
-
-        if (needs_strided_insert) {
-          insert_strided_insert_node(
-              input_tensor,
-              input,
-              last_user->output(0),
-              view_params,
-              output_size);
-
-          replace_with_out_of_place_op(last_user);
-        }
+        replace_with_out_of_place_op(last_user);
       }
     }
 
