@@ -46,7 +46,7 @@ void ArgSortStable::AddNode(
   // It is ok to set params.bsw = k irrespective of static or DS case
   // As per CGUID doc, bsw is ignored if params.kType = K_TENSOR_SHAPE;
   // which is set in DS case.
-  params.bsw = safe_convert<unsigned int>(k, "k"sv);
+  params.bsw = safe_convert<unsigned int>(k);
   params.axis = get_dim_in_tpc_order(dim, self.dim());
   params.bottomK = !descending;
   params.isVcData = false;
@@ -113,7 +113,7 @@ void SortStable::AddNode(
   // It is ok to set params.bsw = k irrespective of static or DS case
   // As per CGUID doc, bsw is ignored if params.kType = K_TENSOR_SHAPE;
   // which is set in DS case.
-  params.bsw = safe_convert<unsigned int>(k, "k"sv);
+  params.bsw = safe_convert<unsigned int>(k);
   params.axis = get_dim_in_tpc_order(dim, self.dim());
   params.bottomK = !descending;
   params.isVcData = false;

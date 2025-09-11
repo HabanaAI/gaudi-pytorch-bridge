@@ -437,14 +437,13 @@ ReduceOperator::CreateReductionGraph(
       "in_dim size is too large for unsigned conversion: ",
       in_dim_size);
   using namespace std::literals;
-  const unsigned loopend = keepdim
-      ? safe_convert<unsigned>(in_dim_size - 1, "loopend keepdim"sv)
-      : safe_convert<unsigned>(in_dim_size, "loopend"sv);
+  const unsigned loopend = keepdim ? safe_convert<unsigned>(in_dim_size - 1)
+                                   : safe_convert<unsigned>(in_dim_size);
   for (unsigned i = 0; i < loopend; i++) {
     const auto dim_index = in_dim[i];
     HABANA_ASSERT(
         dim_index >= 0, "Dimension index must be non-negative: ", dim_index);
-    pyt_shape[safe_convert<size_t>(dim_index, "pyt_shape index"sv)] = 1;
+    pyt_shape[safe_convert<size_t>(dim_index)] = 1;
 
     // Modify the stride accordingly after the shape change above
     pyt_stride[pyt_shape.size() - 1] = 1;
@@ -509,11 +508,9 @@ ReduceOperator::CreateReductionGraph(
     ns_Reduction::Params params{};
     const auto tensor_dim = pyt_tensor.dim();
     const auto reduction_dim = tensor_dim - in_dim[j] - 1;
-    params.reductionDimension =
-        safe_convert<unsigned int>(reduction_dim, "reductionDimension"sv);
+    params.reductionDimension = safe_convert<unsigned int>(reduction_dim);
     const int offset_calc = static_cast<int>(i) + (i != 0) * first_input_pos;
-    const auto input_index_offset =
-        safe_convert<size_t>(offset_calc, "input_index_offset"sv);
+    const auto input_index_offset = safe_convert<size_t>(offset_calc);
     std::vector<synTensor> syn_in{
         syn_helper_intermediate[input_index_offset].ref().get()};
     std::vector<synTensor> syn_out{syn_helper_intermediate[i + 1].ref().get()};
@@ -538,8 +535,7 @@ ReduceOperator::CreateReductionGraph(
     std::string node_type = "reshape";
     const auto input_index_offset = [&] {
       if (num_tpc_outputs > 1) {
-        const auto num_tpc_outputs_u = safe_convert<size_t>(
-            num_tpc_outputs, "num_tpc_outputs for reshape"sv);
+        const auto num_tpc_outputs_u = safe_convert<size_t>(num_tpc_outputs);
         return num_tpc_outputs_u * in_dim_size - 1;
       } else {
         return in_dim_size;
@@ -549,10 +545,7 @@ ReduceOperator::CreateReductionGraph(
         syn_helper_intermediate[input_index_offset].ref().get()};
     std::vector<synTensor> syn_out{
         syn_helper_intermediate
-            [safe_convert<size_t>(
-                 num_tpc_outputs, "num_tpc_outputs for syn_out"sv) *
-                 in_dim_size +
-             1]
+            [safe_convert<size_t>(num_tpc_outputs) * in_dim_size + 1]
                 .ref()
                 .get()};
 

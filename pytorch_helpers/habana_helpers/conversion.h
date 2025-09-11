@@ -16,16 +16,14 @@
 
 #include <cstdint>
 #include <limits>
-#include <string>
+#include <string_view>
 
 template <typename To, typename From>
-To safe_convert(From value, const std::string& context) = delete;
-
-template <typename To, typename From>
-To safe_convert(From value, const char* context) = delete;
-
-template <typename To, typename From>
-To safe_convert(From value, const std::string_view context) {
+To safe_convert(
+    From value,
+    const std::string_view file_name = __builtin_FILE(),
+    const int line_number = __builtin_LINE(),
+    const std::string_view function_name = __builtin_FUNCTION()) {
   static_assert(std::is_integral_v<From> && std::is_integral_v<To>);
   if constexpr (std::is_same_v<From, To>) {
     return value; // No conversion needed
@@ -58,8 +56,12 @@ To safe_convert(From value, const std::string_view context) {
           is_unsigned_to_signed_and_in_range ||
           is_not_unsigned_to_signed_and_in_range,
       "Value out of range for conversion in ",
-      context,
-      ": ",
+      file_name,
+      ":",
+      line_number,
+      " (",
+      function_name,
+      ") - value: ",
       value);
 
   return static_cast<To>(value);

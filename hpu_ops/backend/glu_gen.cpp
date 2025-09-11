@@ -45,7 +45,7 @@ FillParamsT FillGluParams(const at::Stack& stack, const size_t dim_index) {
   const int64_t dim = at::maybe_wrap_dim(
       stack.at(dim_index).toInt(), self.dim(), /*wrap_scalar=*/true);
   PARAMS_STUB(ns_GatherKernel::Params);
-  params->axis = safe_convert<int>(dim, "axis"sv);
+  params->axis = safe_convert<int>(dim);
   return paramsT;
 }
 FillParamsT FillGluFwdParams(const at::Stack& stack) {

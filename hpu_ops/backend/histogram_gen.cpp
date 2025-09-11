@@ -26,7 +26,7 @@ FillParamsT FillHistcParams(const at::Stack& stack) {
   const auto min = stack.at(2).toInt();
   const auto max = stack.at(3).toInt();
 
-  params->bins = safe_convert<int>(bins, "bins"sv);
+  params->bins = safe_convert<int>(bins);
   params->density = false;
   params->has_weights = false;
   params->min = static_cast<float>(min);
@@ -96,8 +96,7 @@ OutputMetaDataVector HistogramBinCtMeta(const at::Stack& stack) {
 FillParamsT FillHistogramBinsParams(const at::Stack& stack) {
   PARAMS_STUB(ns_Histogram::ParamsV2);
 
-  params->bins =
-      safe_convert<int>(stack.at(1).toTensor().sizes()[0] - 1, "bins"sv);
+  params->bins = safe_convert<int>(stack.at(1).toTensor().sizes()[0] - 1);
   params->has_weights = stack.at(2).isTensor();
   params->density = stack.at(3).toScalar().toBool();
 

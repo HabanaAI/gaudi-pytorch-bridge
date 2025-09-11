@@ -4489,8 +4489,7 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS(
         bool refine_candidate =
             (current_dbipsh_->GetMFUBucket() == current_bucket_id_);
         current_dbipsh_->get_statistics()->LogUsedBucket(
-            safe_convert<int>(
-                current_bucket_id_, std::string_view("LogUsedBucket")),
+            safe_convert<int>(current_bucket_id_),
             jit_ir_graph_,
             ranges,
             refine_candidate);
@@ -5275,9 +5274,7 @@ void HabanaLaunchOpPT::run(
       syn_graph->set_shape_agnostic_graph(is_shape_agnostic_graph);
       BuildSynapseGraph(syn_graph, jit_graph_and_meta_data_->syn_build_cache_);
       syn_graph_ptr_->set_num_of_inter_tensors(
-          safe_convert<uint32_t>(
-              intermediate_syn_tensors_count_,
-              std::string_view("set_num_of_inter_tensors")));
+          safe_convert<uint32_t>(intermediate_syn_tensors_count_));
 
       if (syn_graph_ptr_->is_empty()) {
         PT_LAZY_EAGER_DEBUG(
@@ -6296,9 +6293,7 @@ void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
         (current_dbipsh_->GetMFUBucket() == graph_input_info.current_bucket_id);
   }
   current_dbipsh_->get_statistics()->LogUsedBucket(
-      safe_convert<int>(
-          graph_input_info.current_bucket_id,
-          std::string_view("LogUsedBucket")),
+      safe_convert<int>(graph_input_info.current_bucket_id),
       jit_ir_graph_,
       ranges,
       refine_candidate);

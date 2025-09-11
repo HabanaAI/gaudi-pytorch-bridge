@@ -69,14 +69,12 @@ FillParamsT FillMaskedFillParams(const at::Stack& stack) {
     params->value_low = safe_convert<int>(
         scalarValue.isIntegral(true)
             ? scalarValue.to<int64_t>()
-            : static_cast<int64_t>(scalarValue.toFloat()),
-        "value_low"sv);
+            : static_cast<int64_t>(scalarValue.toFloat()));
     params->value_high = safe_convert<int>(
         (scalarValue.isIntegral(true)
              ? scalarValue.to<int64_t>()
              : static_cast<int64_t>(scalarValue.toFloat())) >>
-            32,
-        "value_high"sv);
+        32);
   } else if (c10::isIntegralType(self_dtype, true)) {
     params->value.i = scalarValue.isIntegral(true)
         ? scalarValue.toInt()

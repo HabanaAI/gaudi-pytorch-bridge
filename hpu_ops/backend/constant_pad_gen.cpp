@@ -137,10 +137,10 @@ FillParamsT FillConstantPadParams(const at::Stack& stack) {
 
     for (size_t i = 0; i < lpad; i++) {
       // Pads can be negative, but params store it in unsigned.
-      params->pads[i] = static_cast<unsigned int>(
-          safe_convert<int>(pad[2 * i], "pad_value"sv));
-      params->pads[i + ndim] = static_cast<unsigned int>(
-          safe_convert<int>(pad[2 * i + 1], "pad_value"sv));
+      params->pads[i] =
+          static_cast<unsigned int>(safe_convert<int>(pad[2 * i]));
+      params->pads[i + ndim] =
+          static_cast<unsigned int>(safe_convert<int>(pad[2 * i + 1]));
     }
 
     return paramsT;
@@ -176,8 +176,8 @@ void ConstantPad::AddNode(
       for (size_t i = 0; i < ndim; i++) {
         // order of dims is reversed in H2D tensor
         // Pads can be negative, but data store it in unsigned.
-        data[ndim - i - 1] = static_cast<uint32_t>(safe_convert<int32_t>(
-            output_shape[i] - input_shape[i], "data_value"sv));
+        data[ndim - i - 1] = static_cast<uint32_t>(
+            safe_convert<int32_t>(output_shape[i] - input_shape[i]));
       }
       tmeta->set_min<uint32_t>(data);
     } else if (
@@ -189,8 +189,8 @@ void ConstantPad::AddNode(
       for (size_t i = 0; i < ndim; i++) {
         // order of dims is reversed in H2D tensor
         // Pads can be negative, but data store it in unsigned.
-        data[ndim - i - 1] = static_cast<uint32_t>(safe_convert<int32_t>(
-            output_shape[i] - input_shape[i], "data_value"sv));
+        data[ndim - i - 1] = static_cast<uint32_t>(
+            safe_convert<int32_t>(output_shape[i] - input_shape[i]));
       }
       tmeta->set_max<uint32_t>(data);
     }
@@ -245,8 +245,8 @@ void ConstantPadDS::AddNode(
       for (size_t i = 0; i < ndim; i++) {
         // order of dims is reversed in H2D tensor
         // Pads can be negative, but data store it in unsigned.
-        data[ndim - i - 1] = static_cast<uint32_t>(safe_convert<int32_t>(
-            output_shape[i] - input_shape[i], "data_value"sv));
+        data[ndim - i - 1] = static_cast<uint32_t>(
+            safe_convert<int32_t>(output_shape[i] - input_shape[i]));
       }
       tmeta->set_min<uint32_t>(data);
     } else if (
@@ -258,8 +258,8 @@ void ConstantPadDS::AddNode(
       for (size_t i = 0; i < ndim; i++) {
         // order of dims is reversed in H2D tensor
         // Pads can be negative, but data store it in unsigned.
-        data[ndim - i - 1] = static_cast<uint32_t>(safe_convert<int32_t>(
-            output_shape[i] - input_shape[i], "data_value"sv));
+        data[ndim - i - 1] = static_cast<uint32_t>(
+            safe_convert<int32_t>(output_shape[i] - input_shape[i]));
       }
       tmeta->set_max<uint32_t>(data);
     }

@@ -94,18 +94,16 @@ HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(eager::EagerOp, IndexOutFE, at::Tensor&) {
     std::tie(
         dims_permuted, num_index_tensors_int, self_permute_dims, indices_vec) =
         generate_advanced_indexing_indices_list(inputs_vec);
-    num_index_tensors =
-        safe_convert<size_t>(num_index_tensors_int, "num_index_tensors"sv);
+    num_index_tensors = safe_convert<size_t>(num_index_tensors_int);
     if (dims_permuted)
       for (const auto i : c10::irange(num_index_tensors))
         advanced_indexing_present.emplace_back(
-            safe_convert<int>(i, "irange index"sv) >= num_explicit_indices);
+            safe_convert<int>(i) >= num_explicit_indices);
     else if (num_explicit_indices > 0)
       for (const auto i : c10::irange(num_index_tensors))
         advanced_indexing_present.emplace_back(
-            (safe_convert<int>(i, "irange index"sv) <
-             index_tensor_group_start) ||
-            (safe_convert<int>(i, "irange index"sv) > index_tensor_group_end));
+            (safe_convert<int>(i) < index_tensor_group_start) ||
+            (safe_convert<int>(i) > index_tensor_group_end));
 
     for (size_t i = num_index_tensors; i < indices_in.size(); i++)
       advanced_indexing_present.emplace_back(true);

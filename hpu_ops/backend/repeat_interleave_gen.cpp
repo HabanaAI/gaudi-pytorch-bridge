@@ -43,8 +43,7 @@ FillParamsT RepeatInterleaveParams(const at::Stack& stack) {
   PARAMS_STUB(ns_RepeatInterleave::Params);
   const auto opt_val = stack.at(1).toOptional<int64_t>();
   if (opt_val.has_value()) {
-    params->outputSize =
-        safe_convert<unsigned int>(opt_val.value(), "outputSize"sv);
+    params->outputSize = safe_convert<unsigned int>(opt_val.value());
   }
 
   return paramsT;

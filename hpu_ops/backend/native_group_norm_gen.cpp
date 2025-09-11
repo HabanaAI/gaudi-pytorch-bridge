@@ -203,8 +203,8 @@ SharedMetaDataVector NativeGroupNormBwdSharedMeta(
 FillParamsT FillNativeGroupNormParams(const at::Stack& stack) {
   PARAMS_STUB(ns_NativeGroupNorm::Params);
   using namespace std::literals;
-  params->N = safe_convert<unsigned>(stack[3].toInt(), "N"sv);
-  params->G = safe_convert<unsigned>(stack[6].toInt(), "G"sv);
+  params->N = safe_convert<unsigned>(stack[3].toInt());
+  params->G = safe_convert<unsigned>(stack[6].toInt());
   params->epsilon = static_cast<float>(stack[7].toDouble());
 
   return paramsT;
@@ -213,8 +213,8 @@ FillParamsT FillNativeGroupNormParams(const at::Stack& stack) {
 FillParamsT FillNativeGroupNormBwdParams(const at::Stack& stack) {
   PARAMS_STUB(ns_NativeGroupNorm::Params);
   using namespace std::literals;
-  params->N = safe_convert<unsigned>(stack[5].toInt(), "N"sv);
-  params->G = safe_convert<unsigned>(stack[8].toInt(), "G"sv);
+  params->N = safe_convert<unsigned>(stack[5].toInt());
+  params->G = safe_convert<unsigned>(stack[8].toInt());
 
   return paramsT;
 }

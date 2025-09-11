@@ -22,8 +22,8 @@ namespace habana {
 FillParamsT FillDiagParams(const at::Stack& stack) {
   auto diagonal = stack.at(1).toInt();
   PARAMS_STUB(ns_MatrixDiag::Params);
-  params->kMin = safe_convert<int>(diagonal, "diagonal"sv);
-  params->kMax = safe_convert<int>(diagonal, "diagonal"sv);
+  params->kMin = safe_convert<int>(diagonal);
+  params->kMax = safe_convert<int>(diagonal);
   return paramsT;
 }
 

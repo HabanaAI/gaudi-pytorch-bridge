@@ -162,8 +162,7 @@ FillParamsT FillWeightNormBwdParams(const at::Stack& stack) {
 
   using namespace std::literals;
   PARAMS_STUB(ns_Reduction::Params);
-  params->reductionDimension =
-      safe_convert<unsigned int>(dim, "reductionDimension assignment"sv);
+  params->reductionDimension = safe_convert<unsigned int>(dim);
   return paramsT;
 }
 

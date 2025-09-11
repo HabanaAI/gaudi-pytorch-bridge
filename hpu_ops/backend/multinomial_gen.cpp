@@ -34,8 +34,7 @@ static FillParamsT MultinomialParams(
     const at::Stack& stack,
     unsigned idx_shift = 0) {
   at::ScalarType type = stack_tensor(stack, 0 + idx_shift).scalar_type();
-  auto num_samples =
-      safe_convert<int>(stack.at(1 + idx_shift).toInt(), "num_samples"sv);
+  auto num_samples = safe_convert<int>(stack.at(1 + idx_shift).toInt());
   bool replacement = stack.at(2 + idx_shift).toBool();
   const torch::Tensor& t = stack_tensor(stack, 0 + idx_shift);
 
@@ -47,7 +46,7 @@ static FillParamsT MultinomialParams(
     case at::ScalarType::Half:
       params->num_samples = num_samples;
       params->replacement = replacement;
-      params->outcomes = safe_convert<int>(t.sizes()[0], "outcomes"sv);
+      params->outcomes = safe_convert<int>(t.sizes()[0]);
       break;
     default:
       HABANA_ASSERT(false, "Unsupported type for random multinomial: ", type);

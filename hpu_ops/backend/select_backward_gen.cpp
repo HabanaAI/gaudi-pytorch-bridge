@@ -92,15 +92,14 @@ void SelectBackward::AddNode(
   using namespace std::literals;
   // Synapse indexes dims in opposite order then PT
   for (size_t i = 0; i < input_sizes.size(); ++i) {
-    params.axes[i] =
-        safe_convert<unsigned>(input_sizes.size() - i - 1, "axes"sv);
+    params.axes[i] = safe_convert<unsigned>(input_sizes.size() - i - 1);
     if (i == dim) {
-      params.starts[i] = safe_convert<unsigned>(
-          normalize_idx(index, input_sizes[i]), "starts"sv);
+      params.starts[i] =
+          safe_convert<unsigned>(normalize_idx(index, input_sizes[i]));
       params.ends[i] = params.starts[i] + 1;
     } else {
       params.starts[i] = 0;
-      params.ends[i] = safe_convert<unsigned>(input_sizes[i], "ends"sv);
+      params.ends[i] = safe_convert<unsigned>(input_sizes[i]);
     }
   }
 

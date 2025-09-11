@@ -156,7 +156,7 @@ SharedMetaDataVector RandPermSharedMeta(
 void RandPermOp::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  auto n = safe_convert<int>(stack.at(0).toInt(), "n"sv);
+  auto n = safe_convert<int>(stack.at(0).toInt());
   bool is_compile =
       GetExecutionMode() == habana_helpers::HabanaFrontendTypes::COMPILE;
   const auto meta = RandPermMeta(stack)[0];
@@ -206,7 +206,7 @@ void HabanaRandPerm::AddNode(
       stack.at(0).isTensor(),
       "For a custom schema(Randperm) seed tensor should be the",
       "first argument.");
-  auto n = safe_convert<int>(stack.at(1).toInt(), "n"sv);
+  auto n = safe_convert<int>(stack.at(1).toInt());
   const auto meta = HabanaRandPermMeta(stack)[0];
   auto out_dtype = meta.dtype;
   auto out_shape = meta.shape;
@@ -240,7 +240,7 @@ size_t GetMInMaxSifOffsetRP(bool dry_run, size_t data_size) {
 template <typename T>
 std::vector<T> GetArangeH2DParams(at::Tensor& params_t, bool dry_run) {
   std::vector<T> params_data;
-  auto data_size = safe_convert<size_t>(params_t.sizes()[0], "data_size"sv);
+  auto data_size = safe_convert<size_t>(params_t.sizes()[0]);
   auto tmeta{get_tensor_extra_meta(params_t)};
   void* host_ptr = nullptr;
   if (dry_run) {
