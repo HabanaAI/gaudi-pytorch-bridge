@@ -1790,8 +1790,9 @@ void RecipeLauncher::Launch(
         resource_holder.reset();
       };
       if (recipe_) {
+        std::vector<synapse_helpers::device_ptr> outDevPtr_copy = outDevPtr;
         device.register_producer_on_stream(
-            std::move(outDevPtr), stream_handle, cleanup_callback);
+            std::move(outDevPtr_copy), stream_handle, cleanup_callback);
       }
       // Launch collective ops
       if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_COLLECTIVES_HOLD_TENSORS)) {
@@ -1837,12 +1838,14 @@ void RecipeLauncher::Launch(
         resource_holder.reset();
       };
       if (recipe_) {
+        std::vector<synapse_helpers::device_ptr> outDevPtr_copy = outDevPtr;
         device.register_producer_on_stream(
-            std::move(outDevPtr), stream_handle, cleanup_callback);
+            std::move(outDevPtr_copy), stream_handle, cleanup_callback);
       }
 
       stream_utils::GenericRecordStream(device, hpu_stream, inDevPtr);
-      stream_utils::GenericRecordStream(device, hpu_stream, outDevPtr);
+      stream_utils::GenericRecordStream(
+          device, hpu_stream, std::move(outDevPtr));
 
       // Launch collective ops
       if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_COLLECTIVES_HOLD_TENSORS)) {

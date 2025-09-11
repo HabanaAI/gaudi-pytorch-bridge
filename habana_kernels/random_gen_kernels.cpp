@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -217,8 +217,9 @@ void HabanaRandomSeedOperator::AllocateAndAddSynapseNode(
 
   auto guid = "random_seed_u32";
 
+  std::vector<synTensor> syn_inputs_copy = syn_inputs;
   graph.add_node(
-      std::move(syn_inputs),
+      std::move(syn_inputs_copy),
       {},
       nullptr,
       0,

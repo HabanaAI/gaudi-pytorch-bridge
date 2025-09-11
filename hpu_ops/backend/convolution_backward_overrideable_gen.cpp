@@ -124,9 +124,8 @@ static synapse_helpers::tensor ComputeBiasGradGraph(
       pyt_shape[static_cast<size_t>(dim_to_reduce[i])] = 1;
       c10::IntArrayRef shape_red(pyt_shape.data(), pyt_shape.size());
 
-      std::vector<synTensor> syn_tmp_in = (i == 0)
-          ? std::move(syn_grad_output)
-          : std::vector<synTensor>{syn_tmp[0].get()};
+      std::vector<synTensor> syn_tmp_in =
+          (i == 0) ? syn_grad_output : std::vector<synTensor>{syn_tmp[0].get()};
       syn_tmp = habana::OpBackend::BuildNode(
           op,
           graph,

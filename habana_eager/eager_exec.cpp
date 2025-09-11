@@ -56,19 +56,21 @@ overloaded(Ts...) -> overloaded<Ts...>;
 enum class ProcessList { asTensor, asList };
 
 template <ProcessList process_list = ProcessList::asList, class T>
-void traversing_ivalues(const std::vector<at::IValue>& ivalues, T&& visitor) {
+void traversing_ivalues(
+    const std::vector<at::IValue>& ivalues,
+    const T& visitor) {
   for (size_t i = 0; i < ivalues.size(); ++i) {
     const at::IValue& ivalue = ivalues[i];
     if (is_metadata_candidate(ivalue)) {
-      std::forward<T>(visitor)(ivalue);
+      visitor(ivalue);
     } else if (ivalue.isScalar()) {
-      std::forward<T>(visitor)(ivalue.toScalar());
+      visitor(ivalue.toScalar());
     } else if (ivalue.isTensor()) {
       const at::Tensor& t = ivalue.toTensor();
       if (t.defined()) {
-        std::forward<T>(visitor)(t);
+        visitor(t);
       } else {
-        std::forward<T>(visitor)(habana_torch::jit::IValue());
+        visitor(habana_torch::jit::IValue());
       }
     } else if (ivalue.isList()) {
       const auto& list = ivalue.toListRef();
@@ -81,10 +83,10 @@ void traversing_ivalues(const std::vector<at::IValue>& ivalues, T&& visitor) {
             i,
             ".");
         if constexpr (process_list == ProcessList::asTensor)
-          std::forward<T>(visitor)(li.toTensor());
+          visitor(li.toTensor());
       }
       if constexpr (process_list == ProcessList::asList)
-        std::forward<T>(visitor)(list);
+        visitor(list);
     } else if (ivalue.isTuple()) {
       const auto& tuple = ivalue.toTupleRef();
       if (tuple.size() == 0) {

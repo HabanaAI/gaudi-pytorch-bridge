@@ -354,8 +354,9 @@ at::Tensor CreateHbLazyTensor(
   PT_LAZY_TRACE;
   if (tensor.defined() && device) {
     bool is_input_lazy = IsHbLazyTensor(tensor);
+    at::Tensor tensor_copy = tensor;
     HbLazyTensor hblazy_tensor =
-        HbLazyTensor::Create(std::move(tensor), *device);
+        HbLazyTensor::Create(std::move(tensor_copy), *device);
     if (!is_input_lazy) {
       tensor = AtenFromHbLazyTensor(
           hblazy_tensor,

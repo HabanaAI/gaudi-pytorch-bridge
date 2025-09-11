@@ -340,8 +340,8 @@ generate_advanced_indexing_indices_list(const at::Stack& stack) {
         implicit_indices_pos_vec[i] = -1; //-1 indicates implicit indexing
       } else if (o1.has_value() && o1.value().defined()) {
         const auto& index = o1.value();
-        indices.emplace_back(std::move(index));
         implicit_indices_pos_vec[i] = index.sizes()[0];
+        indices.emplace_back(index);
       }
       i++;
     }
