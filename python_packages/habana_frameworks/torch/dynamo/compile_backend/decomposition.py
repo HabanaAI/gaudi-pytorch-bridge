@@ -62,6 +62,7 @@ hpu_backend_decompositions_list = [
     aten.deg2rad.default,
     aten.deg2rad_.default,
     aten.detach.default,
+    aten.diagonal_backward.default,
     aten.diagonal_copy.default,
     aten.diag_embed.default,
     aten.diag_embed.out,
@@ -382,6 +383,50 @@ def get_like_layout(tensor: torch.Tensor, memory_format: torch.memory_format | N
         return memory_format
 
 
+def get_diagonal_params(
+    tensor: utils.TensorLikeType,
+    offset: int = 0,
+    dim1: int = 0,
+    dim2: int = 1,
+) -> tuple[list[int], list[int], int]:
+    """
+    Common helper function for diagonal operations
+    Returns the necessary parameters for diagonal and diagonal_scatter operations
+
+    Returns:
+        tuple containing:
+        - sizes: List of dimensions for the output tensor
+        - strides: List of strides for the output tensor
+        - storage_offset: Storage offset for the output tensor
+    """
+    num_dims = tensor.dim()
+    dim1 = utils.canonicalize_dim(idx=dim1, rank=num_dims)
+    dim2 = utils.canonicalize_dim(idx=dim2, rank=num_dims)
+
+    torch._check(dim1 != dim2, lambda: f"diagonal dimensions cannot be identical {dim1}, {dim2}")
+
+    storage_offset = tensor.storage_offset()
+
+    if offset >= 0:
+        diag_size = max(min(tensor.size()[dim1], tensor.size()[dim2] - offset), 0)
+    else:
+        diag_size = max(min(tensor.size()[dim1] + offset, tensor.size()[dim2]), 0)
+
+    if diag_size > 0:
+        if offset >= 0:
+            storage_offset += offset * tensor.stride()[dim2]
+        else:
+            storage_offset -= offset * tensor.stride()[dim1]
+
+    sizes = [s for i, s in enumerate(tensor.size()) if i not in (dim1, dim2)]
+    sizes.append(diag_size)
+
+    strides = [s for i, s in enumerate(tensor.stride()) if i not in (dim1, dim2)]
+    strides.append(tensor.stride()[dim1] + tensor.stride()[dim2])
+
+    return sizes, strides, storage_offset
+
+
 @register_custom_decomposition(aten.full_like, hpu_backend_decompositions_common)
 def full_like(
     a: utils.TensorLikeType,
@@ -419,34 +464,22 @@ def diagonal(
     """
     Reference implementation of torch.diagonal
     """
-    num_dims = self.dim()
-    dim1 = utils.canonicalize_dim(idx=dim1, rank=num_dims)
-    dim2 = utils.canonicalize_dim(idx=dim2, rank=num_dims)
+    sizes, strides, storage_offset = get_diagonal_params(self, offset, dim1, dim2)
 
-    torch._check(dim1 != dim2, lambda: f"diagonal dimensions cannot be identical {dim1}, {dim2}")
+    return self.as_strided(size=sizes, stride=strides, storage_offset=storage_offset)
 
-    storage_offset = self.storage_offset()
 
-    if offset >= 0:
-        diag_size = max(min(self.size()[dim1], self.size()[dim2] - offset), 0)
-    else:
-        diag_size = max(min(self.size()[dim1] + offset, self.size()[dim2]), 0)
-
-    if diag_size > 0:
-        if offset >= 0:
-            storage_offset += offset * self.stride()[dim2]
-        else:
-            storage_offset -= offset * self.stride()[dim1]
-
-    sizes = [s for i, s in enumerate(self.size()) if i not in (dim1, dim2)]
-    sizes.append(diag_size)
-
-    strides = [s for i, s in enumerate(self.stride()) if i not in (dim1, dim2)]
-    strides.append(self.stride()[dim1] + self.stride()[dim2])
-
-    result = self.as_strided(size=sizes, stride=strides, storage_offset=storage_offset)
-
-    return result
+@register_custom_decomposition(aten.diagonal_scatter, hpu_backend_decompositions_common)
+def diagonal_scatter(
+    input: utils.TensorLikeType,
+    src: utils.TensorLikeType,
+    offset: int = 0,
+    dim1: int = 0,
+    dim2: int = 1,
+) -> utils.TensorLikeType:
+    self = utils.clone_preserve_strides(input)
+    sizes, strides, storage_offset = get_diagonal_params(self, offset, dim1, dim2)
+    return self.as_strided_scatter(src, size=sizes, stride=strides, storage_offset=storage_offset)
 
 
 @register_custom_decomposition(aten.bernoulli.p, hpu_backend_decompositions_common)
