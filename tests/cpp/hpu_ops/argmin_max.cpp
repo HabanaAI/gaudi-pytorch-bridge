@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -181,18 +181,3 @@ HPU_ARG_MIN_MAX_USUAL_TEST(
     -3,
     true,
     torch::kInt)
-
-HPU_ARG_MIN_MAX_USUAL_BOOL_TEST(
-    argmax_bool_true,
-    argmax,
-    SIZE({8, 2, 5}),
-    SIZE({1}),
-    true,
-    torch::kBool)
-HPU_ARG_MIN_MAX_USUAL_BOOL_TEST(
-    argmax_bool_false,
-    argmax,
-    SIZE({8, 2, 5}),
-    -2,
-    false,
-    torch::kBool)

@@ -22,6 +22,9 @@ namespace habana {
 
 OutputMetaDataVector ArgMinMaxMeta(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 0);
+  TORCH_CHECK(
+      self.scalar_type() != torch::kBool,
+      "argmin/argmax operations do not support Bool dtype.");
   const auto dimOpt = stack.at(1);
   const bool keepdim = stack.at(2).toBool();
 

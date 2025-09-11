@@ -100,7 +100,9 @@ std::unordered_map<std::string, std::vector<at::ScalarType>>
           at::ScalarType::Bool}},
         {"replication_pad1d", {at::ScalarType::Bool}},
         {"replication_pad2d", {at::ScalarType::Bool}},
-        {"replication_pad3d", {at::ScalarType::Bool}}};
+        {"replication_pad3d", {at::ScalarType::Bool}},
+        {"argmin", {at::ScalarType::Bool}},
+        {"argmax", {at::ScalarType::Bool}}};
 
 std::unordered_map<std::string, std::vector<at::ScalarType>>
     whitelisted_precision_types_op_map = {};
