@@ -461,8 +461,8 @@ def generate_autocast_ops(op_metas, args):
         signature = return_type + "(" + arguments
 
         # If the function signature involves a return type of c10::SymInt
-        # then cpp function name has extra __dispatch_ prefix.
-        if "-> c10::SymInt" in op_meta.mapsig:
+        # or c10::SymBool then cpp function name has extra __dispatch_ prefix.
+        if any(s in op_meta.mapsig for s in ("-> c10::SymInt", "-> c10::SymBool")):
             function_name = "__dispatch_" + function_name
 
         return f'  Hpu_KERNEL({function_name}, "{op_name}", {signature})'
