@@ -54,8 +54,8 @@
       "default_source": "build",
       "cpu_index_url": "https://download.pytorch.org/whl/test/cpu",
       "extras": {
-        "torchvision": "main",
-        "torchaudio": "main",
+        "torchvision": "v0.24.0-rc1",
+        "torchaudio": "v2.9.0-rc1",
         "torchdata": "v0.11.0"
       }
     },
