@@ -33,7 +33,6 @@ function pytorch_functions_help()
     echo -e "build_pytorch_tb_plugin        -   Build Habana PyTorch TensorBoard plugin"
     echo -e "build_lightning_habana_fork    -   Build Lightning Habana fork"
     echo -e "build_pytorch_data             -   Build the torchdata package"
-    echo -e "build_pytorch_audio            -   Build the torchaudio package"
     echo -e "build_pytorch_vision           -   Build the torchvision package"
     echo -e "run_pytorch_qa_tests           -   Run PyTorch QA tests"
     echo -e "run_pytorch_modules_tests      -   Run PyTorch modules tests"
@@ -174,22 +173,6 @@ function pytorch_usage()
         echo -e "       --install              will install the package"
         echo -e "       --dist                 create a wheel distribution/default"
         echo -e "       --pt-data-version      PytorchData version"
-        echo -e "  -h,  --help                 Prints this help"
-    elif [ "$1" == "build_pytorch_audio" ]; then
-        echo -e "\n usage: $1 [options]\n"
-
-        echo -e "options:\n"
-        echo -e "  -j,  --jobs <val>           Max jobs used for compilation"
-        echo -e "  -c,  --clean                clean up temporary files from 'build' command"
-        echo -e "  -r,  --release              Python only code, option ignored"
-        echo -e "  -d,  --debug                Python only code, option ignored"
-        echo -e "       --install              will install the package"
-        echo -e "       --dist                 create a wheel distribution/default"
-        echo -e "       --manylinux            build pytorch_audio in a manylinux docker container"
-        echo -e "       --use-icecc            when --manylinux argument is set, the docker container supporting iceecc is used"
-        echo -e "       --python-versions,     when --manylinux argument is set, the docker container will build using all provided versions"
-        echo -e "       --py-versions               eg. \"3.10\" \"current\" \"all\""
-        echo -e "       --pt-audio-version     PytorchAudio version"
         echo -e "  -h,  --help                 Prints this help"
     elif [ "$1" == "build_pytorch_vision" ]; then
         echo -e "\n usage: $1 [options]\n"
@@ -1905,7 +1888,7 @@ set_up_pytorch_artifacts_for_testing() (
 
 uninstall_pytorch_artifacts() {
     echo "-> Uninstalling PT artifacts"
-    pip uninstall -y torch torch-debug habana-torch-dataloader habana-torch-plugin torch_tb_profiler torchaudio torchdata torchvision
+    pip uninstall -y torch torch-debug habana-torch-dataloader habana-torch-plugin torch_tb_profiler torchdata torchvision
 }
 
 __check_pytorch_dev_py_deps()
@@ -2108,124 +2091,6 @@ execute_in_manylinux_runner(){
     (set -x; python manylinuxrunner.py $@)
     __result=$?
     popd >&/dev/null
-    return $__result
-}
-
-build_pytorch_audio()
-{
-    SECONDS=0
-    local __scriptname=$(__get_func_name)
-    local __env_vars="PATH=/opt/bin:$PATH USE_CUDA=0 BUILD_RNNT=0"
-    local __configure=""
-    local __whl_params=" bdist_wheel"
-    local __result
-    local __profile_getter_path="${PYTORCH_MODULES_ROOT_PATH}/.devops/profile_getter.py"
-    local __pt_audio_version
-    local __build_manylinux_whl="false"
-    local __n_py_versions=-1
-    local __auditwheel="false"
-    local __useicecc
-    local __variables_to_manylinux_build=$(printf "%s %s\n" "$@" "--auditwheel" | sed s/--manylinux// | sed s/--use-icecc//)
-
-    # parameter while-loop
-    while [ -n "$1" ];
-    do
-        case $1 in
-        -j  | --jobs )
-            __env_vars+=" MAX_JOBS=$2"
-            shift
-            ;;
-        -c  | --configure )
-             __configure="yes"
-            ;;
-        -r  | --release )
-            ;;
-        -d  | --debug )
-            ;;
-        --dist )
-            __whl_params=" bdist_wheel"
-            ;;
-        --install )
-            __whl_params=" install"
-            ;;
-        --pt-audio-version )
-            __pt_audio_version="$2"
-            shift
-            ;;
-        --manylinux )
-            __build_manylinux_whl="true"
-            ;;
-        --python-versions | --py-versions )
-            __n_py_versions=$(__consume_python_versions "$@")
-            shift $__n_py_versions
-            ;;
-        --auditwheel )
-            __auditwheel="true"
-            ;;
-        --use-icecc )
-            __useicecc="--use-icecc"
-            ;;
-        -h  | --help )
-            pytorch_usage $__scriptname
-            return 0
-            ;;
-        esac
-        shift
-    done
-
-    if [ "z${__build_manylinux_whl}" == "ztrue" ];then
-        execute_in_manylinux_runner TORCH_DEVICE_BACKEND_AUTOLOAD=0 $__useicecc $__scriptname $__variables_to_manylinux_build
-        return $?
-    elif [ $__n_py_versions -gt -1 ]; then
-        echo "Error: --python-versions is only supported when used with --manylinux."
-        return 1
-    fi
-
-    rm -rf $PYTORCH_AUDIO_ROOT
-    mkdir -p $PYTORCH_AUDIO_ROOT
-    pushd $PYTORCH_AUDIO_ROOT
-
-    # checkout github torchaudio repo
-    if [ -z ${__pt_audio_version} ]; then
-        __pt_audio_version=$($__profile_getter_path --get-extras-version torchaudio current)
-    fi
-    echo "get torchaudio from github (tag: $__pt_audio_version)"
-    get_github_repo "pytorch/audio" "${__pt_audio_version}"
-    git submodule update --init --recursive
-
-    if [ -n "$__configure" ]; then
-        python setup.py clean
-    fi
-
-    echo "Build parameters ${__whl_params}"
-
-    (set -x;eval ${__env_vars} python setup.py ${__whl_params})
-    __result=$?
-    if [ $__result -ne 0 ]; then
-        echo "Pytorch torchaudio build failed!"
-        popd
-        return $__result
-    fi
-
-    if [[ "$__whl_params" = " bdist_wheel" ]]; then
-        PTA_WHL_PATH="$PYTORCH_AUDIO_ROOT/dist/"
-        if [ "z${__auditwheel}" == "ztrue" ];then
-            # We can exclude all ".so" libs from the auditwheel repair command, as the original build command bundles up
-            # the wheel with all needed libs, including libtorchaudio.so. If the libs are not excluded, the wheel contains
-            # two copies of each lib what leads to the issue of double loading lib.
-            bash -c "auditwheel repair --only-plat --exclude \"*\" ${PTA_WHL_PATH}/*.whl"
-            PTA_WHL_PATH="$PYTORCH_AUDIO_ROOT/wheelhouse/"
-        fi
-        BUILD_PATH="$PYTORCH_AUDIO_BUILD/pkgs"
-        if [ -n "$__configure" ]; then
-            rm -rf $BUILD_PATH
-        fi
-        mkdir -p $BUILD_PATH
-        echo "Copying wheel from ${PTA_WHL_PATH} to ${BUILD_PATH}"
-        cp -f ${PTA_WHL_PATH}/*.whl $BUILD_PATH
-    fi
-    popd
-    printf "\nElapsed time: %02u:%02u:%02u \n\n" $(($SECONDS / 3600)) $((($SECONDS / 60) % 60)) $(($SECONDS % 60))
     return $__result
 }
 

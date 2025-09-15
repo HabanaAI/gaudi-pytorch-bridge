@@ -20,12 +20,6 @@
     "gpu_migration": {
         "cmd": "echo ${RELEASE_VERSION}.${RELEASE_BUILD_NUMBER} > ${GPU_MIGRATION_ROOT_PATH}/VERSION ; build_gpu_migration"
     },
-    "audio": {
-        "cmd": "build_pytorch_audio ${BUILD_TYPE_FLAG} ${CONFIGURE_FLAG} -j ${CPU_COUNT}"
-    },
-    "audio_next": {
-        "cmd": "build_pytorch_audio --pt-audio-version $(jq -rj '.pt_versions.next.extras.torchaudio' ${HABANA_SOFTWARE_STACK}/pytorch-integration/.devops/build_profiles/profiles.json) ${BUILD_TYPE_FLAG} ${CONFIGURE_FLAG} -j ${CPU_COUNT}"
-    },
     "data": {
         "cmd": "build_pytorch_data ${BUILD_TYPE_FLAG} ${CONFIGURE_FLAG} -j ${CPU_COUNT}"
     },

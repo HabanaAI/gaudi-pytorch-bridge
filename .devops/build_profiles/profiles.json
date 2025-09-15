@@ -35,7 +35,6 @@
       "cpu_index_url": "default",
       "extras": {
         "torchvision": "v0.22.1",
-        "torchaudio": "v2.7.1",
         "torchdata": "v0.11.0"
       }
     },
@@ -45,7 +44,6 @@
       "cpu_index_url": "default",
       "extras": {
         "torchvision": "v0.23.0",
-        "torchaudio": "v2.8.0",
         "torchdata": "v0.11.0"
       }
     },
@@ -55,7 +53,6 @@
       "cpu_index_url": "https://download.pytorch.org/whl/test/cpu",
       "extras": {
         "torchvision": "v0.24.0-rc1",
-        "torchaudio": "v2.9.0-rc1",
         "torchdata": "v0.11.0"
       }
     },
