@@ -48,6 +48,15 @@ sudo ln -s /usr/include/habanalabs/hl_logger /usr/include/habanalabs/hl_logger/i
 
 ```
 
+5. Install dependencies (optional)
+If you want to manually download and install dependencies instead of relying on cmake's FetchContent.
+```bash
+sudo chmod +xw "$PYTORCH_MODULES_ROOT_PATH"/scripts/predownload_dependencies.sh
+"$PYTORCH_MODULES_ROOT_PATH"/scripts/predownload_dependencies.sh "$HABANA_SOFTWARE_STACK"/offdeps
+```
+**Notes:**
+- This step downloads external dependencies into offdeps directory.
+
 ### Code Build
 
 Once the one-time setup is complete, you can configure the necessary environment variables and run the build by following the below steps:
@@ -71,13 +80,19 @@ export PYTORCH_MODULES_ROOT_PATH="$HABANA_SOFTWARE_STACK/gaudi-pytorch-bridge"
 ```
 
 2. Build the Intel Gaudi PyTorch bridge:
+With automatic dependencies download (without step 5)
 ```bash
 "$PYTORCH_MODULES_ROOT_PATH"/.devops/build.py -cir
+```
+With downloaded dependencies in step 5.
+```bash
+"$PYTORCH_MODULES_ROOT_PATH"/.devops/build.py -cir --offline-dependencies-directory="$HABANA_SOFTWARE_STACK/offdeps"
 ```
 **Notes:**
 - The `-i` flag installs the wheels after they are built.
 - It is recommended to leverage CCache and Icecream for faster compilation. Icecream (icecc) allows using a much larger parallel job count (`-j N`). The `N` depends on your compute cluster size.
 - Sometimes the final build command is interrupted while preparing the environment. In this case you can add `--recreate-venv force` to resolve any potential issues.
+- Argument `--offline-dependencies-directory` specifies location of downloaded dependencies. Relative path is resolved with `$HABANA_SOFTWARE_STACK` as root.
 
 ### Running tests
 After building the code, you can run tests to validate functionality.
