@@ -1,56 +1,56 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version='1.0' encoding='utf-8'?>
 <manifest>
-  <remote name="HabanaAI" fetch="https://github.com/HabanaAI/"/>
-  <remote name="habana-internal" alias="origin" fetch="ssh://git@github.com/habana-internal"/>
-  <remote name="HabanaEmbedded" alias="origin" fetch="ssh://git@github.com/HabanaEmbedded"/>
-  <default revision="master" remote="habana-internal" sync-j="32"/>
-  <project name="automation"/>
-  <project name="coral-sim"/>
-  <project name="deepspeed-fork"/>
-  <project name="Megatron-DeepSpeed-fork"/>
-  <project name="embedded-specs" remote="HabanaEmbedded" path="embedded/specs"/>
-  <project name="event_tests_plugin"/>
-  <project name="framework-tools"/>
-  <project name="gaudi-test-suite-staging"/>
-  <project name="habana_regs_cli"/>
-  <project name="habana-container-hook"/>
-  <project name="habana-container-runtime"/>
-  <project name="Habana-Lightning-Plugins" revision="master_next"/>
-  <project name="habanalabs-k8s-device-plugin"/>
-  <project name="habanalabs"/>
-  <project name="habanaqa_framework_features"/>
-  <project name="habanaqa_inference"/>
-  <project name="habanaqa_ras"/>
-  <project name="habanaqa_synapse"/>
-  <project name="habanaqa_topologies"/>
-  <project name="habanaqa_utils"/>
-  <project name="habanaqa"/>
-  <project name="hcl" revision="master"/>
-  <project name="hl-qual-microservice"/>
-  <project name="hl-thunk" revision="master"/>
-  <project name="huda"/>
-  <project name="libhabana-container"/>
-  <project name="lightning-habana-fork" revision="master_next"/>
-  <project name="media"/>
-  <project name="model_garden"/>
-  <project name="multinode-tests"/>
-  <project name="mlperf_inference"/>
-  <project name="nic_kmd" revision="master"/>
-  <project name="optimum-habana-fork"/>
-  <project name="pytorch-fork"/>
-  <project name="pytorch-integration" revision="master_next"/>
-  <project name="pytorch-next-cicd"/>
-  <project name="pytorch-next"/>
-  <project name="pytorch-training-tests"/>
-  <project name="qual"/>
-  <project name="AutoGPTQ" remote="HabanaAI" revision="main"/>
-  <project name="rdma-core" revision="master"/>
-  <project name="SiVal" path="sival/host"/>
-  <project name="specs_external"/>
-  <project name="swtools_sdk"/>
-  <project name="synapse_utils"/>
-  <project name="synapse"/>
-  <project name="kineto" path="third_party/kineto"/>
-  <project name="tpc_fuser"/>
-  <project name="tpc_kernels"/>
+  <remote name="HabanaAI" fetch="https://github.com/HabanaAI/" />
+  <remote name="habana-internal" alias="origin" fetch="ssh://git@github.com/habana-internal" />
+  <remote name="HabanaEmbedded" alias="origin" fetch="ssh://git@github.com/HabanaEmbedded" />
+  <default revision="v1.23.0" remote="habana-internal" sync-j="32" />
+  <project name="automation" />
+  <project name="coral-sim" />
+  <project name="deepspeed-fork" />
+  <project name="Megatron-DeepSpeed-fork" />
+  <project name="embedded-specs" remote="HabanaEmbedded" path="embedded/specs" />
+  <project name="event_tests_plugin" />
+  <project name="framework-tools" />
+  <project name="gaudi-test-suite-staging" />
+  <project name="habana_regs_cli" />
+  <project name="habana-container-hook" />
+  <project name="habana-container-runtime" />
+  <project name="Habana-Lightning-Plugins" revision="v1.23.0_next" />
+  <project name="habanalabs-k8s-device-plugin" />
+  <project name="habanalabs" />
+  <project name="habanaqa_framework_features" />
+  <project name="habanaqa_inference" />
+  <project name="habanaqa_ras" />
+  <project name="habanaqa_synapse" />
+  <project name="habanaqa_topologies" />
+  <project name="habanaqa_utils" />
+  <project name="habanaqa" />
+  <project name="hcl" revision="v1.23.0" />
+  <project name="hl-qual-microservice" />
+  <project name="hl-thunk" revision="v1.23.0" />
+  <project name="huda" />
+  <project name="libhabana-container" />
+  <project name="lightning-habana-fork" revision="v1.23.0_next" />
+  <project name="media" />
+  <project name="model_garden" />
+  <project name="multinode-tests" />
+  <project name="mlperf_inference" />
+  <project name="nic_kmd" revision="v1.23.0" />
+  <project name="optimum-habana-fork" />
+  <project name="pytorch-fork" />
+  <project name="pytorch-integration" revision="v1.23.0_next" />
+  <project name="pytorch-next-cicd" />
+  <project name="pytorch-next" />
+  <project name="pytorch-training-tests" />
+  <project name="qual" />
+  <project name="AutoGPTQ" remote="HabanaAI" revision="main" />
+  <project name="rdma-core" revision="v1.23.0" />
+  <project name="SiVal" path="sival/host" />
+  <project name="specs_external" />
+  <project name="swtools_sdk" />
+  <project name="synapse_utils" />
+  <project name="synapse" />
+  <project name="kineto" path="third_party/kineto" />
+  <project name="tpc_fuser" />
+  <project name="tpc_kernels" />
 </manifest>
