@@ -16,6 +16,7 @@
 #include "h2d_scales_cache.h"
 #include "habana_device/HPUDevice.h"
 #include "habana_device/HPUGuardImpl.h"
+#include "habana_helpers/conversion.h"
 #include "kernel/hpu_habana_launch_op_pt.h"
 
 namespace habana::backend {
@@ -104,7 +105,7 @@ std::optional<at::Tensor> H2dScalesCache::TryGetH2dScale(
 
 void H2dScalesCache::UpdateCurrentIndicesOfH2dScales() {
   for (auto& [key, scales] : h2d_scales_map_) {
-    scales.second = scales.first.size() - 1;
+    scales.second = safe_convert<int>(scales.first.size() - 1);
   }
 }
 

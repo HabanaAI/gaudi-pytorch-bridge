@@ -21,7 +21,7 @@ namespace habana {
 
 FillParamsT FillScaledTriangularSoftmaxParams(const at::Stack& stack) {
   PARAMS_STUB(ns_ScaledMaskedSoftmax::Params);
-  params->invScaleAttn = stack.at(1).toScalar().toDouble();
+  params->invScaleAttn = static_cast<float>(stack.at(1).toScalar().toDouble());
   params->groupedBatchSize = 1;
   params->isUseMax = 1;
   params->expMode = USE_LUT;

@@ -24,7 +24,7 @@ OutputMetaDataVector ChannelShuffleMeta(const at::Stack& stack) {
       "Channel shuffle expects input with dim > 2, but got ",
       input.dim());
 
-  const int groups = stack.at(1).toInt();
+  const auto groups = stack.at(1).toInt();
   HABANA_ASSERT(
       groups > 0,
       "Channel shuffle expects number of groups to be positive, but got ",

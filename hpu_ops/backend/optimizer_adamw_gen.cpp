@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 #include "generated/backend/_fused_adamw.h"
-#include "hpu_ops/backend/reduction_template.h"
+#include "habana_helpers/conversion.h"
 #include "hpu_ops/fp8_ops.h"
 #include "hpu_ops/hpu_op_helper.h"
 #include "hpu_ops/op_backend.h"
@@ -23,6 +23,7 @@ namespace sh = synapse_helpers;
 namespace habana {
 
 using namespace std::literals;
+using namespace std::string_view_literals;
 
 static std::tuple<sh::tensor, sh::tensor> GetMomentInFp8WithScale(
     OpBackend* op,
@@ -542,8 +543,8 @@ void OptimizerFusedAdamWOperator::AddNode(
           fp8_constants,
           scalar_dtype,
           exp_avg.pt_t.scalar_type(),
-          i + 1 * vec_size,
-          i + 3 * vec_size);
+          safe_convert<int>(i + 1 * vec_size),
+          safe_convert<int>(i + 3 * vec_size));
       exp_avg_1_out = std::move(std::get<0>(moment_and_scale));
       exp_avg_scale_updated = std::move(std::get<1>(moment_and_scale));
     } else {
@@ -596,8 +597,8 @@ void OptimizerFusedAdamWOperator::AddNode(
           fp8_constants,
           scalar_dtype,
           exp_avg_sq.pt_t.scalar_type(),
-          i + 2 * vec_size,
-          i + 4 * vec_size);
+          safe_convert<int>(i + 2 * vec_size),
+          safe_convert<int>(i + 4 * vec_size));
       exp_avg_sq_1_out = std::move(std::get<0>(moment_and_scale));
       exp_avg_sq_scale_updated = std::move(std::get<1>(moment_and_scale));
     } else {
@@ -844,7 +845,7 @@ void ZigzagOutputTensor(OpBackend& op, size_t vec_size) {
   auto length = outputInfMeta.GetOutputTensor().size();
 
   size_t j = 0;
-  size_t step = static_cast<int>(length / vec_size);
+  size_t step = length / vec_size;
   for (size_t k = 0; k < step; k++) {
     for (size_t i = k; i < length; i += step) {
       auto t = outputInfMeta1.GetOutputTensor(i);

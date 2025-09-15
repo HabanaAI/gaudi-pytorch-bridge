@@ -54,7 +54,8 @@ static float round_dims(NonZeroParams_t self_params, int group_size) {
   auto group_size_f = static_cast<float>(group_size);
   auto last_dim_rounded =
       std::ceil(
-          self_params.sizes[(int)self_params.sizes.size() - 1] / group_size_f) *
+          static_cast<float>(self_params.sizes[self_params.sizes.size() - 1]) /
+          group_size_f) *
       group_size_f;
   return last_dim_rounded;
 }
@@ -81,22 +82,22 @@ std::vector<int64_t> compute_nonzero_output_shape(
     NonZeroParams_t self_params,
     bool use_tpc_impl) {
   auto input_shape = self_params.sizes;
-  int64_t dimensions = input_shape.size();
+  const auto dimensions = input_shape.size();
   auto elements = self_params.numel;
-  if ((dimensions <= 4) and (dimensions >= 0) and !use_tpc_impl) {
+  if ((dimensions <= 4) and !use_tpc_impl) {
     // Handle Scalar input
     if (dimensions == 0 && elements == 1) {
       std::vector<int64_t> output_shape{64, 1};
       return output_shape;
     }
     elements = 1;
-    auto last_dim_rounded = round_dims(self_params, 64);
-    for (int64_t i = 0; i < dimensions - 1; i++) {
+    auto last_dim_rounded = static_cast<int64_t>(round_dims(self_params, 64));
+    for (size_t i = 0; i < dimensions - 1; i++) {
       elements *= self_params.sizes[i];
     }
     elements = elements * last_dim_rounded;
   }
-  std::vector<int64_t> output_shape{elements, dimensions};
+  std::vector<int64_t> output_shape{elements, static_cast<int64_t>(dimensions)};
   return output_shape;
 }
 

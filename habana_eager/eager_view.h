@@ -40,9 +40,10 @@ class ViewParam {
       strides.emplace_back(s);
     }
     offset = impl->storage_offset();
-    int64_t elem_size =
+    const auto elem_size =
         c10::elementSize(habana_helpers::getInternalDtype(t.scalar_type()));
-    total_num_elements = (int64_t)(habana_helpers::GetNBytes(impl) / elem_size);
+    total_num_elements =
+        static_cast<int64_t>(habana_helpers::GetNBytes(impl) / elem_size);
   }
 
   const std::vector<int64_t>& getViewSizes() const {

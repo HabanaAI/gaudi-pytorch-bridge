@@ -73,8 +73,8 @@ void Flip::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
   // Converting scalar dims to tensor
   for (size_t i = 0; i < dim_list_size - 1; i++) {
-    int flip_axis = at::maybe_wrap_dim(dim_list[i], ndim, true);
-    flip_axis = get_dim_in_tpc_order(flip_axis, ndim);
+    auto flip_axis = at::maybe_wrap_dim(dim_list[i], ndim, true);
+    flip_axis = static_cast<int64_t>(get_dim_in_tpc_order(flip_axis, ndim));
 
     auto const_dim = ConstantHelper(graph, flip_axis);
 
@@ -86,9 +86,10 @@ void Flip::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
     intermediate_output_itr.emplace_back(intermediate_output[0].get());
   }
-  int final_flip_axis =
+  auto final_flip_axis =
       at::maybe_wrap_dim(dim_list[dim_list_size - 1], ndim, true);
-  final_flip_axis = get_dim_in_tpc_order(final_flip_axis, ndim);
+  final_flip_axis =
+      static_cast<int64_t>(get_dim_in_tpc_order(final_flip_axis, ndim));
 
   auto final_const_dim = ConstantHelper(graph, final_flip_axis);
 

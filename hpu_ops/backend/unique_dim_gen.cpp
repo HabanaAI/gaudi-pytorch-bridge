@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 
+#include "habana_helpers/conversion.h"
 #include "hpu_ops/unique_dim.h"
 
 namespace habana {
@@ -28,13 +29,14 @@ std::vector<synapse_helpers::tensor> UniqueCommon(
     UniqueDimParams_t self_params,
     synTensor self_synin) {
   auto output_shape = self_params.sizes;
-  auto param_shape = std::vector<int64_t>{output_shape.at(self_params.dim)};
+  auto param_shape = std::vector<int64_t>{
+      output_shape.at(static_cast<size_t>(self_params.dim))};
   std::vector<int64_t> valid_count_shape{1};
   ns_UniqueKernel::ParamsV2 params = {};
   params.sorted = self_params.sorted;
   params.returnCounts = self_params.return_counts;
   params.returnInverse = self_params.return_inverted;
-  params.dim = self_params.dim;
+  params.dim = safe_convert<int>(self_params.dim);
   std::vector<synTensor> inputs = {self_synin};
   using namespace std::literals;
   auto guid = get_guid_with_precision("unique_fwd"sv, self_params.dtype);

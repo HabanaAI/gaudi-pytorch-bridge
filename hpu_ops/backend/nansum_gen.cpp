@@ -45,12 +45,12 @@ SharedMetaDataVector NanSumSharedMeta(
     computeDtype = c10::ScalarType::Int;
 
   const auto inputRank = self.dim();
-  int outputRank = 1;
+  int64_t outputRank = 1;
   const bool keepDim = stack.at(2).toBool();
   if (!keepDim) {
     if (!stack.at(1).isNone()) {
       auto dims = stack.at(1).toIntVector().size();
-      outputRank = dims > 0 ? inputRank - dims : 1;
+      outputRank = dims > 0 ? inputRank - static_cast<int64_t>(dims) : 1;
     }
   } else {
     outputRank = inputRank;

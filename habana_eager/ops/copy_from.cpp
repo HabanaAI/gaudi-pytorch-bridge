@@ -70,7 +70,7 @@ void unpackData(const at::Tensor& t) {
   static_assert(sizeof(From) <= sizeof(To));
   From* from_ptr = reinterpret_cast<From*>(t.data_ptr());
   To* to_ptr = reinterpret_cast<To*>(t.data_ptr());
-  for (int idx = t.numel() - 1; idx >= 0; --idx) {
+  for (int64_t idx = t.numel() - 1; idx >= 0; --idx) {
     to_ptr[idx] = from_ptr[idx];
   }
 }

@@ -22,7 +22,7 @@ class SliceOperator : public HabanaOperator {
   SliceOperator(int device_id, c10::ScalarType scalarType)
       : HabanaOperator("slice") {
     static_cast<void>(scalarType);
-    this->CreateSynContext(device_id);
+    this->CreateSynContext(static_cast<synDeviceId>(device_id));
     kernel_meta_data_.input_layout.assign(
         {LayoutFormat::ANY,
          LayoutFormat::NCHW,
@@ -114,7 +114,7 @@ class GatherOperator : public HabanaOperator {
               return "gather_fwd"sv;
             }(),
             scalarType)) {
-    this->CreateSynContext(device_id);
+    this->CreateSynContext(static_cast<synDeviceId>(device_id));
     kernel_meta_data_.input_layout.assign(
         {LayoutFormat::ANY, LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
@@ -145,7 +145,7 @@ class GatherElemOperator : public HabanaOperator {
               return "gather_elements_fwd"sv;
             }(),
             scalarType)) {
-    this->CreateSynContext(device_id);
+    this->CreateSynContext(static_cast<synDeviceId>(device_id));
     kernel_meta_data_.input_layout.assign(
         {LayoutFormat::ANY, LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
@@ -177,7 +177,7 @@ class ScatterWrapperOperator : public HabanaOperator {
       const std::string& guid,
       bool is_inplace = false)
       : HabanaOperator(get_guid_with_precision(guid, scalarType)) {
-    this->CreateSynContext(device_id);
+    this->CreateSynContext(static_cast<synDeviceId>(device_id));
     kernel_meta_data_.input_layout.assign(
         {LayoutFormat::ANY, LayoutFormat::ANY, LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
@@ -272,7 +272,7 @@ class ScatterNdONNXOperator : public HabanaOperator {
               return "scatter_nd_onnx_fwd"sv;
             }(),
             scalarType)) {
-    this->CreateSynContext(device_id);
+    this->CreateSynContext(static_cast<synDeviceId>(device_id));
     scalarType_ = scalarType;
   }
 
@@ -301,7 +301,7 @@ class ScatterNdUpdateOperator : public HabanaOperator {
               return "scatter_nd_update_fwd"sv;
             }(),
             scalarType)) {
-    this->CreateSynContext(device_id);
+    this->CreateSynContext(static_cast<synDeviceId>(device_id));
     scalarType_ = scalarType;
   }
 
@@ -328,7 +328,7 @@ class ScatterNdOperator : public HabanaOperator {
             }(),
             scalarType)),
         scalarType_(scalarType) {
-    this->CreateSynContext(device_id);
+    this->CreateSynContext(static_cast<synDeviceId>(device_id));
   }
 
   virtual void AllocateAndAddSynapseNode(
@@ -354,7 +354,7 @@ class IndexPutOperator : public HabanaOperator {
             }(),
             scalarType)),
         scalarType_(scalarType) {
-    this->CreateSynContext(device_id);
+    this->CreateSynContext(static_cast<synDeviceId>(device_id));
   }
 
   virtual void AllocateAndAddSynapseNode(
@@ -388,7 +388,7 @@ class IndexPutOperator2 : public HabanaOperator {
             }(),
             scalarType)),
         scalarType_(scalarType) {
-    this->CreateSynContext(device_id);
+    this->CreateSynContext(static_cast<synDeviceId>(device_id));
   }
 
   virtual void AllocateAndAddSynapseNode(
@@ -411,7 +411,7 @@ class IndexAddOperator : public HabanaOperator {
             }(),
             scalarType)),
         scalarType_(scalarType) {
-    this->CreateSynContext(device_id);
+    this->CreateSynContext(static_cast<synDeviceId>(device_id));
   }
 
   virtual void AllocateAndAddSynapseNode(
@@ -434,7 +434,7 @@ class ArangeOperator : public HabanaOperator {
               return "range"sv;
             }(),
             scalarType)) {
-    this->CreateSynContext(device_id);
+    this->CreateSynContext(static_cast<synDeviceId>(device_id));
   }
 
   virtual void AllocateAndAddSynapseNode(
@@ -476,7 +476,7 @@ class Unique_Operator : public HabanaOperator {
               return "unique_fwd"sv;
             }(),
             scalarType)) {
-    this->CreateSynContext(device_id);
+    this->CreateSynContext(static_cast<synDeviceId>(device_id));
   }
 
   void AllocateAndAddSynapseNode(
@@ -495,7 +495,7 @@ class UniqueOperator : public HabanaOperator {
               return "unique_fwd"sv;
             }(),
             scalarType)) {
-    this->CreateSynContext(device_id);
+    this->CreateSynContext(static_cast<synDeviceId>(device_id));
   }
 
   void AllocateAndAddSynapseNode(
@@ -519,7 +519,7 @@ class UniqueDimOperator : public HabanaOperator {
               return "unique_fwd"sv;
             }(),
             scalarType)) {
-    this->CreateSynContext(device_id);
+    this->CreateSynContext(static_cast<synDeviceId>(device_id));
   }
 
   void AllocateAndAddSynapseNode(
@@ -534,7 +534,7 @@ class SqueezeOperator : public HabanaOperator {
   SqueezeOperator(int device_id, c10::ScalarType scalarType)
       : HabanaOperator("squeeze") {
     static_cast<void>(scalarType);
-    this->CreateSynContext(device_id);
+    this->CreateSynContext(static_cast<synDeviceId>(device_id));
     kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
     this->setNoComputeFlag();
@@ -559,7 +559,7 @@ class UnsqueezeOperator : public HabanaOperator {
   UnsqueezeOperator(int device_id, c10::ScalarType scalarType)
       : HabanaOperator("expand_dims") {
     static_cast<void>(scalarType);
-    this->CreateSynContext(device_id);
+    this->CreateSynContext(static_cast<synDeviceId>(device_id));
     kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
     this->setNoComputeFlag();

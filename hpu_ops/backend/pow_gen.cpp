@@ -22,7 +22,7 @@ namespace habana {
 
 FillParamsT FillPowParams(const at::Stack& stack) {
   PARAMS_STUB(ns_Power::Params);
-  params->exp_val = stack.at(1).toScalar().toDouble();
+  params->exp_val = static_cast<float>(stack.at(1).toScalar().toDouble());
   return paramsT;
 }
 
@@ -59,7 +59,7 @@ static synapse_helpers::tensor createForeachPowNode(
     }
 
     ns_Power::Params params{};
-    params.exp_val = other.toDouble();
+    params.exp_val = static_cast<float>(other.toDouble());
 
     return std::move(
         OpBackend::BuildNode(

@@ -18,6 +18,7 @@
 #include "generated/backend/fp8_sdpa_bwd.h"
 #include "generated/backend/sdpa_bwd.h"
 #include "generated/backend/sdpa_recomp_bwd.h"
+#include "habana_helpers/conversion.h"
 #include "hpu_ops/custom_op_outshape.h"
 #include "hpu_ops/fp8_utils.h"
 #include "hpu_ops/hpu_op_helper.h"
@@ -256,8 +257,10 @@ static void fillSdpaParams(
   params.is_inference = is_inference;
   params.softmax_mode = sfmx_mode;
   params.flags = flags;
-  params.wl = (window_size.size() == 2) ? window_size[0] : -1;
-  params.wr = (window_size.size() == 2) ? window_size[1] : -1;
+  params.wl =
+      (window_size.size() == 2) ? safe_convert<int>(window_size[0]) : -1;
+  params.wr =
+      (window_size.size() == 2) ? safe_convert<int>(window_size[1]) : -1;
 
   const auto& device = habana::HPUDeviceContext::get_device();
   params.is_hw_aligned = device.get_scale_attribute_is_hw_aligned();

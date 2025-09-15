@@ -29,8 +29,8 @@ namespace habana::eager {
 
 at::Tensor nonzero_eager(const at::Tensor& self) {
   auto input_shape = self.sizes();
-  int dimensions = input_shape.size();
-  int elements = self.numel();
+  const auto dimensions = static_cast<int64_t>(input_shape.size());
+  const auto elements = self.numel();
   at::TensorOptions hb_options = self.options();
   hb_options = hb_options.dtype(c10::ScalarType::Long);
   // Handle case for empty tensor where we return empty tensor with size

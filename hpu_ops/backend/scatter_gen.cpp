@@ -14,6 +14,7 @@
  */
 
 #include "generated/backend/scatter.h"
+#include "habana_helpers/conversion.h"
 
 using namespace torch;
 
@@ -84,7 +85,7 @@ void ScatterOperator::AddNode(
 
   if (stack.at(3).isTensor()) {
     ns_ScatterKernel::ParamsReduce params{};
-    params.axis = get_dim_in_tpc_order(dim, self.dim());
+    params.axis = safe_convert<int>(get_dim_in_tpc_order(dim, self.dim()));
 
     auto scatterkernel = BuildOp(
         graph,
@@ -122,7 +123,7 @@ void ScatterOperator::AddNode(
       val = ival.toScalar();
     }
     ns_ScatterValueKernel::Params params{};
-    params.dim = dim;
+    params.dim = safe_convert<int>(dim);
     params.value = val.toDouble();
     auto scatterkernel = BuildOp(
         graph,
@@ -153,7 +154,7 @@ void ScatterWithReduceOperator::AddNode(
       : ScatterReduceMode_t::SCATTER_REDUCE_PROD;
 
   ns_ScatterReduceKernel::Params params{};
-  params.dim = dim;
+  params.dim = safe_convert<int>(dim);
   params.include_self = true;
   params.mode = mode;
 

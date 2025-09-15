@@ -13,7 +13,6 @@
  * limitations under the License.
  */
 
-#include "backend/habana_operator.h"
 #include "generated/backend/view.h"
 
 namespace habana {

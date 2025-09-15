@@ -14,6 +14,7 @@
  */
 
 #include "hpu_ops/nf4_ops.h"
+#include "habana_helpers/conversion.h"
 #include "hpu_ops/hpu_op_helper.h"
 
 namespace sh = synapse_helpers;
@@ -41,7 +42,7 @@ OutputMetaDataVector QuantizeNF4Meta(const at::Stack& stack) {
 
 FillParamsT FillDequantizeNF4Params(const at::Stack& stack) {
   PARAMS_STUB(ns_CastNF4Kernel::ParamsV2);
-  params->group_size = stack[2].toInt();
+  params->group_size = safe_convert<int>(stack[2].toInt());
   if (stack[5].toBool()) {
     params->big_endian = true;
   } else {
@@ -52,7 +53,7 @@ FillParamsT FillDequantizeNF4Params(const at::Stack& stack) {
 
 FillParamsT FillQuantizeNF4Params(const at::Stack& stack) {
   PARAMS_STUB(ns_CastNF4Kernel::ParamsV2);
-  params->group_size = stack[1].toInt();
+  params->group_size = safe_convert<int>(stack[1].toInt());
   params->big_endian = true;
   return paramsT;
 }

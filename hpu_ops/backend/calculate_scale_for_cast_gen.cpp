@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 #include "generated/backend/calculate_scale_for_cast.h"
+#include "habana_helpers/conversion.h"
 #include "hpu_ops/custom_op_outshape.h"
 
 namespace habana {
@@ -30,9 +31,9 @@ FillParamsT FillCalculateScaleForCastParams(const at::Stack& stack) {
   params->maxMode =
       static_cast<ns_CalculateScaleForCast::CalculateScaleForCastMaxMode_t>(
           stack[1].toInt());
-  params->reduceAxis = ndims - axis - 1;
+  params->reduceAxis = safe_convert<int>(ndims - axis - 1);
   params->reduceKeepdim = stack[4].toBool();
-  params->maxAbsInputScale = 1.0 / (fullscale * backoff);
+  params->maxAbsInputScale = static_cast<float>(1.0 / (fullscale * backoff));
   params->scaleMode =
       static_cast<ns_CalculateScaleForCast::CalculateScaleForCastScaleMode_t>(
           stack[2].toInt());
@@ -44,7 +45,7 @@ template <class DimT>
 std::vector<DimT> getCalculateScaleForCastOutShape(
     c10::ArrayRef<DimT> inShape,
     ns_CalculateScaleForCast::_CalculateScaleForCastMaxMode_t maxMode,
-    int reduceAxis,
+    int64_t reduceAxis,
     bool reduceKeepdim) {
   std::vector<DimT> outputShape = inShape.vec();
 
@@ -57,11 +58,11 @@ std::vector<DimT> getCalculateScaleForCastOutShape(
       break;
 
     case ns_CalculateScaleForCast::CALCULATE_SCALE_FOR_CAST_MAX_ABS_PCS: {
-      const auto ndims = inShape.size();
+      const auto ndims = static_cast<int64_t>(inShape.size());
       auto axis = c10::maybe_wrap_dim(reduceAxis, ndims);
 
       if (reduceKeepdim)
-        outputShape[axis] = 1;
+        outputShape[static_cast<size_t>(axis)] = 1;
       else
         outputShape.erase(outputShape.begin() + axis);
     }

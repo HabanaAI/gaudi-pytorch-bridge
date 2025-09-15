@@ -14,32 +14,34 @@
  */
 #include "generated/backend/reflection_pad1d.h"
 #include "generated/backend/reflection_pad1d_backward.h"
+#include "habana_helpers/conversion.h"
 
 namespace habana {
 
-constexpr uint SELF_INDEX_FWD = 0;
-constexpr uint PAD_INDEX_FWD = 1;
-constexpr uint SELF_INDEX_BWD = 1;
-constexpr uint PAD_INDEX_BWD = 2;
-constexpr uint PADS_PER_DIM = 2;
+constexpr size_t SELF_INDEX_FWD = 0;
+constexpr size_t PAD_INDEX_FWD = 1;
+constexpr size_t SELF_INDEX_BWD = 1;
+constexpr size_t PAD_INDEX_BWD = 2;
+constexpr size_t PADS_PER_DIM = 2;
 
 sizes_vec ReflectionPadOutputShape(
     const at::Stack& stack,
-    uint selfIndex,
-    uint padIndex,
-    uint dimsVariant) {
+    size_t selfIndex,
+    size_t padIndex,
+    size_t dimsVariant) {
   std::vector<int64_t> outputShape =
       stack.at(selfIndex).toTensor().sizes().vec();
   auto pad = stack.at(padIndex).toIntVector();
-  uint expectedPadsNumber = PADS_PER_DIM * dimsVariant;
+  const auto expectedPadsNumber = PADS_PER_DIM * dimsVariant;
   HABANA_ASSERT(
       (pad.size() == expectedPadsNumber),
       "Pad size can only be %dd for ReflectionPad%dd",
       expectedPadsNumber,
       dimsVariant);
 
-  for (uint dim = 0; dim < dimsVariant; dim++) {
-    outputShape.rbegin()[dim] = outputShape.rbegin()[dim] +
+  for (size_t dim = 0; dim < dimsVariant; dim++) {
+    outputShape.rbegin()[static_cast<int64_t>(dim)] =
+        outputShape.rbegin()[static_cast<int64_t>(dim)] +
         pad[static_cast<size_t>(dim * PADS_PER_DIM)] +
         pad[dim * PADS_PER_DIM + 1];
   }
@@ -73,26 +75,29 @@ OutputMetaDataVector ReflectionPad3DMeta(const at::Stack& stack) {
 
 static FillParamsT FillReflectionPadParams(
     const at::Stack& stack,
-    uint self_index,
-    uint pad_index) {
+    size_t self_index,
+    size_t pad_index) {
   PARAMS_STUB(ns_PadKernelEx::Params);
   auto self = stack.at(self_index).toTensor();
   std::vector<int64_t> inputShape = self.sizes().vec();
   auto pads = stack.at(pad_index).toIntVector();
   params->mode = PadMode_t::PAD_MODE_REFLECT;
-  int mul = 0;
-  int add = -1;
+  int64_t mul = 0;
+  int64_t add = -1;
   // tpc kernel expects the pad before and pad after
   // for each dimension
-  for (uint i = 0; i < pads.size(); i++) {
+  for (size_t i = 0; i < pads.size(); i++) {
     if (i % 2 == 0) {
       mul = 0;
       add++;
     } else {
       mul = 1;
     }
-    uint hpu_index = (mul * inputShape.size()) + add;
-    params->pads[hpu_index] = pads[i];
+    const auto hpu_index = static_cast<size_t>(
+        (mul * static_cast<int64_t>(inputShape.size())) + add);
+    // Padding can be negative stored in unsigned and then unpacked at perf_lib
+    params->pads[hpu_index] =
+        static_cast<unsigned int>(safe_convert<int>(pads[i]));
   }
   return paramsT;
 }
@@ -123,12 +128,12 @@ void ReflectionPadBwd::AddNode(
     synapse_helpers::tensor& syn_tensor_start = p_context_->syn_inputs_[0];
     std::vector<int64_t> max = std::get<1>(
         habana::ShapeInference::GetMinMaxShape(syn_tensor_start.id()));
-    uint dimsVariant =
+    const auto dimsVariant =
         stack.at(PAD_INDEX_BWD).toIntVector().size() / PADS_PER_DIM;
     auto outputShapeExpectedMax = ReflectionPadOutputShape(
         stack, SELF_INDEX_BWD, PAD_INDEX_BWD, dimsVariant);
 
-    for (uint dim = 0; dim < max.size(); dim++) {
+    for (size_t dim = 0; dim < max.size(); dim++) {
       HABANA_ASSERT(
           (max[dim] <= outputShapeExpectedMax[0][dim]),
           "Output shape at dim=%d in max pass is greater than expectedd max output shape.",

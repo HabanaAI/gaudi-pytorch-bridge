@@ -14,6 +14,7 @@
  */
 
 #include "generated/backend/special_xlog1py.h"
+#include "habana_helpers/conversion.h"
 
 namespace habana {
 
@@ -64,8 +65,10 @@ SharedMetaDataVector XlogYSharedMeta(
       habana_helpers::DTypeHelper::DtypePromoteVariant::kPromoteIntToFloat,
       false);
 
-  unsigned selfDim = self.isTensor() ? self.toTensor().dim() : 1;
-  unsigned otherDim = other.isTensor() ? other.toTensor().dim() : 1;
+  unsigned selfDim =
+      self.isTensor() ? safe_convert<unsigned int>(self.toTensor().dim()) : 1;
+  unsigned otherDim =
+      other.isTensor() ? safe_convert<unsigned int>(other.toTensor().dim()) : 1;
   unsigned outDim = std::max(selfDim, otherDim);
 
   SharedMetaData log1pMeta("log1p_fwd");

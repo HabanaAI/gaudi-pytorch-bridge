@@ -13,14 +13,15 @@
  * limitations under the License.
  */
 #include "generated/backend/cast_to_fp8_just_in_time.h"
+#include "habana_helpers/conversion.h"
 
 namespace habana {
 
 FillParamsT CastToFp8JustInTimeParams(const at::Stack& stack) {
   const auto block_shape = stack[1].toIntVector();
   PARAMS_STUB(ns_ConvertToFp8JustInTime::Params);
-  params->block_height = block_shape[0];
-  params->block_width = block_shape[1];
+  params->block_height = safe_convert<unsigned int>(block_shape[0]);
+  params->block_width = safe_convert<unsigned int>(block_shape[1]);
   return paramsT;
 }
 

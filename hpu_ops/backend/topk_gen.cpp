@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 #include "generated/backend/topk.h"
+#include "habana_helpers/conversion.h"
 #include "habana_kernels/index_kernels.h"
 
 namespace habana {
@@ -22,7 +23,8 @@ sizes_vec TopkOutputShape(const at::Stack& stack) {
   auto k = stack.at(1).isScalar() ? stack.at(1).toInt()
                                   : stack.at(1).toTensor().sizes().vec()[0];
   auto dim_ = stack.at(2).isNone() ? self.dim() : stack.at(2).toInt();
-  auto dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
+  const auto dim = static_cast<size_t>(
+      at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true));
 
   std::vector<int64_t> shape = self.sizes().vec();
   if (!shape.empty()) {
@@ -73,7 +75,7 @@ void Topk::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   // It is ok to set params.bsw = k irrespective of static or DS case
   // As per CGUID doc, bsw is ignored if params.kType = K_TENSOR_SHAPE;
   // which is set in DS case.
-  params.bsw = k;
+  params.bsw = safe_convert<unsigned int>(k);
   params.axis = get_dim_in_tpc_order(dim, self.dim());
   params.bottomK = !largest;
   params.isVcData = false;

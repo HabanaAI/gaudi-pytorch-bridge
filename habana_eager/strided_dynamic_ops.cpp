@@ -166,15 +166,16 @@ void ViewOperatorDS::ResolveNegativeSizes(
 }
 
 int64_t get_arange_depth_ds_1(
-    const float start,
-    const float end,
-    const float step) {
-  HABANA_ASSERT(step != 0.0, "step value can not be 0.");
+    const int64_t start,
+    const int64_t end,
+    const int64_t step) {
+  HABANA_ASSERT(step != 0, "step value can not be 0.");
   HABANA_ASSERT(!((start > end) && (step > 0)), "step must be negative.");
   HABANA_ASSERT(!((start < end) && (step < 0)), "step must be positive.");
 
-  auto num_elements = static_cast<int64_t>(ceil((end - start) / step));
-  return num_elements;
+  const auto diff = std::abs(end - start);
+  const auto step_abs = std::abs(step);
+  return diff / step_abs + (diff % step_abs != 0);
 }
 
 bool IssetToIntegralDType(
@@ -374,20 +375,20 @@ void ArangeOperatorDS::UpdateDynamicInputs(
     [[maybe_unused]] std::vector<c10::IValue>& orig_stack,
     LaunchDynamicShapes& launch_shapes) {
   // patch Start
-  auto symint_idx = mixed_list[1].at(0).first;
+  auto symint_idx = static_cast<size_t>(mixed_list[1].at(0).first);
   auto symint_val = mixed_list[1].at(0).second;
   int64_t start = symint_idx == LONG_MAX
       ? symint_val
       : GetSymintValue(orig_stack, symint_idx);
 
   // patch End
-  symint_idx = mixed_list[1].at(1).first;
+  symint_idx = static_cast<size_t>(mixed_list[1].at(1).first);
   symint_val = mixed_list[1].at(1).second;
   int64_t end = symint_idx == LONG_MAX ? symint_val
                                        : GetSymintValue(orig_stack, symint_idx);
 
   // patch Step
-  symint_idx = mixed_list[1].at(2).first;
+  symint_idx = static_cast<size_t>(mixed_list[1].at(2).first);
   symint_val = mixed_list[1].at(2).second;
   int64_t step = symint_idx == LONG_MAX
       ? symint_val
@@ -566,7 +567,8 @@ void ConstantPad2dOperatorDS::UpdateDynamicInputs(
       updated_h2d_data.push_back(h2d_data[idx]);
     } else {
       updated_h2d_data.push_back(
-          static_cast<uint32_t>(GetSymintValue(orig_stack, stack_index)));
+          static_cast<uint32_t>(
+              GetSymintValue(orig_stack, static_cast<size_t>(stack_index))));
     }
   }
   std::reverse(updated_h2d_data.begin(), updated_h2d_data.end());
@@ -585,15 +587,16 @@ void ConstantPad2dOperatorDS::UpdateDynamicInputs(
     if (mixed_list[1].at(i).first == LONG_MAX)
       shape.push_back(mixed_list[1].at(i).second);
     else {
-      shape.push_back(GetSymintValue(orig_stack, mixed_list[1].at(i).first));
+      shape.push_back(GetSymintValue(
+          orig_stack, static_cast<size_t>(mixed_list[1].at(i).first)));
     }
   }
-  auto ndim = (int64_t)shape.size(); // num dims of new tensor
-  auto padlen = (int64_t)updated_h2d_data.size() / 2; // pad data from new H2D
+  auto ndim = shape.size(); // num dims of new tensor
+  auto padlen = updated_h2d_data.size() / 2; // pad data from new H2D
   HABANA_ASSERT(
       padlen >= ndim, "pad array length should be >= ndims of input tensor");
   // update new shape using new input tensor shape and updated H2D pad data
-  for (unsigned int i = 0; i < ndim; i++) {
+  for (size_t i = 0; i < ndim; i++) {
     auto pad_start = pad_arr_int[i];
     auto pad_end = pad_arr_int[MAX_DIMENSIONS_NUM + i];
     shape[ndim - i - 1] += (pad_start + pad_end);
@@ -637,14 +640,14 @@ bool AsStridedOperatorDS::ReplaceWithDynamicHPUOp(
       c10::Symbol::fromQualString("hpu::strided_view_ds_h2d")};
 
   std::vector<int64_t> tensor_indexes;
-  int input_strided_view = -1;
+  size_t input_strided_view = std::numeric_limits<size_t>::max();
   if (!m_input_new_base_sizes->empty()) {
     auto as_strided_node_ip_0 = aten_as_strided_node->input(0)->debugName();
     for (auto& input_base_sizes_pair : *m_input_new_base_sizes) {
-      int64_t input_idx{input_base_sizes_pair.first};
+      const auto input_idx = static_cast<size_t>(input_base_sizes_pair.first);
       auto graph_inputs_idx = graph->inputs().at(input_idx)->debugName();
       if (strcmp(as_strided_node_ip_0.c_str(), graph_inputs_idx.c_str()) == 0) {
-        tensor_indexes.push_back(input_idx);
+        tensor_indexes.push_back(static_cast<int64_t>(input_idx));
         input_strided_view = input_idx;
         break;
       }
@@ -728,7 +731,7 @@ bool AsStridedOperatorDS::ReplaceWithDynamicHPUOp(
     expr_strides = GetRangeInfoExprFromListConstruct(
         stride_construct_node, org_stack_index_map, m_range_infos);
   }
-  if (input_strided_view >= 0) {
+  if (input_strided_view != std::numeric_limits<size_t>::max()) {
     PT_DYNAMIC_SHAPE_DEBUG("Filling stride expression from input tensor");
     expr_strides =
         string_tokenizer(m_range_infos->at(input_strided_view).expr_strides);
@@ -872,7 +875,7 @@ void AsStridedOperatorDS::UpdateDynamicInputs(
   if (!tensor_list[0].empty()) {
     // Patch from tensor sizes and strides
     auto stack_idx = tensor_list[0].at(0);
-    auto stack_tensor = orig_stack[stack_idx].toTensor();
+    auto stack_tensor = orig_stack[static_cast<size_t>(stack_idx)].toTensor();
     auto* impl = stack_tensor.unsafeGetTensorImpl();
     std::vector<uint64_t> h2d_data = GetH2DTensorHostData<uint64_t>(dtensor);
     updated_h2d_data.reserve(h2d_data.size());
@@ -927,18 +930,21 @@ void AsStridedOperatorDS::UpdateDynamicInputs(
         updated_h2d_data.push_back(h2d_data[idx]);
       } else {
         updated_h2d_data.push_back(
-            static_cast<uint64_t>(GetSymintValue(orig_stack, stack_index)));
+            static_cast<uint64_t>(
+                GetSymintValue(orig_stack, static_cast<size_t>(stack_index))));
       }
     }
 
     std::vector<int64_t> cast_data(
         updated_h2d_data.begin(), updated_h2d_data.end());
     UpdateH2DPatchingData(dtensor, cast_data, launch_shapes);
-    for (int i = dtensor_list.size() - 1; i >= 0; i--) {
-      if (i == 1)
+    for (size_t i = dtensor_list.size(); i > 0; i--) {
+      const auto index = i - 1;
+      if (index == 1) {
         continue;
-      auto dtensor = dtensor_list[i]->toTensor();
-      SymIntData st_values = scalar_idx_list[i];
+      }
+      auto dtensor = dtensor_list[index]->toTensor();
+      SymIntData st_values = scalar_idx_list[index];
       UpdateShapeTensorSize(
           dtensor, st_values.values, orig_stack, launch_shapes);
     }
@@ -1172,7 +1178,8 @@ void AsStridedScatterOperatorDS::UpdateDynamicInputs(
       updated_h2d_data.push_back(h2d_data[idx]);
     } else {
       updated_h2d_data.push_back(
-          static_cast<uint64_t>(GetSymintValue(orig_stack, stack_index)));
+          static_cast<uint64_t>(
+              GetSymintValue(orig_stack, static_cast<size_t>(stack_index))));
     }
   }
   std::vector<int64_t> cast_data(
@@ -1377,7 +1384,8 @@ void StridedInsertOperatorDS::UpdateDynamicInputs(
       updated_h2d_data.push_back(h2d_data[idx]);
     } else {
       updated_h2d_data.push_back(
-          static_cast<uint64_t>(GetSymintValue(orig_stack, stack_index)));
+          static_cast<uint64_t>(
+              GetSymintValue(orig_stack, static_cast<size_t>(stack_index))));
     }
   }
   std::vector<int64_t> cast_data(
@@ -1412,16 +1420,16 @@ void RandpermGeneratorOperatorDS::UpdateDynamicInputs(
   auto dtensor = dtensor_list[0]->toTensor();
   SymIntData& scalar_idx = scalar_idx_list[0];
 
-  std::vector<int32_t> updated_h2d_data;
-  for (unsigned int idx = 0; idx < scalar_idx.values.size(); idx++) {
+  std::vector<int64_t> updated_h2d_data;
+  for (size_t idx = 0; idx < scalar_idx.values.size(); idx++) {
     auto stack_index = scalar_idx.values[idx];
     if (stack_index == LONG_MAX) {
       std::vector<int32_t> h2d_data = GetH2DTensorHostData<int32_t>(dtensor);
       std::reverse(h2d_data.begin(), h2d_data.end());
-      updated_h2d_data.push_back(h2d_data[idx]);
+      updated_h2d_data.push_back(static_cast<int64_t>(h2d_data[idx]));
     } else {
       updated_h2d_data.push_back(
-          static_cast<int32_t>(GetSymintValue(orig_stack, stack_index)));
+          GetSymintValue(orig_stack, static_cast<size_t>(stack_index)));
     }
   }
   std::reverse(updated_h2d_data.begin(), updated_h2d_data.end());
@@ -1452,7 +1460,7 @@ bool RandpermGeneratorOperatorDS::ReplaceWithDynamicHPUOp(
   int64_t step_idx = LONG_MAX;
   int64_t step_value = 1;
   scalar_indexes.push_back(step_idx);
-  h2d_values.push_back(static_cast<uint64_t>(step_value));
+  h2d_values.push_back(step_value);
   h2d_expr.emplace_back("1");
 
   int64_t end_idx = LONG_MAX;
@@ -1462,13 +1470,13 @@ bool RandpermGeneratorOperatorDS::ReplaceWithDynamicHPUOp(
   auto expr_end =
       GetRangeInfoExprFromInput(end, org_stack_index_map, m_range_infos);
   scalar_indexes.push_back(end_idx);
-  h2d_values.push_back(static_cast<uint64_t>(end_value));
+  h2d_values.push_back(end_value);
   h2d_expr.push_back(expr_end);
 
   int64_t start_idx = LONG_MAX;
   int64_t start_value = 0;
   scalar_indexes.push_back(start_idx);
-  h2d_values.push_back(static_cast<uint64_t>(start_value));
+  h2d_values.push_back(start_value);
   h2d_expr.emplace_back("0");
 
   // Step2: Create H2D tensor and insert to graph inputs.

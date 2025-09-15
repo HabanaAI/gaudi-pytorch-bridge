@@ -14,6 +14,9 @@
  */
 
 #include "generated/backend/scatter_reduce.h"
+#include "habana_helpers/conversion.h"
+#include "pytorch_helpers/habana_helpers/logging.h"
+
 namespace habana {
 
 const unsigned SELF_INDEX = 0;
@@ -48,7 +51,7 @@ FillParamsT ScatterReduceParams(const at::Stack& stack) {
   else
     HABANA_ASSERT(false, "Unsupported reduce: ", reduce);
 
-  params->dim = dim;
+  params->dim = safe_convert<int>(dim);
   params->include_self = includeSelf;
   params->mode = mode;
 

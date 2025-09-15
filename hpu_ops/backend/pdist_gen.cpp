@@ -20,13 +20,13 @@
 namespace habana {
 FillParamsT FillPdistFwdParams(const at::Stack& stack) {
   PARAMS_STUB(ns_Pdist::Params);
-  params->p = stack.at(1).toScalar().toDouble();
+  params->p = static_cast<float>(stack.at(1).toScalar().toDouble());
   return paramsT;
 }
 
 FillParamsT FillPdistBwdParams(const at::Stack& stack) {
   PARAMS_STUB(ns_Pdist::Params);
-  params->p = stack.at(2).toScalar().toDouble();
+  params->p = static_cast<float>(stack.at(2).toScalar().toDouble());
   return paramsT;
 }
 

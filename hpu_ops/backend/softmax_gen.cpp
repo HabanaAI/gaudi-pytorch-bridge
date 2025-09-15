@@ -13,8 +13,11 @@
  * limitations under the License.
  */
 #include "generated/backend/_softmax_backward_data.h"
+#include "habana_helpers/conversion.h"
+#include "pytorch_helpers/habana_helpers/logging.h"
 
 namespace habana {
+using namespace std::string_view_literals;
 FillParamsT FillSoftmaxForwardParams(const at::Stack& stack) {
   PARAMS_STUB(ns_Softmax::Params);
 
@@ -24,12 +27,12 @@ FillParamsT FillSoftmaxForwardParams(const at::Stack& stack) {
   constexpr size_t halfToFloatPositionInArgList = 2;
 
   auto self = stack.at(selfPositionInArgList).toTensor();
-  int dim = stack.at(dimPositionInArgList).toInt();
-  bool half_to_float = stack.at(halfToFloatPositionInArgList).toBool();
+  const auto dim = safe_convert<int>(stack.at(dimPositionInArgList).toInt());
+  const bool half_to_float = stack.at(halfToFloatPositionInArgList).toBool();
   HABANA_ASSERT(
       !half_to_float,
       "softmax with half to float conversion is not supported on HPU");
-  params->dim = get_dim_in_tpc_order(dim, self.dim());
+  params->dim = static_cast<int>(get_dim_in_tpc_order(dim, self.dim()));
   return paramsT;
 }
 
@@ -41,9 +44,9 @@ FillParamsT FillSafeSoftmaxForwardParams(const at::Stack& stack) {
   constexpr size_t dimPositionInArgList = 1;
 
   auto self = stack.at(selfPositionInArgList).toTensor();
-  int dim = stack.at(dimPositionInArgList).toInt();
+  const auto dim = safe_convert<int>(stack.at(dimPositionInArgList).toInt());
 
-  params->dim = get_dim_in_tpc_order(dim, self.dim());
+  params->dim = static_cast<int>(get_dim_in_tpc_order(dim, self.dim()));
   params->safeSoftmax = true;
   return paramsT;
 }
@@ -55,8 +58,8 @@ FillParamsT FillSoftmaxBackwardParams(const at::Stack& stack) {
   constexpr size_t dimPositionInArgList = 2;
 
   auto self = stack.at(selfPositionInArgList).toTensor();
-  int dim = stack.at(dimPositionInArgList).toInt();
-  params->dim = get_dim_in_tpc_order(dim, self.dim());
+  const auto dim = safe_convert<int>(stack.at(dimPositionInArgList).toInt());
+  params->dim = static_cast<int>(get_dim_in_tpc_order(dim, self.dim()));
   return paramsT;
 }
 

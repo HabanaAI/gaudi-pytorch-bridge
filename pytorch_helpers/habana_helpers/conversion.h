@@ -17,13 +17,16 @@
 #include <cstdint>
 #include <limits>
 #include <string_view>
+#include "habana_helpers/logging.h"
 
-template <typename To, typename From>
-To safe_convert(
-    From value,
+template <typename To_maybe_cvr, typename From_maybe_cvr>
+std::remove_cv_t<std::remove_reference_t<To_maybe_cvr>> safe_convert(
+    From_maybe_cvr value,
     const std::string_view file_name = __builtin_FILE(),
     const int line_number = __builtin_LINE(),
     const std::string_view function_name = __builtin_FUNCTION()) {
+  using To = std::remove_cv_t<std::remove_reference_t<To_maybe_cvr>>;
+  using From = std::remove_cv_t<std::remove_reference_t<From_maybe_cvr>>;
   static_assert(std::is_integral_v<From> && std::is_integral_v<To>);
   if constexpr (std::is_same_v<From, To>) {
     return value; // No conversion needed

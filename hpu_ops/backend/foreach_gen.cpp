@@ -19,6 +19,7 @@
 #include "generated/backend/_foreach_copy.h"
 #include "generated/backend/_foreach_div.h"
 #include "generated/backend/_foreach_zero.h"
+#include "habana_helpers/conversion.h"
 #include "hpu_ops/backend/foreach.h"
 #include "hpu_ops/op_backend.h"
 #include "hpu_ops/shared_meta_common.h"
@@ -346,7 +347,7 @@ std::vector<synapse_helpers::tensor> CommonForeachBinary(
             guid,
             {inputs[i], inputs[other_syn_index]},
             pt_inputs,
-            i));
+            safe_convert<int>(i)));
       }
     } else {
       for (size_t i = 0; i < selfs.size(); ++i) {
@@ -354,16 +355,21 @@ std::vector<synapse_helpers::tensor> CommonForeachBinary(
         SUPPRESS_WDANGLING_REFERENCE(
             const auto& other = others.isList() ? others.toList()[i] : others;)
 
-        outputs.push_back(
-            node_creator(op, graph, guid, {inputs[i]}, {self, other}, i));
+        outputs.push_back(node_creator(
+            op, graph, guid, {inputs[i]}, {self, other}, safe_convert<int>(i)));
       }
     }
   } else { // ScalarAndTensor variant
     const auto& self = stack[SELF_INDEX].toScalar();
     const auto& others = stack[OTHER_INDEX].toList();
     for (size_t i = 0; i < others.size(); ++i) {
-      outputs.push_back(
-          node_creator(op, graph, guid, {inputs[i]}, {self, others[i]}, i));
+      outputs.push_back(node_creator(
+          op,
+          graph,
+          guid,
+          {inputs[i]},
+          {self, others[i]},
+          safe_convert<int>(i)));
     }
   }
 

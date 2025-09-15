@@ -14,21 +14,22 @@
  */
 
 #include "generated/backend/kthvalue.h"
+#include "habana_helpers/conversion.h"
 #include "hpu_ops/backend/reduction_template.h"
 
 namespace habana {
 
 std::vector<int64_t> KthvalueOutputShape(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 0);
-  int axis = stack.at(2).toInt();
-  bool keep_dims = stack.at(3).toBool();
+  const auto axis = stack.at(2).toInt();
+  const auto keep_dims = stack.at(3).toBool();
 
   return ReductionOutputShape(self, axis, keep_dims)[0];
 }
 
 FillParamsT FillKthvalueParams(const at::Stack& stack) {
   PARAMS_STUB(ns_Kthvalue::Params);
-  params->k_value = stack.at(1).toInt();
+  params->k_value = safe_convert<unsigned int>(stack.at(1).toInt());
   params->axis =
       get_dim_in_tpc_order(stack.at(2).toInt(), stack_tensor(stack, 0).dim());
   params->keep_dims = stack.at(3).toBool();

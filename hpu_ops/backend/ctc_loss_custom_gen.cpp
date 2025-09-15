@@ -16,6 +16,7 @@
 #include "backend/kernel/hpu_shape_inference.h"
 #include "generated/backend/ctc_loss_custom.h"
 #include "generated/backend/ctc_loss_custom_backward.h"
+#include "habana_helpers/conversion.h"
 #include "hpu_ops/custom_op_outshape.h"
 
 namespace habana {
@@ -154,7 +155,7 @@ void CTCLossCustom::AddNode(
     reduction_mode = LossMode_t::LOSS_REDUCTION_MODE_SUM;
 
   ns_CTCLoss::Params params;
-  params.blankIndex = blank_index;
+  params.blankIndex = safe_convert<int>(blank_index);
   params.reductionMode = reduction_mode;
   params.zeroInfinity = zero_infinity;
 
@@ -228,7 +229,7 @@ void CTCLossCustomBackward::AddNode(
     reduction_mode = LossMode_t::LOSS_REDUCTION_MODE_SUM;
 
   ns_CTCLoss::Params params;
-  params.blankIndex = blank_index;
+  params.blankIndex = safe_convert<int>(blank_index);
   params.reductionMode = reduction_mode;
   params.zeroInfinity = zero_infinity;
 

@@ -14,6 +14,7 @@
  */
 
 #include "generated/backend/bernoulli.h"
+#include "habana_helpers/conversion.h"
 #include "hpu_ops/habana_random_ops.h"
 
 namespace habana {
@@ -33,7 +34,7 @@ SharedMetaDataVector BernoulliSharedMeta(
   auto seedDtype = c10::ScalarType::Int;
   if (seed.isTensor()) {
     auto seedTensor = seed.toTensor();
-    seedRank = seedTensor.dim();
+    seedRank = safe_convert<int>(seedTensor.dim());
     seedDtype = seedTensor.scalar_type();
   }
 
@@ -87,7 +88,7 @@ SharedMetaDataVector BernoulliWithPSharedMeta(
     auto seedRank = 1;
     auto seedDtype = c10::ScalarType::Int;
     if (isSeedTensor) {
-      seedRank = seedOptionalTensor.value().dim();
+      seedRank = safe_convert<int>(seedOptionalTensor.value().dim());
       seedDtype = seedOptionalTensor.value().scalar_type();
     }
     bernoulliSharedMeta.inputs_data.emplace_back(seedRank, seedDtype);

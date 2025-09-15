@@ -75,7 +75,7 @@ struct GraphExecsGroup {
 
   std::vector<bool> m_is_reusable;
 
-  std::unordered_map<int, GraphExec> m_graph_exec_storage;
+  std::unordered_map<std::size_t, GraphExec> m_graph_exec_storage;
 
   std::size_t generate_key(torch::jit::Stack& stack);
 

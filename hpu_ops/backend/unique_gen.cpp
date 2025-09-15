@@ -30,7 +30,7 @@ std::vector<synapse_helpers::tensor> UniqueCommon(
     std::optional<int> final_result_index_0,
     std::optional<int> final_result_index_1,
     [[maybe_unused]] std::optional<int> final_result_index_2) {
-  int elements = self_params.numel;
+  const auto elements = self_params.numel;
   std::vector<int64_t> output_shape{elements};
   std::vector<int64_t> valid_count_shape{1};
   ns_UniqueKernel::ParamsV2 params = {};

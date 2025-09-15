@@ -76,7 +76,9 @@ SharedMetaDataVector ReductionOpSharedMeta(
   const auto dimsSize = dims.size();
   const auto inputRank = self.dim();
   const bool keepDim = get_keepdim(stack, keepDimIndex);
-  int64_t outputRank = (!keepDim && dimsSize == 0) ? 1 : inputRank - dimsSize;
+  int64_t outputRank = (!keepDim && dimsSize == 0)
+      ? 1
+      : inputRank - static_cast<int64_t>(dimsSize);
   if (outputRank <= 0)
     outputRank = 1;
 
@@ -153,7 +155,7 @@ static sh::tensor ReductionOpCommon(
   auto dims = get_dims(stack, dim_index);
   bool keepdim = get_keepdim(stack, keepdim_index);
 
-  int ndims = self.dim();
+  const auto ndims = self.dim();
   auto params = FillReductionParams(ndims, dims, keepdim);
   auto shape = ReductionOutputShape(self, dims, keepdim)[0];
 

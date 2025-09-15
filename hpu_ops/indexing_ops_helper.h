@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,7 +36,7 @@ std::tuple<std::vector<int64_t>, std::vector<at::Tensor>> transposeToFront(
 std::vector<std::vector<int64_t>> calc_indexing_tensors_shapes(
     const at::Stack& stack);
 
-std::tuple<bool, int, std::vector<int64_t>, std::vector<at::Tensor>>
+std::tuple<bool, size_t, std::vector<int64_t>, std::vector<at::Tensor>>
 generate_advanced_indexing_indices_list(const at::Stack& stack);
 
 bool check_for_adv_indexing(c10::ArrayRef<c10::IValue> indices_in_orig);

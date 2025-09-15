@@ -299,8 +299,8 @@ void OpBackend::HandleInplaceFn(sh::graph& graph, const at::Stack& stack) {
     return;
   }
 
-  int syn_counter = 0;
-  int out_counter = 0;
+  size_t syn_counter = 0;
+  size_t out_counter = 0;
   for (size_t stack_id = 0, inplace_ids_pos = 0;
        (stack_id < stack.size()) && (inplace_ids_pos < m_inplace_ids.size());
        ++stack_id) {
@@ -317,10 +317,9 @@ void OpBackend::HandleInplaceFn(sh::graph& graph, const at::Stack& stack) {
       for (auto i = 0U; i < tensors.size(); ++i) {
         p_context_->syn_outputs_.emplace_back(
             habana_helpers::duplicate_tensor_in_memory_section(
-                p_context_->syn_inputs_[static_cast<size_t>(syn_counter++)],
+                p_context_->syn_inputs_[syn_counter++],
                 graph,
-                m_output_metadata.at(static_cast<size_t>(out_counter++))
-                    .external));
+                m_output_metadata.at(out_counter++).external));
         p_context_->pt_outputs_.emplace_back(tensors[i]);
       }
       ++inplace_ids_pos;

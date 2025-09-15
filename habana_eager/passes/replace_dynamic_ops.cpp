@@ -79,9 +79,9 @@ struct HandleDynamicOpsPass {
     // zero-dimensional since during HybridSIF run for some ops,
     // InferOutputMeta is invoked, where all
     // zero-dimensional tensors are made one-dimensional
-    std::vector<int> zero_dim_tensor_inds;
+    std::vector<size_t> zero_dim_tensor_inds;
     zero_dim_tensor_inds.reserve(org_stack.size());
-    int index = 0;
+    size_t index = 0;
     for (auto& inp : org_stack) {
       if (inp.isTensor()) {
         if (inp.toTensor().dim() == 0)
@@ -128,7 +128,7 @@ struct HandleDynamicOpsPass {
         if (ivalue->isIntList()) {
           const auto strides = ivalue->toIntList();
           if (!strides.empty()) {
-            int fcd_stride = strides.get(strides.size() - 1);
+            const auto fcd_stride = strides.get(strides.size() - 1);
             // Dim expansion happens if
             // Fastest Changing Dimension is strided
             if (fcd_stride > 1)
@@ -258,12 +258,12 @@ void HandlePostDynamic(
   // 1. Correct the input indexes in input_base_sizes_map
   std::map<int64_t, int64_t> key_map;
   for (auto& input_datasize_pair : input_base_sizes_map) {
-    int key = input_datasize_pair.first;
+    const auto key = input_datasize_pair.first;
 
     // Check if key is greater than any element in the vector
-    int new_key = key;
-    for (int idx : dgraph_meta->remove_input_indexes) {
-      if (key > idx) {
+    auto new_key = key;
+    for (auto idx : dgraph_meta->remove_input_indexes) {
+      if (key > static_cast<int64_t>(idx)) {
         --new_key;
         key_map[key] = new_key;
       }
@@ -272,7 +272,7 @@ void HandlePostDynamic(
   for (auto key_pair : key_map) {
     auto value = input_base_sizes_map[key_pair.first];
     // Reduce the key by 1
-    int newKey = key_pair.second;
+    const auto newKey = key_pair.second;
     input_base_sizes_map[newKey] = value;
     input_base_sizes_map.erase(key_pair.first);
   }
@@ -299,7 +299,7 @@ void ResolveNegativeSTSizes(
   }
 }
 
-void ReplaceInUseH2D(torch::jit::Stack& ds_stack, int index) {
+void ReplaceInUseH2D(torch::jit::Stack& ds_stack, size_t index) {
   PT_EAGER_TRACE;
   auto old_dtensor = ds_stack[index].toTensor();
   auto old_tmeta{habana::get_tensor_extra_meta(old_dtensor)};
@@ -346,9 +346,10 @@ void HandleDynamicInputPatching(
     tensor_list.clear();
     mixed_list.clear();
     for (auto it : dtensor_indexes) {
-      ReplaceInUseH2D(dmeta->ds_stack, it);
-      stack.emplace_back(dmeta->ds_stack[it]);
-      dtensor_list.emplace_back(&(dmeta->ds_stack[it]));
+      const auto it_u = static_cast<size_t>(it);
+      ReplaceInUseH2D(dmeta->ds_stack, it_u);
+      stack.emplace_back(dmeta->ds_stack[it_u]);
+      dtensor_list.emplace_back(&(dmeta->ds_stack[it_u]));
       scalar_list.emplace_back(dmeta->ds_tensor_to_scalar_map[it]);
       tensor_list.emplace_back(dmeta->ds_tensor_to_tensor_map[it]);
       mixed_list.emplace_back(dmeta->ds_mixed_map[it]);
@@ -367,7 +368,7 @@ void HandleDynamicInputPatching(
   // the indexes for others don't get messed up
   auto stack_begin = stack.begin();
   for (auto idx : dmeta->remove_input_indexes) {
-    stack.erase(stack_begin + idx);
+    stack.erase(stack_begin + static_cast<long>(idx));
   }
 }
 

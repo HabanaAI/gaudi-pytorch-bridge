@@ -14,12 +14,13 @@
  */
 
 #include "generated/backend/renorm.h"
+#include "habana_helpers/conversion.h"
 
 namespace habana {
 FillParamsT FillRenormParams(const at::Stack& stack) {
   PARAMS_STUB(ns_RenormKernel::Params);
   params->p = stack.at(1).toScalar().to<double>();
-  params->dim = stack.at(2).toInt();
+  params->dim = safe_convert<int>(stack.at(2).toInt());
   params->max_norm = stack.at(3).toScalar().to<double>();
 
   return paramsT;

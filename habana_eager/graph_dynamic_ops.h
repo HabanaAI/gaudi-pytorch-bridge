@@ -34,7 +34,7 @@ void GetValueAndScalarIndexFromInput(
     GraphInputIndexMap& org_stack_index_map,
     int64_t& value,
     int64_t& index,
-    const bool setIndexWhenNegativeConstant = true);
+    bool setIndexWhenNegativeConstant = true);
 void GetValuesAndScalarIndexesFromListConst(
     habana_torch::jit::Node* node,
     std::vector<int64_t>& values,
@@ -204,7 +204,7 @@ class DynamicOp {
   }
   std::map<int64_t, std::vector<int64_t>>* m_input_new_base_sizes = nullptr;
   std::vector<habana_helpers::RangeInfo>* m_range_infos = nullptr;
-  virtual ~DynamicOp() {}
+  virtual ~DynamicOp() = default;
 };
 
 using DynamicOpPtr = std::shared_ptr<DynamicOp>;

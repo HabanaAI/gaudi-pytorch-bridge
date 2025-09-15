@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -105,7 +105,7 @@ at::Scalar _local_scalar_dense_hpu(const at::Tensor& self) {
             Copy_Scalar_To_Host_Empty_Lowering_Task,
             std::move(src_backend),
             std::move(dst_backend),
-            sizeof(val),
+            static_cast<uint32_t>(sizeof(val)),
             c10::hpu::getCurrentHPUStream());
         /*
          * eager::Joinpending to ensure the copy_scalar_to_host is completed in

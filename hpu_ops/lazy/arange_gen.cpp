@@ -63,7 +63,7 @@ ArangeFE<at::Tensor&>::ArangeFE(
   if (can_use_dynamic_shapes(start, end, step)) {
     std::vector<int32_t> params_vec{start.toInt(), end.toInt(), step.toInt()};
     auto params_shape = habana_lazy::empty_hpu_lazy(
-        params_vec.size(),
+        static_cast<int64_t>(params_vec.size()),
         output.options().dtype(c10::ScalarType::Int),
         output.suggest_memory_format(),
         false,
@@ -84,7 +84,7 @@ ArangeFE<at::Tensor&>::ArangeFE(
     // Create a dummy shape tensor for the output, this shape tensor is not
     // added to synapse graph, but only ensures that when we match in bucket
     // we are restricted by the size of the output
-    int out_depth = get_arange_depth(start, end, step);
+    const auto out_depth = get_arange_depth(start, end, step);
     auto out_shape = c10::DimVector({out_depth});
     auto result_shape = habana_lazy::empty_hpu_lazy(
         out_shape,
@@ -136,7 +136,7 @@ LazyArange<at::Tensor>::LazyArange(
         start.toFloat(), end.toFloat(), step.toFloat()};
 
     auto params_shape = habana_lazy::empty_hpu_lazy(
-        params_vec.size(),
+        static_cast<int64_t>(params_vec.size()),
         at::ScalarType::Int,
         c10::MemoryFormat::Contiguous,
         false,

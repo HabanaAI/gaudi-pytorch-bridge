@@ -41,7 +41,7 @@ std::size_t GraphExecsGroup::generate_key(torch::jit::Stack& stack) {
       continue;
     }
     torch::Tensor input_tensor{input.toTensor()};
-    auto offset = input_tensor.storage_offset();
+    const auto offset = static_cast<size_t>(input_tensor.storage_offset());
 
     rval = at::hash_combine(rval, offset);
   }
@@ -121,7 +121,7 @@ torch::jit::Stack GraphExecsGroup::launch(
     std::vector<at::Tensor>& outputs) {
   PT_EAGER_TRACE_WITH_NAME(m_graphs_group_name);
 
-  auto key = generate_key(stack);
+  const auto key = generate_key(stack);
 
   if (m_graph_exec_storage.count(key) == 0) {
     PT_EAGER_DEBUG(

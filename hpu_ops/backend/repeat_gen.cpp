@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 #include "generated/backend/repeat.h"
+#include "habana_helpers/conversion.h"
 #include "habana_kernels/repeat.h"
 
 namespace habana {
@@ -53,10 +54,10 @@ FillParamsT FillRepeatFwdParams(const at::Stack& stack) {
   PARAMS_STUB(ns_RepeatPt::Params);
   auto repeats = stack.at(1).toIntVector();
 
-  for (unsigned int i = 0; i < repeats.size(); i++) {
-    params->repeat[i] = repeats[i];
+  for (size_t i = 0; i < repeats.size(); i++) {
+    params->repeat[i] = safe_convert<int>(repeats[i]);
   }
-  params->size = repeats.size();
+  params->size = safe_convert<unsigned int>(repeats.size());
 
   return paramsT;
 }

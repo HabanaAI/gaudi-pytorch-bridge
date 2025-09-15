@@ -14,6 +14,7 @@
  */
 
 #include "generated/backend/logspace.h"
+#include "habana_helpers/conversion.h"
 
 namespace habana {
 
@@ -62,7 +63,8 @@ FillParamsT FillLogspaceFwdParams(const at::Stack& stack) {
   PARAMS_STUB(ns_Logspace::Params);
   params->start = stack[0].toScalar().to<float>();
   params->end = stack[1].toScalar().to<float>();
-  params->steps = stack[2].toScalar().to<int32_t>();
+  using namespace std::literals;
+  params->steps = safe_convert<int>(stack[2].toScalar().to<int32_t>());
   params->base = stack[3].toScalar().to<float>();
 
   return paramsT;

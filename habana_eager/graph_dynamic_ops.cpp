@@ -38,15 +38,15 @@ void GetValueAndScalarIndexFromInput(
   auto in_name = input->debugName();
   if (input->node()->kind() == constant_symbol) {
     try {
-      value = static_cast<int64_t>(input->node()->i(value_attr));
+      value = input->node()->i(value_attr);
       if (value < 0 && setIndexWhenNegativeConstant)
         index = value;
     } catch (std::exception& e) {
       value = 0;
     }
   } else if (org_stack_index_map.count(in_name)) {
-    index = static_cast<int64_t>(org_stack_index_map[in_name]);
-    value = in_stack[index].toScalar().toLong();
+    index = org_stack_index_map[in_name];
+    value = in_stack[static_cast<size_t>(index)].toScalar().toLong();
   } else {
     HABANA_ASSERT(
         false,
@@ -119,8 +119,8 @@ std::string GetRangeInfoExprFromInput(
       value = "0";
     }
   } else if (org_stack_index_map.count(in_name)) {
-    auto index = static_cast<int64_t>(org_stack_index_map[in_name]);
-    value = range_infos->at(index).expr;
+    auto index = org_stack_index_map[in_name];
+    value = range_infos->at(static_cast<size_t>(index)).expr;
   } else {
     HABANA_ASSERT(
         false,
@@ -225,7 +225,7 @@ habana_torch::jit::Node* CreateAndInsertDynamicNodeToGraph(
     ValueIvalueMap& value_ivalue_map) {
   habana_torch::jit::WithInsertPoint insert_guard{aten_node};
   auto hpu_node{graph->insertNode(graph->create(hpu_symbol, inputs, 0))};
-  int output_count = 0;
+  size_t output_count = 0;
   for (auto output : aten_node->outputs()) {
     hpu_node->addOutput()->copyMetadata(output);
     output->replaceAllUsesAfterNodeWith(
@@ -270,7 +270,8 @@ void UpdateShapeTensorSize(
       new_shape.resize(0);
       break;
     } else {
-      new_shape[idx] = GetSymintValue(orig_stack, stack_index);
+      new_shape[idx] =
+          GetSymintValue(orig_stack, static_cast<size_t>(stack_index));
     }
   }
 
@@ -295,7 +296,7 @@ int64_t UpdateDynamicTensorDSStack(
     const std::vector<std::pair<int64_t, int64_t>>& mixed_indexes,
     std::shared_ptr<DynamicGraphMetaData> dmeta,
     const c10::SmallVector<int64_t, 8>& lookup_data) {
-  int64_t stack_index = dmeta->ds_stack.size();
+  const auto stack_index = static_cast<int64_t>(dmeta->ds_stack.size());
   dmeta->ds_stack.push_back(iv_tensor);
 
   // Mark the above created shape tensor with its corresponding symInts for
@@ -360,8 +361,8 @@ void DynamicOp::UpdateDynamicInputs(
   HABANA_ASSERT(
       dtensor_list.size() == scalar_list.size(),
       "Dtensor and SymIntData count not matching");
-  int64_t tensor_count = dtensor_list.size();
-  for (int idx = 0; idx < tensor_count; idx++) {
+  const auto tensor_count = dtensor_list.size();
+  for (size_t idx = 0; idx < tensor_count; idx++) {
     auto dtensor = dtensor_list[idx]->toTensor();
     SymIntData& st_values = scalar_list[idx];
     UpdateShapeTensorSize(dtensor, st_values.values, orig_stack, launch_shapes);
@@ -445,7 +446,8 @@ void RepeatOperatorDS::UpdateDynamicInputs(
       updated_h2d_data.push_back(h2d_data[idx]);
     } else {
       updated_h2d_data.push_back(
-          static_cast<int32_t>(GetSymintValue(orig_stack, stack_index)));
+          static_cast<int32_t>(
+              GetSymintValue(orig_stack, static_cast<size_t>(stack_index))));
     }
   }
 
@@ -653,8 +655,11 @@ bool SliceOperatorDS::ReplaceWithDynamicHPUOp(
   mixed_indexes.emplace_back(end_idx, end);
   mixed_indexes.emplace_back(step_idx, step);
 
-  dim = at::maybe_wrap_dim(dim, self_size.size(), /*wrap_scalar=*/true);
-  end = self_size[dim] < end ? self_size[dim] : end;
+  dim = at::maybe_wrap_dim(
+      dim, static_cast<int64_t>(self_size.size()), /*wrap_scalar=*/true);
+  end = self_size[static_cast<size_t>(dim)] < end
+      ? self_size[static_cast<size_t>(dim)]
+      : end;
   auto shape =
       SliceOperator::compute_output_shape(self_size, dim, start, end, step);
 
@@ -703,10 +708,10 @@ bool SliceOperatorDS::ReplaceWithDynamicHPUOp(
         "0",
         "0",
         "0"};
-    int index = self_size.size() - dim;
-    host_params[index] = step;
+    const auto index = self_size.size() - static_cast<size_t>(dim);
+    host_params[index] = static_cast<size_t>(step);
     expr_sizes[index] = step_expr;
-    host_params[index + 5] = start;
+    host_params[index + 5] = static_cast<size_t>(start);
     expr_sizes[index + 5] = start_expr;
     auto slice_h2d_name = GetDynamicTensorName(
         slice_node->output()->debugName() + "1", HOST_TO_DEVICE_TENSOR);
@@ -735,8 +740,8 @@ bool SliceOperatorDS::ReplaceWithDynamicHPUOp(
     auto dims = self_size.size();
     std::vector<int64_t> step_vec(dims, 1);
     std::vector<std::string> step_expr_vec(dims, "1");
-    step_vec[dim] = step;
-    step_expr_vec[dim] = step_expr;
+    step_vec[static_cast<size_t>(dim)] = step;
+    step_expr_vec[static_cast<size_t>(dim)] = step_expr;
     // create shape tesnor
     auto slice_st_name_1 = GetDynamicTensorName(
         slice_node->output()->debugName() + "1", SHAPE_TENSOR);
@@ -749,8 +754,8 @@ bool SliceOperatorDS::ReplaceWithDynamicHPUOp(
     dtensor_indexes.push_back(st_stack_index_1);
     std::vector<int64_t> start_vec(dims, 0);
     std::vector<std::string> start_expr_vec(dims, "0");
-    start_vec[dim] = start;
-    start_expr_vec[dim] = start_expr;
+    start_vec[static_cast<size_t>(dim)] = start;
+    start_expr_vec[static_cast<size_t>(dim)] = start_expr;
     // create shape tesnor
     auto slice_st_name_2 = GetDynamicTensorName(
         slice_node->output()->debugName() + "2", SHAPE_TENSOR);
@@ -797,8 +802,8 @@ void SliceOperatorDS::UpdateDynamicInputs(
     if (mixed_list[1].at(i).first == LONG_MAX)
       self_size.push_back(mixed_list[1].at(i).second);
     else
-      self_size.push_back(
-          GetSymintValue(orig_stack, mixed_list[1].at(i).first));
+      self_size.push_back(GetSymintValue(
+          orig_stack, static_cast<size_t>(mixed_list[1].at(i).first)));
   }
 
   // tensor sizes
@@ -809,7 +814,8 @@ void SliceOperatorDS::UpdateDynamicInputs(
         mixed_list[0].at(0).first < 0) {
       dim = mixed_list[0].at(0).second;
     } else {
-      dim = GetSymintValue(orig_stack, mixed_list[0].at(0).first);
+      dim = GetSymintValue(
+          orig_stack, static_cast<size_t>(mixed_list[0].at(0).first));
     }
     // patch Start
     int64_t start = 0;
@@ -817,7 +823,8 @@ void SliceOperatorDS::UpdateDynamicInputs(
         mixed_list[0].at(1).first < 0) {
       start = mixed_list[0].at(1).second;
     } else {
-      start = GetSymintValue(orig_stack, mixed_list[0].at(1).first);
+      start = GetSymintValue(
+          orig_stack, static_cast<size_t>(mixed_list[0].at(1).first));
     }
     // patch end
     int64_t end = 0;
@@ -825,18 +832,22 @@ void SliceOperatorDS::UpdateDynamicInputs(
         mixed_list[0].at(2).first < 0) {
       end = mixed_list[0].at(2).second;
     } else {
-      end = GetSymintValue(orig_stack, mixed_list[0].at(2).first);
+      end = GetSymintValue(
+          orig_stack, static_cast<size_t>(mixed_list[0].at(2).first));
     }
     // patch step
     int64_t step = 0;
     if (mixed_list[0].at(3).first == LONG_MAX) {
       step = mixed_list[0].at(3).second;
     } else {
-      step = GetSymintValue(orig_stack, mixed_list[0].at(3).first);
+      step = GetSymintValue(
+          orig_stack, static_cast<size_t>(mixed_list[0].at(3).first));
     }
 
-    dim = at::maybe_wrap_dim(dim, self_size.size(), /*wrap_scalar=*/true);
-    end = self_size[dim] < end ? self_size[dim] : end;
+    const auto dim_wrapped = static_cast<size_t>(
+        dim = at::maybe_wrap_dim(
+            dim, static_cast<int64_t>(self_size.size()), /*wrap_scalar=*/true));
+    end = self_size[dim_wrapped] < end ? self_size[dim_wrapped] : end;
     auto shape =
         SliceOperator::compute_output_shape(self_size, dim, start, end, step);
     launch_shapes.patch_values.push_back(shape.at(0));
@@ -844,9 +855,9 @@ void SliceOperatorDS::UpdateDynamicInputs(
     auto dtensorH2D = dtensor_list[1]->toTensor();
     std::vector<uint64_t> host_params{
         static_cast<uint64_t>(self_size.size()), 1, 1, 1, 1, 1, 0, 0, 0, 0, 0};
-    int index = self_size.size() - dim;
-    host_params[index] = step;
-    host_params[index + 5] = start;
+    const auto index = self_size.size() - dim_wrapped;
+    host_params[index] = static_cast<size_t>(step);
+    host_params[index + 5] = static_cast<size_t>(start);
     std::vector<int64_t> cast_data(host_params.begin(), host_params.end());
     UpdateH2DPatchingData(dtensorH2D, cast_data, launch_shapes);
   }
@@ -929,7 +940,7 @@ void ExpandOperatorDS::UpdateDynamicInputs(
     } else if (isMaxLong) {
       sizes[i] = scalars[0].lookup_data[i];
     } else {
-      sizes[i] = stack[values[i]].toInt();
+      sizes[i] = stack[static_cast<size_t>(values[i])].toInt();
     }
   }
   launch_shapes.ds_tensors.push_back(ivals[0]->toTensor());
@@ -986,13 +997,14 @@ bool SliceScatterOperatorDS::ReplaceWithDynamicHPUOp(
   PT_EAGER_DEBUG("ST start data:", start_value);
 
   int64_t dim_idx = LONG_MAX;
-  int64_t dim_value = 0;
+  int64_t dim_value_unwrapped = 0;
   GetValueAndScalarIndexFromInput(
-      dim, org_stack, org_stack_index_map, dim_value, dim_idx);
-  PT_EAGER_DEBUG("ST dim data:", dim_value);
+      dim, org_stack, org_stack_index_map, dim_value_unwrapped, dim_idx);
+  PT_EAGER_DEBUG("ST dim data:", dim_value_unwrapped);
 
   // Handle negative dimension
-  dim_value = at::maybe_wrap_dim(dim_value, self_sizes.size());
+  const auto dim_value = static_cast<size_t>(at::maybe_wrap_dim(
+      dim_value_unwrapped, static_cast<int64_t>(self_sizes.size())));
 
   // Handle negative dimension for start parameter
   if (start_value < 0) {
@@ -1009,7 +1021,7 @@ bool SliceScatterOperatorDS::ReplaceWithDynamicHPUOp(
   std::vector<long> step_idx_final_v1 = {};
 
   // Set the initial default values
-  for (int j = 0; j < dim_value; ++j) {
+  for (size_t j = 0; j < dim_value; ++j) {
     start_value_final_v1.push_back(0);
     step_value_final_v1.push_back(1);
     start_idx_final_v1.push_back(LONG_MAX);
@@ -1021,7 +1033,7 @@ bool SliceScatterOperatorDS::ReplaceWithDynamicHPUOp(
   start_idx_final_v1.push_back(start_idx);
   step_idx_final_v1.push_back(step_idx);
   // Set the remaining default values
-  for (int j = dim_value; j < (int)self_sizes.size() - 1; ++j) {
+  for (size_t j = dim_value; j < self_sizes.size() - 1; ++j) {
     start_value_final_v1.push_back(0);
     step_value_final_v1.push_back(1);
     start_idx_final_v1.push_back(LONG_MAX);

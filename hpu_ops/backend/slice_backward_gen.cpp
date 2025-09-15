@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 #include "generated/backend/slice_backward.h"
+#include "habana_helpers/conversion.h"
 
 namespace habana {
 
@@ -109,14 +110,16 @@ void SliceBackward::AddNode(
     std::fill_n(params.steps, HABANA_DIM_MAX, 1);
 
     for (size_t i = 0; i < input_sizes.size(); ++i) {
-      params.axes[i] = input_sizes.size() - i - 1;
+      params.axes[i] = safe_convert<unsigned int>(input_sizes.size() - i - 1);
       if (static_cast<long>(i) == dim) {
-        params.starts[i] = normalize_idx(start, input_sizes[i]);
-        params.ends[i] = normalize_idx(end, input_sizes[i]);
-        params.steps[i] = step;
+        params.starts[i] =
+            static_cast<unsigned long>(normalize_idx(start, input_sizes[i]));
+        params.ends[i] =
+            static_cast<unsigned long>(normalize_idx(end, input_sizes[i]));
+        params.steps[i] = static_cast<unsigned long>(step);
       } else {
         params.starts[i] = 0;
-        params.ends[i] = input_sizes[i];
+        params.ends[i] = static_cast<unsigned long>(input_sizes[i]);
         params.steps[i] = 1;
       }
     }

@@ -14,22 +14,24 @@
  */
 
 #include "generated/backend/select.h"
+#include "habana_helpers/conversion.h"
 #include "hpu_ops/hpu_op_helper.h"
 
 namespace {
+using namespace std::string_view_literals;
 
 habana::sizes_vec SelectOutputShape(const at::Stack& stack) {
   auto self = stack[0].toTensor();
-  auto dim = stack[1].toInt();
+  const auto dim_unwrapped = stack[1].toInt();
   auto index = stack[2].toInt();
 
-  int64_t ndim = self.dim();
+  const auto ndim = self.dim();
   if (ndim == 0) {
     TORCH_CHECK_INDEX(false, "slice() cannot be applied to a 0-dim tensor.");
   }
-  std::vector<int64_t> sizes = self.sizes().vec();
+  auto sizes = self.sizes().vec();
 
-  dim = at::maybe_wrap_dim(dim, ndim);
+  const auto dim = static_cast<size_t>(at::maybe_wrap_dim(dim_unwrapped, ndim));
 
   if (index < 0) {
     index += sizes[dim];
@@ -118,10 +120,10 @@ void SelectHpu::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   std::fill_n(params.ends, HABANA_DIM_MAX, 0);
   std::fill_n(params.steps, HABANA_DIM_MAX, 1);
 
-  params.axes[0] = dim_tpc;
-  params.starts[0] = start;
-  params.ends[0] = end;
-  params.steps[0] = step;
+  params.axes[0] = safe_convert<unsigned int>(dim_tpc);
+  params.starts[0] = safe_convert<unsigned int>(start);
+  params.ends[0] = safe_convert<unsigned int>(end);
+  params.steps[0] = safe_convert<unsigned int>(step);
 
   auto squeezeNeeded = self.dim() >= 2;
 

@@ -15,12 +15,14 @@
 
 #include "generated/backend/scaled_masked_softmax.h"
 #include "generated/backend/scaled_masked_triangular_softmax.h"
+#include "habana_helpers/conversion.h"
+#include "pytorch_helpers/habana_helpers/logging.h"
 
 namespace habana {
 
 FillParamsT FillScaledMaskedSoftmaxParams(const at::Stack& stack) {
   PARAMS_STUB(ns_SmoothL1Kernel::Params);
-  params->sigma = stack[2].toDouble();
+  params->sigma = static_cast<float>(stack[2].toDouble());
   return paramsT;
 }
 
@@ -99,8 +101,8 @@ void ScaledMaskedTriangularSoftmax::AddNode(
       start_end.pt_t.scalar_type());
 
   ns_ScaledMaskedSoftmax::Params params{};
-  params.invScaleAttn = inv_scale_attn;
-  params.groupedBatchSize = grouped_batch_size;
+  params.invScaleAttn = static_cast<float>(inv_scale_attn);
+  params.groupedBatchSize = safe_convert<unsigned int>(grouped_batch_size);
   params.isUseMax = use_max;
   params.expMode = static_cast<ScaledMaskedSoftmaxExpMode_t>(mode);
 

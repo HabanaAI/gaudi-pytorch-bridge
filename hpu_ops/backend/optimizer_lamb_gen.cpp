@@ -16,6 +16,7 @@
 #include "hpu_ops/optimizer_lamb_gen.h"
 #include "backend/create_pt_tensor.h"
 #include "common/warning_suppress.h"
+#include "habana_helpers/conversion.h"
 #include "hpu_ops/hpu_op_helper.h"
 
 namespace habana {
@@ -259,7 +260,7 @@ SharedMetaDataVector OptimizerLambPhase1SharedMeta(
     };
 
     const auto norm_wt_meta_vec =
-        ComputeNormSharedMeta(weight_rank, precision_type);
+        ComputeNormSharedMeta(safe_convert<int>(weight_rank), precision_type);
     shared_meta_vec.insert(
         std::end(shared_meta_vec),
         std::begin(norm_wt_meta_vec),
@@ -577,7 +578,7 @@ void OptimizerLambPhase1::AddNode(
 
   float beta3 = 1.0;
   if (grad_averaging) {
-    beta3 = 1 - beta1;
+    beta3 = 1 - static_cast<float>(beta1);
   }
 
   auto beta1_t = ConstantHelper(graph, beta1, at::kFloat, {1});
@@ -588,9 +589,9 @@ void OptimizerLambPhase1::AddNode(
   auto weight_decay_t = ConstantHelper(graph, weight_decay, at::kFloat, {1});
 
   auto dtype = gradients[0].pt_t.scalar_type();
-  auto num_params = static_cast<int>(weights.size());
+  auto num_params = weights.size();
 
-  for (auto i = 0; i < num_params; i++) {
+  for (size_t i = 0; i < num_params; i++) {
     auto div_grad_shape = gradients[i].pt_t.sizes().vec();
     auto div_grad = OpBackend::BuildNode(
         this,

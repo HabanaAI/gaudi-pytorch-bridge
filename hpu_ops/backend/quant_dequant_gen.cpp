@@ -17,9 +17,12 @@
 #include "generated/backend/dequantize_per_tensor.h"
 #include "generated/backend/quantize_per_channel.h"
 #include "generated/backend/quantize_per_tensor.h"
+#include "habana_helpers/conversion.h"
+#include "pytorch_helpers/habana_helpers/logging.h"
 
 namespace sh = synapse_helpers;
 namespace habana {
+using namespace std::string_view_literals;
 
 void WrapScalarAsTensor(
     habana::OpBackend* op,
@@ -43,15 +46,15 @@ void WrapScalarAsTensor(
 
 FillParamsT FillQuantizePerChannelParams(const at::Stack& stack) {
   PARAMS_STUB(ns_QuantizationPerChannel::ParamsV2);
-  params->axis = stack[3].toInt();
-  params->quant_min = stack[4].toInt();
-  params->quant_max = stack[5].toInt();
+  params->axis = safe_convert<int>(stack[3].toInt());
+  params->quant_min = safe_convert<int>(stack[4].toInt());
+  params->quant_max = safe_convert<int>(stack[5].toInt());
   return paramsT;
 }
 
 FillParamsT FillDequantizePerChannelParams(const at::Stack& stack) {
   PARAMS_STUB(ns_QuantizationPerChannel::ParamsV2);
-  params->axis = stack[3].toInt();
+  params->axis = safe_convert<int>(stack[3].toInt());
   return paramsT;
 }
 

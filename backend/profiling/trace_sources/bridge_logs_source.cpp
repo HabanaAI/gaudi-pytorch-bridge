@@ -58,8 +58,8 @@ struct BridgeLogsSourceImpl : public TraceSource {
   }
   void log(std::string_view id, bool is_begin, size_t index) {
     if (enabled(id)) {
-      int64_t dtime = nowNanos();
-      pid_t tid = syscall(__NR_gettid);
+      const auto dtime = nowNanos();
+      const auto tid = static_cast<pid_t>(syscall(__NR_gettid));
       std::string event_id{id};
       std::lock_guard<std::mutex> lg{m};
       updateThreadNames(tid);
@@ -132,7 +132,8 @@ struct BridgeLogsSourceImpl : public TraceSource {
   void extract(TraceSink& output) override {
     if (events_.empty())
       return;
-    pid_t pid = static_cast<pid_t>(getpid()) + offset_;
+    const auto pid =
+        static_cast<pid_t>(static_cast<unsigned int>(getpid()) + offset_);
     std::lock_guard<std::mutex> lg{m};
     for (const auto& event : events_) {
       if (eventsToIndexes_.count({event.tid, event.time})) {

@@ -13,6 +13,8 @@
  * limitations under the License.
  */
 #include "generated/backend/scatter_add.h"
+#include "habana_helpers/conversion.h"
+
 namespace habana {
 
 const unsigned SELF_INDEX = 0;
@@ -25,8 +27,8 @@ FillParamsT ScatterAddParams(const at::Stack& stack) {
   const auto dim = stack.at(DIM_INDEX).toInt();
 
   const auto rank = stack.at(SELF_INDEX).toTensor().dim();
-  params->dim = dim;
-  params->axis = get_dim_in_tpc_order(dim, rank);
+  params->dim = safe_convert<int>(dim);
+  params->axis = safe_convert<int>(get_dim_in_tpc_order(dim, rank));
 
   return paramsT;
 }
@@ -38,7 +40,7 @@ OutputMetaDataVector ScatterAddMeta(const at::Stack& stack) {
   const auto srcTensor = stack.at(SRC_INDEX).toTensor();
 
   auto index_dims = indexTensor.dim();
-  int dim_ = at::maybe_wrap_dim(dim, selfTensor.dim());
+  const auto dim_ = at::maybe_wrap_dim(dim, selfTensor.dim());
 
   // https://pytorch.org/docs/stable/generated/torch.Tensor.scatter_add_.html
   for (int64_t d = 0; d < index_dims; ++d) {

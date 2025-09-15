@@ -13,19 +13,21 @@
  * limitations under the License.
  */
 #include "generated/backend/narrow_copy.h"
+#include "habana_helpers/conversion.h"
 
 namespace habana {
 
 OutputMetaDataVector NarrowCopyMeta(const at::Stack& stack) {
   const at::Tensor& self = stack[0].toTensor();
-  int64_t dim = stack[1].toInt();
+  int64_t dim_unwrapped = stack[1].toInt();
   int64_t start = stack[2].toInt();
   int64_t length = stack[3].toInt();
 
   auto shape = self.sizes().vec();
-  dim = at::maybe_wrap_dim(dim, self.dim());
+  const auto dim =
+      static_cast<size_t>(at::maybe_wrap_dim(dim_unwrapped, self.dim()));
   TORCH_CHECK(
-      dim >= 0 && dim < (int64_t)shape.size(),
+      dim < shape.size(),
       "NarrowCopyMeta: Dimension out of range in NarrowCopyMeta");
 
   int64_t dim_size = shape[dim];
@@ -64,20 +66,21 @@ OutputMetaDataVector NarrowCopyMeta(const at::Stack& stack) {
 
 FillParamsT FillNarrowCopyParams(const at::Stack& stack) {
   const at::Tensor& self = stack[0].toTensor();
-  int64_t dim = stack[1].toInt();
+  int64_t dim_unwrapped = stack[1].toInt();
   int64_t start = stack[2].toInt();
   int64_t length = stack[3].toInt();
 
-  dim = at::maybe_wrap_dim(dim, self.dim());
+  const auto dim =
+      static_cast<size_t>(at::maybe_wrap_dim(dim_unwrapped, self.dim()));
   int64_t dim_size = self.sizes()[dim];
   if (start < 0) {
     start += dim_size;
   }
 
   PARAMS_STUB(ns_NarrowCopy::Params);
-  params->dim = self.sizes().size() - 1 - dim;
-  params->start = start;
-  params->length = length;
+  params->dim = safe_convert<int>(self.sizes().size() - 1 - dim);
+  params->start = safe_convert<int>(start);
+  params->length = safe_convert<int>(length);
   return paramsT;
 }
 
