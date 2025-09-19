@@ -78,6 +78,7 @@ orchestratorConfig:
     - testToLaunch: habana-internal/habanaqa_inference/Tests/Test_habanaqa_inference_gaudi3_asic_llamav3_1_8b_4096t_bf16_suite_u24
     - testToLaunch: habana-internal/habanaqa_inference/Tests/Test_habanaqa_inference_gaudi2_asic_hf_stable_diffusion_xl_suite_u24
     - testToLaunch: habana-internal/habanaqa_inference/Tests/Test_habanaqa_inference_gaudi2_asic_llamav3_2_11b_4096tokens_2048input_bf16_suite_u24
+      silentMode: true
     - testToLaunch: habana-internal/habanaqa_inference/Tests/Test_habanaqa_inference_gaudi2_asic_8cards_llamav3_1_70b_inc_pcq_4096t_2048input_suite_u24
     - testToLaunch: habana-internal/habanaqa_inference/Tests/Test_habanaqa_inference_gaudi2_asic_llamav3_1_8b_inc_pcq_4096t_suite_u24
     - testToLaunch: habana-internal/habanaqa_inference/Tests/Test_habanaqa_inference_gaudi3_asic_llamav3_1_8b_inc_pcq_4096t_suite_u24
