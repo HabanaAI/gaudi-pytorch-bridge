@@ -302,11 +302,7 @@ struct OptimizedJITGraphAndMetaData {
   }
 
   void set_shape_agnostic_recipe(
-      std::shared_ptr<habana::RecipeValueSpec>&& rvs) {
-    cur_shape_agnostic_rvalpsh = std::move(rvs);
-  }
-  void set_shape_agnostic_recipe(
-      const std::shared_ptr<habana::RecipeValueSpec>& shape_agnostic_recipe) {
+      std::shared_ptr<habana::RecipeValueSpec> shape_agnostic_recipe) {
     cur_shape_agnostic_rvalpsh = shape_agnostic_recipe;
   }
 

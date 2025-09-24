@@ -19,7 +19,6 @@
 #include "backend/kernel/hpu_habana_execute_op_pt.h"
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
 #include "backend/synapse_helpers/device_context.h"
-#include "hpu_habana_launch_op_pt.h"
 
 namespace habana {
 
@@ -43,37 +42,31 @@ void CompileSynapseTaskWrapper(
 }
 }; // namespace HabanaLaunchOpPipeline
 
-void HabanaLaunchOpPT::CompileSynapseGraphAndPatchTable(
-    std::shared_ptr<RecipeValueSpec>& rvs) {
+std::shared_ptr<RecipeValueSpec> HabanaLaunchOpPT::
+    CompileSynapseGraphAndPatchTable() {
   PT_BRIDGE_BEGIN;
+
   auto recipe = CompileSynapseGraph();
-  CreatePatchTable(rvs /**[in,out]*/, recipe);
+  auto rvs = CreateRVSAndPatchTable(recipe);
 
   recipe_launcher_ = std::make_shared<RecipeLauncher>(*rvs, recipe);
   StoreCompiledInformation(rvs);
 
   PT_BRIDGE_END;
+  return rvs;
 }
 
-void HabanaLaunchOpPT::CreatePatchTable(
-    std::shared_ptr<RecipeValueSpec>& rvs,
+std::shared_ptr<RecipeValueSpec> HabanaLaunchOpPT::CreateRVSAndPatchTable(
     const std::shared_ptr<synapse_helpers::graph::recipe_handle>& recipe) {
   PT_BRIDGE_BEGIN;
+  auto rvs = std::make_shared<RecipeValueSpec>(jit_ir_graph_);
+  rvs->curr_symval_hash_ = curr_symval_hash_;
 
   ConstructPatchingTableAndAtenOutputs(*rvs, recipe);
   UpdateSynapsePermutations(*rvs, recipe);
   PT_BRIDGE_DEBUG(*rvs);
 
   PT_BRIDGE_END;
-}
-
-std::shared_ptr<RecipeValueSpec> HabanaLaunchOpPT::CreateRVSAndPatchTable(
-    const std::shared_ptr<synapse_helpers::graph::recipe_handle>& recipe) {
-  auto rvs =
-      std::make_shared<RecipeValueSpec>(jit_ir_graph_, curr_symval_hash_);
-
-  CreatePatchTable(rvs /**[in,out]*/, recipe);
-
   return rvs;
 }
 

@@ -18,9 +18,7 @@
 #include <ATen/record_function.h>
 #include <absl/functional/any_invocable.h>
 #include <algorithm>
-#include <memory>
 #include <sstream>
-#include <thread>
 #include <unordered_map>
 #include "backend/backend_meta.h"
 #include "backend/cache/permute_cache.h"
@@ -56,7 +54,6 @@
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/lazy_executor.h"
-#include "hpu_habana_cache.h"
 #include "hpu_ops/op_backend.h"
 #include "hpu_ops/op_logger.h"
 #include "jit_fork/ir/constants.h"
@@ -5178,6 +5175,7 @@ void HabanaLaunchOpPT::run(
     if (GET_ENV_FLAG_NEW(PT_COMPILE_ONLY_MODE)) {
       auto rvs = TemporaryRecipeStore::get().GetRVS(cur_rargpsh_);
       if (rvs) {
+        UpdatePatchingInformation(*rvs, true);
         UpdateRecipeOutputs();
         return;
       }
@@ -5373,16 +5371,15 @@ void HabanaLaunchOpPT::run(
           " intermediate tensors size : ",
           intermediate_syn_tensors_count_);
 
-      auto rvs =
-          std::make_shared<RecipeValueSpec>(jit_ir_graph_, curr_symval_hash_);
-      CompileSynapseGraphAndPatchTable(rvs);
+      // TODO do we need sync ????
+      pipeline_execution.compile_sync();
+      auto rvs = CompileSynapseGraphAndPatchTable();
       // TODO turn on this condition
       // if (jit_graph_and_meta_data_->get_is_shape_agnostic_supported())
       {
         rvs->shape_agnostic_synapse_graph_ =
             std::make_unique<sh::graph>(std::move(original_syn_graph));
-        get_jit_graph_and_meta_data()->set_shape_agnostic_recipe(
-            std::move(rvs));
+        get_jit_graph_and_meta_data()->set_shape_agnostic_recipe(rvs);
       }
 
       PT_LAZY_EAGER_DEBUG(
@@ -5592,9 +5589,7 @@ void HabanaLaunchOpPT::run(
         GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_OUTPUT_PERMUTE);
 
     if (permute_calculation_is_needed) {
-      auto rvs =
-          std::make_shared<RecipeValueSpec>(jit_ir_graph_, curr_symval_hash_);
-      CompileSynapseGraphAndPatchTable(rvs);
+      CompileSynapseGraphAndPatchTable();
       pipeline_execution.execute(
           nullptr, [](habana::HabanaLaunchOpPT& launch_op) {
             launch_op.ExecuteSynapseGraph();
@@ -5605,15 +5600,13 @@ void HabanaLaunchOpPT::run(
     // TODO: Implement case for  PT_COMPILE_ONLY_MODE
     if (enable_caching_ && !permute_calculation_is_needed) {
       std::promise<void> recipe_done;
-      auto rvs =
-          std::make_shared<RecipeValueSpec>(jit_ir_graph_, curr_symval_hash_);
       auto is_recipe_done = recipe_done.get_future();
       TemporaryRecipeStore::get().Add(
-          cur_rargpsh_, std::move(is_recipe_done), rvs);
+          cur_rargpsh_, std::move(is_recipe_done), {});
       pipeline_execution.execute(
-          [recipe_done = std::move(recipe_done),
-           rvs = std::move(rvs)](habana::HabanaLaunchOpPT& launch_op) mutable {
-            launch_op.CompileSynapseGraphAndPatchTable(rvs);
+          [recipe_done = std::move(recipe_done)](
+              habana::HabanaLaunchOpPT& launch_op) mutable {
+            launch_op.CompileSynapseGraphAndPatchTable();
             recipe_done.set_value();
           },
           [](habana::HabanaLaunchOpPT& launch_op) {
@@ -5626,9 +5619,7 @@ void HabanaLaunchOpPT::run(
     // don't have any dependencies on compilation
     pipeline_execution.execute(
         [](habana::HabanaLaunchOpPT& launch_op) {
-          auto rvs = std::make_shared<RecipeValueSpec>(
-              launch_op.jit_ir_graph_, launch_op.curr_symval_hash_);
-          launch_op.CompileSynapseGraphAndPatchTable(rvs);
+          launch_op.CompileSynapseGraphAndPatchTable();
         },
         [](habana::HabanaLaunchOpPT& launch_op) {
           launch_op.ExecuteSynapseGraph();
@@ -5640,9 +5631,7 @@ void HabanaLaunchOpPT::run(
         enable_caching_ && !syn_graph_ptr_->is_empty()) {
       CompileLazyGraphInParallel();
     } else {
-      auto rvs =
-          std::make_shared<RecipeValueSpec>(jit_ir_graph_, curr_symval_hash_);
-      CompileSynapseGraphAndPatchTable(rvs);
+      CompileSynapseGraphAndPatchTable();
       ExecuteSynapseGraph();
       ClearStatics();
     }
@@ -6259,20 +6248,14 @@ void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
     }
     PT_DYNAMIC_SHAPE_DEBUG("Cache miss pipeline flow");
     pipeline_execution.compile_sync();
-    // Creation of rvs in this scope allows for early exit using
-    // TemporaryRecipeStor for PT_COMPILE_ONLY_MODE
-    auto rvs =
-        std::make_shared<RecipeValueSpec>(jit_ir_graph_, curr_symval_hash_);
-    CompileSynapseGraphAndPatchTable(rvs);
+    CompileSynapseGraphAndPatchTable();
     pipeline_execution.execute(
         nullptr, [](habana::HabanaLaunchOpPT& launch_op) {
           launch_op.ExecuteSynapseGraph();
           launch_op.ClearStatics();
         });
   } else {
-    auto rvs =
-        std::make_shared<RecipeValueSpec>(jit_ir_graph_, curr_symval_hash_);
-    CompileSynapseGraphAndPatchTable(rvs);
+    CompileSynapseGraphAndPatchTable();
     ExecuteSynapseGraph();
   }
   current_dbipsh_->get_statistics()->LogCompilation(
