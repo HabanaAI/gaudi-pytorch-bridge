@@ -12,12 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ###############################################################################
+import habana_frameworks.torch.internal._bridge_config_C as bc
 import pytest
 import torch
 import torch.nn.functional as F
 from test_utils import (
     compile_function_if_compile_mode,
-    env_var_in_scope,
 )
 
 
@@ -532,26 +532,23 @@ def test_leaf_slice_post_partition():
     assert torch.allclose(hpu_out.to("cpu"), ref_out, atol=0.001, rtol=0.001)
 
 
+@pytest.mark.skipif(
+    not bc.get_pt_hpu_use_jit_fork(), reason="Those tests should only be executed when PT_HPU_USE_JIT_FORK == True"
+)
 @pytest.mark.parametrize("shape", [(4,), (4, 8)])
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16, torch.float16, torch.uint8])
 def test_view_dtype(shape, dtype):
-    with env_var_in_scope(
-        {
-            "PT_HPU_USE_JIT_FORK": "1",
-        }
-    ):
+    def fn(x):
+        x = x.view(torch.float16).float()
+        return x
 
-        def fn(x):
-            x = x.view(torch.float16).float()
-            return x
+    # CPU
+    x = torch.randint(128, shape, dtype=dtype)
+    hx = x.to("hpu")
+    res = fn(x)
 
-        # CPU
-        x = torch.randint(128, shape, dtype=dtype)
-        hx = x.to("hpu")
-        res = fn(x)
+    # HPU
+    compiled_fn = compile_function_if_compile_mode(fn)
+    hres = compiled_fn(hx)
 
-        # HPU
-        compiled_fn = compile_function_if_compile_mode(fn)
-        hres = compiled_fn(hx)
-
-        assert torch.allclose(hres.cpu(), res, atol=0.001, rtol=0.001)
+    assert torch.allclose(hres.cpu(), res, atol=0.001, rtol=0.001)
