@@ -433,7 +433,7 @@ bool check_file_path(
  * This function checks if the provided configuration string adheres to the
  * expected format and constraints. The configuration string should consist
  * of four comma-separated fields:
- *     <path>" or "<path>,<true|false>,<int_size_in_MB>,<true|false>
+ *     <path>,<true|false>,<int_size_in_MB>,<true|false>
  *
  * @param config The configuration string to validate.
  * @param error_msg A reference to a string where the error message will be
@@ -463,12 +463,12 @@ bool check_recipe_cache_config(
     const std::string& config,
     std::string& error_msg) {
   static const std::regex pattern(
-      R"(^\s*([^\s,<>|?*"]*)\s*(?:,\s*(true|false)\s*,\s*(\d+)\s*,\s*(true|false))?\s*$)",
+      R"(^\s*(?:([^\s,<>|?*"]+)\s*)?(?:,\s*(true|false)\s*(?:,\s*(\d+)\s*(?:,\s*(true|false)\s*)?)?)?\s*$)",
       std::regex_constants::icase);
   std::smatch match;
   if (!std::regex_match(config, match, pattern)) {
     error_msg = config + " does not match expected format. " +
-        "Expected: <path> or <path>,<true|false>,<int_size_in_MB>,<true|false>.";
+        "Expected: <path>,<true|false>,<int_size_in_MB>,<true|false>.";
     return false;
   }
 
@@ -647,7 +647,7 @@ void validate_constraint_custom(
   std::string error_msg;
   std::string name_str = name ? std::string(name) : "unknown";
   if (!validator(value, error_msg)) {
-    PT_SYNHELPER_FATAL("Flags name: ", name_str, ",", error_msg);
+    PT_SYNHELPER_FATAL("Flag ", name_str, ": ", error_msg);
   }
 }
 
@@ -661,11 +661,11 @@ void validate_constraint_with_type(
   std::string name_str = name ? std::string(name) : "";
   if (!name_str.empty()) {
     if (!check(constrains_type, result, constrains, error_msg)) {
-      PT_SYNHELPER_FATAL("Flags name: ", name_str, ",", error_msg);
+      PT_SYNHELPER_FATAL("Flag ", name_str, ": ", error_msg);
     }
   } else {
     if (!check(CONSTRAINTS_EMPTY, result, CONSTRAINTS_EMPTY, error_msg)) {
-      PT_SYNHELPER_FATAL("Flags name: unknown,", error_msg);
+      PT_SYNHELPER_FATAL("Flag unknown: ", error_msg);
     }
   }
 }

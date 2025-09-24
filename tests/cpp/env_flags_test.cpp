@@ -221,7 +221,7 @@ TEST(UserEnvFlagsValidation, CheckEnum) {
         } catch (const c10::Error& e) {
           EXPECT_TRUE(
               std::string(e.what()).find(
-                  "Flags name: PT_HPU_LAZY_MODE,Value '3' is not allowed. Allowed values: 0 | 1") !=
+                  "Flag PT_HPU_LAZY_MODE: Value '3' is not allowed. Allowed values: 0 | 1") !=
               std::string::npos);
           throw;
         }
@@ -257,7 +257,7 @@ TEST(UserEnvFlagsValidation, CheckEnum) {
         } catch (const c10::Error& e) {
           EXPECT_TRUE(
               std::string(e.what()).find(
-                  "Flags name: PT_HPU_GRAPH_DUMP_MODE,Value 'compile_fx' is not allowed. Allowed values: compile | eager | all") !=
+                  "Flag PT_HPU_GRAPH_DUMP_MODE: Value 'compile_fx' is not allowed. Allowed values: compile | eager | all") !=
               std::string::npos);
           throw;
         }
@@ -294,7 +294,7 @@ TEST(UserEnvFlagsValidation, CheckFilepath) {
         } catch (const c10::Error& e) {
           EXPECT_TRUE(
               std::string(e.what()).find(
-                  "Flags name: PT_RECIPE_TRACE_PATH,Value contains insecure characters: /tmp/invalid|path") !=
+                  "Flag PT_RECIPE_TRACE_PATH: Value contains insecure characters: /tmp/invalid|path") !=
               std::string::npos);
           throw;
         }
@@ -311,7 +311,7 @@ TEST(UserEnvFlagsValidation, CheckFilepath) {
         } catch (const c10::Error& e) {
           EXPECT_TRUE(
               std::string(e.what()).find(
-                  "Flags name: PT_RECIPE_TRACE_PATH,Value contains insecure characters: /tmp/insecure$path") !=
+                  "Flag PT_RECIPE_TRACE_PATH: Value contains insecure characters: /tmp/insecure$path") !=
               std::string::npos);
           throw;
         }
@@ -351,44 +351,48 @@ TEST(UserEnvFlagsValidation, CheckFilepath) {
 TEST(UserEnvFlagsValidation, CheckRecipeCacheConfig) {
   std::string env_val_org = GET_ENV_FLAG_NEW(PT_HPU_RECIPE_CACHE_CONFIG);
   const char* env_name = "PT_HPU_RECIPE_CACHE_CONFIG";
+
   UNSET_ENV_FLAG_NEW(PT_HPU_RECIPE_CACHE_CONFIG);
   // Create tmp directory for testing
   std::filesystem::create_directories("/tmp/path");
-  setenv(env_name, "/tmp/path,true,1024,false", 1); // Valid value
+
+  // Valid: only 1 field
+  setenv(env_name, "/tmp/path", 1);
   std::string env_val = GET_ENV_FLAG_NEW(PT_HPU_RECIPE_CACHE_CONFIG);
-  PT_TEST_DEBUG("PT_HPU_RECIPE_CACHE_CONFIG=", env_val);
-  EXPECT_EQ(env_val, "/tmp/path,true,1024,false");
-
+  EXPECT_EQ(env_val, "/tmp/path");
   UNSET_ENV_FLAG_NEW(PT_HPU_RECIPE_CACHE_CONFIG);
-  // Missing one field
+
+  // Valid: only 2 fields
+  setenv(env_name, "/tmp/path,true", 1);
+  env_val = GET_ENV_FLAG_NEW(PT_HPU_RECIPE_CACHE_CONFIG);
+  EXPECT_EQ(env_val, "/tmp/path,true");
+  UNSET_ENV_FLAG_NEW(PT_HPU_RECIPE_CACHE_CONFIG);
+
+  // Valid: only 3 fields
   setenv(env_name, "/tmp/path,true,1024", 1);
-  EXPECT_THROW(
-      {
-        try {
-          GET_ENV_FLAG_NEW(PT_HPU_RECIPE_CACHE_CONFIG);
-        } catch (const c10::Error& e) {
-          EXPECT_TRUE(
-              std::string(e.what()).find(
-                  "Flags name: PT_HPU_RECIPE_CACHE_CONFIG,/tmp/path,true,1024 does not match expected format. Expected: <path> or <path>,<true|false>,<int_size_in_MB>,<true|false>.") !=
-              std::string::npos);
-          throw;
-        }
-      },
-      c10::Error);
-
+  env_val = GET_ENV_FLAG_NEW(PT_HPU_RECIPE_CACHE_CONFIG);
+  EXPECT_EQ(env_val, "/tmp/path,true,1024");
   UNSET_ENV_FLAG_NEW(PT_HPU_RECIPE_CACHE_CONFIG);
-  // Non-existent directory
+
+  // Valid: all 4 fields
+  setenv(env_name, "/tmp/path,true,1024,false", 1);
+  env_val = GET_ENV_FLAG_NEW(PT_HPU_RECIPE_CACHE_CONFIG);
+  EXPECT_EQ(env_val, "/tmp/path,true,1024,false");
+  UNSET_ENV_FLAG_NEW(PT_HPU_RECIPE_CACHE_CONFIG);
+
+  // Valid: case insensitive for bool (From SW-238935)
+  setenv(env_name, "/tmp/path,False,1", 1);
+  env_val = GET_ENV_FLAG_NEW(PT_HPU_RECIPE_CACHE_CONFIG);
+  EXPECT_EQ(env_val, "/tmp/path,False,1");
+  UNSET_ENV_FLAG_NEW(PT_HPU_RECIPE_CACHE_CONFIG);
+
+  // Valid: directory does not exist, just show warning and proceed
   setenv(env_name, "/nonexistent/path,true,1024,false", 1);
-  EXPECT_NO_THROW({
-    try {
-      GET_ENV_FLAG_NEW(PT_HPU_RECIPE_CACHE_CONFIG);
-    } catch (const std::exception& e) {
-      FAIL() << "Unexpected exception: " << e.what();
-    }
-  });
-
+  env_val = GET_ENV_FLAG_NEW(PT_HPU_RECIPE_CACHE_CONFIG);
+  EXPECT_EQ(env_val, "/nonexistent/path,true,1024,false");
   UNSET_ENV_FLAG_NEW(PT_HPU_RECIPE_CACHE_CONFIG);
-  // Path is not a directory
+
+  // Invalid: path is not a directory
   // Create a temporary file to test "Path is not a directory" case
   std::string test_file = "/tmp/path/file";
   std::ofstream ofs(test_file);
@@ -410,8 +414,8 @@ TEST(UserEnvFlagsValidation, CheckRecipeCacheConfig) {
         }
       },
       c10::Error);
-
   UNSET_ENV_FLAG_NEW(PT_HPU_RECIPE_CACHE_CONFIG);
+
   // Invalid clear_on_init value
   setenv(env_name, "/tmp/path,invalid,1024,false", 1);
   EXPECT_THROW(
@@ -421,15 +425,15 @@ TEST(UserEnvFlagsValidation, CheckRecipeCacheConfig) {
         } catch (const c10::Error& e) {
           EXPECT_TRUE(
               std::string(e.what()).find(
-                  "Flags name: PT_HPU_RECIPE_CACHE_CONFIG,/tmp/path,invalid,1024,false does not match expected format. Expected: <path> or <path>,<true|false>,<int_size_in_MB>,<true|false>.") !=
+                  "Flag PT_HPU_RECIPE_CACHE_CONFIG: /tmp/path,invalid,1024,false does not match expected format. Expected: <path>,<true|false>,<int_size_in_MB>,<true|false>.") !=
               std::string::npos);
 
           throw;
         }
       },
       c10::Error);
-
   UNSET_ENV_FLAG_NEW(PT_HPU_RECIPE_CACHE_CONFIG);
+
   // Invalid cache size
   setenv(env_name, "/tmp/path,true,invalid,false", 1);
   EXPECT_THROW(
@@ -439,15 +443,15 @@ TEST(UserEnvFlagsValidation, CheckRecipeCacheConfig) {
         } catch (const c10::Error& e) {
           EXPECT_TRUE(
               std::string(e.what()).find(
-                  "Flags name: PT_HPU_RECIPE_CACHE_CONFIG,/tmp/path,true,invalid,false does not match expected format. Expected: <path> or <path>,<true|false>,<int_size_in_MB>,<true|false>.") !=
+                  "Flag PT_HPU_RECIPE_CACHE_CONFIG: /tmp/path,true,invalid,false does not match expected format. Expected: <path>,<true|false>,<int_size_in_MB>,<true|false>.") !=
               std::string::npos);
 
           throw;
         }
       },
       c10::Error);
-
   UNSET_ENV_FLAG_NEW(PT_HPU_RECIPE_CACHE_CONFIG);
+
   // Invalid NFS flag value
   setenv(env_name, "/tmp/path,true,1024,invalid", 1);
   EXPECT_THROW(
@@ -457,20 +461,19 @@ TEST(UserEnvFlagsValidation, CheckRecipeCacheConfig) {
         } catch (const c10::Error& e) {
           EXPECT_TRUE(
               std::string(e.what()).find(
-                  "Flags name: PT_HPU_RECIPE_CACHE_CONFIG,/tmp/path,true,1024,invalid does not match expected format. Expected: <path> or <path>,<true|false>,<int_size_in_MB>,<true|false>.") !=
+                  "Flag PT_HPU_RECIPE_CACHE_CONFIG: /tmp/path,true,1024,invalid does not match expected format. Expected: <path>,<true|false>,<int_size_in_MB>,<true|false>.") !=
               std::string::npos);
 
           throw;
         }
       },
       c10::Error);
-
   UNSET_ENV_FLAG_NEW(PT_HPU_RECIPE_CACHE_CONFIG);
-  SET_ENV_FLAG_NEW(PT_HPU_RECIPE_CACHE_CONFIG, env_val_org.c_str(), 1);
+
   PT_TEST_DEBUG("Restore original PT_HPU_RECIPE_CACHE_CONFIG=", env_val_org);
+  SET_ENV_FLAG_NEW(PT_HPU_RECIPE_CACHE_CONFIG, env_val_org.c_str(), 1);
 
   PT_TEST_DEBUG("Unset env PT_HPU_RECIPE_CACHE_CONFIG");
-  // unset env flag
   unsetenv("PT_HPU_RECIPE_CACHE_CONFIG");
 }
 
@@ -721,20 +724,49 @@ TEST(FunctionEnvFlagsValidation, CheckRecipeCacheConfig) {
   std::string errorMsg;
   // Create tmp directory for testing
   std::filesystem::create_directories("/tmp/recipe-cache");
-  // Valid configuration
+
+  // Valid: only 1 field
+  EXPECT_TRUE(
+      env_flags::new_style::check_recipe_cache_config(
+          "/tmp/recipe-cache", errorMsg));
+  EXPECT_TRUE(errorMsg.empty());
+
+  // Valid: only 2 fields
+  EXPECT_TRUE(
+      env_flags::new_style::check_recipe_cache_config(
+          "/tmp/recipe-cache,true", errorMsg));
+  EXPECT_TRUE(errorMsg.empty());
+
+  // Valid: only 3 fields
+  EXPECT_TRUE(
+      env_flags::new_style::check_recipe_cache_config(
+          "/tmp/recipe-cache,true,1024", errorMsg));
+  EXPECT_TRUE(errorMsg.empty());
+
+  // Valid: all 4 fields
   EXPECT_TRUE(
       env_flags::new_style::check_recipe_cache_config(
           "/tmp/recipe-cache,true,1024,false", errorMsg));
   EXPECT_TRUE(errorMsg.empty());
 
-  // Invalid format: missing fields
-  EXPECT_FALSE(
+  // Valid: empty directory path
+  EXPECT_TRUE(
       env_flags::new_style::check_recipe_cache_config(
-          "/tmp/recipe-cache,true,1024", errorMsg));
-  EXPECT_EQ(
-      errorMsg,
-      "/tmp/recipe-cache,true,1024 does not match expected format. Expected: <path> or <path>,<true|false>,<int_size_in_MB>,<true|false>.");
-  errorMsg.clear();
+          ",true,1024,false", errorMsg));
+  EXPECT_TRUE(errorMsg.empty());
+
+  // Valid: case insensitive for bool (From SW-238935)
+  EXPECT_TRUE(
+      env_flags::new_style::check_recipe_cache_config(
+          "/tmp/recipe_cache,False,1", errorMsg));
+  EXPECT_TRUE(errorMsg.empty());
+
+  // Valid: input config with spaces around values
+  EXPECT_TRUE(
+      env_flags::new_style::check_recipe_cache_config(
+          "/tmp/recipe-cache, true ,1024,false", errorMsg));
+  EXPECT_TRUE(errorMsg.empty());
+  std::filesystem::remove_all("/tmp/recipe-cache");
 
   // Invalid directory path: contains unsafe characters
   EXPECT_FALSE(
@@ -742,7 +774,7 @@ TEST(FunctionEnvFlagsValidation, CheckRecipeCacheConfig) {
           "/tmp/invalid|path,true,1024,false", errorMsg));
   EXPECT_EQ(
       errorMsg,
-      "/tmp/invalid|path,true,1024,false does not match expected format. Expected: <path> or <path>,<true|false>,<int_size_in_MB>,<true|false>.");
+      "/tmp/invalid|path,true,1024,false does not match expected format. Expected: <path>,<true|false>,<int_size_in_MB>,<true|false>.");
   errorMsg.clear();
 
   // Invalid directory path: contains unsafe characters
@@ -754,18 +786,11 @@ TEST(FunctionEnvFlagsValidation, CheckRecipeCacheConfig) {
       "Directory path contains unsafe characters: /tmp/unsafe$path. Please avoid using characters like [\\s\"'\\\\<>|&;$%*?\\[\\]\\{\\}^~`] in the path.");
   errorMsg.clear();
 
-  // valid directory path: does not exist, it will just warning and the process
-  // continues
-  EXPECT_NO_THROW({
-    try {
-      EXPECT_TRUE(
-          env_flags::new_style::check_recipe_cache_config(
-              "/nonexistent/path,true,1024,false", errorMsg));
-    } catch (const std::exception& e) {
-      FAIL() << "Unexpected exception: " << e.what();
-    }
-  });
-  errorMsg.clear();
+  // Valid directory path: does not exist, just show warning and proceed
+  EXPECT_TRUE(
+      env_flags::new_style::check_recipe_cache_config(
+          "/nonexistent/path,true,1024,false", errorMsg));
+  EXPECT_TRUE(errorMsg.empty());
 
   // Invalid directory path: not a directory
   std::string test_file = "/tmp/test_file";
@@ -780,7 +805,7 @@ TEST(FunctionEnvFlagsValidation, CheckRecipeCacheConfig) {
   std::remove(test_file.c_str());
   errorMsg.clear();
 
-  // Path is a symbolic link
+  // Invalid directory path: path is a symbolic link
   std::filesystem::create_directories("/tmp/real_directory");
   std::filesystem::create_symlink(
       "/tmp/real_directory", "/tmp/symlink_directory");
@@ -794,7 +819,7 @@ TEST(FunctionEnvFlagsValidation, CheckRecipeCacheConfig) {
   std::filesystem::remove_all("/tmp/real_directory");
   errorMsg.clear();
 
-  // Directory is not writable
+  // Invalid directory path: directory is not writable
   std::filesystem::create_directories("/tmp/not_writable_directory");
   std::filesystem::permissions(
       "/tmp/not_writable_directory", std::filesystem::perms::owner_read);
@@ -807,19 +832,6 @@ TEST(FunctionEnvFlagsValidation, CheckRecipeCacheConfig) {
       "/tmp/not_writable_directory", std::filesystem::perms::owner_all);
   std::filesystem::remove_all("/tmp/not_writable_directory");
   errorMsg.clear();
-
-  // Valid configuration with empty directory path
-  EXPECT_TRUE(
-      env_flags::new_style::check_recipe_cache_config(
-          ",true,1024,false", errorMsg));
-  EXPECT_TRUE(errorMsg.empty());
-
-  // valid input config with spaces around values
-  EXPECT_TRUE(
-      env_flags::new_style::check_recipe_cache_config(
-          "/tmp/recipe-cache, true ,1024,false", errorMsg));
-  EXPECT_TRUE(errorMsg.empty());
-  std::filesystem::remove_all("/tmp/recipe-cache");
 }
 
 TEST(FunctionEnvFlagsValidation, CheckFlagStatus) {
