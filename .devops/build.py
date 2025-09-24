@@ -1873,7 +1873,7 @@ def add_upstream_versions(wheel_specs: list[WheelSpec], cpu_index_url: str | Non
                 continue
 
             new_version = Version(str(version) + "+cpu")
-            new_source = cpu_index_url if cpu_index_url != "default" else "https://download.pytorch.org/whl/"
+            new_source = cpu_index_url if cpu_index_url != "default" else "https://download.pytorch.org/whl/cpu"
             new_pt_versions.add(VersionAndSource(new_version, new_source))
         ws.pt_versions = new_pt_versions
 
