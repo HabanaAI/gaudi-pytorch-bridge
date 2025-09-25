@@ -236,7 +236,8 @@ sizes_vec SDPABwdOutputShape(const at::Stack& stack) {
   return {q_shape, k_shape, v_shape};
 }
 
-static void fillSdpaParams(
+namespace {
+void fillSdpaParams(
     ns_Sdpa::ParamsV7& params,
     double p,
     double scale,
@@ -261,11 +262,50 @@ static void fillSdpaParams(
       (window_size.size() == 2) ? safe_convert<int>(window_size[0]) : -1;
   params.wr =
       (window_size.size() == 2) ? safe_convert<int>(window_size[1]) : -1;
+}
 
+void setHwAlignedParams(ns_Sdpa::ParamsV7& params) {
   const auto& device = habana::HPUDeviceContext::get_device();
   params.is_hw_aligned = device.get_scale_attribute_is_hw_aligned();
   params.scale_method_hash_id = device.get_scale_attribute_hash_id();
 }
+
+template <typename T>
+bool isH2dOrNone(const T& scale) {
+  if constexpr (std::is_same_v<T, std::optional<TensorsPair>>) {
+    if (scale.has_value()) {
+      return get_tensor_extra_meta(scale->pt_t)->get_tensor_type() ==
+          HOST_TO_DEVICE_TENSOR;
+    }
+  } else if (std::is_same_v<T, VariantWrapper<TensorsPair, c10::IValue>>) {
+    if (scale.isTensorsPair()) {
+      return get_tensor_extra_meta(scale.toTensorsPair().pt_t)
+                 ->get_tensor_type() == HOST_TO_DEVICE_TENSOR;
+    } else if (not scale.toIValue().isNone()) {
+      // Not likely case when scale is a scalar.
+      return false;
+    }
+  } else {
+    HABANA_ASSERT(false, "Unsupported type.");
+  }
+  // Scale is none.
+  return true;
+}
+
+template <typename T>
+void fillH2dParams(ns_Sdpa::ParamsV7& params, const std::vector<T>& scales) {
+  bool all_h2d = true;
+  for (const auto& scale : scales) {
+    if (not isH2dOrNone(scale)) {
+      all_h2d = false;
+      break;
+    }
+  }
+  if (all_h2d) {
+    setHwAlignedParams(params);
+  }
+}
+} // namespace
 
 sizes_vec Fp8SDPAFwdOutputShape(const at::Stack& stack) {
   sizes_vec out_shapes = SDPAFwdOutputShape(stack);
@@ -391,6 +431,10 @@ void Fp8SDPAFwd::AddNode(
 
   fillSdpaParams(
       params, p, scale, is_causal, false /*is_inference*/, softmax_mode, flags);
+  fillH2dParams(
+      params,
+      std::vector<std::optional<TensorsPair>>{
+          d_scale_q, d_scale_k, d_scale_v, q_scale_s, q_scale_o, d_scale_s});
 
   std::string guid =
       get_guid_with_precision("sdpa_fwd"sv, q.pt_t.scalar_type());
@@ -987,6 +1031,10 @@ void Fp8SDPARecompFwd::AddNode(
       softmax_mode,
       flags,
       window_size);
+  fillH2dParams(
+      params,
+      std::vector<VariantWrapper<TensorsPair, c10::IValue>>{
+          d_scale_q, d_scale_k, d_scale_v, q_scale_s, q_scale_o, d_scale_s});
 
   std::vector<NodeAttr::NodeOutputAttr> output_attrs;
 

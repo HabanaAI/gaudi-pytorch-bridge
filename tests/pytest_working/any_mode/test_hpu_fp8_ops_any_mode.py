@@ -1715,13 +1715,19 @@ def test_cast_to_from_h2d(src_dtype):
 
 
 @pytest.mark.skipif(is_pytest_mode_eager(), reason="Eager mode doesn't support H2D scales.")
-def test_sdpa_h2d():
+@pytest.mark.parametrize("eagerly", [False, True])
+def test_sdpa_h2d(eagerly):
+    if eagerly and is_pytest_mode_lazy():
+        pytest.skip("Eager fallback not supported in lazy mode.")
+
     ht.enable_inference_mode()
     import habana_frameworks.torch.utils.experimental as htexp
 
     htexp._set_scale_attributes(True, 10)
 
-    fn = compile_function_if_compile_mode(torch.ops.hpu.fp8_sdpa_recomp_fwd)
+    fn = torch.ops.hpu.fp8_sdpa_recomp_fwd
+    if not eagerly:
+        fn = compile_function_if_compile_mode(fn)
     fp8_type = torch.float8_e4m3fn
 
     q = torch.randn((3, 4, 12, 8)).to(fp8_type).to("hpu")
@@ -1764,7 +1770,9 @@ def test_sdpa_h2d():
 
     # Compile sdpa once again, this time without H2D scaling optimization.
     # Eager fallback is needed, because cpu scales are copied into HPU.
-    fn = compile_function_if_compile_mode(torch.ops.hpu.fp8_sdpa_recomp_fwd)
+    fn = torch.ops.hpu.fp8_sdpa_recomp_fwd
+    if not eagerly:
+        fn = compile_function_if_compile_mode(fn)
     with use_eager_fallback():
         execute_sdpa(results_ref)
 
