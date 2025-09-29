@@ -71,7 +71,7 @@ void ComputeGraphHashCode(
   std::unordered_map<habana_torch::jit::Node*, size_t> node_idx_map;
   std::unordered_map<size_t, std::string> idx_const_map;
   size_t idx{0};
-  for (auto node : irgraph->nodes()) {
+  for (const auto& node : irgraph->nodes()) {
     if (node->kind() != habana_torch::jit::prim::Constant) {
       std::string s(node->kind().toQualString());
       s.append("(");
@@ -124,7 +124,8 @@ void ComputeGraphHashCode(
 
   size_t connection_hash{0};
   // Adding input hash
-  for (size_t i = 0; i < irgraph->inputs().size(); ++i) {
+  size_t num_irgraph_inputs = irgraph->inputs().size();
+  for (size_t i = 0; i < num_irgraph_inputs; ++i) {
     auto value_in = irgraph->inputs().at(i);
     size_t input_connection_hash = i;
 
@@ -137,7 +138,8 @@ void ComputeGraphHashCode(
     connection_hash = at::hash_combine(connection_hash, input_connection_hash);
   }
   //  Adding output hash
-  for (size_t i = 0; i < irgraph->outputs().size(); ++i) {
+  size_t num_irgraph_outputs = irgraph->outputs().size();
+  for (size_t i = 0; i < num_irgraph_outputs; ++i) {
     auto value_out = irgraph->outputs().at(i);
     size_t output_connection_hash = i;
     auto node = value_out->node();
@@ -180,7 +182,7 @@ void ComputeGraphHashCode(
 
   for (auto& input : input_refs) {
     if (input.isTensor()) {
-      auto pt_tensor = input.toTensor();
+      const auto& pt_tensor = input.toTensor();
       dims_hash = at::hash_combine(
           dims_hash, static_cast<size_t>(habana::mod_exp(pt_tensor.dim())));
       auto pt_type = pt_tensor.scalar_type();
@@ -290,14 +292,21 @@ size_t ComputePermutationHashCode(
   uint32_t cnt = 0;
   for (auto& input : input_refs) {
     if (input.isTensor()) {
-      auto tensor = input.toTensor();
+      const auto& tensor = input.toTensor();
       if (!habana::get_tensor_extra_meta(tensor)->is_shape_tensor()) {
         synapse_helpers::layouts::MemoryPermutation permutation;
         std::tie(permutation, std::ignore) =
             habana_helpers::get_tensor_memory_permutation(tensor);
-        for (auto item : permutation) {
+        size_t perm_combined = permutation.size();
+        if (perm_combined) {
           perm_hash_code = at::hash_combine(perm_hash_code, cnt);
-          perm_hash_code = at::hash_combine(perm_hash_code, item);
+          HABANA_ASSERT(perm_combined < 8);
+          auto shift_perm = 0;
+          for (const auto& item : permutation) {
+            perm_combined |= (item << shift_perm);
+            shift_perm += 8;
+          }
+          perm_hash_code = at::hash_combine(perm_hash_code, perm_combined);
         }
       }
     }
@@ -308,13 +317,33 @@ size_t ComputePermutationHashCode(
 
 size_t ComputeSymSizeHashCode(
     at::ArrayRef<habana_torch::jit::IValue> input_refs) {
-  size_t sym_hash_code = 0;
+  size_t running_sym_hash_code = 0;
   uint32_t cnt = 0;
+  std::unordered_set<void*> buff_to_syn_tensor_set_;
   for (auto& input : input_refs) {
-    if (!input.isTensor() && input.isScalar()) {
+    if (C10_LIKELY(input.isTensor())) {
+      const auto& pt_tensor = input.toTensor();
+      auto tmeta = get_tensor_extra_meta(pt_tensor, true);
+      if (!(tmeta && tmeta->is_shape_tensor())) {
+        void* pt_tensor_buffer_start = pt_tensor.storage().data_ptr().get();
+        if (pt_tensor_buffer_start == nullptr) {
+          cnt++;
+          continue;
+        }
+        bool is_duplicate_syn_tensor{
+            buff_to_syn_tensor_set_.count(pt_tensor_buffer_start) != 0};
+        if (is_duplicate_syn_tensor) {
+          running_sym_hash_code = at::hash_combine(running_sym_hash_code, cnt);
+          running_sym_hash_code = at::hash_combine(
+              running_sym_hash_code, true /* duplicate mem section */);
+        } else {
+          buff_to_syn_tensor_set_.insert(pt_tensor_buffer_start);
+        }
+      }
+    } else if (input.isScalar()) {
       // Add the hashing for SymInts/SymFloats
       auto scalar_input = input.toScalar();
-      size_t symsize_hash{0};
+      size_t symsize_hash{cnt};
       if (input.isInt()) {
         int64_t value = input.toScalar().toLong();
         std::hash<int64_t> valhash;
@@ -329,37 +358,12 @@ size_t ComputeSymSizeHashCode(
       } else {
         HABANA_ASSERT(false, "Unhandled Scalar");
       }
-      sym_hash_code = at::hash_combine(sym_hash_code, cnt);
-      sym_hash_code = at::hash_combine(sym_hash_code, symsize_hash);
+      running_sym_hash_code =
+          at::hash_combine(running_sym_hash_code, symsize_hash);
     }
     cnt++;
   }
-
-  std::unordered_set<void*> buff_to_syn_tensor_set_;
-  cnt = 0;
-  for (auto& input : input_refs) {
-    if (input.isTensor()) {
-      auto pt_tensor = input.toTensor();
-      auto tmeta = get_tensor_extra_meta(pt_tensor, true);
-      if (!(tmeta && tmeta->is_shape_tensor())) {
-        void* pt_tensor_buffer_start = pt_tensor.storage().data_ptr().get();
-        bool is_duplicate_syn_tensor{
-            (pt_tensor_buffer_start != nullptr &&
-             buff_to_syn_tensor_set_.count(pt_tensor_buffer_start))};
-        if (is_duplicate_syn_tensor) {
-          sym_hash_code = at::hash_combine(sym_hash_code, cnt);
-          sym_hash_code =
-              at::hash_combine(sym_hash_code, true /* duplicate mem section */);
-        }
-        if (pt_tensor_buffer_start != nullptr) {
-          buff_to_syn_tensor_set_.insert(pt_tensor_buffer_start);
-        }
-      }
-    }
-    cnt++;
-  }
-
-  return sym_hash_code;
+  return running_sym_hash_code;
 }
 
 OptimizedJITGraphAndMetaData::OptimizedJITGraphAndMetaData() = default;
