@@ -58,6 +58,7 @@ class FusedLamb(Optimizer):
         https://openreview.net/forum?id=ryQu7f-RZ
     """
 
+    @torch._dynamo.disable
     def __init__(
         self,
         params,

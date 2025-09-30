@@ -28,6 +28,7 @@ cpu = torch.device("cpu")
 
 
 class FusedSGD(Optimizer):
+    @torch._dynamo.disable
     def __init__(
         self,
         params: Iterable[torch.nn.parameter.Parameter],
@@ -74,6 +75,7 @@ class FusedSGD(Optimizer):
 
         htcore.step_closure._mark_step_if_lazy()
 
+    @torch._dynamo.disable
     def step(self, closure: Callable = None):
         """
         Performs a single optimization step.

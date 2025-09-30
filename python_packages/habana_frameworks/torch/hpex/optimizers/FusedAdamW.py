@@ -24,6 +24,7 @@ from torch.optim import Optimizer
 
 
 class FusedAdamW(Optimizer):
+    @torch._dynamo.disable
     def __init__(
         self,
         params: Iterable[torch.nn.parameter.Parameter],
