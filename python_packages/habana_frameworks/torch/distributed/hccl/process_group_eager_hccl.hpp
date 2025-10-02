@@ -41,7 +41,7 @@ class TORCH_API ProcessGroupEagerHCCL : public ProcessGroupHcclBase {
       int rank,
       int size,
       std::string group_name);
-  virtual ~ProcessGroupEagerHCCL();
+  ~ProcessGroupEagerHCCL() override;
 
   class WorkEager : public Work,
                     public std::enable_shared_from_this<WorkEager> {
@@ -51,7 +51,7 @@ class TORCH_API ProcessGroupEagerHCCL : public ProcessGroupHcclBase {
         std::shared_ptr<habana::HcclCommunicator> hccl_comm_);
     WorkEager();
     WorkEager(const WorkEager& w) = delete;
-    virtual ~WorkEager();
+    ~WorkEager() override;
     bool isCompleted() override;
     bool isSuccess() const override;
     bool wait(std::chrono::milliseconds timeout = kNoTimeout) override;
@@ -61,7 +61,7 @@ class TORCH_API ProcessGroupEagerHCCL : public ProcessGroupHcclBase {
 
    protected:
     std::vector<at::Tensor> outputs_;
-    std::shared_ptr<habana::HcclCommunicator> comm_;
+    std::weak_ptr<habana::HcclCommunicator> comm_;
     absl::AnyInvocable<bool()> is_coalescing_fn_ = []() { return false; };
     // Time point representing when the work started.
     std::chrono::time_point<std::chrono::steady_clock> workStartTime_;

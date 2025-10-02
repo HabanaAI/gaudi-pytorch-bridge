@@ -271,32 +271,52 @@ bool ProcessGroupEagerHCCL::WorkEager::isSuccess() const {
 }
 
 void ProcessGroupEagerHCCL::WorkEager::synchronize() {
-  for (size_t i = 0; i < outputs_.size(); ++i) {
-    PT_DISTRIBUTED_DEBUG("WorkEager::synchronize()");
-    comm_->getDeviceCtxt()->synchronize_output(
-        (synapse_helpers::device_ptr)outputs_[i].storage().data_ptr().get(),
-        (c10::hpu::getCurrentHPUStream()).stream());
+  if (outputs_.empty()) {
+    return;
+  }
+
+  if (auto comm_sp = comm_.lock()) {
+    for (size_t i = 0; i < outputs_.size(); ++i) {
+      PT_DISTRIBUTED_DEBUG("WorkEager::synchronize()");
+      comm_sp->getDeviceCtxt()->synchronize_output(
+          (synapse_helpers::device_ptr)outputs_[i].storage().data_ptr().get(),
+          (c10::hpu::getCurrentHPUStream()).stream());
+    }
+  } else {
+    HABANA_ASSERT(
+        comm_sp,
+        "Trying to synchronize HCCL task with uninitialized HCCLCommunicator");
   }
   outputs_.clear();
 }
 
 void Synchronize_Execute_Task(
     const std::vector<at::Tensor>& outputs,
-    habana::HcclCommunicator& comm,
+    std::weak_ptr<habana::HcclCommunicator> comm,
     synapse_helpers::hpuStream_t stream) {
   PT_DISTRIBUTED_DEBUG("Synchronize_Execute_Task");
-  for (size_t i = 0; i < outputs.size(); ++i) {
-    // Check if the tensor metadata send org tensor is available.
-    // Use the org tensor address for synchronize.
-    // Note: This org tensor as a tensor metadata can be set if
-    // the previous OP is P2P send i.e. permutedSendTensorsToDense.
-    auto output_address = outputs[i].storage().data_ptr().get();
-    auto tensor_tmeta{habana::get_tensor_extra_meta(outputs[i])};
-    if (auto org_tensor = tensor_tmeta->get_send_org_tensor()) {
-      output_address = org_tensor->storage().data_ptr().get();
+  if (outputs.empty()) {
+    return;
+  }
+
+  if (auto comm_sp = comm.lock()) {
+    for (size_t i = 0; i < outputs.size(); ++i) {
+      // Check if the tensor metadata send org tensor is available.
+      // Use the org tensor address for synchronize.
+      // Note: This org tensor as a tensor metadata can be set if
+      // the previous OP is P2P send i.e. permutedSendTensorsToDense.
+      auto output_address = outputs[i].storage().data_ptr().get();
+      auto tensor_tmeta{habana::get_tensor_extra_meta(outputs[i])};
+      if (auto org_tensor = tensor_tmeta->get_send_org_tensor()) {
+        output_address = org_tensor->storage().data_ptr().get();
+      }
+      comm_sp->getDeviceCtxt()->synchronize_output(
+          (synapse_helpers::device_ptr)output_address, stream);
     }
-    comm.getDeviceCtxt()->synchronize_output(
-        (synapse_helpers::device_ptr)output_address, stream);
+  } else {
+    HABANA_ASSERT(
+        comm_sp,
+        "Trying to synchronize HCCL task with uninitialized HCCLCommunicator");
   }
 }
 
@@ -331,12 +351,12 @@ bool ProcessGroupEagerHCCL::WorkEager::wait(
         [outputs_backend = std::move(outputs_backend),
          comm = comm_,
          stream = (c10::hpu::getCurrentHPUStream()).stream()]() {
-          Synchronize_Execute_Task(outputs_backend, *comm, stream);
+          Synchronize_Execute_Task(outputs_backend, comm, stream);
         });
   } else {
     habana::eager::JoinPendingPipelineThreads();
     Synchronize_Execute_Task(
-        outputs_, *comm_, (c10::hpu::getCurrentHPUStream()).stream());
+        outputs_, comm_, (c10::hpu::getCurrentHPUStream()).stream());
   }
   // NOLINTBEGIN(clang-analyzer-cplusplus.NewDeleteLeaks)
   outputs_.clear();

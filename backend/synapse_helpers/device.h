@@ -145,7 +145,7 @@ class device final : public device_interface {
   device& operator=(const device&) = delete;
   device(device&&) = delete;
   device& operator=(device&&) = delete;
-  ~device();
+  ~device() override;
 
   void cleanup();
   void flush_stream_events();

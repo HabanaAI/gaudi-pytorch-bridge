@@ -20,6 +20,7 @@
 #include <unordered_map>
 #include <utility>
 #include "backend/habana_device/HPUDevice.h"
+#include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/helpers/event_dispatcher.h"
 #include "backend/profiling/trace_sources/sources.h"
 #include "backend/synapse_helpers/device.h"
@@ -48,8 +49,10 @@ void device_memory::init_hlml_memory() {
       return stats.bytes_in_use;
     };
 
-    m_hlml_memory_updater = std::make_shared<HlMlMemoryUpdater>(
+    m_hlml_memory_updater = std::make_unique<HlMlMemoryUpdater>(
         m_hlml_memory_reporter, get_used_memory);
+    habana::HPURegistrar::get_hpu_registrar().register_hlml_deleter(
+        [this]() { m_hlml_memory_updater.reset(); });
     PT_SYNHELPER_DEBUG("HLML memory reporeter initialized");
   } catch (const HlMlMemoryReporter::Error& e) {
     PT_SYNHELPER_WARN("Cannot initialize HLML memory reporter: ", e.what());

@@ -126,7 +126,7 @@ class device_memory {
   void init_hlml_memory();
 #ifdef PT_HLML_ENABLED
   std::shared_ptr<HlMlMemoryReporter> m_hlml_memory_reporter;
-  std::shared_ptr<HlMlMemoryUpdater> m_hlml_memory_updater;
+  std::unique_ptr<HlMlMemoryUpdater> m_hlml_memory_updater;
 #endif
   size_t alignment_;
 

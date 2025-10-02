@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -133,6 +133,20 @@ class HPURegistrar {
     device_deleter_.reset(std::move(device_deleter));
   }
 
+  void register_device_context_deleter(
+      CallFinally::FinalFunc&& device_context_deleter) {
+    HABANA_ASSERT(!hpu_device_context_deleter_);
+    hpu_device_context_deleter_.reset(std::move(device_context_deleter));
+  }
+
+#ifdef PT_HLML_ENABLED
+  void register_hlml_deleter(CallFinally::FinalFunc&& hlml_deleter) {
+    HABANA_ASSERT(!hlml_deleter_);
+    hlml_deleter_.reset(std::move(hlml_deleter));
+  }
+
+#endif // PT_HLML_ENABLED
+
   static const std::thread::id& get_main_thread_id();
 
  private:
@@ -145,6 +159,7 @@ class HPURegistrar {
 
   static const std::thread::id main_thread_id_;
 
+  CallFinally hpu_device_context_deleter_;
   CallFinally device_deleter_;
   CallFinally lazy_execution_arena_cleanup_;
   CallFinally thread_deleter_;
@@ -152,6 +167,9 @@ class HPURegistrar {
   CallFinally process_group_finalizer_;
   CallFinally accumulation_thread_cleanup_;
   CallFinally media_proxy_finalizer_;
+#ifdef PT_HLML_ENABLED
+  CallFinally hlml_deleter_;
+#endif
 };
 inline HPURegistrar& hpu_registrar() {
   return HPURegistrar::get_hpu_registrar();

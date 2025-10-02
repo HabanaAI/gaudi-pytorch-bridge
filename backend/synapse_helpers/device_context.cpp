@@ -39,7 +39,7 @@ device_context::device_context(int device_id) {
 device_context::~device_context() {
   if (device_) {
     device_->cleanup();
-    device_ = nullptr;
+    device_.reset();
   }
 }
 

@@ -96,6 +96,8 @@ class MetricManager:
 
         self._metric_saver.process_trigger(MetricDumpTrigger.process_exit, self._global_metrics)
         self._metric_saver.close()
+        for metric in self._global_metrics:
+            metric.stop()
 
     def store_global_metrics(self, file_name, format):
         saver = MetricSaver(file_name, triggers=[MetricDumpTrigger.user], format=format)
@@ -209,9 +211,6 @@ class MemoryDefragmentationMetric(Metric):
         self._total_successful_defragmentation_count = 0
         self._defragmentation_time.clear()
 
-    def __del__(self):
-        self.stop()
-
 
 class DevMemMetric(Metric):
     """
@@ -265,9 +264,6 @@ class DevMemMetric(Metric):
     def reset(self):
         self.process()
         self._stat = {}
-
-    def __del__(self):
-        self.stop()
 
 
 class RecipeCacheMetric(Metric):
@@ -345,9 +341,6 @@ class RecipeCacheMetric(Metric):
         self.total_cache_miss = 0
         self.total_recipe_cache_miss = {}
 
-    def __del__(self):
-        self.stop()
-
 
 class CpuFallbackMetric(Metric):
     _TOTAL_FALLBACKS_TAG = "TotalNumber"
@@ -398,9 +391,6 @@ class CpuFallbackMetric(Metric):
         self.process()
         self._total_fallback_count = 0
         self._total_op_fallback_count = {}
-
-    def __del__(self):
-        self.stop()
 
 
 class GraphCompilationMetric(Metric):
@@ -468,9 +458,6 @@ class GraphCompilationMetric(Metric):
         self.process()
         self._total_num_of_compilation = 0
         self._total_time_of_compilation = 0
-
-    def __del__(self):
-        self.stop()
 
 
 _metric_mgr = None

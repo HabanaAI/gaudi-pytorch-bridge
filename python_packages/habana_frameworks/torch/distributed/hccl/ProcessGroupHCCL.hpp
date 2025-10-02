@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -80,7 +80,7 @@ class TORCH_API ProcessGroupHCCL : public ProcessGroupHcclBase {
       int size,
       std::string group_name);
 
-  virtual ~ProcessGroupHCCL();
+  ~ProcessGroupHCCL() override;
 
   c10::intrusive_ptr<Work> barrier(
       const BarrierOptions& opts = BarrierOptions()) override;

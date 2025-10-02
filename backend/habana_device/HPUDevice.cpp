@@ -28,7 +28,20 @@
 
 namespace habana::HPUDeviceContext {
 
-struct HPUDeviceContextImpl {
+class HPUDeviceContextImpl {
+ public:
+  static HPUDeviceContextImpl& instance() {
+    if (!device_context) {
+      device_context.reset(new HPUDeviceContextImpl);
+    }
+    return *device_context;
+  }
+
+  HPUDeviceContextImpl(const HPUDeviceContextImpl&) = delete;
+  HPUDeviceContextImpl(HPUDeviceContextImpl&&) = delete;
+  HPUDeviceContextImpl& operator=(const HPUDeviceContextImpl&) = delete;
+  HPUDeviceContextImpl& operator=(HPUDeviceContextImpl&&) = delete;
+  ~HPUDeviceContextImpl() = default;
   std::unique_ptr<habana_helpers::SingleThreadPool> garbage_collection_thread_;
   synapse_helpers::device_handle device_;
   std::unique_ptr<backend::ScalarCache> scalar_cache_;
@@ -52,7 +65,13 @@ struct HPUDeviceContextImpl {
   void CreateDevice();
   void Finish();
   void ThreadsRelease();
-} device_context;
+
+ private:
+  HPUDeviceContextImpl() = default;
+  static std::unique_ptr<HPUDeviceContextImpl> device_context;
+};
+
+std::unique_ptr<HPUDeviceContextImpl> HPUDeviceContextImpl::device_context{};
 
 void HPUDeviceContextImpl::JoinAllThreads() {
   if (!lowering_thread_)
@@ -121,9 +140,11 @@ void HPUDeviceContextImpl::Init() {
   h2d_scales_cache_ = std::make_unique<backend::H2dScalesCache>();
 
   HPURegistrar::get_hpu_registrar().register_thread_deleter(
-      []() { device_context.ThreadsRelease(); });
+      []() { HPUDeviceContextImpl::instance().ThreadsRelease(); });
   HPURegistrar::get_hpu_registrar().register_device_deleter(
-      []() { device_context.Finish(); });
+      []() { HPUDeviceContextImpl::instance().Finish(); });
+  HPURegistrar::get_hpu_registrar().register_device_context_deleter(
+      []() { device_context.reset(); });
 }
 
 void HPUDeviceContextImpl::ThreadsRelease() {
@@ -132,9 +153,9 @@ void HPUDeviceContextImpl::ThreadsRelease() {
   common::PipelineDeleter::instance().uninstall();
 
   habana_helpers::AutoNoGIL gil_release;
-  device_context.lowering_thread_.reset();
-  device_context.compile_thread_pool_.reset();
-  device_context.execute_thread_.reset();
+  HPUDeviceContextImpl::instance().lowering_thread_.reset();
+  HPUDeviceContextImpl::instance().compile_thread_pool_.reset();
+  HPUDeviceContextImpl::instance().execute_thread_.reset();
 }
 
 void HPUDeviceContextImpl::Finish() {
@@ -167,14 +188,14 @@ void HPUDeviceContextImpl::Finish() {
   device_->cleanup();
 
   garbage_collection_thread_.reset();
-  device_.reset();
-
-  if (device_.use_count() != 0) {
+  if (device_.use_count() != 1) {
     TORCH_WARN(
         "when deleting HPUDevice, device is kept alive by ",
-        device_.use_count(),
+        device_.use_count() - 1,
         " other references ");
   }
+
+  device_.reset();
 
   habana::HPUDeviceAllocator::allocator_active_device_id =
       SYN_INVALID_DEVICE_ID;
@@ -184,98 +205,99 @@ void HPUDeviceContextImpl::Finish() {
 }
 
 synapse_helpers::device& get_device(synDeviceId /*unused*/) {
-  HABANA_ASSERT(device_context.device_);
-  return *device_context.device_;
+  HABANA_ASSERT(HPUDeviceContextImpl::instance().device_);
+  return *HPUDeviceContextImpl::instance().device_;
 }
 
 void join_all_threads() {
-  device_context.JoinAllThreads();
+  HPUDeviceContextImpl::instance().JoinAllThreads();
 }
 void join_pipeline_threads() {
-  device_context.JoinPipelineThreads();
+  HPUDeviceContextImpl::instance().JoinPipelineThreads();
 }
 
 void join_lowering_thread() {
-  device_context.JoinLoweringThread();
+  HPUDeviceContextImpl::instance().JoinLoweringThread();
 }
 
 bool get_exception_occurred() {
   if (!is_device_acquired())
     return false;
-  bool exception_occurred = device_context.exception_occurred_;
-  device_context.exception_occurred_ = false;
+  bool exception_occurred =
+      HPUDeviceContextImpl::instance().exception_occurred_;
+  HPUDeviceContextImpl::instance().exception_occurred_ = false;
   return exception_occurred;
 }
 
 PipeThreadpool& compile_thread_pool() {
-  HABANA_ASSERT(device_context.compile_thread_pool_);
-  return *device_context.compile_thread_pool_;
+  HABANA_ASSERT(HPUDeviceContextImpl::instance().compile_thread_pool_);
+  return *HPUDeviceContextImpl::instance().compile_thread_pool_;
 }
 
 habana_helpers::SingleThreadPool& garbage_collection_thread() {
-  HABANA_ASSERT(device_context.garbage_collection_thread_);
-  return *device_context.garbage_collection_thread_;
+  HABANA_ASSERT(HPUDeviceContextImpl::instance().garbage_collection_thread_);
+  return *HPUDeviceContextImpl::instance().garbage_collection_thread_;
 }
 
 PipeSingleThreadpool& lowering_thread() {
-  HABANA_ASSERT(device_context.lowering_thread_);
-  return *device_context.lowering_thread_;
+  HABANA_ASSERT(HPUDeviceContextImpl::instance().lowering_thread_);
+  return *HPUDeviceContextImpl::instance().lowering_thread_;
 }
 
 PipeSingleThreadpool& execute_thread() {
-  HABANA_ASSERT(device_context.execute_thread_);
-  return *device_context.execute_thread_;
+  HABANA_ASSERT(HPUDeviceContextImpl::instance().execute_thread_);
+  return *HPUDeviceContextImpl::instance().execute_thread_;
 }
 
 habana_helpers::ThreadPool& lazy_compile_thread_pool() {
-  HABANA_ASSERT(device_context.lazy_compile_thread_pool_);
-  return *device_context.lazy_compile_thread_pool_;
+  HABANA_ASSERT(HPUDeviceContextImpl::instance().lazy_compile_thread_pool_);
+  return *HPUDeviceContextImpl::instance().lazy_compile_thread_pool_;
 }
 
 backend::ScalarCache& scalar_cache() {
-  HABANA_ASSERT(device_context.scalar_cache_);
-  return *device_context.scalar_cache_;
+  HABANA_ASSERT(HPUDeviceContextImpl::instance().scalar_cache_);
+  return *HPUDeviceContextImpl::instance().scalar_cache_;
 }
 
 backend::H2dScalesCache& h2d_scales_cache() {
-  HABANA_ASSERT(device_context.h2d_scales_cache_);
-  return *device_context.h2d_scales_cache_;
+  HABANA_ASSERT(HPUDeviceContextImpl::instance().h2d_scales_cache_);
+  return *HPUDeviceContextImpl::instance().h2d_scales_cache_;
 }
 
 synapse_helpers::device& syn_device() {
-  HABANA_ASSERT(device_context.device_);
-  return *device_context.device_;
+  HABANA_ASSERT(HPUDeviceContextImpl::instance().device_);
+  return *HPUDeviceContextImpl::instance().device_;
 }
 
 RecipeCacheLRU& recipe_cache() {
-  HABANA_ASSERT(device_context.recipe_cache_);
-  return *device_context.recipe_cache_;
+  HABANA_ASSERT(HPUDeviceContextImpl::instance().recipe_cache_);
+  return *HPUDeviceContextImpl::instance().recipe_cache_;
 }
 
 void recipe_cache_clear() {
-  if (device_context.recipe_cache_)
-    device_context.recipe_cache_->clear();
+  if (HPUDeviceContextImpl::instance().recipe_cache_)
+    HPUDeviceContextImpl::instance().recipe_cache_->clear();
 }
 
 void flush_disk_cache() {
-  if (device_context.recipe_cache_)
-    device_context.recipe_cache_->FlushDiskCache();
+  if (HPUDeviceContextImpl::instance().recipe_cache_)
+    HPUDeviceContextImpl::instance().recipe_cache_->FlushDiskCache();
 }
 
 void synchronize() {
-  HABANA_ASSERT(device_context.device_);
-  device_context.device_->synchronize();
+  HABANA_ASSERT(HPUDeviceContextImpl::instance().device_);
+  HPUDeviceContextImpl::instance().device_->synchronize();
 }
 
 void synchronize_host_multistage_pipeline() {
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 0) {
-    device_context.JoinAllThreads();
+    HPUDeviceContextImpl::instance().JoinAllThreads();
   }
 }
 
 std::string get_device_capability() {
-  HABANA_ASSERT(device_context.device_);
-  return device_context.device_->get_device_capability();
+  HABANA_ASSERT(HPUDeviceContextImpl::instance().device_);
+  return HPUDeviceContextImpl::instance().device_->get_device_capability();
 }
 
 std::string get_device_properties(unsigned id) {
@@ -288,9 +310,10 @@ int get_total_device_count() {
 
 c10::Device get_or_create_aten_device() {
   PT_BRIDGE_BEGIN;
-  if (!device_context.device_) {
-    device_context.Init();
-    PT_BRIDGE_DEBUG("Created hpu device ", device_context.device_.get());
+  if (!HPUDeviceContextImpl::instance().device_) {
+    HPUDeviceContextImpl::instance().Init();
+    PT_BRIDGE_DEBUG(
+        "Created hpu device ", HPUDeviceContextImpl::instance().device_.get());
     habana::HPUDeviceAllocator::allocator_active_device_id = 0;
     habana::PinnedMemoryAllocator::allocator_active_device_id = 0;
   }
@@ -298,7 +321,7 @@ c10::Device get_or_create_aten_device() {
 }
 
 c10::Device aten_device() {
-  HABANA_ASSERT(device_context.device_);
+  HABANA_ASSERT(HPUDeviceContextImpl::instance().device_);
   return {at::kHPU, static_cast<at::DeviceIndex>(0)};
 }
 
@@ -312,8 +335,8 @@ void copy_data_to_device(
     bool is_pinned,
     synapse_helpers::hpuStream_t hpu_stream,
     void* host_cpu_data) {
-  HABANA_ASSERT(device_context.device_);
-  auto syn_error{device_context.device_->copy_data_to_device(
+  HABANA_ASSERT(HPUDeviceContextImpl::instance().device_);
+  auto syn_error{HPUDeviceContextImpl::instance().device_->copy_data_to_device(
       cpu_data,
       destination,
       event_addr,
@@ -330,8 +353,8 @@ void copy_data_to_device(
     synapse_helpers::device::transfer_manifest const& transfers,
     synapse_helpers::event_done_callback unref_cb,
     synapse_helpers::hpuStream_t hpu_stream) {
-  HABANA_ASSERT(device_context.device_);
-  auto syn_error{device_context.device_->copy_data_to_device(
+  HABANA_ASSERT(HPUDeviceContextImpl::instance().device_);
+  auto syn_error{HPUDeviceContextImpl::instance().device_->copy_data_to_device(
       transfers, unref_cb, hpu_stream)};
   TORCH_HABANA_CHECK(syn_error.status, syn_error.error);
 }
@@ -344,8 +367,8 @@ void copy_data_to_host(
     const synapse_helpers::event_done_callback& done_cb,
     bool is_pinned,
     synapse_helpers::hpuStream_t hpu_stream) {
-  HABANA_ASSERT(device_context.device_);
-  auto syn_error{device_context.device_->copy_data_to_host(
+  HABANA_ASSERT(HPUDeviceContextImpl::instance().device_);
+  auto syn_error{HPUDeviceContextImpl::instance().device_->copy_data_to_host(
       device_data,
       destination,
       event_addr,
@@ -364,32 +387,33 @@ void copy_data_within_device(
     size_t total_bytes,
     synapse_helpers::event_done_callback unref_cb,
     synapse_helpers::hpuStream_t hpu_stream) {
-  HABANA_ASSERT(device_context.device_);
-  auto syn_error{device_context.device_->copy_data_within_device(
-      source,
-      destination,
-      src_event_addr,
-      dst_event_addr,
-      total_bytes,
-      unref_cb,
-      hpu_stream)};
+  HABANA_ASSERT(HPUDeviceContextImpl::instance().device_);
+  auto syn_error{
+      HPUDeviceContextImpl::instance().device_->copy_data_within_device(
+          source,
+          destination,
+          src_event_addr,
+          dst_event_addr,
+          total_bytes,
+          unref_cb,
+          hpu_stream)};
   TORCH_HABANA_CHECK(syn_error.status, syn_error.error);
 }
 
 synapse_helpers::device_memory& get_device_memory() {
-  HABANA_ASSERT(device_context.device_);
-  return device_context.device_->get_device_memory();
+  HABANA_ASSERT(HPUDeviceContextImpl::instance().device_);
+  return HPUDeviceContextImpl::instance().device_->get_device_memory();
 }
 
 synapse_helpers::host_memory& get_host_memory() {
-  HABANA_ASSERT(device_context.device_);
-  return device_context.device_->get_host_memory();
+  HABANA_ASSERT(HPUDeviceContextImpl::instance().device_);
+  return HPUDeviceContextImpl::instance().device_->get_host_memory();
 }
 
 std::shared_ptr<synapse_helpers::TimeSlot> create_time_slot(
     synapse_helpers::hpuStream_t& hpu_stream) {
-  HABANA_ASSERT(device_context.device_);
-  auto& device = *device_context.device_;
+  HABANA_ASSERT(HPUDeviceContextImpl::instance().device_);
+  auto& device = *HPUDeviceContextImpl::instance().device_;
   auto& time_event_handle_cache = device.get_time_event_handle_cache();
   if (time_event_handle_cache.get_total_events_count() <
       synapse_helpers::event_handle_cache::get_num_events_high_watermark()) {
@@ -407,21 +431,23 @@ std::shared_ptr<synapse_helpers::TimeSlot> create_time_slot(
 }
 
 bool is_device_acquired() {
-  return static_cast<bool>(device_context.device_);
+  return static_cast<bool>(HPUDeviceContextImpl::instance().device_);
 }
 
 void synchronize_device() {
-  HABANA_ASSERT(device_context.device_);
-  device_context.device_->synchronize();
+  HABANA_ASSERT(HPUDeviceContextImpl::instance().device_);
+  HPUDeviceContextImpl::instance().device_->synchronize();
 }
 
 void set_scale_attributes(bool is_hw_aligned, uint32_t scale_hash_id) {
-  HABANA_ASSERT(device_context.device_);
-  device_context.device_->set_scale_attributes(is_hw_aligned, scale_hash_id);
+  HABANA_ASSERT(HPUDeviceContextImpl::instance().device_);
+  HPUDeviceContextImpl::instance().device_->set_scale_attributes(
+      is_hw_aligned, scale_hash_id);
 }
 
 uint32_t get_scale_attribute_hash_id() {
-  HABANA_ASSERT(device_context.device_);
-  return device_context.device_->get_scale_attribute_hash_id();
+  HABANA_ASSERT(HPUDeviceContextImpl::instance().device_);
+  return HPUDeviceContextImpl::instance()
+      .device_->get_scale_attribute_hash_id();
 }
 } // namespace habana::HPUDeviceContext
