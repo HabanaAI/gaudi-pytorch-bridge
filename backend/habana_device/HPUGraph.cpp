@@ -188,7 +188,6 @@ void HPUGraph::clear_inputs() {
 void HPUGraph::replay(std::vector<at::Tensor>& inputs, bool async) {
   PT_LAZY_TRACE;
   std::lock_guard<std::recursive_mutex> lock(mutex_);
-  PT_HPUGRAPH_DEBUG("Replay Async = ", async)
   if (capturing_ == true) {
     // if capturing is in progress, replay is not allowed.
     PT_DEVICE_FATAL("GRAPH:: Capture in progress");
@@ -474,15 +473,13 @@ void SingleHPUGraph::replayGraph(
     habana_helpers::DisableRefineDynamicShape();
   }
   auto old_stream = c10::hpu::getCurrentHPUStream();
-  auto new_stream = capture_stream_;
-  c10::hpu::setCurrentHPUStream(new_stream);
+  c10::hpu::setCurrentHPUStream(capture_stream_);
 
   habana_lazy::HbExecutionContext* context =
       habana_lazy::get_device_lazy_execution_context();
 
   size_t launch_jobid = context->GetUniqueJobId();
-  context->AddToJobidStreamidMap(
-      launch_jobid, c10::hpu::getCurrentHPUStream().stream());
+  context->AddToJobidStreamidMap(launch_jobid, capture_stream_.stream());
 
   // set exec for input/output tensors
   bool queue_in_thread_pool = async &&
@@ -490,6 +487,7 @@ void SingleHPUGraph::replayGraph(
       GET_ENV_FLAG_NEW(PT_HPU_QUEUE_SYNLAUNCHES);
   if (!queue_in_thread_pool) {
     std::unordered_set<size_t> in_uid;
+    in_uid.reserve(hblazy_tensors_in_.size());
     for (const auto& t : hblazy_tensors_in_) {
       auto uid = t.getTensorUniqueId();
       in_uid.insert(uid);
@@ -532,7 +530,7 @@ void SingleHPUGraph::replayGraph(
             prev_graph_interdep_out_t_list_,
             seed_tensors_generator_,
             launch_jobid,
-            new_stream);
+            capture_stream_);
   } else {
     habana_lazy::HbLazyTensor::ExecuteCachedGraph(
         cached_rarg_psh,
@@ -545,7 +543,7 @@ void SingleHPUGraph::replayGraph(
         prev_graph_interdep_out_t_list_,
         seed_tensors_generator_,
         launch_jobid,
-        new_stream);
+        capture_stream_);
   }
 
   auto num_inputs = input_vals.size();
@@ -565,16 +563,24 @@ void SingleHPUGraph::replayGraph(
 }
 
 void SingleHPUGraph::replay(std::vector<at::Tensor>& inputs, bool async) {
-  if (habana_helpers::is_h2d_scales_enabled() &&
-      std::any_of(inputs.begin(), inputs.end(), [](const auto& t) {
-        return t.is_cpu();
-      })) {
-    replayV3(inputs, async);
+  if (inputs.empty()) {
+    if (graph_) {
+      replayGraph(input_vals_, async);
+    }
     return;
   }
 
-  if (graph_) {
-    replayGraph(input_vals_, async);
+  if (!have_cached_h2d_scales_check_) {
+    is_h2d_scales_enabled_ = habana_helpers::is_h2d_scales_enabled() &&
+        std::any_of(inputs.begin(), inputs.end(), [](const at::Tensor& t) {
+                               return t.is_cpu();
+                             });
+    have_cached_h2d_scales_check_ = true;
+  }
+
+  if (is_h2d_scales_enabled_) {
+    replayV3(inputs, async);
+    return;
   }
 }
 

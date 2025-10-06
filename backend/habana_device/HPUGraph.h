@@ -116,6 +116,8 @@ struct SingleHPUGraph {
   size_t graphKey_{0};
   std::string opStrs_;
   c10::hpu::HPUStream capture_stream_;
+  bool is_h2d_scales_enabled_{false};
+  bool have_cached_h2d_scales_check_{false};
 };
 
 struct HPUGraph {

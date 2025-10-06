@@ -730,6 +730,7 @@ def wrapped_hpugraph_forward(
                     graph.replayV3(get_user_input_tensor_list(inputs, ()), asynchronous)
 
             cache[h] = CachedParams(graph_inputs, graph_outputs, graph, tinfo_list, asynchronous)
+            cache[h].have_h2d_tensor = have_h2d_tensor
             if verbose and log_frequency > 0 and CachedParams.iteration_cnt % log_frequency == 0:
                 log_stats(max_graphs, disable_tensor_cache, cache, asynchronous, dry_run)
 
@@ -746,11 +747,10 @@ def wrapped_hpugraph_forward(
     CachedParams.cache_hits[h] = CachedParams.cache_hits.get(h, 0) + 1
     # use replayv1 here
     input_tensor_list = get_user_input_tensor_list(inputs, ())
-    have_h2d_tensor = is_any_cpu_float_bfloat_0d_tensors(input_tensor_list)
     if not disable_tensor_cache:
         # Copy the user inputs
         copy_to(cached.graph_inputs, inputs)
-        if have_h2d_tensor:
+        if cached.have_h2d_tensor:
             cached.graph.replay_with_inputs(input_tensor_list, asynchronous)
         else:
             cached.graph.replay(asynchronous)
