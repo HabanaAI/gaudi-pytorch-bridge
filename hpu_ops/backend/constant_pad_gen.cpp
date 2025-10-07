@@ -92,9 +92,12 @@ SharedMetaDataVector ConstantPadSharedMeta(
     habana_helpers::HabanaExecutionMode /*unused*/) {
   const auto& self = stack.at(0).toTensor();
   const auto selfRank = self.dim();
-  const auto dtype = self.scalar_type();
+  auto dtype = self.scalar_type();
 
   SharedMetaData padMeta{"pad_fwd"};
+  if (dtype == c10::ScalarType::Long && common::IsInt64Supported())
+    dtype = c10::ScalarType::Int;
+
   padMeta.inputs_data.emplace_back(selfRank, dtype);
   if (stack.size() != 3 && (stack.size() != 4 || stack.at(1).isTensor())) {
     padMeta.inputs_data.emplace_back(1, c10::ScalarType::UInt32);
@@ -153,16 +156,48 @@ void ConstantPad::AddNode(
   auto meta = ConstantPadMeta(stack)[0];
   auto self = stack[0].toTensor();
   const auto& param = FillConstantPadParams(stack);
+
+  const bool is_cast_required =
+      self.scalar_type() == c10::ScalarType::Long && common::IsInt64Supported();
+
+  std::optional<synapse_helpers::tensor> castedInput = std::nullopt;
+  if (is_cast_required) {
+    meta.dtype = c10::ScalarType::Int;
+    castedInput = BuildCast(
+        this,
+        graph,
+        syn_in(0),
+        self.sizes().vec(),
+        c10::ScalarType::Long,
+        c10::ScalarType::Int);
+  }
+
+  auto input = castedInput.has_value() ? castedInput.value().get() : syn_in(0);
+
   if ((stack.size() == 3) ||
       ((stack.size() == 4) && (!stack.at(1).isTensor()))) {
     auto op = BuildOp(
         graph,
         guid_,
-        {syn_in(0)},
-        {{meta.shape, meta.dtype, 0}},
+        {input},
+        {{meta.shape,
+          is_cast_required ? c10::ScalarType::Int : meta.dtype,
+          is_cast_required ? std::nullopt : std::optional<int>(0)}},
         param.ptr(),
         param.size());
-    syn_out(0) = std::move(op.at(0));
+    if (is_cast_required) {
+      auto castOut = BuildCast(
+          this,
+          graph,
+          op.at(0).get(),
+          meta.shape,
+          c10::ScalarType::Int,
+          c10::ScalarType::Long,
+          0);
+      syn_out(0) = std::move(castOut);
+    } else {
+      syn_out(0) = std::move(op.at(0));
+    }
   } else {
     at::Tensor host_tensor = stack[1].toTensor();
     auto tmeta{get_tensor_extra_meta(host_tensor)};
@@ -194,14 +229,30 @@ void ConstantPad::AddNode(
       }
       tmeta->set_max<uint32_t>(data);
     }
+
     auto op = BuildOp(
         graph,
         guid_,
-        {syn_in(0), syn_in(1)},
-        {{meta.shape, meta.dtype, 0}},
+        {input, syn_in(1)},
+        {{meta.shape,
+          is_cast_required ? c10::ScalarType::Int : meta.dtype,
+          is_cast_required ? std::nullopt : std::optional<int>(0)}},
         param.ptr(),
         param.size());
-    syn_out(0) = std::move(op.at(0));
+
+    if (is_cast_required) {
+      auto castOut = BuildCast(
+          this,
+          graph,
+          op.at(0).get(),
+          meta.shape,
+          c10::ScalarType::Int,
+          c10::ScalarType::Long,
+          0);
+      syn_out(0) = std::move(castOut);
+    } else {
+      syn_out(0) = std::move(op.at(0));
+    }
   }
 }
 
@@ -222,18 +273,51 @@ void ConstantPadDS::AddNode(
   auto meta = ConstantPadMeta(stack)[0];
   auto self = stack[0].toTensor();
   const auto& param = FillConstantPadParams(stack);
+
+  const bool is_cast_required =
+      self.scalar_type() == c10::ScalarType::Long && common::IsInt64Supported();
+
+  std::optional<synapse_helpers::tensor> castedInput = std::nullopt;
+  if (is_cast_required) {
+    meta.dtype = c10::ScalarType::Int;
+    castedInput = BuildCast(
+        this,
+        graph,
+        syn_in(0),
+        self.sizes().vec(),
+        c10::ScalarType::Long,
+        c10::ScalarType::Int);
+  }
+
+  auto input = castedInput.has_value() ? castedInput.value().get() : syn_in(0);
+
   if ((stack.size() == 3) ||
       ((stack.size() == 4) && (!stack.at(1).isTensor()))) {
     auto op = BuildOp(
         graph,
         guid_,
-        {syn_in(0)},
-        {{meta.shape, meta.dtype, 0}},
+        {input},
+        {{meta.shape,
+          meta.dtype,
+          is_cast_required ? std::nullopt : std::optional<int>(0)}},
         param.ptr(),
         param.size());
-    syn_out(0) = std::move(op.at(0));
+    if (is_cast_required) {
+      auto castOut = BuildCast(
+          this,
+          graph,
+          op.at(0).get(),
+          meta.shape,
+          c10::ScalarType::Int,
+          c10::ScalarType::Long,
+          0);
+      syn_out(0) = std::move(castOut);
+    } else {
+      syn_out(0) = std::move(op.at(0));
+    }
   } else {
     at::Tensor host_tensor = stack[1].toTensor();
+
     auto tmeta{get_tensor_extra_meta(host_tensor)};
     auto output_shape = stack[2].toTensor().sizes().vec();
     auto input_shape = stack[0].toTensor().sizes().vec();
@@ -263,14 +347,30 @@ void ConstantPadDS::AddNode(
       }
       tmeta->set_max<uint32_t>(data);
     }
+
     auto op = BuildOp(
         graph,
         guid_,
-        {syn_in(0), syn_in(1)},
-        {{meta.shape, meta.dtype, 0}},
+        {input, syn_in(1)},
+        {{meta.shape,
+          meta.dtype,
+          is_cast_required ? std::nullopt : std::optional<int>(0)}},
         param.ptr(),
         param.size());
-    syn_out(0) = std::move(op.at(0));
+
+    if (is_cast_required) {
+      auto castOut = BuildCast(
+          this,
+          graph,
+          op.at(0).get(),
+          meta.shape,
+          c10::ScalarType::Int,
+          c10::ScalarType::Long,
+          0);
+      syn_out(0) = std::move(castOut);
+    } else {
+      syn_out(0) = std::move(op.at(0));
+    }
   }
 }
 

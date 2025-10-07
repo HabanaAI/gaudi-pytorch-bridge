@@ -54,6 +54,70 @@ SharedMetaDataVector RotaryPosEmbeddingBwdSharedMeta(
   return RotaryPosEmbeddingFwdBwdSharedMeta(stack, "rotary_pos_embedding_bwd");
 }
 
+static std::vector<long int> CalcFinalSinShape(
+    const std::vector<long int>& sin_shape,
+    const std::optional<std::vector<long int>>& position_ids_shape,
+    unsigned int offset) {
+  std::vector<long int> final_sin_shape;
+
+  if (position_ids_shape) {
+    auto position_ids_shape_ = position_ids_shape.value();
+    const auto position_shape_0 = position_ids_shape_[0];
+    const auto position_shape_1 = position_ids_shape_[1];
+    const auto sin_rank = sin_shape.size();
+
+    const bool position_reshape_needed = position_shape_0 != 1;
+
+    if (position_reshape_needed) {
+      position_ids_shape_ = {1, position_shape_0 * position_shape_1};
+    }
+
+    const auto sin_last_dim = sin_shape.back();
+    final_sin_shape = {position_ids_shape_.back(), sin_last_dim};
+
+    if (position_reshape_needed) {
+      final_sin_shape = {position_shape_0, position_shape_1, sin_last_dim};
+    }
+
+    final_sin_shape.insert(final_sin_shape.end() - (sin_rank - 2), 1);
+  } else {
+    final_sin_shape = sin_shape;
+  }
+
+  if (offset != 0)
+    final_sin_shape[final_sin_shape.size() - 1] -= offset;
+
+  return final_sin_shape;
+}
+
+static void CheckInputShapes(
+    const std::vector<long int>& input_shape,
+    const std::vector<long int>& sin_shape,
+    const std::optional<std::vector<long int>>& position_ids_shape,
+    unsigned int offset) {
+  std::vector<long int> final_sin_shape =
+      CalcFinalSinShape(sin_shape, position_ids_shape, offset);
+
+  auto it_sin = final_sin_shape.rbegin();
+  for (auto it_in = input_shape.rbegin(); it_in != (input_shape.rend() - 1);
+       it_in++) {
+    const auto dist = std::distance(input_shape.rbegin(), it_in);
+
+    HABANA_ASSERT(
+        (*it_sin == 1) || (*it_in == *it_sin),
+        "Final sinus and cosinus tensor dim size final_sin_shape[",
+        dist,
+        "] = ",
+        *it_sin,
+        " differs from input dim size input_shape[",
+        dist,
+        "] = ",
+        *it_in,
+        ". They should be equal in case when final sin & cos dim size is not 1");
+    it_sin++;
+  }
+}
+
 void RotaryPosEmbedding::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
@@ -71,6 +135,44 @@ void RotaryPosEmbedding::AddNode(
       "Offset value exceeds the maximum limit for int.");
   params.offset = static_cast<unsigned int>(offset);
   params.mode = static_cast<RotaryPosEmbeddingMode_t>(mode);
+
+  const auto input_shape = input.pt_t.sizes().vec();
+  const auto sin_shape = sin.pt_t.sizes().vec();
+
+  CheckInputShapes(
+      input_shape,
+      sin_shape,
+      position_ids ? std::optional<std::vector<long int>>(
+                         position_ids.value().pt_t.sizes().vec())
+                   : std::nullopt,
+      offset);
+
+  if ((habana::ShapeInference::GetCurrentPass() ==
+       habana::ShapeInfo::InferencePass::MAX_SHAPE) &&
+      graph.is_dry_run() && graph.is_dynamic_graph()) {
+    const synapse_helpers::tensor& input_tensor = ReadSynInput(0);
+    const synapse_helpers::tensor& sin_tensor = ReadSynInput(1);
+
+    const auto input_current_shape =
+        std::get<1>(habana::ShapeInference::GetMinMaxShape(input_tensor.id()));
+    const auto sin_current_shape =
+        std::get<1>(habana::ShapeInference::GetMinMaxShape(sin_tensor.id()));
+
+    std::optional<std::vector<long int>> position_ids_current_shape_opt =
+        std::nullopt;
+    if (position_ids) {
+      const synapse_helpers::tensor& pos_tensor = ReadSynInput(3);
+      position_ids_current_shape_opt =
+          std::get<1>(habana::ShapeInference::GetMinMaxShape(pos_tensor.id()));
+    }
+
+    if (!input_current_shape.empty() && !sin_current_shape.empty())
+      CheckInputShapes(
+          input_current_shape,
+          sin_current_shape,
+          position_ids_current_shape_opt,
+          offset);
+  }
 
   std::vector<synTensor> inputs = {input.syn_t, sin.syn_t, cos.syn_t};
   if (position_ids) {
@@ -96,6 +198,44 @@ void RotaryPosEmbeddingBackward::AddNode(
   auto position_ids = stackGetter.getNextInput<std::optional<TensorsPair>>();
   auto offset = stackGetter.getNextInput<long>();
   auto mode = stackGetter.getNextInput<long>();
+
+  const auto grad_in_shape = grad_in.pt_t.sizes().vec();
+  const auto sin_shape = sin.pt_t.sizes().vec();
+
+  CheckInputShapes(
+      grad_in_shape,
+      sin_shape,
+      position_ids ? std::optional<std::vector<long int>>(
+                         position_ids.value().pt_t.sizes().vec())
+                   : std::nullopt,
+      offset);
+
+  if ((habana::ShapeInference::GetCurrentPass() ==
+       habana::ShapeInfo::InferencePass::MAX_SHAPE) &&
+      graph.is_dry_run() && graph.is_dynamic_graph()) {
+    const synapse_helpers::tensor& grad_in_tensor = ReadSynInput(0);
+    const synapse_helpers::tensor& sin_tensor = ReadSynInput(1);
+
+    const auto grad_in_current_shape = std::get<1>(
+        habana::ShapeInference::GetMinMaxShape(grad_in_tensor.id()));
+    const auto sin_current_shape =
+        std::get<1>(habana::ShapeInference::GetMinMaxShape(sin_tensor.id()));
+
+    std::optional<std::vector<long int>> position_ids_current_shape =
+        std::nullopt;
+    if (position_ids) {
+      const synapse_helpers::tensor& pos_tensor = ReadSynInput(3);
+      position_ids_current_shape =
+          std::get<1>(habana::ShapeInference::GetMinMaxShape(pos_tensor.id()));
+    }
+
+    if (!grad_in_current_shape.empty() && !sin_current_shape.empty())
+      CheckInputShapes(
+          grad_in_current_shape,
+          sin_current_shape,
+          position_ids_current_shape,
+          offset);
+  }
 
   ns_RoPESt2::ParamsV2 params{};
   HABANA_ASSERT(
