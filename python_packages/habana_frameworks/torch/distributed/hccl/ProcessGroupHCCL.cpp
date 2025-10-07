@@ -21,6 +21,7 @@
 #include <pybind11/pybind11.h>
 #include <unistd.h>
 #include <future>
+#include <iterator>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -243,7 +244,7 @@ ProcessGroupHCCL::WorkHCCL::WorkHCCL(
     const std::vector<at::Tensor>& outputs,
     const std::vector<int>& devices,
     std::vector<std::shared_ptr<hcclComm_t>>& hccl_comms,
-    std::vector<std::shared_ptr<hccl_integration::device_context>>& deviceCtxts)
+    std::vector<std::weak_ptr<hccl_integration::device_context>>& deviceCtxts)
     : outputs_(outputs),
       devices_(devices),
       hccl_comms_(hccl_comms),
@@ -280,7 +281,10 @@ bool ProcessGroupHCCL::WorkHCCL::wait(
 
 void ProcessGroupHCCL::WorkHCCL::synchronize() {
   for (size_t i = 0; i < outputs_.size(); ++i) {
-    deviceCtxts_[i]->synchronize_output(
+    auto device_context_sp = deviceCtxts_[i].lock();
+    HABANA_ASSERT(
+        device_context_sp, "Trying to use uninitialized device context");
+    device_context_sp->synchronize_output(
         (synapse_helpers::device_ptr)outputs_[i].storage().data_ptr().get(),
         (c10::hpu::getCurrentHPUStream()).stream());
   }
@@ -303,8 +307,16 @@ c10::intrusive_ptr<ProcessGroupHCCL::WorkHCCL> ProcessGroupHCCL::initWork(
     std::vector<std::shared_ptr<hcclComm_t>>& hccl_comms,
     std::vector<std::shared_ptr<hccl_integration::device_context>>&
         deviceCtxts) {
+  std::vector<std::weak_ptr<hccl_integration::device_context>> weakDeviceCtxts;
+  std::transform(
+      deviceCtxts.begin(),
+      deviceCtxts.end(),
+      std::back_inserter(weakDeviceCtxts),
+      [](const auto& sp) {
+        return std::weak_ptr<hccl_integration::device_context>(sp);
+      });
   return c10::make_intrusive<ProcessGroupHCCL::WorkHCCL>(
-      outputs, devices, hccl_comms, deviceCtxts);
+      outputs, devices, hccl_comms, weakDeviceCtxts);
 }
 
 c10::intrusive_ptr<Work> ProcessGroupHCCL::initWork(

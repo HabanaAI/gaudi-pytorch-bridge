@@ -37,11 +37,11 @@ class TORCH_API ProcessGroupHCCL : public ProcessGroupHcclBase {
         const std::vector<at::Tensor>& outputs,
         const std::vector<int>& devices,
         std::vector<std::shared_ptr<hcclComm_t>>& hccl_comms_,
-        std::vector<std::shared_ptr<hccl_integration::device_context>>&
+        std::vector<std::weak_ptr<hccl_integration::device_context>>&
             deviceCtxts_);
     WorkHCCL(const WorkHCCL& w);
 
-    virtual ~WorkHCCL();
+    ~WorkHCCL() override;
 
     bool isCompleted() override;
 
@@ -63,7 +63,7 @@ class TORCH_API ProcessGroupHCCL : public ProcessGroupHcclBase {
     std::vector<at::Tensor> outputs_;
     std::vector<int> devices_;
     std::vector<std::shared_ptr<hcclComm_t>> hccl_comms_;
-    std::vector<std::shared_ptr<hccl_integration::device_context>> deviceCtxts_;
+    std::vector<std::weak_ptr<hccl_integration::device_context>> deviceCtxts_;
     // Time point representing when the work started.
     std::chrono::time_point<std::chrono::steady_clock> workStartTime_;
 
