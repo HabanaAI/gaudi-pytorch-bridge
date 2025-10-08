@@ -15,6 +15,7 @@
 
 #include <c10/util/ArrayRef.h>
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
+#include "hpu_ops/common/h2d_common_utils.h"
 
 namespace habana::graph::pass {
 
@@ -35,7 +36,8 @@ std::vector<size_t> get_scales_indices(std::string_view node_name) {
           {"hpu::mixture_of_experts.fp8", {6, 7, 8, 9, 10}},
           {"hpu::mixture_of_experts.fp8_fused_weights", {5, 6, 7, 8}},
           {"hpu::mixture_of_experts.fp8_dynamic", {6, 7, 8, 9}},
-          {"hpu::mixture_of_experts.fp8_fused_weights_dynamic", {5, 6, 7}}};
+          {"hpu::mixture_of_experts.fp8_fused_weights_dynamic", {5, 6, 7}},
+          {"hpu::mixture_of_experts.bias_fp8_fused_weights", {7, 8, 9, 10}}};
 
   if (const auto it = scales_indices_map.find(node_name);
       it != scales_indices_map.end()) {
@@ -99,25 +101,9 @@ struct HandleH2dScalesPass {
   void collectIndicesOfAdjacentScales(
       const habana_torch::jit::Node* node,
       const GraphInputIndexMap& org_stack_index_map) {
-    static const std::unordered_set<c10::Symbol> m_logical_ops{
-        c10::Symbol::fromQualString("aten::reshape"),
-        c10::Symbol::fromQualString("aten::view"),
-        c10::Symbol::fromQualString("aten::t"),
-        c10::Symbol::fromQualString("aten::transpose"),
-        c10::Symbol::fromQualString("aten::squeeze"),
-        c10::Symbol::fromQualString("aten::unsqueeze"),
-        c10::Symbol::fromQualString("aten::permute"),
-        c10::Symbol::fromQualString("aten::expand"),
-        c10::Symbol::fromQualString("aten::slice"),
-        c10::Symbol::fromQualString("aten::clone")};
-    static const c10::Symbol m_cast_to_fp8_symbol =
-        c10::Symbol::fromQualString("hpu::cast_to_fp8_v2");
-    static const c10::Symbol m_cast_from_fp8_symbol =
-        c10::Symbol::fromQualString("hpu::cast_from_fp8");
-
     const auto node_symbol = node->kind();
-    if (m_cast_to_fp8_symbol != node_symbol and
-        m_cast_from_fp8_symbol != node_symbol) {
+    if (cast_to_fp8_symbol != node_symbol and
+        cast_from_fp8_symbol != node_symbol) {
       return;
     }
     const auto& inputs = node->inputs();
@@ -125,13 +111,13 @@ struct HandleH2dScalesPass {
     // Logical ops are allowed to be placed between cast_to_fp8 and
     // cast_from_fp8 nodes.
     auto parent_node = input->node();
-    while (m_logical_ops.count(parent_node->kind()) == 1) {
+    while (logical_ops.count(parent_node->kind()) == 1) {
       parent_node = parent_node->inputs()[0]->node();
     }
     const auto parent_symbol = parent_node->kind();
-    const bool node_is_cast_to = m_cast_to_fp8_symbol == node_symbol;
-    if (not((node_is_cast_to and m_cast_from_fp8_symbol == parent_symbol) or
-            (not node_is_cast_to and m_cast_to_fp8_symbol == parent_symbol))) {
+    const bool node_is_cast_to = cast_to_fp8_symbol == node_symbol;
+    if (not((node_is_cast_to and cast_from_fp8_symbol == parent_symbol) or
+            (not node_is_cast_to and cast_to_fp8_symbol == parent_symbol))) {
       return;
     }
     const auto node_scale = inputs[1];

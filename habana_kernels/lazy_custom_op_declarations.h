@@ -127,4 +127,24 @@ at::Tensor mixture_of_experts_fp8_fused_weights_dynamic_lazy(
     const int64_t chunk_size = 0,
     const int64_t total_experts = 0);
 
+at::Tensor mixture_of_experts_bias_fp8_fused_weights_lazy(
+    const at::Tensor& hidden_states,
+    const at::Tensor& expert_routing_table,
+    const at::Tensor& router_weights,
+    const at::TensorList w12,
+    const at::TensorList w3,
+    const at::TensorList w12_bias,
+    const at::TensorList w3_bias,
+    const at::Tensor& d_scale_hidden_states,
+    const at::TensorList d_scale_intermediate_hidden_states,
+    const at::TensorList d_scale_w12,
+    const at::TensorList d_scale_w3,
+    const bool permuted_weights,
+    const int64_t experts_min,
+    const int64_t experts_max,
+    const int64_t chunk_size = 0,
+    const int64_t total_experts = 0,
+    const double alpha = 1.704,
+    const double limit = 7.0);
+
 } // namespace habana_lazy

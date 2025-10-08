@@ -393,6 +393,7 @@ def _is_cpu_scale_allowed(node: torch.fx.Node, node_arg: torch.fx.Node, h2d_scal
         "mixture_of_experts.fp8_fused_weights": (5, 9),
         "mixture_of_experts.fp8_dynamic": (6, 10),
         "mixture_of_experts.fp8_fused_weights_dynamic": (5, 8),
+        "mixture_of_experts.bias_fp8_fused_weights": (7, 11),
     }
 
     if (

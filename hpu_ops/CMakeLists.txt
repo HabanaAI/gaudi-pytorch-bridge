@@ -209,7 +209,7 @@ add_habana_library(
   backend/median_gen.cpp
   backend/mish_gen.cpp
   backend/mm_gen.cpp
-  backend/mixture_of_experts.cpp
+  backend/mixture_of_experts_gen.cpp
   backend/mseloss_gen.cpp
   backend/multi_margin_loss_gen.cpp
   backend/multilabel_margin_loss_gen.cpp

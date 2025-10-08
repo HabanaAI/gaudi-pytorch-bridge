@@ -26,6 +26,36 @@ using namespace habana;
 
 namespace habana_lazy {
 
+namespace {
+
+inline bool is_cpu_defined_scale(const std::optional<at::Tensor>& scale) {
+  return scale.has_value() && scale->defined() && scale->device().is_cpu();
+}
+
+bool is_trival_scale_cast_optimization_disabled(
+    const std::optional<at::Tensor>& scale) {
+  const bool trivial_scales_optimization_disabled =
+      GET_ENV_FLAG_NEW(PT_HPU_H2D_TRIVIAL_SCALES_MODE) == 0;
+
+  return (
+      trivial_scales_optimization_disabled or
+      not(is_cpu_defined_scale(scale) and scale->item().toDouble() == 1.0));
+}
+
+bool is_trival_scale_gemm_optimization_disabled(
+    const std::optional<at::Tensor>& A_scale_inv,
+    const std::optional<at::Tensor>& B_scale_inv) {
+  const bool trivial_scales_optimization_disabled =
+      GET_ENV_FLAG_NEW(PT_HPU_H2D_TRIVIAL_SCALES_MODE) < 2;
+
+  return trivial_scales_optimization_disabled or
+      not(is_cpu_defined_scale(A_scale_inv) and
+          is_cpu_defined_scale(B_scale_inv) and
+          A_scale_inv->item().toDouble() == 1 / B_scale_inv->item().toDouble());
+}
+
+} // namespace
+
 std::tuple<at::Tensor, at::Tensor> cast_to_fp8_v2_lazy(
     const at::Tensor& input,
     const std::optional<at::Tensor>& scale,
@@ -38,12 +68,7 @@ std::tuple<at::Tensor, at::Tensor> cast_to_fp8_v2_lazy(
   std::vector<at::IValue> inputs{
       input, std::nullopt, stochastic_rounding, is_amax, dtype, scale_shape};
 
-  bool trivial_scales_optimization_disabled =
-      GET_ENV_FLAG_NEW(PT_HPU_H2D_TRIVIAL_SCALES_MODE) == 0;
-
-  if (trivial_scales_optimization_disabled or
-      not(scale.has_value() and scale->defined() and
-          scale->device().is_cpu() and scale->item().toDouble() == 1.0)) {
+  if (is_trival_scale_cast_optimization_disabled(scale)) {
     inputs[1] = maybe_convert_tensor_to_h2d(
         scale, habana_helpers::is_h2d_scales_enabled(), "cast_to_fp8_v2"sv);
   }
@@ -63,12 +88,7 @@ at::Tensor cast_from_fp8_lazy(
 
   std::vector<at::IValue> inputs{input, std::nullopt, dtype, scale_shape};
 
-  bool trivial_scales_optimization_disabled =
-      GET_ENV_FLAG_NEW(PT_HPU_H2D_TRIVIAL_SCALES_MODE) == 0;
-
-  if (trivial_scales_optimization_disabled or
-      not(scale.has_value() and scale->defined() and
-          scale->device().is_cpu() and scale->item().toDouble() == 1.0)) {
+  if (is_trival_scale_cast_optimization_disabled(scale)) {
     inputs[1] = maybe_convert_tensor_to_h2d(
         scale, habana_helpers::is_h2d_scales_enabled(), "cast_from_fp8"sv);
   }
@@ -144,15 +164,7 @@ at::Tensor fp8_gemm_v2_lazy(
       accumulate,
       B_scale_shape};
 
-  bool trivial_scales_optimization_disabled =
-      GET_ENV_FLAG_NEW(PT_HPU_H2D_TRIVIAL_SCALES_MODE) < 2;
-
-  if (trivial_scales_optimization_disabled or
-      not(A_scale_inv.has_value() and A_scale_inv->defined() and
-          A_scale_inv->device().is_cpu() and B_scale_inv.has_value() and
-          B_scale_inv->defined() and B_scale_inv->device().is_cpu() and
-          A_scale_inv->item().toDouble() ==
-              1 / B_scale_inv->item().toDouble())) {
+  if (is_trival_scale_gemm_optimization_disabled(A_scale_inv, B_scale_inv)) {
     inputs[6] =
         maybe_convert_tensor_to_h2d(A_scale_inv, h2d_scales_enabled, op_name);
     inputs[7] =
@@ -360,6 +372,62 @@ at::Tensor mixture_of_experts_fp8_fused_weights_dynamic_lazy(
     inputs[6] = maybe_convert_tensor_to_h2d(d_scale_hidden_states, op_name);
     inputs[7] = maybe_convert_list_to_h2d(d_scale_w12, op_name);
     inputs[8] = maybe_convert_list_to_h2d(d_scale_w3, op_name);
+  }
+
+  LazyOp<at::Tensor> hpu_op{"hpu::mixture_of_experts", std::move(inputs)};
+  hpu_op.SetOutputMetaFn(MixtureOfExpertsFp8Meta);
+  RUN_MAYBE_WITH_ACC_THREAD(mixture_of_experts, hpu_op);
+}
+
+at::Tensor mixture_of_experts_bias_fp8_fused_weights_lazy(
+    const at::Tensor& hidden_states,
+    const at::Tensor& expert_routing_table,
+    const at::Tensor& router_weights,
+    const at::TensorList w12,
+    const at::TensorList w3,
+    const at::TensorList w12_bias,
+    const at::TensorList w3_bias,
+    const at::Tensor& d_scale_hidden_states,
+    const at::TensorList d_scale_intermediate_hidden_states,
+    const at::TensorList d_scale_w12,
+    const at::TensorList d_scale_w3,
+    const bool permuted_weights,
+    const int64_t experts_min,
+    const int64_t experts_max,
+    const int64_t chunk_size,
+    const int64_t total_experts,
+    const double alpha,
+    const double limit) {
+  PT_LAZY_TRACE;
+
+  const std::string_view op_name{"mixture_of_experts.bias_fp8_fused_weights"};
+
+  std::vector<at::IValue> inputs{
+      hidden_states,
+      expert_routing_table,
+      router_weights,
+      w12,
+      w3,
+      w12_bias,
+      w3_bias,
+      d_scale_hidden_states,
+      d_scale_intermediate_hidden_states,
+      d_scale_w12,
+      d_scale_w3,
+      permuted_weights,
+      experts_min,
+      experts_max,
+      chunk_size,
+      total_experts,
+      alpha,
+      limit};
+
+  if (habana_helpers::is_h2d_scales_enabled()) {
+    inputs[7] = maybe_convert_tensor_to_h2d(d_scale_hidden_states, op_name);
+    inputs[8] =
+        maybe_convert_list_to_h2d(d_scale_intermediate_hidden_states, op_name);
+    inputs[9] = maybe_convert_list_to_h2d(d_scale_w12, op_name);
+    inputs[10] = maybe_convert_list_to_h2d(d_scale_w3, op_name);
   }
 
   LazyOp<at::Tensor> hpu_op{"hpu::mixture_of_experts", std::move(inputs)};

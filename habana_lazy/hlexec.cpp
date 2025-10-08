@@ -27,6 +27,7 @@
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_lazy/hlexec.h"
 #include "habana_lazy/lazy_arg_spec.h"
+#include "hpu_ops/common/h2d_common_utils.h"
 #include "ops/constant.h"
 #include "ops/convolution.h"
 #include "passes/fold_conv_batchnorm.h"
@@ -41,6 +42,7 @@
 #include "pytorch_helpers/visualize/visualize.h"
 
 using namespace std::literals;
+using namespace habana;
 
 namespace habana_lazy::exec {
 
@@ -500,21 +502,6 @@ float GetH2dScaleValue(const ir::Value& scale) {
  */
 void HlExec::CollectAdjacentCastFp8Nodes(const ir::NodePtrList& nodes) {
   PT_LAZY_TRACE;
-  static const std::unordered_set<c10::Symbol> logical_ops{
-      c10::Symbol::fromQualString("aten::reshape"),
-      c10::Symbol::fromQualString("aten::view"),
-      c10::Symbol::fromQualString("aten::t"),
-      c10::Symbol::fromQualString("aten::transpose"),
-      c10::Symbol::fromQualString("aten::squeeze"),
-      c10::Symbol::fromQualString("aten::unsqueeze"),
-      c10::Symbol::fromQualString("aten::permute"),
-      c10::Symbol::fromQualString("aten::expand"),
-      c10::Symbol::fromQualString("aten::slice"),
-      c10::Symbol::fromQualString("aten::clone")};
-  static const c10::Symbol cast_to_fp8_symbol =
-      c10::Symbol::fromQualString("hpu::cast_to_fp8_v2");
-  static const c10::Symbol cast_from_fp8_symbol =
-      c10::Symbol::fromQualString("hpu::cast_from_fp8");
 
   habana::AdjacentCastFp8Indices adjacent_cast_fp8_indices{};
 

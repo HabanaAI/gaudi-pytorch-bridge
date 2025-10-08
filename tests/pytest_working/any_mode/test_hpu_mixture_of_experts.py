@@ -516,13 +516,40 @@ def test_mixture_of_experts_fp8(
         check_ops_executed_in_jit_ir("mixture_of_experts")
 
 
+def generate_hw_aligned_scales(num_experts, hw_aligned_scales, runs=3, fused=True):
+    bias_values = [3, 7, 11] if is_gaudi2() else [3, 5, 9, 11]
+    scale_values = convertExpBiasToScale(bias_values)
+
+    def scales_gen(length):
+        scales = np.random.choice(scale_values, length) if hw_aligned_scales else torch.rand(length) * 10.0
+        scales = scales.tolist()
+        if length == 1:
+            return scales[0]
+        return scales
+
+    fp8_scales_list = []
+    for _ in range(runs):
+        fp8_scales_list.append(
+            {
+                "d_scale_w3": scales_gen(num_experts),
+                "d_scale_intermediate_hidden_states": [1.0] * num_experts,
+                "d_scale_hidden_states": scales_gen(1),
+            }
+        )
+        if fused:
+            fp8_scales_list[-1]["d_scale_w12"] = scales_gen(num_experts)
+        else:
+            fp8_scales_list[-1]["d_scale_w1"] = scales_gen(num_experts)
+            fp8_scales_list[-1]["d_scale_w2"] = scales_gen(num_experts)
+    return fp8_scales_list
+
+
 @pytest.mark.skipif(_is_simulator(), reason="Mixture of experts takes too long on sim")
 @pytest.mark.skipif(is_pytest_mode_eager(), reason="Eager mode doesn't support H2D scales.")
 @pytest.mark.parametrize("hw_aligned_scales", [True, False])
 def test_mixture_of_experts_fp8_h2d(hw_aligned_scales):
     ht.enable_inference_mode()
     import habana_frameworks.torch.utils.experimental as htexp
-    import numpy as np
 
     htexp._set_scale_attributes(hw_aligned_scales, 10)
 
@@ -534,28 +561,7 @@ def test_mixture_of_experts_fp8_h2d(hw_aligned_scales):
     hidden_dim = 64
     ffn_dim = 224
 
-    bias_values = [3, 7, 11] if is_gaudi2() else [3, 5, 9, 11]
-    scale_values = convertExpBiasToScale(bias_values)
-
-    def scales_gen(length):
-        scales = np.random.choice(scale_values, length) if hw_aligned_scales else torch.rand(length) * 10.0
-        scales = scales.tolist()
-        if length == 1:
-            return scales[0]
-        return scales
-
-    runs = 3
-    fp8_scales_list = []
-    for _ in range(runs):
-        fp8_scales_list.append(
-            {
-                "d_scale_w1": scales_gen(num_experts),
-                "d_scale_w2": scales_gen(num_experts),
-                "d_scale_w3": scales_gen(num_experts),
-                "d_scale_intermediate_hidden_states": [1.0] * num_experts,
-                "d_scale_hidden_states": scales_gen(1),
-            }
-        )
+    fp8_scales_list = generate_hw_aligned_scales(num_experts, hw_aligned_scales, runs=3, fused=False)
 
     for fp8_scales in fp8_scales_list:
         d_scale_w1 = fp8_scales["d_scale_w1"]
@@ -567,9 +573,9 @@ def test_mixture_of_experts_fp8_h2d(hw_aligned_scales):
         hidden_states_hpu = torch.randn((num_tokens, hidden_dim), dtype=torch.float).to(fp8_dtype).to(hpu)
         router_weights_all = torch.randn((num_tokens, num_experts), dtype=torch.bfloat16).to(hpu)
         router_weights_hpu, expert_routing_table_hpu = torch.topk(router_weights_all, 2)
-        hidden_states = hidden_states_hpu.float().to(cpu)
+        hidden_states = hidden_states_hpu.to(torch.bfloat16).to(cpu)
         hidden_states_hpu /= d_scale_hidden_states
-        router_weights = router_weights_hpu.float().to(cpu)
+        router_weights = router_weights_hpu.to(torch.bfloat16).to(cpu)
         expert_routing_table = expert_routing_table_hpu.to(cpu)
 
         expert_weights_cpu, expert_weights_hpu = generate_expert_weights(
@@ -584,7 +590,7 @@ def test_mixture_of_experts_fp8_h2d(hw_aligned_scales):
         d_scale_hidden_states = torch.tensor(d_scale_hidden_states)
 
         mixtral_ref = MixtralSparseMoeBlock(hidden_dim, num_experts, expert_weights_cpu, activation)
-        result_cpu, _ = mixtral_ref(hidden_states, expert_routing_table, router_weights)
+        result_cpu = mixtral_ref(hidden_states, expert_routing_table, router_weights)
 
         fn = compile_function_if_compile_mode(torch.ops.hpu.mixture_of_experts)
         w1_hpu, w2_hpu, w3_hpu = expert_weights_hpu

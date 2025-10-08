@@ -13,8 +13,8 @@
  * limitations under the License.
  */
 
-#include "generated/backend/mixture_of_experts.h"
 #include "backend/habana_device/HPUGuardImpl.h"
+#include "generated/backend/mixture_of_experts.h"
 #include "generated/backend/mixture_of_experts_bwd.h"
 #include "generated/backend/mixture_of_experts_fwd.h"
 #include "generated/backend/mixture_of_experts_recomp_bwd.h"

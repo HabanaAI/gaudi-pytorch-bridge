@@ -13,9 +13,10 @@
 # limitations under the License.
 ###############################################################################
 
+import habana_frameworks.torch.hpu as ht
 import pytest
 import torch
-from test_hpu_mixture_of_experts import check_using_cosine_similarity
+from test_hpu_mixture_of_experts import check_using_cosine_similarity, generate_hw_aligned_scales
 from test_utils import (
     check_ops_executed_in_jit_ir,
     compile_function_if_compile_mode,
@@ -33,6 +34,11 @@ NUM_EXPERTS = [3]
 NUM_TOKENS = [12]  # [1, 32]
 FUSED_WEIGHTS = [True]
 PERMUTED_WEIGHTS = [True]  # [True, False]
+
+TOTAL_EXPERTS = 0
+CHUNK_SIZE = 0
+ALPHA = 1.702
+LIMIT = 7.0
 
 
 class GptOssMoeBlock(nn.Module):
@@ -104,7 +110,7 @@ def generate_experts_weights_and_biases(hidden_dim, ffn_dim, num_experts, dtype,
 
 
 @pytest.mark.parametrize("hidden_dim", HIDDEN_DIMS)
-@pytest.mark.parametrize("alpha, limit", [(1.702, 7.0), (1.0, 6.0)])
+@pytest.mark.parametrize("alpha, limit", [(ALPHA, LIMIT), (1.0, 6.0)])
 @pytest.mark.parametrize("ffn_dim", FFN_DIMS)
 @pytest.mark.parametrize("num_experts", NUM_EXPERTS)
 @pytest.mark.parametrize("num_tokens", NUM_TOKENS)
@@ -114,8 +120,6 @@ def generate_experts_weights_and_biases(hidden_dim, ffn_dim, num_experts, dtype,
 def test_mixture_of_experts_gpt_oss(
     permuted_weights, num_tokens, num_experts, hidden_dim, ffn_dim, dtype, alpha, limit, measure_per_token
 ):
-    chunk_size = 0
-    total_experts = 0
     measurement_mode = measure_per_token is not None
     hidden_states = torch.randn((num_tokens, hidden_dim), dtype=dtype)
     router_weights_all = torch.randn((num_tokens, num_experts), dtype=dtype)
@@ -144,8 +148,8 @@ def test_mixture_of_experts_gpt_oss(
             "permuted_weights": permuted_weights,
             "experts_min": 0,
             "experts_max": num_experts - 1,
-            "chunk_size": chunk_size,
-            "total_experts": total_experts,
+            "chunk_size": CHUNK_SIZE,
+            "total_experts": TOTAL_EXPERTS,
             "alpha": alpha,
             "limit": limit,
         }
@@ -170,7 +174,7 @@ def test_mixture_of_experts_gpt_oss(
 
 
 @pytest.mark.parametrize("hidden_dim", HIDDEN_DIMS)
-@pytest.mark.parametrize("alpha, limit", [(1.702, 7.0)])
+@pytest.mark.parametrize("alpha, limit", [(ALPHA, LIMIT)])
 @pytest.mark.parametrize("ffn_dim", FFN_DIMS)
 @pytest.mark.parametrize("num_experts", NUM_EXPERTS)
 @pytest.mark.parametrize("num_tokens", NUM_TOKENS)
@@ -179,8 +183,6 @@ def test_mixture_of_experts_gpt_oss(
 def test_mixture_of_experts_fp8_gpt_oss(
     permuted_weights, num_tokens, num_experts, hidden_dim, ffn_dim, dtype, alpha, limit
 ):
-    chunk_size = 0
-    total_experts = 0
     measure_per_token = None
 
     d_scale_hidden_states_cpu = torch.randn(1)
@@ -236,8 +238,8 @@ def test_mixture_of_experts_fp8_gpt_oss(
             "permuted_weights": permuted_weights,
             "experts_min": 0,
             "experts_max": num_experts - 1,
-            "chunk_size": chunk_size,
-            "total_experts": total_experts,
+            "chunk_size": CHUNK_SIZE,
+            "total_experts": TOTAL_EXPERTS,
             "alpha": alpha,
             "limit": limit,
         }
@@ -251,3 +253,87 @@ def test_mixture_of_experts_fp8_gpt_oss(
 
     if is_pytest_mode_compile():
         check_ops_executed_in_jit_ir("mixture_of_experts")
+
+
+@pytest.mark.skipif(is_pytest_mode_eager(), reason="Eager mode doesn't support H2D scales.")
+@pytest.mark.parametrize("hw_aligned_scales", [True, False])
+def test_mixture_of_experts_fp8_h2d(hw_aligned_scales):
+    ht.enable_inference_mode()
+    import habana_frameworks.torch.utils.experimental as htexp
+
+    htexp._set_scale_attributes(hw_aligned_scales, 10)
+
+    dtype = torch.float8_e4m3fn
+    permuted_weights = False
+    num_tokens = NUM_TOKENS[0]
+    num_experts = 3 if hw_aligned_scales else 4
+    hidden_dim = HIDDEN_DIMS[0]
+    ffn_dim = FFN_DIMS[0]
+    measure_per_token = None
+
+    fp8_scales_list = generate_hw_aligned_scales(num_experts, hw_aligned_scales)
+    for fp8_scales in fp8_scales_list:
+        d_scale_hidden_states = torch.tensor(fp8_scales["d_scale_hidden_states"])
+        d_scale_intermediate_hidden_states = [torch.tensor(s) for s in fp8_scales["d_scale_intermediate_hidden_states"]]
+        d_scale_w12 = [torch.tensor(s) for s in fp8_scales["d_scale_w12"]]
+        d_scale_w3 = [torch.tensor(s) for s in fp8_scales["d_scale_w3"]]
+
+        hidden_states = torch.randn((num_tokens, hidden_dim), dtype=torch.bfloat16)
+        hidden_states_cpu = hidden_states.to(dtype).to(torch.bfloat16) * d_scale_hidden_states.to(torch.bfloat16)
+        hidden_states_hpu = hidden_states.to(dtype).to(hpu)
+        router_weights_all = torch.randn((num_tokens, num_experts), dtype=torch.bfloat16)
+        router_weights, expert_routing_table = torch.topk(router_weights_all, 2)
+
+        w12_cpu, w12_bias_cpu, w3_cpu, w3_bias_cpu, w12_hpu, w12_bias_hpu, w3_hpu, w3_bias_hpu = (
+            generate_experts_weights_and_biases(hidden_dim, ffn_dim, num_experts, torch.bfloat16, permuted_weights)
+        )
+
+        w12_cpu *= torch.stack(d_scale_w12, dim=0).view(-1, 1, 1)
+        w3_cpu *= torch.stack(d_scale_w3, dim=0).view(-1, 1, 1)
+
+        w12_hpu = [w.to(dtype) for w in w12_hpu]
+        w3_hpu = [w.to(dtype) for w in w3_hpu]
+
+        mixtral_ref = GptOssMoeBlock(
+            w12_cpu.to(dtype).to(torch.bfloat16),
+            w12_bias_cpu.to(dtype).to(torch.bfloat16),
+            w3_cpu.to(dtype).to(torch.bfloat16),
+            w3_bias_cpu.to(dtype).to(torch.bfloat16),
+            ALPHA,
+            LIMIT,
+        )
+
+        result_cpu, _ = mixtral_ref(hidden_states_cpu, expert_routing_table, router_weights, measure_per_token)
+
+        fn = compile_function_if_compile_mode(torch.ops.hpu.mixture_of_experts)
+
+        def call_moe_fn():
+            common_inputs = (
+                hidden_states_hpu,
+                expert_routing_table.to(hpu),
+                router_weights.to(hpu),
+            )
+            weights = (w12_hpu, w3_hpu)
+            biases = (w12_bias_hpu, w3_bias_hpu)
+
+            scales = (d_scale_hidden_states, d_scale_intermediate_hidden_states, d_scale_w12, d_scale_w3)
+
+            kwargs = {
+                "permuted_weights": permuted_weights,
+                "experts_min": 0,
+                "experts_max": num_experts - 1,
+                "chunk_size": CHUNK_SIZE,
+                "total_experts": TOTAL_EXPERTS,
+                "alpha": ALPHA,
+                "limit": LIMIT,
+            }
+
+            return fn(*common_inputs, *weights, *biases, *scales, **kwargs)
+
+        with torch.inference_mode():
+            result_hpu = call_moe_fn()
+
+        check_using_cosine_similarity(result_hpu, result_cpu, 0.975)
+
+    htexp._set_scale_attributes(False, 0)
+    ht.disable_inference_mode()
