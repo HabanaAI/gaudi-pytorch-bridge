@@ -179,9 +179,10 @@ def test_mixture_of_experts_gpt_oss(
 @pytest.mark.parametrize("num_experts", NUM_EXPERTS)
 @pytest.mark.parametrize("num_tokens", NUM_TOKENS)
 @pytest.mark.parametrize("permuted_weights", PERMUTED_WEIGHTS)
+@pytest.mark.parametrize("tensor_scales", [True, False])
 @pytest.mark.parametrize("dtype", [torch.float8_e4m3fn, torch.float8_e5m2], ids=format_tc)
 def test_mixture_of_experts_fp8_gpt_oss(
-    permuted_weights, num_tokens, num_experts, hidden_dim, ffn_dim, dtype, alpha, limit
+    permuted_weights, num_tokens, num_experts, hidden_dim, ffn_dim, dtype, tensor_scales, alpha, limit
 ):
     measure_per_token = None
 
@@ -225,12 +226,14 @@ def test_mixture_of_experts_fp8_gpt_oss(
         weights = (w12_hpu, w3_hpu)
         biases = (w12_bias_hpu, w3_bias_hpu)
 
-        d_scale_hidden_states_hpu = d_scale_hidden_states_cpu.to("hpu")
+        d_scale_hidden_states_hpu = (
+            d_scale_hidden_states_cpu.to("hpu") if tensor_scales else d_scale_hidden_states_cpu.item()
+        )
         d_scale_intermediate_hidden_states_hpu = [
-            torch.tensor(1.0).to("hpu").to(torch.float32) for _ in range(num_experts)
+            torch.tensor(1.0).to("hpu").to(torch.float32) if tensor_scales else 1.0 for _ in range(num_experts)
         ]
-        d_scale_w12_hpu = [scale.to("hpu") for scale in d_scale_w12]
-        d_scale_w3_hpu = [scale.to("hpu") for scale in d_scale_w3]
+        d_scale_w12_hpu = [scale.to("hpu") if tensor_scales else scale.item() for scale in d_scale_w12]
+        d_scale_w3_hpu = [scale.to("hpu") if tensor_scales else scale.item() for scale in d_scale_w3]
 
         scales = (d_scale_hidden_states_hpu, d_scale_intermediate_hidden_states_hpu, d_scale_w12_hpu, d_scale_w3_hpu)
 

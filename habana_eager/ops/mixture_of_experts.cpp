@@ -1143,10 +1143,10 @@ at::Tensor mixture_of_experts_fp8_scalars(
     const at::TensorList w2,
     const at::TensorList w3,
     const double d_scale_hidden_states,
-    const c10::ArrayRef<double>& d_scale_intermediate_hidden_states,
-    const c10::ArrayRef<double>& d_scale_w1,
-    const c10::ArrayRef<double>& d_scale_w2,
-    const c10::ArrayRef<double>& d_scale_w3,
+    const c10::ArrayRef<double> d_scale_intermediate_hidden_states,
+    const c10::ArrayRef<double> d_scale_w1,
+    const c10::ArrayRef<double> d_scale_w2,
+    const c10::ArrayRef<double> d_scale_w3,
     const bool permuted_weights,
     const std::string_view activation,
     const int64_t experts_min,
@@ -1197,9 +1197,9 @@ at::Tensor mixture_of_experts_fp8_fused_weights_scalars(
     const at::TensorList w12,
     const at::TensorList w3,
     const double d_scale_hidden_states,
-    const c10::ArrayRef<double>& d_scale_intermediate_hidden_states,
-    const c10::ArrayRef<double>& d_scale_w12,
-    const c10::ArrayRef<double>& d_scale_w3,
+    const c10::ArrayRef<double> d_scale_intermediate_hidden_states,
+    const c10::ArrayRef<double> d_scale_w12,
+    const c10::ArrayRef<double> d_scale_w3,
     const bool permuted_weights,
     const std::string_view activation,
     const int64_t experts_min,
@@ -1248,6 +1248,14 @@ static inline at::Tensor handle_scale_tensorlist(
   return scales.view({scales.size(0), 1, 1});
 }
 
+static inline at::Tensor handle_scale_arrayref(
+    const at::ArrayRef<double> d_scale_list) {
+  at::Tensor scales = torch::tensor(
+      d_scale_list,
+      torch::TensorOptions().dtype(torch::kFloat32).device(torch::kHPU));
+  return scales.view({scales.size(0), 1, 1});
+}
+
 static at::Tensor mixture_of_experts_common_fp8_with_bias(
     const at::Tensor& hidden_states,
     const at::Tensor& expert_routing_table,
@@ -1257,9 +1265,9 @@ static at::Tensor mixture_of_experts_common_fp8_with_bias(
     const at::TensorList w3,
     const at::TensorList w3_bias,
     const at::Tensor& d_scale_hidden_states,
-    const at::TensorList d_scale_intermediate_hidden_states,
-    const at::TensorList d_scale_w12,
-    const at::TensorList d_scale_w3,
+    const at::Tensor& d_scale_intermediate_hidden_states_stacked,
+    const at::Tensor& d_scale_w12_stacked,
+    const at::Tensor& d_scale_w3_stacked,
     bool permuted_weights,
     double alpha,
     double limit) {
@@ -1275,11 +1283,6 @@ static at::Tensor mixture_of_experts_common_fp8_with_bias(
   at::Tensor w12_bias_stacked = torch::stack(w12_bias, 0);
   at::Tensor w3_stacked = torch::stack(w3_maybe_transposed, 0);
   at::Tensor w3_bias_stacked = torch::stack(w3_bias, 0);
-
-  at::Tensor d_scale_intermediate_hidden_states_stacked =
-      handle_scale_tensorlist(d_scale_intermediate_hidden_states);
-  at::Tensor d_scale_w12_stacked = handle_scale_tensorlist(d_scale_w12);
-  at::Tensor d_scale_w3_stacked = handle_scale_tensorlist(d_scale_w3);
 
   at::Tensor hidden_states_repeated = hidden_states.repeat({num_experts, 1});
   hidden_states_repeated =
@@ -1371,9 +1374,70 @@ at::Tensor mixture_of_experts_bias_fp8_fused_weights(
       w3,
       w3_bias,
       d_scale_hidden_states,
-      d_scale_intermediate_hidden_states,
-      d_scale_w12,
-      d_scale_w3,
+      handle_scale_tensorlist(d_scale_intermediate_hidden_states),
+      handle_scale_tensorlist(d_scale_w12),
+      handle_scale_tensorlist(d_scale_w3),
+      permuted_weights,
+      alpha,
+      limit);
+}
+
+at::Tensor mixture_of_experts_bias_fp8_fused_weights_scalars(
+    const at::Tensor& hidden_states,
+    const at::Tensor& expert_routing_table,
+    const at::Tensor& router_weights,
+    const at::TensorList w12,
+    const at::TensorList w3,
+    const at::TensorList w12_bias,
+    const at::TensorList w3_bias,
+    const double d_scale_hidden_states,
+    const c10::ArrayRef<double> d_scale_intermediate_hidden_states,
+    const c10::ArrayRef<double> d_scale_w12,
+    const c10::ArrayRef<double> d_scale_w3,
+    const bool permuted_weights,
+    const int64_t experts_min,
+    const int64_t experts_max,
+    const int64_t chunk_size,
+    const int64_t total_experts,
+    const double alpha,
+    const double limit) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "mixture_of_experts.bias_fp8_fused_weights_scales :",
+      DUMP_18ARGS(
+          hidden_states,
+          expert_routing_table,
+          router_weights,
+          w12,
+          w3,
+          w12_bias,
+          w3_bias,
+          d_scale_hidden_states,
+          d_scale_intermediate_hidden_states,
+          d_scale_w12,
+          d_scale_w3,
+          permuted_weights,
+          experts_min,
+          experts_max,
+          chunk_size,
+          total_experts,
+          alpha,
+          limit));
+
+  return mixture_of_experts_common_fp8_with_bias(
+      hidden_states,
+      expert_routing_table,
+      router_weights,
+      w12,
+      w12_bias,
+      w3,
+      w3_bias,
+      at::tensor(
+          d_scale_hidden_states,
+          torch::TensorOptions().dtype(torch::kFloat32).device(torch::kHPU)),
+      handle_scale_arrayref(d_scale_intermediate_hidden_states),
+      handle_scale_arrayref(d_scale_w12),
+      handle_scale_arrayref(d_scale_w3),
       permuted_weights,
       alpha,
       limit);
@@ -1613,9 +1677,9 @@ at::Tensor mixture_of_experts_fp8_scalars_dynamic(
     const at::TensorList w2,
     const at::TensorList w3,
     const double d_scale_hidden_states,
-    const c10::ArrayRef<double>& d_scale_w1,
-    const c10::ArrayRef<double>& d_scale_w2,
-    const c10::ArrayRef<double>& d_scale_w3,
+    const c10::ArrayRef<double> d_scale_w1,
+    const c10::ArrayRef<double> d_scale_w2,
+    const c10::ArrayRef<double> d_scale_w3,
     const bool permuted_weights,
     const std::string_view activation,
     const int64_t experts_min,
@@ -1664,8 +1728,8 @@ at::Tensor mixture_of_experts_fp8_fused_weights_scalars_dynamic(
     const at::TensorList w12,
     const at::TensorList w3,
     const double d_scale_hidden_states,
-    const c10::ArrayRef<double>& d_scale_w12,
-    const c10::ArrayRef<double>& d_scale_w3,
+    const c10::ArrayRef<double> d_scale_w12,
+    const c10::ArrayRef<double> d_scale_w3,
     const bool permuted_weights,
     const std::string_view activation,
     const int64_t experts_min,

@@ -1134,6 +1134,41 @@ void MixtureOfExpertsFp8Scalars::AddNode(
   syn_out(0) = std::move(moe_result[0]);
 }
 
+void MixtureOfExpertsFp8BiasScalars::AddNode(
+    sh::graph& graph,
+    const at::Stack& stack) {
+  const at::ScalarType hidden_states_dtype =
+      stack.at(0).toTensor().scalar_type();
+  const size_t num_experts = stack.at(3).toTensorList().size();
+  const size_t weights_per_expert = 2;
+  const size_t biases_per_expert = 2;
+
+  std::vector<synTensor> inputs;
+  for (size_t i = 0;
+       i < 3 + num_experts * (weights_per_expert + biases_per_expert);
+       i++) {
+    inputs.push_back(syn_in(i));
+  }
+
+  std::vector<sh::tensor> scale_wrapper = {};
+  HandleScaleScalar(this, graph, stack.at(7), scale_wrapper, inputs);
+  HandleScaleScalar(this, graph, stack.at(8), scale_wrapper, inputs);
+  HandleScaleScalar(this, graph, stack.at(9), scale_wrapper, inputs);
+  HandleScaleScalar(this, graph, stack.at(10), scale_wrapper, inputs);
+
+  auto params = FillParams(stack);
+  auto meta = OutputMeta(stack)[0];
+  auto moe_result = OpBackend::BuildNode(
+      this,
+      graph,
+      {get_guid_with_precision("moe"sv, hidden_states_dtype),
+       std::move(inputs),
+       {{meta.shape, meta.dtype, 0}},
+       params.ptr(),
+       params.size()});
+  syn_out(0) = std::move(moe_result[0]);
+}
+
 void MixtureOfExpertsFp8Dynamic::AddNode(
     sh::graph& graph,
     const at::Stack& stack) {

@@ -1111,6 +1111,7 @@ def meta_mixture_of_experts_common(
         torch.ops.hpu.mixture_of_experts.fp8_dynamic,
         torch.ops.hpu.mixture_of_experts.fp8_scalars_dynamic,
         torch.ops.hpu.mixture_of_experts.bias_fp8_fused_weights,
+        torch.ops.hpu.mixture_of_experts.bias_fp8_fused_weights_scalars,
     ]
 )
 def meta_mixture_of_experts_fp8_common(hidden_states, *args, **kwargs):
