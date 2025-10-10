@@ -9,5 +9,6 @@ COMMENT,FILE,SOURCE_DIR,TARGET_DIR,NEW_NAME,RECURSIVE,PRESERVE_LINKS,CREATE_LINK
 ,*.whl,${NEURAL_COMPRESSOR_FORK_BUILD}/pkgs,${TARGET_DIR},,,,,,
 ,*.whl,${TRANSFORMER_ENGINE_FORK_BUILD}/pkgs,${TARGET_DIR},,,,,,
 ,requirements-pytorch.txt,${PYTORCH_MODULES_ROOT_PATH}/.ci/requirements,${TARGET_DIR},,,,,,
-,install_next.sh,${PYTORCH_MODULES_ROOT_PATH}/.devops/cd/scripts,${TARGET_DIR},install.sh,,,,,
+,install.sh,${PYTORCH_MODULES_ROOT_PATH}/.devops/cd/scripts,${TARGET_DIR},install.sh,,,,,
+,.env,${PYTORCH_MODULES_ROOT_PATH}/.devops/cd/scripts,${TARGET_DIR},,,,,,
 # END OF FILE

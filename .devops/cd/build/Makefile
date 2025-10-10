@@ -178,11 +178,17 @@ compare-pt-versions: validate
 		echo "pytorch-next/version.txt is different than pytorch-fork/version.txt - building pytorch_next"; \
 	fi
 
-collect-pt-versions: validate ## extract versions from build_profiles.json and save them in .env file
+collect-pt-current-versions: validate ## extract versions from build_profiles.json and save them in .env file
 	@echo Collect versions from build_profiles.json into .env file
 	echo "TORCH_VERSION=$(shell cat $(SRC_DIR)/pytorch-fork/version.txt)" >> $(SRC_DIR)/pytorch-integration/.devops/cd/scripts/.env
 	echo "TORCHVISION_VERSION=$(shell jq -rj '.pt_versions.current.extras.torchvision' $(SRC_DIR)/pytorch-integration/.devops/build_profiles/profiles.json | cut -d- -f1)" >> $(SRC_DIR)/pytorch-integration/.devops/cd/scripts/.env
 	echo "TORCHDATA_VERSION=$(shell jq -rj '.pt_versions.current.extras.torchdata' $(SRC_DIR)/pytorch-integration/.devops/build_profiles/profiles.json | cut -d- -f1)" >> $(SRC_DIR)/pytorch-integration/.devops/cd/scripts/.env
+
+collect-pt-next-versions: validate ## extract versions from build_profiles.json and save them in .env file
+	@echo Collect versions from build_profiles.json into .env file
+	echo "TORCH_VERSION=$(shell cat $(SRC_DIR)/pytorch-next/version.txt)" >> $(SRC_DIR)/pytorch-integration/.devops/cd/scripts/.env
+	echo "TORCHVISION_VERSION=$(shell jq -rj '.pt_versions.next.extras.torchvision' $(SRC_DIR)/pytorch-integration/.devops/build_profiles/profiles.json | cut -d- -f1)" >> $(SRC_DIR)/pytorch-integration/.devops/cd/scripts/.env
+	echo "TORCHDATA_VERSION=$(shell jq -rj '.pt_versions.next.extras.torchdata' $(SRC_DIR)/pytorch-integration/.devops/build_profiles/profiles.json | cut -d- -f1)" >> $(SRC_DIR)/pytorch-integration/.devops/cd/scripts/.env
 
 build-%: validate init
 	@echo building $* for $(BUILD_OS)
