@@ -68,12 +68,8 @@ class HbLazyTensorImpl : public c10::TensorImpl {
 
   int64_t numel_custom() const override;
 
-#if IS_PYTORCH_AT_LEAST(2, 9)
   c10::SymBool sym_is_contiguous_custom(
       at::MemoryFormat memory_format) const override;
-#else
-  bool is_contiguous_custom(at::MemoryFormat memory_format) const override;
-#endif
 
   inline int64_t compute_numel() const;
 
