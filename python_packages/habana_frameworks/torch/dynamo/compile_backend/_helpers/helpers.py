@@ -420,7 +420,7 @@ def remove_duplicated_outputs(input_module: torch.fx.GraphModule):
     outs = list(output_node.args[0]) if type(output_node.args[0]) is tuple else [output_node.args[0]]
     duplicated_out_indexes.sort()
     for idx in reversed(duplicated_out_indexes):
-        outs.remove(outs[idx])
+        del outs[idx]
 
     # create a new output node
     input_module.graph.output(outs[0] if len(outs) == 1 else tuple(outs))

@@ -226,14 +226,11 @@ class HabanaGraphModule(torch.nn.Module):
             for md in self._outputs_metadata:
                 self._outputs_batch_data.append(EmptyBatchData(md[0], md[1], md[2]))
 
-        # We won't allocate tensors for outputs who duplicate inputs
+        # We won't allocate tensors for outputs which are also inputs to the graph
         if self._in_to_out_dups is not None:
-            self._out_to_in_dups = {v: k for k, v in self._in_to_out_dups.items()}
-            duplicated_out_indexes = list(self._out_to_in_dups.keys())
-            duplicated_out_indexes.sort()
-            for idx in reversed(duplicated_out_indexes):
-                self._outputs_batch_data.remove(self._outputs_batch_data[idx])
-                self._outputs_metadata.remove(self._outputs_metadata[idx])
+            for output_idx in sorted(self._in_to_out_dups.values(), reverse=True):
+                del self._outputs_batch_data[output_idx]
+                del self._outputs_metadata[output_idx]
 
     @property
     def fx_module(self):
@@ -345,9 +342,8 @@ class HabanaGraphModule(torch.nn.Module):
         # insert the inputs into the out stack
         if self._in_to_out_dups is not None:
             out_stack = list(out_stack) if type(out_stack) is tuple else ([out_stack] if out_stack is not None else [])
-            out_indexes = self._out_to_in_dups.keys()
-            for out_idx in out_indexes:
-                out_stack.insert(out_idx, args[self._out_to_in_dups[out_idx]])
+            for input_index, output_index in sorted(self._in_to_out_dups.items(), key=lambda item: item[1]):
+                out_stack.insert(output_index, args[input_index])
             out_stack = tuple(out_stack) if len(out_stack) > 1 else out_stack[0]
 
         return out_stack
