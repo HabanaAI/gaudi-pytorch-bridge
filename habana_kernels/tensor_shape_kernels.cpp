@@ -670,7 +670,7 @@ void BroadcastOperator::AllocateAndAddSynapseNode(
 
   if (inputs[1].isIntList()) {
     auto size = inputs[1].toIntList();
-    auto sizeI = IntArrayRef(size.vec());
+    auto sizeI = size.empty() ? self.sizes() : IntArrayRef(size.vec());
     HABANA_ASSERT(
         sizeI.size() >= (size_t)self.dim(),
         "expand(",
@@ -691,7 +691,9 @@ void BroadcastOperator::AllocateAndAddSynapseNode(
     std::vector<int64_t> expandedSizes;
     std::vector<int64_t> expandedStrides;
     std::tie(expandedSizes, expandedStrides) = at::inferExpandGeometry(
-        self.sizes(), self.strides(), IntArrayRef(size.vec()));
+        self.sizes(),
+        self.strides(),
+        size.empty() ? self.sizes() : IntArrayRef(size.vec()));
 
     // expandedStrides will be set to 0 by inferExpandGeometry.
     // Since we give back a contiguous tensor, we will set strides
