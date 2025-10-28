@@ -6,7 +6,7 @@ ninja>=1.11.1
 numpy==2.1.0  # aligned with https://github.com/pytorch/pytorch/blob/cb9b479f4f799eea058de9be3a0e09f977fc82da/.ci/manywheel/build_common.sh#L105
 packaging>=24.1
 pandas
-pip>=24.1.2
+pip==25.2
 pkginfo>=1.11.1
 pre-commit
 pybind11>=2.12
