@@ -1,7 +1,9 @@
 # Contributing to pytorch-integration
+In order to introduce any changes to the code present in this repository please fork it.
+Any external pull requests won't be reviewed and merged.
 
 ## Python linters
-Each submitted PR is automatically run against below linters to keep high code quality and consistent look and feel:
+In order to maintain standardized code formatting and early error detection below linters are used:
 * [black](https://github.com/psf/black)
 * [ruff](https://github.com/astral-sh/ruff)
 
