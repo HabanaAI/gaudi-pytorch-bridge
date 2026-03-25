@@ -37,7 +37,7 @@ with open(REQUIRED_VERSION_FILE_PATH) as req_ver_file:
     compile_time_ver = Version(req_ver_file.read())
 
 run_time_ver = Version(torch.__version__)
-is_torch_fork = run_time_ver.local.startswith("git") or run_time_ver.local.startswith("hpu")
+is_torch_fork = False if not run_time_ver.local else run_time_ver.local.startswith("git") or run_time_ver.local.startswith("hpu")
 
 if not (run_time_ver.major == compile_time_ver.major and run_time_ver.minor == compile_time_ver.minor):
     raise AssertionError(
