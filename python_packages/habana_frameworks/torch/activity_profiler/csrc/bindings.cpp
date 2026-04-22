@@ -12,9 +12,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <pybind11/pybind11.h>
 
-#include <torch/extension.h>
-#include "pybind11/stl.h"
+#include <string>
+#include <vector>
 
 #include "backend/profiling/activity_profiler.h"
 
@@ -31,20 +32,20 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
         habana::profile::setup_profiler_sources(
             bridge, memory, mandatory_events);
       },
-      py::arg("bridge") = "",
-      py::arg("memory") = "",
-      py::arg("mandatory_events") = "");
+      pybind11::arg("bridge") = "",
+      pybind11::arg("memory") = "",
+      pybind11::arg("mandatory_events") = "");
   m.def(
       "_setup_habana_profiler_configs",
       [](bool bridge) {
         habana::profile::setup_habana_profiler_configs(bridge);
       },
-      py::arg("bridge") = "");
+      pybind11::arg("bridge") = "");
   m.def(
       "_export_logs",
       [](const std::string& path) {
         habana::profile::export_profiler_logs(path);
       },
-      py::arg("path") = "");
+      pybind11::arg("path") = "");
   m.doc() = "This module registers hpu hardware profiler API";
 }

@@ -20,22 +20,27 @@ sizes_vec ComputePadOutputShape(const at::Stack& stack, PadType padType) {
   auto padding = stack.at(1).toIntVector();
   std::vector<int64_t> outputSize = self.sizes().vec();
   auto paddingSize = padding.size();
-  auto selfRank = self.dim();
+  auto selfRank = static_cast<size_t>(self.dim());
   HABANA_ASSERT(
       paddingSize == 1 || paddingSize % 2 == 0,
       "Padding length must be divisible by 2");
-  HABANA_ASSERT(floor(paddingSize / 2) <= selfRank, "Padding length too large");
+  HABANA_ASSERT(
+      static_cast<size_t>(floor(static_cast<double>(paddingSize) / 2)) <=
+          selfRank,
+      "Padding length too large");
   HABANA_ASSERT(
       (paddingSize == 1 || paddingSize == 2 || paddingSize == 4 ||
        paddingSize == 6) &&
           (selfRank >= 2 && selfRank <= 5),
       "Only 2D, 3D, 4D, 5D padding with non-constant padding are supported for now");
 
-  if (paddingSize == 1)
+  if (paddingSize == 1) {
     padding.resize(static_cast<size_t>((padType + 1) * 2));
-  for (size_t i = 0; i <= static_cast<size_t>(padType); i++)
-    outputSize.rbegin()[i] += padding.at(i * 2) + padding.at(i * 2 + 1);
-
+  }
+  for (size_t i = 0; i <= static_cast<size_t>(padType); i++) {
+    outputSize.rbegin()[static_cast<int64_t>(i)] +=
+        padding.at(i * 2) + padding.at((i * 2) + 1);
+  }
   return {outputSize};
 }
 
@@ -47,14 +52,23 @@ FillParamsT FillPadFwdBwdParams(
   size_t offset = backward ? 1 : 0;
   auto self = stack.at(offset).toTensor();
   auto padding = stack.at(1 + offset).toIntVector();
-  auto selfRank = self.dim();
+  auto selfRank = static_cast<size_t>(self.dim());
   params->mode = PadMode_t::PAD_MODE_EDGE;
 
-  if (padding.size() == 1)
+  if (padding.size() == 1) {
     padding.resize(static_cast<size_t>((padType + 1) * 2));
+  }
   for (size_t i = 0; i <= static_cast<size_t>(padType); i += 1) {
-    params->pads[i] = padding.at(i * 2);
-    params->pads[i + selfRank] = padding.at(i * 2 + 1);
+    HABANA_ASSERT(
+        padding.at(2 * i) >= std::numeric_limits<int>::min() &&
+            padding.at(2 * i) <= std::numeric_limits<int>::max(),
+        "Padding values must be within int range");
+    HABANA_ASSERT(
+        padding.at((2 * i) + 1) >= std::numeric_limits<int>::min() &&
+            padding.at((2 * i) + 1) <= std::numeric_limits<int>::max(),
+        "Padding values must be within int range");
+    params->pads[i] = static_cast<unsigned>(padding.at(i * 2));
+    params->pads[i + selfRank] = static_cast<unsigned>(padding.at((i * 2) + 1));
   }
 
   return paramsT;

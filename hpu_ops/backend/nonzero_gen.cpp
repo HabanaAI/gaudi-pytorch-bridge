@@ -60,24 +60,6 @@ static float round_dims(NonZeroParams_t self_params, int group_size) {
   return last_dim_rounded;
 }
 
-std::vector<int64_t> compute_output_st_shape(NonZeroParams_t self_params) {
-  constexpr int group_size = 64;
-  auto out_st_shape = self_params.sizes;
-  // handle scalar input
-  if (out_st_shape.empty()) {
-    out_st_shape.emplace_back(1);
-    out_st_shape.emplace_back(group_size);
-    return out_st_shape;
-  }
-  auto last_dim_rounded = round_dims(self_params, group_size);
-  auto group_size_aligned_dim =
-      (long int)last_dim_rounded / (long int)group_size;
-  out_st_shape.pop_back();
-  out_st_shape.emplace_back(group_size_aligned_dim);
-  out_st_shape.emplace_back(group_size);
-  return out_st_shape;
-}
-
 std::vector<int64_t> compute_nonzero_output_shape(
     NonZeroParams_t self_params,
     bool use_tpc_impl) {
@@ -111,10 +93,11 @@ std::vector<synapse_helpers::tensor> NonZeroCommon(
     bool use_tpc_impl = false) {
   auto output_shape = compute_nonzero_output_shape(self_params, use_tpc_impl);
   auto shape_tensor_shape = DimVector{5};
-  ns_NonzeroV2::Params params = {};
+
   std::vector<synTensor> inputs = {self_synin};
   using namespace std::literals;
-  auto guid = get_guid_with_precision("non_zero_v2_fwd"sv, self_params.dtype);
+  auto guid =
+      get_guid_with_precision("non_zero_eager_fwd"sv, self_params.dtype);
 
   auto shape_tensor_dtype =
       (common::IsInt64Supported() &&
@@ -122,13 +105,6 @@ std::vector<synapse_helpers::tensor> NonZeroCommon(
                 self_params.force_long)
            ? c10::ScalarType::Long
            : c10::ScalarType::Int);
-  if (self_params.sizes.size() < 5 and not use_tpc_impl) {
-    // Need to create a reshape_shape_tensor for nonzero_v2 guid
-    auto st_shape = compute_output_st_shape(self_params);
-    op->CreateShapeTensorInput(
-        graph, shape_tensor_dtype, st_shape, inputs, SHAPE_TENSOR, true);
-    params.group_size = 64;
-  }
 
   // outputs - coordinates tensor is of output_shape with maximum
   // self.numel() * self.dim() shape
@@ -140,9 +116,7 @@ std::vector<synapse_helpers::tensor> NonZeroCommon(
       {guid,
        inputs,
        {{output_shape, shape_tensor_dtype, final_result_index_0},
-        {shape_tensor_shape, shape_tensor_dtype, final_result_index_1}},
-       &params,
-       sizeof(params)});
+        {shape_tensor_shape, shape_tensor_dtype, final_result_index_1}}});
 }
 
 void NonZeroEager::AddNode(

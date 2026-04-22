@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -110,7 +110,7 @@ def graph_to_str(
             graph_str_list.append(f"Node name: {node.name} op: {node.op}")
             if node.op == "call_function":
                 graph_str_list.append(f"  target: {node.target.__name__}")
-            if "val" in node.meta.keys():
+            if "val" in node.meta:
                 meta, inputs_meta = _node_meta_str_(node, True)
                 if "output_device" in node.meta:
                     graph_str_list.append(f"  device: {node.meta['output_device']}")

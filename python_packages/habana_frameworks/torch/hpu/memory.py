@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,14 +19,12 @@ from typing import Any
 
 from habana_frameworks.torch import _hpu_C, hpu
 
-import torch
+from torch.types import Device
 
 from ._utils import _get_device_index
 
-_device_t = torch.device | str | int | None
 
-
-def max_memory_allocated(device: _device_t | None = None) -> int:
+def max_memory_allocated(device: Device = None) -> int:
     r"""This API (TORCH.HPU.MAX_MEMORY_ALLOCATED) returns peak HPU memory
     allocated by tensors( in bytes). reset_peak_memory_stats() can be used
     to reset the starting point in tracing stats.
@@ -38,7 +36,7 @@ def max_memory_allocated(device: _device_t | None = None) -> int:
     return memory_stats(device=device).get("MaxInUse")
 
 
-def memory_allocated(device: _device_t | None = None) -> int:
+def memory_allocated(device: Device = None) -> int:
     r"""This API (TORCH.HPU.MEMORY_ALLOCATED) returns the current
     HPU memory occupied by tensors.
     """
@@ -49,7 +47,7 @@ def memory_allocated(device: _device_t | None = None) -> int:
     return memory_stats(device=device).get("InUse")
 
 
-def reset_peak_memory_stats(device: _device_t | None = None) -> None:
+def reset_peak_memory_stats(device: Device = None) -> None:
     r"""This API (TORCH.HPU.RESET_PEAK_MEMORY_STATS) resets starting point
     of memory occupied by tensors.
     """
@@ -60,7 +58,7 @@ def reset_peak_memory_stats(device: _device_t | None = None) -> None:
     _hpu_C.reset_peak_memory_stats(device)
 
 
-def reset_accumulated_memory_stats(device: _device_t | None = None) -> None:
+def reset_accumulated_memory_stats(device: Device = None) -> None:
     r"""This API (TORCH.HPU.RESET_ACCUMULATED_MEMORY_STATS) to clear
     number of allocs and number of frees.
     """
@@ -71,7 +69,7 @@ def reset_accumulated_memory_stats(device: _device_t | None = None) -> None:
     _hpu_C.clear_memory_stats(device)
 
 
-def memory_stats(device: _device_t | None = None) -> dict[str, Any]:
+def memory_stats(device: Device = None) -> dict[str, Any]:
     r"""This API (TORCH.HPU.MEMORY_STATS) returns dict of HPU memory statics.
     Below sample memory stats printout and details
     ('Limit', 3050939105) : amount of total reserved memory on HPU device
@@ -113,7 +111,7 @@ def _format_memory_summary(summary: dict) -> str:
     return header + formatted_summary
 
 
-def memory_summary(device: _device_t | None = None) -> str:
+def memory_summary(device: Device = None) -> str:
     r"""This API (TORCH.HPU.RESET_ACCUMULATED_MEMORY_STATS) returns
     human readable printout of current memory stats.
     """
@@ -128,26 +126,25 @@ def memory_summary(device: _device_t | None = None) -> str:
     fmt_tbl = {"_": "", "device": device}
     str = "|" + "|\n|".join(tbl).format(**fmt_tbl) + "|\n"
     str1 = _hpu_C.get_memory_summary(device)
-    char1 = str1.split("\n")
     return str + str1
 
 
-def _extended_memory_summary_dict(device: _device_t | None = None) -> dict:
+def _extended_memory_summary_dict(device: Device = None) -> dict:
     hpu.init()
     return _hpu_C.get_extended_memory_summary()
 
 
-def _extended_memory_summary(device: _device_t | None = None) -> str:
+def _extended_memory_summary(device: Device = None) -> str:
     return _format_memory_summary(_extended_memory_summary_dict())
 
 
-def _get_hlml_shared_object_name(device: _device_t | None = None) -> str:
+def _get_hlml_shared_object_name(device: Device = None) -> str:
     if device is None:
         device = 0
     return _hpu_C.get_hlml_shared_object_name(device)
 
 
-def formatted_memory_stats(device: _device_t | None = None) -> str:
+def formatted_memory_stats(device: Device = None) -> str:
     r"""This API returns string of HPU memory statics.
     Below sample memory stats printout and details
     Limit:- 135960424448 : amount of total reserved memory on HPU device
@@ -185,31 +182,31 @@ def formatted_memory_stats(device: _device_t | None = None) -> str:
     return f"{header}\n{stats_text}"
 
 
-def memory_reserved(device: _device_t | None = None) -> int:
+def memory_reserved(device: Device = None) -> int:
     r"""Returns the current HPU memory managed by caching allocator in bytes for a given device."""
     stats = memory_stats(device)
     return stats["Limit"]
 
 
-def max_memory_reserved(device: _device_t | None = None) -> int:
+def max_memory_reserved(device: Device = None) -> int:
     r"""Returns the maximum HPU memory managed by caching allocator in bytes for a given device."""
     stats = memory_stats(device)
     return stats["Limit"]
 
 
-def memory_cached(device: _device_t | None = None) -> int:
+def memory_cached(device: Device = None) -> int:
     r"""Deprecated same as memory_reserved"""
     warnings.warn("torch.hpu.memory_cached has been renamed to torch.hpu.memory_reserved", FutureWarning)
     return memory_reserved(device)
 
 
-def max_memory_cached(device: _device_t | None = None) -> int:
+def max_memory_cached(device: Device = None) -> int:
     r"""Deprecated: same as max_memory_reserved"""
     warnings.warn("torch.hpu.max_memory_cached has been renamed to torch.hpu.max_memory_reserved", FutureWarning)
     return max_memory_reserved(device)
 
 
-def mem_get_info(device: _device_t | None = None) -> tuple:
+def mem_get_info(device: Device = None) -> tuple:
     r"""Returns the free and total memory occupied by a HPU device"""
     stats = memory_stats(device)
     return (stats["Limit"] - stats["InUse"], stats["Limit"])

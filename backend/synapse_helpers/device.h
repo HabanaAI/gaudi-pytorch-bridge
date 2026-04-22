@@ -480,6 +480,10 @@ class device final : public device_interface {
 
   uint32_t get_scale_attribute_hash_id() const;
 
+  void set_is_dynamic_quantization(bool is_dynamic_quantization);
+
+  bool get_is_dynamic_quantization() const;
+
   bool get_event_exists(device_ptr device_address) {
     return (sem_.get_event(device_address) != nullptr);
   }
@@ -583,6 +587,7 @@ class device final : public device_interface {
   std::unordered_map<default_stream_type, hpuStream_t> dma_streams_mapper;
   bool scale_attribute_is_hw_aligned_{false};
   uint32_t scale_attribute_hash_id_{0};
+  bool is_dynamic_quantization_{false};
 };
 
 std::ostream& operator<<(std::ostream& stream, const device& syn_device);

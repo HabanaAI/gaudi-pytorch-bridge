@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -237,10 +237,12 @@ void SourceRange::print_with_context(
   if (begin_line > str.size()) {
     return;
   }
-  while (begin_line > 0 && str[begin_line - 1] != '\n')
+  while (begin_line > 0 && str[begin_line - 1] != '\n') {
     --begin_line;
-  while (end_line < str.size() && str[end_line] != '\n')
+  }
+  while (end_line < str.size() && str[end_line] != '\n') {
     ++end_line;
+  }
   HABANA_ASSERT(begin_line == 0 || str[begin_line - 1] == '\n');
   HABANA_ASSERT(end_line == str.size() || str[end_line] == '\n');
 

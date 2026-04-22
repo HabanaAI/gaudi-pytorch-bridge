@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -157,8 +157,9 @@ void LayerNormHabanaOperator::AddNode(
     const auto params = FillParams(stack);
 
     std::vector<NodeAttr::NodeOutputAttr> node_output_attr;
-
-    for (size_t i = 0; i < metas.size(); ++i) {
+    const auto num_outputs = metas.size();
+    node_output_attr.reserve(num_outputs);
+    for (size_t i = 0; i < num_outputs; ++i) {
       node_output_attr.push_back({metas[i].shape, metas[i].dtype, i});
     }
 
@@ -229,16 +230,20 @@ void LayerNormHabanaOperator::AddNode(
     const int64_t n =
         c10::multiply_integers(input_shape.cbegin() + axis, input_shape.cend());
 
-    const int64_t input_reshaped_shape[] = {1, 1, m, n};
+    const std::array input_reshaped_shape = {1L, 1L, m, n};
+    at::IntArrayRef input_reshaped_shape_ref =
+        c10::makeArrayRef(input_reshaped_shape);
     auto reshapedInput = ReshapeHelper(
-        graph, input.syn_t, input_reshaped_shape, input.pt_t.scalar_type());
+        graph, input.syn_t, input_reshaped_shape_ref, input.pt_t.scalar_type());
 
-    int64_t mean_rstd_shape[] = {1, 1, m, 1};
+    const std::array mean_rstd_shape = {1L, 1L, m, 1L};
     std::vector<NodeAttr::NodeOutputAttr> node_output_attr;
     for (size_t i = 0; i < metas.size(); ++i) {
       c10::ScalarType outputType = metas[i].dtype;
       node_output_attr.push_back(
-          {i == 0 ? input_reshaped_shape : mean_rstd_shape, outputType});
+          {i == 0 ? input_reshaped_shape_ref
+                  : c10::makeArrayRef(mean_rstd_shape),
+           outputType});
     }
 
     const auto params = FillNativeLayerNormParams(stack);
@@ -280,10 +285,23 @@ OutputMetaDataVector LayerNormBwdMeta(const at::Stack& stack) {
   auto dtype = self.scalar_type();
   auto shapes = LayerNormBwdOutputShape(stack);
   OutputMetaDataVector metaVec(3);
-  for (size_t i = 0; i < metaVec.size(); ++i) {
-    metaVec[i].shape = shapes[i];
-    metaVec[i].dtype = dtype;
-  }
+
+  metaVec[0].shape = shapes[0];
+  metaVec[0].dtype = dtype;
+
+  auto weight_opt = stack[5].toOptional<at::Tensor>();
+  auto bias_opt = stack[6].toOptional<at::Tensor>();
+
+  metaVec[1].shape = shapes[1];
+  metaVec[1].dtype = weight_opt.has_value() && weight_opt.value().defined()
+      ? weight_opt.value().scalar_type()
+      : dtype;
+
+  metaVec[2].shape = shapes[2];
+  metaVec[2].dtype = bias_opt.has_value() && bias_opt.value().defined()
+      ? bias_opt.value().scalar_type()
+      : dtype;
+
   return metaVec;
 }
 
@@ -338,7 +356,9 @@ void LayerNormBwdHabanaOperator::AddNode(
     const auto params = FillParams(stack);
 
     std::vector<NodeAttr::NodeOutputAttr> node_output_attr;
-    for (size_t i = 0; i < metas.size(); ++i) {
+    const auto num_outputs = metas.size();
+    node_output_attr.reserve(num_outputs);
+    for (size_t i = 0; i < num_outputs; ++i) {
       node_output_attr.push_back({metas[i].shape, metas[i].dtype, i});
     }
 

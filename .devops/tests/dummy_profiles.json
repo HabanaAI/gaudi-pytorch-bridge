@@ -8,21 +8,13 @@
       ]
     },
     "test2": {
-      "pt_versions": ["previous", "rc"]
-    },
-    "test3": {
-      "pt_versions": ["rc"],
-      "additional_build_flags": ["-c"]
-    },
-    "test4": {
-      "pt_versions": ["rc"],
-      "wheels": ["standard"]
+      "pt_versions": ["previous"]
     },
     "test5": {
       "wheels": ["standard", "internal"]
     },
     "test6": {
-      "wheels": ["standard", "internal2"],
+      "wheels": ["standard"],
       "additional_build_flags": ["-c"]
     },
     "test7": {
@@ -31,30 +23,15 @@
   },
   "pt_versions": {
     "current": {
-      "version": "1.2.3",
-      "default_source": "build"
+      "version": "1.2.3"
     },
     "previous": {
-      "version": "1.0.0",
-      "default_source": "pypi"
+      "version": "1.0.0"
     },
     "next" : {
       "version": "1.4.0",
-      "default_source": "pypi",
       "cpu_index_url" : "none"
-    },
-    "rc": {
-      "version": null,
-      "default_source": "pypi"
-    },
-    "nightly": {
-      "version": "nightly",
-      "default_source": "https://download.pytorch.org/whl/nightly/cpu"
     }
-  },
-  "required_pt": {
-    "default": "pytorch",
-    "nightly": "pt-nightly-cpu"
   },
   "wheels": {
     "standard": {
@@ -63,11 +40,11 @@
     },
     "standard-ci": {
       "wheel_name": "habana-pytorch",
-      "pt_versions": ["current", "previous", "rc"]
+      "pt_versions": ["current", "previous"]
     },
     "internal": {
       "wheel_name": "habana-pytorch-internal",
-      "pt_versions": ["rc"],
+      "pt_versions": ["current"],
       "optional_pt_versions": ["nightly"]
     },
     "bourbon": {
@@ -76,11 +53,6 @@
     },
     "standard-temporary": {
       "pt_versions": ["current", "previous", "temporary"]
-    },
-    "internal2": {
-      "wheel_name": "habana-pytorch-internal",
-      "pt_versions": ["rc", "nightly"],
-      "continue_on_error": true
     }
   }
 }

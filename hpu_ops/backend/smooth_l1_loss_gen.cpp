@@ -21,12 +21,13 @@ namespace habana {
 FillParamsT FillSmoothL1LossParams(const at::Stack& stack, const int offset) {
   PARAMS_STUB(ns_SmoothL1LossKernel::Params);
   auto mode = stack.at(offset + 2).toInt();
-  if (mode == at::Reduction::Reduction::Mean)
+  if (mode == at::Reduction::Reduction::Mean) {
     params->mode = LossMode_t::LOSS_REDUCTION_MODE_MEAN;
-  else if (mode == at::Reduction::Reduction::Sum)
+  } else if (mode == at::Reduction::Reduction::Sum) {
     params->mode = LossMode_t::LOSS_REDUCTION_MODE_SUM;
-  else
+  } else {
     params->mode = LossMode_t::LOSS_REDUCTION_MODE_NONE;
+  }
   params->beta = stack.at(offset + 3).toScalar().to<float>();
   return paramsT;
 }
@@ -46,21 +47,23 @@ OutputMetaDataVector SmoothL1LossMeta(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 0);
   int64_t reduction = stack.at(2).toInt();
 
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.dtype = self.scalar_type();
   meta.shape = (reduction == at::Reduction::Reduction::None)
       ? self.sizes().vec()
       : std::vector<int64_t>{};
-  return {meta};
+  return metaVec;
 }
 
 OutputMetaDataVector SmoothL1LossBackwardMeta(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 1);
 
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.dtype = self.scalar_type();
   meta.shape = self.sizes().vec();
-  return {meta};
+  return metaVec;
 }
 
 } // namespace habana

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -102,12 +102,13 @@ class MediaProxyHolder {
   static MediaProxyHolder& getInstance() {
     std::call_once(initialize_once_flag_, []() {
       instance_ = std::make_shared<std::unique_ptr<MediaProxyHolder>>(
-          new MediaProxyHolder());
+          new MediaProxyHolder()); // NOLINT(cppcoreguidelines-owning-memory)
       std::weak_ptr<std::unique_ptr<MediaProxyHolder>> wp = instance_;
       habana::HPURegistrar::get_hpu_registrar().register_media_proxy_finalizer(
           habana::CallFinally([wp = std::move(wp)]() {
-            if (auto sp = wp.lock())
+            if (auto sp = wp.lock()) {
               sp->reset(nullptr);
+            }
           }));
     });
     return *(instance_->get());
@@ -124,8 +125,9 @@ class MediaProxyHolder {
 
   ~MediaProxyHolder() {
     if (!media_deleter_.empty()) {
-      for (auto& func : media_deleter_)
+      for (auto& func : media_deleter_) {
         func();
+      }
     } else {
       PT_BRIDGE_WARN(
           "MediaProxy is being deleted without notifying Media!!! Media hasn't provided appropriate function.");

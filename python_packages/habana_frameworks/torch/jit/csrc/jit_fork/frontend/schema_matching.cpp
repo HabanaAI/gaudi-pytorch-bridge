@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,7 +41,7 @@
 namespace habana_torch::jit {
 
 static inline TypePtr unwrapOptional(TypePtr opt_type) {
-  if (auto dyn = opt_type->castRaw<c10::DynamicType>()) {
+  if (auto* dyn = opt_type->castRaw<c10::DynamicType>()) {
     return unwrapOptional(dyn->fallback());
   }
   if (auto unwrap_list_type = opt_type->cast<OptionalType>()) {
@@ -55,8 +55,9 @@ static inline bool isIntOrFloatUsedAsList(
     const Argument& arg) {
   // Look for int[N] or float[N]
   const auto& v_type = value->type();
-  if (v_type != FloatType::get() && v_type != IntType::get())
+  if (v_type != FloatType::get() && v_type != IntType::get()) {
     return false;
+  }
   auto arg_type = unwrapOptional(arg.type());
   auto list_type = arg_type->cast<ListType>();
   return list_type && list_type->getElementType() == v_type && arg.N();
@@ -65,14 +66,14 @@ static inline bool isIntOrFloatUsedAsList(
 /// Returns true if `type` is a Tuple in which all the elements have the
 /// same type or if it's a subtype of `list_type_`.
 bool convertibleToList(const TypePtr& type, const TypePtr& list_type_) {
-  auto list_type = list_type_->castRaw<ListType>();
-  if (!list_type) {
+  auto* list_type = list_type_->castRaw<ListType>();
+  if (list_type == nullptr) {
     return false;
   }
   if (type->isSubtypeOf(*list_type_)) {
     return true;
   }
-  if (auto tuple = type->castRaw<TupleType>()) {
+  if (auto* tuple = type->castRaw<TupleType>()) {
     return std::all_of(
         tuple->elements().begin(),
         tuple->elements().end(),
@@ -229,7 +230,7 @@ static Value* tryMatchArgument(
   const MatchTypeReturn matched =
       matchTypeVariables(arg.type(), value->type(), type_env);
   if (!matched.success()) {
-    if (failure_messages) {
+    if (failure_messages != nullptr) {
       err() << "Could not match type " << value->type()->repr_str() << " to "
             << arg.type()->repr_str() << " in argument '" << arg.name()
             << "': " << matched.reason() << ".\n";
@@ -238,7 +239,7 @@ static Value* tryMatchArgument(
   }
   const auto concrete_type = tryEvalTypeVariables(arg.type(), type_env);
   if (!concrete_type) {
-    if (failure_messages) {
+    if (failure_messages != nullptr) {
       err() << "Type variables in type " << arg.type()->repr_str()
             << " could not be inferred from actual type "
             << value->type()->repr_str();
@@ -252,8 +253,9 @@ static Value* tryMatchArgument(
   std::stringstream ss;
   if (!checkIfListsAreMatching(value->type(), concrete_type) &&
       !value->type()->isSubtypeOfExt(
-          *concrete_type, /*why_not=*/(failure_messages) ? &ss : nullptr)) {
-    if (failure_messages) {
+          *concrete_type,
+          /*why_not=*/(failure_messages != nullptr) ? &ss : nullptr)) {
+    if (failure_messages != nullptr) {
       auto& ostream = err()
           << arg.formatTypeMismatchMsg(value->type()->repr_str());
 
@@ -330,7 +332,7 @@ static Value* tryCreateList(
         err,
         /*allow_conversions=*/convert_tensor_to_num,
         type_env);
-    if (!matched_value) {
+    if (matched_value == nullptr) {
       return nullptr;
     }
     list_elements.push_back(matched_value);
@@ -351,7 +353,7 @@ static bool varargsCanBeUsedAsList(
       schema.arguments()[arg_index + 1].kwarg_only();
 
   auto arg_type = arg.type();
-  if (auto dyn = arg_type->castRaw<c10::DynamicType>()) {
+  if (auto* dyn = arg_type->castRaw<c10::DynamicType>()) {
     arg_type = dyn->fallback();
   }
 
@@ -428,7 +430,7 @@ static std::optional<MatchedSchema> tryMatchSchema(
       // list. Allow zeros(IntArrayRef sizes) to work with zeros(1, 2) or
       // zeros(1)
       if (allow_conversions && varargsCanBeUsedAsList(schema, schema_i, arg)) {
-        auto value = args[used_args].value(graph);
+        auto* value = args[used_args].value(graph);
         const auto& actual_type = value->type();
         // The actual cannot already be a list
         if (actual_type->kind() != TypeKind::ListType &&
@@ -446,7 +448,7 @@ static std::optional<MatchedSchema> tryMatchSchema(
               err,
               allow_conversions,
               type_env);
-          if (!list) {
+          if (list == nullptr) {
             return std::nullopt;
           }
           used_args = args.size();
@@ -463,7 +465,7 @@ static std::optional<MatchedSchema> tryMatchSchema(
         auto kwarg_idx = findInputWithName(arg.name(), kwargs, is_aten)) {
       const NamedValue& nv = kwargs[*kwarg_idx];
       if (used_kwarg[*kwarg_idx]) {
-        if (failure_messages) {
+        if (failure_messages != nullptr) {
           err() << "Argument " << nv.name()
                 << " specified twice in schema, submit a bug report!\n";
         }
@@ -476,7 +478,7 @@ static std::optional<MatchedSchema> tryMatchSchema(
       // default
       actual_named_value = NamedValue(*arg.default_value());
     } else {
-      if (failure_messages) {
+      if (failure_messages != nullptr) {
         err() << "Argument " << schema.arguments()[schema_i].name()
               << " not provided.\n";
       }
@@ -493,14 +495,14 @@ static std::optional<MatchedSchema> tryMatchSchema(
         err,
         allow_conversions,
         type_env);
-    if (!positional) {
+    if (positional == nullptr) {
       return std::nullopt;
     }
     positional_inputs.push_back(positional);
   }
   // check for unused self argument
   if (self != std::nullopt) {
-    if (failure_messages) {
+    if (failure_messages != nullptr) {
       err() << "Provided self argument not used in schema.\n";
     }
     return std::nullopt;
@@ -514,7 +516,7 @@ static std::optional<MatchedSchema> tryMatchSchema(
 
   // check for unused positional arguments
   if (used_args < args.size()) {
-    if (failure_messages) {
+    if (failure_messages != nullptr) {
       err() << "Expected at most " << used_args << " arguments " << "but found "
             << args.size() << " positional arguments.\n";
     }
@@ -524,7 +526,7 @@ static std::optional<MatchedSchema> tryMatchSchema(
   for (const auto i : c10::irange(kwargs.size())) {
     const auto& nv = kwargs[i];
     if (!used_kwarg[i]) {
-      if (failure_messages) {
+      if (failure_messages != nullptr) {
         if (!schema.argumentIndexWithName(nv.name())) {
           err() << "Keyword argument " << nv.name() << " unknown.\n";
         } else {
@@ -592,8 +594,9 @@ static std::string prefixLine(
   std::stringstream ss;
   bool was_newline = true;
   for (auto c : str) {
-    if (was_newline)
+    if (was_newline) {
       ss << prefix;
+    }
     ss.put(c);
     was_newline = c == '\n';
   }
@@ -659,10 +662,10 @@ static Value* emitBuiltinNode(
     Graph& graph,
     Symbol name,
     std::optional<size_t> version) {
-  auto n = graph.insertNode(graph.create(name, matched_schema.inputs, 0))
-               ->setSourceRange(loc);
+  auto* n = graph.insertNode(graph.create(name, matched_schema.inputs, 0))
+                ->setSourceRange(loc);
 
-  for (auto& ret : matched_schema.return_types) {
+  for (const auto& ret : matched_schema.return_types) {
     n->addOutput()->setType(ret);
   }
 
@@ -723,8 +726,9 @@ Value* emitBuiltinCall(
         }
       }
     }
-    if (!found_upgrader)
+    if (!found_upgrader) {
       schemas.push_back(&op->schema());
+    }
   }
 
   // we might have seen old historic
@@ -744,7 +748,7 @@ Value* emitBuiltinCall(
     schemas.push_back(&schema);
   }
 
-  for (const auto method : builtin_functions) {
+  for (auto* const method : builtin_functions) {
     method->ensure_defined();
     schemas.push_back(&method->getSchema());
   }

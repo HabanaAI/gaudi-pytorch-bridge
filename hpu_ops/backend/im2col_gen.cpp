@@ -25,12 +25,10 @@ bool Im2ColFallbackCheck(
     at::IntArrayRef dilation,
     at::IntArrayRef padding,
     at::IntArrayRef stride) {
-  if (kernel_size[0] != 14 || kernel_size[1] != 14 || dilation[0] != 1 ||
-      dilation[1] != 1 || padding[0] != 0 || padding[1] != 0 ||
-      stride[0] != 14 || stride[1] != 14) {
-    return false;
-  }
-  return true;
+  return (
+      kernel_size[0] == 14 && kernel_size[1] == 14 && dilation[0] == 1 &&
+      dilation[1] == 1 && padding[0] == 0 && padding[1] == 0 &&
+      stride[0] == 14 && stride[1] == 14);
 }
 
 OutputMetaDataVector Im2ColMeta(const at::Stack& stack) {
@@ -45,21 +43,22 @@ OutputMetaDataVector Im2ColMeta(const at::Stack& stack) {
   int64_t input_height = input.size(2);
   int64_t input_width = input.size(3);
 
-  int64_t output_height = (input_height + 2 * padding[0] -
-                           (dilation[0] * (kernel_size[0] - 1) + 1)) /
-          stride[0] +
+  int64_t output_height = ((input_height + 2 * padding[0] -
+                            (dilation[0] * (kernel_size[0] - 1) + 1)) /
+                           stride[0]) +
       1;
-  int64_t output_width = (input_width + 2 * padding[1] -
-                          (dilation[1] * (kernel_size[1] - 1) + 1)) /
-          stride[1] +
+  int64_t output_width = ((input_width + 2 * padding[1] -
+                           (dilation[1] * (kernel_size[1] - 1) + 1)) /
+                          stride[1]) +
       1;
   int64_t n_output_plane = n_input_plane * kernel_size[0] * kernel_size[1];
   int64_t output_length = output_height * output_width;
 
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.shape = {batch_size, n_output_plane, output_length};
   meta.dtype = input.scalar_type();
-  return {meta};
+  return metaVec;
 }
 
 FillParamsT FillIm2ColParams(const at::Stack& stack) {

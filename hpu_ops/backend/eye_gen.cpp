@@ -14,10 +14,12 @@
  */
 
 #include "generated/backend/eye.h"
+#include "habana_helpers/conversion.h"
 
 namespace habana {
 OutputMetaDataVector EyeMeta(const at::Stack& stack) {
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   const int64_t n = stack.at(0).toInt();
   if (stack.size() == 3) {
     const int64_t m = stack.at(1).toInt();
@@ -27,16 +29,16 @@ OutputMetaDataVector EyeMeta(const at::Stack& stack) {
     meta.dtype = stack_tensor(stack, 1).scalar_type();
     meta.shape = {n, n};
   }
-  return {meta};
+  return metaVec;
 }
 
 FillParamsT FillEyeParams(const at::Stack& stack) {
   PARAMS_STUB(ns_Eye::Params);
 
-  const int64_t n = stack.at(0).toInt();
+  const auto n = safe_convert<int>(stack.at(0).toInt());
   params->rows = n;
   if (stack.size() == 3) {
-    const int64_t m = stack.at(1).toInt();
+    const auto m = safe_convert<int>(stack.at(1).toInt());
     params->cols = m;
   } else {
     params->cols = n;

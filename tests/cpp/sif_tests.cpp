@@ -57,7 +57,7 @@ TEST_F(SifTest, Slice) {
   int H = 24;
   std::vector<int> W_values{16, 36};
   std::vector<int> rounds{1, 2};
-  for (int i = 0; i < W_values.size(); i++) {
+  for (size_t i = 0; i < W_values.size(); i++) {
     for (int j = 1; j <= rounds[i]; j++) {
       PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i + 1, ", round ", j, "  START");
       int W = W_values[i];
@@ -85,7 +85,7 @@ TEST_F(SifTest, SimpleGraph) {
   int H = 16;
 
   std::vector<int> in_sizes{16, 24, 32};
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     PT_TEST_DEBUG("PTI_DBG: Iteration Start -- ", i, " ----\n");
     int W = in_sizes[i];
     // weight_tensor = bias1 + bias2
@@ -153,7 +153,7 @@ TEST_F(SifTest, AddAddDivSub) {
   const int N = 2;
 
   std::vector<int> in_sizes{8, 16, 32};
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     PT_TEST_DEBUG("PTI_DBG: Iteration Start -- ", i, " ----\n");
     int W = in_sizes[i];
     const std::vector<int64_t> dimentions{N, C, H, W};
@@ -189,7 +189,7 @@ TEST_F(SifTest, AddAddDivSubCatRelu) {
   const int N = 2;
 
   std::vector<int> in_sizes{8, 16, 32};
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     PT_TEST_DEBUG("PTI_DBG: Iteration Start -- ", i, " ----\n");
     int W = in_sizes[i];
     const std::vector<int64_t> dimentions{N, C, H, W};
@@ -248,7 +248,7 @@ TEST_F(SifTest, AddMulRelu) {
   std::vector<int> input_sizes{34, 16, 24};
   std::vector<int> test_rounds{1, 1, 1};
 
-  for (int i = 0; i < input_sizes.size(); i++) {
+  for (size_t i = 0; i < input_sizes.size(); i++) {
     for (int j = 1; j <= test_rounds[i]; j++) {
       int B = input_sizes[i];
       PT_TEST_DEBUG("PTI_DBG :: TEST ", "  START");
@@ -298,7 +298,7 @@ TEST_F(SifTest, Cat_Reshape_Relu_Conv2DTransposeBias_Test) {
   int64_t H = 16;
 
   std::vector<int64_t> in_sizes{16, 32, 64};
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     PT_TEST_DEBUG("PTI_DBG: Iteration Start -- ", i, " ----\n");
     const auto W = in_sizes[i];
     // 1. Cat Node
@@ -343,7 +343,7 @@ TEST_F(SifTest, AllReduce_Test) {
   validate_shape_start();
 
   std::vector<int> in_sizes{16, 24, 32};
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     torch::Tensor A = torch::randn({in_sizes[i]}, torch::requires_grad(false));
     auto v1 = A.view(-1);
     auto v2 = A.view(-1);
@@ -371,7 +371,7 @@ TEST_F(SifTest, AllReduceWithControlEdge_Test) {
   validate_shape_start();
 
   std::vector<int> in_sizes{16, 24, 32};
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     torch::Tensor A = torch::randn({in_sizes[i]}, torch::requires_grad(false));
     auto b = torch::relu(A);
     auto v1 = A.view(-1);
@@ -404,7 +404,7 @@ TEST_F(SifTest, DISABLED_Fill_Add) {
   validate_shape_start();
 
   std::vector<int> in_sizes{16, 32, 64};
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     PT_TEST_DEBUG("PTI_DBG: Iteration Start -- ", i, " ----\n");
     auto tensor = torch::randn({in_sizes[i]});
     auto h_tensor = tensor.to(torch::kHPU);
@@ -428,7 +428,7 @@ TEST_F(SifTest, IndexSubCat) {
   validate_shape_start();
   validate_sif_start();
   std::vector<int> in_sizes{8, 16, 32};
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     PT_TEST_DEBUG("PTI_DBG: Iteration Start -- ", i, " ----\n");
     int H = in_sizes[i];
     int W = in_sizes[i];
@@ -485,7 +485,7 @@ TEST_F(SifTest, IndexSubSiluBwd) {
   validate_shape_start();
   validate_sif_start();
   std::vector<int> in_sizes{8, 16, 32};
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     PT_TEST_DEBUG("PTI_DBG: Iteration Start -- ", i, " ----\n");
     int H = in_sizes[i];
     int W = in_sizes[i];
@@ -541,7 +541,7 @@ TEST_F(SifTest, IndexSubSiluBwd) {
 TEST_F(SifTest, MatmulFwdBwd) {
   validate_sif_start();
   std::vector<int> in_sizes{2, 4, 8};
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     PT_TEST_DEBUG("PTI_DBG: Iteration Start -- ", i, " ----\n");
     auto mat1 = torch::randn({2, in_sizes[i]}, torch::requires_grad());
     auto mat2 = torch::randn({in_sizes[i], 4}, torch::requires_grad());
@@ -579,7 +579,7 @@ TEST_F(SifTest, RandPermHT) {
   validate_shape_start();
   SET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR, true, 1);
   std::vector<int> in_sizes{8, 10, 15};
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     int n = in_sizes[i];
     std::optional<at::ScalarType> dtype = c10::ScalarType::Int;
     std::optional<at::Device> hb_device = at::DeviceType::HPU;

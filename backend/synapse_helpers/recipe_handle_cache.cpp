@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -86,10 +86,7 @@ std::shared_ptr<recipe> recipe_handle_cache::get_recipe(size_t key) {
 bool recipe_handle_cache::isCached(size_t hash) {
   std::unique_lock<std::mutex> lck(mutex_);
   auto iter = cache_map_.find(hash);
-  if (!cache_map_.empty() && iter != cache_map_.end()) {
-    return true;
-  }
-  return false;
+  return !cache_map_.empty() && iter != cache_map_.end();
 }
 
 size_t recipe_handle_cache::getCount() {
@@ -98,40 +95,41 @@ size_t recipe_handle_cache::getCount() {
 }
 
 void recipe_handle_cache::increaseHitCount(const size_t key) {
-  if (!enable_hit_count_)
+  if (!enable_hit_count_) {
     return;
-
+  }
   std::unique_lock<std::mutex> lck(mutex_);
   increaseHitCount_(key);
 }
 
 void recipe_handle_cache::increaseHitCount_(const size_t key) {
-  if (!enable_hit_count_)
+  if (!enable_hit_count_) {
     return;
-
-  hit_counter_[key] = (hit_counter_.count(key) ? hit_counter_[key] + 1 : 1);
+  }
+  hit_counter_[key] =
+      (hit_counter_.count(key) != 0U ? hit_counter_[key] + 1 : 1);
 }
 
 int recipe_handle_cache::getActiveRecipeCount() {
-  if (!enable_hit_count_)
+  if (!enable_hit_count_) {
     return -1;
-
+  }
   std::unique_lock<std::mutex> lck(mutex_);
   return int(hit_counter_.size());
 }
 
 int recipe_handle_cache::getHitCount(const size_t key) {
-  if (!enable_hit_count_)
+  if (!enable_hit_count_) {
     return -1;
-
+  }
   std::unique_lock<std::mutex> lck(mutex_);
-  return (hit_counter_.count(key) ? hit_counter_[key] : 0);
+  return (hit_counter_.count(key) != 0U ? hit_counter_[key] : 0);
 }
 
 void recipe_handle_cache::printHitCount() {
-  if (!enable_hit_count_)
+  if (!enable_hit_count_) {
     return;
-
+  }
   std::unique_lock<std::mutex> lck(mutex_);
   PT_SYNHELPER_DEBUG("Number of active recipes ", hit_counter_.size());
   for (auto p : hit_counter_) {
@@ -140,9 +138,9 @@ void recipe_handle_cache::printHitCount() {
 }
 
 void recipe_handle_cache::clearHitCount() {
-  if (!enable_hit_count_)
+  if (!enable_hit_count_) {
     return;
-
+  }
   std::unique_lock<std::mutex> lck(mutex_);
   hit_counter_.clear();
 }

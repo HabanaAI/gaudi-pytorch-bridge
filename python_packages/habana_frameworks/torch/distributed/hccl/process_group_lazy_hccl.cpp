@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,7 +44,7 @@ namespace {
 
 bool resizeOddTensor(
     std::vector<at::Tensor>& tensors,
-    std::unique_ptr<bool[]>& changed,
+    std::unique_ptr<bool[]>& changed, // NOLINT(*-avoid-c-arrays)
     std::vector<std::vector<int64_t>>& sizeList,
     std::vector<std::vector<int64_t>>& strideList) {
   bool change = false;
@@ -67,7 +67,7 @@ bool resizeOddTensor(
 
 bool resizeTensor(
     std::vector<at::Tensor>& tensors,
-    std::unique_ptr<bool[]>& changed,
+    std::unique_ptr<bool[]>& changed, // NOLINT(*-avoid-c-arrays)
     std::vector<std::vector<int64_t>>& sizeList,
     std::vector<std::vector<int64_t>>& strideList,
     std::vector<int64_t> extra_num_elems) {
@@ -92,7 +92,7 @@ bool resizeTensor(
 
 bool resizeTensor(
     std::vector<at::Tensor>& tensors,
-    std::unique_ptr<bool[]>& changed,
+    std::unique_ptr<bool[]>& changed, // NOLINT(*-avoid-c-arrays)
     std::vector<std::vector<int64_t>>& sizeList,
     std::vector<std::vector<int64_t>>& strideList,
     int extra_num_elems) {
@@ -120,11 +120,11 @@ bool resizeTensor(
 
 void restoreOddTensorsize(
     std::vector<at::Tensor>& tensors,
-    std::unique_ptr<bool[]>& changed,
+    std::unique_ptr<bool[]>& changed, // NOLINT(*-avoid-c-arrays)
     std::vector<std::vector<int64_t>>& sizeList,
     std::vector<std::vector<int64_t>>& strideList) {
   for (size_t i = 0; i < tensors.size(); i++) {
-    if (changed[i] == true) {
+    if (changed && changed[i]) {
       tensors[i] = tensors[i].resize_(sizeList[i]);
       tensors[i].unsafeGetTensorImpl()->set_sizes_and_strides(
           sizeList[i], strideList[i]);
@@ -134,11 +134,11 @@ void restoreOddTensorsize(
 
 void restoreTensorsize(
     std::vector<at::Tensor>& tensors,
-    std::unique_ptr<bool[]>& changed,
+    std::unique_ptr<bool[]>& changed, // NOLINT(*-avoid-c-arrays)
     std::vector<std::vector<int64_t>>& sizeList,
     std::vector<std::vector<int64_t>>& strideList,
-    int extra_num_elems,
-    int ori_input_size = -1) {
+    int64_t extra_num_elems,
+    int64_t ori_input_size = -1) {
   if (extra_num_elems == 1) {
     restoreOddTensorsize(tensors, changed, sizeList, strideList);
     return;
@@ -146,7 +146,7 @@ void restoreTensorsize(
 
   // Below for the case: extra_num_elems > 1
   for (size_t i = 0; i < tensors.size(); i++) {
-    if (changed[i] == true) {
+    if (changed && changed[i]) {
       // Here restore logic is like below, typically for output tensor:
       //
       // Considering we have input tensor with shape [63] on two ranks.
@@ -172,7 +172,7 @@ void restoreTensorsize(
       auto resized_out = at::empty_like(tensors[i], tensors[i].scalar_type());
       HABANA_ASSERT(tensors[i].sizes().size() == 1, "only support 1D tensor");
       auto resized_input_size = ori_input_size + 1;
-      for (int n = 0; n < extra_num_elems; ++n) {
+      for (int64_t n = 0; n < extra_num_elems; ++n) {
         auto dst = at::as_strided(
             resized_out,
             {ori_input_size},
@@ -201,13 +201,13 @@ void restoreTensorsize(
 
 void restoreTensorsize(
     std::vector<at::Tensor>& tensors,
-    std::unique_ptr<bool[]>& changed,
+    std::unique_ptr<bool[]>& changed, // NOLINT(*-avoid-c-arrays)
     std::vector<std::vector<int64_t>>& sizeList,
     std::vector<std::vector<int64_t>>& strideList,
     std::vector<int64_t> extra_num_elems,
     std::vector<int64_t> ori_input_size) {
   for (size_t i = 0; i < tensors.size(); i++) {
-    if (changed[i] == true) {
+    if (changed && changed[i]) {
       if (extra_num_elems[i] == 1) {
         tensors[i] = tensors[i].resize_(sizeList[i]);
         tensors[i].unsafeGetTensorImpl()->set_sizes_and_strides(
@@ -302,9 +302,8 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::reduce_scatter_tensor_coalesced(
     const ReduceScatterOptions& opts) {
   for (size_t index = 0; index < inputs.size(); ++index) {
     auto data_type = inputs.at(index).scalar_type();
-    bool cast_tensor =
-        !(data_type == c10::ScalarType::Float ||
-          data_type == c10::ScalarType::BFloat16);
+    bool cast_tensor = data_type != c10::ScalarType::Float &&
+        data_type != c10::ScalarType::BFloat16;
     at::Tensor t_updated;
     if (!cast_tensor) {
       habana_lazy::reduce_scatter_hpu_lazy_out(
@@ -322,7 +321,7 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::reduce_scatter_tensor_coalesced(
   }
 
   auto work = c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(outputs);
-  if (coalescing_state_) {
+  if (coalescing_state_ != 0) {
     coalesed_works_->append(work);
   }
   return work;
@@ -370,9 +369,9 @@ ProcessGroupLazyHCCL::~ProcessGroupLazyHCCL() {
 };
 
 void ProcessGroupLazyHCCL::destroy() {
-  if (is_destroyed_)
+  if (is_destroyed_) {
     return;
-
+  }
   PT_DISTRIBUTED_DEBUG(
       "Destroy ProcessGroupLazyHCCL name:",
       group_name_,
@@ -436,6 +435,7 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::broadcast(
     std::vector<at::Tensor>& tensors,
     const BroadcastOptions& opts) {
   size_t tensor_size = tensors.size();
+  // NOLINTNEXTLINE(*-avoid-c-arrays)
   std::unique_ptr<bool[]> changed(new bool[tensor_size]);
   std::vector<std::vector<int64_t>> sizeList(tensor_size);
   std::vector<std::vector<int64_t>> strideList(tensor_size);
@@ -447,7 +447,7 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::broadcast(
   habana_lazy::HbLazyTensor::StepMarker();
   restoreOddTensorsize(tensors, changed, sizeList, strideList);
   auto work = c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(tensors);
-  if (coalescing_state_) {
+  if (coalescing_state_ != 0) {
     coalesed_works_->append(work);
   }
   return work;
@@ -459,10 +459,9 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::allreduce(
   HOST_SYNC()
   for (auto& t : tensors) {
     auto data_type = t.scalar_type();
-    bool cast_tensor =
-        !(data_type == c10::ScalarType::Float ||
-          data_type == c10::ScalarType::Half ||
-          data_type == c10::ScalarType::BFloat16);
+    bool cast_tensor = data_type != c10::ScalarType::Float &&
+        data_type != c10::ScalarType::Half &&
+        data_type != c10::ScalarType::BFloat16;
     at::Tensor t_updated;
     if (!cast_tensor) {
       t_updated = t;
@@ -477,7 +476,7 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::allreduce(
   }
   auto work = c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(tensors);
 
-  if (coalescing_state_) {
+  if (coalescing_state_ != 0) {
     coalesed_works_->append(work);
   }
 
@@ -496,8 +495,8 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::reduce(
   for (auto& t : tensors) {
     auto data_type = t.scalar_type();
     bool cast_tensor =
-        !(data_type == c10::ScalarType::Float ||
-          data_type == c10::ScalarType::BFloat16);
+        (data_type != c10::ScalarType::Float &&
+         data_type != c10::ScalarType::BFloat16);
     at::Tensor t_updated;
     if (!cast_tensor) {
       t_updated = t;
@@ -511,7 +510,7 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::reduce(
     }
   }
   auto work = c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(tensors);
-  if (coalescing_state_) {
+  if (coalescing_state_ != 0) {
     coalesed_works_->append(work);
   }
   return work;
@@ -523,23 +522,27 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::allgather(
     [[maybe_unused]] const AllgatherOptions& opts) {
   bool change = false;
   size_t tensor_size = outputTensors[0].size();
+  // NOLINTBEGIN(*-avoid-c-arrays)
   std::unique_ptr<std::unique_ptr<bool[]>[]> changed(
       new std::unique_ptr<bool[]>[tensor_size]());
+  // NOLINTEND(*-avoid-c-arrays)
   std::vector<std::vector<std::vector<int64_t>>> sizeList(tensor_size);
   std::vector<std::vector<std::vector<int64_t>>> strideList(tensor_size);
   for (size_t i = 0; i < outputTensors.size(); i++) {
+    // NOLINTNEXTLINE(*-avoid-c-arrays)
     changed[i] = std::make_unique<bool[]>(outputTensors[i].size());
     sizeList[i].resize(outputTensors[i].size());
     strideList[i].resize(outputTensors[i].size());
     resizeOddTensor(outputTensors[i], changed[i], sizeList[i], strideList[i]);
   }
+  // NOLINTNEXTLINE(*-avoid-c-arrays)
   std::unique_ptr<bool[]> in_changed(new bool[tensor_size]);
   std::vector<std::vector<int64_t>> in_sizeList(tensor_size);
   std::vector<std::vector<int64_t>> in_strideList(tensor_size);
   change =
       resizeOddTensor(inputTensors, in_changed, in_sizeList, in_strideList);
   auto output_flattened = habana_helpers::flatten_for_scatter_gather(
-      outputTensors, inputTensors, size_);
+      outputTensors, inputTensors, static_cast<size_t>(size_));
   HOST_SYNC()
   for (size_t index = 0; index < output_flattened.size(); ++index) {
     habana_lazy::allgather_hpu_lazy_out(
@@ -554,7 +557,8 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::allgather(
 
   for (size_t i = 0; i < outputTensors.size(); ++i) {
     for (size_t j = 0; j < outputTensors.at(i).size(); ++j) {
-      outputTensors[i][j].copy_(output_flattened[i][j], true);
+      outputTensors[i][j].copy_(
+          output_flattened[i][static_cast<int64_t>(j)], true);
       output_list_flat.push_back(outputTensors[i][j]);
     }
   }
@@ -569,7 +573,7 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::allgather(
   auto work =
       c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(output_list_flat);
 
-  if (coalescing_state_) {
+  if (coalescing_state_ != 0) {
     coalesed_works_->append(work);
   }
 
@@ -593,11 +597,13 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::_allgather_base(
   auto inputs = std::vector<at::Tensor>{inputBuffer};
   auto outputs = std::vector<at::Tensor>{outputBuffer};
 
-  auto tensor_size{1};
+  size_t tensor_size{1};
+  // NOLINTNEXTLINE(*-avoid-c-arrays)
   std::unique_ptr<bool[]> in_changed(new bool[tensor_size]);
   std::vector<std::vector<int64_t>> in_sizeList(tensor_size);
   std::vector<std::vector<int64_t>> in_strideList(tensor_size);
 
+  // NOLINTNEXTLINE(*-avoid-c-arrays)
   std::unique_ptr<bool[]> out_changed(new bool[tensor_size]);
   std::vector<std::vector<int64_t>> out_sizeList(tensor_size);
   std::vector<std::vector<int64_t>> out_strideList(tensor_size);
@@ -656,7 +662,7 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::_allgather_base(
       ori_input_size);
   auto work = c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(outputs);
 
-  if (coalescing_state_) {
+  if (coalescing_state_ != 0) {
     coalesed_works_->append(work);
   }
   return work;
@@ -762,10 +768,12 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::allgather_into_tensor_coalesced(
     ori_input_size[i] = input_tensor.numel();
   }
 
+  // NOLINTNEXTLINE(*-avoid-c-arrays)
   std::unique_ptr<bool[]> in_changed(new bool[tensor_size]);
   std::vector<std::vector<int64_t>> in_sizeList(tensor_size);
   std::vector<std::vector<int64_t>> in_strideList(tensor_size);
 
+  // NOLINTNEXTLINE(*-avoid-c-arrays)
   std::unique_ptr<bool[]> out_changed(new bool[tensor_size]);
   std::vector<std::vector<int64_t>> out_sizeList(tensor_size);
   std::vector<std::vector<int64_t>> out_strideList(tensor_size);
@@ -823,7 +831,7 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::allgather_into_tensor_coalesced(
       ori_input_size);
   auto work = c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(outputs);
 
-  if (coalescing_state_) {
+  if (coalescing_state_ != 0) {
     coalesed_works_->append(work);
   }
   return work;
@@ -835,11 +843,14 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::gather(
     const GatherOptions& opts) {
   bool change = false;
   size_t tensor_size = outputTensors.empty() ? 0 : outputTensors[0].size();
+  // NOLINTBEGIN(*-avoid-c-arrays)
   std::unique_ptr<std::unique_ptr<bool[]>[]> changed(
       new std::unique_ptr<bool[]>[tensor_size]());
+  // NOLINTEND(*-avoid-c-arrays)
   std::vector<std::vector<std::vector<int64_t>>> sizeList(tensor_size);
   std::vector<std::vector<std::vector<int64_t>>> strideList(tensor_size);
   for (size_t i = 0; i < outputTensors.size(); i++) {
+    // NOLINTNEXTLINE(*-avoid-c-arrays)
     changed[i] = std::make_unique<bool[]>(outputTensors[i].size());
     sizeList[i].resize(outputTensors[i].size());
     strideList[i].resize(outputTensors[i].size());
@@ -847,6 +858,7 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::gather(
         outputTensors[i], changed[i], sizeList[i], strideList[i]);
   }
   size_t in_tensor_size = inputTensors.size();
+  // NOLINTNEXTLINE(*-avoid-c-arrays)
   std::unique_ptr<bool[]> in_changed(new bool[in_tensor_size]);
   std::vector<std::vector<int64_t>> in_sizeList(in_tensor_size);
   std::vector<std::vector<int64_t>> in_strideList(in_tensor_size);
@@ -873,17 +885,17 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::gather(
     int numRanks = getSize();
     for (int r = 0; r < numRanks; r++) {
       if (r == getRank()) {
-        outputs[r].copy_(inputTensors[0]);
+        outputs[static_cast<size_t>(r)].copy_(inputTensors[0]);
         work = c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(outputs);
       } else {
         std::vector<at::Tensor> recvTensor;
-        recvTensor.push_back(outputs[r]);
+        recvTensor.push_back(outputs[static_cast<size_t>(r)]);
         work = recv(recvTensor, r, 0 /*tag*/);
       }
     }
   } else {
     HABANA_ASSERT(outputTensors.empty(), "Requires empty output on non-root");
-    work = send(inputTensors, opts.rootRank, 0 /*tag*/);
+    work = send(inputTensors, static_cast<int>(opts.rootRank), 0 /*tag*/);
   }
   if (change) {
     PT_IRGRAPH_DEBUG("step marker due to ProcessGroupLazyHCCL::gather");
@@ -895,7 +907,7 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::gather(
     restoreOddTensorsize(
         outputTensors[i], changed[i], sizeList[i], strideList[i]);
   }
-  if (coalescing_state_) {
+  if (coalescing_state_ != 0) {
     coalesed_works_->append(work);
   }
   return c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(outputs);
@@ -910,10 +922,9 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::alltoall(
       "ProcessGroupLazyHCCL::alltoall input and output tensors must have at least one element");
   auto data_type = outputTensors[0].scalar_type();
 
-  bool cast_tensor = !(
-      data_type == c10::ScalarType::Float ||
-      data_type == c10::ScalarType::BFloat16 ||
-      data_type == c10::ScalarType::Int || data_type == c10::ScalarType::Long);
+  bool cast_tensor = data_type != c10::ScalarType::Float &&
+      data_type != c10::ScalarType::BFloat16 &&
+      data_type != c10::ScalarType::Int && data_type != c10::ScalarType::Long;
   at::Tensor t_output;
   at::Tensor t_input;
   if (!cast_tensor) {
@@ -976,7 +987,7 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::alltoall(
   std::vector<at::Tensor> out_tensors = {outputTensors};
   auto work = c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(out_tensors);
 
-  if (coalescing_state_) {
+  if (coalescing_state_ != 0) {
     coalesed_works_->append(work);
   }
 
@@ -990,11 +1001,10 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::alltoall_base(
     std::vector<int64_t>& inputSplitSizes,
     [[maybe_unused]] const AllToAllOptions& opts) {
   auto data_type = outputTensor.scalar_type();
-  bool cast_tensor = !(
-      data_type == c10::ScalarType::Float ||
-      data_type == c10::ScalarType::BFloat16 ||
-      data_type == c10::ScalarType::Int || data_type == c10::ScalarType::Long ||
-      data_type == at::kFloat8_e5m2 || data_type == at::kFloat8_e4m3fn);
+  bool cast_tensor = data_type != c10::ScalarType::Float &&
+      data_type != c10::ScalarType::BFloat16 &&
+      data_type != c10::ScalarType::Int && data_type != c10::ScalarType::Long &&
+      data_type != at::kFloat8_e5m2 && data_type != at::kFloat8_e4m3fn;
   at::Tensor t_output;
   at::Tensor t_input;
   if (!cast_tensor) {
@@ -1013,7 +1023,7 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::alltoall_base(
   }
   std::vector<at::Tensor> out_tensors = {outputTensor};
   auto work = c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(out_tensors);
-  if (coalescing_state_) {
+  if (coalescing_state_ != 0) {
     coalesed_works_->append(work);
   }
   return work;
@@ -1025,10 +1035,12 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::scatter(
     const ScatterOptions& opts) {
   bool change = false;
   size_t tensor_size = inputTensors.empty() ? 0 : inputTensors[0].size();
+  // NOLINTNEXTLINE(*-avoid-c-arrays)
   std::vector<std::unique_ptr<bool[]>> changed(tensor_size);
   std::vector<std::vector<std::vector<int64_t>>> sizeList(tensor_size);
   std::vector<std::vector<std::vector<int64_t>>> strideList(tensor_size);
   for (size_t i = 0; i < inputTensors.size(); i++) {
+    // NOLINTNEXTLINE(*-avoid-c-arrays)
     changed[i] = std::make_unique<bool[]>(inputTensors[i].size());
     sizeList[i].resize(inputTensors[i].size());
     strideList[i].resize(inputTensors[i].size());
@@ -1036,6 +1048,7 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::scatter(
         inputTensors[i], changed[i], sizeList[i], strideList[i]);
   }
   size_t out_tensor_size = outputTensors.size();
+  // NOLINTNEXTLINE(*-avoid-c-arrays)
   std::unique_ptr<bool[]> out_changed(new bool[out_tensor_size]);
   std::vector<std::vector<int64_t>> out_sizeList(out_tensor_size);
   std::vector<std::vector<int64_t>> out_strideList(out_tensor_size);
@@ -1063,17 +1076,17 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::scatter(
     int numRanks = getSize();
     for (int r = 0; r < numRanks; r++) {
       if (r == getRank()) {
-        outputTensors[0].copy_(inputs[r]);
+        outputTensors[0].copy_(inputs[static_cast<size_t>(r)]);
         work = c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(inputs);
       } else {
         std::vector<at::Tensor> sendTensor;
-        sendTensor.push_back(inputs[r]);
+        sendTensor.push_back(inputs[static_cast<size_t>(r)]);
         work = send(sendTensor, r, 0 /*tag*/);
       }
     }
   } else {
     HABANA_ASSERT(inputTensors.empty(), "Requires empty input on non-root");
-    work = recv(outputTensors, opts.rootRank, 0 /*tag*/);
+    work = recv(outputTensors, static_cast<int>(opts.rootRank), 0 /*tag*/);
   }
 
   if (change) {
@@ -1088,7 +1101,7 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::scatter(
         outputTensors, out_changed, out_sizeList, out_strideList);
   }
 
-  if (coalescing_state_) {
+  if (coalescing_state_ != 0) {
     coalesed_works_->append(work);
   }
   return c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(inputs);
@@ -1099,18 +1112,18 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::reduce_scatter(
     std::vector<std::vector<at::Tensor>>& inputTensors,
     const ReduceScatterOptions& opts) {
   auto input_flattened = habana_helpers::flatten_for_scatter_gather(
-      inputTensors, outputTensors, size_);
+      inputTensors, outputTensors, static_cast<size_t>(size_));
   for (size_t i = 0; i < inputTensors.size(); ++i) {
     for (size_t j = 0; j < inputTensors[0].size(); ++j) {
-      input_flattened[i][j].copy_(inputTensors[i][j], true);
+      input_flattened[i][static_cast<int64_t>(j)].copy_(
+          inputTensors[i][j], true);
     }
   }
 
   for (size_t index = 0; index < input_flattened.size(); ++index) {
     auto data_type = input_flattened.at(index).scalar_type();
-    bool cast_tensor =
-        !(data_type == c10::ScalarType::Float ||
-          data_type == c10::ScalarType::BFloat16);
+    bool cast_tensor = data_type != c10::ScalarType::Float &&
+        data_type != c10::ScalarType::BFloat16;
     at::Tensor t_updated;
     if (!cast_tensor) {
       habana_lazy::reduce_scatter_hpu_lazy_out(
@@ -1130,7 +1143,7 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::reduce_scatter(
 
   auto work =
       c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(outputTensors);
-  if (coalescing_state_) {
+  if (coalescing_state_ != 0) {
     coalesed_works_->append(work);
   }
   return work;
@@ -1144,7 +1157,7 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::_reduce_scatter_base(
       inputTensor, (uint8_t)opts.reduceOp, comm_->GetId(), outputTensor);
   std::vector<at::Tensor> out_tensors = {outputTensor};
   auto work = c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(out_tensors);
-  if (coalescing_state_) {
+  if (coalescing_state_ != 0) {
     coalesed_works_->append(work);
   }
   return work;
@@ -1155,7 +1168,7 @@ void ProcessGroupLazyHCCL::permutedSendTensorsToDense(at::Tensor& tensor) {
   auto self_hb_tensor = habana_lazy::GetHbLazyTensor(tensor);
   auto self_internal_tesor = self_hb_tensor.EvaluateTensorData();
   std::vector<uint8_t> permutation;
-  auto hb_weight_impl =
+  auto* hb_weight_impl =
       habana_lazy::GetHbInternalTensorImpl(self_internal_tesor);
   permutation = hb_weight_impl->GetMemoryPermutation();
   if (!permutation.empty()) {
@@ -1174,6 +1187,7 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::send(
     int dstRank,
     int tag) {
   size_t tensor_size = tensors.size();
+  // NOLINTNEXTLINE(*-avoid-c-arrays)
   std::unique_ptr<bool[]> changed(new bool[tensor_size]);
   std::vector<std::vector<int64_t>> sizeList(tensor_size);
   std::vector<std::vector<int64_t>> strideList(tensor_size);
@@ -1185,7 +1199,7 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::send(
   }
   restoreOddTensorsize(tensors, changed, sizeList, strideList);
   auto work = c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(tensors);
-  if (coalescing_state_) {
+  if (coalescing_state_ != 0) {
     coalesed_works_->append(work);
   }
   return work;
@@ -1196,6 +1210,7 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::recv(
     int srcRank,
     int tag) {
   size_t tensor_size = tensors.size();
+  // NOLINTNEXTLINE(*-avoid-c-arrays)
   std::unique_ptr<bool[]> changed(new bool[tensor_size]);
   std::vector<std::vector<int64_t>> sizeList(tensor_size);
   std::vector<std::vector<int64_t>> strideList(tensor_size);
@@ -1206,7 +1221,7 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::recv(
   }
   restoreOddTensorsize(tensors, changed, sizeList, strideList);
   auto work = c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(tensors);
-  if (coalescing_state_) {
+  if (coalescing_state_ != 0) {
     coalesed_works_->append(work);
   }
   return work;

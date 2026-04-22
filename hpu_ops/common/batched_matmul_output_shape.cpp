@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -54,8 +54,8 @@ ShapeVecT<DimT> getBatchMatmulOutShape(
     outputShape.push_back(inShapeA[dimA]);
   }
 
-  auto commonSizeA = inShapeA[commonDimA];
-  auto commonSizeB = inShapeB[commonDimB];
+  const auto& commonSizeA = inShapeA[commonDimA];
+  const auto& commonSizeB = inShapeB[commonDimB];
 
   if (commonSizeA != commonSizeB) {
     std::stringstream errorMsg;

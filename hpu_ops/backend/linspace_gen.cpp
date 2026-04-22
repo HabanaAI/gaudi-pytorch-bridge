@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,13 +18,14 @@
 namespace habana {
 
 OutputMetaDataVector LinspaceMeta(const at::Stack& stack) {
-  OutputMetaData meta;
-  auto ival = stack.at(3);
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
+  const auto& ival = stack.at(3);
   if (ival.isTensor()) {
-    auto out_tensor = ival.toTensor();
+    const auto& out_tensor = ival.toTensor();
     meta.dtype = out_tensor.scalar_type();
   } else {
-    auto end_ival = stack.at(1);
+    const auto& end_ival = stack.at(1);
     if (end_ival.isTensor()) {
       meta.dtype = end_ival.toTensor().scalar_type();
     } else if (end_ival.isScalar()) {
@@ -32,7 +33,7 @@ OutputMetaDataVector LinspaceMeta(const at::Stack& stack) {
     }
   }
   meta.shape = {stack.at(2).toInt()};
-  return {meta};
+  return metaVec;
 }
 
 FillParamsT LinspaceRangeParams(const at::Stack& stack) {
@@ -40,18 +41,21 @@ FillParamsT LinspaceRangeParams(const at::Stack& stack) {
                                     : stack[0].toTensor().item<float>();
   float end = stack[1].isScalar() ? stack[1].toScalar().to<float>()
                                   : stack[1].toTensor().item<float>();
-  int steps = stack[2].isScalar() ? stack[2].toScalar().to<float>()
-                                  : stack[2].toTensor().item<int>();
+  int steps = stack[2].isScalar()
+      ? static_cast<int>(stack[2].toScalar().to<float>())
+      : stack[2].toTensor().item<int>();
 
-  float endValueModification = 0.000001;
+  // NOLINTNEXTLINE(readability-magic-numbers)
+  float endValueModification = 0.000001F;
   int arange_step = steps;
 
   float delta = (end - start);
-  if (1.0 != arange_step) {
-    delta /= (arange_step - 1.0);
+  if (1.0F != static_cast<float>(arange_step)) {
+    delta /= static_cast<float>(arange_step - 1);
   }
   if (arange_step != 1) {
-    endValueModification = delta / 2.0;
+    // NOLINTNEXTLINE(readability-magic-numbers)
+    endValueModification = delta / 2.0F;
   }
 
   end += endValueModification;
@@ -68,32 +72,36 @@ FillParamsT LinspaceRangeParams(const at::Stack& stack) {
 SharedMetaDataVector LinspaceOutSharedMeta(
     const at::Stack& stack,
     habana_helpers::HabanaExecutionMode /*unused*/) {
-  auto end = stack.at(1);
-  auto steps = stack.at(2);
+  const auto& end = stack.at(1);
+  const auto& steps = stack.at(2);
   int stepsVal = steps.isScalar() ? steps.toScalar().to<int>()
                                   : steps.toTensor().item<int>();
-  auto out = stack.at(3);
+  const auto& out = stack.at(3);
   auto isOutTensor = out.isTensor();
   auto isEndScalar = end.isScalar();
   c10::ScalarType dtype;
-  if (isOutTensor)
+  if (isOutTensor) {
     dtype = out.toTensor().scalar_type();
-  else if (!isEndScalar)
+  } else if (!isEndScalar) {
     dtype = end.toTensor().scalar_type();
-  else
+  } else {
     dtype = end.toScalar().type();
-
-  if (!isOutTensor &&
-      (dtype == c10::ScalarType::Long || dtype == c10::ScalarType::Int))
-    dtype = c10::ScalarType::Float;
-
-  if (stepsVal == 0) {
-    SharedMetaData memsetSharedMeta{"memset"};
-    memsetSharedMeta.outputs_data.emplace_back(1, dtype);
-    return {memsetSharedMeta};
   }
 
-  auto start = stack.at(0);
+  if (!isOutTensor &&
+      (dtype == c10::ScalarType::Long || dtype == c10::ScalarType::Int)) {
+    dtype = c10::ScalarType::Float;
+  }
+
+  if (stepsVal == 0) {
+    SharedMetaDataVector meta;
+    meta.reserve(1);
+    auto& memsetSharedMeta = meta.emplace_back("memset");
+    memsetSharedMeta.outputs_data.emplace_back(1, dtype);
+    return meta;
+  }
+
+  const auto& start = stack.at(0);
   auto isStartScalar = start.isScalar();
   float startVal = isStartScalar ? start.toScalar().to<float>()
                                  : start.toTensor().item<float>();
@@ -101,19 +109,24 @@ SharedMetaDataVector LinspaceOutSharedMeta(
       isEndScalar ? end.toScalar().to<float>() : end.toTensor().item<float>();
   if (startVal != endVal && stepsVal != 1) {
     if (dtype == c10::ScalarType::Float) {
-      SharedMetaData linspaceSharedMeta{"linspace"};
-      if (!isStartScalar && !isEndScalar)
+      SharedMetaDataVector meta;
+      meta.reserve(1);
+      auto& linspaceSharedMeta = meta.emplace_back("linspace");
+      if (!isStartScalar && !isEndScalar) {
         linspaceSharedMeta.inputs_data = {
             {start.toTensor().dim(), dtype}, {end.toTensor().dim(), dtype}};
+      }
       linspaceSharedMeta.outputs_data.emplace_back(1, dtype);
 
-      return {linspaceSharedMeta};
+      return meta;
     }
 
-    SharedMetaData rangeSharedMeta{"range"};
+    SharedMetaDataVector meta;
+    meta.reserve(1);
+    auto& rangeSharedMeta = meta.emplace_back("range");
     rangeSharedMeta.outputs_data.emplace_back(1, dtype);
 
-    return {rangeSharedMeta};
+    return meta;
   }
   // [SW-205149] return empty vector because shape tensor validation will block
   // shape agnostic flow
@@ -130,8 +143,9 @@ void LinspaceOut::AddNode(
                                     : stack[0].toTensor().item<float>();
   float end = stack[1].isScalar() ? stack[1].toScalar().to<float>()
                                   : stack[1].toTensor().item<float>();
-  int steps = stack[2].isScalar() ? stack[2].toScalar().to<float>()
-                                  : stack[2].toTensor().item<int>();
+  int steps = stack[2].isScalar()
+      ? static_cast<int>(stack[2].toScalar().to<float>())
+      : stack[2].toTensor().item<int>();
 
   // For Scalar_Tensor/Tensor_Scalar variants, int/int64 need to be cast to
   // float32
@@ -160,7 +174,7 @@ void LinspaceOut::AddNode(
           syn_inputs.emplace_back(syn_in(1));
         }
         params = FillParamsT::create<ns_LinspaceKernel::Params>();
-        auto linspaceParams = params.paramsPtr<ns_LinspaceKernel::Params>();
+        auto* linspaceParams = params.paramsPtr<ns_LinspaceKernel::Params>();
         linspaceParams->start = start;
         linspaceParams->end = end;
         linspaceParams->steps = steps;

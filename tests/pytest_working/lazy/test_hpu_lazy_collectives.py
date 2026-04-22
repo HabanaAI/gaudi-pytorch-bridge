@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -256,10 +256,7 @@ def simple_all_reduce(rank, world_size):
 def simple_broadcast(rank, world_size):
     init_hccl(rank, world_size)
     # test broadcast
-    if rank == 0:
-        input_tensor = torch.ones(100, 100, device=device_hpu)
-    else:
-        input_tensor = torch.zeros(100, 100, device=device_hpu)
+    input_tensor = torch.ones(100, 100, device=device_hpu) if rank == 0 else torch.zeros(100, 100, device=device_hpu)
     dist.broadcast(input_tensor, 0, async_op=True).wait()
     torch.testing.assert_close(torch.ones(100, 100, device=device_hpu), input_tensor)
 

@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,6 +29,7 @@ from torch._functorch.partitioners import (
 )
 from torch._inductor.fx_passes.joint_graph import constant_fold_uniform_value
 
+from .fx_graph_utils import remove_noop_alias_nodes
 from .passes import is_view_node
 
 
@@ -57,7 +58,7 @@ def has_mutation_users(producer: torch.fx.Node):
 
     while len(queue) != 0:
         node = queue.popleft()
-        for user in node.users.keys():
+        for user in node.users:
             if helper_is_inplace_node(user):
                 return True
 
@@ -98,6 +99,11 @@ def remove_unnecessary_clone(gm: torch.fx.GraphModule) -> torch.fx.GraphModule:
 
     gm.graph.lint()
     gm.recompile()
+    return gm
+
+
+def remove_unnecessary_alias(gm: torch.fx.GraphModule) -> torch.fx.GraphModule:
+    remove_noop_alias_nodes(gm)
     return gm
 
 
@@ -255,12 +261,17 @@ def hpu_partition(
     if hpu_backend_config.remove_unnecessary_clones:
         joint_module = remove_unnecessary_clone(joint_module)
 
+    # Drop no-op alias nodes to avoid extra saved outputs in default partitioner
+    # and keep backward input reuse effective.
+    if hpu_backend_config.enable_bwd_graph_input_reuse:
+        joint_module = remove_unnecessary_alias(joint_module)
+
     if hpu_backend_config.joint_graph_constant_folding:
         joint_module = constant_fold_joint_graph(joint_module)
 
     # optimize the joint module before partitioning it
     # we will fuse the attention module here
-    if str_to_bool(os.environ.get("PT_HPU_USE_FUSE_SDPA_PASS", False)) is True:
+    if str_to_bool(os.environ.get("PT_HPU_USE_FUSE_SDPA_PASS", "False")) is True:
         from habana_frameworks.torch.dynamo.compile_backend._passes.fuse_attention import (
             hpu_recursive_joint_graph_passes,
         )

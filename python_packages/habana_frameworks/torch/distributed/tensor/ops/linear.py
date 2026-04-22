@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2025 Intel Corporation
+# Copyright (c) 2025-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
 ###############################################################################
 
 import torch
+from habana_frameworks.torch.utils.version_checker import is_pytorch_older_than
 from torch.distributed.tensor import Replicate
 from torch.distributed.tensor._dtensor_spec import DTensorSpec
 from torch.distributed.tensor._op_schema import OpSchema, OpStrategy, PlacementStrategy
@@ -23,8 +24,12 @@ from torch.distributed.tensor._ops.utils import (
     infer_broadcast_dims_map,
     is_tensor_shardable,
     map_placements_after_broadcast,
-    register_op_strategy,
 )
+
+if is_pytorch_older_than("2.11"):
+    from torch.distributed.tensor._ops.registration import register_op_strategy
+else:
+    from torch.distributed.tensor._ops.utils import register_op_strategy
 
 """
 Use register_op_strategy when the sharding of the output cannot be determined solely

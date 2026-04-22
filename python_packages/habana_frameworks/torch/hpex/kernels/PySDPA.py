@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -94,13 +94,10 @@ def FillQSliceFactors(QShapes, KShapes, flow_mask):
     qFactor = sdpaQSliceFactors()
     Nt = QShapes.shape[QShapes.dim() - 2]
 
-    isTrm = False
     q_slice_size = getQSliceSize()
     multiple = Nt // q_slice_size
     remainder = Nt % q_slice_size
 
-    # Calculate the buffer size needed to hold one q slice
-    slice_buffer_size = calcSoftmaxBufferSize(QShapes, KShapes, True)
     requireQSlice = True
 
     qFactor.requireQSlice = requireQSlice
@@ -209,8 +206,6 @@ def flex_attention_fwd(q, k, v, block_size=128, is_noop_mask=False, is_ret_lse=F
     k_bucket_size = block_size
     device = q.device
     working_precision = torch.float64 if q.dtype == torch.float64 else torch.float32
-    if is_fp8:
-        working_precision = torch.bfloat16
     max_neg_value = -torch.finfo(compatible_dtype_for_softmax).max
     neg_inf = float("-inf")
     scale = 1 / math.sqrt(q.size(-1))
@@ -331,7 +326,6 @@ def flex_attention_fwd(q, k, v, block_size=128, is_noop_mask=False, is_ret_lse=F
                     mask_mod_out = torch.ops.hpu.flex_attention_mask_mod.default(b, h, q_idx, kv_idx)
 
                     block_masked = True
-                    attn_weights_zero = False
 
                     q_start = q_ind * qc.shape[qc.dim() - 2]
                     q_end = (q_ind + 1) * qc.shape[qc.dim() - 2]
@@ -491,15 +485,13 @@ def flex_attention_bwd(q, k, v, o, lse, do, glse, block_size=128, is_noop_mask=F
     )
 
     # GQA loop
-    for _h_idx, (qh, kh, vh, oh, doh, lseh, glseh) in enumerate(headqkv_splits):
+    for qh, kh, vh, oh, doh, lseh, glseh in headqkv_splits:
         # Common K, V for current Q slice
         kh = kh.repeat(1, q_heads, 1, 1) if gqa_enabled else k
         vh = vh.repeat(1, q_heads, 1, 1) if gqa_enabled else v
 
         # Allocate gradients for current Q slice
         dq = torch.zeros_like(qh)
-        dk = torch.zeros_like(kh)
-        dv = torch.zeros_like(vh)
 
         # Split Q along sequence length
         row_splits = list(
@@ -547,7 +539,6 @@ def flex_attention_bwd(q, k, v, o, lse, do, glse, block_size=128, is_noop_mask=F
                 )
                 attn_weights = (attn_weights * scale).to(working_precision)
                 scores = attn_weights.clone()
-                arg1 = scores.clone()
 
                 # apply score_mod
                 b_blocks = [
@@ -855,7 +846,7 @@ def sdpa_fwd(ctx, q, k, v, is_causal, with_slice):
     )
 
 
-def sdpa_bwd(do, q, k, v, O, is_causal, retain_exp, retain_max, with_slice):
+def sdpa_bwd(do, q, k, v, o, is_causal, retain_exp, retain_max, with_slice):
     """
     1. using retain tensor
     2. if slice enabled, using default size 1
@@ -1032,7 +1023,7 @@ class PySDPAHinted(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx, dout):
-        def backward_hinted(do, q, k, v, O, is_causal, with_slice, retain_exp, retain_max):
+        def backward_hinted(do, q, k, v, o, is_causal, with_slice, retain_exp, retain_max):
             if not q.dim() == 4:
                 raise AssertionError(" Currently support only 4D")
 

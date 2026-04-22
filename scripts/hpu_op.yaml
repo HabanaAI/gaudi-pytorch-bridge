@@ -939,6 +939,7 @@ pixel_shuffle:
   op_validator: check-node-with-shared-layer
 
 native_dropout_backward:
+  custom_fill_params: FillNativeDropoutBackwardParams
   op_backend: NativeDropoutBackward
   out_ids: [0]
   op_validator: NativeDropoutBackwardSharedMeta
@@ -1784,7 +1785,7 @@ atanh_:
 
 baddbmm:
   output_meta: BaddbmmMeta
-  guid: batch_gemm
+  guid: baddbmm
   op_backend: Baddbmm
   out_ids: [0]
   namespaces: [torch, torch.Tensor]
@@ -1792,7 +1793,7 @@ baddbmm:
 
 baddbmm_:
   output_meta: BaddbmmMeta
-  guid: batch_gemm
+  guid: baddbmm
   op_backend: Baddbmm
   inplace_ids: [0]
   namespaces: [torch.Tensor]
@@ -1800,7 +1801,7 @@ baddbmm_:
 
 baddbmm.out:
   output_meta: BaddbmmMeta
-  guid: batch_gemm
+  guid: baddbmm
   op_backend: Baddbmm
   namespaces: [torch, torch.Tensor]
   op_validator: BAddBMMSharedMeta
@@ -2809,6 +2810,34 @@ embedding:
   namespaces: [torch, torch.nn.functional]
   pytorch_module_names: [Embedding]
 
+_embedding_bag_backward:
+  output_meta: EmbeddingBagBwdMeta
+  custom_fill_params: FillEmbeddingBagBwdParams
+  guid: embedding_bag_bwd
+  op_backend: EmbeddingBagBwd
+  fallback_check: [EmbeddingBagBwdFallbackCheck, sparse]
+  out_ids: [0]
+  op_validator: EmbeddingBagBwdSharedMeta
+  namespaces: [torch, torch.nn.functional]
+  skip_slrg: true
+
+_embedding_bag_dense_backward:
+  output_meta: EmbeddingBagDenseBwdMeta
+  custom_fill_params: FillEmbeddingBagDenseBwdParams
+  guid: embedding_bag_bwd
+  fallback_check: [EmbeddingBagDenseBwdFallbackCheck]
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+  namespaces: [torch, torch.nn.functional]
+
+_embedding_bag:
+  output_meta: EmbeddingBagMeta
+  custom_fill_params: FillEmbeddingBagParams
+  guid: embedding_bag
+  out_ids: [0, 1, 1, 1]
+  op_validator: check-node-with-shared-layer
+  namespaces: [torch, torch.nn.functional]
+
 embedding_dense_backward:
   custom_fill_params: FillEmbeddingDenseBackwardParams
   output_meta: EmbeddingDenseBwdMeta
@@ -3463,10 +3492,12 @@ grid_sampler_3d:
 grid_sampler_2d_backward:
   custom_fill_params: FillGridSamplerBwdParams
   output_meta: GridSamplerBwdMeta
-  op_backend: GridSamplerBwd
   guid: grid_sampler_bwd
   out_ids: [1, 2]
-  op_validator: GridSamplerBwdSharedMeta
+  op_validator: check-node-with-shared-layer
+  synapse_layouts:
+  - [WHCN, WHCN, AWHN]
+  - [WHCN, AWHN]
   skip_slrg: true
 
 grid_sampler_3d_backward:
@@ -6418,8 +6449,10 @@ round.decimals_out:
   op_validator: check-node-with-shared-layer
 
 rrelu_with_noise:
-  op_frontend: GeneratorToSeed
+  guid: rrelu_with_noise_cguid
+  custom_fill_params: FillRreluWithNoiseParams
   op_backend: Rrelu_with_noise
+  op_frontend: GeneratorToSeed
   out_ids: [0]
   schema_args: "(Tensor self, Tensor(b!) noise, Scalar lower, Scalar upper, bool training, Tensor seed) -> Tensor"
   namespaces: [torch.nn, torch.nn.functional]
@@ -6429,8 +6462,10 @@ rrelu_with_noise:
   treat_as_non_inplace: ["noise"]
 
 rrelu_with_noise_:
-  op_frontend: GeneratorToSeed
+  guid: rrelu_with_noise_cguid
+  custom_fill_params: FillRreluWithNoiseParams
   op_backend: Rrelu_with_noise
+  op_frontend: GeneratorToSeed
   inplace_ids: [0]
   schema_args: "(Tensor(a!) self, Tensor(b!) noise, Scalar lower, Scalar upper, bool training, Tensor seed) -> Tensor(a!)"
   namespaces: [torch.nn, torch.nn.functional]
@@ -7495,7 +7530,7 @@ upsample_bicubic2d:
   - [WHCN, WHCN]
   - [WHCN]
   out_ids: [0]
-  op_validator: check-node-with-shared-layer
+  op_validator: UpsampleBicubic2DFwdSharedMeta
   skip_slrg: true # TORCH_CHECK inside output_meta
 
 upsample_bicubic2d_custom.vec:
@@ -7508,8 +7543,9 @@ upsample_bicubic2d_custom.vec:
   - [WHCN]
   out_ids: [0]
   autograd: true
-  op_validator: check-node-with-shared-layer
+  op_validator: UpsampleBicubic2DFwdSharedMeta
   namespaces: [torch.ops.hpu]
+  skip_slrg: true # TORCH_CHECK inside output_meta
 
 upsample_bicubic2d.out:
   custom_fill_params: FillUpsampleBicubic2DFwdParams
@@ -7518,7 +7554,7 @@ upsample_bicubic2d.out:
   synapse_layouts:
   - [WHCN, WHCN]
   - [WHCN]
-  op_validator: check-node-with-shared-layer
+  op_validator: UpsampleBicubic2DFwdSharedMeta
   skip_slrg: true # TORCH_CHECK inside output_meta
 
 upsample_bicubic2d_backward:
@@ -7540,7 +7576,7 @@ _upsample_bicubic2d_aa:
   - [WHCN, WHCN]
   - [WHCN]
   out_ids: [0]
-  op_validator: check-node-with-shared-layer
+  op_validator: UpsampleBicubic2DFwdSharedMeta
   skip_slrg: true # TORCH_CHECK inside output_meta
 
 _upsample_bicubic2d_aa.out:
@@ -7550,7 +7586,7 @@ _upsample_bicubic2d_aa.out:
   synapse_layouts:
   - [WHCN, WHCN]
   - [WHCN]
-  op_validator: check-node-with-shared-layer
+  op_validator: UpsampleBicubic2DFwdSharedMeta
   skip_slrg: true # TORCH_CHECK inside output_meta
 
 _upsample_bicubic2d_aa_backward:
@@ -7592,7 +7628,7 @@ upsample_bilinear2d:
   - [WHCN, WHCN]
   - [WHCN]
   out_ids: [0]
-  op_validator: check-node-with-shared-layer
+  op_validator: UpsampleBicubic2DFwdSharedMeta
   skip_slrg: true # TORCH_CHECK inside output_meta
 
 upsample_bilinear2d.out:
@@ -7602,14 +7638,14 @@ upsample_bilinear2d.out:
   synapse_layouts:
   - [WHCN, WHCN]
   - [WHCN]
-  op_validator: check-node-with-shared-layer
+  op_validator: UpsampleBiTrilinear2D3DFwdSharedMeta
   skip_slrg: true # TORCH_CHECK inside output_meta
 
 upsample_trilinear3d:
   output_meta: UpsampleTrilinear3DFwdMeta
   guid: resize_fwd
   op_backend: UpsampleTrilinear3DFwd
-  op_validator: UpsampleTrilinear3DFwdSharedMeta
+  op_validator: UpsampleBiTrilinear2D3DFwdSharedMeta
   synapse_layouts:
   - [WHDCN, WHDCN]
   - [WHDCN]
@@ -7627,14 +7663,14 @@ upsample_trilinear3d_custom.vec:
   - [WHDCN]
   out_ids: [0]
   autograd: true
-  op_validator: UpsampleTrilinear3DFwdSharedMeta
+  op_validator: UpsampleBiTrilinear2D3DFwdSharedMeta
   namespaces: [torch.ops.hpu]
 
 upsample_trilinear3d.out:
   output_meta: UpsampleTrilinear3DFwdMeta
   guid: resize_fwd
   op_backend: UpsampleTrilinear3DFwd
-  op_validator: UpsampleTrilinear3DFwdSharedMeta
+  op_validator: UpsampleBiTrilinear2D3DFwdSharedMeta
   synapse_layouts:
   - [WHDCN, WHDCN]
   - [WHDCN]
@@ -7673,7 +7709,7 @@ _upsample_bilinear2d_aa:
   - [WHCN, WHCN]
   - [WHCN]
   out_ids: [0]
-  op_validator: check-node-with-shared-layer
+  op_validator: UpsampleBiTrilinear2D3DFwdSharedMeta
   skip_slrg: true
 
 _upsample_bilinear2d_aa.out:
@@ -7683,7 +7719,7 @@ _upsample_bilinear2d_aa.out:
   synapse_layouts:
   - [WHCN, WHCN]
   - [WHCN]
-  op_validator: check-node-with-shared-layer
+  op_validator: UpsampleBiTrilinear2D3DFwdSharedMeta
   skip_slrg: true
 
 _upsample_bilinear2d_aa_backward.grad_input:
@@ -9262,12 +9298,30 @@ mixture_of_experts_recomp_bwd.fused_weights:
   skip_slrg: true
 
 block_softmax:
-  custom_op_schema: "hpu::block_softmax(Tensor attn, Tensor block_bias, Tensor block_ind) -> (Tensor, Tensor, Tensor)"
+  custom_op_schema: "hpu::block_softmax(Tensor attn, Tensor block_bias, Tensor block_ind, *, float output_scale=1.0, ScalarType? output_dtype=None, bool fp8_exp=False) -> (Tensor, Tensor, Tensor)"
   guid: block_softmax
-  out_ids: [0]
+  out_ids: [0, 0, 0]
   output_meta: BlockSoftmaxMeta
+  custom_fill_params: BlockSoftmaxParams
   op_validator: check-node-with-shared-layer
-  skip_slrg: true # Exception - HPUDeviceContext::get_device().type()
+  namespaces: [torch.hpu]
+  skip_slrg: true # TORCH_CHECK inside output_meta
+
+block_softmax_adjustment:
+  custom_op_schema: "hpu::block_softmax_adjustment(Tensor block_maxes, Tensor block_sums, Tensor block_groups, int batch_size, int[]? out_shape=None, *, Tensor? attn_fused_mult=None, float output_scale=1.0, ScalarType? output_dtype=None, bool is_staged=False) -> Tensor"
+  guid: block_softmax_adjustment
+  out_ids: [0]
+  output_meta: BlockSoftmaxAdjustmentMeta
+  custom_fill_params: BlockSoftmaxAdjustmentParams
+  op_validator_exception: custom_op
+
+block_softmax_staged_sum_max:
+  custom_op_schema: "hpu::block_softmax_staged_sum_max(Tensor block_maxes, Tensor block_sums, Tensor block_groups, int batch_size) -> (Tensor, Tensor)"
+  guid: block_softmax_adjustment
+  out_ids: [0, 0]
+  output_meta: BlockSoftmaxStagedSumMaxMeta
+  custom_fill_params: BlockSoftmaxStagedSumMaxParams
+  op_validator_exception: custom_op
 
 optimizer_adamw:
   custom_op_schema: "hpu::optimizer_adamw(Tensor[] gradient_vec, Tensor(a!)[] weight_vec, Tensor(b!)[] exp_avg_vec, Tensor(c!)[] exp_avg_sq_vec, Tensor neg_step_t, float beta1, float beta2, float epsilon, Tensor weight_decay, bool has_weight_decay, Tensor(d!)[]? exp_avg_scales=None, Tensor(e!)[]? exp_avg_sq_scales=None) -> Tensor[]"
@@ -9385,3 +9439,12 @@ block_softmax_const_max_not_staged:
   namespaces: [torch.hpu]
   op_validator: check-node-with-shared-layer
   skip_slrg: true # Op non-functional yet, as cguid not promoted
+
+softmax_fa2:
+  custom_op_schema: "hpu::softmax_fa2(Tensor input, *, Tensor? descale=None, Tensor inputM, Tensor inputL, int dim=-1, bool experimental_mode=False) -> (Tensor, Tensor, Tensor, Tensor)"
+  custom_fill_params: FillSoftmaxFa2Params
+  guid: softmax_fa2_fwd
+  out_ids: [0]
+  output_meta: SoftmaxFa2Meta
+  op_validator: SoftmaxFa2SharedMeta
+  namespaces: [torch.hpu]

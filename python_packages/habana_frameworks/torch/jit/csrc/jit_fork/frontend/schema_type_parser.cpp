@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -112,7 +112,7 @@ TypePtr SchemaTypeParser::parseBaseType() {
 
   auto it = type_map.find(text);
   if (it == type_map.end()) {
-    if (!text.empty() && islower(text[0])) {
+    if (!text.empty() && islower(text[0]) != 0) {
       // lower case identifiers that are not otherwise valid types
       // are treated as type variables
       return c10::TypeFactory::createNamed<VarType>(text);
@@ -527,15 +527,17 @@ void SchemaTypeParser::parseList(
     int end,
     c10::function_ref<void()> callback) {
   auto r = L.cur().range;
-  if (begin != TK_NOTHING)
+  if (begin != TK_NOTHING) {
     L.expect(begin);
+  }
   if (L.cur().kind != end) {
     do {
       callback();
     } while (L.nextIf(sep));
   }
-  if (end != TK_NOTHING)
+  if (end != TK_NOTHING) {
     L.expect(end);
+  }
 }
 
 std::string SchemaTypeParser::parseUntil(

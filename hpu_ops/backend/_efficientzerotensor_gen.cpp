@@ -22,12 +22,13 @@ OutputMetaDataVector EfficientZeroMeta(const at::Stack& stack) {
   auto optionalDtype = stack.at(1).toOptional<at::ScalarType>();
   const at::ScalarType& type =
       optionalDtype.value_or(torch::get_default_dtype_as_scalartype());
-  OutputMetaData meta{};
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
 
   meta.dtype = type;
   meta.shape = stack.at(0).toIntVector();
 
-  return {meta};
+  return metaVec;
 }
 
 SharedMetaDataVector EfficientZeroSharedMeta(
@@ -38,9 +39,12 @@ SharedMetaDataVector EfficientZeroSharedMeta(
   const at::ScalarType& dtype =
       optionalDtype.value_or(torch::get_default_dtype_as_scalartype());
 
-  SharedMetaData efficientZeroSharedMeta{"memset"};
+  SharedMetaDataVector efficientZeroSharedMetaVec;
+  efficientZeroSharedMetaVec.reserve(1);
+  auto& efficientZeroSharedMeta =
+      efficientZeroSharedMetaVec.emplace_back("memset");
   efficientZeroSharedMeta.outputs_data.emplace_back(rank, dtype);
-  return {efficientZeroSharedMeta};
+  return efficientZeroSharedMetaVec;
 }
 
 void EfficientZeroTensor::AddNode(

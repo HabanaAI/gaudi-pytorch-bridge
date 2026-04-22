@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025 Intel Corporation
+ * Copyright (c) 2025-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,16 +36,18 @@ bool H2dScalesCache::CreateH2dScales() {
   static constexpr int default_bias = 7;
   std::vector<int> biases;
   if (is_gaudi2) {
+    // NOLINTBEGIN(readability-magic-numbers)
     biases = {-1, 3, 7, 11, 15};
   } else {
     biases.resize(113);
     std::iota(biases.begin(), biases.end(), -49);
+    // NOLINTEND(readability-magic-numbers)
   }
 
   static constexpr size_t float_size = sizeof(float_t);
   static constexpr size_t bfloat_size = sizeof(at::BFloat16);
   const size_t h2d_memory_required =
-      4 * biases.size() * (float_size + bfloat_size);
+      sizeof(biases[0]) * biases.size() * (float_size + bfloat_size);
 
   // Allocate the total H2D required in single chunk.
   void* alloc_pointer{nullptr};
@@ -71,6 +73,7 @@ bool H2dScalesCache::CreateH2dScales() {
   };
 
   for (const auto bias : biases) {
+    // NOLINTNEXTLINE(readability-magic-numbers)
     double scale_f64 = std::pow(2.0, default_bias - bias);
     auto scale_f32 = static_cast<float>(scale_f64);
 
@@ -94,7 +97,7 @@ std::optional<at::Tensor> H2dScalesCache::TryGetH2dScale(
       PT_BRIDGE_DEBUG("H2D scale taken from cache, current idx: ", current_idx);
       return scales_vec[current_idx--];
     }
-    const auto new_scale = CreateH2dTensorScale(scale_tensor.data_ptr(), dtype);
+    auto new_scale = CreateH2dTensorScale(scale_tensor.data_ptr(), dtype);
     scales_vec.push_back(new_scale);
     PT_BRIDGE_DEBUG(
         "H2D scale added to cache, current size: ", scales_vec.size());
@@ -116,7 +119,7 @@ at::Tensor H2dScalesCache::CreateH2dTensorScale(
     void** h2d_pointer) {
   at::Tensor scale_tensor =
       createDynamicTensor({1}, HOST_TO_DEVICE_TENSOR, dtype);
-  auto tmeta{get_tensor_extra_meta(scale_tensor)};
+  auto* tmeta{get_tensor_extra_meta(scale_tensor)};
 
   const auto is_float = dtype == at::ScalarType::Float;
   const auto scale_value_size =

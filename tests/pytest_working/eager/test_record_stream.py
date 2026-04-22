@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2025 Intel Corporation
+# Copyright (c) 2025-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@ class EnvironmentVariableSetter:
             os.environ[env_name] = str(value)
 
     def __exit__(self, *args):
-        for env_name in self._env_vars.keys():
+        for env_name in self._env_vars:
             if env_name in self._stored_keys:
                 if self._stored_keys[env_name] is None:
                     del os.environ[env_name]

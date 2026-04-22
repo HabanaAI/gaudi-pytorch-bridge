@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,18 +28,22 @@ namespace habana_lazy {
 // helper class to maintain ownership on 'this' in case of
 // working on separate thread (acc thread)
 struct intrusive_raii_t {
-  HbLazyTensorImpl* ptr_;
   intrusive_raii_t(HbLazyTensorImpl* ptr) : ptr_(ptr) {
-    if (ptr_)
+    if (ptr_ != nullptr) {
       c10::raw::weak_intrusive_ptr::incref(ptr_);
+    }
   }
   ~intrusive_raii_t() {
-    if (ptr_)
+    if (ptr_ != nullptr) {
       c10::raw::weak_intrusive_ptr::decref(ptr_);
+    }
   }
   // not copyable
   intrusive_raii_t(const intrusive_raii_t&) = delete;
   intrusive_raii_t& operator=(const intrusive_raii_t&) = delete;
+
+ private:
+  HbLazyTensorImpl* ptr_;
 };
 
 caffe2::TypeMeta HbLazyTensorImpl::GetTypeMeta(const HbLazyTensor& hb_tensor) {
@@ -220,7 +224,7 @@ void HbLazyTensorImpl::handle_view_cycles(
 
       // Now replace the base tensor for all the other views pointing to the
       // same base
-      auto context = get_device_lazy_execution_context();
+      auto* context = get_device_lazy_execution_context();
       context->viewContext.ReplaceViewBase(base_id, new_base_t);
     }
   } // if (params_ptr != nullptr)
@@ -332,8 +336,9 @@ void HbLazyTensorImpl::SetupSizeProperties() {
                 std::max<int64_t>(sizes, 1) * sizes;
           }
         }
-        if (dim == 0)
+        if (dim == 0) {
           break;
+        }
       }
     }
     m_size_initialized = true;
@@ -370,11 +375,12 @@ const at::Storage& HbLazyTensorImpl::storage() const {
     // replaced in data. We acquire this lock so that data state doesn't change
     // in between.
     std::lock_guard<std::recursive_mutex> lock(
-        habana_lazy::HbContextArena::Get()->GetMutex());
+        habana_lazy::HbContextArena::Get().GetMutex());
     if (!hl_t_updated.IsExecutionInProgress()) {
       c10::TensorImpl* impl =
           ((HbLazyTensor)hl_t_updated).getAttachedTensorImpl();
-      if (impl && impl->storage() && !storage_.is_alias_of(impl->storage())) {
+      if ((impl != nullptr) && impl->storage() &&
+          !storage_.is_alias_of(impl->storage())) {
         const_cast<HbLazyTensorImpl*>(this)->SetStorage(
             c10::Storage(impl->storage()));
       }
@@ -404,9 +410,9 @@ HbInternalTensorImpl::HbInternalTensorImpl(
 
 synapse_helpers::layouts::MemoryPermutation HbInternalTensorImpl::
     GetMemoryPermutation() const {
-  auto smeta =
+  auto* smeta =
       habana::get_storage_extra_meta(static_cast<const c10::TensorImpl*>(this));
-  if (!smeta) {
+  if (smeta == nullptr) {
     PT_BRIDGE_DEBUG(
         "Getting permutations from HbInternalTensorImpl ",
         this,
@@ -418,16 +424,18 @@ synapse_helpers::layouts::MemoryPermutation HbInternalTensorImpl::
 
 void HbInternalTensorImpl::SetMemoryPermutation(
     synapse_helpers::layouts::MemoryPermutation permutation) {
-  auto smeta = habana::get_storage_extra_meta(
+  auto* smeta = habana::get_storage_extra_meta(
       dynamic_cast<const c10::TensorImpl*>(this));
-  if (!smeta && !permutation.empty())
+  if ((smeta == nullptr) && !permutation.empty()) {
     HABANA_ASSERT(
         smeta,
         "Trying to set memory permutations ",
         VecToString(permutation),
         ", but no StorageExtraMeta available for HbInternalTensorImpl ",
         this);
-  if (smeta)
+  }
+  if (smeta != nullptr) {
     smeta->set_memory_permutation(permutation);
+  }
 }
 } // namespace habana_lazy

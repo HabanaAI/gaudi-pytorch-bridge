@@ -21,7 +21,7 @@ import torch
 
 
 def split_tensor_batch(
-    _func: Callable | None = None, *, num_splits: int = 1, split_index_list=[], cat_out_index_list=[]
+    _func: Callable | None = None, *, num_splits: int = 1, split_index_list=None, cat_out_index_list=None
 ):
     """
     A decorator to automatically split specified tensor arguments along the batch dimension,
@@ -44,6 +44,10 @@ def split_tensor_batch(
         IndexError: If `cat_out_index_list`/'split_index_list` contains an index out of bounds.
         TypeError: If non-tensor inputs are given for split or non-tensor outputs are given to torch.cat.
     """
+    if split_index_list is None:
+        split_index_list = []
+    if cat_out_index_list is None:
+        cat_out_index_list = []
 
     def decorator_split_tensor_batch(func: Callable):
         @functools.wraps(func)

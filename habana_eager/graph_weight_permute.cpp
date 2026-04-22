@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -89,12 +89,13 @@ bool PermuteWeightTensor::ShouldPermuteWeight() {
       "Unexpected tensor dimensions: ",
       m_tensor_dim);
 
-  auto tmeta{habana::get_tensor_extra_meta(m_weight)};
-  if (tmeta == nullptr)
+  auto* tmeta{habana::get_tensor_extra_meta(m_weight)};
+  if (tmeta == nullptr) {
     return false;
-  if (tmeta->is_view_tensor())
+  }
+  if (tmeta->is_view_tensor()) {
     return false;
-
+  }
   MemoryPermutation current_perm{m_storage_meta->get_memory_permutation()};
   MemoryPermutation required_perm{
       (m_tensor_dim == 4) ? weight_rsck_in_memory : weight_qrsck_in_memory};
@@ -124,10 +125,10 @@ void PermuteWeightTensor::PermuteDataToRSCK(const torch::Tensor& weight_cpu) {
       for (int c = 0; c < sizes[WEIGHT_KERNEL_C_IDX]; ++c) {
         for (int k = 0; k < sizes[WEIGHT_KERNEL_K_IDX]; ++k) {
           tempBuff[buffer_counter] =
-              ptr[k * strides[WEIGHT_KERNEL_K_IDX] +
-                  c * strides[WEIGHT_KERNEL_C_IDX] +
-                  r * strides[WEIGHT_KERNEL_R_IDX] +
-                  s * strides[WEIGHT_KERNEL_S_IDX]];
+              ptr[(k * strides[WEIGHT_KERNEL_K_IDX]) +
+                  (c * strides[WEIGHT_KERNEL_C_IDX]) +
+                  (r * strides[WEIGHT_KERNEL_R_IDX]) +
+                  (s * strides[WEIGHT_KERNEL_S_IDX])];
           buffer_counter++;
         }
       }
@@ -157,11 +158,11 @@ void PermuteWeightTensor::PermuteDataToQRSCK(const torch::Tensor& weight_cpu) {
         for (int c = 0; c < sizes[WEIGHT_KERNEL_3D_C_IDX]; ++c) {
           for (int k = 0; k < sizes[WEIGHT_KERNEL_3D_K_IDX]; ++k) {
             tempBuff[buffer_counter] =
-                ptr[k * strides[WEIGHT_KERNEL_3D_K_IDX] +
-                    c * strides[WEIGHT_KERNEL_3D_C_IDX] +
-                    r * strides[WEIGHT_KERNEL_3D_R_IDX] +
-                    s * strides[WEIGHT_KERNEL_3D_S_IDX] +
-                    q * strides[WEIGHT_KERNEL_3D_Q_IDX]];
+                ptr[(k * strides[WEIGHT_KERNEL_3D_K_IDX]) +
+                    (c * strides[WEIGHT_KERNEL_3D_C_IDX]) +
+                    (r * strides[WEIGHT_KERNEL_3D_R_IDX]) +
+                    (s * strides[WEIGHT_KERNEL_3D_S_IDX]) +
+                    (q * strides[WEIGHT_KERNEL_3D_Q_IDX])];
             buffer_counter++;
           }
         }

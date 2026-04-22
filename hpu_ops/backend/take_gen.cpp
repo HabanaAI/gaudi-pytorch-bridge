@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,9 +21,10 @@ OutputMetaDataVector TakeMeta(const at::Stack& stack) {
   const auto input = stack_tensor(stack, 0);
   const auto index = stack_tensor(stack, 1);
 
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.dtype = input.scalar_type();
   meta.shape = index.sizes().vec();
-  return {meta};
+  return metaVec;
 }
 } // namespace habana

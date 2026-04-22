@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,29 +17,32 @@
 #include <absl/container/fixed_array.h>
 #include <fcntl.h>
 #include <sys/stat.h>
-#include <unistd.h>
+#include <zconf.h>
 #include <zlib.h>
+#include <cstddef>
+#include <cstdlib>
+#include <cstring>
+#include <filesystem>
+#include <fstream>
 #include <ios>
+#include <iterator>
 #include <limits>
+#include <mutex>
+#include <stdexcept>
 #include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
 #include "backend/helpers/runtime_config.h"
-#include "backend/synapse_helpers/env_flags.h" // IWYU pragma: keep
+#include "backend/synapse_helpers/env_flags.h" // NOLINT(misc-include-cleaner)
 #include "habana_helpers/logging.h"
 #include "recipe_cache_config.h"
-
-#if !defined __GNUC__ || __GNUC__ >= 8
-#include <filesystem>
-namespace fs = std::filesystem;
-#else
-#include <experimental/filesystem>
-namespace fs = std::experimental::filesystem;
-#endif
 
 namespace serialization {
 
 ConstSectionFileHandler::ConstSectionFileHandler() {
   const char* s_rank = std::getenv("RANK");
-  m_rank = s_rank ? std::atoi(s_rank) : 0;
+  m_rank = (s_rank != nullptr) ? std::atoi(s_rank) : 0;
 }
 
 void ConstSectionFileHandler::internal_mkdir(std::string path) {
@@ -47,7 +50,7 @@ void ConstSectionFileHandler::internal_mkdir(std::string path) {
   PT_CONST_SECTION_DEBUG("Creating const section cache dir: ", path);
   mkdir(path.c_str(), S_IRWXU | S_IRWXG);
   struct stat info{};
-  if (stat(path.c_str(), &info) != 0 || !(info.st_mode & S_IFDIR)) {
+  if (stat(path.c_str(), &info) != 0 || ((info.st_mode & S_IFDIR) == 0U)) {
     PT_CONST_SECTION_FATAL("Cannot create const cache directory: ", path);
   } else {
     PT_CONST_SECTION_DEBUG("Cache directory(", path, ") set up properly.");
@@ -64,22 +67,23 @@ void ConstSectionFileHandler::init(std::string path) {
 
   PT_CONST_SECTION_DEBUG(
       __func__, " Initialing const section path to: ", cache_path_)
-  fs::path dir_path{cache_path_};
+  std::filesystem::path dir_path{cache_path_};
   HABANA_ASSERT(
-      fs::exists(dir_path), "Const section serialize path is expected");
+      std::filesystem::exists(dir_path),
+      "Const section serialize path is expected");
   if (habana_helpers::ShouldClearConstSectionPath()) {
     try {
-      auto de = fs::directory_iterator{dir_path};
-      while (de != fs::end(de)) {
+      auto de = std::filesystem::directory_iterator{dir_path};
+      while (de != std::filesystem::end(de)) {
         PT_CONST_SECTION_DEBUG(
             "Cleaning: ",
             Logger::_str_wrapper(de->path()),
             ", Rank: ",
             getRank());
-        fs::remove(de->path());
+        std::filesystem::remove(de->path());
         de++;
       }
-    } catch (fs::filesystem_error& err) {
+    } catch (std::filesystem::filesystem_error& err) {
       PT_CONST_SECTION_FATAL(
           "Exception in const section removal on init, Please delete manually: ",
           err.what(),
@@ -112,17 +116,21 @@ std::string ConstSectionDataSerialize::getSerializedRecipeFullPath(
     int const_id,
     const size_t key) {
   static const std::string cache_path = [] {
-    std::vector<std::string> split_config = RecipeCacheConfig::split_params(
-        GET_ENV_FLAG_NEW(PT_HPU_RECIPE_CACHE_CONFIG));
+    std::vector<std::string> split_config =
+        RecipeCacheConfig::split_params(GET_ENV_FLAG_NEW(
+            PT_HPU_RECIPE_CACHE_CONFIG)); // NOLINT(misc-include-cleaner)
     return (split_config.empty() ? "" : split_config[0]) + "/";
   }();
   std::string result;
+  constexpr auto underscore = "_"sv;
+  constexpr int size_t_length = 21;
   result.reserve(
-      cache_path.size() + 21 + 1 + CONST_SECTION_DATA_PREFIX.size() + 21 +
+      cache_path.size() + size_t_length + underscore.length() +
+      CONST_SECTION_DATA_PREFIX.size() + size_t_length +
       CONST_SECTION_DATA_SUFFIX.size());
   return result.append(cache_path)
       .append(std::to_string(key))
-      .append("_"sv)
+      .append(underscore)
       .append(CONST_SECTION_DATA_PREFIX)
       .append(std::to_string(const_id))
       .append(CONST_SECTION_DATA_SUFFIX);
@@ -171,7 +179,7 @@ void ConstSectionDataSerialize::serializePerRecipe(
       data_size);
 
   // if section size is 0, data pointer will be null
-  if (data) {
+  if (data != nullptr) {
     HABANA_ASSERT(
         data_size <= std::numeric_limits<std::streamsize>::max(),
         "Data size exceeds maximum stream size limit for serialization.");
@@ -188,6 +196,7 @@ void ConstSectionDataSerialize::compress_and_serialize(
     std::ofstream& outputFile) {
   z_stream zs;
   memset(&zs, 0, sizeof(zs));
+  // NOLINTNEXTLINE(readability-magic-numbers)
   int window_bits = 15 | 16; /*The base two logarithm of the window size (the
                                 size of the history buffer).*/
   int mem_level =
@@ -364,7 +373,7 @@ void ConstSectionDataSerialize::deserialize(
   }
 
   inputFile.seekg(0, std::ios::end);
-  std::streampos size = inputFile.tellg();
+  auto size = inputFile.tellg();
   inputFile.seekg(0, std::ios::beg);
 
   if (size == 0) {

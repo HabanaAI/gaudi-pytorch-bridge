@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -109,7 +109,9 @@ std::tuple<Tensor, Tensor, Tensor> batchnorm_double_backward(
   auto input_sub_mu = input - mu;
   auto sigma2_eps_neg_1_2 = unsqueeze_dim1(
       training ? toNonOptTensor(save_invstd).to(input.scalar_type())
-               : toNonOptTensor(running_var).add(Scalar(eps)).pow(-0.5),
+               : toNonOptTensor(running_var)
+                     .add(Scalar(eps))
+                     .pow(-0.5), // NOLINT(readability-magic-numbers)
       input);
   auto sigma2_eps_neg_1 = sigma2_eps_neg_1_2.pow(2);
   auto sigma2_eps_neg_3_2 = sigma2_eps_neg_1_2.pow(3);
@@ -123,10 +125,12 @@ std::tuple<Tensor, Tensor, Tensor> batchnorm_double_backward(
   if (ggI.defined() && training) {
     auto ggI_sum = sum_exclude_dim1(ggI);
     auto ggIinmu_sum = sum_exclude_dim1(ggI * input_sub_mu);
+    // NOLINTBEGIN(readability-magic-numbers)
     auto all_sub = ((ggI_sum * gO_sum).div_(M))
                        .sub_(sum_exclude_dim1(gO * ggI))
                        .add_((sigma2_eps_neg_1 * gOinmu_sum * ggIinmu_sum)
                                  .mul_(3. / static_cast<double>(M)));
+    // NOLINTEND(readability-magic-numbers)
     auto gI_0t = (input_mu_sigma2_neg_3_2 * all_sub).div_(M);
     auto gI_1t =
         (ggIinmu_sum * sigma2_eps_neg_3_2).div_(M) * (gO_sum.div(M) - gO);

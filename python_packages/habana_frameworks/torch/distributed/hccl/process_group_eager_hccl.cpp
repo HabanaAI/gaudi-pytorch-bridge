@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -194,8 +194,9 @@ void ProcessGroupEagerHCCL::shutdown(std::optional<std::string> reason) {
 }
 
 void ProcessGroupEagerHCCL::destroy() {
-  if (is_destroyed_)
+  if (is_destroyed_) {
     return;
+  }
   PT_DISTRIBUTED_DEBUG(
       "Destroy ProcessGroupEagerHCCL name:",
       group_name_,
@@ -263,11 +264,7 @@ bool ProcessGroupEagerHCCL::WorkEager::isCompleted() {
 }
 
 bool ProcessGroupEagerHCCL::WorkEager::isSuccess() const {
-  if (exception()) {
-    // Already detected an exception.
-    return false;
-  }
-  return true;
+  return !exception();
 }
 
 void ProcessGroupEagerHCCL::WorkEager::synchronize() {
@@ -305,8 +302,8 @@ void Synchronize_Execute_Task(
       // Use the org tensor address for synchronize.
       // Note: This org tensor as a tensor metadata can be set if
       // the previous OP is P2P send i.e. permutedSendTensorsToDense.
-      auto output_address = outputs[i].storage().data_ptr().get();
-      auto tensor_tmeta{habana::get_tensor_extra_meta(outputs[i])};
+      auto* output_address = outputs[i].storage().data_ptr().get();
+      auto* tensor_tmeta{habana::get_tensor_extra_meta(outputs[i])};
       if (auto org_tensor = tensor_tmeta->get_send_org_tensor()) {
         output_address = org_tensor->storage().data_ptr().get();
       }
@@ -342,7 +339,7 @@ bool ProcessGroupEagerHCCL::WorkEager::wait(
           habana::eager::HbEagerTensorPool::get_backend_tensor(outputs_[i]));
 
       // Set tensor pipeline metadata
-      auto output_hb_tmeta{
+      auto* output_hb_tmeta{
           habana::get_tensor_extra_meta(outputs_backend.back())};
       output_hb_tmeta->set_tensor_pipelined();
     }
@@ -392,7 +389,7 @@ void PointToPoint_Execute_Task(
     // Use the org tensor for registering events and send it to NIC.
     // Note: This org tensor as a tensor metadata can be set if
     // the previous OP is P2P send i.e. permutedSendTensorsToDense.
-    auto tensor_tmeta{habana::get_tensor_extra_meta(tensor)};
+    auto* tensor_tmeta{habana::get_tensor_extra_meta(tensor)};
     if (auto org_tensor = tensor_tmeta->get_send_org_tensor()) {
       tensor = *org_tensor;
     }
@@ -481,7 +478,7 @@ c10::intrusive_ptr<Work> ProcessGroupEagerHCCL::pointToPoint(
           habana::eager::HbEagerTensorPool::get_backend_tensor(tensors[i]));
 
       // Set tensor pipeline metadata
-      auto tensor_hb_tmeta{
+      auto* tensor_hb_tmeta{
           habana::get_tensor_extra_meta(tensors_backend.back())};
       tensor_hb_tmeta->set_tensor_pipelined();
     }
@@ -517,7 +514,7 @@ c10::intrusive_ptr<Work> ProcessGroupEagerHCCL::pointToPoint(
         std::move(ctx),
         std::move(fn),
         peerRank,
-        coalescing_state_,
+        coalescing_state_ != 0,
         group_submit_events_tasks_queue_);
   }
 
@@ -716,8 +713,9 @@ c10::intrusive_ptr<Work> ProcessGroupEagerHCCL::collective(
           habana::eager::HbEagerTensorPool::get_backend_tensor(outputs[i]));
 
       // Set tensor pipeline metadata
-      auto input_hb_tmeta{habana::get_tensor_extra_meta(inputs_backend.back())};
-      auto output_hb_tmeta{
+      auto* input_hb_tmeta{
+          habana::get_tensor_extra_meta(inputs_backend.back())};
+      auto* output_hb_tmeta{
           habana::get_tensor_extra_meta(outputs_backend.back())};
       input_hb_tmeta->set_tensor_pipelined();
       output_hb_tmeta->set_tensor_pipelined();
@@ -755,7 +753,7 @@ c10::intrusive_ptr<Work> ProcessGroupEagerHCCL::collective(
         std::move(ctx),
         std::move(fn),
         is_allreduce,
-        coalescing_state_,
+        coalescing_state_ != 0,
         group_submit_events_tasks_queue_);
   }
 
@@ -800,10 +798,10 @@ void ProcessGroupEagerHCCL::permutedSendTensorsToDense(
             clone_tensors.back()));
 
     // Set tensor pipeline metadata
-    auto tensor_hb_tmeta{
+    auto* tensor_hb_tmeta{
         habana::get_tensor_extra_meta(tensors_backend.back().first)};
     tensor_hb_tmeta->set_tensor_pipelined();
-    auto clone_tensor_hb_tmeta{
+    auto* clone_tensor_hb_tmeta{
         habana::get_tensor_extra_meta(tensors_backend.back().second)};
     clone_tensor_hb_tmeta->set_tensor_pipelined();
   }
@@ -849,7 +847,7 @@ void ProcessGroupEagerHCCL::permutedSendTensorsToDense(
        * Next Op Work Wait Execute: Get MetaData
        */
 
-      auto clone_tensor_hb_tmeta{habana::get_tensor_extra_meta(clone_tensor)};
+      auto* clone_tensor_hb_tmeta{habana::get_tensor_extra_meta(clone_tensor)};
       clone_tensor_hb_tmeta->set_send_org_tensor_meta(
           is_permuted_or_non_contiguous, send_tensor);
     }
@@ -889,16 +887,17 @@ void ProcessGroupEagerHCCL::clearPermutesFromRecvTensors(
     tensors_backend.push_back(
         habana::eager::HbEagerTensorPool::get_backend_tensor(tensors[i]));
     // Set tensor pipeline metadata
-    auto tensor_hb_tmeta{habana::get_tensor_extra_meta(tensors_backend.back())};
+    auto* tensor_hb_tmeta{
+        habana::get_tensor_extra_meta(tensors_backend.back())};
     tensor_hb_tmeta->set_tensor_pipelined();
   }
 
   auto pipeline_or_direct_clear_permutes = [tensors =
                                                 std::move(tensors_backend)]() {
     for (auto&& tensor : tensors) {
-      auto s_meta{habana::get_storage_extra_meta(tensor)};
+      auto* s_meta{habana::get_storage_extra_meta(tensor)};
       if (s_meta) {
-        auto t_meta{habana::get_tensor_extra_meta(tensor)};
+        auto* t_meta{habana::get_tensor_extra_meta(tensor)};
         PT_DISTRIBUTED_DEBUG(
             "Receive: tensor: ",
             t_meta->get_id(),

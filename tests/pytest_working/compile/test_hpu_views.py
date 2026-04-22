@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -244,7 +244,7 @@ def fn5(a):
 
 
 def fn6(a):
-    b = a.view((3, 2), (1, 3))
+    b = torch.as_strided(a, (3, 2), (1, 3), 0)
     c = b.mul(1.0)
     return c
 

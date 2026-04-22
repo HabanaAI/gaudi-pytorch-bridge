@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025 Intel Corporation
+ * Copyright (c) 2025-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,9 +33,9 @@ std::vector<synapse_helpers::tensor> UniqueCommon(
       output_shape.at(static_cast<size_t>(self_params.dim))};
   std::vector<int64_t> valid_count_shape{1};
   ns_UniqueKernel::ParamsV2 params = {};
-  params.sorted = self_params.sorted;
-  params.returnCounts = self_params.return_counts;
-  params.returnInverse = self_params.return_inverted;
+  params.sorted = static_cast<int>(self_params.sorted);
+  params.returnCounts = static_cast<int>(self_params.return_counts);
+  params.returnInverse = static_cast<int>(self_params.return_inverted);
   params.dim = safe_convert<int>(self_params.dim);
   std::vector<synTensor> inputs = {self_synin};
   using namespace std::literals;

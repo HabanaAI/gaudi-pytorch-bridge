@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@ bool RemoveDetachOp(std::shared_ptr<habana_torch::jit::Graph> graph) {
 
   std::unordered_set<habana_torch::jit::Node*> detach_nodes;
   for (auto it = nodes.begin(); it != nodes.end(); ++it) {
-    auto node = *it;
+    auto* node = *it;
     if (node->kind() != habana_torch::jit::aten::detach) {
       continue;
     }
@@ -33,7 +33,7 @@ bool RemoveDetachOp(std::shared_ptr<habana_torch::jit::Graph> graph) {
     detach_nodes.insert(node);
   }
 
-  for (auto n : detach_nodes) {
+  for (auto* n : detach_nodes) {
     n->output(0)->replaceAllUsesWith(n->input(0));
     n->destroy();
   }

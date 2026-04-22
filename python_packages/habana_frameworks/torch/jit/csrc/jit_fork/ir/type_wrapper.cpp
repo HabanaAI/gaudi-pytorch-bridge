@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -141,7 +141,7 @@ TypeWrapper TypeWrapper::createTensorTypeWrapper(
 
 TypePtr TypeWrapper::initType(TypePtr underlying_type) {
   if (underlying_type) {
-    if (auto dyn = underlying_type->castRaw<DynamicType>()) {
+    if (auto* dyn = underlying_type->castRaw<DynamicType>()) {
       underlying_type = dyn->fallback();
     }
   }
@@ -150,7 +150,7 @@ TypePtr TypeWrapper::initType(TypePtr underlying_type) {
 }
 
 TypeWrapper::TypeDetails TypeWrapper::initTypeDetails(
-    SymbolOrExpr symbol_or_expr) {
+    SymbolOrExpr symbol_or_expr) const {
   HABANA_ASSERT(
       isSymbolic(),
       "Single symbol or expression is allowed only for simple symbolic types.");
@@ -191,7 +191,7 @@ const TypePtr& TypeWrapper::operator*() const {
 }
 
 TypeWrapper::operator bool() const noexcept {
-  return getType() ? true : false;
+  return getType() != nullptr;
 }
 
 const TypePtr& TypeWrapper::getType() const {
@@ -400,8 +400,9 @@ std::ostream& operator<<(std::ostream& out, const TypeWrapper& wrapper) {
     }
     out << "(";
     for (size_t i = 0; i < tup->elements().size(); ++i) {
-      if (i > 0)
+      if (i > 0) {
         out << ", ";
+      }
       if (tup->schema()) {
         auto arg = tup->schema()->arguments()[i];
         out << arg.name() << " : ";

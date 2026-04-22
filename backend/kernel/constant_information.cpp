@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -162,8 +162,8 @@ bool ConstantInformation::DoesConstInfoExistForRecipe(const id_t id, key_t key)
     return false;
   }
   // if id exists but recipe not found - that also should throw exception
-  for (auto& info : const_checksum_map_.at(id).infos_) {
-    for (auto& recipe : info.recipe_key_) {
+  for (const auto& info : const_checksum_map_.at(id).infos_) {
+    for (const auto& recipe : info.recipe_key_) {
       if (recipe == key) {
         return true;
       }
@@ -181,7 +181,7 @@ ConstantInformation::ConstantChecksums ConstantInformation::
       "No checksum exists for id: ",
       id,
       " in the map");
-  for (auto& info : checksum_iterator->second.infos_) {
+  for (const auto& info : checksum_iterator->second.infos_) {
     for (auto recipe_key : info.recipe_key_) {
       if (recipe_key == key) {
         return {checksum_iterator->second.device_checksum_, info.checksum_};
@@ -310,7 +310,7 @@ void ConstantInformation::CopyMatchedDataPtrForRecipe(
       get_const_info(from_const_id, recipe_key);
   checksum_t checksum = info.checksum_;
   uint64_t section_size = info.section_size_;
-  auto tmeta{get_tensor_extra_meta(pt_tensor)};
+  auto* tmeta{get_tensor_extra_meta(pt_tensor)};
   auto checksum_found = IsCheckSumExistInAnyConstInfo(const_id, checksum);
 
   if (section_size != 0) {
@@ -431,7 +431,7 @@ void ConstantInformation::CopyMatchedDataPtrForRecipe(
      * This part is same as HandleTensorWithZeroSize.
      * Handling of host checksum is an addition here.
      */
-    auto tmeta{get_tensor_extra_meta(pt_tensor)};
+    auto* tmeta{get_tensor_extra_meta(pt_tensor)};
     auto old_size = tmeta->get_host_size();
     ConstantInformation::id_t const_id{tmeta->get_const_id()};
     auto checksum_if_exists = GetDeviceChecksum(const_id);
@@ -485,12 +485,8 @@ void ConstantInformation::ClearChecksumInformation() {
 }
 
 bool IsConstantScaleTensor(at::Tensor& tensor) {
-  auto tmeta{habana::get_tensor_extra_meta(tensor)};
-  if (tmeta->is_const_tensor() && (tensor.numel() == 1)) {
-    return true;
-  } else {
-    return false;
-  }
+  auto* tmeta{habana::get_tensor_extra_meta(tensor)};
+  return (tmeta->is_const_tensor() && (tensor.numel() == 1));
 }
 
 } // namespace habana

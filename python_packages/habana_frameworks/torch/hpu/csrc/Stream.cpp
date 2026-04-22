@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -51,7 +51,7 @@ static PyObject* THP_HPU_Stream_pynew(
       "stream_ptr",
       "is_default_stream",
       nullptr};
-  if (!PyArg_ParseTupleAndKeywords(
+  if (PyArg_ParseTupleAndKeywords(
           args,
           kwargs,
           "|iLLLKb",
@@ -61,7 +61,7 @@ static PyObject* THP_HPU_Stream_pynew(
           &device_index,
           &device_type,
           &stream_ptr,
-          &is_default_stream)) {
+          &is_default_stream) == 0) {
     return nullptr;
   }
 
@@ -70,7 +70,7 @@ static PyObject* THP_HPU_Stream_pynew(
     return nullptr;
   }
 
-  if (stream_ptr) {
+  if (stream_ptr != 0U) {
     HABANA_ASSERT(
         priority == 0, "Priority was explicitly set for a external stream")
   }
@@ -81,19 +81,24 @@ static PyObject* THP_HPU_Stream_pynew(
       device_index <= std::numeric_limits<at::DeviceIndex>::max(),
       "Too large device index");
 
-  auto stream = is_default_stream
-      ? c10::hpu::getDefaultHPUStream(static_cast<signed char>(device_index))
-      : (stream_id || device_index)
-      ? c10::hpu::HPUStream::unpack3(
-            stream_id,
-            static_cast<signed char>(device_index),
-            static_cast<c10::DeviceType>(device_type))
-      : stream_ptr
-      ? c10::hpu::getStreamByStreamPtr(
-            reinterpret_cast<synapse_helpers::hpuStream_t>(stream_ptr),
-            static_cast<signed char>(current_device))
-      : c10::hpu::getStreamFromPool(
-            (priority < 0), static_cast<signed char>(device_index));
+  c10::hpu::HPUStream stream = [&]() {
+    if (is_default_stream) {
+      return c10::hpu::getDefaultHPUStream(
+          static_cast<signed char>(device_index));
+    } else if (stream_id || device_index) {
+      return c10::hpu::HPUStream::unpack3(
+          stream_id,
+          static_cast<signed char>(device_index),
+          static_cast<c10::DeviceType>(device_type));
+    } else if (stream_ptr) {
+      return c10::hpu::getStreamByStreamPtr(
+          reinterpret_cast<synapse_helpers::hpuStream_t>(stream_ptr),
+          static_cast<signed char>(current_device));
+    } else {
+      return c10::hpu::getStreamFromPool(
+          (priority < 0), static_cast<signed char>(device_index));
+    }
+  }();
 
   auto* self = (THP_HPU_Stream*)ptr.get();
   self->stream_id = static_cast<int64_t>(stream.id());
@@ -152,8 +157,8 @@ static PyObject* THP_HPU_Stream_query(
     [[maybe_unused]] PyObject* noargs) {
   HANDLE_TH_ERRORS
 
-  auto self = (THP_HPU_Stream*)_self;
-  return PyBool_FromLong(self->hpu_stream.query());
+  auto* self = (THP_HPU_Stream*)_self;
+  return PyBool_FromLong(static_cast<long>(self->hpu_stream.query()));
   END_HANDLE_TH_ERRORS
 }
 
@@ -162,7 +167,7 @@ static PyObject* THP_HPU_Stream_synchronize(
     [[maybe_unused]] PyObject* noargs) {
   HANDLE_TH_ERRORS {
     pybind11::gil_scoped_release no_gil;
-    auto self = (THP_HPU_Stream*)_self;
+    auto* self = (THP_HPU_Stream*)_self;
     self->hpu_stream.synchronize();
   }
   Py_RETURN_NONE;
@@ -171,21 +176,18 @@ static PyObject* THP_HPU_Stream_synchronize(
 
 static PyObject* THP_HPU_Stream_eq(PyObject* _self, PyObject* _other) {
   HANDLE_TH_ERRORS
-  auto self = (THP_HPU_Stream*)_self;
-  auto other = (THP_HPU_Stream*)_other;
-  return PyBool_FromLong(self->hpu_stream == other->hpu_stream);
+  auto* self = (THP_HPU_Stream*)_self;
+  auto* other = (THP_HPU_Stream*)_other;
+  return PyBool_FromLong(
+      static_cast<long>(self->hpu_stream == other->hpu_stream));
   END_HANDLE_TH_ERRORS
 }
 
-// NOLINTNEXTLINE(modernize-avoid-c-arrays,
-// cppcoreguidelines-avoid-non-const-global-variables,
-// cppcoreguidelines-avoid-c-arrays)
+// NOLINTBEGIN(*-avoid-c-arrays,
+// cppcoreguidelines-avoid-non-const-global-variables)
 static struct PyMemberDef THP_HPU_Stream_members[] = {
     {nullptr, 0, 0, 0, nullptr}};
 
-// NOLINTNEXTLINE(modernize-avoid-c-arrays,
-// cppcoreguidelines-avoid-non-const-global-variables,
-// cppcoreguidelines-avoid-c-arrays)
 static struct PyGetSetDef THP_HPU_Stream_properties[] = {
     {"hpu_stream",
      (getter)THP_HPU_Stream_get_hpu_stream,
@@ -199,9 +201,6 @@ static struct PyGetSetDef THP_HPU_Stream_properties[] = {
      nullptr},
     {nullptr, nullptr, nullptr, nullptr, nullptr}};
 
-// NOLINTNEXTLINE(modernize-avoid-c-arrays,
-// cppcoreguidelines-avoid-non-const-global-variables,
-// cppcoreguidelines-avoid-c-arrays)
 static PyMethodDef THP_HPU_Stream_methods[] = {
     {(char*)"query", THP_HPU_Stream_query, METH_NOARGS, nullptr},
     {(char*)"synchronize", THP_HPU_Stream_synchronize, METH_NOARGS, nullptr},
@@ -211,6 +210,8 @@ static PyMethodDef THP_HPU_Stream_methods[] = {
      nullptr},
     {(char*)"__eq__", THP_HPU_Stream_eq, METH_O, nullptr},
     {nullptr, nullptr, 0, nullptr}};
+// NOLINTEND(*-avoid-c-arrays,
+// cppcoreguidelines-avoid-non-const-global-variables)
 
 PyTypeObject THP_HPU_StreamType = {
 #if PY_VERSION_HEX >= 0x03000000

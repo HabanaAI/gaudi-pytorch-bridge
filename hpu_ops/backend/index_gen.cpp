@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -59,9 +59,11 @@ static std::vector<int64_t> CalcCatOutSize(
     int64_t* dim_inp) {
   auto tensor_count = tensors->size();
 
-  if (tensor_count == 0) // if tensor is empty or its first element is empty,
-                         // then concatenate out size is 0
+  if (tensor_count == 0) {
+    // if tensor is empty or its first element is empty,
+    // then concatenate out size is 0
     return {0};
+  }
 
   int64_t dim = at::maybe_wrap_dim(
       *dim_inp,
@@ -81,8 +83,9 @@ static std::vector<int64_t> CalcCatOutSize(
   if (!out_size.empty()) {
     auto dim_idx = static_cast<size_t>(dim);
     out_size[dim_idx] = 0;
-    for (unsigned i = 0; i < tensor_count; i++)
+    for (unsigned i = 0; i < tensor_count; i++) {
       out_size[dim_idx] += tensors->at(i)[dim_idx];
+    }
   }
   return out_size;
 }
@@ -191,7 +194,7 @@ sizes_vec IndexOutputShape(const at::Stack& stack) {
     const bool adv_indexing_present = std::any_of(
         adv_ind_dim.cbegin(),
         adv_ind_dim.cbegin() + num_index_tensors,
-        [](const auto& i) { return i == true; });
+        [](const auto& i) { return static_cast<bool>(i); });
     if (adv_indexing_present) {
       auto indexing_tensor_shapes = calc_indexing_tensors_shapes(stack);
       std::vector<int64_t> self_permute_dims = stack[3].toIntList().vec();
@@ -216,12 +219,13 @@ sizes_vec IndexOutputShape(const at::Stack& stack) {
 
 OutputMetaDataVector IndexMeta(const at::Stack& stack) {
   auto self = stack_tensor(stack, 0);
-  OutputMetaData meta{};
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
 
   meta.dtype = self.scalar_type();
   meta.shape = IndexOutputShape(stack)[0];
 
-  return {meta};
+  return metaVec;
 }
 
 static FillParamsT FillPermuteParams(const at::Stack& stack) {
@@ -253,9 +257,9 @@ FillParamsT FillIndexParams(const at::Stack& stack) {
   if (stack.size() > 2) {
     auto const& adv_indexing_dims = stack.at(2).toBoolList();
     auto const aid_size = adv_indexing_dims.size();
-    for (size_t i = 0; i < aid_size; ++i)
+    for (size_t i = 0; i < aid_size; ++i) {
       params->advanced_indexing_dims[i] = adv_indexing_dims[i];
-
+    }
     auto const& self_permute_dims = stack.at(3).toIntList();
     auto const spd_size = self_permute_dims.size();
     for (size_t i = 0; i < spd_size; ++i) {
@@ -283,9 +287,9 @@ FillParamsT FillIndexParams(const at::Stack& stack) {
       }
     }
     auto const aid_size = adv_ind_dim.size();
-    for (size_t i = 0; i < aid_size; ++i)
+    for (size_t i = 0; i < aid_size; ++i) {
       params->advanced_indexing_dims[i] = adv_ind_dim[i];
-
+    }
     for (int i = 0; i < (int)self.dim(); i++) {
       params->self_permute_dims[i] = i;
     }
@@ -304,7 +308,9 @@ SharedMetaDataVector IndexSharedMeta(
   auto rank = input.dim();
   auto dtype = input.scalar_type();
   const auto indices = stack.at(1).toListRef();
-  SharedMetaData indexSharedMeta{"index"};
+  SharedMetaDataVector indexSharedMetaVec;
+  indexSharedMetaVec.reserve(1);
+  auto& indexSharedMeta = indexSharedMetaVec.emplace_back("index");
   indexSharedMeta.inputs_data.emplace_back(rank, dtype);
   int64_t broadcastedIndicesRank = 1;
   auto notNoneIndicesNum = 0;
@@ -324,7 +330,7 @@ SharedMetaDataVector IndexSharedMeta(
       : broadcastedIndicesRank + rank - notNoneIndicesNum;
   indexSharedMeta.outputs_data.emplace_back(outputRank, dtype);
 
-  return {indexSharedMeta};
+  return indexSharedMetaVec;
 }
 
 using namespace std::literals;
@@ -384,7 +390,7 @@ void IndexHabanaOperator::AddNode(
     adv_indexing_present = std::any_of(
         adv_ind_dim.cbegin(),
         adv_ind_dim.cbegin() + num_index_tensors,
-        [](const auto& i) { return i == true; });
+        [](const auto& i) { return static_cast<bool>(i); });
   }
 
   // find out final indexing tensor shapes - includes dims with
@@ -438,8 +444,9 @@ void IndexHabanaOperator::AddNode(
       std::vector<synTensor> index_maybe_multidim_synTensor{syn_in(i + 1)};
       std::unique_ptr<synapse_helpers::tensor> index_maybe_multidim_shTensor;
       bool reshape_before_bcast = false;
-      if (num_elems > 1 || (num_elems == 1 && num_dims > 1))
+      if (num_elems > 1 || (num_elems == 1 && num_dims > 1)) {
         reshape_before_bcast = true;
+      }
       if (((num_elems > 1) && (num_elems < max_num_elems)) ||
           (num_elems == 1 && num_dims > 1)) {
         std::vector<int64_t> reshape_outshape(max_dims, 1);
@@ -551,10 +558,10 @@ void IndexHabanaOperator::AddNode(
         params.size());
 
     auto permuted_self_shape = permuted_self[0].pt_shape();
-    permuted_self_t = std::move(permuted_self[0].get());
+    permuted_self_t = permuted_self[0].get();
     int64_t i = 0;
     for (; i < (int64_t)adv_ind_dim.size(); ++i) {
-      if (adv_ind_dim[static_cast<size_t>(i)] == true) {
+      if (adv_ind_dim[static_cast<size_t>(i)]) {
         index_all_elems[static_cast<size_t>(i)] = true;
       } else {
         auto cur_index_dim_size = (int64_t)std::accumulate(
@@ -740,7 +747,7 @@ void IndexHabanaOperator::AddNode(
             sizeof(rnilv_transpose_params));
         std::vector<int64_t> reshape_size = {
             num_elems * repeat_interleaves_needed[static_cast<size_t>(dim)]};
-        std::vector<int64_t> reshape_outshape = {reshape_size};
+        const std::vector<int64_t>& reshape_outshape = {reshape_size};
         auto reshaped_index =
             ReshapeHelper(graph, t_op[0].get(), reshape_outshape, index_dtype);
 
@@ -928,9 +935,9 @@ void SimpleIndexCompileOperator::AddNode(
   auto indices = stackGetter.getNextInput<std::vector<TensorsPair>>();
   auto params = FillSimpleIndexParams(indices.size());
   std::vector<synTensor> index_input{input.syn_t};
-  for (auto const& index : indices)
+  for (auto const& index : indices) {
     index_input.push_back(index.syn_t);
-
+  }
   auto result = BuildOp(
       graph,
       get_guid_with_precision("index"sv, meta.dtype),

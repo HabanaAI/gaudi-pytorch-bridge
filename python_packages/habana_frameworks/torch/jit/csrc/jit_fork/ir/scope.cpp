@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -143,7 +143,7 @@ InlinedCallStack::InlinedCallStack(
     torch::jit::Function* fn,
     SourceRange source_range)
     : fn_(fn),
-      fn_name_(fn_ ? fn_->name() : ""),
+      fn_name_(fn_ != nullptr ? fn_->name() : ""),
       source_range_(std::move(source_range)) {}
 
 InlinedCallStack::InlinedCallStack(
@@ -151,7 +151,7 @@ InlinedCallStack::InlinedCallStack(
     SourceRange source_range,
     std::optional<ModuleInstanceInfo> module_instance_info)
     : fn_(fn),
-      fn_name_(fn_ ? fn_->name() : ""),
+      fn_name_(fn_ != nullptr ? fn_->name() : ""),
       source_range_(std::move(source_range)),
       module_instance_info_(std::move(module_instance_info)) {}
 
@@ -171,7 +171,7 @@ InlinedCallStack::InlinedCallStack(
     SourceRange source_range)
     : callee_(std::move(callee)),
       fn_(fn),
-      fn_name_(fn_ ? fn_->name() : ""),
+      fn_name_(fn_ != nullptr ? fn_->name() : ""),
       source_range_(std::move(source_range)) {}
 
 InlinedCallStack::InlinedCallStack(
@@ -193,7 +193,7 @@ InlinedCallStack::InlinedCallStack(
     std::optional<ModuleInstanceInfo> module_instance_info)
     : callee_(std::move(callee)),
       fn_(fn),
-      fn_name_(fn_ ? fn_->name() : ""),
+      fn_name_(fn_ != nullptr ? fn_->name() : ""),
       source_range_(std::move(source_range)),
       module_instance_info_(std::move(module_instance_info)) {}
 

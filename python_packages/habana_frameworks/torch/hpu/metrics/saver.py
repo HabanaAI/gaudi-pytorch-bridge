@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
 ###############################################################################
 
 import abc
+import contextlib
 import json
 import os
 from datetime import datetime
@@ -31,10 +32,8 @@ class MetricWriter(metaclass=abc.ABCMeta):
         curr_metric_file_name = self._name
         curr_index = 0
         while not handle:
-            try:
-                handle = open(curr_metric_file_name, "x")
-            except FileExistsError:
-                pass
+            with contextlib.suppress(FileExistsError):
+                handle = open(curr_metric_file_name, "x")  # noqa SIM115
 
             if handle:
                 self._name = curr_metric_file_name
@@ -176,7 +175,9 @@ class MetricSaver:
         MetricDumpFormat.text: MetricTextWriter,
     }
 
-    def __init__(self, file_name="", triggers=[MetricDumpTrigger.user], format=METRIC_FILE_FORMAT_DEFAULT):
+    def __init__(self, file_name="", triggers=None, format=METRIC_FILE_FORMAT_DEFAULT):
+        if triggers is None:
+            triggers = [MetricDumpTrigger.user]
         if file_name:
             use_env = False
             self._metric_file_base_name = file_name
@@ -250,8 +251,8 @@ class MetricSaver:
     def enable(self):
         self._saver_activated = True
 
-    def process_trigger(self, trigger, metrics=[]):
-        if trigger in self._metric_dump_triggers:
+    def process_trigger(self, trigger, metrics=None):
+        if metrics is not None and trigger in self._metric_dump_triggers:
             for metric in metrics:
                 self._get_metric_writer().write(metric.name(), metric.stats(), trigger, timestamp=datetime.now())
 

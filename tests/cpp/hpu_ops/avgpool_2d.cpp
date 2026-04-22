@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -77,7 +77,6 @@ TEST_F(HpuOpTest, avg_pool2d_pad) {
 
 TEST_F(HpuOpTest, avg_pool2d_2_2) {
   GenerateInputs(1, {{1, 1, 2, 2}});
-  torch::ScalarType dtype = torch::kFloat;
   std::vector<int64_t> kernel_size = {2};
   std::vector<int64_t> stride = {2};
   std::vector<int64_t> pad = {0};
@@ -263,7 +262,6 @@ TEST_F(HpuOpTest, avg_pool2d_out_pad) {
 
 TEST_F(HpuOpTest, avg_pool2d_out_2_2) {
   GenerateInputs(1, {{1, 1, 2, 2}});
-  torch::ScalarType dtype = torch::kFloat;
   std::vector<int64_t> kernel_size = {2};
   std::vector<int64_t> stride = {2};
   std::vector<int64_t> pad = {0};

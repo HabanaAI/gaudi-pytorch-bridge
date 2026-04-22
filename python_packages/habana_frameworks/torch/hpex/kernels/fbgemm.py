@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -74,10 +74,7 @@ def split_embedding_codegen_lookup_function(
             raise AssertionError(f"HPU supports only constant D_offsets' distances, but they're {D} and {previous_D}")
 
         t_weights_from = weights_offsets[t]
-        if t + 1 < T:
-            t_weights_to = weights_offsets[t + 1]
-        else:
-            t_weights_to = host_weights.size(dim=0)
+        t_weights_to = weights_offsets[t + 1] if t + 1 < T else host_weights.size(dim=0)
 
         # Since t_weights_from and t_weights_to are int64, we need to do
         # reshape before slice, not to pass int64 to slice kernel. This also

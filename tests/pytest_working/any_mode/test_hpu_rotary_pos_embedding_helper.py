@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -230,10 +230,7 @@ def test_apply_rotary_pos_emb_v1_fwd_bwd(p_size, cos_sin_size, offset, dtype):
     loss = p_embed.sum()
     loss.backward()
 
-    if dtype == torch.float32:
-        tol = 0.001
-    else:
-        tol = 0.012
+    tol = 0.001 if dtype == torch.float32 else 0.012
 
     torch.testing.assert_close(p_embed.to(torch.float32).to(cpu), p_embed_ref, rtol=tol, atol=tol)
 
@@ -280,10 +277,7 @@ class TestHpuApplyRotaryPosEmbV2FwdBwd:
         loss = p_embed.sum()
         loss.backward()
 
-        if dtype == torch.float32:
-            tol = 0.001
-        else:
-            tol = 0.012
+        tol = 0.001 if dtype == torch.float32 else 0.012
 
         torch.testing.assert_close(p_embed.to(torch.float32).to(cpu), p_embed_ref, rtol=tol, atol=tol)
 
@@ -318,10 +312,7 @@ def test_apply_rotary_pos_emb_gptj_fwd(p_size, cos_sin_size, dtype):
 
     output_hpu = output_fwd(p_hpu, cos_hpu, sin_hpu, None, 0, RotaryPosEmbeddingMode.PAIRWISE)
 
-    if dtype == torch.float32:
-        tol = 0.001
-    else:
-        tol = 0.012
+    tol = 0.001 if dtype == torch.float32 else 0.012
 
     torch.testing.assert_close(output_hpu.to(torch.float32).to(cpu), output_ref, rtol=tol, atol=tol)
 
@@ -363,10 +354,7 @@ class TestHpuApplyRotaryPosEmbDiffDTypes:
         loss = p_embed.sum()
         loss.backward()
 
-        if dtype == torch.float32:
-            tol = 0.002
-        else:
-            tol = 0.012
+        tol = 0.002 if dtype == torch.float32 else 0.012
 
         torch.testing.assert_close(p_embed.to(torch.float32).to(cpu), p_embed_ref, rtol=tol, atol=tol)
 
@@ -404,10 +392,7 @@ def test_apply_rotary_pos_emb_chatglm_fwd(p_size, cos_sin_size, dtype):
 
     output_hpu = output_fwd(p_hpu, rope_cache_hpu)
 
-    if dtype == torch.float32:
-        tol = 0.001
-    else:
-        tol = 0.012
+    tol = 0.001 if dtype == torch.float32 else 0.012
 
     torch.testing.assert_close(output_hpu.to(torch.float32).to(cpu), output_ref, rtol=tol, atol=tol)
 
@@ -447,10 +432,7 @@ def test_apply_rotary_pos_emb_chatglm_fwd_bwd(p_size, cos_sin_size, dtype):
     loss = p_embed.sum()
     loss.backward()
 
-    if dtype == torch.float32:
-        tol = 0.001
-    else:
-        tol = 0.012
+    tol = 0.001 if dtype == torch.float32 else 0.012
 
     torch.testing.assert_close(p_embed.to(torch.float32).to(cpu), p_embed_ref, rtol=tol, atol=tol)
 

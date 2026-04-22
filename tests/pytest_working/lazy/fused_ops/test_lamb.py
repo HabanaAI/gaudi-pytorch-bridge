@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -134,19 +134,13 @@ class TorchNVLAMB(torch.optim.Optimizer):
 
         global_grad_norm = global_grad_norm.sqrt()
         max_grad_norm = self.defaults["max_grad_norm"]
-        if global_grad_norm > max_grad_norm:
-            clip_global_grad_norm = global_grad_norm / max_grad_norm
-        else:
-            clip_global_grad_norm = 1.0
+        clip_global_grad_norm = global_grad_norm / max_grad_norm if global_grad_norm > max_grad_norm else 1.0
 
         for group in self.param_groups:
             bias_correction = 1 if group["bias_correction"] else 0
             beta1, beta2 = group["betas"]
             grad_averaging = 1 if group["grad_averaging"] else 0
-            if grad_averaging:
-                beta3 = 1 - beta1
-            else:
-                beta3 = 1.0
+            beta3 = 1.0 - beta1 if grad_averaging else 1.0
 
             # assume same step across group now to simplify things
             # per parameter step can be easily support by making it tensor, or pass list into kernel

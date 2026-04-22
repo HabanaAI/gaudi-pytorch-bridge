@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,7 +41,7 @@ synEventHandle event_handle_cache::get_free_handle() {
   // special case, if max number of events was reached,
   // we need to wait until an event is returned to the cache
   if (events_count_ >= NUM_EVENTS_MAX) {
-    if (event_flag_) {
+    if (event_flag_ != 0U) {
       PT_SYNHELPER_FATAL(
           "Reached Max No of Timer Events allowed, total events::",
           events_count_);
@@ -73,7 +73,7 @@ synEventHandle event_handle_cache::get_free_handle() {
 
 void event_handle_cache::release_handle(synEventHandle handle) {
   std::lock_guard<std::mutex> lock(mutex_);
-  if (!handle) {
+  if (handle == nullptr) {
     PT_SYNHELPER_FATAL("attempt to release null event handle");
   }
   free_handles_.push_back(handle);
@@ -82,7 +82,7 @@ void event_handle_cache::release_handle(synEventHandle handle) {
 
 event_handle_cache::~event_handle_cache() {
   std::lock_guard<std::mutex> lock(mutex_);
-  for (auto handle : free_handles_) {
+  for (auto* handle : free_handles_) {
     synEventDestroy(handle);
   }
   free_handles_.clear();

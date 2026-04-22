@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -50,7 +50,7 @@ std::vector<int64_t> PadOperator::compute_output_shape(
 
   for (size_t i = 0; i < lpad; i++) {
     auto pad_start = pad[2 * i];
-    auto pad_end = pad[2 * i + 1];
+    auto pad_end = pad[(2 * i) + 1];
     shape[ndim - i - 1] += (pad_start + pad_end);
     HABANA_ASSERT(
         shape[ndim - i - 1] > 0,
@@ -142,13 +142,13 @@ void PadOperator::AllocateAndAddSynapseNode(
         pad[2 * i]);
     param.pads[i] = static_cast<unsigned int>(pad[2 * i]);
     HABANA_ASSERT(
-        pad[2 * i + 1] >= std::numeric_limits<int>::min() and
-            pad[2 * i + 1] <= std::numeric_limits<int>::max(),
+        pad[(2 * i) + 1] >= std::numeric_limits<int>::min() and
+            pad[(2 * i) + 1] <= std::numeric_limits<int>::max(),
         "Pad value at index ",
-        2 * i + 1,
+        (2 * i) + 1,
         " is out of unsigned range: ",
-        pad[2 * i + 1]);
-    param.pads[i + ndim] = static_cast<unsigned int>(pad[2 * i + 1]);
+        pad[(2 * i) + 1]);
+    param.pads[i + ndim] = static_cast<unsigned int>(pad[(2 * i) + 1]);
   }
 
   at::Tensor output;
@@ -202,7 +202,7 @@ void PadOperatorHT::AllocateAndAddSynapseNode(
   HABANA_ASSERT(p_context_->syn_inputs_[1].ref().is_host_to_device_tensor());
   shape = inputs[2].toTensor().sizes().vec();
   at::Tensor host_tensor = inputs[1].toTensor();
-  auto tmeta{get_tensor_extra_meta(host_tensor)};
+  auto* tmeta{get_tensor_extra_meta(host_tensor)};
   auto output_shape = inputs[2].toTensor().sizes();
   auto input_shape = self.sizes();
   HABANA_ASSERT(
@@ -280,7 +280,7 @@ void EmbeddingBagSumOperator::AllocateAndAddSynapseNode(
 
   auto kernel_mode = inputs[4].toInt();
   auto output_size_dim0 =
-      kernel_mode ? (offsets.sizes()[0] - 1) : indices.sizes()[0];
+      (kernel_mode != 0) ? (offsets.sizes()[0] - 1) : indices.sizes()[0];
   auto output = habana::createPTTensor(
       input,
       {output_size_dim0, input.size(1)},

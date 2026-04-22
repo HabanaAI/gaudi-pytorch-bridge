@@ -14,22 +14,26 @@
  */
 #include "cache_version.h"
 
-#include <ATen/ATen.h>
 #include <absl/types/span.h>
 #include <dlfcn.h>
-#include <link.h>
 #include "habana_helpers/logging.h"
 
+#include <c10/util/hash.h>
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <algorithm>
+#include <cstddef>
 #include <filesystem>
 #include <fstream>
+#include <ios>
+#include <sstream>
 #include <string>
+#include <string_view>
 #include <vector>
-
-namespace fs = std::filesystem;
+#include "backend/synapse_helpers/env_flags.h" // NOLINT(misc-include-cleaner)
+#include "backend/synapse_helpers/env_flags_impl.h"
 
 // return first non-zero MAC address from the filesystem
 // zero MAC means a loopback or invalid interface
@@ -39,7 +43,7 @@ std::string getMACFromFilesystemNonZero() {
   const std::string basePath = "/sys/class/net/";
   std::string invalidMAC = "00:00:00:00:00:00";
 
-  for (const auto& entry : fs::directory_iterator(basePath)) {
+  for (const auto& entry : std::filesystem::directory_iterator(basePath)) {
     std::string iface = entry.path().filename();
 
     // MAC address file for the given interface
@@ -101,7 +105,7 @@ size_t hash64_file_content(const std::string& path_to_file) {
   }
 
   size_t hashRes{0};
-  if (fh) {
+  if (fh != 0) {
     struct stat sb;
     if (fstat(fh, &sb) == -1) {
       PT_HABHELPER_WARN("Failed to get stat of file: ", path_to_file);
@@ -174,8 +178,9 @@ std::string CacheVersion::libs_env_hash() {
   hash = at::hash_combine(hash, hash64_file_content(path_to_syn_helpers));
   hash = at::hash_combine(hash, hash64_file_content(get_synapse_lib_path()));
 
-  if (IS_ENV_FLAG_DEFINED_NEW(GC_KERNEL_PATH)) {
-    std::string gc_kernel_path = GET_ENV_FLAG_NEW(GC_KERNEL_PATH);
+  if (IS_ENV_FLAG_DEFINED_NEW(GC_KERNEL_PATH)) { // NOLINT(misc-include-cleaner)
+    std::string gc_kernel_path =
+        GET_ENV_FLAG_NEW(GC_KERNEL_PATH); // NOLINT(misc-include-cleaner)
     auto foundComma = gc_kernel_path.find(':');
     if (foundComma != std::string::npos) {
       // GC_KERNEL_PATH can be a list of paths to libs, comma separated, need to
@@ -201,7 +206,7 @@ std::string CacheVersion::libs_env_hash() {
       "Combined hash for all important libs: ", reinterpret_cast<void*>(hash));
 
   char** s = environ;
-  for (; *s; s++) {
+  for (; *s != nullptr; s++) {
     std::string env_var(*s);
     if (check_env_fo_hashing(env_var)) {
       PT_HABHELPER_DEBUG("Combining hash for: ", env_var);

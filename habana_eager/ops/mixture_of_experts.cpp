@@ -20,10 +20,9 @@
 #include "generated/backend/cast_from_fp8.h"
 #include "generated/backend/cast_to_fp8_v2.h"
 #include "generated/backend/fp8_gemm_v2.h"
-#include "habana_eager/ops/eager_op.h"
 #include "habana_helpers/logging.h"
 #include "hpu_ops/common/mixture_of_experts.h"
-#include "hpu_ops/op_logger.h"
+#include "hpu_ops/op_logger.h" // IWYU pragma: keep
 
 namespace habana {
 using namespace habana::eager;
@@ -419,22 +418,25 @@ static std::tuple<at::Tensor, at::Tensor> mixture_of_experts_common(
     const bool measurement_mode) {
   std::function<at::Tensor(const at::Tensor& x)> activation_fn =
       get_activation_fn(activation);
-  const int num_experts = w1.size();
-  const int num_tokens = hidden_states.size(0);
-  const int hidden_dim = hidden_states.size(1);
+  const auto num_experts = w1.size();
+  const auto num_tokens = hidden_states.size(0);
+  const auto hidden_dim = hidden_states.size(1);
   auto final_hidden_states =
       torch::zeros({1, num_tokens, hidden_dim}, hidden_states.options());
   auto padded_weights =
-      torch::zeros({num_tokens, num_experts}, router_weights.options())
+      torch::zeros(
+          {num_tokens, static_cast<int64_t>(num_experts)},
+          router_weights.options())
           .scatter_(-1, expert_routing_table, router_weights)
-          .reshape({-1, num_tokens, num_experts})
+          .reshape({-1, num_tokens, static_cast<int64_t>(num_experts)})
           .permute({2, 0, 1})
           .unsqueeze(-1);
 
   auto amax_per_expert = torch::zeros(
-      {num_experts},
+      {static_cast<int64_t>(num_experts)},
       torch::TensorOptions().dtype(torch::kFloat32).device(torch::kHPU));
-  for (int expert_idx = 0; expert_idx < num_experts; expert_idx++) {
+  for (size_t expert_idx = 0; expert_idx < num_experts; expert_idx++) {
+    const auto expert_idx_i64 = static_cast<int64_t>(expert_idx);
     const at::Tensor current_expert_w1 =
         permuted_weights ? w1[expert_idx].transpose(0, 1) : w1[expert_idx];
     const at::Tensor current_expert_w2 =
@@ -463,15 +465,15 @@ static std::tuple<at::Tensor, at::Tensor> mixture_of_experts_common(
           activation_fn(torch::matmul(current_state, current_expert_w1));
       auto hidden_states_w2_measure =
           torch::matmul(current_state, current_expert_w2);
-      amax_per_expert[expert_idx] =
+      amax_per_expert[expert_idx_i64] =
           torch::amax(
               torch::abs(hidden_states_w1_measure * hidden_states_w2_measure))
               .to(torch::kFloat32);
     } else {
-      amax_per_expert[expert_idx] = 0;
+      amax_per_expert[expert_idx_i64] = 0;
     }
     auto hidden_states_w3 = torch::matmul(hidden_states_w12, current_expert_w3);
-    final_hidden_states += hidden_states_w3 * padded_weights[expert_idx];
+    final_hidden_states += hidden_states_w3 * padded_weights[expert_idx_i64];
   }
   auto result = final_hidden_states.reshape(hidden_states.sizes());
   return std::make_tuple(result, amax_per_expert);
@@ -960,16 +962,18 @@ static at::Tensor mixture_of_experts_fp8_common(
   std::function<at::Tensor(const at::Tensor& x)> activation_fn =
       get_activation_fn(activation);
   const at::ScalarType fp8_type = hidden_states.scalar_type();
-  const int num_experts = w1.size();
-  const int num_tokens = hidden_states.size(0);
-  const int hidden_dim = hidden_states.size(1);
+  const auto num_experts = w1.size();
+  const auto num_tokens = hidden_states.size(0);
+  const auto hidden_dim = hidden_states.size(1);
   auto final_hidden_states = torch::zeros(
       {1, num_tokens, hidden_dim},
       hidden_states.options().dtype(torch::kBFloat16));
   auto padded_weights =
-      torch::zeros({num_tokens, num_experts}, router_weights.options())
+      torch::zeros(
+          {num_tokens, static_cast<int64_t>(num_experts)},
+          router_weights.options())
           .scatter_(-1, expert_routing_table, router_weights)
-          .reshape({-1, num_tokens, num_experts})
+          .reshape({-1, num_tokens, static_cast<int64_t>(num_experts)})
           .permute({2, 0, 1})
           .unsqueeze(-1);
 
@@ -985,7 +989,7 @@ static at::Tensor mixture_of_experts_fp8_common(
     }
   }
 
-  for (int expert_idx = 0; expert_idx < num_experts; expert_idx++) {
+  for (size_t expert_idx = 0; expert_idx < num_experts; expert_idx++) {
     const at::Tensor current_expert_w1 =
         permuted_weights ? w1[expert_idx].transpose(0, 1) : w1[expert_idx];
     const at::Tensor current_expert_w2 =
@@ -1021,7 +1025,8 @@ static at::Tensor mixture_of_experts_fp8_common(
         default_scale,
         d_scale_w3[expert_idx]);
 
-    final_hidden_states += hidden_states_w3 * padded_weights[expert_idx];
+    final_hidden_states +=
+        hidden_states_w3 * padded_weights[static_cast<int64_t>(expert_idx)];
   }
 
   auto result = final_hidden_states.reshape(hidden_states.sizes());
@@ -1443,6 +1448,19 @@ at::Tensor mixture_of_experts_bias_fp8_fused_weights_scalars(
       limit);
 }
 
+static at::Tensor calculate_dynamic_scale(const at::Tensor& x) {
+  static const bool is_gaudi2 =
+      HPUDeviceContext::get_device().type() == synDeviceGaudi2;
+  static const float fp8_max = is_gaudi2 ? 240 : 448;
+
+  const auto max_values = std::get<0>(torch::abs(x).max(1, true));
+  const auto exp = torch::floor(torch::log2(fp8_max / max_values));
+  const auto scale = torch::pow(2.0, exp);
+  static const auto one_tensor =
+      torch::tensor(1.0, torch::TensorOptions().dtype(scale.dtype()));
+  return torch::where(max_values > 0.0, scale, one_tensor);
+}
+
 template <typename Scale, typename Scales>
 static at::Tensor mixture_of_experts_fp8_common_dynamic(
     const at::Tensor& hidden_states,
@@ -1460,16 +1478,18 @@ static at::Tensor mixture_of_experts_fp8_common_dynamic(
   std::function<at::Tensor(const at::Tensor& x)> activation_fn =
       get_activation_fn(activation);
   const at::ScalarType fp8_type = hidden_states.scalar_type();
-  const int num_experts = w1.size();
-  const int num_tokens = hidden_states.size(0);
-  const int hidden_dim = hidden_states.size(1);
+  const auto num_experts = w1.size();
+  const auto num_tokens = hidden_states.size(0);
+  const auto hidden_dim = hidden_states.size(1);
   auto final_hidden_states = torch::zeros(
       {1, num_tokens, hidden_dim},
       hidden_states.options().dtype(torch::kBFloat16));
   auto padded_weights =
-      torch::zeros({num_tokens, num_experts}, router_weights.options())
+      torch::zeros(
+          {num_tokens, static_cast<int64_t>(num_experts)},
+          router_weights.options())
           .scatter_(-1, expert_routing_table, router_weights)
-          .reshape({-1, num_tokens, num_experts})
+          .reshape({-1, num_tokens, static_cast<int64_t>(num_experts)})
           .permute({2, 0, 1})
           .unsqueeze(-1);
 
@@ -1485,7 +1505,7 @@ static at::Tensor mixture_of_experts_fp8_common_dynamic(
     }
   }
 
-  for (int expert_idx = 0; expert_idx < num_experts; expert_idx++) {
+  for (size_t expert_idx = 0; expert_idx < num_experts; expert_idx++) {
     const at::Tensor current_expert_w1 =
         permuted_weights ? w1[expert_idx].transpose(0, 1) : w1[expert_idx];
     const at::Tensor current_expert_w2 =
@@ -1508,19 +1528,14 @@ static at::Tensor mixture_of_experts_fp8_common_dynamic(
         d_scale_w2[expert_idx]);
 
     auto hidden_states_w12 = hidden_states_w1 * hidden_states_w2;
-    at::Tensor hidden_states_w3;
 
-    const auto is_gaudi2 =
-        HPUDeviceContext::get_device().type() == synDeviceGaudi2;
-    const auto scaling_factor = is_gaudi2 ? 240 : 448;
-    const auto max_values = std::get<0>(torch::abs(hidden_states_w12).max(1));
-
-    auto calculated_dynamic_scale =
-        ((max_values + 1e-8) / scaling_factor).unsqueeze(-1);
+    const auto dynamic_scale =
+        calculate_dynamic_scale(hidden_states_w12.to(torch::kFloat32));
+    const auto dynamic_d_scale = 1.0 / dynamic_scale;
 
     hidden_states_w12 = std::get<0>(cast_to_fp8_v2(
         hidden_states_w12,
-        calculated_dynamic_scale,
+        dynamic_scale,
         false,
         false,
         fp8_type,
@@ -1534,20 +1549,21 @@ static at::Tensor mixture_of_experts_fp8_common_dynamic(
     } else {
       current_d_scale_w3 = d_scale_w3[expert_idx];
     }
-    hidden_states_w3 = fp8_gemm_v2(
+    at::Tensor hidden_states_w3 = fp8_gemm_v2(
         hidden_states_w12,
         false,
         current_expert_w3,
         false,
         std::nullopt,
         torch::kBFloat16,
-        std::nullopt,
+        dynamic_d_scale,
         current_d_scale_w3,
         std::nullopt,
         false,
         std::nullopt);
 
-    final_hidden_states += hidden_states_w3 * padded_weights[expert_idx];
+    final_hidden_states +=
+        hidden_states_w3 * padded_weights[static_cast<int64_t>(expert_idx)];
   }
 
   auto result = final_hidden_states.reshape(hidden_states.sizes());

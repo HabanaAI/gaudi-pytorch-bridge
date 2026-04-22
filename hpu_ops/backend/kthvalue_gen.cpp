@@ -41,13 +41,14 @@ OutputMetaDataVector KthvalueMeta(const at::Stack& stack) {
   auto input = stack_tensor(stack, 0);
   auto output_shape = KthvalueOutputShape(stack);
 
-  OutputMetaData values_meta;
-  OutputMetaData indices_meta;
+  OutputMetaDataVector metaVec(2);
+  auto& values_meta = metaVec[0];
+  auto& indices_meta = metaVec[1];
   values_meta.dtype = input.scalar_type();
   values_meta.shape = output_shape;
   indices_meta.dtype = c10::ScalarType::Long;
   indices_meta.shape = output_shape;
-  return {values_meta, indices_meta};
+  return metaVec;
 }
 
 } // namespace habana

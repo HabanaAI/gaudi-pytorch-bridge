@@ -19,7 +19,8 @@
 namespace habana {
 
 OutputMetaDataVector LogspaceMeta(const at::Stack& stack) {
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.shape = {stack.at(2).toInt()};
 
   meta.dtype = stack.at(4).toOptional<at::ScalarType>().value_or(
@@ -33,15 +34,16 @@ OutputMetaDataVector LogspaceMeta(const at::Stack& stack) {
   const bool pin_memory = stack.at(7).toOptional<bool>().value_or(false);
   HABANA_ASSERT(!pin_memory, "Only dense CPU tensors can be pinned");
 
-  return {meta};
+  return metaVec;
 }
 
 OutputMetaDataVector LogspaceOutMeta(const at::Stack& stack) {
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.shape = {stack.at(2).toInt()};
   meta.dtype = stack.at(4).toTensor().scalar_type();
 
-  return {meta};
+  return metaVec;
 }
 
 // AddNode function is needed as the bridge cannot infer correctly the precision
@@ -74,14 +76,16 @@ SharedMetaDataVector LogspaceSharedMeta(
     const at::Stack& stack,
     habana_helpers::HabanaExecutionMode /*unused*/) {
   c10::ScalarType dtype;
-  if (stack.at(4).isTensor())
+  if (stack.at(4).isTensor()) {
     dtype = stack.at(4).toTensor().scalar_type();
-  else
+  } else {
     dtype = stack.at(4).toOptional<at::ScalarType>().value_or(
         torch::get_default_dtype_as_scalartype());
-
-  SharedMetaData powSharedMeta{"logspace_fwd"};
+  }
+  SharedMetaDataVector meta;
+  meta.reserve(1);
+  auto& powSharedMeta = meta.emplace_back("logspace_fwd");
   powSharedMeta.outputs_data.emplace_back(1, dtype);
-  return {powSharedMeta};
+  return meta;
 }
 } // namespace habana

@@ -17,10 +17,7 @@
 namespace habana {
 
 bool IndexSelectFallbackCheck(const at::Tensor& self) {
-  if (self.dim() > 5) {
-    return false;
-  }
-  return true;
+  return (self.dim() <= 5);
 }
 
 } // namespace habana

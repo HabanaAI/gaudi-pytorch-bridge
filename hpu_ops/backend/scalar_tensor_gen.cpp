@@ -18,14 +18,15 @@
 namespace habana {
 
 OutputMetaDataVector ScalarTensorMeta(const at::Stack& stack) {
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
 
   meta.dtype = stack.at(1).isNone() ? at::kFloat : stack.at(1).toScalarType();
   meta.layout = stack.at(2).isNone() ? at::kStrided : stack.at(2).toLayout();
 
   meta.shape = {}; // This should be a 0 dim tensor
 
-  return {meta};
+  return metaVec;
 }
 
 SharedMetaDataVector ScalarTensorSharedMeta(

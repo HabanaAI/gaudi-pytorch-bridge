@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -44,7 +44,7 @@ def rms_norm_fwd_ref(data_in, gamma, eps):
 def rms_norm_fwd_bwd(size, eps, use_stages, bwd_mode, fast_math, data_in_dtype, gamma_dtype):
     if (
         bwd_mode == RmsNormBwdMode.STATIC_CASE_WIDTH_PARTITIONING
-        and int(os.getenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", 0)) == 1
+        and int(os.getenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "0")) == 1
     ):
         pytest.skip("bwdMode in static mode is not supported for dynamic shapes")
 

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -94,8 +94,8 @@ TEST(HabanaSerializationTest, TensorOptionsTest) {
 
 int getFilesCount(const char* dir, const char* ext) {
   int count = 0;
-  auto fs_path = fs::path(dir);
-  auto dirIter = fs::directory_iterator(fs_path);
+  auto fs_path = std::filesystem::path(dir);
+  auto dirIter = std::filesystem::directory_iterator(fs_path);
   for (const auto& file : dirIter) {
     string file_name = file.path().filename();
     if (file_name.find(ext) != string::npos)
@@ -105,11 +105,11 @@ int getFilesCount(const char* dir, const char* ext) {
 }
 
 int removeFiles(const char* dir) {
-  auto fs_path = fs::path(dir);
+  auto fs_path = std::filesystem::path(dir);
   int count = 0;
-  auto dirIter = fs::directory_iterator(fs_path);
+  auto dirIter = std::filesystem::directory_iterator(fs_path);
   for (const auto& file : dirIter) {
-    if (fs::remove(file.path())) {
+    if (std::filesystem::remove(file.path())) {
       count++;
     }
   }
@@ -126,7 +126,7 @@ TEST_F(HabanaSerializationRecipeTest, serializeDeserializeRecipeTest1) {
   }
 
   // make sure dir is empty.
-  if (fs::exists(fs::path(getCachePath()))) {
+  if (std::filesystem::exists(std::filesystem::path(getCachePath()))) {
     removeFiles(getCachePath().c_str());
     while (HPUDeviceContext::recipe_cache().drop_lru()) {
     };
@@ -195,7 +195,7 @@ TEST_F(HabanaSerializationRecipeTest, serializeDeserializeRecipeTest2) {
   }
 
   // make sure dir is empty.
-  if (fs::exists(fs::path(getCachePath()))) {
+  if (std::filesystem::exists(std::filesystem::path(getCachePath()))) {
     removeFiles(getCachePath().c_str());
     while (HPUDeviceContext::recipe_cache().drop_lru()) {
     };

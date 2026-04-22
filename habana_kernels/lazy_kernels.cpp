@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,7 +26,6 @@
 #include "backend/random.h"
 #include "common/dump_args.h"
 #include "habana_helpers/frontend_utils.h"
-#include "habana_helpers/pt_version_check.h"
 #include "habana_kernels/basic_kernels.h"
 #include "habana_kernels/binary_kernels.h"
 #include "habana_kernels/embedding_kernels.h"
@@ -407,8 +406,8 @@ void strided_insert_hpu_lazy(
         is_flush);
   } else {
     bool env_fuse = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_COLLECTIVE_VIEW_FUSE);
-    auto& dim = params.params.slice_param.dim;
-    auto& step = params.params.slice_param.step;
+    auto& dim = std::get<StridedOpSliceParams>(params.params).dim;
+    auto& step = std::get<StridedOpSliceParams>(params.params).step;
     bool need_fuse =
         env_fuse && dim == 0 && step == 1 && is_support_fuse_func();
     if (!need_fuse) {
@@ -1151,7 +1150,7 @@ bool IsStridedViewRatioUndefined(
     return true;
   }
   auto len = self_strides.size();
-  for (uint64_t i = 0; i < len; i++) {
+  for (size_t i = 0; i < len; i++) {
     if (stride_sizes[i] < self_strides[i]) {
       return true;
     }
@@ -3311,7 +3310,7 @@ Tensor slice_hpu_lazy(
     int64_t start_ = start.has_value() ? start.value() : 0;
     int64_t end_ = end.has_value() ? end.value() : INT64_MAX;
     StridedOpSliceParams slice_param = {dim, start_, end_, step};
-    strided_param.params.slice_param = slice_param;
+    strided_param.params.emplace<StridedOpSliceParams>(slice_param);
     PT_VIEWTABLE_DEBUG(
         "slice fallback tensor id ",
         GetHbLazyTensorId(self_in),
@@ -3518,8 +3517,9 @@ static inline Tensor bn_create_and_init_undefined_input(
       in_t.options().dtype(c10::ScalarType::Float),
       in_t.suggest_memory_format(),
       true);
-  if (fill)
+  if (fill) {
     fill_hpu_lazy_(ret_t, val);
+  }
   return ret_t;
 }
 
@@ -3888,8 +3888,9 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu_lazy(
     const Tensor& input,
     double eps) {
   std::vector<int64_t> dim = {0, 2, 3};
-  if (input.dim() == 5)
+  if (input.dim() == 5) {
     dim.push_back(4);
+  }
   auto mean = at::mean(input, dim);
   auto var = at::var(input, dim, true);
   auto inv_std = at::reciprocal(at::sqrt(at::add(var, eps)));
@@ -3906,18 +3907,21 @@ Tensor batch_norm_elemt_lazy(
   static_cast<void>(eps);
   auto C = input.sizes().vec()[1];
   std::vector<int64_t> dim = {1, C, 1, 1};
-  if (input.dim() == 5)
+  if (input.dim() == 5) {
     dim.push_back(1);
-  Tensor gamma, beta;
-  if (weight.has_value())
-    gamma = weight.value();
-  else
-    gamma = at::ones(C).to(torch::kHPU);
+  }
 
-  if (bias.has_value())
+  Tensor gamma, beta;
+  if (weight.has_value()) {
+    gamma = weight.value();
+  } else {
+    gamma = at::ones(C).to(torch::kHPU);
+  }
+  if (bias.has_value()) {
     beta = bias.value();
-  else
+  } else {
     beta = at::zeros(C).to(torch::kHPU);
+  }
 
   auto mean_reshaped = at::reshape(mean, dim);
   auto inv_std_reshaped = at::reshape(invstd, dim);
@@ -4506,8 +4510,9 @@ Tensor empty_strided_hpu_lazy(
   }
 
   // empty_hpu_lazy call might move the tensor to cpu for unsupported dtypes
-  if (empty_tensor.device().type() != c10::DeviceType::HPU)
+  if (empty_tensor.device().type() != c10::DeviceType::HPU) {
     return empty_tensor;
+  }
   // If we have created a tensor with storage, set the strides and sizes to
   // backend tensor as well
   if (create_storage) {
@@ -4539,7 +4544,7 @@ Tensor transpose_hpu_lazy(const Tensor& self, int64_t dim0_, int64_t dim1_) {
                           const Tensor& self, StrideParams& strided_param) {
     strided_param.optype = kStridedOpTranspose;
     StridedOpTransposeParams transpose_param = {dim0_, dim1_};
-    strided_param.params.transpose_param = transpose_param;
+    strided_param.params.emplace<StridedOpTransposeParams>(transpose_param);
 
     PT_VIEWTABLE_DEBUG(
         "transpose fallback tensor id ",
@@ -4589,7 +4594,7 @@ Tensor squeeze_hpu_lazy(const Tensor& self, int64_t dim_) {
   auto param_setter = [dim](const Tensor& self, StrideParams& strided_param) {
     strided_param.optype = kStridedOpSqueeze;
     StridedOpSqueezeParams squeeze_param = {dim};
-    strided_param.params.squeeze_param = squeeze_param;
+    strided_param.params.emplace<StridedOpSqueezeParams>(squeeze_param);
 
     PT_VIEWTABLE_DEBUG(
         "squeeze fallback tensor id ", GetHbLazyTensorId(self), " dim ", dim);
@@ -4655,7 +4660,7 @@ Tensor unsqueeze_hpu_lazy(const Tensor& self, int64_t dim_) {
   auto param_setter = [dim](const Tensor& self, StrideParams& strided_param) {
     strided_param.optype = kStridedOpUnsqueeze;
     StridedOpSqueezeParams squeeze_param = {dim};
-    strided_param.params.squeeze_param = squeeze_param;
+    strided_param.params.emplace<StridedOpSqueezeParams>(squeeze_param);
 
     PT_VIEWTABLE_DEBUG(
         "unsqueeze fallback tensor id ", GetHbLazyTensorId(self), " dim ", dim);
@@ -4763,8 +4768,9 @@ Tensor permute_cl_hpu_lazy(const Tensor& self, IntArrayRef dims_in) {
 Tensor permute_hpu_lazy(const Tensor& self, IntArrayRef dims_in) {
   PT_LAZY_TRACE;
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_PERMUTE_WITH_STRIDED_VIEW)) {
-    if (self.dim() == 0 && self.numel() == 1)
+    if (self.dim() == 0 && self.numel() == 1) {
       return {self.clone()};
+    }
     auto out = at::native::permute(self, dims_in);
     habana::get_and_set_tensor_const(self, out);
     auto param_setter = [dims_in = dims_in.vec()](
@@ -4804,7 +4810,7 @@ Tensor expand_hpu_lazy(const Tensor& self, SymIntArrayRef size, bool implicit) {
     strided_param.optype = kStridedOpExpand;
     strided_param.sizes = size_in;
     StridedOpExpandParams expand_param = {implicit};
-    strided_param.params.expand_param = expand_param;
+    strided_param.params.emplace<StridedOpExpandParams>(expand_param);
     PT_VIEWTABLE_DEBUG(
         "expand fallback tensor id ",
         GetHbLazyTensorId(self),
@@ -4956,8 +4962,9 @@ std::tuple<Tensor, Tensor> sort_hpu_lazy(
     auto permuted_out_0 = permute_hpu_lazy_phy(std::get<0>(out), permute_dims);
     auto permuted_out_1 = permute_hpu_lazy_phy(std::get<1>(out), permute_dims);
     return std::tie(permuted_out_0, permuted_out_1);
-  } else
+  } else {
     return topk_hpu_lazy_impl(self, size_dim, dim, descending, true);
+  }
 }
 
 Scalar _local_scalar_dense_hpu(const Tensor& self) {
@@ -5896,28 +5903,6 @@ at::Tensor dequantize_nf4_lazy(
   RUN_MAYBE_WITH_ACC_THREAD(dequantize_nf4, hpu_op);
 }
 
-Tensor block_softmax_adjustment_lazy(
-    const Tensor& block_maxes,
-    const Tensor& block_sums,
-    const Tensor& block_groups,
-    int64_t batch_size,
-    const at::OptionalIntArrayRef out_shape) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-
-  PT_OP_INFO(
-      "block_softmax_adjustment :",
-      DUMP_5ARGS(block_maxes, block_sums, block_groups, batch_size, out_shape));
-
-  LazyOp<at::Tensor> hpu_op{
-      "hpu::block_softmax_adjustment",
-      {block_maxes, block_sums, block_groups, batch_size, out_shape},
-      {out_shape.has_value() ? out_shape.value().vec()
-                             : block_maxes.sizes().vec()}};
-
-  RUN_MAYBE_WITH_ACC_THREAD(block_softmax_adjustment, hpu_op);
-}
-
 inline bool is_main_thread_and_lazy_collectives_enabled() {
   return GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAZY_COLLECTIVES) &&
       not(habana_lazy::AccThread::IsAccThreadEnabled() &&
@@ -5940,12 +5925,12 @@ void handle_collective(const at::IValue& value) {
 }
 
 void handle_collective(const at::Tensor& tensor) {
-  if (!is_main_thread_and_lazy_collectives_enabled())
+  if (!is_main_thread_and_lazy_collectives_enabled()) {
     return;
-
-  if (!is_hpu_tensor(tensor))
+  }
+  if (!is_hpu_tensor(tensor)) {
     return;
-
+  }
   auto hl_t = GetHbLazyTensor(tensor);
   // also check for tensor's parent in case it's a view tensor. GetHbLazyTensor
   // will trigger markstep if parent tensor is produced from a collective op.
@@ -5962,13 +5947,13 @@ void handle_collective(const at::Tensor& tensor) {
 
 template <typename It, typename Sentinel>
 void handle_collective(It iter, Sentinel end) {
-  if (!is_main_thread_and_lazy_collectives_enabled())
+  if (!is_main_thread_and_lazy_collectives_enabled()) {
     return;
-
+  }
   for (; iter != end; ++iter) {
-    if (!is_hpu_tensor(*iter))
+    if (!is_hpu_tensor(*iter)) {
       continue;
-
+    }
     GetHbLazyTensor(*iter);
   }
 }
@@ -6084,16 +6069,17 @@ std::vector<at::Tensor> habana_permute_1D_2D_sparse_data_helper_lazy(
   for_each_in_tuple(
       out, [&out_v](const auto& result) { out_v.push_back(result); });
   auto func = [op = std::move(k), out_v = std::move(out_v)]() mutable {
-    if constexpr (hasWeights)
+    if constexpr (hasWeights) {
       op.call(std::tie(out_v[0], out_v[1], out_v[2]));
-    else
+    } else {
       op.call(std::tie(out_v[0], out_v[1]));
+    }
   };
 
   std::vector<at::Tensor> res_vec{std::get<0>(out), std::get<1>(out)};
-  if constexpr (hasWeights)
+  if constexpr (hasWeights) {
     res_vec.emplace_back(std::get<02>(out));
-
+  }
   RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(
       habana_permute_1D_sparse_data, func, res_vec)
 }

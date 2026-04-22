@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2025 Intel Corporation
+# Copyright (c) 2025-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -60,11 +60,7 @@ def test_histogram(input_size, bins, range, density, use_weight, dtype):
 
     fn_cpu = fn
     fn_hpu = compile_function_if_compile_mode(fn)
-    input_cpu = None
-    if dtype == torch.int:
-        input_cpu = torch.randint(10, (input_size,))
-    else:
-        input_cpu = torch.randn((input_size), dtype=dtype)
+    input_cpu = torch.randint(10, (input_size,)) if dtype == torch.int else torch.randn(input_size, dtype=dtype)
     input_hpu = input_cpu.to(hpu)
 
     bins_cpu = bins
@@ -72,10 +68,7 @@ def test_histogram(input_size, bins, range, density, use_weight, dtype):
 
     weight_cpu = None
     if use_weight:
-        if dtype == torch.int:
-            weight_cpu = torch.randint(10, (input_size,))
-        else:
-            weight_cpu = torch.randn((input_size), dtype=dtype)
+        weight_cpu = torch.randint(10, (input_size,)) if dtype == torch.int else torch.randn(input_size, dtype=dtype)
 
     weight_hpu = weight_cpu.to(hpu) if weight_cpu is not None else None
 
@@ -114,11 +107,7 @@ def test_histc(input_size, bins, dtype):
 
     fn_cpu = fn
     fn_hpu = compile_function_if_compile_mode(fn)
-    input_cpu = None
-    if dtype == torch.int:
-        input_cpu = torch.randint(10, (input_size,))
-    else:
-        input_cpu = torch.randn((input_size), dtype=dtype)
+    input_cpu = torch.randint(10, (input_size,)) if dtype == torch.int else torch.randn(input_size, dtype=dtype)
     input_hpu = input_cpu.to(hpu)
 
     min = -3

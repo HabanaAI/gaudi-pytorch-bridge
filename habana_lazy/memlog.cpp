@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,9 +37,8 @@ size_t compute_size(const HbLazyTensor& tensor) {
 
 void* get_hb_lazy_data_ptr(HbLazyTensor& hb_tensor) {
   auto hb_tensor_data = hb_tensor.CurrentTensorAttached();
-  if (!hb_tensor_data or !hb_tensor_data.has_value() or
-      !hb_tensor_data.value().has_storage() or
-      !GetHbInternalTensorImpl(hb_tensor_data.value())) {
+  if (!hb_tensor_data || !hb_tensor_data.value().has_storage() ||
+      (GetHbInternalTensorImpl(hb_tensor_data.value()) == nullptr)) {
     return nullptr;
   }
 
@@ -55,10 +54,10 @@ std::pair<uint64_t, uint32_t> get_future_memory() {
     return std::make_pair<uint64_t, uint32_t>(0, 0);
   }
   auto& device = habana::HPUDeviceContext::get_device();
-  auto context = habana_lazy::get_device_lazy_execution_context();
+  auto* context = habana_lazy::get_device_lazy_execution_context();
 
-  if (context == nullptr || context->m_launch_thread_handle.valid() == true ||
-      context->m_launch_thread_context == true) {
+  if (context == nullptr || context->m_launch_thread_handle.valid() ||
+      context->m_launch_thread_context) {
     return std::make_pair<uint64_t, uint32_t>(0, 0);
   }
 
@@ -66,22 +65,22 @@ std::pair<uint64_t, uint32_t> get_future_memory() {
 
   uint32_t future = 0;
   uint64_t future_bytes = 0;
-  habana_lazy::HbContext* devctx =
-      habana_lazy::HbContextArena::Get()->GetHbContext(aten_device);
+  auto devctx = habana_lazy::HbContextArena::Get().GetHbContext(aten_device);
 
   for (auto& uid_wptr : devctx->tensors_data) {
     std::shared_ptr<Data> data = uid_wptr.second.lock();
 
-    if (data == nullptr)
+    if (data == nullptr) {
       continue;
-
+    }
     auto t = HbLazyTensor(std::move(data));
     auto device_ptr =
         reinterpret_cast<synapse_helpers::device_ptr>(get_hb_lazy_data_ptr(t));
 
-    if (!device_ptr || device.get_device_memory().is_allocated(device_ptr))
+    if ((device_ptr == 0U) ||
+        device.get_device_memory().is_allocated(device_ptr)) {
       continue;
-
+    }
     ++future;
     future_bytes += compute_size(t);
   }

@@ -43,18 +43,20 @@ OutputMetaDataVector CastToFp8HybridMeta(const at::Stack& stack) {
     amax_shape.push_back(0);
   }
 
-  OutputMetaData meta_152;
+  OutputMetaDataVector metaVec(3);
+
+  auto& meta_152 = metaVec[0];
   meta_152.dtype = at::ScalarType::Float8_e5m2;
   meta_152.shape = input_sv;
 
-  OutputMetaData meta_143;
+  auto& meta_143 = metaVec[1];
   meta_143.dtype = at::ScalarType::Float8_e4m3fn;
   meta_143.shape = input_sv;
 
-  OutputMetaData meta_amax;
+  auto& meta_amax = metaVec[2];
   meta_amax.dtype = at::ScalarType::Float;
   meta_amax.shape = amax_shape;
-  return {meta_152, meta_143, meta_amax};
+  return metaVec;
 }
 
 SharedMetaDataVector CastToFp8HybridSharedMeta(
@@ -70,7 +72,9 @@ SharedMetaDataVector CastToFp8HybridSharedMeta(
   const bool is152Scale = stack.at(1).isTensor();
   const bool is143Scale = stack.at(2).isTensor();
 
-  SharedMetaData sharedMeta("convert_to_fp8_hybrid");
+  SharedMetaDataVector meta;
+  meta.reserve(1);
+  auto& sharedMeta = meta.emplace_back("convert_to_fp8_hybrid");
   sharedMeta.inputs_data.emplace_back(inputDim, input.scalar_type());
   sharedMeta.inputs_data.push_back(
       is152Scale ? SharedMetaTensor{1, c10::ScalarType::Float}
@@ -87,7 +91,7 @@ SharedMetaDataVector CastToFp8HybridSharedMeta(
     sharedMeta.outputs_data.emplace_back(1, c10::ScalarType::Float);
   }
 
-  return {sharedMeta};
+  return meta;
 }
 
 void CastToFp8Hybrid::AddNode(

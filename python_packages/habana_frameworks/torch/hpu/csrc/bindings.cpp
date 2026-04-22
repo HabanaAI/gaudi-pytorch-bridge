@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -116,15 +116,15 @@ std::string get_mem_stat_summary(int device_id) {
       "  ActiveAllocs:      %20lld\n"
       "%s\n",
       stats.memory_limit,
-      static_cast<double>(stats.memory_limit) / (1024 * 1024 * 1024.),
+      static_cast<double>(stats.memory_limit) / (1024 * 1024 * 1024),
       stats.bytes_in_use,
-      static_cast<double>(stats.bytes_in_use) / (1024 * 1024.),
+      static_cast<double>(stats.bytes_in_use) / (1024 * 1024),
       stats.peak_bytes_in_use,
-      static_cast<double>(stats.peak_bytes_in_use) / (1024 * 1024.),
+      static_cast<double>(stats.peak_bytes_in_use) / (1024 * 1024),
       stats.num_allocs,
       stats.num_frees,
       stats.largest_alloc_size,
-      static_cast<double>(stats.largest_alloc_size) / (1024 * 1024.),
+      static_cast<double>(stats.largest_alloc_size) / (1024 * 1024),
       (int64_t)stats.num_allocs - (int64_t)stats.num_frees,
       "");
   return summary;
@@ -172,7 +172,7 @@ void clear_global_context() {
 }
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
-  auto module = m.ptr();
+  auto* module = m.ptr();
   THP_HPU_Stream_init(module);
   THP_HPU_Event_init(module);
   PyModule_AddFunctions(module, THP_HPU_Module_methods());
@@ -258,7 +258,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   });
   m.def("get_autocast_hpu_dtype", []() {
     at::ScalarType current_dtype = at::autocast::get_autocast_dtype(at::kHPU);
-    auto dtype = (PyObject*)torch::getTHPDtype(current_dtype);
+    auto* dtype = (PyObject*)torch::getTHPDtype(current_dtype);
     return py::reinterpret_borrow<py::object>(dtype);
   });
   m.def("get_view_hash", [](at::Tensor t) -> size_t {

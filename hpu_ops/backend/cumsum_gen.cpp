@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,19 +21,22 @@ namespace habana {
 
 OutputMetaDataVector CumsumMeta(const at::Stack& stack) {
   const auto& self = stack.at(0).toTensor();
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.shape = self.sizes().vec();
   meta.mem_format = self.suggest_memory_format();
 
   if (stack.at(2).isNone()) {
-    if (isIntegralType(self.scalar_type(), true))
+    if (isIntegralType(self.scalar_type(), true)) {
       meta.dtype = c10::ScalarType::Long;
-    else
+    } else {
       meta.dtype = self.scalar_type();
-  } else
+    }
+  } else {
     meta.dtype = stack.at(2).toScalarType();
+  }
 
-  return {meta};
+  return metaVec;
 }
 
 SharedMetaDataVector FillCumSumSharedMeta(
@@ -105,7 +108,7 @@ void CumsumHabanaOperator::AddNode(
 
   // Get input to cumsum op
   // Can be cast op if cast is enabled.
-  auto input_data = (cast.has_value()) ? cast->get() : syn_in(0);
+  auto* input_data = (cast.has_value()) ? cast->get() : syn_in(0);
 
   auto op = BuildOp(
       graph,

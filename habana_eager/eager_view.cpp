@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -72,12 +72,12 @@ void insert_cast_node(
     JitNode* insert_after_node,
     c10::ScalarType dtype) {
   habana_torch::jit::WithInsertPoint insert_point(node);
-  auto value_in = insert_after_node->output(0);
+  auto* value_in = insert_after_node->output(0);
   auto op_copy = c10::Symbol::fromQualString("aten::_to_copy");
-  auto dst_dtype = graph.insertConstant(dtype);
-  auto dummy_args = graph.insertConstant(habana_torch::jit::IValue());
-  auto non_blocking = graph.insertConstant(false);
-  auto copy_node = graph.create(
+  auto* dst_dtype = graph.insertConstant(dtype);
+  auto* dummy_args = graph.insertConstant(habana_torch::jit::IValue());
+  auto* non_blocking = graph.insertConstant(false);
+  auto* copy_node = graph.create(
       op_copy,
       {value_in,
        dst_dtype,
@@ -105,13 +105,13 @@ JitNode* insert_strided_view_node(
   p.setParam(input);
   habana_torch::jit::WithInsertPoint insert_point(node);
   auto op_strided_view = c10::Symbol::fromQualString("aten::as_strided");
-  auto value_sizes =
+  auto* value_sizes =
       graph.insertConstant(habana_torch::jit::IValue(p.getViewSizes()));
-  auto value_strides =
+  auto* value_strides =
       graph.insertConstant(habana_torch::jit::IValue(p.getViewStrides()));
-  auto value_offset =
+  auto* value_offset =
       graph.insertConstant(habana_torch::jit::IValue(p.getViewOffset()));
-  auto jit_node = graph.create(
+  auto* jit_node = graph.create(
       op_strided_view,
       {jitval_in, value_sizes, value_strides, value_offset},
       1);
@@ -160,7 +160,7 @@ JitNode* replace_with_out_of_place_op(
     JitNode* node,
     const EagerOpMetaData& eager_op_meta_data) {
   habana_torch::jit::WithInsertPoint insert_point(node);
-  const auto old_kind = node->kind().toQualString();
+  const auto* const old_kind = node->kind().toQualString();
   // Make sure to use consistent operator name as aten but in hpu namespace
   auto aten_op_symbol =
       c10::Symbol::fromQualString(eager_op_meta_data.op_name_);
@@ -177,7 +177,7 @@ JitNode* replace_with_out_of_place_op(
       " is replaced by: ",
       new_kind);
 
-  auto new_node = graph.create(c10::Symbol::fromQualString(new_kind));
+  auto* new_node = graph.create(c10::Symbol::fromQualString(new_kind));
   new_node->addInput(node->input(0));
   auto num_inputs = node->inputs().size() - eager_op_meta_data.num_out_tensors_;
   for (size_t i = 1; i < num_inputs; ++i) {
@@ -210,12 +210,12 @@ JitNode* insert_strided_insert_node(
   p.setParam(input_tensor);
 
   auto op_strided_insert = c10::Symbol::fromQualString("hpu::strided_insert");
-  auto value_strides =
+  auto* value_strides =
       graph.insertConstant(habana_torch::jit::IValue(p.getViewStrides()));
-  auto value_offset =
+  auto* value_offset =
       graph.insertConstant(habana_torch::jit::IValue(p.getViewOffset()));
 
-  auto jit_node = graph.create(
+  auto* jit_node = graph.create(
       op_strided_insert,
       {input_jitval,
        node->output(node_output_idx),
@@ -258,11 +258,11 @@ JitNode* replace_copy_with_strided_insert(
   p.setParam(input_tensor);
   habana_torch::jit::WithInsertPoint insert_point(node);
   auto op_strided_insert = c10::Symbol::fromQualString("hpu::strided_insert");
-  auto value_strides =
+  auto* value_strides =
       graph.insertConstant(habana_torch::jit::IValue(p.getViewStrides()));
-  auto value_offset =
+  auto* value_offset =
       graph.insertConstant(habana_torch::jit::IValue(p.getViewOffset()));
-  auto jit_node = graph.create(
+  auto* jit_node = graph.create(
       op_strided_insert,
       {node->input(1), node->input(0), value_strides, value_offset},
       1);
@@ -330,7 +330,7 @@ void HandleInputOutputView(
   bool inplace_input = idx_is_out
       ? false
       : (is_inplace_op &&
-         eager_op_meta_data.out_indices_.count(input_idx_in_node_po));
+         eager_op_meta_data.out_indices_.count(input_idx_in_node_po) != 0U);
   if (idx_is_out || inplace_input) {
     node_output_idx = state.cumulative_output_idx++;
   }
@@ -349,7 +349,7 @@ void HandleInputOutputView(
   }
 
   if (!idx_is_out || (eager_op_meta_data.num_out_tensors_ > 1)) {
-    auto sv_node = insert_strided_view_node(
+    auto* sv_node = insert_strided_view_node(
         graph,
         node_consuming_input,
         t,
@@ -370,7 +370,7 @@ void HandleInputOutputView(
   }
 
   if (node_output_idx) {
-    auto si_node = insert_strided_insert_node(
+    auto* si_node = insert_strided_insert_node(
         graph, node_producing_output, input_jitval, t, *node_output_idx);
     ++state.strided_insert_nodes_count;
 
@@ -391,7 +391,7 @@ void HandleInputOutputView(
 
 class PtEagerGraphDebug {
  public:
-  PtEagerGraphDebug(const JitGraph& graph) : m_graph(graph) {}
+  PtEagerGraphDebug(const JitGraph* graph) : m_graph(graph) {}
 
   void before(const char* label) {
     m_label = label;
@@ -417,11 +417,11 @@ class PtEagerGraphDebug {
         "Graph ",
         mode,
         '\n',
-        m_graph.toString(),
+        m_graph->toString(),
         "JIT_IR_Graph_END\n");
   }
 
-  const JitGraph& m_graph;
+  const JitGraph* m_graph;
   static constexpr const char* m_bad_label = "BAD_LABEL";
   const char* m_label = m_bad_label;
 };
@@ -458,7 +458,7 @@ void set_as_strided_meta(JitNode* node) {
 void set_deterministic(JitNode* node) {
   node->i_(
       habana_torch::jit::attr::deterministic,
-      at::globalContext().deterministicAlgorithms());
+      static_cast<int64_t>(at::globalContext().deterministicAlgorithms()));
   PT_EAGER_DEBUG(
       "Deterministic val during Jit Node creation: ",
       node->i(habana_torch::jit::attr::deterministic));
@@ -501,7 +501,7 @@ void HandleOutputInsert(
   HABANA_ASSERT(node, "Node is null, expected at least one node in the graph");
   PT_EAGER_DEBUG("[HandleOutputInsert] Op Name: ", node->kind().toQualString());
 
-  PtEagerGraphDebug pt_eager_graph_debug(graph);
+  PtEagerGraphDebug pt_eager_graph_debug(&graph);
   pt_eager_graph_debug.before("Copy node replacement with SI:");
 
   auto num_inputs = node->inputs().size();
@@ -526,19 +526,21 @@ void HandleOutputInsert(
           std::make_tuple(NodeParamType::VIEW_OFFSET, idx, idx);
     }
   }
-  pt_eager_graph_debug.after("Copy node replacement with SI:");
+  pt_eager_graph_debug.after(
+      "Copy node replacement with SI:"); // NOLINT(readability-implicit-bool-conversion)
 
   idx = 0;
   ival = temp_inputs[idx];
   if (ival.isTensor()) {
     const auto& t = ival.toTensor();
     if (is_view(t)) {
-      auto jitval = si_node->inputs()[1];
+      auto* jitval = si_node->inputs()[1];
       bool op_doesnt_use_input = check_if_op_doesnt_use_input(si_node);
       pt_eager_graph_debug.before("Copy node replacement with SV:");
-      auto sv_node = insert_strided_view_node(
+      auto* sv_node = insert_strided_view_node(
           graph, si_node, t, jitval, op_doesnt_use_input, idx);
-      pt_eager_graph_debug.after("Copy node replacement with SV:");
+      pt_eager_graph_debug.after(
+          "Copy node replacement with SV:"); // NOLINT(readability-implicit-bool-conversion)
 
       // update node params jit value map
       jit_val_map[sv_node->input(1)] =
@@ -588,7 +590,7 @@ void HandleInputOutputViews(
   PT_EAGER_DEBUG(
       "[HandleInputOutputViews] Op Name: ", node->kind().toQualString());
 
-  PtEagerGraphDebug pt_eager_graph_debug(graph);
+  PtEagerGraphDebug pt_eager_graph_debug(&graph);
   pt_eager_graph_debug.before("SV/SI node insertion:");
 
   bool is_inplace_op = check_inplace_op(eager_op_meta_data);
@@ -603,8 +605,8 @@ void HandleInputOutputViews(
   HandleInputOutputViewState io_view_state{};
 
   for (size_t idx = 0; idx < num_inputs; ++idx) {
-    auto jitval = node->inputs()[idx];
-    auto ival = inputs[idx];
+    auto* jitval = node->inputs()[idx];
+    const auto& ival = inputs[idx];
     if (ival.isTensor()) {
       HandleInputOutputView(
           graph,
@@ -652,19 +654,19 @@ void HandleInputOutputViews(
   }
 
   pt_eager_graph_debug.after(
-      io_view_state.strided_view_nodes_count ||
-      io_view_state.strided_insert_nodes_count);
+      (io_view_state.strided_view_nodes_count != 0U) ||
+      (io_view_state.strided_insert_nodes_count != 0U));
 
-  if (io_view_state.strided_insert_nodes_count &&
-      !io_view_state.inplace_ordinary_tensors) {
+  if ((io_view_state.strided_insert_nodes_count != 0U) &&
+      (io_view_state.inplace_ordinary_tensors == 0U)) {
     pt_eager_graph_debug.before("Node replacement");
 
     // These kernels completely ignore the data in input tensor and hence the
     // input tensor can be reused by updating inplace. Further it also avoids
     // implementing out of place variants
     bool replaced = false;
-    if (!underscored_ops_reported_as_non_inplace.count(
-            node->kind().toQualString())) {
+    if (underscored_ops_reported_as_non_inplace.count(
+            node->kind().toQualString()) == 0U) {
       if (eager_op_meta_data.num_out_tensors_ <= 1) {
         replace_with_out_of_place_op(graph, node, eager_op_meta_data);
         replaced = true;

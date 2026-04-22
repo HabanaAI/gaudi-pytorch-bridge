@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,8 +36,6 @@
 // New style of env var declaration
 namespace env_flags::new_style {
 
-namespace fs = std::filesystem;
-
 bool has_insecure_chars(const std::string& input) {
   return std::regex_search(input, insecure_pattern);
 }
@@ -46,7 +44,13 @@ bool has_unsafe_chars(const std::string& input) {
   return std::regex_search(input, unsafe_pattern);
 }
 
-enum class ConstrainsType { ENUM, RANGE, FILEPATH, LIST, UNKNOWN };
+enum class ConstrainsType : std::uint8_t {
+  ENUM,
+  RANGE,
+  FILEPATH,
+  LIST,
+  UNKNOWN
+};
 
 std::string trim(const std::string& s) {
   auto is_trim_char = [](unsigned char c) { return std::isspace(c); };
@@ -100,14 +104,18 @@ void check_flag_status(const char* name, const char* flag_status) {
  * @return ConstrainsType The corresponding enum value for the constraint type.
  */
 ConstrainsType get_constrains_type(const std::string& constrains_type) {
-  if (constrains_type.find(ENUM_CONSTRAINT_TYPE) != std::string::npos)
+  if (constrains_type.find(ENUM_CONSTRAINT_TYPE) != std::string::npos) {
     return ConstrainsType::ENUM;
-  if (constrains_type.find(RANGE_CONSTRAINT_TYPE) != std::string::npos)
+  }
+  if (constrains_type.find(RANGE_CONSTRAINT_TYPE) != std::string::npos) {
     return ConstrainsType::RANGE;
-  if (constrains_type.find(FILEPATH_CONSTRAINT_TYPE) != std::string::npos)
+  }
+  if (constrains_type.find(FILEPATH_CONSTRAINT_TYPE) != std::string::npos) {
     return ConstrainsType::FILEPATH;
-  if (constrains_type.find(LIST_CONSTRAINT_TYPE) != std::string::npos)
+  }
+  if (constrains_type.find(LIST_CONSTRAINT_TYPE) != std::string::npos) {
     return ConstrainsType::LIST;
+  }
   return ConstrainsType::UNKNOWN;
 }
 
@@ -201,8 +209,9 @@ bool check_range(
     return false;
   }
 
-  if (val >= start && val <= end)
+  if (val >= start && val <= end) {
     return true;
+  }
 
   error_msg =
       "Value '" + value + "' is out of range. Allowed range: " + constraints;
@@ -214,8 +223,9 @@ std::vector<std::string> split_csv(const std::string& str) {
   std::stringstream ss(trim(str));
   std::string item;
   while (std::getline(ss, item, CONSTRAINTS_SPLIT_COMMA)) {
-    if (!trim(item).empty())
+    if (!trim(item).empty()) {
       result.push_back(trim(item));
+    }
   }
   return result;
 }
@@ -300,8 +310,8 @@ bool check_list(
     std::unordered_set<std::string> allowed_set(allowed.begin(), allowed.end());
     for (const auto& item : input) {
       if (allowed_set.count(item) == 0) {
-        error_msg = "Input item '" + item + "' is not in allowed set: <" +
-            allowed_str + ">.";
+        error_msg = fmt::format(
+            "Input item '{}' is not in allowed set: <{}>.", item, allowed_str);
         return false;
       }
     }
@@ -368,8 +378,9 @@ bool check_file_path(
 
   auto get_value = [&](const std::string& key) -> std::optional<std::string> {
     size_t pos = constraints.find(key + CONSTRAINTS_SPLIT_EQUAL);
-    if (pos == std::string::npos)
+    if (pos == std::string::npos) {
       return std::nullopt;
+    }
     size_t start = pos + key.length() + 1;
     size_t end = constraints.find_first_of(CONSTRAINTS_SPLIT_AND, start);
     return constraints.substr(start, end - start);
@@ -381,7 +392,7 @@ bool check_file_path(
       get_value("is_create").value_or(CONSTRAINTS_FALSE) == CONSTRAINTS_TRUE;
 
   if (is_file) {
-    if (!fs::is_regular_file(path)) {
+    if (!std::filesystem::is_regular_file(path)) {
       error_msg = "Path is not a regular file: " + path;
       return false;
     }
@@ -389,27 +400,28 @@ bool check_file_path(
   }
 
   if (is_dir) {
-    if (fs::exists(path)) {
-      if (fs::is_symlink(path)) {
+    if (std::filesystem::exists(path)) {
+      if (std::filesystem::is_symlink(path)) {
         error_msg = "Path is a symbolic link: " + path +
             ". Symbolic links are not allowed.";
         return false; // Path is a symbolic link
       }
-      if (!fs::is_directory(path)) {
+      if (!std::filesystem::is_directory(path)) {
         error_msg = "Path is not a directory: " + path;
         return false; // Path exists but is not a directory
       }
-      if ((fs::status(path).permissions() & fs::perms::owner_write) ==
-          fs::perms::none) {
+      if ((std::filesystem::status(path).permissions() &
+           std::filesystem::perms::owner_write) ==
+          std::filesystem::perms::none) {
         error_msg = "Directory path is not writable: " + path;
         return false; // Directory is not writable
       }
       return true; // Path exists, valid either way
     } else if (is_create) {
       try {
-        fs::create_directories(path);
-        return fs::exists(path); // Confirm creation
-      } catch (const fs::filesystem_error& e) {
+        std::filesystem::create_directories(path);
+        return std::filesystem::exists(path); // Confirm creation
+      } catch (const std::filesystem::filesystem_error& e) {
         error_msg = "Filesystem error while creating directory '" + path +
             "': " + e.what();
         return false;
@@ -488,26 +500,27 @@ bool check_recipe_cache_config(
       return false;
     }
 
-    if (!fs::exists(dir_path)) {
+    if (!std::filesystem::exists(dir_path)) {
       PT_SYNHELPER_WARN(
           "[Config Warning] Directory path does not exist: ",
           dir_path,
           ". Attempting to create it if allowed.");
     } else {
-      if (!fs::is_directory(dir_path)) {
+      if (!std::filesystem::is_directory(dir_path)) {
         error_msg = "Path is not a directory: " + dir_path;
         return false;
       }
 
-      if (fs::is_symlink(dir_path)) {
+      if (std::filesystem::is_symlink(dir_path)) {
         error_msg = "Path is a symbolic link: " + dir_path +
             ". Symbolic links are not allowed.";
         return false; // Path is a symbolic link
       }
 
       // Check if the directory is writable
-      if ((fs::status(dir_path).permissions() & fs::perms::owner_write) ==
-          fs::perms::none) {
+      if ((std::filesystem::status(dir_path).permissions() &
+           std::filesystem::perms::owner_write) ==
+          std::filesystem::perms::none) {
         error_msg = "Directory path is not writable: " + dir_path;
         return false; // Directory is not writable
       }
@@ -540,10 +553,11 @@ bool check(
     const char* value,
     const char* constraints,
     std::string& error_msg) {
-  std::string constrainsType_str =
-      constrains_type ? std::string(constrains_type) : CONSTRAINTS_EMPTY;
+  std::string constrainsType_str = (constrains_type != nullptr)
+      ? std::string(constrains_type)
+      : CONSTRAINTS_EMPTY;
   std::string constraints_str =
-      constraints ? std::string(constraints) : CONSTRAINTS_EMPTY;
+      (constraints != nullptr) ? std::string(constraints) : CONSTRAINTS_EMPTY;
   std::string value_str = std::string(value);
   const std::string value_trim = trim(value_str);
   if (has_insecure_chars(value_trim)) {
@@ -645,7 +659,7 @@ void validate_constraint_custom(
     const std::string& value,
     std::function<bool(const std::string&, std::string&)> validator) {
   std::string error_msg;
-  std::string name_str = name ? std::string(name) : "unknown";
+  std::string name_str = (name != nullptr) ? std::string(name) : "unknown";
   if (!validator(value, error_msg)) {
     PT_SYNHELPER_FATAL("Flag ", name_str, ": ", error_msg);
   }

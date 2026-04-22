@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,7 +32,6 @@
 #include "habana_eager/ops/unique_dim.h"
 #include "habana_eager/ops/view.h"
 #include "habana_helpers/logging.h"
-#include "habana_helpers/pt_version_check.h"
 #include "habana_kernels/wrap_kernels_declarations.h"
 #include "hpu_ops/cpu_fallback.h"
 #include "hpu_ops/op_logger.h"
@@ -81,7 +80,7 @@ Tensor hpu_wrap::_reshape_alias(
   auto src_backend = habana::eager::HbEagerTensorPool::get_backend_tensor(self);
   auto dst_backend =
       habana::eager::HbEagerTensorPool::get_backend_tensor(result);
-  auto dst_hb_tmeta{habana::get_tensor_extra_meta(dst_backend)};
+  auto* dst_hb_tmeta{habana::get_tensor_extra_meta(dst_backend)};
   dst_hb_tmeta->set_tensor_pipelined();
   habana::eager::PipelineOrExecuteTask(
       [self = std::move(src_backend), result = std::move(dst_backend)]() {
@@ -193,11 +192,6 @@ at::Tensor& hpu_wrap::_index_put_impl_(
     case c10::ScalarType::Byte:
     case c10::ScalarType::Double:
       break;
-    case c10::ScalarType::Half:
-      if (habana::HPUDeviceContext::get_device().type() ==
-          synDeviceType::synDeviceGaudi)
-        break;
-      [[fallthrough]];
     default:
       return dispatch_fallback<ATEN_OP(_index_put_impl_)>::call(
           OpSupportLevel::Value::unsupported_dtype,
@@ -275,11 +269,9 @@ at::Tensor hpu_wrap::nonzero(const at::Tensor& self) {
       (self.scalar_type() != c10::ScalarType::Char) &&
       (self.scalar_type() != c10::ScalarType::BFloat16) &&
       (self.scalar_type() != c10::ScalarType::Bool) &&
-      !(self.scalar_type() == c10::ScalarType::Half &&
-        habana::HPUDeviceContext::get_device().type() !=
-            synDeviceType::synDeviceGaudi &&
-        self.dim() >
-            4)) { // self.dim()<=4 goes through cguid that doesn't support fp16
+      (self.scalar_type() != c10::ScalarType::Half ||
+       self.dim() <=
+           4)) { // self.dim()<=4 goes through cguid that doesn't support fp16
     return dispatch_fallback<ATEN_OP(nonzero)>::call(
         OpSupportLevel::Value::unsupported_dtype, PARAMS2(self));
   }
@@ -309,13 +301,11 @@ at::Tensor& hpu_wrap::nonzero_out(const at::Tensor& self, at::Tensor& out) {
       (self.scalar_type() != c10::ScalarType::Int) &&
       (self.scalar_type() != c10::ScalarType::BFloat16) &&
       (self.scalar_type() != c10::ScalarType::Bool) &&
-      !(self.scalar_type() == c10::ScalarType::Half &&
-        habana::HPUDeviceContext::get_device().type() !=
-            synDeviceType::synDeviceGaudi)) {
+      (self.scalar_type() != c10::ScalarType::Half)) {
     return dispatch_fallback<ATEN_OP(nonzero_out)>::call(
         OpSupportLevel::Value::unsupported_dtype, PARAMS2(self, out));
   }
-  return habana::eager::nonzero_out_eager(self, out);
+  return out;
 }
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor> hpu_wrap::unique_dim(
@@ -339,9 +329,7 @@ at::Tensor hpu_wrap::masked_select(
       (self.scalar_type() != c10::ScalarType::Char) &&
       (self.scalar_type() != c10::ScalarType::Bool) &&
       (self.scalar_type() != c10::ScalarType::BFloat16) &&
-      !(self.scalar_type() == c10::ScalarType::Half &&
-        habana::HPUDeviceContext::get_device().type() !=
-            synDeviceType::synDeviceGaudi)) {
+      (self.scalar_type() != c10::ScalarType::Half)) {
     return dispatch_fallback<ATEN_OP(masked_select)>::call(
         OpSupportLevel::Value::unsupported_dtype, PARAMS2(self, mask));
   }
@@ -364,9 +352,7 @@ at::Tensor& hpu_wrap::masked_select_out(
       (self.scalar_type() != c10::ScalarType::Char) &&
       (self.scalar_type() != c10::ScalarType::Bool) &&
       (self.scalar_type() != c10::ScalarType::BFloat16) &&
-      !(self.scalar_type() == c10::ScalarType::Half &&
-        habana::HPUDeviceContext::get_device().type() !=
-            synDeviceType::synDeviceGaudi)) {
+      (self.scalar_type() != c10::ScalarType::Half)) {
     return dispatch_fallback<ATEN_OP(masked_select_out)>::call(
         OpSupportLevel::Value::unsupported_dtype, PARAMS2(self, mask, out));
   }

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,7 +24,6 @@
 #include <memory>
 #include "backend/backend_meta.h"
 #include "backend/habana_device/HPUStream.h"
-#include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/jit_graph_cache.h"
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
 #include "backend/scalar_cache.h"
@@ -53,7 +52,7 @@ struct overloaded : Ts... {
 template <class... Ts>
 overloaded(Ts...) -> overloaded<Ts...>;
 
-enum class ProcessList { asTensor, asList };
+enum class ProcessList : std::uint8_t { asTensor, asList };
 
 template <ProcessList process_list = ProcessList::asList, class T>
 void traversing_ivalues(
@@ -82,11 +81,13 @@ void traversing_ivalues(
             " at index ",
             i,
             ".");
-        if constexpr (process_list == ProcessList::asTensor)
+        if constexpr (process_list == ProcessList::asTensor) {
           visitor(li.toTensor());
+        }
       }
-      if constexpr (process_list == ProcessList::asList)
+      if constexpr (process_list == ProcessList::asList) {
         visitor(list);
+      }
     } else if (ivalue.isTuple()) {
       const auto& tuple = ivalue.toTupleRef();
       if (tuple.size() == 0) {
@@ -224,9 +225,9 @@ std::vector<at::IValue> convert_ivalues_to_backend_tensors(
           [&stack](const c10::ArrayRef<habana_torch::jit::IValue>& list) {
             c10::List<at::Tensor> backend_tensor_list;
             backend_tensor_list.reserve(list.size());
-            for (auto& v : list) {
+            for (const auto& v : list) {
               HABANA_ASSERT(v.isTensor())
-              auto& t = v.toTensor();
+              const auto& t = v.toTensor();
               HABANA_ASSERT(t.device().type() == c10::DeviceType::HPU)
               backend_tensor_list.push_back(
                   HbEagerTensorPool::get_backend_tensor(t));
@@ -406,20 +407,20 @@ void EagerExec::launch() {
         std::string_view(GET_ENV_FLAG_NEW(PT_HPU_GRAPH_DUMP_MODE)) == "eager"sv;
     CValPtrMap jit_val_map; // map for capturing node params jit values
     auto graph{create_eager_graph(orig_inputs, jit_val_map)};
-    if (dump_graphs)
+    if (dump_graphs) {
       visualize::DumpEagerOrCompileGraph(
           graph,
           m_graph_name + "_" + std::to_string(key) + "_eager_preprocess");
-
+    }
     auto eager_compiler_supported =
         is_eager_compiler_supported_for_graph(graph);
     post_process_eager_graph(graph, jit_val_map);
     prune_duplicate_graph_inputs(parent_vec, graph);
-    if (dump_graphs)
+    if (dump_graphs) {
       visualize::DumpEagerOrCompileGraph(
           graph,
           m_graph_name + "_" + std::to_string(key) + "_eager_postprocess");
-
+    }
     at::ArrayRef<habana_torch::jit::IValue> input_refs =
         torch::jit::last(stack, graph->inputs().size());
     graph_and_meta = std::make_shared<habana::OptimizedJITGraphAndMetaData>(
@@ -434,7 +435,7 @@ void EagerExec::launch() {
     /*  auto graphIndex =
           GetGraphIndex(m_g_hash_, torch::jit::last(stack,
        mp_g_->inputs().size()));*/
-    static int graphIndex{0};
+    static size_t graphIndex{0};
     ++graphIndex;
 
     graph_and_meta->SetGraphIndex(graphIndex);
@@ -459,18 +460,18 @@ void EagerExec::launch() {
     // would have modified the input tensor to base tensor. Need to
     // perform this operation for the cache hit case as well
     auto in = val.toTensor();
-    [[maybe_unused]] auto input_smeta{habana::get_storage_extra_meta(in)};
+    [[maybe_unused]] auto* input_smeta{habana::get_storage_extra_meta(in)};
 
     if (habana::is_view_lowering(in) || !in.is_contiguous()) {
       // modify the backend tensor of the view as the base
-      auto impl = in.unsafeGetTensorImpl();
+      auto* impl = in.unsafeGetTensorImpl();
       impl->set_sizes_contiguous(habana::get_base_tensor_size(in));
       impl->set_storage_offset(0);
       PT_EAGER_DEBUG("Eager op: Input tensor converted to base");
     }
 
     // check if skip tensor permutation flag is set
-    auto in_tmeta{habana::get_tensor_extra_meta(in)};
+    auto* in_tmeta{habana::get_tensor_extra_meta(in)};
     if (in_tmeta->is_send_org_tensor_permuted()) {
       PT_EAGER_DEBUG(
           "Eager op:", m_symbol.toQualString(), " Skip tensor permutation");
@@ -548,14 +549,16 @@ std::shared_ptr<habana_torch::jit::Graph> EagerExec::create_eager_graph(
               const habana_torch::jit::IValue& c) {
             node_inputs.push_back(graph->insertConstant(c));
             if (add_val_flag) {
-              int idx = node_inputs.size() - 1;
-              jit_val_map[node_inputs.back()] =
-                  std::make_tuple(NodeParamType::METADATA, idx, idx);
+              const auto idx = node_inputs.size() - 1;
+              jit_val_map[node_inputs.back()] = std::make_tuple(
+                  NodeParamType::METADATA,
+                  static_cast<int>(idx),
+                  static_cast<int>(idx));
             }
           },
           // scalar inputs
           [&node_inputs, &graph, &idx](const at::Scalar& c) {
-            auto s = graph->addInput("s" + std::to_string(++idx));
+            auto* s = graph->addInput("s" + std::to_string(++idx));
             auto scalarType = c.type();
             if (isFloatingType(scalarType)) {
               s->setType(c10::FloatType::get());
@@ -570,7 +573,7 @@ std::shared_ptr<habana_torch::jit::Graph> EagerExec::create_eager_graph(
           },
           // tensor inputs
           [&node_inputs, &graph](const at::Tensor& tensor) {
-            auto t = graph->addInput(tensor.toString());
+            auto* t = graph->addInput(tensor.toString());
             t->setType(
                 c10::TensorType::createContiguous(
                     tensor.scalar_type(), tensor.device(), tensor.sizes()));
@@ -581,14 +584,14 @@ std::shared_ptr<habana_torch::jit::Graph> EagerExec::create_eager_graph(
            &graph](const c10::ArrayRef<habana_torch::jit::IValue>& list) {
             std::vector<JitValue*> list_inp_args;
             for (const auto& item : list) {
-              auto& tensor = item.toTensor();
+              const auto& tensor = item.toTensor();
               auto* t = graph->addInput(tensor.toString());
               t->setType(
                   c10::TensorType::createContiguous(
                       tensor.scalar_type(), tensor.device(), tensor.sizes()));
               list_inp_args.push_back(t);
             }
-            auto jit_node = graph->create(
+            auto* jit_node = graph->create(
                 c10::Symbol::fromQualString("prim::ListConstruct"),
                 list_inp_args,
                 1);
@@ -599,12 +602,12 @@ std::shared_ptr<habana_torch::jit::Graph> EagerExec::create_eager_graph(
             node_inputs.push_back(jit_node->output(0));
           }});
 
-  auto jit_node = graph->create(m_symbol, node_inputs, m_outputs.size());
+  auto* jit_node = graph->create(m_symbol, node_inputs, m_outputs.size());
 
   /*Need to set this node if the deterministic mode is ON*/
   jit_node->i_(
       habana_torch::jit::attr::deterministic,
-      at::globalContext().deterministicAlgorithms());
+      static_cast<int64_t>(at::globalContext().deterministicAlgorithms()));
   PT_BRIDGE_DEBUG(
       "Deterministic val during Jit Node creation: ",
       jit_node->i(habana_torch::jit::attr::deterministic));
@@ -612,7 +615,7 @@ std::shared_ptr<habana_torch::jit::Graph> EagerExec::create_eager_graph(
   graph->insertNode(jit_node);
 
   for (size_t idx = 0; idx < jit_node->outputs().size(); idx++) {
-    auto jit_value_out = jit_node->output(idx);
+    auto* jit_value_out = jit_node->output(idx);
     if (jit_node->output(idx)->type()->kind() == c10::TypeKind::TensorType) {
       jit_value_out->setType(m_outputs.get_tensor_type(idx));
       // TODO do we need debug names?
@@ -632,14 +635,16 @@ size_t EagerExec::calculate_operator_key(
   optimized_key = at::hash_combine(optimized_key, m_outputs.size());
 
   optimized_key = at::hash_combine(
-      optimized_key, at::globalContext().deterministicAlgorithms());
+      optimized_key,
+      static_cast<size_t>(at::globalContext().deterministicAlgorithms()));
 
-  for (size_t i = 0; i < parent_vec.size(); ++i)
-    optimized_key = at::hash_combine(optimized_key, parent_vec[i]);
-
+  for (size_t i = 0; i < parent_vec.size(); ++i) {
+    optimized_key =
+        at::hash_combine(optimized_key, static_cast<size_t>(parent_vec[i]));
+  }
   std::unordered_set<size_t> input_hash_values;
   std::vector<uint64_t> storage_base_addresses;
-  int inp_index = 0;
+  size_t inp_index = 0;
   const bool skip_ivalue_hash_flag =
       NodeParamAgnosticOpList::isNodeParamAgnosticOp(m_symbol);
   const bool skip_scalar_hash_flag = skip_ivalue_hash_flag &&
@@ -652,7 +657,7 @@ size_t EagerExec::calculate_operator_key(
             optimized_key = at::hash_combine(optimized_key, inp_index++);
             if (!skip_ivalue_hash_flag) {
               if (input.isList()) {
-                for (auto& v : input.toListRef()) {
+                for (const auto& v : input.toListRef()) {
                   optimized_key =
                       at::hash_combine(optimized_key, at::IValue::hash(v));
                 }
@@ -699,12 +704,12 @@ size_t EagerExec::calculate_operator_key(
                       storage_base_addresses.end(),
                       base_address);
 
-                  int section_id;
+                  size_t section_id;
                   if (it != storage_base_addresses.end()) {
                     // tensor base address is the view
                     // resuse the old section id i.e. index of the vector
-                    section_id =
-                        std::distance(storage_base_addresses.begin(), it);
+                    section_id = static_cast<size_t>(
+                        std::distance(storage_base_addresses.begin(), it));
                   } else {
                     // tensor base address is the unique address
                     // assign the new section i.e. add it to the vector
@@ -730,14 +735,14 @@ static inline bool is_zst(const at::Tensor& t) {
 
 // define tensor type ZST for hashing the value
 // other tensor types can be added here, if required
-enum class TensorType { ZST_TENSOR = 1 };
+enum class TensorType : std::uint8_t { ZST_TENSOR = 1 };
 
 void EagerExec::update_key_for_tensor(const at::Tensor& t, size_t& key) {
   key = at::hash_combine(key, static_cast<size_t>(t.scalar_type()));
 
   // hash view attribute
-  auto input_smeta{habana::get_storage_extra_meta(t)};
-  auto input_tmeta{habana::get_tensor_extra_meta(t)};
+  auto* input_smeta{habana::get_storage_extra_meta(t)};
+  auto* input_tmeta{habana::get_tensor_extra_meta(t)};
   key = at::hash_combine(key, static_cast<size_t>(habana::is_view_lowering(t)));
   key = at::hash_combine(key, static_cast<size_t>(t.is_contiguous()));
   key =
@@ -749,36 +754,37 @@ void EagerExec::update_key_for_tensor(const at::Tensor& t, size_t& key) {
   // from bridge to synapse during the cache hit. during cache miss case bridge
   // needs to set the permute information for the inputs while need to read the
   // permute information of the outputs.
-  if (input_smeta) {
+  if (input_smeta != nullptr) {
     for (auto s : input_smeta->get_memory_permutation()) {
-      key = at::hash_combine(key, s);
+      key = at::hash_combine(key, static_cast<size_t>(s));
     }
   }
 
   if (habana::is_view_lowering(t) || !t.is_contiguous()) {
-    auto base_smeta{habana::get_storage_base_meta(t)};
-    if (base_smeta) {
+    auto* base_smeta{habana::get_storage_base_meta(t)};
+    if (base_smeta != nullptr) {
       for (auto s : base_smeta->get_memory_permutation()) {
-        key = at::hash_combine(key, s);
+        key = at::hash_combine(key, static_cast<size_t>(s));
       }
     }
 
     if (is_eager_caching_supported()) {
       // hash view params
-      for (auto s : t.strides())
-        key = at::hash_combine(key, s);
+      for (auto s : t.strides()) {
+        key = at::hash_combine(key, static_cast<size_t>(s));
+      }
       // two different sized tensors can have same strides
       // ex: [2, 4, 1], and [2, 1, 4]
-      for (auto s : t.sizes())
-        key = at::hash_combine(key, s);
-
+      for (auto s : t.sizes()) {
+        key = at::hash_combine(key, static_cast<size_t>(s));
+      }
       key = at::hash_combine(key, static_cast<size_t>(t.storage_offset()));
     }
   }
 
   key = at::hash_combine(key, static_cast<size_t>(t.suggest_memory_format()));
   key = at::hash_combine(key, static_cast<size_t>(t.layout()));
-  key = at::hash_combine(key, t.dim());
+  key = at::hash_combine(key, static_cast<size_t>(t.dim()));
 
   /*
    * hash if zst tensor is true
@@ -839,7 +845,7 @@ UniqueIdxVec EagerExec::find_duplicate_in_stack(torch::jit::Stack& stack) {
     // Check for shape and stride match
     if (input_tensor.sizes() == parent_tensor.sizes() &&
         input_tensor.strides() == parent_tensor.strides()) {
-      parent_vec[i] = pidx;
+      parent_vec[i] = static_cast<int64_t>(pidx);
       num_duplicate_inputs++;
 
       PT_EAGER_DEBUG(
@@ -893,14 +899,14 @@ void EagerExec::prune_duplicate_graph_inputs(
   bool is_pruned{false};
   for (size_t i = 0; i < jit_ir_graph_inputs.size(); i++) {
     if (parent_vec.is_duplicate(i)) {
-      size_t parent_idx = parent_vec[i];
+      const auto parent_idx = static_cast<size_t>(parent_vec[i]);
       HABANA_ASSERT(
           parent_idx != ULONG_MAX && parent_idx < i,
           " invalid parent index ",
           parent_idx,
           " found for input index ",
           i);
-      auto vptr = jit_ir_graph_inputs[parent_idx];
+      auto* vptr = jit_ir_graph_inputs[parent_idx];
       PT_EAGER_DEBUG(
           "Replacing %",
           jit_ir_graph_inputs[i]->debugName(),
@@ -910,16 +916,17 @@ void EagerExec::prune_duplicate_graph_inputs(
     }
   }
 
-  for (int64_t j = (int64_t)parent_vec.size() - 1; j >= 0; j--) {
-    if (parent_vec.is_duplicate(j)) {
+  for (size_t j = parent_vec.size(); j > 0; --j) {
+    const size_t idx = j - 1;
+    if (parent_vec.is_duplicate(idx)) {
       is_pruned = true;
       PT_EAGER_DEBUG(
           "Deleting ",
-          j,
+          idx,
           "th input %",
-          graph->inputs().at(j)->debugName(),
+          graph->inputs().at(idx)->debugName(),
           "of the graph");
-      graph->eraseInput(j);
+      graph->eraseInput(idx);
     }
   }
 
@@ -982,7 +989,7 @@ bool EagerExec::is_eager_compiler_supported_for_graph(
     return false;
   }
 
-  auto& eager_compiler_unsupported_op_prefixes =
+  const auto& eager_compiler_unsupported_op_prefixes =
       habana::OptimizedJitGraphCache::GetOptimizedJitCache()
           .get_eager_compiler_unsupported_op_prefixes();
 
@@ -1005,25 +1012,33 @@ tensor marked should be a out tensor belonging to mul.out kernel variant and is
 a contiguous view on a 1D buffer
 */
 void EagerExec::mark_maybe_grad_view() {
-  if (!GET_ENV_FLAG_NEW(PT_HPU_EAGER_ENABLE_GRADIENT_VIEW_LAYOUT_OPT))
+  if (!GET_ENV_FLAG_NEW(PT_HPU_EAGER_ENABLE_GRADIENT_VIEW_LAYOUT_OPT)) {
     return;
+  }
   using namespace std::literals;
-  if (std::string_view(m_symbol.toQualString()) != "aten::mul"sv)
+  if (std::string_view(m_symbol.toQualString()) != "aten::mul"sv) {
     return;
-  if (m_eager_op_meta_data.op_kind_ != InplaceOut)
+  }
+  if (m_eager_op_meta_data.op_kind_ != InplaceOut) {
     return;
-  if (!m_inputs.back().isTensor())
+  }
+  if (!m_inputs.back().isTensor()) {
     return;
+  }
   auto& t = m_inputs.back().toTensor();
-  if (t.dim() != 4 && t.dim() != 5)
+  if (t.dim() != 4 && t.dim() != 5) {
     return;
-  if (!t.is_contiguous())
+  }
+  if (!t.is_contiguous()) {
     return;
-  auto tmeta{habana::get_tensor_extra_meta(t)};
-  if (!tmeta->is_view_tensor())
+  }
+  auto* tmeta{habana::get_tensor_extra_meta(t)};
+  if (!tmeta->is_view_tensor()) {
     return;
-  if (habana::get_base_tensor_size(t).size() != 1)
+  }
+  if (habana::get_base_tensor_size(t).size() != 1) {
     return;
+  }
   // setting this flag will allow permutations on the view output
   tmeta->set_maybe_grad_view();
   PT_EAGER_DEBUG(

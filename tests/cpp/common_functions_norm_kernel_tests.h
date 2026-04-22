@@ -58,8 +58,7 @@ std::vector<AtTensorPair> native_layer_norm_test(
           torch::DTYPE,                                                       \
           dsi,                                                                \
           DSVAL);                                                             \
-      for (int i = 0; i < results.size(); ++i) {                              \
-        auto& result = results[i];                                            \
+      for (auto& result : results) {                                          \
         if ((torch::DTYPE != torch::kFloat32) &&                              \
             (result.hpu.scalar_type() != result.cpu.scalar_type())) {         \
           result.cpu = result.cpu.to(result.hpu.scalar_type());               \

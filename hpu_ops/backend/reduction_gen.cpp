@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -60,16 +60,18 @@ SharedMetaDataVector ReductionOpSharedMeta(
       : c10::make_optional<uint8_t>(1);
   auto dtype = get_dtype(stack, dtypeIndex);
   const bool isOutVersion = stack.back().isTensor();
-  if (isOutVersion)
+  if (isOutVersion) {
     dtype = stack.back().toTensor().scalar_type();
+  }
 
   const auto selfDtype = self.scalar_type();
   auto computeDtype = dtype.value_or(selfDtype);
   if (at::isIntegralType(selfDtype, true)) {
-    if (reduction_support_i32(guid))
+    if (reduction_support_i32(guid)) {
       computeDtype = computeDtype != at::kFloat ? at::kInt : computeDtype;
-    else if (reduction_support_f32(guid))
+    } else if (reduction_support_f32(guid)) {
       computeDtype = at::kFloat;
+    }
   }
 
   const auto dims = get_dims(stack, dimIndex);
@@ -79,13 +81,16 @@ SharedMetaDataVector ReductionOpSharedMeta(
   int64_t outputRank = (!keepDim && dimsSize == 0)
       ? 1
       : inputRank - static_cast<int64_t>(dimsSize);
-  if (outputRank <= 0)
+  if (outputRank <= 0) {
     outputRank = 1;
+  }
 
-  SharedMetaData reductionSharedMeta{guid};
+  SharedMetaDataVector reductionSharedMetaVec;
+  reductionSharedMetaVec.reserve(1);
+  auto& reductionSharedMeta = reductionSharedMetaVec.emplace_back(guid);
   reductionSharedMeta.inputs_data.emplace_back(inputRank, computeDtype);
   reductionSharedMeta.outputs_data.emplace_back(outputRank, computeDtype);
-  return {reductionSharedMeta};
+  return reductionSharedMetaVec;
 }
 
 SharedMetaDataVector ReductionOpSumSharedMeta(
@@ -171,7 +176,7 @@ static sh::tensor ReductionOpCommon(
       op,
       graph,
       {op->GetGuid(),
-       {std::move(input)},
+       {input},
        {{shape, op->ScalarType(), finalResultIndex}},
        &params,
        sizeof(params)});

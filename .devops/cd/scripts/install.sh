@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 ###############################################################################
-# Copyright (c) 2023-2025 Intel Corporation
+# Copyright (c) 2023-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -33,10 +33,6 @@ PIP_PYTHON_OPTIONS="${PYTHON_OPTIONS:-}"
 EXTRA_INDEX_URL="${PYTHON_INDEX_URL:-}"
 PYTHON_MPI_VERSION="${MPI_VERSION:-3.1.6}"
 
-if [[ -z $SKIP_INSTALL_DEPENDENCIES ]]; then
-  python${MIN_PYTHON_VER} -m pip install mpi4py=="${PYTHON_MPI_VERSION}" ${PIP_PYTHON_OPTIONS}
-fi
-
 if [[ -z $HABANALABS_LOCAL_DIR ]]; then
     python${MIN_PYTHON_VER} -m pip install habana-pyhlml=="${HABANA_RELEASE_VERSION}"."${HABANA_RELEASE_ID}" ${PIP_PYTHON_OPTIONS} ${EXTRA_INDEX_URL}
 else
@@ -50,10 +46,10 @@ source .env
 # 'upstream' - install extras AND torch from the internet, everything else from internal pytorch_modules.tgz package
 if [[ -n $TORCH_TYPE && $TORCH_TYPE == "upstream" ]]; then
   rm -f torch-*.whl
-  python${MIN_PYTHON_VER} -m pip install torch==${TORCH_VERSION} torchvision==${TORCHVISION_VERSION} torchdata==${TORCHDATA_VERSION} --index-url https://download.pytorch.org/whl/test/cpu --extra-index-url https://download.pytorch.org/whl/cpu
+  python${MIN_PYTHON_VER} -m pip install torch==${TORCH_VERSION} torchvision==${TORCHVISION_VERSION} --index-url https://download.pytorch.org/whl/test/cpu --extra-index-url https://download.pytorch.org/whl/cpu
   python${MIN_PYTHON_VER} -m pip install ./*.whl -r requirements-pytorch.txt ${PIP_PYTHON_OPTIONS} --disable-pip-version-check --no-warn-script-location
 else
-  python${MIN_PYTHON_VER} -m pip install torchvision==${TORCHVISION_VERSION} torchdata==${TORCHDATA_VERSION} --index-url https://download.pytorch.org/whl/test/cpu --extra-index-url https://download.pytorch.org/whl/cpu --dry-run --report pip_report
+  python${MIN_PYTHON_VER} -m pip install torchvision==${TORCHVISION_VERSION} --index-url https://download.pytorch.org/whl/test/cpu --extra-index-url https://download.pytorch.org/whl/cpu --dry-run --report pip_report
   jq -r '.install[].download_info.url' pip_report | grep -v '/torch-' > extras_req.txt
   python${MIN_PYTHON_VER} -m pip install -r extras_req.txt --no-dependencies
   python${MIN_PYTHON_VER} -m pip install ./*.whl -r requirements-pytorch.txt ${PIP_PYTHON_OPTIONS} --disable-pip-version-check --no-warn-script-location
@@ -62,4 +58,4 @@ fi
 
 python${MIN_PYTHON_VER} -m pip uninstall -y pillow 2>/dev/null || echo "Skip uninstalling pillow. Need SUDO permissions."
 python${MIN_PYTHON_VER} -m pip uninstall -y pillow-simd 2>/dev/null || echo "Skip uninstalling pillow-simd. Need SUDO permissions."
-CC="cc -mavx2" python${MIN_PYTHON_VER} -m pip install -U --force-reinstall git+https://github.com/aostrowski-hbn/pillow-simd.git@simd/9.5.x ${PIP_PYTHON_OPTIONS} --disable-pip-version-check
+CC="cc -mavx2" python${MIN_PYTHON_VER} -m pip install -U --force-reinstall git+https://github.com/HabanaAI/pillow-simd-fork.git@simd/9.5.x ${PIP_PYTHON_OPTIONS} --disable-pip-version-check

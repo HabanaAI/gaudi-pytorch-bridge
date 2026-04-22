@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -325,7 +325,7 @@ def fill_propagated_tensor_metadata_to_node(result: torch.Tensor, node: torch.fx
                     devices,
                     node,
                 )
-                raise
+                raise AssertionError("Multiple devices in single node")
             else:
                 device = devices[0]
 
@@ -381,7 +381,8 @@ def fill_propagated_tensor_metadata_jitfork(node: torch.fx.Node):
         logger.debug('Filling metadata "val" for node: %s', node.name)
         meta_output_vals = []
         for i in range(len(node.meta["output_dtypes"])):
-            meta_output_vals.append(  # output_strides consists of storage_offset, strides, acccess only strides
+            meta_output_vals.append(  # noqa PERF401
+                # output_strides consists of storage_offset, strides, acccess only strides
                 torch.empty_strided(
                     node.meta["output_shapes"][i],
                     node.meta["output_strides"][i],
@@ -508,7 +509,9 @@ def wrap_random_ops(input_module: torch.fx.GraphModule):
         seeds = input_module.graph.call_function(
             torch.ops.hpu.habana_seed_generator, (counter_pl, seed_pl, len(random_ops)), {}
         )
-        _ = input_module.graph.call_function(torch.ops.aten.add_, (counter_pl, len(random_ops)), {})
+        _ = input_module.graph.call_function(
+            torch.ops.aten.add_.Tensor, (counter_pl, len(random_ops)), {}, name="add__from_random"
+        )
 
     for i, node in enumerate(random_ops):
         with input_module.graph.inserting_before(node):
@@ -542,9 +545,9 @@ class TensorInfoPropagation(torch.fx.Interpreter):
     fake_tensors so it does not make any real computations.
     """
 
-    def __init__(self, graph_module: torch.fx.GraphModule, fake_mode: FakeTensorMode = FakeTensorMode()):
+    def __init__(self, graph_module: torch.fx.GraphModule, fake_mode: FakeTensorMode | None):
         super().__init__(graph_module)
-        self._mode = fake_mode
+        self._mode = fake_mode if fake_mode else FakeTensorMode()
 
     def run_node(self, node: torch.fx.Node):
         args = kwargs = result = None

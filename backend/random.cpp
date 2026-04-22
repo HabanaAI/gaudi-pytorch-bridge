@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@ at::Generator& getDefaultHPUGenerator() {
 
 // Utility to create a CPUGeneratorImpl. Returns a shared_ptr
 at::Generator createHPUGenerator() {
-  auto default_cpu_gen = at::detail::getDefaultCPUGenerator();
+  const auto& default_cpu_gen = at::detail::getDefaultCPUGenerator();
   auto gen =
       at::make_generator<at::CPUGeneratorImpl>(default_cpu_gen.current_seed());
   return gen;
@@ -39,7 +39,7 @@ uint32_t get_seed_hpu(const std::optional<at::Generator>& gen) {
   auto* generator = at::get_generator_or_default<at::CPUGeneratorImpl>(
       gen, detail::getDefaultHPUGenerator());
 
-  auto context = habana_lazy::get_device_lazy_execution_context();
+  auto* context = habana_lazy::get_device_lazy_execution_context();
   if (context->getDryRun()) {
     return 0;
   }
@@ -52,7 +52,7 @@ at::Tensor get_seed_tensor_hpu(const std::optional<at::Generator>& gen) {
   int seed = get_seed_hpu(gen);
   at::Tensor seed_tensor = at::tensor(seed);
   auto t = habana_lazy::append_to_batch_h2d_list(seed_tensor);
-  auto context = habana_lazy::get_device_lazy_execution_context();
+  auto* context = habana_lazy::get_device_lazy_execution_context();
   if (context->getCapturing()) {
     habana_lazy::HbLazyTensor hb_tensor = habana_lazy::GetHbLazyTensor(t);
     hb_tensor.getDataPtr()->is_random_seed_tensor = true;

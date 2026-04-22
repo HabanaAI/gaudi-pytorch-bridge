@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -75,7 +75,7 @@ RT<const char*> getenv_by_type(const char* name, const char* def_val) {
   // 2 | XXX=            |   default value
   // 3 | XXX=asdf        |   "asdf"
   const char* e = getenv(name);
-  return e && *e ? env_value(e) : default_value(def_val);
+  return e != nullptr && (*e != 0) ? env_value(e) : default_value(def_val);
 }
 
 template <class T, class F>
@@ -190,17 +190,17 @@ static RT<T> getenv_numeric(
 template <>
 RT<bool> getenv_by_type(const char* name, bool def_val) {
   const char* envstrp = getenv(name);
-  if (envstrp && *envstrp) {
+  if (envstrp != nullptr && (*envstrp != 0)) {
     bool true_found = absl::EqualsIgnoreCase(envstrp, "1") ||
         absl::EqualsIgnoreCase(envstrp, "true");
     bool false_found = absl::EqualsIgnoreCase(envstrp, "0") ||
         absl::EqualsIgnoreCase(envstrp, "false");
 
-    if (true_found)
+    if (true_found) {
       return env_value(true);
-    else if (false_found)
+    } else if (false_found) {
       return env_value(false);
-    else {
+    } else {
       PT_SYNHELPER_FATAL(
           "Environment variable \"",
           name,
@@ -247,7 +247,7 @@ const char* getenv_by_type_new(
   // 2 | XXX=asdf        |   "asdf"
   if (!is_cached || skip_cache) {
     const char* envstrp = getenv(name);
-    if (envstrp && *envstrp) {
+    if (envstrp != nullptr && (*envstrp != 0)) {
       act_val = envstrp;
       is_defined = true;
     } else {
@@ -265,11 +265,11 @@ static bool parse_env_bool(const char* name, const char* value) {
   bool false_found = absl::EqualsIgnoreCase(value, "0") ||
       absl::EqualsIgnoreCase(value, "false");
 
-  if (true_found)
+  if (true_found) {
     result = true;
-  else if (false_found)
+  } else if (false_found) {
     result = false;
-  else {
+  } else {
     PT_SYNHELPER_FATAL(
         "Environment variable \"",
         name,
@@ -294,7 +294,7 @@ bool getenv_by_type_new(
   if (!is_cached || skip_cache) {
     bool result = def_val;
     const char* envstrp = getenv(name);
-    if (envstrp && *envstrp) {
+    if (envstrp != nullptr && (*envstrp != 0)) {
       result = parse_env_bool(name, envstrp);
       is_defined = true;
     }

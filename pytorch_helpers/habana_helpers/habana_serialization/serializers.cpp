@@ -14,6 +14,15 @@
  */
 #include "serializers.h"
 
+#include <c10/core/Device.h>
+#include <c10/core/DeviceType.h>
+#include <c10/core/TensorOptions.h>
+#include <c10/util/typeid.h>
+#include <cstddef>
+#include <cstring>
+#include <ostream>
+#include <string>
+
 namespace serialization {
 
 void serialize(std::ostream& os, const char* input) {
@@ -37,7 +46,8 @@ void serialize(std::ostream& os, c10::Device const& input) {
 }
 
 void serialize(std::ostream& os, caffe2::TypeMeta input) {
-  c10::ScalarType scalarType = input.toScalarType();
+  c10::ScalarType scalarType =
+      input.toScalarType(); // NOLINT(misc-include-cleaner)
   os.write(reinterpret_cast<char const*>(&scalarType), sizeof(c10::ScalarType));
 }
 

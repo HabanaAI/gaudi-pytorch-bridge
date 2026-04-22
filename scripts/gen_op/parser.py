@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -202,15 +202,15 @@ def type_is_const(t):
     return isinstance(c, lark.lexer.Token) and c.value == "const"
 
 
-def extract_list(t, l):
+def extract_list(t, result_list):
     if not isinstance(t, lark.tree.Tree):
         raise AssertionError("Not a lark.tree.Tree instance")
-    l.append(t.children[0])
+    result_list.append(t.children[0])
     if len(t.children) == 2:
         c = t.children[1]
         if isinstance(c, lark.tree.Tree) and c.data == t.data:
-            extract_list(c, l)
-    return l
+            extract_list(c, result_list)
+    return result_list
 
 
 def get_function_signature(t, orig_sig, namefn):

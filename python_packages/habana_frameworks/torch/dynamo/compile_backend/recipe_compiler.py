@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -184,9 +184,12 @@ class HabanaGraphModule(torch.nn.Module):
         dynamic=False,
         force_static_compile=False,
         has_random_ops=False,
-        is_reusables: list[bool] = [],
+        is_reusables: list[bool] | None = None,
     ):
         from ._recipe_compiler_C import EmptyBatchData
+
+        if is_reusables is None:
+            is_reusables = []
 
         logger.debug("Creating HabanaGraphModule")
         super().__init__()
@@ -362,12 +365,14 @@ def get_callable_recipe(
     is_training=False,
     is_dynamic=False,
     has_random_ops=False,
-    is_reusables: list[bool] = [],
+    is_reusables: list[bool] | None = None,
 ):
     """
     Calls backend to create compiled recipe or just returns unchanged module to
     run it eagerly depending on config.
     """
+    if is_reusables is None:
+        is_reusables = []
     outputs_metadata = []
     symbolic_metadata = {}
     pholder_symbolic_dict = {}

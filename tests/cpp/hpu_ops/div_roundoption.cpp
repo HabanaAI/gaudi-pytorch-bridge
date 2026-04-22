@@ -16,7 +16,7 @@
 #include "util.h"
 
 // Limits for generated values of variants of Int
-enum {
+enum : std::int16_t {
   MIN_INT_VALUE_GENERATED = -360,
   MAX_INT_VALUE_GENERATED = -1,
   MIN_INT8_VALUE_GENERATED = 1,
@@ -46,8 +46,6 @@ TEST_F(HpuOpTest, divroundTrueBFloat16) {
 
 TEST_F(HpuOpTest, divroundFloor) {
   GenerateInputs(2);
-  torch::ScalarType dtype = torch::kFloat;
-
   auto expected = torch::div(GetCpuInput(0), GetCpuInput(1), "floor");
   auto result = torch::div(GetHpuInput(0), GetCpuInput(1), "floor");
 

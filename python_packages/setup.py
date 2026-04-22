@@ -16,6 +16,9 @@
 
 import os
 import shutil
+import sys
+
+sys.path.append(os.environ["PYTORCH_MODULES_ROOT_PATH"] + "/python_packages")
 
 from setup_utils import InstallCMakeLibs, PrebuiltPtExtension, get_version
 from setuptools import find_namespace_packages, setup

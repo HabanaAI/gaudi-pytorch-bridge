@@ -15,7 +15,6 @@
 
 #include "generated/backend/_pdist_backward.h"
 #include "generated/backend/_pdist_forward.h"
-#include "hpu_ops/op_backend.h"
 
 namespace habana {
 FillParamsT FillPdistFwdParams(const at::Stack& stack) {
@@ -66,11 +65,13 @@ SharedMetaDataVector PdistBwdSharedMeta(
   const auto& self = stack_tensor(stack, 1);
 
   auto dtype = grad.scalar_type();
-  SharedMetaData meta{"pdist_bwd"};
+  SharedMetaDataVector metaVec;
+  metaVec.reserve(1);
+  auto& meta = metaVec.emplace_back("pdist_bwd");
   meta.inputs_data = {{grad.dim(), dtype}, {self.dim(), dtype}};
   meta.outputs_data = {{self.dim(), dtype}};
 
-  return {meta};
+  return metaVec;
 }
 
 void PdistBwd::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {

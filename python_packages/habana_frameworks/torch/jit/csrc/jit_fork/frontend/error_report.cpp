@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,7 +36,7 @@ ErrorReport::ErrorReport(const ErrorReport& e)
       error_stack(e.error_stack.begin(), e.error_stack.end()) {}
 
 ErrorReport::ErrorReport(SourceRange r)
-    : context(std::move(r)), error_stack(calls.begin(), calls.end()) {}
+    : context(r), error_stack(calls.begin(), calls.end()) {}
 
 void ErrorReport::CallStack::update_pending_range(const SourceRange& range) {
   calls.back().caller_range = range;

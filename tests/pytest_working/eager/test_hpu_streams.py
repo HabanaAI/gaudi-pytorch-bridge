@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -167,7 +167,7 @@ def testInfo():
     print(f"S1 Info: On device={s1_info[0]}, stream_id={s1_info[1]}", repr(s1))
     print(f"S2 Info: On device={s2_info[0]}, stream_id={s2_info[1]}", repr(s2))
     print("D==s1  :: ", d == s1)
-    print("s1==s1 :: ", s1 == s1)
+    print("s1 :: ", s1)
     print("s1==s2 :: ", s1 == s2)
     print(f"s1.device_index={s1.device_index} , Default stream id={d.id()} s1.id()={s1.id()} s2.id()={s2.id()}")
 

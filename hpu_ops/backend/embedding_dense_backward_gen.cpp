@@ -21,11 +21,12 @@ OutputMetaDataVector EmbeddingDenseBwdMeta(const at::Stack& stack) {
   const auto& grad = stack_tensor(stack, 0);
   int num_weights = stack.at(2).toScalar().to<int>();
 
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.dtype = grad.scalar_type();
   meta.shape.push_back(num_weights);
   meta.shape.push_back(grad.sizes().back());
-  return {meta};
+  return metaVec;
 }
 
 SharedMetaDataVector EmbeddingDenseBwdSharedMeta(
@@ -36,12 +37,15 @@ SharedMetaDataVector EmbeddingDenseBwdSharedMeta(
   auto dtype = gradOut.scalar_type();
   auto gradRank = gradOut.dim();
 
-  SharedMetaData embeddingDenseBwdSharedMeta{"embedding_dense_pt_bwd"};
+  SharedMetaDataVector meta;
+  meta.reserve(1);
+  auto& embeddingDenseBwdSharedMeta =
+      meta.emplace_back("embedding_dense_pt_bwd");
   embeddingDenseBwdSharedMeta.inputs_data = {
       {gradRank, dtype}, {indices.dim(), indices.scalar_type()}};
   embeddingDenseBwdSharedMeta.outputs_data.emplace_back(2, dtype);
 
-  return {embeddingDenseBwdSharedMeta};
+  return meta;
 }
 
 FillParamsT FillEmbeddingDenseBackwardParams(const at::Stack& stack) {

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,7 +38,7 @@ at::Tensor habana::CreateEmptyTensor(
   if (ti.tensor_type() == SHAPE_TENSOR) {
     auto pt_tensor = habana::createDynamicTensor(tshape, SHAPE_TENSOR);
     if (tensor_data.has_shape_tensor_data()) {
-      auto new_tmeta{get_tensor_extra_meta(pt_tensor)};
+      auto* new_tmeta{get_tensor_extra_meta(pt_tensor)};
       HABANA_ASSERT(new_tmeta);
       new_tmeta->get_shape_struct() = tensor_data;
     }
@@ -71,7 +71,7 @@ torch::jit::Stack habana::CreateInputStack(
         "is missing from ",
         input_shapes);
     habana::ShapeTensorStruct tensor_data;
-    if (input_metadata.count(tidx)) {
+    if (input_metadata.count(tidx) != 0U) {
       tensor_data = input_metadata[tidx];
     }
     if (ti->tensor_type() == HOST_TO_DEVICE_TENSOR) {

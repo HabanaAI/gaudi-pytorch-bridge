@@ -67,7 +67,6 @@ class CustomOpOutShapeFunRegistrar {
   CustomOpOutShapeFunRegistrar() = default;
 
   static CustomOpOutShapeFunRegistrar* pInstance;
-  static std::mutex mutexGetInstance;
   static std::mutex mutexRegister;
 
 #define ITEM(NAME, ARGS, ...) \

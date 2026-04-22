@@ -39,8 +39,7 @@ OutputMetaDataVector CommonForeachMeta(
     const at::Stack& stack,
     const bool cast_int_to_float) {
   auto tensors = stack[0].toTensorList();
-  OutputMetaDataVector meta;
-  meta.resize(tensors.size());
+  OutputMetaDataVector meta(tensors.size());
 
   for (size_t i = 0; i < tensors.size(); ++i) {
     SUPPRESS_WDANGLING_REFERENCE(const at::Tensor& tensor = tensors[i];)
@@ -93,17 +92,17 @@ UNARY_FOREACH_SHARED_META(Trunc, "trunc_fwd")
 UNARY_FOREACH_SHARED_META(Zero, "constant")
 
 static OutputMetaData MetaForSingleOutput(
-    const at::Tensor& self,
+    const at::Tensor& self_tensor,
     const at::IValue& other,
     const bool cast_int_to_float) {
   OutputMetaData meta;
   if (other.isTensor()) {
     const auto& other_tensor = other.toTensor();
-    meta.dtype = at::result_type(self, other_tensor);
-    meta.shape = at::infer_size(self.sizes(), other_tensor.sizes());
+    meta.dtype = at::result_type(self_tensor, other_tensor);
+    meta.shape = at::infer_size(self_tensor.sizes(), other_tensor.sizes());
   } else {
-    meta.dtype = at::result_type(self, other.toScalar());
-    meta.shape = self.sizes().vec();
+    meta.dtype = at::result_type(self_tensor, other.toScalar());
+    meta.shape = self_tensor.sizes().vec();
   }
   if (cast_int_to_float && isIntegralType(meta.dtype, true)) {
     meta.dtype = torch::kFloat32;
@@ -129,12 +128,12 @@ OutputMetaDataVector CommonForeachBinaryMeta(
           ", != List2 size: ",
           list2.size());
       for (size_t i = 0; i < list1.size(); ++i) {
-        meta.push_back(
+        meta.emplace_back(
             MetaForSingleOutput(list1[i], list2[i], cast_int_to_float));
       }
     } else {
       for (const auto& element : list1) {
-        meta.push_back(
+        meta.emplace_back(
             MetaForSingleOutput(element, stack.at(1), cast_int_to_float));
       }
     }
@@ -142,7 +141,7 @@ OutputMetaDataVector CommonForeachBinaryMeta(
     auto list = stack[1].toTensorList();
     meta.reserve(list.size());
     for (size_t i = 0; i < list.size(); ++i) {
-      meta.push_back(
+      meta.emplace_back(
           MetaForSingleOutput(list[i], stack.at(0), cast_int_to_float));
     }
   }
@@ -233,8 +232,6 @@ void ForeachCopy::AddNode(
     auto out = CopyHelper(
         src_tensor.pt_t.sizes(),
         src_tensor.pt_t.scalar_type(),
-        self_tensor.pt_t.sizes(),
-        self_tensor.pt_t.scalar_type(),
         graph,
         {self_tensor.syn_t, src_tensor.syn_t},
         {output_meta[i]},
@@ -258,10 +255,12 @@ void ForeachZero::AddNode(
 size_t computeInputsNumber(const at::Stack& stack) {
   const size_t self_size =
       stack[SELF_INDEX].isTensorList() ? stack[SELF_INDEX].toList().size() : 0;
-  const size_t other_size = stack[OTHER_INDEX].isTensorList()
-      ? stack[OTHER_INDEX].toList().size()
-      : stack[OTHER_INDEX].isTensor() ? 1
-                                      : 0;
+  size_t other_size = 0;
+  if (stack[OTHER_INDEX].isTensorList()) {
+    other_size = stack[OTHER_INDEX].toList().size();
+  } else if (stack[OTHER_INDEX].isTensor()) {
+    other_size = 1;
+  }
   return self_size + other_size;
 }
 
@@ -276,16 +275,16 @@ SharedMetaDataVector CommonForeachBinarySharedMeta(
     metaVec.reserve(selfsSize);
     const auto& others = stack[OTHER_INDEX];
     std::optional<c10::List<c10::IValue>> othersList = std::nullopt;
-    if (others.isList())
+    if (others.isList()) {
       othersList = others.toList();
-
+    }
     for (size_t i = 0; i < selfsSize; i++) {
       c10::IValue other =
           othersList.has_value() ? othersList.value()[i] : others;
       at::Stack oneIterationStack = {selfs[i], other};
-      if (stack.size() > 2)
+      if (stack.size() > 2) {
         oneIterationStack.push_back(stack.at(ALPHA_INDEX));
-
+      }
       auto oneIterationSharedMeta =
           sharedMetaCreator(oneIterationStack, executionMode);
       metaVec.insert(

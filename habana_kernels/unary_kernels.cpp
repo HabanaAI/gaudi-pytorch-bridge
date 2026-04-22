@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -102,7 +102,7 @@ void ReciprocalOutOperator::AllocateAndAddSynapseNode(
   auto self = inputs[1].toTensor();
 
   auto shape = DimVector(self.sizes());
-  auto tht_result = result.unsafeGetTensorImpl();
+  auto* tht_result = result.unsafeGetTensorImpl();
   THHTensor_resizeNd(tht_result, shape.size(), shape.data(), nullptr);
 
   AllocateSynapseOutput(graph, result, output_metadata.at(0));

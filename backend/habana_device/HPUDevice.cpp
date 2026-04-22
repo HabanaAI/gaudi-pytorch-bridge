@@ -74,14 +74,16 @@ class HPUDeviceContextImpl {
 std::unique_ptr<HPUDeviceContextImpl> HPUDeviceContextImpl::device_context{};
 
 void HPUDeviceContextImpl::JoinAllThreads() {
-  if (!lowering_thread_)
+  if (!lowering_thread_) {
     return;
+  }
   JoinPipelineThreads();
   garbage_collection_thread_->waitWorkComplete();
 }
 void HPUDeviceContextImpl::JoinPipelineThreads() {
-  if (!lowering_thread_)
+  if (!lowering_thread_) {
     return;
+  }
   try {
     lowering_thread_->waitWorkComplete();
   } catch (...) {
@@ -94,8 +96,9 @@ void HPUDeviceContextImpl::JoinPipelineThreads() {
 }
 
 void HPUDeviceContextImpl::JoinLoweringThread() {
-  if (!lowering_thread_)
+  if (!lowering_thread_) {
     return;
+  }
   try {
     lowering_thread_->waitWorkComplete();
   } catch (...) {
@@ -221,8 +224,9 @@ void join_lowering_thread() {
 }
 
 bool get_exception_occurred() {
-  if (!is_device_acquired())
+  if (!is_device_acquired()) {
     return false;
+  }
   bool exception_occurred =
       HPUDeviceContextImpl::instance().exception_occurred_;
   HPUDeviceContextImpl::instance().exception_occurred_ = false;
@@ -275,13 +279,15 @@ RecipeCacheLRU& recipe_cache() {
 }
 
 void recipe_cache_clear() {
-  if (HPUDeviceContextImpl::instance().recipe_cache_)
+  if (HPUDeviceContextImpl::instance().recipe_cache_) {
     HPUDeviceContextImpl::instance().recipe_cache_->clear();
+  }
 }
 
 void flush_disk_cache() {
-  if (HPUDeviceContextImpl::instance().recipe_cache_)
+  if (HPUDeviceContextImpl::instance().recipe_cache_) {
     HPUDeviceContextImpl::instance().recipe_cache_->FlushDiskCache();
+  }
 }
 
 void synchronize() {
@@ -449,5 +455,17 @@ uint32_t get_scale_attribute_hash_id() {
   HABANA_ASSERT(HPUDeviceContextImpl::instance().device_);
   return HPUDeviceContextImpl::instance()
       .device_->get_scale_attribute_hash_id();
+}
+
+void set_is_dynamic_quantization(bool is_dynamic_quantization) {
+  HABANA_ASSERT(HPUDeviceContextImpl::instance().device_);
+  HPUDeviceContextImpl::instance().device_->set_is_dynamic_quantization(
+      is_dynamic_quantization);
+}
+
+bool get_is_dynamic_quantization() {
+  HABANA_ASSERT(HPUDeviceContextImpl::instance().device_);
+  return HPUDeviceContextImpl::instance()
+      .device_->get_is_dynamic_quantization();
 }
 } // namespace habana::HPUDeviceContext

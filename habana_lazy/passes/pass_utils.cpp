@@ -26,21 +26,21 @@ at::IntArrayRef getDimsForLayout5d(
   // NCDHW and 4 for NDHWC
   if (current_order == habana::LayoutFormat::NCHW) {
     if (channel_order == habana::LayoutFormat::NHWC) {
-      static const int64_t dimarr[] = {
+      static const std::array<int64_t, 5> dimarr = {
           habana::LayoutFormatWithDepthDims::N,
           habana::LayoutFormatWithDepthDims::D,
           habana::LayoutFormatWithDepthDims::H,
           habana::LayoutFormatWithDepthDims::W,
           habana::LayoutFormatWithDepthDims::C};
-      dims = dimarr;
+      dims = c10::makeArrayRef(dimarr);
     } else if (channel_order == habana::LayoutFormat::HWCK) {
-      static const int64_t dimarr[] = {
+      static const std::array<int64_t, 5> dimarr = {
           habana::LayoutFormatWithDepthDims::D,
           habana::LayoutFormatWithDepthDims::H,
           habana::LayoutFormatWithDepthDims::W,
           habana::LayoutFormatWithDepthDims::C,
           habana::LayoutFormatWithDepthDims::N};
-      dims = dimarr;
+      dims = c10::makeArrayRef(dimarr);
     } else {
       HABANA_ASSERT(
           0,
@@ -48,21 +48,21 @@ at::IntArrayRef getDimsForLayout5d(
     }
   } else if (current_order == habana::LayoutFormat::NHWC) {
     if (channel_order == habana::LayoutFormat::NCHW) {
-      static const int64_t dimarr[] = {
+      static const std::array<int64_t, 5> dimarr = {
           habana::LayoutFormatWithDepthDims::N,
           habana::LayoutFormatWithDepthDims::W,
           habana::LayoutFormatWithDepthDims::C,
           habana::LayoutFormatWithDepthDims::D,
           habana::LayoutFormatWithDepthDims::H};
-      dims = dimarr;
+      dims = c10::makeArrayRef(dimarr);
     } else if (channel_order == habana::LayoutFormat::HWCK) {
-      static const int64_t dimarr[] = {
+      static const std::array<int64_t, 5> dimarr = {
           habana::LayoutFormatWithDepthDims::C,
           habana::LayoutFormatWithDepthDims::D,
           habana::LayoutFormatWithDepthDims::H,
           habana::LayoutFormatWithDepthDims::W,
           habana::LayoutFormatWithDepthDims::N};
-      dims = dimarr;
+      dims = c10::makeArrayRef(dimarr);
     } else {
       HABANA_ASSERT(
           0,
@@ -70,21 +70,21 @@ at::IntArrayRef getDimsForLayout5d(
     }
   } else if (current_order == habana::LayoutFormat::HWCK) {
     if (channel_order == habana::LayoutFormat::NCHW) {
-      static const int64_t dimarr[] = {
+      static const std::array<int64_t, 5> dimarr = {
           habana::LayoutFormatWithDepthDims::W,
           habana::LayoutFormatWithDepthDims::H,
           habana::LayoutFormatWithDepthDims::N,
           habana::LayoutFormatWithDepthDims::C,
           habana::LayoutFormatWithDepthDims::D};
-      dims = dimarr;
+      dims = c10::makeArrayRef(dimarr);
     } else if (channel_order == habana::LayoutFormat::NHWC) {
-      static const int64_t dimarr[] = {
+      static const std::array<int64_t, 5> dimarr = {
           habana::LayoutFormatWithDepthDims::W,
           habana::LayoutFormatWithDepthDims::N,
           habana::LayoutFormatWithDepthDims::C,
           habana::LayoutFormatWithDepthDims::D,
           habana::LayoutFormatWithDepthDims::H};
-      dims = dimarr;
+      dims = c10::makeArrayRef(dimarr);
     } else {
       HABANA_ASSERT(
           0,
@@ -106,19 +106,19 @@ at::IntArrayRef getDimsForLayout(
 
   if (current_order == habana::LayoutFormat::NCHW) {
     if (channel_order == habana::LayoutFormat::NHWC) {
-      static const int64_t dimarr[] = {
+      static const std::array<int64_t, 4> dimarr = {
           habana::LayoutFormatDims::N,
           habana::LayoutFormatDims::H,
           habana::LayoutFormatDims::W,
           habana::LayoutFormatDims::C};
-      dims = dimarr;
+      dims = c10::makeArrayRef(dimarr);
     } else if (channel_order == habana::LayoutFormat::HWCK) {
-      static const int64_t dimarr[] = {
+      static const std::array<int64_t, 4> dimarr = {
           habana::LayoutFormatDims::H,
           habana::LayoutFormatDims::W,
           habana::LayoutFormatDims::C,
           habana::LayoutFormatDims::N};
-      dims = dimarr;
+      dims = c10::makeArrayRef(dimarr);
     } else {
       HABANA_ASSERT(
           0,
@@ -126,19 +126,19 @@ at::IntArrayRef getDimsForLayout(
     }
   } else if (current_order == habana::LayoutFormat::NHWC) {
     if (channel_order == habana::LayoutFormat::NCHW) {
-      static const int64_t dimarr[] = {
+      static const std::array<int64_t, 4> dimarr = {
           habana::LayoutFormatDims::N,
           habana::LayoutFormatDims::W,
           habana::LayoutFormatDims::C,
           habana::LayoutFormatDims::H};
-      dims = dimarr;
+      dims = c10::makeArrayRef(dimarr);
     } else if (channel_order == habana::LayoutFormat::HWCK) {
-      static const int64_t dimarr[] = {
+      static const std::array<int64_t, 4> dimarr = {
           habana::LayoutFormatDims::C,
           habana::LayoutFormatDims::H,
           habana::LayoutFormatDims::W,
           habana::LayoutFormatDims::N};
-      dims = dimarr;
+      dims = c10::makeArrayRef(dimarr);
     } else {
       HABANA_ASSERT(
           0,
@@ -146,19 +146,19 @@ at::IntArrayRef getDimsForLayout(
     }
   } else if (current_order == habana::LayoutFormat::HWCK) {
     if (channel_order == habana::LayoutFormat::NCHW) {
-      static const int64_t dimarr[] = {
+      static const std::array<int64_t, 4> dimarr = {
           habana::LayoutFormatDims::W,
           habana::LayoutFormatDims::H,
           habana::LayoutFormatDims::N,
           habana::LayoutFormatDims::C};
-      dims = dimarr;
+      dims = c10::makeArrayRef(dimarr);
     } else if (channel_order == habana::LayoutFormat::NHWC) {
-      static const int64_t dimarr[] = {
+      static const std::array<int64_t, 4> dimarr = {
           habana::LayoutFormatDims::W,
           habana::LayoutFormatDims::N,
           habana::LayoutFormatDims::C,
           habana::LayoutFormatDims::H};
-      dims = dimarr;
+      dims = c10::makeArrayRef(dimarr);
     } else {
       HABANA_ASSERT(
           0,

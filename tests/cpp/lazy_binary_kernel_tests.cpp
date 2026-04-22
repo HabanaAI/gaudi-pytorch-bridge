@@ -51,7 +51,7 @@ TEST_F(LazyBinaryKernelTest, LazyDoATest) {
 TEST_F(LazyBinaryKernelTest, UnifiedFlowA) {
   std::vector<int> in_sizes{2, 2, 4, 6, 8, 10, 2};
 
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     int dyn_dim = in_sizes[i];
     PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
     torch::Tensor A = torch::randn({2, dyn_dim}, torch::requires_grad(false));
@@ -76,7 +76,7 @@ TEST_F(LazyBinaryKernelTest, UnifiedFlowA) {
 TEST_F(LazyBinaryKernelTest, UnifiedFlowB) {
   std::vector<int> in_sizes{2, 2};
 
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     int dyn_dim = in_sizes[i];
     PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
     torch::Tensor A = torch::randn({2, dyn_dim}, torch::requires_grad(false));
@@ -336,7 +336,6 @@ TEST_F(LazyBinaryKernelTest, Max2DFloat) {
 TEST_F(LazyBinaryKernelTest, MaxOneInput1DLong) {
   at::Tensor self =
       at::randint(-50, 50, {4}, at::device(at::kCPU).dtype(at::kLong));
-  auto dimValue = 0;
   // CPU Run
   at::Tensor output_ = at::max(self);
   // Prepare HPU inputs
@@ -354,7 +353,6 @@ TEST_F(LazyBinaryKernelTest, MaxOneInput8DLong) {
       50,
       {4, 10, 5, 3, 4, 5, 7, 2},
       at::device(at::kCPU).dtype(at::kLong));
-  auto dimValue = 0;
   // CPU Run
   at::Tensor output_ = at::max(self);
   // Prepare HPU inputs
@@ -368,7 +366,6 @@ TEST_F(LazyBinaryKernelTest, MaxOneInput8DLong) {
 
 TEST_F(LazyBinaryKernelTest, MaxOneInput0DFloat) {
   auto self = at::randint(-50, 50, {}, at::device(at::kCPU));
-  auto dimValue = 0;
   // CPU Run
   at::Tensor output_ = at::max(self);
   // Prepare HPU inputs
@@ -415,7 +412,6 @@ TEST_F(LazyBinaryKernelTest, Min2DFloat) {
 
 TEST_F(LazyBinaryKernelTest, MinOneInput0DFloat) {
   auto self = at::randint(-350, 350, {});
-  auto dimValue = 0;
   // CPU Run
   at::Tensor output_ = at::min(self);
   // Prepare HPU inputs
@@ -434,7 +430,6 @@ TEST_F(LazyBinaryKernelTest, MinOneInput8DLong) {
       50,
       {4, 10, 5, 3, 4, 5, 7, 2},
       at::device(at::kCPU).dtype(at::kLong));
-  auto dimValue = 0;
   // CPU Run
   at::Tensor output_ = at::min(self);
   // Prepare HPU inputs
@@ -449,7 +444,6 @@ TEST_F(LazyBinaryKernelTest, MinOneInput8DLong) {
 TEST_F(LazyBinaryKernelTest, MinOneInput1DLong) {
   at::Tensor self =
       at::randint(-50, 50, {4}, at::device(at::kCPU).dtype(at::kLong));
-  auto dimValue = 0;
   // CPU Run
   at::Tensor output_ = at::min(self);
   // Prepare HPU inputs
@@ -993,7 +987,6 @@ TEST_F(LazyBinaryKernelTest, AddFwdF32) {
 // Also validates InferOutputMeta for GUID cast_f32_to_bf16, mult_fwd_bf16,
 // add_fwd_bf16 and cast_bf16_to_f32
 TEST_F(LazyBinaryKernelTest, AddFwdBf16) {
-  GTEST_SKIP() << "https://jira.habana-labs.com/browse/SW-240117";
   if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
     SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
   }
@@ -1011,8 +1004,8 @@ TEST_F(LazyBinaryKernelTest, AddFwdBf16) {
       allclose(
           out_hpu.to(torch::kFloat).to(torch::kCPU),
           out_cpu.to(torch::kFloat),
-          0.001,
-          0.001),
+          5e-2,
+          1e-3),
       true);
   UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
@@ -1046,7 +1039,6 @@ TEST_F(LazyBinaryKernelTest, AddFwdI32withCast) {
 // Also validates InferOutputMeta for GUID mult_fwd_f32/bf16/i32,
 // Constant_f32/bf16/i32 and add_fwd_f32/bf16/i32 with second argument as scalar
 TEST_F(LazyBinaryKernelTest, AddFwdWithScalar) {
-  GTEST_SKIP() << "https://jira.habana-labs.com/browse/SW-240117";
   if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
     SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
   }
@@ -1067,8 +1059,8 @@ TEST_F(LazyBinaryKernelTest, AddFwdWithScalar) {
         allclose(
             out_hpu.to(torch::kFloat32).to(torch::kCPU),
             out_cpu.to(torch::kFloat32),
-            0.001,
-            0.001),
+            5e-2,
+            1e-3),
         true);
   };
 

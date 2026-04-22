@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@
 #include <synapse_api.h>
 #include <sys/stat.h>
 #include <chrono>
+#include <filesystem>
 #include <mutex>
 #include <ostream>
 #include <string>
@@ -38,14 +39,6 @@
 #include "habana_helpers/towl.h"
 #include "habana_lazy/memlog.h"
 
-#if !defined __GNUC__ || __GNUC__ >= 8
-#include <filesystem>
-namespace fs = std::filesystem;
-#else
-#include <experimental/filesystem>
-namespace fs = std::experimental::filesystem;
-#endif
-
 namespace synapse_helpers {
 
 std::once_flag create_dir_flag;
@@ -56,20 +49,15 @@ std::string check_and_prepare_graph_dump_dir() {
     std::error_code err_code;
     dir = GET_ENV_FLAG_NEW(PT_HPU_GRAPH_DUMP_PREFIX);
     dir += '/';
-    bool is_new = fs::create_directories(dir, err_code);
+    bool is_new = std::filesystem::create_directories(dir, err_code);
 
     if (!err_code) {
       if (is_new) {
-#if !defined __GNUC__ || __GNUC__ >= 8
-        fs::permissions(
+        std::filesystem::permissions(
             dir,
-            fs::perms::owner_all | fs::perms::group_all,
-            fs::perm_options::add);
-#else
-            fs::permissions(
-                dir,
-                fs::perms::add_perms | fs::perms::owner_all | fs::perms::group_all);
-#endif
+            std::filesystem::perms::owner_all |
+                std::filesystem::perms::group_all,
+            std::filesystem::perm_options::add);
       }
     } else {
       PT_SYNHELPER_WARN("Cannot create graph dump directory ", dir);
@@ -99,8 +87,9 @@ std::unordered_map<std::string, std::string> ParseHintsFromString(
   while (ss.good()) {
     std::string substr;
     getline(ss, substr, ';');
-    if (substr.empty())
+    if (substr.empty()) {
       break;
+    }
     hints_vec.push_back(substr);
   }
 
@@ -162,12 +151,18 @@ graph graph::create(
     if (habana_helpers::IsInferenceMode()) {
       synStatus status = synSuccess;
       bool quantizationEnabled = habana_helpers::IsQuantizationEnabled();
-      synGraphAttributeVal values[] = {{true}, {quantizationEnabled}};
-      synGraphAttribute att[] = {
-          GRAPH_ATTRIBUTE_INFERENCE, GRAPH_ATTRIBUTE_QUANTIZATION};
-      const uint32_t size = 2;
-      status =
-          synGraphSetAttributes(syn_graph.graph_handle_, att, values, size);
+      bool useDynamicQuantization = device.get_is_dynamic_quantization();
+      std::array values = {
+          synGraphAttributeVal{1U},
+          synGraphAttributeVal{static_cast<uint64_t>(quantizationEnabled)},
+          synGraphAttributeVal{static_cast<uint64_t>(useDynamicQuantization)}};
+      std::array att = {
+          GRAPH_ATTRIBUTE_INFERENCE,
+          GRAPH_ATTRIBUTE_QUANTIZATION,
+          GRAPH_ATTRIBUTE_USE_DYNAMIC_QUANTIZATION};
+      const uint32_t size = att.size();
+      status = synGraphSetAttributes(
+          syn_graph.graph_handle_, att.data(), values.data(), size);
       HABANA_ASSERT(
           status == synStatus::synSuccess,
           "Failed to set graph attributes. synStatus=",
@@ -177,14 +172,16 @@ graph graph::create(
     if (const auto scale_hash_id = device.get_scale_attribute_hash_id();
         scale_hash_id != 0) {
       synStatus status = synSuccess;
-      synGraphAttributeVal values[] = {
-          {device.get_scale_attribute_is_hw_aligned()}, {scale_hash_id}};
-      synGraphAttribute att[] = {
+      std::array values = {
+          synGraphAttributeVal{static_cast<uint64_t>(
+              device.get_scale_attribute_is_hw_aligned())},
+          synGraphAttributeVal{scale_hash_id}};
+      std::array att = {
           GRAPH_ATTRIBUTE_IS_HW_ALIGNED_SCALE,
           GRAPH_ATTRIBUTE_SCALE_METHOD_HASH_ID};
-      const uint32_t size = 2;
-      status =
-          synGraphSetAttributes(syn_graph.graph_handle_, att, values, size);
+      const uint32_t size = att.size();
+      status = synGraphSetAttributes(
+          syn_graph.graph_handle_, att.data(), values.data(), size);
       HABANA_ASSERT(
           status == synStatus::synSuccess,
           "Failed to set hw scaling graph attributes. synStatus=",
@@ -348,7 +345,7 @@ void graph::setTensorSectionOffset(synTensor tensor_handle, uint64_t offset) {
 }
 
 void graph::getNodeParams(
-    const synGraphHandle graph_handle,
+    synGraphHandle graph_handle,
     const synNodeId node_id,
     void* node_params,
     unsigned* params_size) {
@@ -365,7 +362,7 @@ void graph::getNodeParams(
 }
 
 void graph::setNodeParams(
-    const synGraphHandle graph_handle,
+    synGraphHandle graph_handle,
     const synNodeId node_id,
     const void* node_params,
     const unsigned params_size) {
@@ -539,7 +536,7 @@ void graph::add_node(
 
   graph_is_empty_ = false;
   op_to_node_container_pt_["jit_node"].emplace_back(nodeId);
-  if (ret_node_id) {
+  if (ret_node_id != nullptr) {
     *ret_node_id = nodeId;
   }
   if (eager_mode_) {
@@ -771,7 +768,6 @@ void graph::launch(
     stream& compute_stream,
     size_t active_graph_key) {
   PT_SYNHELPER_BEGIN;
-  synStatus status = synStatus::synSuccess;
 
   if (recipe_handle.graph_is_empty_) {
     // Valid case, in some special scenarios Op does not add to graph.
@@ -781,18 +777,21 @@ void graph::launch(
   HABANA_ASSERT(
       recipe_handle.in_execution_phase_, "Graph not in execution phase.");
 
+  // Optimize tensor size patching - single pass
   for (synLaunchTensorInfo& tensorInfo : inputs_and_outputs_info) {
     // [SW-96080], due to change in get_tensor_for_scalar PT tensor has
     // size [0] for 0d tensor need to force it [1] to pass to synapse
     // correctly valdity check for pTensorAddress to differentiate from ZST in
     // case of ZST pTensorAddress will be nullptr
-    if (tensorInfo.pTensorAddress && tensorInfo.tensorSize[0] == 0) {
+    if ((tensorInfo.pTensorAddress != 0U) && tensorInfo.tensorSize[0] == 0) {
       tensorInfo.tensorSize[0] = 1;
     }
   }
 
   PT_SYNHELPER_DEBUG("STREAM:: Launch recipe with stream::", compute_stream);
 
+  // Optimize patching table validation - only in debug builds
+#ifndef NDEBUG
   auto table_checker{[&recipe_handle](const synLaunchTensorInfo& info) -> bool {
     if (info.tensorName == nullptr || info.tensorName[0] == '\0') {
       PT_SYNHELPER_WARN(
@@ -814,25 +813,31 @@ void graph::launch(
           inputs_and_outputs_info.end(),
           table_checker) == inputs_and_outputs_info.end(),
       "Checking input_output patching table. failed");
+#endif
 
-  std::vector<device_ptr> addresses(
-      inputs_and_outputs_info.size(), device_nullptr);
+  // Pre-allocate vectors with exact sizes to avoid reallocations
+  const size_t info_size = inputs_and_outputs_info.size();
+  std::vector<device_ptr> addresses;
+  addresses.reserve(info_size);
   std::unordered_map<uint64_t, uint64_t> host_address_map;
-  for (size_t i = 0; i < inputs_and_outputs_info.size(); i++) {
-    auto& info = inputs_and_outputs_info[i];
+
+  // Single pass to populate addresses and host_address_map
+  for (size_t i = 0; i < info_size; ++i) {
+    const auto& info = inputs_and_outputs_info[i];
     if (info.tensorType != HOST_TO_DEVICE_TENSOR) {
-      addresses[i] = info.pTensorAddress;
+      addresses.push_back(info.pTensorAddress);
     } else {
       host_address_map[i] = info.pTensorAddress;
-      addresses[i] = static_cast<uint64_t>(0);
+      addresses.push_back(static_cast<uint64_t>(0));
     }
   }
 
   size_t least_workspace_size = workspace_size;
-  size_t tensor_mem =
+  const size_t tensor_mem =
       device.get_device_memory().get_total_memory_required(addresses);
   if (GET_ENV_FLAG_NEW(PT_ENABLE_WORKSPACE_MEMORY_SHRINK, 1)) {
-    bool oom_may = !device.get_device_memory().is_memory_available(tensor_mem);
+    const bool oom_may =
+        !device.get_device_memory().is_memory_available(tensor_mem);
     if (oom_may) {
       least_workspace_size =
           device.get_least_workspace_size(tensor_mem, workspace_size);
@@ -843,7 +848,8 @@ void graph::launch(
       device.cleanup_workspace_buffer();
     }
   }
-  auto workspace_buffer = device.get_workspace_buffer(least_workspace_size);
+  const auto workspace_buffer =
+      device.get_workspace_buffer(least_workspace_size);
 
   habana_lazy::log_dev_mem_stats(
       "Post-Workspace", recipe_handle.recipe_name_, workspace_size);
@@ -863,12 +869,14 @@ void graph::launch(
       workspace_size,
       device.get_workspace_size());
 
+  synStatus status = synStatus::synSuccess;
+
   {
     address_lock = std::make_unique<device_ptr_lock>(
         device.lock_addresses(absl::Span<const device_ptr>(addresses)));
     auto iter = inputs_and_outputs_info.begin();
     size_t index = 0;
-    for (auto address : *address_lock) {
+    for (const auto address : *address_lock) {
       if (GET_ENV_FLAG_NEW(PT_HPU_POOL_MEM_ENABLE_TENSOR_INFO)) {
         log_tensor_info(
             ((iter->tensorName == nullptr) ? "" : iter->tensorName),
@@ -877,7 +885,7 @@ void graph::launch(
             address);
       }
 
-      if (host_address_map.count(index)) {
+      if (host_address_map.count(index) != 0U) {
         iter->pTensorAddress = host_address_map[index];
       } else {
         iter->pTensorAddress = address;
@@ -1017,29 +1025,32 @@ std::string_view graph::name_suffix_from_type(
 }
 
 uint64_t graph::recipe_handle::get_recipe_host_mem_size() {
-  if (recipe_size_ != 0)
+  if (recipe_size_ != 0) {
     return recipe_size_;
+  }
   synRecipeAttribute recipe_attr(RECIPE_ATTRIBUTE_HOST_MEM_SIZE);
   auto status = synRecipeGetAttribute(
       (&recipe_size_), &recipe_attr, 1, syn_recipe_handle_);
-  if (status != synSuccess)
+  if (status != synSuccess) {
     PT_SYNHELPER_WARN(
         Logger::formatStatusMsg(status), "Failed to retrieve recipe size");
+  }
   return recipe_size_;
 }
 
 namespace {
 void SynapseRecipeDestroyTask(synRecipeHandle recipeHandle) {
-  if (recipeHandle && synRecipeDestroy(recipeHandle) != synStatus::synSuccess) {
+  if ((recipeHandle != nullptr) &&
+      synRecipeDestroy(recipeHandle) != synStatus::synSuccess) {
     PT_SYNHELPER_WARN("Failed to destroy recipe: ", recipeHandle);
   }
 }
 } // namespace
 
 graph::recipe_handle::~recipe_handle() {
-  if (syn_recipe_handle_) {
+  if (syn_recipe_handle_ != nullptr) {
     habana::HPUDeviceContext::garbage_collection_thread().enqueue(
-        SynapseRecipeDestroyTask, std::move(syn_recipe_handle_));
+        SynapseRecipeDestroyTask, syn_recipe_handle_);
   }
 }
 

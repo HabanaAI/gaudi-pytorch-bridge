@@ -21,7 +21,8 @@ namespace habana_helpers {
 
 bool is_h2d_scales_enabled() {
   return habana::HPUDeviceContext::get_scale_attribute_hash_id() > 0 and
-      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_H2D_SCALES);
+      GET_ENV_FLAG_NEW(
+             PT_HPU_ENABLE_H2D_SCALES); // NOLINT(misc-include-cleaner)
 }
 
 } // namespace habana_helpers

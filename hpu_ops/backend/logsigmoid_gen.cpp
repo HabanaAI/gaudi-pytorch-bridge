@@ -19,10 +19,12 @@ namespace habana {
 
 OutputMetaDataVector LogSigmoidFwdMeta(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 0);
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(2);
+  auto& meta = metaVec.front();
   meta.dtype = self.scalar_type();
   meta.shape = self.sizes().vec();
-  return {meta, meta};
+  metaVec[1] = meta;
+  return metaVec;
 }
 
 SharedMetaDataVector LogSigmoidFwdSharedMeta(
@@ -36,35 +38,29 @@ SharedMetaDataVector LogSigmoidFwdSharedMeta(
   metaVec.reserve(6);
   SharedMetaTensor commonTensor = {rank, dtype};
 
-  SharedMetaData negSharedMeta{"neg_fwd"};
+  auto& negSharedMeta = metaVec.emplace_back("neg_fwd");
   negSharedMeta.inputs_data = {commonTensor};
   negSharedMeta.outputs_data = {commonTensor};
-  metaVec.push_back(negSharedMeta);
 
-  SharedMetaData maxSharedMeta{"max_fwd"};
+  auto& maxSharedMeta = metaVec.emplace_back("max_fwd");
   maxSharedMeta.inputs_data = {commonTensor, commonTensor};
   maxSharedMeta.outputs_data = {commonTensor};
-  metaVec.push_back(maxSharedMeta);
 
-  SharedMetaData expSharedMeta{"exp_fwd"};
+  auto& expSharedMeta = metaVec.emplace_back("exp_fwd");
   expSharedMeta.inputs_data = {commonTensor};
   expSharedMeta.outputs_data = {commonTensor};
-  metaVec.push_back(expSharedMeta);
 
-  SharedMetaData subSharedMeta{"sub_fwd"};
+  auto& subSharedMeta = metaVec.emplace_back("sub_fwd");
   subSharedMeta.inputs_data = {commonTensor, commonTensor};
   subSharedMeta.outputs_data = {commonTensor};
-  metaVec.push_back(subSharedMeta);
 
-  SharedMetaData addSharedMeta{"add_fwd"};
+  auto& addSharedMeta = metaVec.emplace_back("add_fwd");
   addSharedMeta.inputs_data = {commonTensor, commonTensor};
   addSharedMeta.outputs_data = {commonTensor};
-  metaVec.push_back(addSharedMeta);
 
-  SharedMetaData logSharedMeta{"log_fwd"};
+  auto& logSharedMeta = metaVec.emplace_back("log_fwd");
   logSharedMeta.inputs_data = {commonTensor};
   logSharedMeta.outputs_data = {commonTensor};
-  metaVec.push_back(logSharedMeta);
 
   return metaVec;
 }
@@ -80,41 +76,34 @@ SharedMetaDataVector LogSigmoidBwdSharedMeta(
   SharedMetaTensor commonTensor = {selfRank, grad.scalar_type()};
   SharedMetaTensor common1DTensor = {1, grad.scalar_type()};
 
-  SharedMetaData lessSharedMeta{"less_fwd"};
+  auto& lessSharedMeta = metaVec.emplace_back("less_fwd");
   lessSharedMeta.inputs_data = {commonTensor, common1DTensor};
   lessSharedMeta.outputs_data.emplace_back(selfRank, c10::ScalarType::Bool);
-  metaVec.push_back(lessSharedMeta);
 
-  SharedMetaData negSharedMeta{"neg_fwd"};
+  auto& negSharedMeta = metaVec.emplace_back("neg_fwd");
   negSharedMeta.inputs_data = {common1DTensor};
   negSharedMeta.outputs_data = {common1DTensor};
-  metaVec.push_back(negSharedMeta);
 
-  SharedMetaData whereSharedMeta{"where_fwd"};
+  auto& whereSharedMeta = metaVec.emplace_back("where_fwd");
   whereSharedMeta.inputs_data = {
-      lessSharedMeta.outputs_data[0], common1DTensor, common1DTensor};
+      metaVec[0].outputs_data[0], common1DTensor, common1DTensor};
   whereSharedMeta.outputs_data = {commonTensor};
-  metaVec.push_back(whereSharedMeta);
 
-  SharedMetaData subSharedMeta{"sub"};
+  auto& subSharedMeta = metaVec.emplace_back("sub");
   subSharedMeta.inputs_data = {commonTensor, commonTensor};
   subSharedMeta.outputs_data = {commonTensor};
-  metaVec.push_back(subSharedMeta);
 
-  SharedMetaData divSharedMeta{"div"};
+  auto& divSharedMeta = metaVec.emplace_back("div");
   divSharedMeta.inputs_data = {commonTensor, commonTensor};
   divSharedMeta.outputs_data = {commonTensor};
-  metaVec.push_back(divSharedMeta);
 
-  SharedMetaData multSharedMeta{"mult"};
+  auto& multSharedMeta = metaVec.emplace_back("mult");
   multSharedMeta.inputs_data = {commonTensor, commonTensor};
   multSharedMeta.outputs_data = {commonTensor};
-  metaVec.push_back(multSharedMeta);
 
-  SharedMetaData addSharedMeta{"add"};
+  auto& addSharedMeta = metaVec.emplace_back("add");
   addSharedMeta.inputs_data = {commonTensor, commonTensor};
   addSharedMeta.outputs_data = {commonTensor};
-  metaVec.push_back(addSharedMeta);
 
   return metaVec;
 }

@@ -24,7 +24,8 @@ OutputMetaDataVector SqueezeDimsMeta(const at::Stack& stack) {
   auto self = stack_tensor(stack, 0);
   auto dims = stack[1].toIntList().vec();
   auto output_shape = self.sizes().vec();
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.dtype = self.scalar_type();
 
   if (output_shape.size() == 1 && dims.size() == 1 && output_shape[0] == 1) {
@@ -43,7 +44,7 @@ OutputMetaDataVector SqueezeDimsMeta(const at::Stack& stack) {
     meta.shape = output_shape;
   }
 
-  return {meta};
+  return metaVec;
 }
 
 SharedMetaDataVector SqueezeDimsSharedMeta(
@@ -54,20 +55,21 @@ SharedMetaDataVector SqueezeDimsSharedMeta(
   const auto dtype = self.scalar_type();
   const auto dims = stack[1].toIntList().size();
 
+  SharedMetaDataVector metaVec;
+
   if (dims == 0) {
-    SharedMetaData identitySharedMeta{"identity"};
+    metaVec.reserve(1);
+    auto& identitySharedMeta = metaVec.emplace_back("identity");
     identitySharedMeta.inputs_data.emplace_back(rank, dtype);
     identitySharedMeta.outputs_data.emplace_back(rank, dtype);
-    return {identitySharedMeta};
+    return metaVec;
   }
 
-  SharedMetaDataVector metaVec;
   metaVec.reserve(dims);
   for (uint64_t i = 0; i < dims; i++) {
-    SharedMetaData squeezeSharedMeta{"squeeze"};
+    auto& squeezeSharedMeta = metaVec.emplace_back("squeeze");
     squeezeSharedMeta.inputs_data.emplace_back(rank, dtype);
     squeezeSharedMeta.outputs_data.emplace_back(rank--, dtype);
-    metaVec.push_back(squeezeSharedMeta);
   }
 
   return metaVec;
@@ -117,7 +119,7 @@ void SqueezeDims::AddNode(sh::graph& graph, const at::Stack& stack) {
       result_idx = c10::make_optional<int>(0);
     }
 
-    intermediate_syn_helpers.emplace_back(
+    auto& helperRef = intermediate_syn_helpers.emplace_back(
         std::move(
             OpBackend::BuildNode(
                 this,
@@ -127,8 +129,7 @@ void SqueezeDims::AddNode(sh::graph& graph, const at::Stack& stack) {
                  {{intermediate_shape, dtype, result_idx}},
                  &params,
                  sizeof(params)})[0]));
-    intermediate_syn_tensors.emplace_back(
-        intermediate_syn_helpers.back().get());
+    intermediate_syn_tensors.emplace_back(helperRef.get());
   }
 
   syn_out(0) = std::move(intermediate_syn_helpers.back());

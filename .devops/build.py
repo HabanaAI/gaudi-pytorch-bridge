@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ import os
 import shutil
 import subprocess as sp  # nosec
 import sys
-from collections import defaultdict, namedtuple
+from collections import defaultdict
 from collections.abc import Iterable, Sequence
 from contextlib import contextmanager
 from dataclasses import astuple, dataclass
@@ -42,7 +42,7 @@ from build_profiles.profiles import (
 )
 from build_profiles.version import (
     Version,
-    is_official_stable_cpu_version,
+    is_upstream_cpu_version,
     is_wheel_version,
 )
 from icecc_utils import ensure_icecc_setup
@@ -424,7 +424,7 @@ def resolve_pip_args(version_and_source: VersionAndSource) -> tuple[str, ...]:
         # source must be an index_url
         args += ("--extra-index-url", source)
 
-    return args + (profiles.get_required_pt(version, profiles.RequirementPurpose.BUILD),)  # e.g. 'torch==1.12.0'
+    return args + (profiles.get_required_pt(version),)  # e.g. 'torch==1.12.0'
 
 
 def install_pt(pt_ver: VersionAndSource, venv_python, venv_dir, user):
@@ -521,7 +521,7 @@ def prepare_venv(
 
     venv_dir = os.path.join(
         venv_base_dir,
-        profiles.get_required_pt_package_name(pt_ver.version, profiles.RequirementPurpose.BUILD),
+        "torch",
         f"py{python_ver}",
         f"pt{pt_ver.version}",
     )
@@ -634,7 +634,9 @@ def get_installed_packages():
     return [r.decode().split("==")[0] for r in reqs.split()]
 
 
-WheelNameAndSource = namedtuple("WheelTarget", ["wheel_name", "src_dir"])
+class WheelNameAndSource(NamedTuple):
+    wheel_name: str
+    src_dir: str
 
 
 def prepare_build_envs(
@@ -668,15 +670,12 @@ def prepare_build_envs(
                 get_supported_python_version(current_python_version, (py_ver,))
             )
             for pt_ver in wheel_spec.pt_versions:
-                required_pt_package_name = profiles.get_required_pt_package_name(
-                    pt_ver.version, profiles.RequirementPurpose.BUILD
-                )
                 installed_pt_version = get_installed_pt_version()
                 use_preinstalled_pt = pt_ver.source == "preinstalled" or installed_pt_version is None
                 if use_preinstalled_pt and use_current_py:
                     log.info(
-                        f"Need {required_pt_package_name}=={pt_ver.version} and python=={py_ver} and will "
-                        f"use {required_pt_package_name} {current_pt_version} and python "
+                        f"Need torch=={pt_ver.version} and python=={py_ver} and will "
+                        f"use torch {current_pt_version} and python "
                         f"{current_python_version} in the current env."
                     )
                     venv_dir = os.environ.get("VIRTUAL_ENV", ".")
@@ -684,7 +683,7 @@ def prepare_build_envs(
                         log.info("Installing torch in the current environment")
                         install_pt(pt_ver, sys.executable, venv_dir, ("--user",) if venv_dir == "." else ())
                 else:
-                    venv_dir_key = (py_ver, required_pt_package_name, pt_ver)
+                    venv_dir_key = (py_ver, "torch", pt_ver)
                     if venv_dir_key not in created_venvs:
                         venv_dir, pt_ver.version = prepare_venv(
                             py_ver,
@@ -799,8 +798,7 @@ def create_ctest_target(pmake):
 
 
 def target_reldir(py_ver, pt_ver, cmake_config, target=None):
-    pt_package_name = profiles.get_required_pt_package_name(pt_ver, profiles.RequirementPurpose.BUILD)
-    subdir = f"{pt_package_name}/py{py_ver}/pt{pt_ver}/{cmake_config}"
+    subdir = f"torch/py{py_ver}/pt{pt_ver}/{cmake_config}"
     return f"{subdir}/{target}" if target else subdir
 
 
@@ -822,7 +820,7 @@ def create_collect_binaries_target(pmake, wheels_per_build_envs, cmake_configura
     """
     py_ver = list(wheels_per_build_envs.keys())[0].py_ver
     lib_versions = set()
-    for e in wheels_per_build_envs.keys():
+    for e in wheels_per_build_envs:
         if e.py_ver == py_ver:
             lib_versions.add(e.pt_ver_and_src)
 
@@ -830,7 +828,7 @@ def create_collect_binaries_target(pmake, wheels_per_build_envs, cmake_configura
 
     destinations = []
     debugopts_for_find = "-D exec" if verbose >= 2 else ""
-    for cmake_config in cmake_configurations.keys():
+    for cmake_config in cmake_configurations:
         destination = os.environ[f"PYTORCH_MODULES_{cmake_config.upper()}_BUILD"]
         destinations.append(destination)
         # all rules are phony because these are not actual files
@@ -866,7 +864,7 @@ def create_collect_binaries_target(pmake, wheels_per_build_envs, cmake_configura
     deps = " ".join(
         target_reldir(py_ver, pt_ver_and_src.version.label, cmake_config, "all")
         for pt_ver_and_src in lib_versions
-        for cmake_config in cmake_configurations.keys()
+        for cmake_config in cmake_configurations
     )
     pmake(f"intermediate/all: {deps}")
 
@@ -884,7 +882,7 @@ def create_wheel_target_for_single_python(
     verbose,
 ):
     venv_dir = venv_dirs[0]
-    pt_wheel_vers = ",".join(str(x.version) for x in pt_vers)
+    pt_wheel_vers = ",".join(x.version.label for x in pt_vers)
 
     wheel_name = wheel_name_and_src.wheel_name
     wheel_target = "wheel_" + wheel_name
@@ -1079,7 +1077,7 @@ class CMakeFlags:
 
 
 def append_cmake_flags(cmake_flags: CMakeFlags, build_env: BuildEnv) -> CMakeFlags:
-    if is_official_stable_cpu_version(build_env.pt_ver_and_src.version):
+    if is_upstream_cpu_version(build_env.pt_ver_and_src.version):
         cmake_flags.insert("UPSTREAM_COMPILE", "ON")
     return cmake_flags
 
@@ -1099,9 +1097,9 @@ def prepare_single_build_directory(
 
     log.debug(
         f"Preparing single build directory for {build_env.pt_ver_and_src.version}, "
-        f"is_official_stable_cpu_version=={is_official_stable_cpu_version(build_env.pt_ver_and_src.version)}"
+        f"is_upstream_cpu_version=={is_upstream_cpu_version(build_env.pt_ver_and_src.version)}"
     )
-    if is_official_stable_cpu_version(build_env.pt_ver_and_src.version):
+    if is_upstream_cpu_version(build_env.pt_ver_and_src.version):
         cmake_flags.insert("UPSTREAM_COMPILE", "ON")
     if clean or not os.path.exists(os.path.join(current_ver_build_dir, "Makefile")):
         run_cmake_build_generation(pt_modules_root, cmake_config, build_env, cmake_flags)
@@ -1154,12 +1152,10 @@ def run_cmake_build_generation(pt_modules_root, cmake_config, common_venv_build_
 def collect_build_combinations(wheels_per_build_envs, cmake_configurations) -> list[tuple[list, Any]]:
     """Returns a list of pairs: venv path and CMake flags"""
     build_envs_by_venv = defaultdict(list)
-    for e in wheels_per_build_envs.keys():
+    for e in wheels_per_build_envs:
         build_envs_by_venv[e.venv_dir].append(e)
 
-    combinations = [
-        (e, cmake_config) for e in build_envs_by_venv.values() for cmake_config in cmake_configurations.keys()
-    ]
+    combinations = [(e, cmake_config) for e in build_envs_by_venv.values() for cmake_config in cmake_configurations]
     log.debug(f"wheels_per_build_envs {wheels_per_build_envs}")
     log.debug(f"build_envs_by_venv {build_envs_by_venv}")
     return combinations
@@ -1175,7 +1171,7 @@ def define_top_level_targets(build_envs, cmake_configurations, pmake):
         "\n".join(
             f"SUBNAMES_PY_{py_ver}_{cmake_config.upper()} ="
             for py_ver in {e.py_ver for e in build_envs}
-            for cmake_config in cmake_configurations.keys()
+            for cmake_config in cmake_configurations
         )
     )
 
@@ -1189,7 +1185,7 @@ def remove_artifacts_directories(cmake_configurations, whl_build_dir):
         log.info(f"Cleaning {whl_build_dir}")
         shutil.rmtree(whl_build_dir)
 
-    for config in cmake_configurations.keys():
+    for config in cmake_configurations:
         env = os.environ.get(f"PYTORCH_MODULES_{config.upper()}_BUILD", None)
         if env and os.path.exists(env):
             log.info(f"Cleaning {env}")
@@ -1869,7 +1865,7 @@ def add_upstream_versions(wheel_specs: list[WheelSpec], cpu_index_url: str | Non
 
             version, _ = pt_ver
 
-            if is_official_stable_cpu_version(version):
+            if is_upstream_cpu_version(version):
                 continue
 
             new_version = Version(str(version) + "+cpu")
@@ -1931,10 +1927,11 @@ def main():
 
         installed_pt_version, wheel_specs = prepare_wheel_specs(args.wheel_spec, args.pt_versions, installed_pt_version)
 
-        pt_version_id = get_pt_version_id(str(installed_pt_version))
-        cpu_index_url = get_cpu_index_url(pt_version_id)
-        if cpu_index_url != "none" and args.upstream_compile:
-            wheel_specs = add_upstream_versions(wheel_specs, cpu_index_url)
+        if args.upstream_compile:
+            pt_version_id = get_pt_version_id(str(installed_pt_version))
+            cpu_index_url = get_cpu_index_url(pt_version_id)
+            if cpu_index_url != "none":
+                wheel_specs = add_upstream_versions(wheel_specs, cpu_index_url)
 
         selected_pt_versions = {item for sublist in wheel_specs for item in sublist.pt_versions}
         log.debug(f"Selected PyTorch versions: {selected_pt_versions}")
@@ -1943,7 +1940,7 @@ def main():
             filter(
                 lambda ver_and_str: ver_and_str.version != "nightly"
                 and ver_and_str.source not in ("preinstalled", "uri")
-                and not is_official_stable_cpu_version(ver_and_str.version),
+                and not is_upstream_cpu_version(ver_and_str.version),
                 unsupported_pt_versions,
             )
         )

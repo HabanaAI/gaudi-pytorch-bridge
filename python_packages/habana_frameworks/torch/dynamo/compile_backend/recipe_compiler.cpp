@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@ struct EmptyBatchData {
 };
 
 std::vector<at::Tensor> batch_empty(const std::vector<EmptyBatchData>& batch) {
-  auto allocator = habana::getHABANADeviceAllocator();
+  auto* allocator = habana::getHABANADeviceAllocator();
   constexpr c10::DispatchKeySet hpu_ks(c10::DispatchKey::HPU);
 
   std::vector<at::Tensor> result;
@@ -112,12 +112,12 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
          bool has_dynamic_marked_tensors) {
         torch::jit::Stack stack;
         stack.reserve(inputs.size());
-        for (auto& obj : inputs) {
+        for (const auto& obj : inputs) {
           stack.push_back(torch::jit::toTypeInferredIValue(obj));
         }
         std::vector<bool> is_reusable_vec;
         is_reusable_vec.reserve(is_reusable.size());
-        for (auto& obj : is_reusable) {
+        for (const auto& obj : is_reusable) {
           is_reusable_vec.push_back(obj.cast<bool>());
         }
 
@@ -181,7 +181,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
          std::string& parent_graph_name) {
         torch::jit::Stack stack;
         stack.reserve(inputs.size());
-        for (auto& obj : inputs) {
+        for (const auto& obj : inputs) {
           stack.push_back(torch::jit::toTypeInferredIValue(obj));
         }
 

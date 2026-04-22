@@ -78,11 +78,13 @@ SharedMetaDataVector SoftmaxSharedMeta(
     dtype = at::ScalarType::Int;
   }
 
-  SharedMetaData softmaxFwdSharedMeta{"softmax_fwd"};
+  SharedMetaDataVector meta;
+  meta.reserve(1);
+  auto& softmaxFwdSharedMeta = meta.emplace_back("softmax_fwd");
   softmaxFwdSharedMeta.inputs_data.emplace_back(rank, dtype);
   softmaxFwdSharedMeta.outputs_data.emplace_back(rank, dtype);
 
-  return {softmaxFwdSharedMeta};
+  return meta;
 }
 
 SharedMetaDataVector SoftmaxBackwardSharedMeta(
@@ -93,12 +95,14 @@ SharedMetaDataVector SoftmaxBackwardSharedMeta(
   const auto dtype = output.scalar_type();
   const auto rank = gradOutput.dim();
 
-  SharedMetaData softmaxBwdSharedMeta{"softmax_bwd"};
+  SharedMetaDataVector meta;
+  meta.reserve(1);
+  auto& softmaxBwdSharedMeta = meta.emplace_back("softmax_bwd");
   softmaxBwdSharedMeta.inputs_data = {
       {output.dim(), dtype}, {rank, gradOutput.scalar_type()}};
   softmaxBwdSharedMeta.outputs_data.emplace_back(rank, dtype);
 
-  return {softmaxBwdSharedMeta};
+  return meta;
 }
 
 void SoftmaxBackward::AddNode(

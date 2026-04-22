@@ -12,6 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "backend/habana_operator.h"
 #include "generated/backend/cast_to_fp8_just_in_time.h"
 #include "habana_helpers/conversion.h"
 
@@ -71,10 +72,12 @@ OutputMetaDataVector CastToFp8JustInTimeMeta(const at::Stack& stack) {
   scale_shape[rank - 2] /= block_height;
   scale_shape[rank - 1] /= block_width;
 
-  OutputMetaData meta_output(out_dtype, input_shape);
-  OutputMetaData meta_scale(scale_dtype, scale_shape);
+  OutputMetaDataVector metaVec;
+  metaVec.reserve(2);
+  metaVec.emplace_back(out_dtype, input_shape); // meta_output
+  metaVec.emplace_back(scale_dtype, scale_shape); // meta_scale
 
-  return {meta_output, meta_scale};
+  return metaVec;
 }
 
 } // namespace habana

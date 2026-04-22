@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ FillParamsT FillNormalParams(const at::Stack& stack) {
   PARAMS_STUB(ns_RandomNormal::ParamsV2);
   params->mean = static_cast<float>(stack.at(1).toDouble());
   params->stddev = static_cast<float>(stack.at(2).toDouble());
-  params->usePhilox = use_philox;
+  params->usePhilox = static_cast<int>(use_philox);
 
   return paramsT;
 }

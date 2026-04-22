@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,23 +19,22 @@ namespace habana {
 
 FillParamsT FillBucketizeParams(const at::Stack& stack) {
   PARAMS_STUB(ns_SearchSorted::Params);
-  params->right = stack.at(3).toBool();
+  params->right = static_cast<int>(stack.at(3).toBool());
   return paramsT;
 }
 
 OutputMetaDataVector BucketizeMeta(const at::Stack& stack) {
-  std::vector<int64_t> outshape;
-  if (stack.at(0).isTensor()) {
-    outshape = stack_tensor(stack, 0).sizes().vec();
-  } else {
-    outshape = {1};
-  }
   bool out_int32 = stack.at(2).toBool();
 
-  OutputMetaData meta;
-  meta.shape = outshape;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
+  if (stack.at(0).isTensor()) {
+    meta.shape = stack_tensor(stack, 0).sizes().vec();
+  } else {
+    meta.shape = {1};
+  }
   meta.dtype = out_int32 ? torch::kInt32 : torch::kLong;
-  return {meta};
+  return metaVec;
 }
 
 } // namespace habana

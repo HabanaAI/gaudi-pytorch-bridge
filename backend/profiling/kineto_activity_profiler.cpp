@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025 Intel Corporation
+ * Copyright (c) 2025-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -69,9 +69,11 @@ const habana::profile::LinkSpec* findSpec(std::string_view name) noexcept {
         habana::profile::TimePolicy::kPrevStart,
         "Launch",
         true}}};
-  for (const auto& spec : kLinkSpecs)
-    if (startsWith(name, spec.canonical))
+  for (const auto& spec : kLinkSpecs) {
+    if (startsWith(name, spec.canonical)) {
       return &spec;
+    }
+  }
   return nullptr;
 }
 
@@ -206,13 +208,14 @@ std::optional<std::pair<Flow, Flow>> GenericTraceActivitySink::popLinkedEvent(
     uint64_t start,
     uint64_t /*end*/) {
   const auto* spec = findSpec(activity.name);
-  if (!spec)
+  if (spec == nullptr) {
     return std::nullopt;
-
+  }
   auto key = makeKey(spec->prev, activity, recipeInfo);
   auto it = linked_.find(key);
-  if (it == linked_.end())
+  if (it == linked_.end()) {
     return std::nullopt;
+  }
 
   const auto& [linkedDevice, linkedResource, prevStart, prevEnd] = it->second;
   uint64_t beginTime =
@@ -430,7 +433,7 @@ const std::string& HPUActivityProfiler::name() const {
 }
 
 void HpuActivityProfilerSession::hideEventIfNeeded(
-    std::unique_ptr<libkineto::GenericTraceActivity>& activity) {
+    std::unique_ptr<libkineto::GenericTraceActivity>& activity) const {
   if (shouldHideEvent(activity, profilerStartTs_, profilerEndTs_)) {
     activity->addMetadata("hidden", "1");
   }
@@ -445,7 +448,7 @@ std::unique_ptr<libkineto::IActivityProfilerSession> HPUActivityProfiler::
     configure(
         const std::set<libkineto::ActivityType>& activity_types,
         [[maybe_unused]] const libkineto::Config& config) {
-  auto env = std::getenv("HABANA_PROFILE");
+  auto* env = std::getenv("HABANA_PROFILE");
   bool hpu_profiling_available =
       (env != nullptr) && (std::string_view{env} != "0");
 

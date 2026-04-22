@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -99,3 +99,31 @@ class Event(_hpu_C._HpuEventBase):
             return f"<htorch.hpu.Event {self._as_parameter_.value:#x}>"
         else:
             return "<htorch.hpu.Event uninitialized>"
+
+
+def _patch_dynamo_event_wait_for_hpu() -> None:
+    from torch._dynamo.utils import proxy_args_kwargs
+    from torch._dynamo.variables import streams as dynamo_streams
+    from torch._dynamo.variables.constant import ConstantVariable
+
+    if getattr(dynamo_streams.EventVariable, "_hpu_wait_event_patched", False):
+        return
+
+    orig_call_method = dynamo_streams.EventVariable.call_method
+
+    def _call_method(self, tx, name, args, kwargs):
+        if name == "wait":
+            stream = dynamo_streams.EventVariable._get_stream_arg(tx, args, kwargs)
+            tx.output.create_proxy(
+                "call_method",
+                "wait_event",
+                *proxy_args_kwargs([stream, self], {}),
+            )
+            return ConstantVariable(None)
+        return orig_call_method(self, tx, name, args, kwargs)
+
+    dynamo_streams.EventVariable.call_method = _call_method
+    dynamo_streams.EventVariable._hpu_wait_event_patched = True
+
+
+_patch_dynamo_event_wait_for_hpu()

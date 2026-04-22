@@ -132,8 +132,8 @@ class Version(packaging.version.Version):
         return self.major == candidate.major and self.minor == candidate.minor
 
 
-def is_official_stable_cpu_version(pt_ver: Version) -> bool:
-    return not pt_ver.is_prerelease and not pt_ver.is_devrelease and pt_ver.local is not None and "cpu" in pt_ver.local
+def is_upstream_cpu_version(pt_ver: Version) -> bool:
+    return pt_ver.local is not None and "cpu" in pt_ver.local
 
 
 def is_wheel_version(pt_ver: Version) -> bool:

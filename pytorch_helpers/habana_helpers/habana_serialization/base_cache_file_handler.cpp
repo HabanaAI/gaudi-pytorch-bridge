@@ -14,20 +14,19 @@
  */
 
 #include <fcntl.h>
-#include <sys/file.h>
-#include <unistd.h>
 #include <algorithm>
-#include <chrono>
 #include <cstddef>
 #include <cstdint>
-#include <memory>
+#include <filesystem>
 #include <optional>
 #include <set>
-#include <sstream>
+#include <string>
+#include <vector>
 
 #include "base_cache_file_handler.h"
 #include "cache_file_handler.h"
 #include "habana_helpers/logging.h"
+#include "recipe_cache_config.h"
 
 #define CACHEFILE_LOG "[CACHEFILE] "
 
@@ -50,31 +49,32 @@ void BaseCacheFileHandler::checkAndDelete() {
 
 std::vector<BaseCacheFileHandler::RecipeInfo> BaseCacheFileHandler::
     get_recipes_list_by_date() {
-  fs::path disk_cache_path{getCachePath()};
+  std::filesystem::path disk_cache_path{getCachePath()};
   std::vector<BaseCacheFileHandler::RecipeInfo> recipes_in_cache;
   std::set<std::string> recipe_ids;
 
   try {
-    if (!fs::exists(disk_cache_path)) {
+    if (!std::filesystem::exists(disk_cache_path)) {
       return {};
     }
 
-    auto de = fs::directory_iterator{disk_cache_path};
-    while (de != fs::end(de)) {
+    auto de = std::filesystem::directory_iterator{disk_cache_path};
+    while (de != std::filesystem::end(de)) {
       auto file_name = de->path().filename().string();
       std::string recipe_id = file_name.substr(0, file_name.rfind('.'));
       auto r_path = recipe_file_path(disk_cache_path, recipe_id);
       auto met_path = metadata_file_path(disk_cache_path, recipe_id);
 
-      if (fs::exists(r_path) && fs::exists(met_path) &&
+      if (std::filesystem::exists(r_path) &&
+          std::filesystem::exists(met_path) &&
           recipe_ids.count(recipe_id) == 0) {
         recipe_ids.insert(recipe_id);
 
         RecipeInfo r_info = {
             recipe_id,
-            fs::file_size(r_path),
-            fs::file_size(met_path),
-            fs::last_write_time(r_path)};
+            std::filesystem::file_size(r_path),
+            std::filesystem::file_size(met_path),
+            std::filesystem::last_write_time(r_path)};
 
         recipes_in_cache.push_back(r_info);
 
@@ -89,7 +89,7 @@ std::vector<BaseCacheFileHandler::RecipeInfo> BaseCacheFileHandler::
       }
       de++;
     }
-  } catch (fs::filesystem_error& err) {
+  } catch (std::filesystem::filesystem_error& err) {
     PT_HABHELPER_WARN(
         CACHEFILE_LOG,
         "Can't calculate current disk cache space consumption. Disk cache eviction may not work correctly.");
@@ -117,7 +117,6 @@ uint64_t BaseCacheFileHandler::calculate_recipes_total_size(
 
 void BaseCacheFileHandler::evict_recipe_if_needed() {
   std::optional<uint64_t> recipe_cache_dir_max_size = getMaxFolderSize();
-  fs::path disk_cache_path{getCachePath()};
 
   if (!recipe_cache_dir_max_size.has_value()) {
     // eviction is disabled
@@ -179,9 +178,11 @@ void BaseCacheFileHandler::evict_recipe_if_needed() {
 }
 
 bool BaseCacheFileHandler::delete_recipe(RecipeInfo& r_info) {
-  fs::path disk_cache_path{getCachePath()};
-  fs::path r_path{recipe_file_path(disk_cache_path, r_info.recipe_id)};
-  fs::path met_path{metadata_file_path(disk_cache_path, r_info.recipe_id)};
+  std::filesystem::path disk_cache_path{getCachePath()};
+  std::filesystem::path r_path{
+      recipe_file_path(disk_cache_path, r_info.recipe_id)};
+  std::filesystem::path met_path{
+      metadata_file_path(disk_cache_path, r_info.recipe_id)};
 
   size_t size = 0;
   bool removed_successfully = false;
@@ -198,11 +199,11 @@ bool BaseCacheFileHandler::delete_recipe(RecipeInfo& r_info) {
         fd_met);
   } else {
     try {
-      fs::remove(r_path);
-      fs::remove(met_path);
+      std::filesystem::remove(r_path);
+      std::filesystem::remove(met_path);
       PT_HABHELPER_DEBUG(CACHEFILE_LOG, "Deleted ", r_info.recipe_id);
       removed_successfully = true;
-    } catch (fs::filesystem_error& err) {
+    } catch (std::filesystem::filesystem_error& err) {
       PT_HABHELPER_WARN(
           CACHEFILE_LOG,
           "File system error during removing recipe/metadata for ",
@@ -214,8 +215,9 @@ bool BaseCacheFileHandler::delete_recipe(RecipeInfo& r_info) {
 
 bool BaseCacheFileHandler::acquire_access_for_eviction(bool block) {
   size_t size = 0;
-  fs::path cache_dir_path{getCachePath()};
-  fs::path eviction_lock_file_path = cache_dir_path / "eviction.lock";
+  std::filesystem::path cache_dir_path{getCachePath()};
+  std::filesystem::path eviction_lock_file_path =
+      cache_dir_path / "eviction.lock";
 
   eviction_lock_fd_ = openAndLockFile(
       eviction_lock_file_path.string(), O_RDWR | O_CREAT, block, size);

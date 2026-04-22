@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2023-2025 Intel Corporation
+ * Copyright (c) 2023-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -45,7 +45,7 @@ void HandleScale(
     bool isTranspose,
     std::vector<sh::tensor>& adjustedScale,
     std::vector<synTensor>& synInputs,
-    int deviceId,
+    synDeviceId deviceId,
     const c10::IValue& scaleShape = c10::IValue{}) {
   if (scaleOpt.isTensorsPair()) {
     auto scale = scaleOpt.toTensorsPair();
@@ -63,7 +63,7 @@ void HandleScale(
         synInputs,
         scaleShape);
   } else {
-    auto scale = scaleOpt.toIValue();
+    const auto& scale = scaleOpt.toIValue();
     ValidateScaleShape(scale, scaleShape);
     HandleScaleScalar(
         op, graph, scale, deviceId, adjustedScale, synInputs, scaleShape);
@@ -91,7 +91,7 @@ void ValidateFp8GemmScales(const at::Stack& stack) {
   std::vector<int64_t> shapeScaleB = scaleB.isTensor()
       ? scaleB.toTensor().sizes().vec()
       : std::vector<int64_t>{1};
-  const auto scaleBShape = stack[10];
+  const auto& scaleBShape = stack[10];
   if (scaleBShape.isIntList() and scaleB.isTensor()) {
     const auto scaleShape = scaleBShape.toIntVector();
     const auto scaleShapeNumel = std::accumulate(
@@ -245,7 +245,8 @@ OutputMetaDataVector Fp8GemmV2Meta(const at::Stack& stack) {
   bool transA = stack[1].toBool();
   auto B = stack_tensor(stack, 2);
   bool transB = stack[3].toBool();
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   try {
     meta.shape = getBatchMatmulOutShape(A.sizes(), B.sizes(), transA, transB);
   } catch (const std::invalid_argument& e) {
@@ -254,7 +255,7 @@ OutputMetaDataVector Fp8GemmV2Meta(const at::Stack& stack) {
   }
   ValidateFp8GemmScales(stack);
   meta.dtype = stack[5].toScalarType();
-  return {meta};
+  return metaVec;
 }
 
 SharedMetaDataVector Fp8GemmSharedMeta(
@@ -263,7 +264,9 @@ SharedMetaDataVector Fp8GemmSharedMeta(
   const at::Tensor& A = stack_tensor(stack, 0);
   const at::Tensor& B = stack_tensor(stack, 2);
 
-  SharedMetaData sharedMeta("fp8_gemm");
+  SharedMetaDataVector sharedMetaVec;
+  sharedMetaVec.reserve(1);
+  auto& sharedMeta = sharedMetaVec.emplace_back("fp8_gemm");
   // CGUID inputs order is: A, B, scales, bias, D
   sharedMeta.inputs_data.push_back(getSharedMetaFromTensor(A));
   sharedMeta.inputs_data.push_back(getSharedMetaFromTensor(B));
@@ -277,7 +280,7 @@ SharedMetaDataVector Fp8GemmSharedMeta(
   sharedMeta.outputs_data.emplace_back(
       std::max(A.dim(), B.dim()), stack.at(5).toScalarType());
 
-  return {sharedMeta};
+  return sharedMetaVec;
 }
 
 void Fp8GemmV2::AddNode(sh::graph& graph, const at::Stack& stack) {
@@ -344,11 +347,11 @@ void Fp8GemmV2::AddNode(sh::graph& graph, const at::Stack& stack) {
   bool scaleANoneOrH2d = true;
   bool scaleBNoneOrH2d = true;
   if (scaleAOpt.isTensorsPair()) {
-    const auto tmeta{get_tensor_extra_meta(scaleAOpt.toTensorsPair().pt_t)};
+    auto* const tmeta{get_tensor_extra_meta(scaleAOpt.toTensorsPair().pt_t)};
     scaleANoneOrH2d = tmeta->get_tensor_type() == HOST_TO_DEVICE_TENSOR;
   }
   if (scaleBOpt.isTensorsPair()) {
-    const auto tmeta{get_tensor_extra_meta(scaleBOpt.toTensorsPair().pt_t)};
+    auto* const tmeta{get_tensor_extra_meta(scaleBOpt.toTensorsPair().pt_t)};
     scaleBNoneOrH2d = tmeta->get_tensor_type() == HOST_TO_DEVICE_TENSOR;
   }
 
@@ -397,12 +400,12 @@ SharedMetaDataVector Fp8GemmBwdSharedMeta(
   const auto& AScale = stack.at(5);
   const auto& BScale = stack.at(6);
 
-  const int gradInDim = gradIn.dim();
-  const int ADim = A.dim();
-  const int BDim = B.dim();
+  const auto gradInDim = gradIn.dim();
+  const auto ADim = A.dim();
+  const auto BDim = B.dim();
 
-  const int AScaleDim = AScale.isTensor() ? AScale.toTensor().dim() : 0;
-  const int BScaleDim = BScale.isTensor() ? BScale.toTensor().dim() : 0;
+  const auto AScaleDim = AScale.isTensor() ? AScale.toTensor().dim() : 0;
+  const auto BScaleDim = BScale.isTensor() ? BScale.toTensor().dim() : 0;
 
   const at::ScalarType gradInDtype = gradIn.scalar_type();
   const at::ScalarType ADtype = A.scalar_type();
@@ -413,19 +416,23 @@ SharedMetaDataVector Fp8GemmBwdSharedMeta(
   const at::ScalarType BScaleDtype =
       BScale.isTensor() ? BScale.toTensor().scalar_type() : gradInDtype;
 
-  SharedMetaData sharedMeta("fp8_gemm_bwd");
+  SharedMetaDataVector sharedMetaVec;
+  sharedMetaVec.reserve(1);
+  auto& sharedMeta = sharedMetaVec.emplace_back("fp8_gemm_bwd");
+  sharedMeta.inputs_data.reserve(5);
   sharedMeta.inputs_data.emplace_back(gradInDim, gradInDtype);
   sharedMeta.inputs_data.emplace_back(ADim, ADtype);
   sharedMeta.inputs_data.emplace_back(BDim, BDtype);
   sharedMeta.inputs_data.emplace_back(AScaleDim, AScaleDtype);
   sharedMeta.inputs_data.emplace_back(BScaleDim, BScaleDtype);
 
+  sharedMeta.outputs_data.reserve(4);
   sharedMeta.outputs_data.emplace_back(ADim, ADtype);
   sharedMeta.outputs_data.emplace_back(BDim, BDtype);
   sharedMeta.outputs_data.emplace_back(gradInDim, gradInDtype);
   sharedMeta.outputs_data.emplace_back(gradInDim, gradInDtype);
 
-  return {sharedMeta};
+  return sharedMetaVec;
 }
 
 void Fp8GemmBwd::AddNode(sh::graph& graph, const at::Stack& stack) {

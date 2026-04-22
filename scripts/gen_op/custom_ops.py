@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -118,10 +118,7 @@ def cpp_from_schema(schema):
 
     inputs_cpp = ", ".join(inputs_cpp)
 
-    outputs_cpp = []
-    for output in outputs:
-        outputs_cpp.append(output_type(output))
-
+    outputs_cpp = [output_type(output) for output in outputs]
     outputs_cpp = outputs_cpp[0] if len(outputs_cpp) == 1 else f"::std::tuple<{','.join(outputs_cpp)}>"
 
     return f"{outputs_cpp} {op_name}({inputs_cpp})"

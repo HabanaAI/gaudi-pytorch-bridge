@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,10 @@
  */
 
 #include "backend/synapse_helpers/tcmalloc_helper.h"
+
+#include <dlfcn.h>
 #include <cstdlib>
+
 #include "pytorch_helpers/habana_helpers/logging.h"
 
 namespace synapse_helpers {
@@ -22,7 +25,7 @@ namespace synapse_helpers {
 void ReleaseFreeMemory() {
   static auto releaseFreeMemory = reinterpret_cast<ReleaseFreeMemoryFunc>(
       dlsym(RTLD_DEFAULT, "MallocExtension_ReleaseFreeMemory"));
-  if (releaseFreeMemory) {
+  if (releaseFreeMemory != nullptr) {
     PT_DYNAMIC_SHAPE_DEBUG("MallocExtension_ReleaseFreeMemory called");
     releaseFreeMemory();
   } else {

@@ -205,7 +205,7 @@ struct SharedLayerGuidValidator {
   const bool m_is_dynamic;
   bool fillSharedLayerTensorType(
       SharedLayer::Tensor& tensor,
-      const at::ScalarType& t);
+      const at::ScalarType& t) const;
   bool fillGuidParamInfo(
       SharedLayer::Tensor& tensor,
       const detail::TensorDescr& tensor_descr);

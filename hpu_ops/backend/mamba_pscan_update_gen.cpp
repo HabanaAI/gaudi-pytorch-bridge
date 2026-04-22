@@ -15,14 +15,19 @@
 
 #include "generated/backend/mamba_pscan_update.h"
 
+#include <ATen/core/stack.h>
+
+#include "backend/backend_meta.h"
+
 namespace habana {
 
 OutputMetaDataVector MambaPscanUpdateMeta(const at::Stack& stack) {
   const auto& in_x = stack.at(1).toTensor();
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.dtype = in_x.scalar_type();
   meta.shape = in_x.sizes().vec();
 
-  return {meta};
+  return metaVec;
 }
 } // namespace habana

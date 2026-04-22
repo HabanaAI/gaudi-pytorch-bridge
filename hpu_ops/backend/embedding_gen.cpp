@@ -20,7 +20,8 @@ OutputMetaDataVector EmbeddingMeta(const at::Stack& stack) {
   const auto& weight = stack_tensor(stack, 0);
   const auto& indices = stack_tensor(stack, 1);
 
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.dtype = weight.scalar_type();
   if (indices.dim() == 1) {
     meta.shape = weight.sizes().vec();
@@ -31,7 +32,7 @@ OutputMetaDataVector EmbeddingMeta(const at::Stack& stack) {
       meta.shape.push_back(d);
     }
   }
-  return {meta};
+  return metaVec;
 }
 
 FillParamsT FillEmbeddingRenormFwdParams(const at::Stack& stack) {

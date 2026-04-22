@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,8 +24,8 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> _unique2_eager(
     bool sorted,
     bool return_inverse,
     bool return_counts) {
-  int elements = self.numel();
-  auto inputShape = self.sizes().vec();
+  const auto elements = self.numel();
+  auto inputShape = self.sizes();
   std::vector<int64_t> output_shape{elements};
   std::vector<int64_t> valid_count_shape{1};
   at::Tensor inverse_tensor{};
@@ -43,7 +43,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> _unique2_eager(
     }
     if (return_counts) {
       counts_tensor = at::empty(
-          at::Tensor{}.sizes().vec(),
+          at::Tensor{}.sizes(),
           self.options().dtype(c10::ScalarType::Long),
           self.suggest_memory_format());
     }

@@ -294,8 +294,6 @@ class OpBackend : public HabanaOperator {
   synapse_helpers::tensor CopyHelper(
       at::IntArrayRef src_size,
       c10::ScalarType src_type,
-      at::IntArrayRef dest_size,
-      c10::ScalarType dest_type,
       synapse_helpers::graph& graph,
       std::vector<synTensor> inputs,
       const OutputMetaDataVector meta,
@@ -457,8 +455,6 @@ class OpBackend : public HabanaOperator {
   static synapse_helpers::tensor BuildCopy(
       at::IntArrayRef src_size,
       c10::ScalarType src_type,
-      at::IntArrayRef dest_size,
-      c10::ScalarType dest_type,
       OpBackend* op,
       synapse_helpers::graph& graph,
       std::vector<synTensor> inputs,

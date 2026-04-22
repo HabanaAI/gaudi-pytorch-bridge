@@ -21,11 +21,12 @@ OutputMetaDataVector NewZerosMeta(const at::Stack& stack) {
   auto optionalDtype = stack.at(2).toOptional<at::ScalarType>();
   const at::ScalarType& type = optionalDtype.value_or(self.scalar_type());
 
-  OutputMetaData meta{};
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.dtype = type;
   meta.shape = stack.at(1).toIntVector();
 
-  return {meta};
+  return metaVec;
 }
 
 SharedMetaDataVector NewZerosSharedMeta(
@@ -36,9 +37,11 @@ SharedMetaDataVector NewZerosSharedMeta(
   auto dtype = optionalDtype.value_or(self.scalar_type());
   auto rank = stack.at(1).toIntVector().size();
 
-  SharedMetaData memsetSharedMeta{"memset"};
+  SharedMetaDataVector memsetSharedMetaVec;
+  memsetSharedMetaVec.reserve(1);
+  auto& memsetSharedMeta = memsetSharedMetaVec.emplace_back("memset");
   memsetSharedMeta.outputs_data.emplace_back(rank, dtype);
-  return {memsetSharedMeta};
+  return memsetSharedMetaVec;
 }
 
 void NewZerosOperator::AddNode(

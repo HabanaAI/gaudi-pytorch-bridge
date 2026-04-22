@@ -22,19 +22,29 @@
 #include "generated/backend/native_batch_norm_backward.h"
 #include "hpu_ops/hpu_op_helper.h"
 
+constexpr auto INPUT = 0;
+constexpr auto SAVED_MEAN = 1;
+constexpr auto SAVED_ISTD = 2;
+constexpr auto RUNNING_MEAN = 3;
+constexpr auto IS_TRAINING = 5;
+constexpr auto MOMENTUM = 6;
+constexpr auto EPSILON = 7;
+
 namespace habana {
 
 namespace sh = synapse_helpers;
 
 static bool should_cast_from_BF16(std::optional<TensorsPair> tensor_pair_opt) {
-  if (tensor_pair_opt.has_value())
+  if (tensor_pair_opt.has_value()) {
     return tensor_pair_opt->pt_t.scalar_type() == c10::ScalarType::BFloat16;
+  }
   return false;
 }
 
 static bool should_cast_from_Half(std::optional<TensorsPair> tensor_pair_opt) {
-  if (tensor_pair_opt.has_value())
+  if (tensor_pair_opt.has_value()) {
     return tensor_pair_opt->pt_t.scalar_type() == c10::ScalarType::Half;
+  }
   return false;
 }
 
@@ -69,69 +79,6 @@ static synTensor cast_if_necessary_or_default(
   }
   return default_val;
 }
-
-namespace {
-namespace BNFwd {
-
-enum InputIdx {
-  INPUT_IDX = 0,
-  WEIGHT_IDX = 1,
-  BIAS_IDX = 2,
-  RUNNING_MEAN_IDX = 3,
-  RUNNING_VAR_IDX = 4,
-  IS_TRAINING_IDX = 5,
-  MOMENTUM_IDX = 6,
-  EPSILON_IDX = 7
-};
-
-enum OutputIdx { OUTPUT_IDX = 0, SAVED_MEAN_IDX = 1, SAVED_ISTD_IDX = 2 };
-
-}; // namespace BNFwd
-
-namespace BNNoTrainingFwd {
-
-enum InputIdx {
-  INPUT_IDX = 0,
-  WEIGHT_IDX = 1,
-  BIAS_IDX = 2,
-  RUNNING_MEAN_IDX = 3,
-  RUNNING_VAR_IDX = 4,
-  MOMENTUM_IDX = 5,
-  EPSILON_IDX = 6
-};
-
-};
-
-namespace BNNoStatsFwd {
-
-enum InputIdx {
-  INPUT_IDX = 0,
-  WEIGHT_IDX = 1,
-  BIAS_IDX = 2,
-  IS_TRAINING_IDX = 3,
-  MOMENTUM_IDX = 4,
-  EPSILON_IDX = 5
-};
-
-};
-
-namespace BNBwd {
-
-enum InputIdx {
-  GRAD_OUT_IDX = 0,
-  INPUT_IDX = 1,
-  WEIGHT_IDX = 2,
-  RUNNING_MEAN_IDX = 3,
-  RUNNING_VAR_IDX = 4,
-  SAVED_MEAN_IDX = 5,
-  SAVED_ISTD_IDX = 6,
-  IS_TRAINING_IDX = 7,
-  EPSILON_IDX = 8
-};
-
-enum OutputIdx { INPUT_GRAD_IDX = 0, WEIGHT_GRAD_IDX = 1, BIAS_GRAD_IDX = 2 };
-
-} // namespace BNBwd
 
 inline bool is_training(bool pt_training_flag, bool is_running_mean_defined) {
   bool inference_mode = (not pt_training_flag) and is_running_mean_defined;
@@ -240,8 +187,9 @@ void reshape_tensor(
     c10::IntArrayRef input_sizes,
     sh::tensor& inout_tensor,
     c10::ScalarType scalarType) {
-  if (input_sizes.size() == 4)
+  if (input_sizes.size() == 4) {
     return;
+  }
 
   auto in_shape = input_sizes.vec();
   if (!in_shape.empty() && in_shape.size() <= 3) {
@@ -307,8 +255,6 @@ std::vector<sh::tensor> handle_batch_norm_training_fwd(
     const std::optional<TensorsPair>& running_var_opt,
     const FillParamsT& params,
     const sizes_vec& out_shapes) {
-  using namespace BNFwd;
-
   bool is_lazy_or_eager =
       ((op.GetExecutionMode() == habana_helpers::HabanaFrontendTypes::EAGER) ||
        (op.GetExecutionMode() == habana_helpers::HabanaFrontendTypes::LAZY));
@@ -364,21 +310,21 @@ std::vector<sh::tensor> handle_batch_norm_training_fwd(
   std::vector<sh::tensor> bn_out;
   std::vector<NodeAttr::NodeOutputAttr> output_attrs{
       NodeAttr::NodeOutputAttr{
-          out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, 1},
+          out_shapes[SAVED_MEAN], c10::ScalarType::Float, 1},
       NodeAttr::NodeOutputAttr{
-          out_shapes[SAVED_ISTD_IDX], c10::ScalarType::Float, 2}};
+          out_shapes[SAVED_ISTD], c10::ScalarType::Float, 2}};
   if (is_functional) {
     output_attrs.emplace_back(
         NodeAttr::NodeOutputAttr{
-            out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, 3});
+            out_shapes[SAVED_MEAN], c10::ScalarType::Float, 3});
     output_attrs.emplace_back(
         NodeAttr::NodeOutputAttr{
-            out_shapes[SAVED_ISTD_IDX], c10::ScalarType::Float, 4});
+            out_shapes[SAVED_ISTD], c10::ScalarType::Float, 4});
   } else {
     if (has_inplace_running_mean) {
       output_attrs.emplace_back(
           NodeAttr::NodeOutputAttr{
-              out_shapes[SAVED_MEAN_IDX],
+              out_shapes[SAVED_MEAN],
               c10::ScalarType::Float,
               std::nullopt,
               DATA_TENSOR,
@@ -388,7 +334,7 @@ std::vector<sh::tensor> handle_batch_norm_training_fwd(
     if (has_inplace_running_var) {
       output_attrs.emplace_back(
           NodeAttr::NodeOutputAttr{
-              out_shapes[SAVED_ISTD_IDX],
+              out_shapes[SAVED_ISTD],
               c10::ScalarType::Float,
               std::nullopt,
               DATA_TENSOR,
@@ -460,8 +406,6 @@ std::vector<sh::tensor> handle_batch_norm_inference_fwd(
     const std::optional<TensorsPair>& running_var_opt,
     const FillParamsT& params,
     const sizes_vec& out_shapes) {
-  using namespace BNFwd;
-
   std::vector<sh::tensor> bn_out;
   bn_out.reserve(5);
   c10::IntArrayRef rm_size = get_rm_size(input.pt_t);
@@ -509,9 +453,7 @@ std::vector<sh::tensor> handle_batch_norm_inference_fwd(
               {get_guid_with_precision(
                    "batch_norm_inf_reshape"sv, op.ScalarType()),
                {input.syn_t, bias, weight, running_mean, running_var},
-               {{out_shapes[INPUT_IDX],
-                 op.ScalarType(),
-                 std::optional<int>(0)}},
+               {{out_shapes[INPUT], op.ScalarType(), std::optional<int>(0)}},
                params.ptr(),
                params.size()})
               .at(0)));
@@ -523,7 +465,7 @@ std::vector<sh::tensor> handle_batch_norm_inference_fwd(
               graph,
               {"identity",
                {running_mean},
-               {{out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, 1}}})
+               {{out_shapes[SAVED_MEAN], c10::ScalarType::Float, 1}}})
               .at(0)));
 
   bn_out.emplace_back(
@@ -533,7 +475,7 @@ std::vector<sh::tensor> handle_batch_norm_inference_fwd(
               graph,
               {"identity",
                {running_var},
-               {{out_shapes[SAVED_ISTD_IDX], c10::ScalarType::Float, 2}}})
+               {{out_shapes[SAVED_ISTD], c10::ScalarType::Float, 2}}})
               .at(0)));
 
   if (is_batch_norm_functional(op)) {
@@ -544,7 +486,7 @@ std::vector<sh::tensor> handle_batch_norm_inference_fwd(
                 graph,
                 {"identity",
                  {running_mean},
-                 {{out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, 3}}})
+                 {{out_shapes[SAVED_MEAN], c10::ScalarType::Float, 3}}})
                 .at(0)));
 
     bn_out.emplace_back(
@@ -554,32 +496,27 @@ std::vector<sh::tensor> handle_batch_norm_inference_fwd(
                 graph,
                 {"identity",
                  {running_var},
-                 {{out_shapes[SAVED_ISTD_IDX], c10::ScalarType::Float, 4}}})
+                 {{out_shapes[SAVED_ISTD], c10::ScalarType::Float, 4}}})
                 .at(0)));
   }
 
   return bn_out;
 }
 
-} // namespace
-
 sizes_vec BatchNormFwdOutputShape(const at::Stack& stack) {
-  using namespace BNFwd;
-  const auto input_sv = stack[INPUT_IDX].toTensor().sizes().vec();
-  const auto channel_size = get_rm_size(stack[INPUT_IDX].toTensor()).vec();
+  const auto input_sv = stack[INPUT].toTensor().sizes().vec();
+  const auto channel_size = get_rm_size(stack[INPUT].toTensor()).vec();
   return {input_sv, channel_size, channel_size};
 }
 
 sizes_vec BatchNormNoStatsFwdOutputShape(const at::Stack& stack) {
-  using namespace BNNoStatsFwd;
-  const auto input_sv = stack[INPUT_IDX].toTensor().sizes().vec();
-  const auto channel_size = get_rm_size(stack[INPUT_IDX].toTensor()).vec();
+  const auto input_sv = stack[INPUT].toTensor().sizes().vec();
+  const auto channel_size = get_rm_size(stack[INPUT].toTensor()).vec();
   return {input_sv, channel_size, channel_size};
 }
 
 OutputMetaDataVector BatchNormBwdMeta(const at::Stack& stack) {
-  using namespace BNBwd;
-  auto input = stack_tensor(stack, INPUT_IDX);
+  auto input = stack_tensor(stack, INPUT + 1);
   auto weightBiasShape = get_rm_size(input).vec();
 
   OutputMetaDataVector metaVec(3);
@@ -594,38 +531,38 @@ OutputMetaDataVector BatchNormBwdMeta(const at::Stack& stack) {
 }
 
 OutputMetaDataVector BatchNormFwdMeta(const at::Stack& stack) {
-  using namespace BNFwd;
-  const auto& input = stack[INPUT_IDX].toTensor();
-  const auto channel_size = get_rm_size(stack[INPUT_IDX].toTensor()).vec();
+  const auto& input = stack[INPUT].toTensor();
+  const auto channel_size = get_rm_size(stack[INPUT].toTensor()).vec();
 
-  OutputMetaData out_meta;
+  OutputMetaDataVector metaVec;
+  metaVec.reserve(5); // Optimize also for indirect use that adds 2 elements.
+  metaVec.resize(3);
+  auto& out_meta = metaVec[0];
   out_meta.shape = input.sizes().vec();
   out_meta.dtype = input.scalar_type();
-  OutputMetaData saved_mean_istd_meta;
+  auto& saved_mean_istd_meta = metaVec[1];
   saved_mean_istd_meta.shape = channel_size;
   saved_mean_istd_meta.dtype = c10::ScalarType::Float;
-  return {out_meta, saved_mean_istd_meta, saved_mean_istd_meta};
+  metaVec[2] = metaVec[1];
+  return metaVec;
 }
 
 OutputMetaDataVector BatchNormFunctionalFwdMeta(const at::Stack& stack) {
   OutputMetaDataVector v = BatchNormFwdMeta(stack);
 
-  OutputMetaData running_mean_meta = v[2];
-  v.push_back(running_mean_meta);
-
-  OutputMetaData running_var_meta = v[2];
-  v.push_back(running_var_meta);
+  // running_mean_meta
+  v.push_back(v[2]);
+  // running_var_meta
+  v.push_back(v[2]);
 
   return v;
 }
 
 FillParamsT FillBatchNormFwdParams(const at::Stack& stack) {
-  using namespace BNFwd;
-  auto momentum = static_cast<float>(stack.at(MOMENTUM_IDX).toDouble());
-  auto epsilon = static_cast<float>(stack.at(EPSILON_IDX).toDouble());
+  auto momentum = static_cast<float>(stack.at(MOMENTUM).toDouble());
+  auto epsilon = static_cast<float>(stack.at(EPSILON).toDouble());
   bool is_training_ = is_training(
-      stack.at(IS_TRAINING_IDX).toBool(),
-      stack.at(RUNNING_MEAN_IDX).isTensor());
+      stack.at(IS_TRAINING).toBool(), stack.at(RUNNING_MEAN).isTensor());
   // NOLINTBEGIN(clang-analyzer-cplusplus.NewDeleteLeaks)
   auto params = fillBatchNormParams(is_training_, momentum, epsilon);
   // NOLINTEND(clang-analyzer-cplusplus.NewDeleteLeaks)
@@ -634,10 +571,9 @@ FillParamsT FillBatchNormFwdParams(const at::Stack& stack) {
 }
 
 FillParamsT FillBatchNormNoTrainingFwdParams(const at::Stack& stack) {
-  using namespace BNNoTrainingFwd;
-  auto momentum = static_cast<float>(stack.at(MOMENTUM_IDX).toDouble());
-  auto epsilon = static_cast<float>(stack.at(EPSILON_IDX).toDouble());
-  bool is_training_ = is_training(false, stack.at(RUNNING_MEAN_IDX).isTensor());
+  auto momentum = static_cast<float>(stack.at(MOMENTUM - 1).toDouble());
+  auto epsilon = static_cast<float>(stack.at(EPSILON - 1).toDouble());
+  bool is_training_ = is_training(false, stack.at(RUNNING_MEAN).isTensor());
   // NOLINTBEGIN(clang-analyzer-cplusplus.NewDeleteLeaks)
   auto params = fillBatchNormParams(is_training_, momentum, epsilon);
   // NOLINTEND(clang-analyzer-cplusplus.NewDeleteLeaks)
@@ -646,10 +582,9 @@ FillParamsT FillBatchNormNoTrainingFwdParams(const at::Stack& stack) {
 }
 
 FillParamsT FillBatchNormNoStatsFwdParams(const at::Stack& stack) {
-  using namespace BNNoStatsFwd;
-  auto momentum = static_cast<float>(stack.at(MOMENTUM_IDX).toDouble());
-  auto epsilon = static_cast<float>(stack.at(EPSILON_IDX).toDouble());
-  bool is_training_ = is_training(stack.at(IS_TRAINING_IDX).toBool(), false);
+  auto momentum = static_cast<float>(stack.at(MOMENTUM - 2).toDouble());
+  auto epsilon = static_cast<float>(stack.at(EPSILON - 2).toDouble());
+  bool is_training_ = is_training(stack.at(IS_TRAINING - 2).toBool(), false);
   // NOLINTBEGIN(clang-analyzer-cplusplus.NewDeleteLeaks)
   auto params = fillBatchNormParams(is_training_, momentum, epsilon);
   // NOLINTEND(clang-analyzer-cplusplus.NewDeleteLeaks)
@@ -658,12 +593,12 @@ FillParamsT FillBatchNormNoStatsFwdParams(const at::Stack& stack) {
 }
 
 FillParamsT FillBatchNormBwdParams(const at::Stack& stack) {
-  using namespace BNBwd;
+  constexpr auto IS_TRAINING_BWD = 7;
   PARAMS_STUB(ns_BatchNormKernel::ParamsV2);
   params->momentum = 0.0;
-  params->epsilon = static_cast<float>(stack.at(EPSILON_IDX).toDouble());
+  params->epsilon = static_cast<float>(stack.at(EPSILON + 1).toDouble());
   params->threshold.f = 0.0;
-  params->isTraining = stack.at(IS_TRAINING_IDX).toBool();
+  params->isTraining = stack.at(IS_TRAINING_BWD).toBool();
   return paramsT;
 }
 
@@ -835,7 +770,9 @@ void BatchNormNoStatsOpBackend::AddNode(
 }
 
 void BatchNormBwdOpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
-  using namespace BNBwd;
+  constexpr auto INPUT_GRAD = 0;
+  constexpr auto WEIGHT_GRAD = 1;
+  constexpr auto BIAS_GRAD = 2;
   /* 1. Collect inputs */
   StackGetter stackGetter(this, stack, "BatchNormFwdOpBackend::AddNode");
   auto grad_out = stackGetter.getNextInput<TensorsPair>();
@@ -940,19 +877,16 @@ void BatchNormBwdOpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
 
   const auto params = FillBatchNormBwdParams(stack);
 
-  std::optional<int> final_result_index_0 =
-      meta[INPUT_GRAD_IDX].shape.size() != 4
+  std::optional<int> final_result_index_0 = meta[INPUT_GRAD].shape.size() != 4
       ? std::optional<int>{std::nullopt}
-      : std::optional<int>{INPUT_GRAD_IDX};
+      : std::optional<int>{INPUT_GRAD};
   auto bn_out = BuildOp(
       graph,
       get_guid_with_precision("batch_norm_bwd"sv, meta[0].dtype),
       {input_4d, grad_out_4d, saved_mean, saved_istd, weight},
-      {{input_4d_shape, meta[INPUT_GRAD_IDX].dtype, final_result_index_0},
-       {meta[BIAS_GRAD_IDX].shape, meta[BIAS_GRAD_IDX].dtype, BIAS_GRAD_IDX},
-       {meta[WEIGHT_GRAD_IDX].shape,
-        meta[WEIGHT_GRAD_IDX].dtype,
-        WEIGHT_GRAD_IDX}},
+      {{input_4d_shape, meta[INPUT_GRAD].dtype, final_result_index_0},
+       {meta[BIAS_GRAD].shape, meta[BIAS_GRAD].dtype, BIAS_GRAD},
+       {meta[WEIGHT_GRAD].shape, meta[WEIGHT_GRAD].dtype, WEIGHT_GRAD}},
       params.ptr(),
       params.size());
 
@@ -961,18 +895,18 @@ void BatchNormBwdOpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
   reshape_tensor(
       *this,
       graph,
-      meta[INPUT_GRAD_IDX].shape,
-      bn_out[INPUT_GRAD_IDX],
-      meta[INPUT_GRAD_IDX].dtype);
+      meta[INPUT_GRAD].shape,
+      bn_out[INPUT_GRAD],
+      meta[INPUT_GRAD].dtype);
 
-  const auto isBackendReshapeNeeded = meta[INPUT_GRAD_IDX].shape.size() != 4;
+  const auto isBackendReshapeNeeded = meta[INPUT_GRAD].shape.size() != 4;
 
   if (isOutputInfMode() && isBackendReshapeNeeded) {
     moveLastOutputTensorAtFront();
   }
-  syn_out(INPUT_GRAD_IDX) = std::move(bn_out[0]);
-  syn_out(WEIGHT_GRAD_IDX) = std::move(bn_out[2]);
-  syn_out(BIAS_GRAD_IDX) = std::move(bn_out[1]);
+  syn_out(INPUT_GRAD) = std::move(bn_out[0]);
+  syn_out(WEIGHT_GRAD) = std::move(bn_out[2]);
+  syn_out(BIAS_GRAD) = std::move(bn_out[1]);
 }
 
 } // namespace habana

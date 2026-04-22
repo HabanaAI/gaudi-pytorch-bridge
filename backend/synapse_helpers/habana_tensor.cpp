@@ -78,8 +78,8 @@ std::ostream& operator<<(
     std::ostream& out,
     const synTensorDescriptor& syn_tensor) {
   out << "synapse_tensor"
-      << (syn_tensor.m_name ? std::string(" ") + syn_tensor.m_name
-                            : "<unnamed>")
+      << (syn_tensor.m_name != nullptr ? std::string(" ") + syn_tensor.m_name
+                                       : "<unnamed>")
       << " at " << std::hex << syn_tensor.m_ptr << std::dec << ", dims=(";
   unsigned dim;
   for (dim = 0; dim + 1 < syn_tensor.m_dims; ++dim) {
@@ -121,8 +121,9 @@ std::ostream& operator<<(
 std::string tensor::shape_t::debug_string() const {
   std::string s = "[";
   for (unsigned i = 0; i < rank_.value; i++) {
-    if (i > 0)
+    if (i > 0) {
       s.append(",");
+    }
     s.append(std::to_string(dims_.at(i)));
   }
   s.append("]");
@@ -241,8 +242,9 @@ tensor::tensor(tensor&& other) noexcept
 }
 
 tensor& tensor::operator=(tensor&& other) noexcept {
-  if (this == &other)
+  if (this == &other) {
     return *this;
+  }
   cleanup();
   tensor_name_ = other.name();
   tensor_id_ = other.id();
@@ -278,9 +280,9 @@ tensor& tensor::operator=(tensor&& other) noexcept {
 std::string tensor::DebugString(int indent) const {
   std::string sep = "\n";
   int i = 0;
-  while (i++ < indent)
+  while (i++ < indent) {
     sep += "  ";
-
+  }
   return absl::StrFormat(
       "Tensor %s datatype=%s%sshape=%s stride=%s%sat %p internal=%p%s%s%s%s%stensor_type=%s offset=%d size=0x%x permutation=%s dont_allow_permute=%d",
       tensor_name_,
@@ -443,16 +445,15 @@ synapse_error_o tensor::create() {
   // Add tensor dimension via synTensorGeometry
   // Max geometry is also used as the actual geometry. In synapse side,
   // synGeometryMaxSizes is aliased to synGeometrySizes
-  tensor_size_t maxSizes[sizeof(maxGeometry.sizes) / sizeof(tensor_size_t)] = {
-      0};
+  std::array<tensor_size_t, sizeof(maxGeometry.sizes) / sizeof(tensor_size_t)>
+      maxSizes = {0};
 
   // TBD: Once GC min-max shape inferencing is available, the non_persistent
   // synapse tensors shapes need to be zero-filled.
-  std::copy_n(
-      shape_.max_.data(), shape_.max_.rank().value, std::begin(maxSizes));
+  std::copy_n(shape_.max_.data(), shape_.max_.rank().value, maxSizes.begin());
 
   maxGeometry.dims = shape_.max().rank().value;
-  memcpy(maxGeometry.sizes, maxSizes, sizeof(maxGeometry.sizes));
+  memcpy(maxGeometry.sizes, maxSizes.data(), sizeof(maxGeometry.sizes));
   status = synTensorSetGeometry(tensor_, &maxGeometry, synGeometrySizes);
   SYNAPSE_SUCCESS_CHECK_WITH_OP(
       "synTensorSetGeometry failed.", status, cleanup());
@@ -498,16 +499,15 @@ synapse_error_o tensor::create() {
     HABANA_ASSERT(!memory_section_ || (memory_section_ && is_persistent_));
 
     synTensorGeometry minGeometry;
-    tensor_size_t minSizes[sizeof(minGeometry.sizes) / sizeof(tensor_size_t)] =
-        {0};
+    std::array<tensor_size_t, sizeof(minGeometry.sizes) / sizeof(tensor_size_t)>
+        minSizes = {0};
 
     // TBD: Once GC min-max shape inferencing is available, the non_persistent
     // synapse tensors shapes need to be zero-filled.
-    std::copy_n(
-        shape_.min_.data(), shape_.min_.rank().value, std::begin(minSizes));
+    std::copy_n(shape_.min_.data(), shape_.min_.rank().value, minSizes.begin());
 
     minGeometry.dims = shape_.min().rank().value;
-    memcpy(minGeometry.sizes, minSizes, sizeof(minGeometry.sizes));
+    memcpy(minGeometry.sizes, minSizes.data(), sizeof(minGeometry.sizes));
     status = synTensorSetGeometry(tensor_, &minGeometry, synGeometryMinSizes);
     SYNAPSE_SUCCESS_CHECK_WITH_OP(
         "synTensorSetGeometry min sizes failed.", status, cleanup());
@@ -583,8 +583,8 @@ tensor::~tensor() {
 }
 
 void tensor::cleanup() {
-  if (tensor_) {
-    if (is_const_section_ && host_ptr_) {
+  if (tensor_ != nullptr) {
+    if (is_const_section_ && host_ptr_ != nullptr) {
       host_ptr_ = nullptr;
     }
     PT_SYNHELPER_DEBUG("cleaning ", *this);
@@ -671,8 +671,9 @@ uint64_t tensor::num_elements() const {
     if (dim != 0) {
       ret *= dim;
     }
-    if (dim == static_cast<decltype(dim)>(-1))
+    if (dim == static_cast<decltype(dim)>(-1)) {
       return -1;
+    }
   }
   return ret;
 }

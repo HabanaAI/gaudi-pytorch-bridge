@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -117,10 +117,17 @@ bool habana::BinaryOperator::MaybeMultiplyWithBool(
           inputs, pos, final_out_dtype);
     }
     // Cast Input tensor to Int tensor
-    std::string node1_type = (arg1.scalar_type() == c10::ScalarType::Int)
-        ? "cast_identity"
-        : (arg1.scalar_type() == c10::ScalarType::Short) ? "cast_i16_to_i32"
-                                                         : "cast_i8_to_i32";
+    auto get_cast_node_type = [](c10::ScalarType dtype) -> std::string {
+      if (dtype == c10::ScalarType::Int) {
+        return "cast_identity";
+      } else if (dtype == c10::ScalarType::Short) {
+        return "cast_i16_to_i32";
+      } else {
+        return "cast_i8_to_i32";
+      }
+    };
+
+    std::string node1_type = get_cast_node_type(arg1.scalar_type());
     // Create the operator
     // Build Params for the graph
     std::shared_ptr<HabanaOperator> castOp1;
@@ -141,10 +148,8 @@ bool habana::BinaryOperator::MaybeMultiplyWithBool(
       stack = {arg1};
       castOp1->AllocateAndAddSynapseNode(graph, stack, md);
     }
-    std::string node2_type = (arg2.scalar_type() == c10::ScalarType::Int)
-        ? "cast_identity"
-        : (arg2.scalar_type() == c10::ScalarType::Short) ? "cast_i16_to_i32"
-                                                         : "cast_i8_to_i32";
+    std::string node2_type = get_cast_node_type(arg2.scalar_type());
+
     // Create the operator
     std::shared_ptr<HabanaOperator> castOp2;
     // Build Params for the graph
@@ -201,7 +206,7 @@ bool habana::BinaryOperator::MaybeMultiplyWithBool(
     if (final_out_dtype != c10::ScalarType::Int) {
       // NOTE: TO DO: need to handle integral type U8
       // Cast Int tensor to Bool tensor
-      auto node_type = (final_out_dtype == c10::ScalarType::Short)
+      const auto* node_type = (final_out_dtype == c10::ScalarType::Short)
           ? "cast_i32_to_i16"
           : "cast_i32_to_i8";
       // Create the operator
@@ -245,8 +250,9 @@ void habana::BinaryOperator::AllocateAndAddSynapseNode(
   if (guid_.substr(0, 4) == "mult") {
     auto was_bool_mult =
         MaybeMultiplyWithBool(graph, inputs, output_metadata.at(0));
-    if (was_bool_mult)
+    if (was_bool_mult) {
       return;
+    }
   }
   synapse_helpers::tensor& arg1_syn_tensor = p_context_->syn_inputs_[0];
   synapse_helpers::tensor& arg2_syn_tensor = p_context_->syn_inputs_[1];
@@ -277,7 +283,7 @@ void habana::BinaryOperator::AllocateAndAddSynapseNode(
     syn_inputs.push_back(syn_tensor.get());
     auto out_shape = BinaryOperator::compute_output_shape(arg1, arg2);
 
-    auto& mdata = output_metadata.at(0);
+    const auto& mdata = output_metadata.at(0);
     if (!graph.is_dry_run() && mdata.allocated_tensor.has_value()) {
       AllocateSynapseOutput(graph, mdata.allocated_tensor.value(), mdata);
     } else {
@@ -293,7 +299,7 @@ void habana::BinaryOperator::AllocateAndAddSynapseNode(
   } else {
     syn_inputs.push_back(arg2_syn_tensor.get());
     auto out_shape = BinaryOperator::compute_output_shape(arg1, arg2);
-    auto& mdata = output_metadata.at(0);
+    const auto& mdata = output_metadata.at(0);
 
     if (!graph.is_dry_run() && mdata.allocated_tensor.has_value()) {
       AllocateSynapseOutput(graph, mdata.allocated_tensor.value(), mdata);
@@ -569,7 +575,7 @@ void habana::BinaryOperatorWithAlpha::AllocateAndAddSynapseNode(
     synapse_helpers::tensor_or_ref& mulOp_out = mulOp->GetSynOutputs()[0];
 
     auto out_shape = BinaryOperator::compute_output_shape(arg1, arg2);
-    auto& mdata = output_metadata.at(0);
+    const auto& mdata = output_metadata.at(0);
     if (!graph.is_dry_run() && mdata.allocated_tensor.has_value()) {
       AllocateSynapseOutput(graph, mdata.allocated_tensor.value(), mdata);
     } else if (output_metadata[0].dtype == at::ScalarType::Undefined) {
@@ -613,7 +619,7 @@ void habana::BinaryOperatorWithAlpha::AllocateAndAddSynapseNode(
         getContextHints());
   } else {
     auto out_shape = BinaryOperator::compute_output_shape(arg1, arg2);
-    auto& mdata = output_metadata.at(0);
+    const auto& mdata = output_metadata.at(0);
     if (!graph.is_dry_run() && mdata.allocated_tensor.has_value()) {
       AllocateSynapseOutput(graph, mdata.allocated_tensor.value(), mdata);
     } else if (output_metadata[0].dtype == at::ScalarType::Undefined) {

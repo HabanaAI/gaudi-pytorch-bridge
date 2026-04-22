@@ -36,7 +36,8 @@ OutputMetaDataVector IndexSelectMeta(const at::Stack& stack) {
   auto dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
   auto shape = self.sizes().vec();
 
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.dtype = self.scalar_type();
   if (shape.empty()) {
     meta.shape = shape;
@@ -49,6 +50,6 @@ OutputMetaDataVector IndexSelectMeta(const at::Stack& stack) {
       meta.shape = shape;
     }
   }
-  return {meta};
+  return metaVec;
 }
 } // namespace habana

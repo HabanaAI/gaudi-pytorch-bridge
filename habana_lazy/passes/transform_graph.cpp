@@ -30,7 +30,7 @@ Patterns internal_patts = {};
 
 std::string get_transform_graph_file() {
   const char* graph_file = std::getenv("HABANA_TRANSFORM_GRAPH_FILE");
-  if (graph_file) {
+  if (graph_file != nullptr) {
     return static_cast<std::string>(graph_file);
   } else {
     return {};

@@ -116,12 +116,12 @@ class MemoryDefragementer {
       const int8_t* const ptr_start,
       const int8_t* const ptr_end,
       bool& defragmentation_needed,
-      std::unique_ptr<Region>& result);
+      std::unique_ptr<Region>& result) const;
   bool SelectRegionForWorkspaceGrowV2(
       std::vector<MemoryBlock>& memory_blocks,
       size_t allocation_size,
       bool& defragmentation_needed,
-      std::unique_ptr<Region>& result);
+      std::unique_ptr<Region>& result) const;
 };
 
 } // namespace synapse_helpers::defragment_helpers

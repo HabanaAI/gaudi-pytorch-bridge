@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 #include "backend/habana_device/HPUStream.h"
 #include "backend/habana_device/hpu_cached_devices.h"
 #include "habana_helpers/logging.h"
-#include "pytorch_helpers/lazy_to_backend.cpp"
+#include "habana_kernels/lazy_kernels_declarations.h"
 
 namespace torch_hpu {
 
@@ -125,8 +125,7 @@ synStreamHandle PytMediaProxy::getComputeStream() {
   auto& device = habana::HPUDeviceContext::get_device(device_id_);
   auto hpu_stream =
       c10::hpu::getDefaultHPUStream(static_cast<c10::DeviceIndex>(device.id()));
-  return static_cast<synStreamHandle>(
-      (void*)device.get_stream(hpu_stream.id()));
+  return reinterpret_cast<synStreamHandle>(&device.get_stream(hpu_stream.id()));
 }
 
 torch::Tensor PytMediaProxy::getFrameworkOutputTensor(uintptr_t addr) {

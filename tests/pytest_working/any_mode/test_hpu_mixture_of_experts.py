@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2024-2025 Intel Corporation
+# Copyright (c) 2024-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -510,7 +510,7 @@ def test_mixture_of_experts_fp8(
     with torch.inference_mode():
         result_hpu = call_moe_fn()
 
-    check_using_cosine_similarity(result_hpu, result_cpu.to(result_hpu.dtype), 0.938 if dynamic_scale else 0.975)
+    check_using_cosine_similarity(result_hpu, result_cpu.to(result_hpu.dtype), 0.975)
 
     if is_pytest_mode_compile():
         check_ops_executed_in_jit_ir("mixture_of_experts")
@@ -1107,7 +1107,7 @@ class MixtralBlockSparseMLPFp8(nn.Module):
         activation,
         calc_first_amax=True,
         calc_second_amax=True,
-        scales_dict={},
+        scales_dict=None,
         fp8_dtype=torch.float8_e4m3fn,
         scaled_swiglu=False,
     ):
@@ -1128,7 +1128,7 @@ class MixtralBlockSparseMLPFp8(nn.Module):
         self.first_amax_bwd_activation = torch.tensor(0.0, dtype=torch.float)
         self.s = torch.tensor(1.0)
 
-        self.scales_dict = scales_dict
+        self.scales_dict = {} if scales_dict is None else scales_dict
         self.fp8_dtype = fp8_dtype
 
         self.scaled_swiglu = scaled_swiglu
@@ -1212,7 +1212,7 @@ class MixtralSparseMoeBlockFp8(nn.Module):
         activation,
         calc_first_amax=False,
         calc_second_amax=False,
-        scales_dict={},
+        scales_dict=None,
         scaled_swiglu=False,
     ):
         super().__init__()
@@ -1228,7 +1228,7 @@ class MixtralSparseMoeBlockFp8(nn.Module):
                     activation,
                     calc_first_amax,
                     calc_second_amax,
-                    self.split_scales(scales_dict, i),
+                    self.split_scales(scales_dict if scales_dict else {}, i),
                     scaled_swiglu=scaled_swiglu,
                 )
                 for i in range(self.num_experts)
@@ -1271,7 +1271,7 @@ class MixtralSparseMoeBlockFp8(nn.Module):
 
 
 def _create_d_scale(size, name, scales_dict):
-    if name in scales_dict.keys():
+    if name in scales_dict:
         scales_as_tensors_143 = 1 / scales_dict[name].to(hpu)
     else:
         scales = np.random.rand(size).astype(np.float32) * 10
@@ -1280,9 +1280,11 @@ def _create_d_scale(size, name, scales_dict):
     return list(scales_as_tensors_143.split(1, dim=0))
 
 
-def _create_d_scales(size, name, hybrid_mode, fp8_dtype, scales_dict={}):
+def _create_d_scales(size, name, hybrid_mode, fp8_dtype, scales_dict=None):
     if size is None:
         return None
+    if scales_dict is None:
+        scales_dict = {}
 
     scales_as_tensors_143 = _create_d_scale(size, name + "_143", scales_dict)
     scales_as_tensors_152 = _create_d_scale(size, name + "_152", scales_dict)
@@ -1297,7 +1299,10 @@ def _create_d_scales(size, name, hybrid_mode, fp8_dtype, scales_dict={}):
     return scales_as_tensors
 
 
-def _create_scale_and_downcast_tensors(tensor_list, name, fp8_dtype, hybrid_mode, scales_dict={}):
+def _create_scale_and_downcast_tensors(tensor_list, name, fp8_dtype, hybrid_mode, scales_dict=None):
+    if scales_dict is None:
+        scales_dict = {}
+
     if tensor_list is None:
         return None, None
 
@@ -1337,6 +1342,8 @@ class MixtureOfExpertsFwdBwdWrapper(torch.autograd.Function):
     first_amax_bwd = None
     second_amax_bwd = None
     scales_dict = {}
+    is_first_amax = False
+    is_second_amax = False
 
     @staticmethod
     def forward(
@@ -1361,6 +1368,8 @@ class MixtureOfExpertsFwdBwdWrapper(torch.autograd.Function):
         total_experts,
         *weights,
     ):
+        MixtureOfExpertsFwdBwdWrapper.is_first_amax = is_first_amax
+        MixtureOfExpertsFwdBwdWrapper.is_second_amax = is_second_amax
         MixtureOfExpertsFwdBwdWrapper.scales_dict = scales_dict
 
         weight_list = list(weights)
@@ -1408,8 +1417,8 @@ class MixtureOfExpertsFwdBwdWrapper(torch.autograd.Function):
             recomp=recomp,
             scaled_swiglu=scaled_swiglu,
             hybrid_mode=hybrid_mode,
-            is_first_amax=is_first_amax,
-            is_second_amax=is_second_amax,
+            is_first_amax=MixtureOfExpertsFwdBwdWrapper.is_first_amax,
+            is_second_amax=MixtureOfExpertsFwdBwdWrapper.is_second_amax,
             chunk_size=chunk_size,
             total_experts=total_experts,
         )
@@ -1478,6 +1487,8 @@ class MixtureOfExpertsFwdBwdWrapper(torch.autograd.Function):
             d_scale_activation_grad=d_scale_activation_grad,
             d_scale_first_gemm_grad=d_scale_first_gemm_grad,
             d_scale_second_gemm_grad=d_scale_second_gemm_grad,
+            is_first_amax=MixtureOfExpertsFwdBwdWrapper.is_first_amax,
+            is_second_amax=MixtureOfExpertsFwdBwdWrapper.is_second_amax,
         )
         if Verbose:
             for i, grad in enumerate(grads):

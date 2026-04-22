@@ -34,10 +34,11 @@ FillParamsT FillThresholdBwdParams(const at::Stack& stack) {
 OutputMetaDataVector ThresholdBwdMeta(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 1);
 
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.shape = self.sizes().vec();
   meta.dtype = self.scalar_type();
-  return {meta};
+  return metaVec;
 }
 
 SharedMetaDataVector ThresholdBackwardSharedMeta(
@@ -48,11 +49,13 @@ SharedMetaDataVector ThresholdBackwardSharedMeta(
   const auto dtype = grad.scalar_type();
   const auto rank = grad.dim();
 
-  SharedMetaData reluSharedMeta{"relu_bwd"};
+  SharedMetaDataVector meta;
+  meta.reserve(1);
+  auto& reluSharedMeta = meta.emplace_back("relu_bwd");
   reluSharedMeta.inputs_data = {{rank, dtype}, {self.dim(), dtype}};
   reluSharedMeta.outputs_data.emplace_back(rank, dtype);
 
-  return {reluSharedMeta};
+  return meta;
 }
 
 void ThresholdBackward::AddNode(

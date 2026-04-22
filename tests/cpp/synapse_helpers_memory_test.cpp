@@ -361,7 +361,7 @@ TEST_F(SynapseHelpersMemoryTest, degframentonOOMandVerify_1) {
   // device
   std::vector<synapse_helpers::device_ptr> device_ptrs(CHUNKS_NUMBER);
   std::array<std::vector<char>, CHUNKS_NUMBER> local_chunks;
-  for (int i = 0; i < CHUNKS_NUMBER; i++) {
+  for (size_t i = 0; i < CHUNKS_NUMBER; i++) {
     local_chunks[i] = std::vector<char>(MB_200, i + 1);
     copyDataToDevice(local_chunks[i].data(), device_ptrs[i], MB_200, device);
   }
@@ -380,7 +380,7 @@ TEST_F(SynapseHelpersMemoryTest, degframentonOOMandVerify_1) {
   copyDataToDevice(local_chunk_400mb.data(), device_ptr_400mb, MB_400, device);
 
   // compare the moved data
-  for (int i = 0; i < CHUNKS_NUMBER; i++) {
+  for (size_t i = 0; i < CHUNKS_NUMBER; i++) {
     if (i == 2 || i == 4)
       continue;
     EXPECT_TRUE(compareDataFromDevice(
@@ -394,7 +394,7 @@ TEST_F(SynapseHelpersMemoryTest, degframentonOOMandVerify_1) {
       device));
 
   // Free all memory
-  for (int i = 0; i < CHUNKS_NUMBER; i++) {
+  for (size_t i = 0; i < CHUNKS_NUMBER; i++) {
     if (i == 2 || i == 4)
       continue;
     freeDeviceMemoryAtAdress(device_ptrs[i]);
@@ -523,7 +523,7 @@ TEST_F(SynapseHelpersMemoryTest, GenTest) {
       habana_helpers::EventDispatcher::Topic::MEMORY_DEFRAGMENTATION);
 
   // allocate small chunks of memory
-  for (int j = 0; j < SMALL_CHUNKS_NUMBER; j++) {
+  for (size_t j = 0; j < SMALL_CHUNKS_NUMBER; j++) {
     device.get_device_memory().malloc(
         reinterpret_cast<void**>(&device_ptrs_small_chunks[j]),
         SMALL_CHUNK_SIZE);
@@ -535,16 +535,16 @@ TEST_F(SynapseHelpersMemoryTest, GenTest) {
   freeDeviceMemoryAtAdress(device_ptrs_small_chunks[FREE_CHUNK_INDEX_3]);
 
   std::vector<synapse_helpers::device_ptr> device_ptrs(BIG_CHUNK_NUMBER);
-  for (int j = 0; j < 3; j++) {
+  for (size_t j = 0; j < size_t{3}; j++) {
     // allocate large chunks of memory
-    for (int i = 0; i < BIG_CHUNK_NUMBER; i++) {
+    for (size_t i = 0; i < BIG_CHUNK_NUMBER; i++) {
       device.get_device_memory().malloc(
           reinterpret_cast<void**>(&device_ptrs[i]), MB_200);
     }
     device.lock_addresses(device_ptrs);
     // delete two non consecutive chunks
-    int chunk_index_1 = j;
-    int chunk_index_2 = chunk_index_1 + 2;
+    size_t chunk_index_1 = j;
+    size_t chunk_index_2 = chunk_index_1 + 2;
     freeDeviceMemoryAtAdress(device_ptrs[chunk_index_1]);
     freeDeviceMemoryAtAdress(device_ptrs[chunk_index_2]);
 
@@ -556,7 +556,7 @@ TEST_F(SynapseHelpersMemoryTest, GenTest) {
     device.lock_addresses(device_ptr_400mb);
 
     // free large chunks
-    for (int i = 0; i < BIG_CHUNK_NUMBER; i++) {
+    for (size_t i = 0; i < BIG_CHUNK_NUMBER; i++) {
       if (i == chunk_index_1 || i == chunk_index_2)
         continue;
       freeDeviceMemoryAtAdress(device_ptrs[i]);
@@ -565,7 +565,7 @@ TEST_F(SynapseHelpersMemoryTest, GenTest) {
   }
 
   // free small chunks
-  for (int j = 0; j < SMALL_CHUNKS_NUMBER; j++) {
+  for (size_t j = 0; j < SMALL_CHUNKS_NUMBER; j++) {
     if (!(j == FREE_CHUNK_INDEX_1 || j == FREE_CHUNK_INDEX_2 ||
           j == FREE_CHUNK_INDEX_3))
       freeDeviceMemoryAtAdress(device_ptrs_small_chunks[j]);
@@ -593,7 +593,7 @@ TEST_F(SynapseHelpersMemoryTest, OOM_FreeMemInEndofsmallallocRegion) {
       GB_2 - MB_200 - SMALL_CHUNKS_NUMBER * SMALL_CHUNK_SIZE);
 
   std::vector<device_ptr> device_ptrs_small_chunks(SMALL_CHUNKS_NUMBER);
-  for (int j = 0; j < SMALL_CHUNKS_NUMBER; j++) {
+  for (size_t j = 0; j < SMALL_CHUNKS_NUMBER; j++) {
     device.get_device_memory().malloc(
         reinterpret_cast<void**>(&device_ptrs_small_chunks[j]),
         SMALL_CHUNK_SIZE);
@@ -602,7 +602,7 @@ TEST_F(SynapseHelpersMemoryTest, OOM_FreeMemInEndofsmallallocRegion) {
   // Deallocate all small chunks except those with indexes:
   // 0 - 121, 170, 171, 172, 213
   constexpr size_t START_INDEX = 122;
-  for (int index = START_INDEX; index < SMALL_CHUNKS_NUMBER; index++) {
+  for (size_t index = START_INDEX; index < SMALL_CHUNKS_NUMBER; index++) {
     if (index == ALLOCATED_SMALL_CHUNK_1 || index == ALLOCATED_SMALL_CHUNK_2 ||
         index == ALLOCATED_SMALL_CHUNK_3 || index == ALLOCATED_SMALL_CHUNK_4) {
       continue;
@@ -615,10 +615,10 @@ TEST_F(SynapseHelpersMemoryTest, OOM_FreeMemInEndofsmallallocRegion) {
   std::vector<int> chunks_to_free = mem_info.first;
   std::vector<int> chunks_sizes = mem_info.second;
 
-  int number_of_blocks = mem_info.second.size();
+  size_t number_of_blocks = mem_info.second.size();
   std::vector<synapse_helpers::device_ptr> device_ptrs(number_of_blocks);
   // allocate blocks with specified size in mem_info
-  for (int i = 0; i < number_of_blocks; i++) {
+  for (size_t i = 0; i < number_of_blocks; i++) {
     device.get_device_memory().malloc(
         reinterpret_cast<void**>(&(device_ptrs[i])), chunks_sizes[i]);
   }
@@ -642,7 +642,7 @@ TEST_F(SynapseHelpersMemoryTest, OOM_FreeMemInEndofsmallallocRegion) {
       reinterpret_cast<void**>(&device_ptr_free_memory), memoryFree);
   device.lock_addresses(device_ptr_free_memory);
   // free all memory
-  for (int i = 0; i < number_of_blocks; i++) {
+  for (size_t i = 0; i < number_of_blocks; i++) {
     // if block was freed earlier, skip freeing it now
     if (std::find(chunks_to_free.begin(), chunks_to_free.end(), i) ==
         chunks_to_free.end()) {
@@ -652,7 +652,7 @@ TEST_F(SynapseHelpersMemoryTest, OOM_FreeMemInEndofsmallallocRegion) {
   freeDeviceMemoryAtAdress(device_ptr_free_memory);
 
   // free remaining small chunks
-  for (int i = 0; i < START_INDEX; i++) {
+  for (size_t i = 0; i < START_INDEX; i++) {
     freeDeviceMemoryAtAdress(device_ptrs_small_chunks[i]);
   }
 

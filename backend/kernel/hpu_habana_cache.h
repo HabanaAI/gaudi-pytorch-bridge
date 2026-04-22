@@ -212,11 +212,10 @@ struct RecipeArgumentSpec {
 // The order of the outputs will match the order they appears within the
 // subgraph
 struct RecipeValueSpec {
-  RecipeValueSpec(std::shared_ptr<habana_torch::jit::Graph> g = nullptr)
-      : collective_kernels_info(
-            std::make_shared<habana_helpers::CollectiveKernelInfos>()),
-        id(++count),
-        jit_graph_(g) {}
+  RecipeValueSpec(
+      std::shared_ptr<habana_torch::jit::Graph> g = nullptr,
+      size_t hash = 0)
+      : id(++count), jit_graph_(g), curr_symval_hash_(hash) {}
 
   RecipeValueSpec(std::istream& is);
 
@@ -226,8 +225,8 @@ struct RecipeValueSpec {
 
   std::string header_str();
   std::string build_header_str() const;
-  std::string digest_str();
-  int update_hit_count();
+  std::string digest_str() const;
+  int update_hit_count() const;
   synTensor get_syn_new_handle(
       std::unordered_map<uint64_t, synTensor>&
           synapse_tensor_id_to_tensor_handle,
@@ -261,7 +260,7 @@ struct RecipeValueSpec {
       const std::unordered_map<synNodeId, synNodeId>&
           synapse_node_orig_to_new_handle,
       const std::vector<synNodeId>& syn_node_id_vec,
-      const synGraphHandle duplicate_graph_handle,
+      synGraphHandle duplicate_graph_handle,
       std::shared_ptr<std::vector<InferNodeParams>>& node_params_vec_ptr);
   void populate_syn_tensor_ids(
       const synapse_helpers::graph::recipe_handle& recipe);
@@ -369,7 +368,8 @@ struct RecipeValueSpec {
 
   std::vector<PtTensorInfoShared> dtensorinfos;
   std::shared_ptr<habana_helpers::CollectiveKernelInfos>
-      collective_kernels_info;
+      collective_kernels_info =
+          std::make_shared<habana_helpers::CollectiveKernelInfos>();
   std::unordered_map<uint64_t, PtTensorInfoShared> sif_tidx_to_tinfo_map;
   std::unordered_map<uint64_t, uint64_t> st_to_tensor_idx_map;
   std::unordered_set<uint32_t> dynamic_nodes_with_backend_STs;

@@ -39,7 +39,8 @@ struct GetOutputsOrderInGraphPass {
           at::ArrayRef<habana_torch::jit::Value*>::iterator itr = std::find(
               graph_outputs.begin(), graph_outputs.end(), node_output);
           if (itr != graph_outputs.cend()) {
-            int index = std::distance(graph_outputs.begin(), itr);
+            const auto index =
+                static_cast<size_t>(std::distance(graph_outputs.begin(), itr));
             m_outputs_order.push_back(index);
           }
         }

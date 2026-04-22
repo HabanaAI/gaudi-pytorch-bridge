@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -89,7 +89,7 @@ PyObject* THP_HPU_Module_getStreamInfo_wrap(
   constexpr const char* kwlist[] = {
       "stream_id", "device_index", "device_type", nullptr};
 
-  if (!PyArg_ParseTupleAndKeywords(
+  if (PyArg_ParseTupleAndKeywords(
           args,
           kwargs,
           "|LLL",
@@ -97,7 +97,7 @@ PyObject* THP_HPU_Module_getStreamInfo_wrap(
           const_cast<char**>(kwlist),
           &stream_id,
           &device_index,
-          &device_type)) {
+          &device_type) == 0) {
   }
 
   auto stream = c10::hpu::HPUStream::unpack3(
@@ -128,7 +128,7 @@ PyObject* THP_HPU_Module_setStream_wrap(
   // NOLINTNEXTLINE(modernize-avoid-c-arrays,cppcoreguidelines-avoid-c-arrays)
   constexpr const char* kwlist[] = {
       "stream_id", "device_index", "device_type", nullptr};
-  if (!PyArg_ParseTupleAndKeywords(
+  if (PyArg_ParseTupleAndKeywords(
           args,
           kwargs,
           "|LLL",
@@ -136,7 +136,7 @@ PyObject* THP_HPU_Module_setStream_wrap(
           const_cast<char**>(kwlist),
           &stream_id,
           &device_index,
-          &device_type)) {
+          &device_type) == 0) {
   }
 
   auto stream = c10::hpu::HPUStream::unpack3(

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,11 +14,16 @@
  */
 #include "generated/backend/clone.h"
 
+#include <ATen/core/stack.h>
+
+#include "backend/backend_meta.h"
+
 namespace habana {
 
 OutputMetaDataVector CloneMeta(const at::Stack& stack) {
   const auto& self = stack.at(0).toTensor();
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
 
   meta.shape = self.sizes().vec();
   meta.dtype = self.scalar_type();
@@ -28,7 +33,7 @@ OutputMetaDataVector CloneMeta(const at::Stack& stack) {
     meta.mem_format = stack.at(1).toMemoryFormat();
   }
 
-  return {meta};
+  return metaVec;
 }
 
 } // namespace habana

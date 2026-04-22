@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2025 Intel Corporation
+# Copyright (c) 2025-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -106,8 +106,7 @@ class ScriptWriter:
         method_start_line = [i for i, line in enumerate(generated_code_lines) if "def " in line][0]
         forward_pass = []
         forward_pass.append(f"    {generated_code_lines[method_start_line].strip()}")
-        for line in generated_code_lines[method_start_line + 1 :]:
-            forward_pass.append(f"        {line.strip()}")
+        forward_pass.extend(f"        {line.strip()}" for line in generated_code_lines[method_start_line + 1 :])
         return forward_pass
 
     @staticmethod

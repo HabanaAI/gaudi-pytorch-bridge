@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,14 +31,15 @@ bool IsHostMemoryThresholdReached() {
   uint32_t host_memory_threshold_percent =
       GET_ENV_FLAG_NEW(PT_HPU_HOST_MEMORY_THRESHOLD_PERCENT);
 
-  if (host_memory_threshold_percent) {
+  if (host_memory_threshold_percent != 0U) {
     struct sysinfo si;
     sysinfo(&si);
     uint64_t totalram_bytes = si.totalram;
     uint64_t freeram_avail_bytes = si.freeram;
     uint64_t host_memory_used_bytes = totalram_bytes - freeram_avail_bytes;
     uint64_t host_memory_threshold_bytes =
-        (totalram_bytes * host_memory_threshold_percent) / 100;
+        (totalram_bytes * host_memory_threshold_percent) /
+        100; // NOLINT(readability-magic-numbers)
     if (host_memory_used_bytes > host_memory_threshold_bytes) {
       static bool warned_once = false;
       if (!warned_once) {
@@ -58,8 +59,8 @@ bool IsHostMemoryThresholdReached() {
 
 int GetRankFromEnv() {
   int node_id = 0;
-  auto pt_rank = std::getenv("RANK");
-  auto mpi_rank = std::getenv("OMPI_COMM_WORLD_RANK");
+  auto* pt_rank = std::getenv("RANK");
+  auto* mpi_rank = std::getenv("OMPI_COMM_WORLD_RANK");
 
   if (pt_rank != nullptr) {
     node_id = std::stoi(pt_rank);
@@ -76,7 +77,7 @@ void TryJoinPendingEagerPipelineThreads() {
   static auto joinPendingPipelineThreads =
       reinterpret_cast<JoinPendingPipelineThreadsFunc>(
           dlsym(RTLD_DEFAULT, "JoinPendingPipelineThreads"));
-  if (joinPendingPipelineThreads) {
+  if (joinPendingPipelineThreads != nullptr) {
     PT_BRIDGE_DEBUG("habana::eager::JoinPendingPipelineThreads called");
     joinPendingPipelineThreads();
   } else {
@@ -90,7 +91,7 @@ void TryRestoreToOrgSendTensors(
   static auto restoreToOrgSendTensors =
       reinterpret_cast<RestoreToOrgSendTensorsFunc>(
           dlsym(RTLD_DEFAULT, "RestoreToOrgSendTensors"));
-  if (restoreToOrgSendTensors) {
+  if (restoreToOrgSendTensors != nullptr) {
     PT_BRIDGE_DEBUG("habana::eager::RestoreToOrgSendTensors called");
     restoreToOrgSendTensors(tensors, org_tensors);
   } else {

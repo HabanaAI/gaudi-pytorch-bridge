@@ -50,7 +50,9 @@ static SharedMetaDataVector AddCompositeSharedMeta(
   const at::ScalarType dtype =
       at::promote_types(self.scalar_type(), at::result_type(other1, other2));
 
-  SharedMetaData meta{guid};
+  SharedMetaDataVector metaVec;
+  metaVec.reserve(1);
+  auto& meta = metaVec.emplace_back(guid);
   meta.inputs_data = {
       {self.dim(), dtype}, {other1.dim(), dtype}, {other2.dim(), dtype}};
   if (tensor_value) {
@@ -58,7 +60,7 @@ static SharedMetaDataVector AddCompositeSharedMeta(
   }
   meta.outputs_data = {{output_rank, dtype}};
 
-  return {meta};
+  return metaVec;
 }
 
 SharedMetaDataVector AddCDivSharedMeta(
@@ -181,7 +183,7 @@ void ForeachCompound::AddNode(
 
   for (size_t i = 0; i < selfs_size; ++i) {
     std::vector<synTensor> inputs = {
-        syn_in(i), syn_in(i + selfs_size), syn_in(i + 2 * selfs_size)};
+        syn_in(i), syn_in(i + selfs_size), syn_in(i + (2 * selfs_size))};
     const bool isOutputIntegral = c10::isIntegralType(metas[i].dtype, true);
     guid_ = update_guid_dtype(
         guid_,

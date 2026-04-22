@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025 Intel Corporation
+ * Copyright (c) 2025-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,9 @@
 namespace habana::upsample_utils {
 
 namespace {
-
+constexpr double cubic_coeff =
+    -0.75; // As mentioned in TPC guide, value of cubicCoeffA used for
+           // cubic interpolation is -0.75.
 std::vector<synapse_helpers::tensor> Slice(
     OpBackend* op,
     synapse_helpers::graph& graph,
@@ -87,14 +89,14 @@ synapse_helpers::tensor UpsampleCommonFuncSynapseLayout(
     shape_out_resize.reserve(shape_in_dim);
     unsigned scaled_dims = (shape_in_dim > 2) ? shape_in_dim - 2 : 0;
 
-    for (unsigned d = 0; d < shape_in_dim - scaled_dims; ++d)
+    for (unsigned d = 0; d < shape_in_dim - scaled_dims; ++d) {
       shape_out_resize.push_back(meta.shape[d]);
-
-    for (unsigned d = 0; d < scaled_dims; ++d)
+    }
+    for (unsigned d = 0; d < scaled_dims; ++d) {
       shape_out_resize.push_back(
           static_cast<int64_t>(
               shape_in[2 + d] * scale_dhw[d + 3 - scaled_dims]));
-
+    }
     p_shape_out_resize = &shape_out_resize;
   }
 
@@ -136,9 +138,9 @@ synapse_helpers::tensor UpsampleCommonFuncSynapseLayout(
         intermediateDtype,
         final_index_for_slice);
   };
-  if (meta.dtype != c10::ScalarType::Byte)
+  if (meta.dtype != c10::ScalarType::Byte) {
     return std::move(resize[0]);
-
+  }
   // f32 to u8
   return OpBackend::BuildCast(
       op, graph, resize[0].get(), meta.shape, intermediateDtype, meta.dtype, 0);
@@ -311,8 +313,8 @@ FillParamsT FillResizeParams(
           ? ResizeCoordinateTransformationMode_t::ALIGN_CORNERS_MODE
           : ResizeCoordinateTransformationMode_t::PYTORCH_HALF_PIXEL_MODE;
       params->cubicCoeffA =
-          -0.75; // As mentioned in TPC guide, value of cubicCoeffA used for
-                 // cubic interpolation is -0.75.
+          cubic_coeff; // As mentioned in TPC guide, value of cubicCoeffA used
+                       // for cubic interpolation is -0.75.
       break;
   }
   if (!out_size.isNone()) {
@@ -377,9 +379,7 @@ FillParamsT FillResizeParams(
       params->coordTransMode = align_corner
           ? ResizeCoordinateTransformationMode_t::ALIGN_CORNERS_MODE
           : ResizeCoordinateTransformationMode_t::PYTORCH_HALF_PIXEL_MODE;
-      params->cubicCoeffA =
-          -0.75; // As mentioned in TPC guide, value of cubicCoeffA used for
-                 // cubic interpolation is -0.75.
+      params->cubicCoeffA = cubic_coeff;
       break;
   }
 
@@ -415,7 +415,9 @@ SharedMetaDataVector UpsampleCommmonSharedLayer(
     const at::Stack& stack,
     const bool alignCorners,
     const int64_t scalesIndex,
-    const bool isForward) {
+    const bool isForward,
+    const modes upsample_mode,
+    const habana_helpers::HabanaExecutionMode execution_mode) {
   const auto& self = stack_tensor(stack, 0);
   const auto& outSize = stack.at(1);
   const auto& scales = stack.at(scalesIndex);
@@ -423,25 +425,75 @@ SharedMetaDataVector UpsampleCommmonSharedLayer(
       isForward && !alignCorners && (!outSize.isNone() && !scales.isNone());
 
   SharedMetaDataVector metaVec;
-  metaVec.reserve(modifyInputWithOutputWidth ? 2 : 1);
+  metaVec.reserve(2);
 
   const auto rank = self.dim();
   auto dtype = self.scalar_type();
-  if (dtype == c10::ScalarType::Byte)
+  if (dtype == c10::ScalarType::Byte) {
     dtype = c10::ScalarType::Float;
-
+  }
   const std::string guid = isForward ? "resize_fwd" : "resize_bwd";
   SharedMetaTensor commonTensor = {rank, dtype};
-  SharedMetaData resizeSharedMeta{guid};
+  auto& resizeSharedMeta = metaVec.emplace_back(guid);
   resizeSharedMeta.inputs_data = {commonTensor};
   resizeSharedMeta.outputs_data = {commonTensor};
-  metaVec.push_back(resizeSharedMeta);
+  if (execution_mode == habana_helpers::HabanaExecutionMode::EAGER) {
+    const auto& sizes = !isForward ? stack.at(2) : outSize;
+    const auto& selfSizes = self.sizes();
+    const auto outIndex = !isForward ? rank - 3 : 0;
+    const auto dimSelfSize = selfSizes.at(2);
+    const auto dimOutSize = sizes.toIntVector().at(outIndex);
+    double scale = 0;
+    if (!scales.isNone()) {
+      scale = !scales.isScalar() ? scales.toDoubleVector().at(0)
+                                 : scales.toDouble();
+    }
+    switch (upsample_mode) {
+      case nearest:
+      case nearest_exact:
+        if (dtype != at::ScalarType::Float && dtype != at::ScalarType::Half &&
+            dtype != at::ScalarType::BFloat16 &&
+            dtype != at::ScalarType::Char) {
+          resizeSharedMeta.options.force_fallback = true;
+          resizeSharedMeta.options.fallback_reason =
+              "GLUE_INCOMPATIBLE_DATA_TYPE. Resize nearest kernel supports only f32/f16/bf16/i8";
+        } else if (!isForward && !scales.isNone() && rank == 5) {
+          auto scaledDim =
+              std::max(static_cast<int>(std::floor(dimSelfSize / scale)), 1);
+          if (scaledDim != dimOutSize) {
+            resizeSharedMeta.options.force_fallback = true;
+            resizeSharedMeta.options.fallback_reason =
+                "GLUE_INCOMPATIBLE_OUTPUT_SIZE. Height dim * (1 / scale) != Output dim (" +
+                std::to_string(scaledDim) +
+                " != " + std::to_string(dimOutSize) + ").";
+          }
+        }
+        break;
+      case linear:
+      case bicubic:
+        if (dtype != at::ScalarType::Float && dtype != at::ScalarType::Half &&
+            dtype != at::ScalarType::BFloat16 && dtype != at::ScalarType::Int &&
+            dtype != at::ScalarType::Short && dtype != at::ScalarType::Char) {
+          resizeSharedMeta.options.force_fallback = true;
+          resizeSharedMeta.options.fallback_reason =
+              "GLUE_INCOMPATIBLE_DATA_TYPE. Resize bilinear & bicubic kernel supports only f32/f16/bf16/i32/i16/i8";
+        } else if (
+            rank == 5 &&
+            ((!outSize.isNone() && dimSelfSize != dimOutSize) ||
+             (!scales.isNone() && scale != 1.0))) {
+          resizeSharedMeta.options.force_fallback = true;
+          resizeSharedMeta.options.fallback_reason =
+              "GLUE_INCOMPATIBLE_OUTPUT_SIZE. Resize of height dim is only supported in 'nearest' mode.";
+        }
+        break;
+    }
+  }
 
+  metaVec.push_back(resizeSharedMeta);
   if (modifyInputWithOutputWidth) {
-    SharedMetaData sliceSharedMeta{"slice"};
+    auto& sliceSharedMeta = metaVec.emplace_back("slice");
     sliceSharedMeta.inputs_data = {commonTensor};
     sliceSharedMeta.outputs_data = {commonTensor};
-    metaVec.push_back(sliceSharedMeta);
   }
 
   return metaVec;

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,8 +35,8 @@ struct AddDeterministicAttributePass {
     bool changed{false};
     const auto deterministic = at::globalContext().deterministicAlgorithms();
 
-    for (auto block : blocks) {
-      for (auto node : block->nodes()) {
+    for (auto* block : blocks) {
+      for (auto* node : block->nodes()) {
         changed |= processNode(node, deterministic);
       }
     }
@@ -46,8 +46,9 @@ struct AddDeterministicAttributePass {
 
   bool processNode(habana_torch::jit::Node* node, bool deterministic) {
     constexpr auto attr = habana_torch::jit::attr::deterministic;
-    const bool maybe_already_set = node->hasAttribute(attr) and node->i(attr);
-    node->i_(attr, deterministic or maybe_already_set);
+    const bool maybe_already_set =
+        node->hasAttribute(attr) && node->i(attr) != 0;
+    node->i_(attr, static_cast<int64_t>(deterministic || maybe_already_set));
     return true;
   }
 

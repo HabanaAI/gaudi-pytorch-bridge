@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,14 +28,14 @@ uint64_t NowNanos() {
 
 std::string get_device_name() {
   constexpr uint32_t maxStringLength{1024};
-  char deviceName[maxStringLength];
-  auto status = synDeviceGetName(deviceName, maxStringLength, 0);
+  std::array<char, maxStringLength> deviceName;
+  auto status = synDeviceGetName(deviceName.data(), maxStringLength, 0);
   if (status != synSuccess) {
     PT_SYNHELPER_DEBUG(
         Logger::formatStatusMsg(status), "Failed to get device name.");
     return "";
   }
-  return deviceName;
+  return deviceName.data();
 }
 
 uint64_t get_memory_size() {
@@ -51,7 +51,7 @@ uint64_t get_memory_size() {
 }
 
 SynapseProfilerSource::SynapseProfilerSource() {
-  auto env = std::getenv("HABANA_PROFILE");
+  auto* env = std::getenv("HABANA_PROFILE");
   bool hpu_profiling_available =
       (env != nullptr) && (std::string_view{env} != "0");
 
@@ -82,7 +82,7 @@ void SynapseProfilerSource::start(TraceSink& /*output*/) {
     void* data_ptr{nullptr};
     auto& device = habana::HPUDeviceContext::get_device(0);
     device.get_device_memory().malloc(&data_ptr, bytes_req);
-    auto user_buff =
+    auto* user_buff =
         reinterpret_cast<void*>(device.get_fixed_address(data_ptr));
     status = synProfilerSetUserBuffer(0, user_buff);
     if (status != synSuccess) {
@@ -125,6 +125,7 @@ void SynapseProfilerSource::convertLogs(TraceSink& output) {
     std::cerr << "No profiler entries" << std::endl;
     return;
   }
+  // NOLINTNEXTLINE(*-avoid-c-arrays)
   auto events = std::make_unique<unsigned char[]>(size);
   if (!getEntries(size, count, events.get())) {
     return;

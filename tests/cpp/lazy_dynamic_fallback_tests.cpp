@@ -76,7 +76,7 @@ TEST_F(LazyDynamicFallbackTest, DynamicShapeTest4) {
   int H = 16;
   at::Scalar inScalar = 2.0;
   std::vector<int> in_sizes{16, 32, 64};
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     PT_TEST_DEBUG("PTI_DBG: Iteration Start -- ", i, " ----\n");
     int W = in_sizes[i];
     // weight_tensor = bias1 + bias2
@@ -154,7 +154,7 @@ TEST_F(LazyDynamicFallbackTest, DynamicShapeTest4) {
 TEST_F(LazyDynamicFallbackTest, FallbackCatTest) {
   int H = 4;
   std::vector<int> in_sizes{8, 16, 32};
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     int W = in_sizes[i];
     PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
     torch::Tensor A = torch::randn({W}).to(torch::kInt32);
@@ -179,7 +179,7 @@ TEST_F(LazyDynamicFallbackTest, MaskRcnnAsStridedTest) {
   }
   int H = 7;
   std::vector<int> in_sizes{100, 110, 120};
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     int W = in_sizes[i];
     PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
     torch::Tensor A = torch::randn({W, 4}).to(torch::kInt32);
@@ -227,7 +227,7 @@ TEST_F(LazyDynamicFallbackTest, SliceTest) {
   int C = 4;
   int H = 4;
   std::vector<int> in_sizes{16, 18, 20};
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     int W = in_sizes[i];
     PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
     torch::Tensor A = torch::randn({N, C, H, W}, torch::requires_grad(false));
@@ -249,7 +249,7 @@ TEST_F(LazyDynamicFallbackTest, SliceTest) {
 TEST_F(LazyDynamicFallbackTest, SliceTest2) {
   int H = 4;
   std::vector<int> in_sizes{16, 18, 20};
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     int W = in_sizes[i];
     PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
     torch::Tensor A = torch::randn({H, W}, torch::requires_grad(false));
@@ -274,7 +274,7 @@ TEST_F(LazyDynamicFallbackTest, SliceTest3) {
   std::vector<int> in_start{0, 1};
   std::vector<int> in_end{14, 13};
   std::vector<int> in_step{1, 1};
-  for (int i = 0; i < W_values.size(); i++) {
+  for (size_t i = 0; i < W_values.size(); i++) {
     int W = W_values[i];
     PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
     torch::Tensor A = torch::randn({N, W}, torch::requires_grad(false));
@@ -296,12 +296,11 @@ TEST_F(LazyDynamicFallbackTest, SliceTest4) {
   std::vector<int> W_values{140, 141};
   std::vector<int> in_start{0, 1};
   std::vector<int> in_end{120, 100};
-  for (int i = 0; i < W_values.size(); i++) {
+  for (size_t i = 0; i < W_values.size(); i++) {
     int W = W_values[i];
     PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
     torch::Tensor A = torch::randn({1, N, W}, torch::requires_grad(false));
     torch::Tensor hA = A.to(torch::kHPU);
-    int64_t dim = 2;
     int64_t start = in_start[i];
     int64_t end = in_end[i];
     hA = torch::slice(hA, 2, 0, 128, 1);
@@ -321,7 +320,7 @@ TEST_F(LazyDynamicFallbackTest, DynamicAvgPoolBkwdTest) {
   int H = 16;
   std::vector<int> in_sizes{16, 32, 64};
 
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     int W = in_sizes[i];
     PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
     auto input_tensor = torch::randn({N, C, H, W}, torch::requires_grad(true));
@@ -354,7 +353,7 @@ TEST_F(LazyDynamicFallbackTest, DynamicMaxPoolBkwdTest) {
   int H = 16;
   std::vector<int> in_sizes{16, 32, 64};
 
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     int W = in_sizes[i];
     PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
     auto input_tensor = torch::randn({N, C, H, W}, torch::requires_grad(true));
@@ -384,7 +383,7 @@ TEST_F(LazyDynamicFallbackTest, ArangeTest) {
   std::vector<int> start_sizes{0, 0, 0, 0, 0};
   std::vector<int> end_sizes{5, 10, 15, 20, 25};
   std::vector<int> step_sizes{1, 2, 3, 4, 5};
-  for (int i = 0; i < start_sizes.size(); i++) {
+  for (size_t i = 0; i < start_sizes.size(); i++) {
     SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, true, 1);
     SET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR, true, 1);
     torch::Scalar start = start_sizes[i];
@@ -414,7 +413,7 @@ TEST_F(LazyDynamicFallbackTest, ArangeTestFloat) {
   std::vector<int> start_sizes{0, 0, 0, 0, 0};
   std::vector<int> end_sizes{5, 10, 15, 20, 25};
   std::vector<int> step_sizes{1, 2, 3, 4, 5};
-  for (int i = 0; i < start_sizes.size(); i++) {
+  for (size_t i = 0; i < start_sizes.size(); i++) {
     SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, true, 1);
     SET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR, true, 1);
     torch::Scalar start = start_sizes[i];
@@ -447,15 +446,14 @@ TEST_F(LazyDynamicFallbackTest, UniqueGraph_Broadcast) {
   std::pair<int, int> tensor0_sizes = {3, 3};
   std::vector<std::pair<int, int>> addSizes = {{3, 3}, {3, 1}, {1, 3}, {1, 1}};
   for (int i = 0; i < 3; i++) {
-    for (int j = 0; j < addSizes.size(); j++) {
-      // HbLazyTensor::IterStepMarker();
-      int H1 = addSizes[j].first;
-      int W1 = addSizes[j].second;
-      if (addSizes[j].first != 1) {
-        H1 = addSizes[j].first + i;
+    for (const auto& sizes : addSizes) {
+      int H1 = sizes.first;
+      int W1 = sizes.second;
+      if (H1 != 1) {
+        H1 += i;
       }
-      if (addSizes[j].second != 1) {
-        W1 = addSizes[j].second + i;
+      if (W1 != 1) {
+        W1 += i;
       }
       auto in1 = torch::randn(
           {H1, W1}, torch::dtype(torch::kFloat).requires_grad(false));
@@ -579,7 +577,7 @@ TEST_F(LazyDynamicFallbackTest, DynamicConvBkwdTest) {
   int H = 6;
   std::vector<int> in_sizes{3, 6, 9};
 
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     int W = in_sizes[i];
     PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
     torch::Tensor weight_tensor =

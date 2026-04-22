@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,7 +41,7 @@ using namespace habana;
 void PersistenceMarkerPass::set_persistence_input(
     habana_torch::jit::Node* node,
     int inputId) {
-  auto val = node->input(inputId);
+  auto* val = node->input(inputId);
 
   if (val->type()->kind() == c10::TypeKind::TensorType) {
     valptr_to_persistent_map_[val] = true;
@@ -52,7 +52,7 @@ void PersistenceMarkerPass::set_persistence_input(
     // one level up and set persistence for all the list inputs
     auto list_in_vals = val->node()->inputs();
 
-    for (auto in_val : list_in_vals) {
+    for (auto* in_val : list_in_vals) {
       if (in_val->type()->kind() == c10::TypeKind::TensorType) {
         valptr_to_persistent_map_[in_val] = true;
       }
@@ -63,7 +63,7 @@ void PersistenceMarkerPass::set_persistence_input(
 void PersistenceMarkerPass::set_persistence_output(
     habana_torch::jit::Node* node,
     int outputId) {
-  auto val = node->output(outputId);
+  auto* val = node->output(outputId);
 
   if (val->type()->kind() == c10::TypeKind::TensorType) {
     valptr_to_persistent_map_[val] = true;
@@ -74,14 +74,14 @@ void PersistenceMarkerPass::HandleSpecialOps(
     habana_torch::jit::Node* node,
     const std::vector<std::string>& ignoreOpsList,
     int inputId) {
-  auto inp_node = node;
+  auto* inp_node = node;
   bool foundInIgnoreList = true;
   while (foundInIgnoreList) {
     inp_node = inp_node->inputs()[inputId]->node();
 
-    auto inp_schema = inp_node->maybeSchema();
+    const auto* inp_schema = inp_node->maybeSchema();
     foundInIgnoreList = false;
-    if (inp_schema) {
+    if (inp_schema != nullptr) {
       auto inp_name = toString(inp_node->schema().operator_name());
 
       if (std::find(
@@ -108,12 +108,12 @@ void PersistenceMarkerPass::MarkPersistenceNodes(
         0,
         node->schema().operator_name(),
         habana_launch_op_ptr_->getNodeScalarType(node));
-    if (HabanaKernel == nullptr)
+    if (HabanaKernel == nullptr) {
       continue;
-
+    }
     // Set the deterministic val
     HabanaKernel->setDeterministic(
-        node->i(habana_torch::jit::attr::deterministic));
+        node->i(habana_torch::jit::attr::deterministic) != 0);
 
     // override the persistence logic if any kernel sets it as persistent
     // We assume that first index for output will be the persistent.
@@ -124,24 +124,26 @@ void PersistenceMarkerPass::MarkPersistenceNodes(
     // Inplace -> out of place replacement pass will remove  intermediate
     // inplace ops anyway Remaining inplace ops at graph outputs will be set
     // with persistent i/o
-    bool foundInIgnoreList = false;
     std::string op_name = toString(node->schema().operator_name());
     std::vector<std::string> ignoreOpsList{
         "hpu::kv_reorder_",
         "hpu::in_place_interleave_",
         "aten::masked_fill_.Scalar",
         "aten::masked_fill_.Tensor"};
+    const bool foundInIgnoreList = std::any_of(
+        std::begin(ignoreOpsList),
+        std::end(ignoreOpsList),
+        [&op_name](const std::string& ignoredOp) {
+          return ignoredOp == op_name;
+        });
 
-    if (std::find(
-            std::begin(ignoreOpsList), std::end(ignoreOpsList), op_name) !=
-        std::end(ignoreOpsList)) {
-      foundInIgnoreList = true;
-    }
-    int inputId = 0;
-    if (habana::control_edges::IsControlEdgeNode(node) ||
-        habana_helpers::IsCollective(node->kind()) ||
-        // must the be last condition as it can change inputId
-        (((inputId = inplaceInputId(node)) >= 0) && !foundInIgnoreList) ||
+    const bool useDefaultInputId =
+        habana::control_edges::IsControlEdgeNode(node) ||
+        habana_helpers::IsCollective(node->kind());
+    int inputId = useDefaultInputId ? 0 : inplaceInputId(node);
+
+    const bool haveInplaceInput = inputId >= 0;
+    if (useDefaultInputId || (haveInplaceInput && !foundInIgnoreList) ||
         (foundInIgnoreList &&
          (jitgraph_utils::isInGraphOutputs(node) ||
           (isOutputCollective(node) &&
@@ -154,16 +156,16 @@ void PersistenceMarkerPass::MarkPersistenceNodes(
         HandleSpecialOps(node, ignoreOpsList, inputId);
       }
     }
-  } // for (auto* node : graph_nodes)
-} // function end
+  }
+}
 
 void PersistenceMarkerPass::set_external_input(habana_torch::jit::Node* node) {
-  for (auto& val : node->inputs()) {
+  for (const auto& val : node->inputs()) {
     if (val->type()->kind() == c10::TypeKind::TensorType) {
       MarkProducerExternal(val);
     } else if (val->type()->kind() == c10::TypeKind::ListType) {
       auto list_in_vals = val->node()->inputs();
-      for (auto in_val : list_in_vals) {
+      for (auto* in_val : list_in_vals) {
         if (in_val->type()->kind() == c10::TypeKind::TensorType) {
           MarkProducerExternal(val);
         }
@@ -200,8 +202,9 @@ void PersistenceMarkerPass::ExternalMarkingPass(
         0,
         node->schema().operator_name(),
         habana_launch_op_ptr_->getNodeScalarType(node));
-    if (HabanaKernel == nullptr)
+    if (HabanaKernel == nullptr) {
       continue;
+    }
 
     // collective inputs must be set external in order to
     // trigger before graph execution ends

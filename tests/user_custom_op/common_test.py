@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ is_lazy = os.environ.get("PT_HPU_LAZY_MODE", "0") == "1"
 
 
 def load_library(is_lazy, legacy):
-    if is_lazy:
+    if is_lazy:  # noqa SIM108
         mode = "lazy_legacy" if legacy else "lazy"
     else:
         mode = "eager"

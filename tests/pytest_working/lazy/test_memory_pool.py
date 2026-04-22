@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -101,11 +101,7 @@ def pool_exhaust(device, pool_id):
         allocated_size = 1
         index = 0
         hpu_tensor_list = []
-        pool_sz = 0
-        if pool_size == 0 or pool_size is None:
-            pool_sz = 1 * gigabyte
-        else:
-            pool_sz = pool_sz * gigabyte
+        pool_sz = gigabyte if pool_size == 0 or pool_size is None else 0
         print("test bump pooling with pool size :: ", pool_sz)
         while allocated_size < (pool_sz - (pool_sz % allocated_size)):
             hpu_tensor_A = torch.randn(10000, 10000).to(device)
@@ -140,20 +136,14 @@ def pool_exhaust(device, pool_id):
 
 
 def is_aligned(dataptr):
-    if (dataptr % 128) == 0:
-        return True
-    else:
-        return False
+    return (dataptr % 128) == 0
 
 
 def is_contiguous(dp1, size, dp2):
     alignedsize = (size + 128 - 1) // 128 * 128
     print("in size :: ", size)
     print("alignedsize :: ", alignedsize)
-    if (dp1 + alignedsize) == dp2:
-        return True
-    else:
-        return False
+    return (dp1 + alignedsize) == dp2
 
 
 def check_alignment(device, pool_id):
@@ -186,10 +176,7 @@ def pool_coalesce(device, pool_id):
         allocated_size = 1
         index = 0
         hpu_tensor_list = []
-        if pool_size is None:
-            pool_sz = 1 * gigabyte
-        else:
-            pool_sz = pool_sz * gigabyte
+        pool_sz = 1 * gigabyte
         print("pool size :: ", pool_sz)
         while allocated_size < pool_sz:
             # print ("tensor :: ", index)
@@ -222,11 +209,7 @@ def pool_coalesce_stringent(device, pool_id):
         hpu_tensor_list = []
         if pool_size is None:
             pool_size = 1 * gigabyte
-        pool_sz = int(pool_size)
-        if pool_size == "0":
-            pool_sz = 1 * gigabyte
-        else:
-            pool_sz = pool_sz * gigabyte
+        pool_sz = gigabyte if pool_size == "0" else int(pool_size) * gigabyte
         print("pool size :: ", pool_sz)
         while allocated_size < pool_sz:
             # print ("tensor :: ", index)

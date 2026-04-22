@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -37,9 +37,7 @@ from habana_frameworks.torch.utils.internal import is_lazy
 import torch
 from torch._C._distributed_c10d import ProcessGroup
 from torch.distributed.constants import default_pg_timeout
-from torch.export.exported_program import ExportedProgram
 from torch.functional import Tensor
-from torch.fx import GraphModule
 
 LAZY_DEFAULT_PROTOCOL = 4
 
@@ -53,9 +51,7 @@ def _is_inference():
 
 
 def _names_hook_already_registered(module):
-    if hasattr(module, "names_hook") and module.names_hook is True:
-        return True
-    return False
+    return hasattr(module, "names_hook") and module.names_hook is True
 
 
 def _pre_fwd_hook(module, input):
@@ -65,7 +61,7 @@ def _pre_fwd_hook(module, input):
         try:
             if _is_inference() and _name_stack and "relu" in module.custom_name:
                 ns = str(_name_stack[-1])
-                if ns in _module_dict.keys():
+                if ns in _module_dict:
                     _module_dict[ns] += 1
                     new_name = _name_stack[-1] + "/" + module.custom_name + "." + str(_module_dict[ns])
                 else:
@@ -91,12 +87,9 @@ def _gen_grad_hook(name):
 def _post_fwd_hook(module, input, output):
     with _lock:
         module_name = _name_stack.pop()
-        if _is_inference() and module_name in _module_dict.keys():
+        if _is_inference() and module_name in _module_dict:
             del _module_dict[module_name]
-        if (_name_stack) and len(_name_stack):
-            name = _name_stack[-1]
-        else:
-            name = ""
+        name = _name_stack[-1] if _name_stack else ""
         grad_name = "gradient/" + module_name
         htdebug._set_module_name(name)
         try:
@@ -591,187 +584,3 @@ def overwrite_torch_functions():
 
     if is_lazy():
         torch.load = wrap_load
-
-
-# wrap native pt2e-quant apis required to work on HPU with graph-breaks
-
-
-# A data class which holds the native implementations of some pt2e functions
-# The fields that hold the implementations are set when overwrite_native_pt2e_quantization_interface() is called
-class NativeFunctions:
-    org_export = None
-    org_export_for_training = None
-    _did_overwrite_export_functions = False
-    org_prepare_pt2e = None
-    org_convert_pt2e = None
-    org_save_pt2e = None
-    org_load_pt2e = None
-    _did_overwrite_native_pt2e_quantization_interface = False
-
-
-def _native_pt2e_quantization_interface(name):
-    # Call this function, which saves the native functions in NativeFunction, if for some reason it hasn't happened yet
-    if any(
-        f is None
-        for f in [
-            NativeFunctions.org_load_pt2e,
-            NativeFunctions.org_save_pt2e,
-            NativeFunctions.org_convert_pt2e,
-            NativeFunctions.org_prepare_pt2e,
-        ]
-    ):
-        overwrite_native_pt2e_quantization_interface()
-
-    if NativeFunctions.org_export is None or NativeFunctions.org_export_for_training is None:
-        overwrite_export_functions()
-
-    return {
-        "export.export": NativeFunctions.org_export,
-        "export.export_for_training": NativeFunctions.org_export_for_training,
-        "prepare_pt2e": NativeFunctions.org_prepare_pt2e,
-        "convert_pt2e": NativeFunctions.org_convert_pt2e,
-        "save_pt2e": NativeFunctions.org_save_pt2e,
-        "load_pt2e": NativeFunctions.org_load_pt2e,
-    }.get(name)
-
-
-def overwrite_export_functions():
-    # calling this function more than one time makes the wrapper wrap itself, causing infinite recursion, hence the guard to make sure it doesn't happen
-    if NativeFunctions._did_overwrite_export_functions:
-        return
-
-    NativeFunctions._did_overwrite_export_functions = True
-
-    NativeFunctions.org_export = torch.export.export
-    NativeFunctions.org_export_for_training = torch.export.export_for_training
-
-    from habana_frameworks.torch.core.quantize_pt2e import export as habana_export
-
-    # add export_type field in kwargs
-    def add_export_type_kwargs(kwargs, type_name):
-        if not kwargs:
-            kwargs = {"export_type": type_name}
-        else:
-            kwargs.update({"export_type": type_name})
-        return kwargs
-
-    # wrap torch.export.export
-    @wraps(torch.export.export)
-    def wrap_export(
-        mod: torch.nn.Module,
-        args: tuple[Any, ...] = None,
-        kwargs: dict[str, Any] | None = None,
-        *,
-        dynamic_shapes: dict[str, Any] | tuple[Any] | list[Any] | None = None,
-        strict: bool = True,
-        preserve_module_call_signature: tuple[str, ...] = (),
-    ) -> torch.nn.Module | ExportedProgram | GraphModule:
-        return habana_export(
-            mod,
-            args,
-            add_export_type_kwargs(kwargs, "export.export"),
-            dynamic_shapes=dynamic_shapes,
-            strict=strict,
-            preserve_module_call_signature=preserve_module_call_signature,
-        )
-
-    # wrap torch.export.export_for_training
-    @wraps(torch.export.export_for_training)
-    def wrap_export_for_training(
-        mod: torch.nn.Module,
-        args: tuple[Any, ...] = None,
-        kwargs: dict[str, Any] | None = None,
-        *,
-        dynamic_shapes: dict[str, Any] | tuple[Any] | list[Any] | None = None,
-        strict: bool = True,
-        preserve_module_call_signature: tuple[str, ...] = (),
-    ) -> torch.nn.Module | ExportedProgram | GraphModule:
-        return habana_export(
-            mod,
-            args,
-            add_export_type_kwargs(kwargs, "export.export_for_training"),
-            dynamic_shapes=dynamic_shapes,
-            strict=strict,
-            preserve_module_call_signature=preserve_module_call_signature,
-        )
-
-    torch.export.export = wrap_export
-    torch.export.export_for_training = wrap_export_for_training
-
-
-def overwrite_native_pt2e_quantization_interface():
-    # calling this function more than one time makes the wrappers wrap themselves, causing infinite recursion, hence the guard to make sure it doesn't happen
-    if NativeFunctions._did_overwrite_native_pt2e_quantization_interface:
-        return
-
-    NativeFunctions._did_overwrite_native_pt2e_quantization_interface = True
-    # PT 2.5 changes add torch.ao.quantization.observer for dynamo tracing
-    from torch._dynamo.trace_rules import MOD_INLINELIST
-    from torch.ao.quantization import quantize_pt2e
-
-    MOD_INLINELIST.add("torch.ao.quantization.observer")
-
-    # This is to make sure the native funcitons implementations are saved in NativeFunctions before overwriting them
-    NativeFunctions.org_convert_pt2e = quantize_pt2e.convert_pt2e
-    NativeFunctions.org_prepare_pt2e = quantize_pt2e.prepare_pt2e
-    NativeFunctions.org_save_pt2e = torch.export.save
-    NativeFunctions.org_load_pt2e = torch.export.load
-
-    from torch.ao.quantization.quantizer import Quantizer
-    from torch.fx import GraphModule
-
-    # wrap prepare_pt2e
-    @wraps(quantize_pt2e.prepare_pt2e)
-    def wrap_prepare_pt2e(
-        model: GraphModule,
-        quantizer: Quantizer,
-    ) -> GraphModule:
-        from habana_frameworks.torch.core.quantize_pt2e import prepare_pt2e
-
-        return prepare_pt2e(model, quantizer)
-
-    quantize_pt2e.prepare_pt2e = wrap_prepare_pt2e
-
-    # wrap convert_pt2e
-    @wraps(quantize_pt2e.convert_pt2e)
-    def wrap_convert_pt2e(
-        model: GraphModule,
-        use_reference_representation: bool = False,
-        fold_quantize: bool = True,
-    ) -> GraphModule:
-        from habana_frameworks.torch.core.quantize_pt2e import convert_pt2e
-
-        return convert_pt2e(model, use_reference_representation, fold_quantize)
-
-    quantize_pt2e.convert_pt2e = wrap_convert_pt2e
-
-    import io
-
-    # wrap torch.export.save
-    @wraps(torch.export.save)
-    def wrap_torch_export_save(
-        model: Any,  # e.g. torch.nn.Module, GraphModule, ExportedProgram
-        f: str | os.PathLike | io.BytesIO,
-        *,
-        extra_files: dict[str, Any] | None = None,
-        opset_version: dict[str, int] | None = None,
-    ) -> None:
-        from habana_frameworks.torch.core.quantize_pt2e import save_pt2e
-
-        return save_pt2e(model, f, extra_files=extra_files, opset_version=opset_version)
-
-    torch.export.save = wrap_torch_export_save
-
-    # wrap torch.export.load
-    @wraps(torch.export.load)
-    def wrap_torch_export_load(
-        f: str | os.PathLike | io.BytesIO,
-        *,
-        extra_files: dict[str, Any] | None = None,
-        expected_opset_version: dict[str, int] | None = None,
-    ) -> Any:
-        from habana_frameworks.torch.core.quantize_pt2e import load_pt2e
-
-        return load_pt2e(f, extra_files=extra_files, expected_opset_version=expected_opset_version)
-
-    torch.export.load = wrap_torch_export_load

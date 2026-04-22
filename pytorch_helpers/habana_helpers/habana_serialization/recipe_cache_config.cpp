@@ -15,20 +15,14 @@
 
 #include "recipe_cache_config.h"
 
-#include <algorithm>
-#include <array>
 #include <cstdlib>
-#include <functional>
-#include <iostream>
-#include <mutex>
+#include <sstream>
 #include <string>
-#include <type_traits>
 #include <vector>
 
 #include "backend/helpers/runtime_config.h"
-#include "backend/synapse_helpers/env_flags.h"
+#include "backend/synapse_helpers/env_flags_impl.h"
 #include "habana_helpers/logging.h"
-#include "habana_helpers/misc_utils.h"
 
 namespace serialization {
 
@@ -43,7 +37,8 @@ void RecipeCacheConfig::reload() {
   delete_cache_on_init_ = false;
   cache_on_nfs_ = false;
 
-  if (!IS_ENV_FLAG_DEFINED_NEW(PT_HPU_RECIPE_CACHE_CONFIG)) {
+  if (!IS_ENV_FLAG_DEFINED_NEW(
+          PT_HPU_RECIPE_CACHE_CONFIG)) { // NOLINT(misc-include-cleaner)
     return;
   }
 
@@ -57,7 +52,7 @@ void RecipeCacheConfig::reload() {
   cache_directory_path_ = params[0];
   if (habana_helpers::IsInferenceMode()) {
     const char* s_rank = std::getenv("RANK");
-    auto rank = s_rank ? std::atoi(s_rank) : 0;
+    auto rank = (s_rank != nullptr) ? std::atoi(s_rank) : 0;
     cache_directory_path_ += std::to_string(rank);
   }
 

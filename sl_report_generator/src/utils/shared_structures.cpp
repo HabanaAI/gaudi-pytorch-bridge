@@ -55,8 +55,9 @@ std::string InputDescriptor::getDtypesStr() const {
     for (auto dtype_it = std::begin(values); dtype_it != std::end(values);
          ++dtype_it) {
       dtypes_str += at::toString(*dtype_it);
-      if (std::next(dtype_it) != std::end(values))
+      if (std::next(dtype_it) != std::end(values)) {
         dtypes_str += ", ";
+      }
     }
     dtypes_str += "]";
   }
@@ -94,8 +95,9 @@ std::string InputDescriptor::getRanksStr() const {
     for (auto rank_it = std::begin(values); rank_it != std::end(values);
          ++rank_it) {
       ranks_str += std::to_string(*rank_it);
-      if (std::next(rank_it) != std::end(values))
+      if (std::next(rank_it) != std::end(values)) {
         ranks_str += ", ";
+      }
     }
     ranks_str += "]";
   }
@@ -150,8 +152,9 @@ std::string InputDescriptor::getValuesStr() const {
       } else {
         values_str << std::string("unknown:") << val_type_name;
       }
-      if (std::next(val_it) != std::end(vals))
+      if (std::next(val_it) != std::end(vals)) {
         values_str << ", ";
+      }
     }
     values_str << "]";
   }
@@ -184,17 +187,17 @@ std::ostream& operator<<(
 
 bool& Report::operator[](const c10::ScalarType& precision_type) {
   auto it = support_map.find(precision_type);
-  if (it == std::end(support_map))
+  if (it == std::end(support_map)) {
     support_map[precision_type] = false;
-
+  }
   return support_map[precision_type];
 }
 
 bool Report::operator[](const c10::ScalarType& precision_type) const {
   auto it = support_map.find(precision_type);
-  if (it == std::end(support_map))
+  if (it == std::end(support_map)) {
     return false;
-
+  }
   return support_map.at(precision_type);
 }
 

@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2025 Intel Corporation
+# Copyright (c) 2025-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -172,7 +172,7 @@ class Op:
 
     def get_lazy(self):
         lazy_desc = self.op.get("lazy", {})
-        if not all(key in allowed_lazy_keys for key in lazy_desc.keys()):
+        if not all(key in allowed_lazy_keys for key in lazy_desc):
             raise AssertionError(
                 f"Only {allowed_lazy_keys} are supported for lazy, but {lazy_desc.keys()} are provided for {self.opname}. In order to support another property, please add proper handling in Op class in {os.path.realpath(__file__)}"
             )
@@ -192,9 +192,7 @@ class Op:
 
     def is_eager_op(self):
         override_fn = self.get_override_fn()
-        if override_fn and "lazy" in override_fn:
-            return False
-        return True
+        return not (override_fn and "lazy" in override_fn)
 
     def treat_as_dtdf(self):
         return self.op.get("treat_as_dtdf", False)

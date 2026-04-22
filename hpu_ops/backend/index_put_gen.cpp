@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -74,8 +74,8 @@ static void validate_cat_tensor_dim_sizes(
   for (i = 1; i < tensor_count; i++) {
     // check whether sizes along dimensions match except for cat dimension.
     unsigned j = 0;
-    auto sz1 = tensors->at(i);
-    auto sz2 = tensors->at(tempT_i);
+    const auto& sz1 = tensors->at(i);
+    const auto& sz2 = tensors->at(tempT_i);
     for (j = 0; j < tensors->at(i).size(); j++) {
       if (j != dim && (sz1[j] - sz2[j]) != 0) {
         HABANA_ASSERT(
@@ -92,9 +92,11 @@ static std::vector<int64_t> CalcCatOutSize(
     int64_t* dim_inp) {
   auto tensor_count = tensors->size();
 
-  if (tensor_count == 0) // if tensor is empty or its first element is empty,
-                         // then concatenate out size is 0
+  if (tensor_count == 0) {
+    // if tensor is empty or its first element is empty,
+    // then concatenate out size is 0
     return {0};
+  }
   int64_t dim = at::maybe_wrap_dim(
       *dim_inp,
       static_cast<int64_t>(tensors->at(0).size()),
@@ -162,12 +164,15 @@ static synapse_helpers::tensor HandleIndexPutWithAcc(
   auto scatter_indices_shape = catop.pt_shape();
   // Convert indices to values (ravelling indices) for sorting
   std::vector<int64_t> indices_shape;
-  for (size_t i = 0; i < rank_idx; ++i)
+  indices_shape.reserve(rank_idx);
+  for (size_t i = 0; i < rank_idx; ++i) {
     indices_shape.push_back(self.sizes().vec()[i]);
+  }
   // Compute multiplication factor for each dimension
   std::vector<int64_t> mul_factor_v{1};
-  for (size_t i = 0; i < indices_shape.size() - 1; i++)
+  for (size_t i = 0; i < indices_shape.size() - 1; i++) {
     mul_factor_v.push_back(mul_factor_v[i] * indices_shape[i]);
+  }
 
   // auto mul_factor = torch::from_blob(
   //     mul_factor_v.data(), {1, int64_t(mul_factor_v.size())}, torch::kInt);
@@ -275,7 +280,7 @@ static synapse_helpers::tensor HandleIndexPutWithAcc(
   long gather_dim = 0;
   gather_params.axis =
       static_cast<int>(size1 - static_cast<size_t>(gather_dim) - 1);
-  if (size1) {
+  if (size1 != 0U) {
     // for gather op, output size is same as index
     if (size1 == size2) {
       outshape = sort_res1.pt_shape();
@@ -316,9 +321,9 @@ static synapse_helpers::tensor HandleIndexPutWithAcc(
   std::string cast_guid{};
   auto scatter_nd_fwd_dtype = self_scalar_type;
   at::ScalarType cast_dtype = self_scalar_type;
-  bool cast_needed = false;
-  if ((cast_needed = CheckAndGetCastGuid(
-           "scatter_nd_fwd", self_scalar_type, cast_guid, cast_dtype))) {
+  const bool cast_needed = CheckAndGetCastGuid(
+      "scatter_nd_fwd", self_scalar_type, cast_guid, cast_dtype);
+  if (cast_needed) {
     scatter_nd_fwd_dtype = cast_dtype;
   }
   std::vector<synapse_helpers::tensor> next_node;
@@ -424,8 +429,9 @@ void IndexPutEager::AddNode(
     value_upd_dim = values.sizes().vec();
   }
 
-  for (size_t i = rank_idx; i < rank_inp; ++i)
+  for (size_t i = rank_idx; i < rank_inp; ++i) {
     value_upd_dim.push_back(self.sizes().vec()[i]);
+  }
 
   // value_upd_dim is the final shape we want for values tensor to match
   // scatter_nd_onnx requirements. Either broadcast of reshape input values
@@ -437,10 +443,11 @@ void IndexPutEager::AddNode(
         std::end(value_upd_dim),
         1,
         std::multiplies<int>());
-    if (broadcastFromElements < broadcastToElements)
+    if (broadcastFromElements < broadcastToElements) {
       value_upd_dim.insert(
           std::begin(value_upd_dim),
           broadcastToElements / broadcastFromElements);
+    }
   }
 
   values_bcast_or_reshape_sh_tensor.emplace_back(
@@ -455,7 +462,6 @@ void IndexPutEager::AddNode(
   std::string cast_guid{};
   auto scatter_nd_onnx_fwd_dtype = self_scalar_type;
   at::ScalarType cast_dtype = self_scalar_type;
-  bool cast_needed = false;
 
   auto isScaterNdUpdateRequired = [](auto selfShape,
                                      auto indicesShape) -> bool {
@@ -464,12 +470,12 @@ void IndexPutEager::AddNode(
     int64_t totalIndices = 1;
     int64_t totalScatters = 1;
 
-    for (size_t i = 0; i < indicesRank - 1; i++)
+    for (size_t i = 0; i < indicesRank - 1; i++) {
       totalIndices *= std::max(indicesShape[i], 1L);
-
-    for (size_t i = 0; i < indicesFcd; i++)
+    }
+    for (size_t i = 0; i < indicesFcd; i++) {
       totalScatters *= std::max(selfShape[i], 1L);
-
+    }
     return totalIndices > totalScatters;
   };
 
@@ -478,8 +484,9 @@ void IndexPutEager::AddNode(
       ? "scatter_nd_update_fwd"sv
       : "scatter_nd_onnx_fwd"sv;
 
-  if ((cast_needed = CheckAndGetCastGuid(
-           scatterGuidName, self_scalar_type, cast_guid, cast_dtype))) {
+  const bool cast_needed = CheckAndGetCastGuid(
+      scatterGuidName, self_scalar_type, cast_guid, cast_dtype);
+  if (cast_needed) {
     scatter_nd_onnx_fwd_dtype = cast_dtype;
   }
 
@@ -618,9 +625,9 @@ void IndexPutBoolEager::AddNode(
     new_shape.insert(new_shape.end(), missing, 1);
     ns_ExpandMultiDimsKernel::Params params;
     params.expand_axes_mask = 0;
-    for (size_t i = 0; i < missing; i++)
+    for (size_t i = 0; i < missing; i++) {
       params.expand_axes_mask |= (1 << i);
-
+    }
     return this->BuildOp(
         graph,
         "expand_multi_dims_fwd",
@@ -716,8 +723,9 @@ void IndexPutBoolEager::AddNode(
   // Calculate the dimensionality of updates for broadcasting
   auto rank_inp = static_cast<size_t>(self.ndimension());
   size_t rank_idx = 0;
-  for (size_t i = 0; i < indices.size(); i++)
+  for (size_t i = 0; i < indices.size(); i++) {
     rank_idx += indices[i].dim();
+  }
   auto values_scalar_type = values.scalar_type();
   std::vector<int64_t> value_upd_dim;
   if (values.numel() >
@@ -725,15 +733,18 @@ void IndexPutBoolEager::AddNode(
     // count in indices will match values numel
     auto indices_fcd = cat_pt_shape[1];
     // Take leading dimensions of value from indices tensor
-    for (size_t i = 0; i < cat_pt_shape.size() - 1; i++)
+    for (size_t i = 0; i < cat_pt_shape.size() - 1; i++) {
       value_upd_dim.push_back(cat_pt_shape[i]);
+    }
     // Take trailing dims of value from self
-    for (size_t i = indices_fcd; i < self_sizes.size(); i++)
+    for (size_t i = indices_fcd; i < self_sizes.size(); i++) {
       value_upd_dim.push_back(self_sizes[i]);
+    }
   } else { // We are assuming uses passes value shapes correctly for scatter
     value_upd_dim.push_back(cat_pt_shape[0]);
-    for (size_t i = rank_idx; i < rank_inp; i++)
+    for (size_t i = rank_idx; i < rank_inp; i++) {
       value_upd_dim.push_back(self_sizes[i]);
+    }
   }
   auto bcastOp = BuildOp(
       graph,
@@ -826,8 +837,9 @@ static synapse_helpers::tensor IndexPutLongHelper(
     value_upd_dim = values.sizes().vec();
   }
 
-  for (size_t i = rank_idx; i < rank_inp; ++i)
+  for (size_t i = rank_idx; i < rank_inp; ++i) {
     value_upd_dim.push_back(self.sizes().vec()[i]);
+  }
   auto values_scalar_type = values.scalar_type();
   std::vector<synapse_helpers::tensor> values_bcast_or_reshape_sh_tensor;
   // value_upd_dim is the final shape we want for values tensor to match
@@ -847,9 +859,9 @@ static synapse_helpers::tensor IndexPutLongHelper(
   std::string cast_guid{};
   auto scatter_nd_onnx_fwd_dtype = self_scalar_type;
   at::ScalarType cast_dtype = self_scalar_type;
-  bool cast_needed = false;
-  if ((cast_needed = CheckAndGetCastGuid(
-           "scatter_nd_onnx_fwd", self_scalar_type, cast_guid, cast_dtype))) {
+  const bool cast_needed = CheckAndGetCastGuid(
+      "scatter_nd_onnx_fwd", self_scalar_type, cast_guid, cast_dtype);
+  if (cast_needed) {
     scatter_nd_onnx_fwd_dtype = cast_dtype;
   }
 
@@ -1145,8 +1157,9 @@ void IndexPutCompile::AddNode(
   // Calculate the dimensionality of updates for broadcasting
   auto rank_inp = static_cast<size_t>(self.ndimension());
   size_t rank_idx = 0;
-  for (size_t i = 0; i < indices.size(); i++)
+  for (size_t i = 0; i < indices.size(); i++) {
     rank_idx += indices[i].dim();
+  }
   auto values_scalar_type = values.scalar_type();
   std::vector<int64_t> value_upd_dim;
   if (values.numel() >
@@ -1155,15 +1168,18 @@ void IndexPutCompile::AddNode(
     auto values_sizes = values.sizes().vec();
     auto indices_fcd = cat_pt_shape[1];
     // Take leading dimensions of value from indices tensor
-    for (size_t i = 0; i < cat_pt_shape.size() - 1; i++)
+    for (size_t i = 0; i < cat_pt_shape.size() - 1; i++) {
       value_upd_dim.push_back(cat_pt_shape[i]);
+    }
     // Take trailing dims of value from self
-    for (size_t i = indices_fcd; i < self_sizes.size(); i++)
+    for (size_t i = indices_fcd; i < self_sizes.size(); i++) {
       value_upd_dim.push_back(self_sizes[i]);
+    }
   } else { // We are assuming uses passes value shapes correctly for scatter
     value_upd_dim.push_back(cat_pt_shape[0]);
-    for (size_t i = rank_idx; i < rank_inp; i++)
+    for (size_t i = rank_idx; i < rank_inp; i++) {
       value_upd_dim.push_back(self_sizes[i]);
+    }
   }
 
   auto bcastOp = BroadcastHelper(

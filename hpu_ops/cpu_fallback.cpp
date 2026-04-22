@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,9 +24,9 @@ namespace habana {
 
 bool isInplaceOp(std::string op_name) {
   auto pos = op_name.find('.');
-  if (pos == std::string::npos)
+  if (pos == std::string::npos) {
     pos = op_name.length();
-
+  }
   const std::string sub = op_name.substr(0, pos);
   const at::Symbol m_symbol(at::Symbol::fromQualString(sub));
   return habana_lazy::is_inplace(m_symbol);
@@ -47,10 +47,12 @@ at::Tensor& prepare_out(
     at::Tensor& from,
     at::Tensor& copy,
     at::ScalarType float_dtype) {
-  if (!from.is_floating_point())
+  if (!from.is_floating_point()) {
     return from;
-  if (from.dtype() == float_dtype)
+  }
+  if (from.dtype() == float_dtype) {
     return from;
+  }
   copy = at::empty(
       from.sizes(),
       float_dtype,

@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -44,7 +44,7 @@ def pass_propose_collective_blocks(ctx: OptimizerContext) -> bool:
 
     # Build color graph
     for node in ctx.graph_module.graph.nodes:
-        for user in node.users.keys():
+        for user in node.users:
             user_color = user.meta.get("collective_block_color")
             node_color = node.meta.get("collective_block_color")
             color_graph.add_node(user_color, node_color)

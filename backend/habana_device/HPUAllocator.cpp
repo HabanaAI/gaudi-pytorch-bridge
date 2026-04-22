@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,7 +35,8 @@ HPUDeviceAllocator& getRawHpuDeviceAllocator() {
 at::DataPtr CreateDataPtr(void* v_ptr, size_t num_bytes) {
   if (v_ptr != nullptr) {
     // create HPUAllocationContext only for non-empty allocation
-    auto ctx = new HPUAllocationContext;
+    auto* ctx =
+        new HPUAllocationContext; // NOLINT(cppcoreguidelines-owning-memory)
     ctx->data_ptr = v_ptr;
     ctx->num_bytes = num_bytes;
     PT_EAGER_DEBUG(
@@ -145,20 +146,20 @@ void HPUDeviceAllocator::deleter(void* ptr) {
 }
 
 void HPUDeviceAllocator::real_deleter(void* ptr) {
-  if (!HPUDeviceContext::is_device_acquired())
+  if (!HPUDeviceContext::is_device_acquired()) {
     return;
-
+  }
   synStatus status;
   auto& device = HPUDeviceContext::get_device(
       HPUDeviceAllocator::allocator_active_device_id);
   if (ptr != nullptr) {
-    auto alloc_ctx = reinterpret_cast<HPUAllocationContext*>(ptr);
+    auto* alloc_ctx = reinterpret_cast<HPUAllocationContext*>(ptr);
     if (common::IsRecordStreamEnabled()) {
       status = device.get_device_memory().free_with_stream(alloc_ctx->data_ptr);
     } else {
       status = device.get_device_memory().free(alloc_ctx->data_ptr);
     }
-    delete alloc_ctx;
+    delete alloc_ctx; // NOLINT(cppcoreguidelines-owning-memory)
   } else {
     if (common::IsRecordStreamEnabled()) {
       status = device.get_device_memory().free_with_stream(ptr);
@@ -239,11 +240,12 @@ at::DeleterFnPtr HPUDeviceAllocator::raw_deleter() const {
 void HPUDeviceAllocator::recordStream(
     const at::DataPtr& ptr,
     c10::hpu::HPUStream stream) {
-  if (!common::IsRecordStreamEnabled())
+  if (!common::IsRecordStreamEnabled()) {
     return;
+  }
   // Empty tensor's storage().data() might be a null ptr. As there is no
   // blocks associated with those tensors, it is fine to do nothing here.
-  if (!ptr.get()) {
+  if (ptr == nullptr) {
     return;
   }
 
@@ -252,9 +254,9 @@ void HPUDeviceAllocator::recordStream(
   // we have implemented reference counting based sharing mechanism to
   // guarantee tensors won't be accidentally freed by one process while
   // they are still being used in another
-  if (ptr.get_deleter() != &HPUDeviceAllocator::deleter)
+  if (ptr.get_deleter() != &HPUDeviceAllocator::deleter) {
     return;
-
+  }
   if (unsigned(-1) == habana::HPUDeviceAllocator::allocator_active_device_id) {
     return;
   }

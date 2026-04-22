@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -53,10 +53,10 @@ void handleScale(
   }
 
   // If scale is a Scalar, create a const tensor first.
-  const auto scale_value = scale.toIValue();
+  const auto& scale_value = scale.toIValue();
   if (scale_value.isDouble()) {
     const_scales.emplace_back(
-        op->BuildConstantTensor(op, graph, scale_value.toDouble()));
+        OpBackend::BuildConstantTensor(op, graph, scale_value.toDouble()));
     syn_inputs.push_back(const_scales.back().get());
   } else {
     syn_inputs.push_back(nullptr);
@@ -66,11 +66,12 @@ void handleScale(
 } // namespace
 
 OutputMetaDataVector SoftmaxFp8Meta(const at::Stack& stack) {
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.shape = stack_tensor(stack, 0).sizes().vec();
   meta.dtype = stack[2].isNone() ? at::ScalarType::BFloat16
                                  : at::ScalarType::Float8_e4m3fn;
-  return {meta};
+  return metaVec;
 }
 
 SharedMetaDataVector SoftmaxFp8SharedMeta(
@@ -81,7 +82,9 @@ SharedMetaDataVector SoftmaxFp8SharedMeta(
       ? at::ScalarType::BFloat16
       : at::ScalarType::Float8_e4m3fn;
 
-  SharedMetaData sharedMeta("softmax_fwd");
+  SharedMetaDataVector sharedMetaVec;
+  sharedMetaVec.reserve(1);
+  auto& sharedMeta = sharedMetaVec.emplace_back("softmax_fwd");
   // CGUID inputs order is: A, B, scales, bias, D
   sharedMeta.inputs_data = {
       getSharedMetaFromTensor(input),
@@ -95,7 +98,7 @@ SharedMetaDataVector SoftmaxFp8SharedMeta(
 
   sharedMeta.outputs_data.emplace_back(input.dim(), outDtype);
 
-  return {sharedMeta};
+  return sharedMetaVec;
 }
 
 void SoftmaxFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
@@ -143,21 +146,27 @@ void SoftmaxFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
         (self.pt_t.sizes()[0] == fused_add_opt->pt_t.sizes()[0] &&
          self.pt_t.sizes()[rank - 1] == fused_add_opt->pt_t.sizes()[rank - 1]),
         "FusedAdd tensor must have the same first and last dim as the input tensor");
-    for (int dim_id = 1; dim_id < rank - 1; dim_id++)
+    for (int dim_id = 1; dim_id < rank - 1; dim_id++) {
       HABANA_ASSERT(
           (fused_add_opt->pt_t.sizes()[dim_id] == 1 ||
            fused_add_opt->pt_t.sizes()[dim_id] == self.pt_t.sizes()[dim_id]),
           "FusedAdd tensor's dim other than first and last should be equal to 1 or the same as the input tensor");
+    }
   }
 
   ns_Softmax::ParamsV7 params{};
   params.dim = static_cast<int>(rank - dim - 1);
-  int mode = is_input_scale ? self_dtype == at::ScalarType::Float8_e4m3fn
-          ? SoftmaxMode_t::SOFTMAX_HF8_2B
-          : SoftmaxMode_t::SOFTMAX_HF8_1B
-                            : SoftmaxMode_t::SOFTMAX_HF8_1C;
-  if (fused_add_opt)
+  int mode;
+  if (is_input_scale) {
+    mode = (self_dtype == at::ScalarType::Float8_e4m3fn)
+        ? SoftmaxMode_t::SOFTMAX_HF8_2B
+        : SoftmaxMode_t::SOFTMAX_HF8_1B;
+  } else {
+    mode = SoftmaxMode_t::SOFTMAX_HF8_1C;
+  }
+  if (fused_add_opt) {
     mode |= SoftmaxMode_t::FUSED_ADD;
+  }
   params.mode = static_cast<SoftmaxMode_t>(mode);
 
   // valid count, max tensor, and reciprocal sum of EXP are optional tensors

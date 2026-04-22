@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ namespace jitgraph_utils {
 
 int64_t isInGraphInputs(const habana_torch::jit::Value* value) {
   auto graph_ins = value->owningGraph()->inputs();
-  auto it = std::find_if(
+  const auto* it = std::find_if(
       graph_ins.cbegin(),
       graph_ins.cend(),
       [&](const habana_torch::jit::Value* value_in) {
@@ -42,7 +42,7 @@ habana_torch::jit::Node* returnNodeUsesValue(
     std::list<std::string> Opslist) {
   auto uses = value->uses();
   for (auto u : uses) {
-    auto restride_node = u.user;
+    auto* restride_node = u.user;
     auto it = std::find(
         Opslist.begin(), Opslist.end(), restride_node->kind().toQualString());
     if (it != Opslist.end()) {
@@ -53,16 +53,15 @@ habana_torch::jit::Node* returnNodeUsesValue(
 }
 
 bool IsOutputToRestride(const habana_torch::jit::Value* value) {
-  return returnNodeUsesValue(value, {"hpu::restride_cl", "hpu::restride"})
-      ? true
-      : false;
+  return returnNodeUsesValue(value, {"hpu::restride_cl", "hpu::restride"}) !=
+      nullptr;
 }
 
 habana_torch::jit::Value* GetRestridedOutvalue(
     const habana_torch::jit::Value* val) {
-  auto restride_node =
+  auto* restride_node =
       returnNodeUsesValue(val, {"hpu::restride_cl", "hpu::restride"});
-  return restride_node ? restride_node->output(0) : nullptr;
+  return restride_node != nullptr ? restride_node->output(0) : nullptr;
 }
 
 habana_torch::jit::Node* GetUnpackNodeFromTensorList(
@@ -78,8 +77,8 @@ bool isInGraphOutputs(const habana_torch::jit::Node* node, size_t index) {
 }
 
 bool isOutputCollective(const habana_torch::jit::Node* node) {
-  for (auto node_outs : node->outputs()) {
-    for (auto& u : node_outs->uses()) {
+  for (const auto* node_outs : node->outputs()) {
+    for (const auto& u : node_outs->uses()) {
       if (habana_helpers::IsCollective(u.user->kind())) {
         return true;
       }
@@ -99,17 +98,17 @@ bool isInGraphOutputs(const habana_torch::jit::Node* node) {
 
 bool isInGraphOutputs(const habana_torch::jit::Value* value) {
   auto graph_outs = value->owningGraph()->outputs();
-  for (auto value_out : graph_outs) {
+  for (const auto* value_out : graph_outs) {
     if (value->unique() == value_out->unique()) {
       return true;
     }
   }
   // return if graph output is restrided node output
   if (IsOutputToRestride(value)) {
-    auto value_restrided = GetRestridedOutvalue(value);
+    auto* value_restrided = GetRestridedOutvalue(value);
     HABANA_ASSERT(nullptr != value_restrided, "Restrided value output is null");
     auto graph_outs = value->owningGraph()->outputs();
-    for (auto value_out : graph_outs) {
+    for (const auto* value_out : graph_outs) {
       if (value_restrided->unique() == value_out->unique()) {
         return true;
       }
@@ -119,7 +118,7 @@ bool isInGraphOutputs(const habana_torch::jit::Value* value) {
 }
 
 bool isListNode(const habana_torch::jit::Node* node) {
-  auto node_str = node->kind().toQualString();
+  const auto* node_str = node->kind().toQualString();
   bool is_list_node = false;
   if ((strcmp(node_str, "prim::ListUnpack") == 0) ||
       (strcmp(node_str, "prim::ListConstruct") == 0)) {
@@ -129,14 +128,15 @@ bool isListNode(const habana_torch::jit::Node* node) {
 }
 
 int inplaceInputId(const habana_torch::jit::Node* node) {
-  auto node_name = node->kind().toQualString();
+  const auto* node_name = node->kind().toQualString();
   size_t len = strlen(node_name);
   char endch = node_name[len - 1];
   char before_endch = (len > 1) ? node_name[len - 2] : ' ';
   int inputId = -1;
   // operators of the form op_ and __iop__ are inplace
   // but operators of the form op and __op__ are not:
-  if ((endch == '_' && before_endch != '_') || strstr(node_name, "__i")) {
+  if ((endch == '_' && before_endch != '_') ||
+      strstr(node_name, "__i") != nullptr) {
     inputId = 0;
   } else if (strcmp(node_name, "hpu::habana_d2d_memcpy_other") == 0) {
     // Matching how MemCopyOperator::AllocateAndAddSynapseNode() calls
@@ -151,7 +151,7 @@ c10::ArrayRef<habana_torch::jit::Value*> getNodeOutputs(
   auto node_outs = node->outputs();
   if (*node->output(0)->type() == *habana_torch::jit::ListType::ofTensors() &&
       node->outputs().size() == 1) {
-    auto unpack_node = GetUnpackNodeFromTensorList(node->output(0));
+    auto* unpack_node = GetUnpackNodeFromTensorList(node->output(0));
     HABANA_ASSERT(
         unpack_node != nullptr,
         "TensorList is not input to ListUnpack node. Node: ",
@@ -167,7 +167,7 @@ void visit_prim_node(
         const habana_torch::jit::Value*,
         habana_torch::jit::IValue>& val_to_ival_map) {
   if (habana_torch::jit::prim::Constant == node->kind()) {
-    for (const auto value : node->outputs()) {
+    for (const auto* const value : node->outputs()) {
       HABANA_ASSERT(val_to_ival_map.count(value) == 0);
       auto opt_val = habana_torch::jit::toIValue(value);
       HABANA_ASSERT(
@@ -177,7 +177,7 @@ void visit_prim_node(
   } else if (habana_torch::jit::prim::ListConstruct == node->kind()) {
     auto node_outputs = node->outputs();
     HABANA_ASSERT(node_outputs.size() == 1);
-    auto value{node_outputs[0]};
+    const auto* value{node_outputs[0]};
     const auto& node_ins = node->inputs();
 
     // Handle empty list
@@ -191,7 +191,7 @@ void visit_prim_node(
     if (in_ivalue_0.isTensor()) {
       // Handle construction of list consisting tensor only
       std::vector<at::Tensor> tensorList;
-      for (const auto input : node->inputs()) {
+      for (const auto* const input : node->inputs()) {
         HABANA_ASSERT(val_to_ival_map.count(input));
         auto input_ival = val_to_ival_map[input];
         HABANA_ASSERT(input_ival.isTensor());

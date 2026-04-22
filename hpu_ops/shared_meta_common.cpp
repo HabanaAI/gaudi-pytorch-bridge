@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 
 #include "hpu_ops/shared_meta_common.h"
 #include <unordered_set>
+#include "backend/habana_operator.h"
 #include "backend/helpers/runtime_config.h"
 #include "hpu_ops/backend/foreach.h"
 
@@ -55,11 +56,13 @@ SharedMetaDataVector Input0SharedMeta(
     const std::string& guid) {
   const auto& input = stack_tensor(stack, 0);
 
-  SharedMetaData meta{guid};
+  SharedMetaDataVector metaVec;
+  metaVec.reserve(1);
+  auto& meta = metaVec.emplace_back(guid);
   meta.inputs_data = {{input.dim(), input.scalar_type()}};
   meta.outputs_data = {meta.inputs_data[0]};
 
-  return {meta};
+  return metaVec;
 }
 
 SharedMetaDataVector Input0ToOut0And1SharedMeta(
@@ -67,12 +70,14 @@ SharedMetaDataVector Input0ToOut0And1SharedMeta(
     const std::string& guid) {
   const auto& input = stack_tensor(stack, 0);
 
-  SharedMetaData meta{guid};
+  SharedMetaDataVector metaVec;
+  metaVec.reserve(1);
+  auto& meta = metaVec.emplace_back(guid);
   SharedMetaTensor inOutTensor = {input.dim(), input.scalar_type()};
   meta.inputs_data = {inOutTensor};
   meta.outputs_data = {inOutTensor, inOutTensor};
 
-  return {meta};
+  return metaVec;
 }
 
 SharedMetaDataVector AdaptiveBwdSharedMeta(
@@ -81,12 +86,14 @@ SharedMetaDataVector AdaptiveBwdSharedMeta(
   const auto& grad = stack_tensor(stack, 0);
   const auto& input = stack_tensor(stack, 1);
 
-  SharedMetaData meta{guid};
+  SharedMetaDataVector metaVec;
+  metaVec.reserve(1);
+  auto& meta = metaVec.emplace_back(guid);
   meta.inputs_data = {
       {grad.dim(), grad.scalar_type()}, {input.dim(), input.scalar_type()}};
   meta.outputs_data = {{input.dim(), grad.scalar_type()}};
 
-  return {meta};
+  return metaVec;
 }
 
 SharedMetaDataVector AvgPoolBwdSharedMeta(
@@ -95,11 +102,13 @@ SharedMetaDataVector AvgPoolBwdSharedMeta(
   const auto& grad = stack_tensor(stack, 0);
   const auto& input = stack_tensor(stack, 1);
 
-  SharedMetaData meta{guid};
+  SharedMetaDataVector metaVec;
+  metaVec.reserve(1);
+  auto& meta = metaVec.emplace_back(guid);
   meta.inputs_data = {{grad.dim(), grad.scalar_type()}};
   meta.outputs_data = {{input.dim(), input.scalar_type()}};
 
-  return {meta};
+  return metaVec;
 }
 
 SharedMetaDataVector FillCumSumProdSharedMeta(
@@ -117,11 +126,13 @@ SharedMetaDataVector FillCumSumProdSharedMeta(
     dtype = at::ScalarType::Float;
   }
 
-  SharedMetaData meta{guid};
+  SharedMetaDataVector metaVec;
+  metaVec.reserve(1);
+  auto& meta = metaVec.emplace_back(guid);
   meta.inputs_data = {{input.dim(), dtype}};
   meta.outputs_data = {{input.dim(), dtype}};
 
-  return {meta};
+  return metaVec;
 }
 
 SharedMetaDataVector IsFiniteInfNanSharedMeta(
@@ -131,14 +142,16 @@ SharedMetaDataVector IsFiniteInfNanSharedMeta(
   auto dtype = input.scalar_type();
   auto rank = input.dim();
 
-  if (c10::isIntegralType(dtype, true))
+  if (c10::isIntegralType(dtype, true)) {
     dtype = c10::ScalarType::Int;
-
-  SharedMetaData meta{guid};
+  }
+  SharedMetaDataVector metaVec;
+  metaVec.reserve(1);
+  auto& meta = metaVec.emplace_back(guid);
   meta.inputs_data = {{rank, dtype}};
   meta.outputs_data = {{rank, torch::kBool}};
 
-  return {meta};
+  return metaVec;
 }
 
 SharedMetaDataVector RoundingSharedMeta(
@@ -148,13 +161,15 @@ SharedMetaDataVector RoundingSharedMeta(
   auto rank = input.dim();
   auto dtype = input.scalar_type();
 
-  SharedMetaData roundingMeta;
+  SharedMetaDataVector meta;
+  meta.reserve(1);
+  auto& roundingMeta = meta.emplace_back();
   roundingMeta.guid = c10::isIntegralType(dtype, true) ? "identity" : guid;
 
   SharedMetaTensor inOutTensor = {rank, dtype};
   roundingMeta.inputs_data = {inOutTensor};
   roundingMeta.outputs_data = {inOutTensor};
-  return {roundingMeta};
+  return meta;
 }
 
 SharedMetaDataVector UnaryForeachSharedMeta(
@@ -176,19 +191,19 @@ SharedMetaDataVector UnaryForeachSharedMeta(
         if (isIntegralType(dtype, true)) {
           bool isI32Unsupported =
               guidIt->second.find(torch::kInt32) != std::end(guidIt->second);
-          if (isI32Unsupported)
+          if (isI32Unsupported) {
             dtype = torch::kFloat32;
-          else
+          } else {
             dtype = isDtypeUnsupported ? torch::kInt32 : dtype;
+          }
         } else if (isDtypeUnsupported) {
           dtype = torch::kFloat32;
         }
       }
 
-      SharedMetaData foreachMeta{guid};
+      auto& foreachMeta = metaVec.emplace_back(guid);
       foreachMeta.inputs_data = {{rank, dtype}};
       foreachMeta.outputs_data = {{rank, dtype}};
-      metaVec.push_back(foreachMeta);
     }
   }
   return metaVec;
@@ -208,14 +223,17 @@ SharedMetaDataVector CompareSharedMeta(
       habana_helpers::DTypeHelper::DtypePromoteVariant::kPromoteToCommon,
       false);
   if ((guid == "less" || guid == "less_fwd") &&
-      inputType == c10::ScalarType::Short)
+      inputType == c10::ScalarType::Short) {
     inputType = c10::ScalarType::Int;
+  }
 
-  SharedMetaData compareSharedMeta{guid};
+  SharedMetaDataVector meta;
+  meta.reserve(2); // Reserve +1 for cases it is used somewhere else
+  auto& compareSharedMeta = meta.emplace_back(guid);
   compareSharedMeta.inputs_data = {
       {selfRank, inputType}, {otherRank, inputType}};
   compareSharedMeta.outputs_data = {{outputRank, c10::ScalarType::Bool}};
-  return {compareSharedMeta};
+  return meta;
 }
 
 SharedMetaDataVector ForeachCompoundSharedMeta(
@@ -227,9 +245,8 @@ SharedMetaDataVector ForeachCompoundSharedMeta(
   const auto& value = stack.at(3);
   const bool isValueTensor = value.isTensor();
   const auto selfsSize = selfs.size();
-  int maxNoOfNodesPerIteration = isValueTensor ? 3 : 1;
   SharedMetaDataVector metaVec;
-  metaVec.reserve(selfsSize * maxNoOfNodesPerIteration);
+  metaVec.reserve(selfsSize * 3);
   for (size_t i = 0; i < selfsSize; ++i) {
     const auto& self = selfs[i];
     const auto& tensor1 = tensors1[i];
@@ -240,37 +257,35 @@ SharedMetaDataVector ForeachCompoundSharedMeta(
     const auto selfDtype = self.scalar_type();
     at::ScalarType dtype =
         at::promote_types(selfDtype, at::result_type(tensor1, tensor2));
-    const int outputRank = std::max({selfRank, tensor1Rank, tensor2Rank});
+    const auto outputRank = std::max({selfRank, tensor1Rank, tensor2Rank});
     bool isAddcdiv = guid == "addcdiv_fwd";
     const bool isOutputIntegral = c10::isIntegralType(dtype, true);
     dtype = (isAddcdiv && isOutputIntegral) ? torch::kFloat32 : dtype;
-    std::optional<SharedMetaData> floorSharedMeta = std::nullopt;
+    bool hasFloor = false;
 
     if (isValueTensor) {
-      auto valueTensor = value.toTensor();
+      const auto& valueTensor = value.toTensor();
       auto valueRank = valueTensor.dim();
       auto valueDtype = valueTensor.scalar_type();
-      SharedMetaData sliceAxisSharedMeta{"slice_axis"};
+      auto& sliceAxisSharedMeta = metaVec.emplace_back("slice_axis");
       sliceAxisSharedMeta.inputs_data.emplace_back(valueRank, valueDtype);
       sliceAxisSharedMeta.outputs_data.emplace_back(1, valueDtype);
-      metaVec.push_back(sliceAxisSharedMeta);
 
       if (c10::isFloatingType(valueDtype) && isOutputIntegral) {
-        floorSharedMeta = {"floor_fwd"};
-        sliceAxisSharedMeta.inputs_data = sliceAxisSharedMeta.outputs_data;
-        sliceAxisSharedMeta.outputs_data = sliceAxisSharedMeta.inputs_data;
-        metaVec.push_back(sliceAxisSharedMeta);
+        auto& floorSharedMeta = metaVec.emplace_back("floor_fwd");
+        hasFloor = true;
+        floorSharedMeta.inputs_data = sliceAxisSharedMeta.outputs_data;
+        floorSharedMeta.outputs_data = sliceAxisSharedMeta.inputs_data;
       }
     }
 
-    SharedMetaData compositeSharedMeta{guid};
+    auto& compositeSharedMeta = metaVec.emplace_back(guid);
     compositeSharedMeta.inputs_data = {
         {selfRank, dtype}, {tensor1Rank, dtype}, {tensor2Rank, dtype}};
-    if (floorSharedMeta.has_value())
+    if (hasFloor) {
       compositeSharedMeta.inputs_data.emplace_back(1, dtype);
-
+    }
     compositeSharedMeta.outputs_data.emplace_back(outputRank, dtype);
-    metaVec.push_back(compositeSharedMeta);
   }
   return metaVec;
 }
@@ -281,16 +296,18 @@ SharedMetaDataVector BoolCastSharedMeta(
   auto input = stack_tensor(stack, 0);
   auto dtype = input.scalar_type();
   auto rank = input.dim();
-  SharedMetaDataVector metaVec = {};
-  SharedMetaData equalFwdMeta{"equal_fwd"};
+  SharedMetaDataVector metaVec;
+  // This sometimes is used with combination of other operator, reserve
+  // additional space for it.
+  metaVec.reserve(3);
+
+  auto& equalFwdMeta = metaVec.emplace_back("equal_fwd");
   equalFwdMeta.inputs_data = {{rank, dtype}, {rank, dtype}};
   equalFwdMeta.outputs_data = {{rank, at::kBool}};
-  metaVec.push_back(equalFwdMeta);
 
-  SharedMetaData notFwdMeta("not_fwd");
+  auto& notFwdMeta = metaVec.emplace_back("not_fwd");
   notFwdMeta.inputs_data = equalFwdMeta.outputs_data;
   notFwdMeta.outputs_data = equalFwdMeta.outputs_data;
-  metaVec.push_back(notFwdMeta);
   return metaVec;
 }
 
@@ -322,7 +339,7 @@ SharedMetaDataVector LogicalBinarySharedMeta(
       promoteToCommonType = true;
     } else if ((guid == "or" || guid == "xor") && !isI16orI64) {
       if (!(isSelfIntegral || isOtherIntegral) ||
-          ((isSelfIntegral ^ isOtherIntegral) &&
+          (((isSelfIntegral ^ isOtherIntegral) != 0) &&
            ((c10::elementSize(selfDtype) == 1 ||
              c10::elementSize(otherDtype) == 1)))) {
         promoteToCommonType = true;
@@ -343,11 +360,13 @@ SharedMetaDataVector LogicalBinarySharedMeta(
     otherDtype = computeDtype;
   }
 
-  SharedMetaData logicalBinaryMeta{guid};
+  SharedMetaDataVector meta;
+  meta.reserve(1);
+  auto& logicalBinaryMeta = meta.emplace_back(guid);
   logicalBinaryMeta.inputs_data = {
       {selfRank, selfDtype}, {other.dim(), otherDtype}};
   logicalBinaryMeta.outputs_data = {{selfRank, at::kBool}};
-  return {logicalBinaryMeta};
+  return meta;
 }
 
 SharedMetaDataVector AminAmaxSharedMeta(
@@ -362,6 +381,8 @@ SharedMetaDataVector AminAmaxSharedMeta(
   SharedMetaDataVector metaVec;
   if (inputDtype == c10::ScalarType::Bool) {
     metaVec = BoolCastSharedMeta({self}, executionMode);
+  } else {
+    metaVec.reserve(1);
   }
 
   if (c10::isIntegralType(inputDtype, true)) {
@@ -371,24 +392,25 @@ SharedMetaDataVector AminAmaxSharedMeta(
 
   auto outputRank = rank;
   if (!keepDim) {
-    int dimNum = 0;
+    int64_t dimNum = 0;
     if (stack.size() >= 2) {
-      const auto dim = stack.at(1);
-      if (dim.isIntList())
-        dimNum = dim.isNone() ? 0 : dim.toIntVector().size();
-      else if (dim.isInt())
+      const auto& dim = stack.at(1);
+      if (dim.isIntList()) {
+        dimNum =
+            dim.isNone() ? 0 : static_cast<int64_t>(dim.toIntVector().size());
+      } else if (dim.isInt()) {
         dimNum = 1;
+      }
     }
     outputRank = dimNum == 0 || outputRank == 0 ? 0 : outputRank - dimNum;
   }
 
-  SharedMetaData reduceMaxMultiDimFwdMeta(guid);
-  reduceMaxMultiDimFwdMeta.options.allowLongType = true;
+  auto& reduceMaxMultiDimFwdMeta = metaVec.emplace_back(guid);
+  reduceMaxMultiDimFwdMeta.options.allow_long_type = true;
   reduceMaxMultiDimFwdMeta.inputs_data = {{rank, inputDtype}};
   reduceMaxMultiDimFwdMeta.outputs_data.emplace_back(outputRank, outputDtype);
   reduceMaxMultiDimFwdMeta.outputs_data.emplace_back(
       outputRank, c10::ScalarType::Long);
-  metaVec.push_back(reduceMaxMultiDimFwdMeta);
   return metaVec;
 }
 
@@ -402,11 +424,13 @@ SharedMetaDataVector AddInplaceSharedMeta(
   const auto otherRank = other.isTensor() ? other.toTensor().dim() : 1;
   const auto outputRank = std::max(selfRank, otherRank);
 
-  SharedMetaData addSharedMeta{"add_fwd"};
+  SharedMetaDataVector meta;
+  meta.reserve(1);
+  auto& addSharedMeta = meta.emplace_back("add_fwd");
   addSharedMeta.inputs_data = {{selfRank, dtype}, {otherRank, dtype}};
   addSharedMeta.outputs_data = {{outputRank, dtype}};
 
-  return {addSharedMeta};
+  return meta;
 }
 
 SharedMetaDataVector BinaryWithAlphaSharedMeta(
@@ -443,11 +467,12 @@ SharedMetaDataVector BinaryWithAlphaSharedMeta(
 
   const auto& alpha = stack.at(2).toScalar();
   SharedMetaDataVector metaVec;
+  metaVec.reserve(2);
   if (alpha.equal(1)) {
     // This node will only appear in eager mode but there is no way to
     // distinguish mode here so both possibilities should be added to
     // verification
-    SharedMetaData binaryKernelMeta;
+    auto& binaryKernelMeta = metaVec.emplace_back();
     binaryKernelMeta.inputs_data = {
         {selfRank, outputType}, {otherRank, outputType}};
     binaryKernelMeta.outputs_data = {{outputRank, outputType}};
@@ -460,13 +485,10 @@ SharedMetaDataVector BinaryWithAlphaSharedMeta(
       }
       binaryKernelMeta.guid = "sub";
     }
-    metaVec.push_back(binaryKernelMeta);
   }
-  SharedMetaData binaryWithAlphaMeta{"binary_with_alpha_fwd"};
-  binaryWithAlphaMeta.inputs_data = {
-      {selfRank, outputType}, {otherRank, outputType}};
-  binaryWithAlphaMeta.outputs_data = {{outputRank, outputType}};
-  metaVec.push_back(binaryWithAlphaMeta);
+  auto& binaryRef = metaVec.emplace_back("binary_with_alpha_fwd");
+  binaryRef.inputs_data = {{selfRank, outputType}, {otherRank, outputType}};
+  binaryRef.outputs_data = {{outputRank, outputType}};
   return metaVec;
 }
 
@@ -474,7 +496,7 @@ SharedMetaDataVector BitwiseLogicalSharedMeta(
     const at::Stack& stack,
     const std::string& guid) {
   auto self = stack.at(0);
-  auto other = stack.at(1);
+  const auto& other = stack.at(1);
   auto dtype = habana_helpers::DTypeHelper::get_compute_dtype(
       {self, self},
       std::nullopt,
@@ -484,10 +506,12 @@ SharedMetaDataVector BitwiseLogicalSharedMeta(
   auto otherRank = other.isTensor() ? other.toTensor().dim() : 1;
   auto outputRank = std::max(inputRank, otherRank);
 
-  SharedMetaData bitwiseSharedMeta{guid};
+  SharedMetaDataVector meta;
+  meta.reserve(1);
+  auto& bitwiseSharedMeta = meta.emplace_back(guid);
   bitwiseSharedMeta.inputs_data = {{inputRank, dtype}, {otherRank, dtype}};
   bitwiseSharedMeta.outputs_data.emplace_back(outputRank, dtype);
-  return {bitwiseSharedMeta};
+  return meta;
 }
 
 SharedMetaDataVector TopkSharedMeta(
@@ -495,29 +519,33 @@ SharedMetaDataVector TopkSharedMeta(
     habana_helpers::HabanaExecutionMode /*unused*/) {
   auto self = stack.at(0).toTensor();
 
-  SharedMetaData topkMeta("topk");
+  SharedMetaDataVector meta;
+  meta.reserve(1);
+  auto& topkMeta = meta.emplace_back("topk");
   topkMeta.inputs_data.emplace_back(self.dim(), self.scalar_type());
   topkMeta.outputs_data.emplace_back(self.dim(), self.scalar_type());
   topkMeta.outputs_data.emplace_back(self.dim(), c10::ScalarType::Int);
 
-  return {topkMeta};
+  return meta;
 }
 
 SharedMetaDataVector RandomSeedTensorInputSharedMeta(
     const at::Stack& stack,
     const std::string& guid) {
   auto self = stack_tensor(stack, 0);
-  auto seed = stack.at(3);
+  const auto& seed = stack.at(3);
   SharedMetaTensor seedSharedTensor = {1, c10::ScalarType::Int};
   if (seed.isTensor()) {
-    const auto seedTensor = seed.toTensor();
+    const auto& seedTensor = seed.toTensor();
     seedSharedTensor = {seedTensor.dim(), seedTensor.scalar_type()};
   }
 
   const auto isUniform =
       guid.find("philox_random_uniform") != std::string::npos;
   auto computeDtype = self.scalar_type();
-  SharedMetaData randomSharedMeta{guid};
+  SharedMetaDataVector meta;
+  meta.reserve(1);
+  auto& randomSharedMeta = meta.emplace_back(guid);
   if (!isUniform) {
     // SL isn't able to correctly determine precision type from the first input.
     // For types half (log_normal_fwd kernel only) and f8 there is no dedicated
@@ -529,21 +557,23 @@ SharedMetaDataVector RandomSeedTensorInputSharedMeta(
           computeDtype == c10::ScalarType::Float8_e5m2)) ||
         (guid.find("random_normal_fwd") != std::string::npos &&
          (computeDtype == c10::ScalarType::Float8_e4m3fn ||
-          computeDtype == c10::ScalarType::Float8_e5m2)))
+          computeDtype == c10::ScalarType::Float8_e5m2))) {
       randomSharedMeta.inputs_data.emplace_back(1, c10::ScalarType::Int);
-    else
+    } else {
       randomSharedMeta.inputs_data.push_back(
           createOptionalNotPresentSharedMetaTensor());
-    if (computeDtype != c10::ScalarType::BFloat16)
+    }
+    if (computeDtype != c10::ScalarType::BFloat16) {
       computeDtype = c10::ScalarType::Float;
+    }
   }
 
   randomSharedMeta.inputs_data.push_back(seedSharedTensor);
-  if (isUniform)
+  if (isUniform) {
     randomSharedMeta.inputs_data.push_back(randomSharedMeta.inputs_data[0]);
-
+  }
   randomSharedMeta.outputs_data.emplace_back(self.dim(), computeDtype);
-  return {randomSharedMeta};
+  return meta;
 }
 
 SharedMetaDataVector PadBwdSharedMeta(
@@ -553,10 +583,12 @@ SharedMetaDataVector PadBwdSharedMeta(
   auto self = stack_tensor(stack, 1);
   auto dtype = self.scalar_type();
 
-  SharedMetaData padBwdSharedMeta{"pad_bwd"};
+  SharedMetaDataVector meta;
+  meta.reserve(1);
+  auto& padBwdSharedMeta = meta.emplace_back("pad_bwd");
   padBwdSharedMeta.inputs_data.emplace_back(grad.dim(), dtype);
   padBwdSharedMeta.outputs_data.emplace_back(self.dim(), dtype);
-  return {padBwdSharedMeta};
+  return meta;
 }
 
 SharedMetaDataVector MatrixMulWithAddSharedMeta(
@@ -566,11 +598,20 @@ SharedMetaDataVector MatrixMulWithAddSharedMeta(
   const auto& input = stack_tensor(stack, 0);
   const auto& mat1 = stack_tensor(stack, 1);
   const auto& mat2 = stack_tensor(stack, 2);
-  const bool isAddMM = guid == "addmm" || guid == "addbmm";
-  const auto outputRank = isAddMM ? 2 : 1;
+  const bool isAddMM = guid == "addmm" || guid == "addbmm" || guid == "baddbmm";
+  auto outputRank = 1;
+  if (isAddMM) {
+    if (guid == "baddbmm") {
+      outputRank = 3;
+    } else {
+      outputRank = 2;
+    }
+  }
   const auto precisionType = mat1.scalar_type();
 
-  SharedMetaData matrixMulSharedMeta{guid};
+  SharedMetaDataVector metaVec;
+  metaVec.reserve(2);
+  auto& matrixMulSharedMeta = metaVec.emplace_back(guid);
   matrixMulSharedMeta.inputs_data = {
       {input.dim(), precisionType},
       {mat1.dim(), precisionType},
@@ -585,20 +626,20 @@ SharedMetaDataVector MatrixMulWithAddSharedMeta(
     matrixMulSharedMeta.inputs_data.emplace_back(1, precisionType);
     matrixMulSharedMeta.inputs_data.emplace_back(1, precisionType);
   }
-  SharedMetaDataVector metaVec{matrixMulSharedMeta};
 
-  const bool append_activation = !(alpha_val == 0 && beta_val == 0);
+  const bool append_activation = alpha_val != 0 || beta_val != 0;
   if (append_activation && activation_variant) {
     const bool use_gelu = stack.at(5).toBool();
 
-    SharedMetaData geluReluSharedMeta{use_gelu ? "gelu_fwd" : "relu_fwd"};
+    auto& geluReluSharedMeta =
+        metaVec.emplace_back(use_gelu ? "gelu_fwd" : "relu_fwd");
     geluReluSharedMeta.inputs_data = matrixMulSharedMeta.outputs_data;
     geluReluSharedMeta.outputs_data = geluReluSharedMeta.inputs_data;
 
-    if (use_gelu)
+    if (use_gelu) {
       geluReluSharedMeta.outputs_data.push_back(
           geluReluSharedMeta.outputs_data[0]);
-    metaVec.push_back(geluReluSharedMeta);
+    }
   }
   return metaVec;
 }
@@ -611,7 +652,9 @@ SharedMetaDataVector MaxPoolWithIndicesFwdSharedMeta(
   const auto dtype = self.scalar_type();
   auto indexType = c10::ScalarType::Long;
 
-  SharedMetaData maxPoolWithIndicesSharedMeta{guid};
+  SharedMetaDataVector meta;
+  meta.reserve(1);
+  auto& maxPoolWithIndicesSharedMeta = meta.emplace_back(guid);
   maxPoolWithIndicesSharedMeta.inputs_data.emplace_back(rank, dtype);
 
   if (guid.find("maxpool_3d") != std::string::npos) {
@@ -625,12 +668,12 @@ SharedMetaDataVector MaxPoolWithIndicesFwdSharedMeta(
         break;
     }
   } else {
-    maxPoolWithIndicesSharedMeta.options.allowLongType = true;
+    maxPoolWithIndicesSharedMeta.options.allow_long_type = true;
   }
   maxPoolWithIndicesSharedMeta.outputs_data = {
       {rank, indexType}, {rank, dtype}};
 
-  return {maxPoolWithIndicesSharedMeta};
+  return meta;
 }
 
 SharedMetaDataVector MaxPoolWithIndicesBwdSharedMeta(
@@ -642,16 +685,18 @@ SharedMetaDataVector MaxPoolWithIndicesBwdSharedMeta(
   const auto rank = self.dim();
   const auto dtype = self.scalar_type();
   auto indexType = c10::ScalarType::Long;
-  SharedMetaData maxPoolWithIndicesSharedMeta{guid};
+  SharedMetaDataVector meta;
+  meta.reserve(1);
+  auto& maxPoolWithIndicesSharedMeta = meta.emplace_back(guid);
   maxPoolWithIndicesSharedMeta.inputs_data.emplace_back(
       grad.dim(), grad.scalar_type());
   maxPoolWithIndicesSharedMeta.inputs_data.emplace_back(rank, dtype);
   maxPoolWithIndicesSharedMeta.inputs_data.emplace_back(
       indices.dim(), indexType);
-  maxPoolWithIndicesSharedMeta.options.allowLongType = true;
+  maxPoolWithIndicesSharedMeta.options.allow_long_type = true;
   maxPoolWithIndicesSharedMeta.outputs_data = {{rank, dtype}};
 
-  return {maxPoolWithIndicesSharedMeta};
+  return meta;
 }
 
 SharedMetaDataVector EmptySharedMeta(
@@ -685,8 +730,9 @@ SharedMetaDataVector MatmulSharedMeta(
     otherRank = 2;
     outputRank = 2;
     guid = "gemm";
-    if (matmul3d2dReshapeEnabled && selfRank == 3 && otherRank == 2)
+    if (matmul3d2dReshapeEnabled && selfRank == 3 && otherRank == 2) {
       addBias = isBiasPresentForBmm;
+    }
   } else {
     guid = "batch_gemm";
     if (selfRank >= 3 && otherRank == 1) {
@@ -706,7 +752,9 @@ SharedMetaDataVector MatmulSharedMeta(
     }
   }
 
-  SharedMetaData gemmSharedMeta{guid};
+  SharedMetaDataVector meta;
+  meta.reserve(1);
+  auto& gemmSharedMeta = meta.emplace_back(guid);
   gemmSharedMeta.inputs_data = {{selfRank, dtype}, {otherRank, dtype}};
   if (addBias) {
     const auto& bias = stack_tensor(stack, 2);
@@ -714,18 +762,20 @@ SharedMetaDataVector MatmulSharedMeta(
   }
   gemmSharedMeta.outputs_data.emplace_back(outputRank, dtype);
 
-  return {gemmSharedMeta};
+  return meta;
 }
 
 SharedMetaDataVector StridedViewCommonSharedMeta(
     const int64_t inputDim,
     const int64_t outputDim,
     const c10::ScalarType dtype) {
-  SharedMetaData stridedViewSharedMeta{"strided_view"};
+  SharedMetaDataVector meta;
+  meta.reserve(1);
+  auto& stridedViewSharedMeta = meta.emplace_back("strided_view");
   stridedViewSharedMeta.inputs_data.emplace_back(inputDim, dtype);
   stridedViewSharedMeta.outputs_data.emplace_back(outputDim, dtype);
 
-  return {stridedViewSharedMeta};
+  return meta;
 }
 
 SharedMetaDataVector StridedViewSharedMeta(
@@ -740,7 +790,7 @@ SharedMetaDataVector StridedViewSharedMeta(
     const auto& sizesTensor = stack_tensor(stack, 1);
     outputRank = sizesTensor.dim();
   } else {
-    outputRank = sizes.toListRef().size();
+    outputRank = static_cast<int64_t>(sizes.toListRef().size());
   }
 
   return StridedViewCommonSharedMeta(self.dim(), outputRank, dtype);
@@ -762,12 +812,14 @@ SharedMetaDataVector InstanceNormSharedMeta(
   auto rank = self.dim() > 3 ? self.dim() : 4;
   const auto dtype = self.scalar_type();
 
-  SharedMetaData instanceNormSharedMeta{"instance_norm_fwd"};
+  SharedMetaDataVector meta;
+  meta.reserve(1);
+  auto& instanceNormSharedMeta = meta.emplace_back("instance_norm_fwd");
   instanceNormSharedMeta.inputs_data = {
       {rank, dtype}, {1, c10::ScalarType::Float}, {1, c10::ScalarType::Float}};
   instanceNormSharedMeta.outputs_data = {
       {rank, dtype}, {2, c10::ScalarType::Float}, {2, c10::ScalarType::Float}};
-  return {instanceNormSharedMeta};
+  return meta;
 }
 
 SharedMetaDataVector KlDivSharedMeta(
@@ -785,41 +837,35 @@ SharedMetaDataVector KlDivSharedMeta(
   SharedMetaDataVector metaVec;
   metaVec.reserve(5);
   if (logTarget) {
-    SharedMetaData expSharedMeta{"exp_fwd"};
+    auto& expSharedMeta = metaVec.emplace_back("exp_fwd");
     expSharedMeta.inputs_data = {targetTensor};
     expSharedMeta.outputs_data = {targetTensor};
-    metaVec.push_back(expSharedMeta);
   } else {
-    SharedMetaData logSharedMeta{"log_fwd"};
+    auto& logSharedMeta = metaVec.emplace_back("log_fwd");
     logSharedMeta.inputs_data = {targetTensor};
     logSharedMeta.outputs_data = {targetTensor};
-    metaVec.push_back(logSharedMeta);
 
-    SharedMetaData reluSharedMeta{"relu_bwd"};
+    auto& reluSharedMeta = metaVec.emplace_back("relu_bwd");
     reluSharedMeta.inputs_data = {targetTensor, targetTensor};
     reluSharedMeta.outputs_data = {targetTensor};
-    metaVec.push_back(reluSharedMeta);
   }
 
-  SharedMetaData subSharedMeta{"sub_fwd"};
+  auto& subSharedMeta = metaVec.emplace_back("sub_fwd");
   subSharedMeta.inputs_data = {targetTensor, selfTensor};
   subSharedMeta.outputs_data.emplace_back(
       std::max(selfRank, targetRank), dtype);
-  metaVec.push_back(subSharedMeta);
 
-  SharedMetaData mulSharedMeta{"mult"};
+  auto& mulSharedMeta = metaVec.emplace_back("mult");
   mulSharedMeta.inputs_data = {targetTensor, subSharedMeta.outputs_data[0]};
   mulSharedMeta.outputs_data = subSharedMeta.outputs_data;
-  metaVec.push_back(mulSharedMeta);
 
   if (reduction != at::Reduction::Reduction::None) {
     const std::string reduceGuid = reduction == at::Reduction::Reduction::Sum
         ? "reduce_sum_fwd"
         : "reduce_mean_fwd";
-    SharedMetaData reduceSharedMeta{reduceGuid};
+    auto& reduceSharedMeta = metaVec.emplace_back(reduceGuid);
     reduceSharedMeta.inputs_data = mulSharedMeta.outputs_data;
     reduceSharedMeta.outputs_data = {{1, dtype}};
-    metaVec.push_back(reduceSharedMeta);
   }
 
   return metaVec;
@@ -833,13 +879,16 @@ SharedMetaDataVector CopySharedMeta(
   const auto rank = self.dim();
   const auto& dst = stack.at(1);
 
-  SharedMetaData copySharedMeta{"copy_fwd"};
+  SharedMetaDataVector meta;
+  meta.reserve(1);
+  auto& copySharedMeta = meta.emplace_back("copy_fwd");
   copySharedMeta.inputs_data.emplace_back(rank, dtype);
-  if (dst.isTensor())
+  if (dst.isTensor()) {
     copySharedMeta.inputs_data.emplace_back(dst.toTensor().dim(), dtype);
+  }
   copySharedMeta.outputs_data.emplace_back(rank, dtype);
 
-  return {copySharedMeta};
+  return meta;
 }
 
 SharedMetaDataVector OneHotSharedMeta(
@@ -849,10 +898,12 @@ SharedMetaDataVector OneHotSharedMeta(
   const auto dtype = self.scalar_type();
   const auto rank = self.dim();
 
-  SharedMetaData oneHotSharedMeta{"one_hot_fwd"};
+  SharedMetaDataVector meta;
+  meta.reserve(1);
+  auto& oneHotSharedMeta = meta.emplace_back("one_hot_fwd");
   oneHotSharedMeta.inputs_data.emplace_back(rank, dtype);
   oneHotSharedMeta.outputs_data.emplace_back(rank + 1, dtype);
-  return {oneHotSharedMeta};
+  return meta;
 }
 
 SharedMetaDataVector CommonForeachCopyMeta(
@@ -871,8 +922,8 @@ SharedMetaDataVector CommonForeachCopyMeta(
         sharedMetaCreator(oneIterationStack, executionMode);
     metaVec.insert(
         std::end(metaVec),
-        std::begin(oneIterationSharedMeta),
-        std::end(oneIterationSharedMeta));
+        std::make_move_iterator(std::begin(oneIterationSharedMeta)),
+        std::make_move_iterator(std::end(oneIterationSharedMeta)));
   }
 
   return metaVec;

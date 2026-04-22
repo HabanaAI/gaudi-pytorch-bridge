@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -76,7 +76,7 @@ SharedMetaDataVector MultinomialSharedMeta(
   const auto& seed = stack.at(3);
   SharedMetaTensor seedSharedTensor = {1, c10::ScalarType::Int};
   if (seed.isTensor()) {
-    const auto seedTensor = seed.toTensor();
+    const auto& seedTensor = seed.toTensor();
     seedSharedTensor = {seedTensor.dim(), seedTensor.scalar_type()};
   }
 
@@ -84,12 +84,15 @@ SharedMetaDataVector MultinomialSharedMeta(
       ? c10::ScalarType::Int
       : c10::ScalarType::Short;
 
-  SharedMetaData multinomialSharedMeta{"random_multinomial_pt_fwd"};
+  SharedMetaDataVector multinomialSharedMetaVec;
+  multinomialSharedMetaVec.reserve(1);
+  auto& multinomialSharedMeta =
+      multinomialSharedMetaVec.emplace_back("random_multinomial_pt_fwd");
   multinomialSharedMeta.inputs_data.emplace_back(rank, selfDtype);
   multinomialSharedMeta.inputs_data.push_back(seedSharedTensor);
   multinomialSharedMeta.outputs_data.emplace_back(rank, outputDtype);
 
-  return {multinomialSharedMeta};
+  return multinomialSharedMetaVec;
 }
 
 FillParamsT FillMultinomialParams(const at::Stack& stack) {
@@ -104,19 +107,23 @@ OutputMetaDataVector HabanaMultinomialMeta(const at::Stack& stack) {
   const auto& t = stack_tensor(stack, 1);
   const int64_t num_samples = stack.at(2).toInt();
 
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.shape = t.dim() == 1 ? std::vector<int64_t>{num_samples}
                             : std::vector<int64_t>{t.sizes()[0], num_samples};
   meta.dtype = at::ScalarType::Long;
-  return {meta};
+  return metaVec;
 }
 
 HabanaMultinomial::HabanaMultinomial(int device_id, c10::ScalarType scalar_type)
-    : HabanaRandomBase(
+    : OpBackend(
           device_id,
           "random_multinomial_pt_fwd",
           scalar_type,
-          {1}) {
+          {1},
+          {},
+          {},
+          false) {
   SetOutputMetaFn(HabanaMultinomialMeta);
   SetFillParams(FillHabanaMultinomialParams);
   kernel_meta_data_.tpc_input_order = {1, 0};

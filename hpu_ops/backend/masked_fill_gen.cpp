@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,11 +22,12 @@ OutputMetaDataVector MaskedFillMeta(const at::Stack& stack) {
   auto self = stack_tensor(stack, 0);
   auto mask_shape = stack_tensor(stack, 1).sizes();
 
-  OutputMetaData meta{};
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.dtype = self.scalar_type();
   meta.shape = at::infer_size(self.sizes(), mask_shape);
 
-  return {meta};
+  return metaVec;
 }
 
 SharedMetaDataVector MaskedFillSharedMeta(
@@ -40,7 +41,10 @@ SharedMetaDataVector MaskedFillSharedMeta(
   const auto maskRank = mask.dim();
   const auto outputRank = std::max(selfRank, maskRank);
 
-  SharedMetaData maskedFillSharedMeta{"masked_fill_fwd"};
+  SharedMetaDataVector maskedFillSharedMetaVec;
+  maskedFillSharedMetaVec.reserve(1);
+  auto& maskedFillSharedMeta =
+      maskedFillSharedMetaVec.emplace_back("masked_fill_fwd");
   maskedFillSharedMeta.inputs_data = {
       {selfRank, dtype}, {maskRank, mask.scalar_type()}};
   if (value.isTensor()) {
@@ -50,12 +54,12 @@ SharedMetaDataVector MaskedFillSharedMeta(
   }
   maskedFillSharedMeta.outputs_data.emplace_back(outputRank, dtype);
 
-  return {maskedFillSharedMeta};
+  return maskedFillSharedMetaVec;
 }
 
 FillParamsT FillMaskedFillParams(const at::Stack& stack) {
   PARAMS_STUB(ns_MaskedFill::ParamsV2);
-  auto value = stack.at(2);
+  const auto& value = stack.at(2);
   if (value.isTensor()) {
     return paramsT;
   }
@@ -97,7 +101,7 @@ void MaskedFill::AddNode(
   auto out_dtype = metadata.dtype;
   const auto& params = FillMaskedFillParams(stack);
 
-  auto value = stack.at(2);
+  const auto& value = stack.at(2);
   if (value.isTensor()) {
     inputs.push_back(syn_in(2));
   }

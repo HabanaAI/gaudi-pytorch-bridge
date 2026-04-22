@@ -166,7 +166,7 @@ void PostNmsOperator::AllocateAndAddSynapseNode(
       shape_tensor,
       synType,
       output_metadata.at(2),
-      graph.is_dynamic_graph() ? true : false);
+      graph.is_dynamic_graph());
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 

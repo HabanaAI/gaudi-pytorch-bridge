@@ -126,15 +126,16 @@ OutputMetaDataVector AvgPool3dMeta(const at::Stack& stack) {
   auto padding =
       stack.at(3).isNone() ? defaultPadding : stack.at(3).toIntVector();
   const bool ceilMode = stack.at(4).toBool();
-  auto outshape = compute_pool_kernel_output_shape(
-      self, kernelSize, stride, padding, dilation, ceilMode, true);
-  if (rank == 4)
-    outshape.erase(begin(outshape));
 
-  OutputMetaData meta;
-  meta.shape = outshape;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
+  meta.shape = compute_pool_kernel_output_shape(
+      self, kernelSize, stride, padding, dilation, ceilMode, true);
+  if (rank == 4) {
+    meta.shape.erase(begin(meta.shape));
+  }
   meta.dtype = self.scalar_type();
-  return {meta};
+  return metaVec;
 }
 
 SharedMetaDataVector AvgPool3dFwdSharedMeta(
@@ -185,10 +186,11 @@ FillParamsT FillAvgPool3dParamsBwd(const at::Stack& stack) {
 
 OutputMetaDataVector AvgPool3dBwdMeta(const at::Stack& stack) {
   auto self = stack.at(1).toTensor();
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.shape = self.sizes().vec();
   meta.dtype = self.scalar_type();
-  return {meta};
+  return metaVec;
 }
 
 SharedMetaDataVector AvgPool3dBwdSharedMeta(

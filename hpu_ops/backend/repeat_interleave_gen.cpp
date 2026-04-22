@@ -20,8 +20,6 @@
 #include "pytorch_helpers/habana_helpers/conversion.h"
 #include "pytorch_helpers/habana_helpers/logging.h"
 
-using namespace std::literals;
-
 namespace habana {
 
 OutputMetaDataVector RepeatInterleaveMeta(const at::Stack& stack) {
@@ -32,11 +30,12 @@ OutputMetaDataVector RepeatInterleaveMeta(const at::Stack& stack) {
       output_size_opt.has_value(),
       "It is expected that output_size is provided after frontend execution.");
 
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.dtype = self.scalar_type();
   meta.shape = std::vector<int64_t>{output_size_opt.value()};
 
-  return {meta};
+  return metaVec;
 }
 
 FillParamsT RepeatInterleaveParams(const at::Stack& stack) {

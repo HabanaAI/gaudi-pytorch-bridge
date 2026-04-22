@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ namespace habana_lazy {
 /* */
 bool is_inplace_or_views(torch::jit::Node* node) {
   bool is_inplace = false;
-  auto node_str = node->kind().toQualString();
+  const auto* node_str = node->kind().toQualString();
   size_t len = strlen(node_str);
   char endch = node_str[len - 1];
 
@@ -50,18 +50,18 @@ void replace_views_with_reshapes(std::shared_ptr<torch::jit::Graph>& graph) {
       bool is_replace_cand = toIValue(node->input(4)).value().toBool();
 
       // check if as_strided is as a graph output
-      if (is_replace_cand == true) {
+      if (is_replace_cand) {
         for (auto& u : output_uses) {
-          auto output_node = u.user;
+          auto* output_node = u.user;
           if (strcmp(output_node->kind().toQualString(), "prim::Return") == 0) {
             is_replace_cand = false;
           }
         }
       }
 
-      if (is_replace_cand == true) {
-        for (auto& u : node->input(0)->uses()) {
-          auto input_node = u.user;
+      if (is_replace_cand) {
+        for (const auto& u : node->input(0)->uses()) {
+          auto* input_node = u.user;
           if ((input_node != node) && is_inplace_or_views(input_node)) {
             is_replace_cand = false;
             break;
@@ -69,9 +69,9 @@ void replace_views_with_reshapes(std::shared_ptr<torch::jit::Graph>& graph) {
         }
       }
 
-      if (is_replace_cand == true) {
-        for (auto& u : node->output(0)->uses()) {
-          auto output_node = u.user;
+      if (is_replace_cand) {
+        for (const auto& u : node->output(0)->uses()) {
+          auto* output_node = u.user;
           if ((output_node != node) && is_inplace_or_views(output_node)) {
             is_replace_cand = false;
             break;
@@ -79,7 +79,7 @@ void replace_views_with_reshapes(std::shared_ptr<torch::jit::Graph>& graph) {
         }
       }
 
-      if (is_replace_cand == true) {
+      if (is_replace_cand) {
         as_strided_node_vec.emplace_back(node);
       }
     } // if (strcmp(node->kind().toQualString(), "hpu::as_strided_lazy_") == 0)
@@ -91,7 +91,7 @@ void replace_views_with_reshapes(std::shared_ptr<torch::jit::Graph>& graph) {
     auto op = c10::Symbol::fromQualString("hpu::reshape");
 
     torch::jit::WithInsertPoint insert_point(node);
-    auto new_reshape = graph->create(op, {node->input(0), node->input(1)}, 1);
+    auto* new_reshape = graph->create(op, {node->input(0), node->input(1)}, 1);
     new_reshape->copyAttributes(*node);
     graph->insertNode(new_reshape);
     node->output(0)->replaceAllUsesWith(new_reshape->output(0));

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -61,11 +61,11 @@ const std::string& HabanaCustomOpDescriptor::getGuid() const {
   return node_desc_.tpc_guid;
 }
 
-unsigned HabanaCustomOpDescriptor::getInputsSize() const {
+size_t HabanaCustomOpDescriptor::getInputsSize() const {
   return inputs_.size();
 }
 
-unsigned HabanaCustomOpDescriptor::getOutputsSize() const {
+size_t HabanaCustomOpDescriptor::getOutputsSize() const {
   return outputs_.size();
 }
 

@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,9 +13,9 @@
 # limitations under the License.
 ###############################################################################
 
+import csv
 import os
 
-import pandas as pd
 import pytest
 
 total_tc_list = None
@@ -69,10 +69,12 @@ def setup_globals(cmdopt):
     csv_file_path = os.path.join(current_dir, csv_file_name)
     print("CSV path:", csv_file_path)
 
-    config_reader = pd.read_csv(csv_file_path, skiprows=17)
+    with open(csv_file_path) as f:
+        for _ in range(17):
+            next(f)
+        reader = csv.reader(f)
+        total_tc_list = list(reader)
 
-    # Filter rows where the first column is a digit
-    total_tc_list = config_reader.values.tolist()
     if fa_mode_run not in ["3", "3.0"]:
         total_tc_list = None
 

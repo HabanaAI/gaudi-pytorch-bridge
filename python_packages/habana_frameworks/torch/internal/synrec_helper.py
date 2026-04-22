@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ import habana_frameworks.torch.core as htcore
 # Cannot be called twice in a row.
 # Can be used after calling "synrec -w ..." or after synrec_stop()
 def synrec_start():
-    if os.getenv("SYNREC_INIT", 0) == 0:
+    if os.getenv("SYNREC_INIT", "0") == "0":
         raise Exception("synrec_start: Synrec not initialized.")
     if os.environ["SYNREC"] == "1":
         raise Exception("synrec_start: Synrec record already started.")
@@ -34,7 +34,7 @@ def synrec_start():
 # Cannot be called twice in a row.
 # Can be used after calling "synrec" (without -w flag) or after synrec_start()
 def synrec_stop():
-    if os.getenv("SYNREC_INIT", 0) == 0:
+    if os.getenv("SYNREC_INIT", "0") == "0":
         raise Exception("synrec_stop: Synrec not initialized.")
     if os.environ["SYNREC"] == "0":
         raise Exception("synrec_start: Synrec record already stopped.")

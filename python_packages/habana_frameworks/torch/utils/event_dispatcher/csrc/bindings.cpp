@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,12 +37,13 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       .def("process", &habana_helpers::EventDispatcher::process)
       .def("reset", &habana_helpers::EventDispatcher::reset);
 
+  // NOLINTNEXTLINE(bugprone-unused-raii)
   py::class_<
       habana_helpers::EventDispatcherHandle,
       std::shared_ptr<habana_helpers::EventDispatcherHandle>>(
       m, "EventDispatcherHandle");
 
-  pybind11::enum_<habana_helpers::EventDispatcher::Topic>(m, "EventId")
+  py::enum_<habana_helpers::EventDispatcher::Topic>(m, "EventId")
       .value(
           "GRAPH_COMPILATION",
           habana_helpers::EventDispatcher::Topic::GRAPH_COMPILE)

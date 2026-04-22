@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -258,14 +258,14 @@ def _parse(lines):
                 created_nodes[rhs].add_self_as_child(lhs_node)
 
     potential_dyn_modules = set()
-    for _, module in recompiling_modules.items():
+    for module in recompiling_modules.values():
         for mdlname, newinp, _, _, _, _ in module:
             if not newinp:
                 potential_dyn_modules.update([mdlname])
 
     treeinfo = []
     treeinfo, _ = _process_tree(created_nodes[top_module_name], treeinfo, potential_dyn_modules)
-    for _, module in recompiling_modules.items():
+    for module in recompiling_modules.values():
         for idx, (module_name, new_inp, new_out, classnm, filenm, comment) in enumerate(module):
             if "Already processed input shape still recompiled" in comment and module_name not in treeinfo:
                 comment += ". Could be due to dynamic child"

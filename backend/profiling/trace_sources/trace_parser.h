@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,7 +44,7 @@ class HpuTraceParser {
   bool isEventInTime(
       long double start,
       long double end,
-      long double wall_stop_time);
+      long double wall_stop_time) const;
   void processActivity(
       long double event_start_time,
       long double event_end_time,
@@ -57,7 +57,7 @@ class HpuTraceParser {
       size_t num_events,
       long double wall_stop_time,
       TraceSink& trace_sink);
-  int64_t timeStampHpuToTB(long double t);
+  int64_t timeStampHpuToTB(long double t) const;
   int64_t getDevice(const synTraceEvent* events_ptr);
   bool isEventKernel(const synTraceEvent* events_ptr);
   ActivityType getActivityType(const synTraceEvent* events_ptr);

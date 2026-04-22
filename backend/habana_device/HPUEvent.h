@@ -91,7 +91,7 @@ struct HPUEvent {
   // Note: hpuEventRecord must be called on the same device as the event.
   void record(const c10::hpu::HPUStream& stream);
 
-  void block(const c10::hpu::HPUStream& stream);
+  void block(const c10::hpu::HPUStream& stream) const;
 
   // Note: hpuEventElapsedTime can be safely called from any device
   float elapsed_time(const HPUEvent& other) const;

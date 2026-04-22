@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,8 +13,12 @@
  * limitations under the License.
  */
 
+#include <ATen/core/Tensor.h>
+
 #include "generated/lazy/div.h"
+#include "habana_kernels/lazy_kernels.h"
 #include "hpu_ops/common/scalar_dtype_range.h"
+#include "hpu_ops/hpu_op_helper.h"
 
 namespace habana {
 

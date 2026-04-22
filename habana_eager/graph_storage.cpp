@@ -75,9 +75,10 @@ torch::jit::Stack GraphStorage::launch_recipe(
   // However, since the recipe id is not available here, we maintain uniformity
   // by considering the name up to "_jit", resulting in a format like
   // graph_0009_fused_0_jit.
-  if (parent_graph_name.find("_fx") != std::string::npos)
+  if (parent_graph_name.find("_fx") != std::string::npos) {
     parent_graph_name =
         parent_graph_name.replace(parent_graph_name.find("fx"), 2, "jit");
+  }
   LOP::emit_event_fast(
       true,
       "LaunchRecipeTask()",

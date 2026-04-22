@@ -79,40 +79,6 @@
         "description": "Single PT flavor object",
         "type": "object",
         "properties": {
-          "required_pt": {
-            "description": "Package name definition per version provided",
-            "type": "object",
-            "additionalProperties": {
-              "oneOf": [
-                {
-                  "description": "Package name used for both building and wheel requirements",
-                  "type": "string"
-                },
-                {
-                  "description": "Package name definition if different one is needed for building and wheel requirements",
-                  "type": "object",
-                  "properties": {
-                    "build": {
-                      "description": "Package name used for building",
-                      "type": "string"
-                    },
-                    "runtime": {
-                      "description": "Package name used for wheel requirements",
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "build",
-                    "runtime"
-                  ]
-                }
-              ]
-            },
-            "required": [
-              "default",
-              "nightly"
-            ]
-          },
           "suffix": {
             "description": "Suffix added to wheel name for the flavor, can be null",
             "oneOf": [
@@ -126,7 +92,6 @@
           }
         },
         "required": [
-          "required_pt",
           "suffix"
         ]
       }

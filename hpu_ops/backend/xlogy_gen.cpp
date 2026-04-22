@@ -19,7 +19,8 @@
 namespace habana {
 
 OutputMetaDataVector XlogYMeta(const at::Stack& stack) {
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   std::optional<at::Tensor> output_tensor = std::nullopt;
   std::optional<c10::ScalarType> output_type = std::nullopt;
   auto size = stack.size();
@@ -42,7 +43,7 @@ OutputMetaDataVector XlogYMeta(const at::Stack& stack) {
     meta.dtype = torch::kFloat32;
   }
 
-  return {meta};
+  return metaVec;
 }
 
 bool ShouldCastToOutputType(
@@ -71,16 +72,19 @@ SharedMetaDataVector XlogYSharedMeta(
       other.isTensor() ? safe_convert<unsigned int>(other.toTensor().dim()) : 1;
   unsigned outDim = std::max(selfDim, otherDim);
 
-  SharedMetaData log1pMeta("log1p_fwd");
+  SharedMetaDataVector vec;
+  vec.reserve(2);
+
+  auto& log1pMeta = vec.emplace_back("log1p_fwd");
   log1pMeta.inputs_data.emplace_back(otherDim, result_dtype);
   log1pMeta.outputs_data.emplace_back(otherDim, result_dtype);
 
-  SharedMetaData multMeta("mult");
+  auto& multMeta = vec.emplace_back("mult");
   multMeta.inputs_data.emplace_back(selfDim, result_dtype);
   multMeta.inputs_data.emplace_back(otherDim, result_dtype);
   multMeta.outputs_data.emplace_back(outDim, result_dtype);
 
-  return {log1pMeta, multMeta};
+  return vec;
 }
 
 void Xlog1PyOperator::AddNode(

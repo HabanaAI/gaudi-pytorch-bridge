@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,11 +39,7 @@ void EagerLoweringTask(
       LOP::PipelineStageID::PIPELINE_STAGE_LOWERING_ID,
       lowering_queue_length);
   habana::eager::EagerExec hlexec{
-      std::move(symbol),
-      std::move(inputs),
-      std::move(out_spec_or_tensors),
-      true,
-      std::move(stream)};
+      symbol, std::move(inputs), std::move(out_spec_or_tensors), true, stream};
 
   hlexec.set_eager_op_info(std::move(eager_op_meta_data));
   // Launch the execution
@@ -54,12 +50,12 @@ void EagerOpBase::validate_inputs(
     const std::vector<at::IValue>& inputs,
     const std::string& qualstring) {
   for (size_t idx = 0; idx < inputs.size(); ++idx) {
-    auto& t = inputs[idx];
+    const auto& t = inputs[idx];
     if (!t.isTensor()) {
       continue;
     }
 
-    auto tensor = t.toTensor();
+    const auto& tensor = t.toTensor();
     if (!tensor.defined()) {
       continue;
     }
@@ -112,7 +108,7 @@ void EagerOpBase::run(OutputSpecsOrTensors&& out_spec_or_tensors) {
   if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_PIPELINE_ENABLE)) {
     for (const at::IValue& ivalue : stack) {
       if (ivalue.isTensor()) {
-        auto hb_tmeta{habana::get_tensor_extra_meta(ivalue.toTensor())};
+        auto* hb_tmeta{habana::get_tensor_extra_meta(ivalue.toTensor())};
         hb_tmeta->set_tensor_pipelined();
       }
     }
@@ -122,7 +118,7 @@ void EagerOpBase::run(OutputSpecsOrTensors&& out_spec_or_tensors) {
       allocated_outputs_iter = allocated_outputs->begin();
       for (; allocated_outputs_iter < allocated_outputs->end();
            allocated_outputs_iter++) {
-        auto hb_tmeta{habana::get_tensor_extra_meta(*allocated_outputs_iter)};
+        auto* hb_tmeta{habana::get_tensor_extra_meta(*allocated_outputs_iter)};
         hb_tmeta->set_tensor_pipelined();
       }
     }

@@ -3596,8 +3596,9 @@ OpSupportLevel hpu_check_inputs_impl(
 
   const auto& supported_types = op_info.at(op);
   size_t i = 0;
-  if (habana::HpuFallbackHelper::get()->is_placed_on_cpu(op))
+  if (habana::HpuFallbackHelper::get()->is_placed_on_cpu(op)) {
     return OpSupportLevel::Value::placed_on_cpu;
+  }
   for (const auto& tensor : tensors) {
     if (!tensor.defined()) {
       continue;
@@ -3610,8 +3611,7 @@ OpSupportLevel hpu_check_inputs_impl(
     // When same types are applicable to all input tensors, use the only one
     // defined
     size_t j = (supported_types.size() == 1) ? 0 : i;
-
-    if (!supported_types.at(j).count(dtype)) {
+    if (supported_types.at(j).count(dtype) == 0) {
       return OpSupportLevel::Value::unsupported_dtype;
     }
     i++;

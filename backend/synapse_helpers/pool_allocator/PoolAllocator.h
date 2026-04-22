@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -96,18 +96,14 @@ class PoolingStrategy {
 
 class SubAllocator {
  private:
-  PoolingStrategy* strategy_;
+  std::unique_ptr<PoolingStrategy> strategy_;
 
  public:
-  SubAllocator(PoolingStrategy* strategy) : strategy_(strategy) {}
+  SubAllocator(std::unique_ptr<PoolingStrategy> strategy)
+      : strategy_(std::move(strategy)) {}
 
-  ~SubAllocator() {
-    delete this->strategy_;
-  }
-
-  void set_strategy(PoolingStrategy* strategy) {
-    delete this->strategy_;
-    this->strategy_ = strategy;
+  void set_strategy(std::unique_ptr<PoolingStrategy> strategy) {
+    this->strategy_ = std::move(strategy);
   }
 
   bool pool_create(synDeviceId deviceID, uint64_t size) const {

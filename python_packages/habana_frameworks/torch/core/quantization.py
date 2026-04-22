@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,10 +23,8 @@ from habana_frameworks.torch.utils import _experimental_C
 
 @contextlib.contextmanager
 def _e_handler():
-    try:
+    with contextlib.suppress(Exception):
         yield
-    except Exception:
-        pass
 
 
 def _record_quant_param(name, min, max) -> None:
@@ -67,17 +65,15 @@ def _handle_quant_stats(model=None):
                 name = adjust_name(name)
                 max_calibration_data[name] = param.item()
         for name, param in placeholder_dict.items():
-            if name in min_calibration_data.keys():
+            if name in min_calibration_data:
                 min_calibration_data[param] = min_calibration_data[name]
                 min_calibration_data.pop(name)
-            if name in max_calibration_data.keys():
+            if name in max_calibration_data:
                 max_calibration_data[param] = max_calibration_data[name]
                 max_calibration_data.pop(name)
-        for name, _ in min_calibration_data.items():
-            try:
-                _record_quant_param(name, min_calibration_data[name], max_calibration_data[name])
-            except:
-                pass
+        for name, value in min_calibration_data.items():
+            with contextlib.suppress(BaseException):
+                _record_quant_param(name, value, max_calibration_data[name])
 
 
 _const_id = -1
@@ -128,8 +124,7 @@ def _check_params_as_const(model=None, mark_scales=False, mark_non_scales=False)
         return
 
     def check_constant_mark(param, param_t):
-        param_t_meta_copy = _core_C.get_tensor_extra_meta(param_t)
-        is_const = param_t_meta_copy.is_const_tensor
+        _core_C.get_tensor_extra_meta(param_t)
 
     for param, param_t in model.state_dict().items():
         if (

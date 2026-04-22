@@ -13,21 +13,24 @@
  * limitations under the License.
  */
 
+#include "backend/habana_operator.h"
 #include "backend/helpers/lowering_util.h"
 #include "generated/backend/std.h"
 #include "generated/backend/std_mean.h"
 #include "generated/backend/var.h"
 #include "generated/backend/var_mean.h"
 #include "hpu_ops/backend/reduction_template.h"
+#include "pytorch_helpers/habana_helpers/conversion.h"
 
 namespace habana {
 
 std::vector<int64_t> fillDims(const at::Tensor& self) {
   std::vector<int64_t> dims;
   auto input_size = self.dim();
-  dims.reserve(input_size);
-  for (auto i = 0; i < input_size; i++)
+  dims.reserve(safe_convert<size_t>(input_size));
+  for (auto i = 0; i < input_size; i++) {
     dims.push_back(i);
+  }
   return dims;
 }
 
@@ -49,18 +52,21 @@ OutputMetaDataVector StdVarMeta(const at::Stack& stack) {
   if (!stack.at(1).isBool()) {
     keepdim = stack.at(3).toBool();
   }
-  int ndims = self.sizes().size();
+  int ndims = safe_convert<int>(self.sizes().size());
   LoweringUtil::SortAndRemoveDuplicateDims(dims, ndims);
 
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec;
+  metaVec.reserve(2);
+  auto& meta = metaVec.emplace_back();
   meta.dtype = self.scalar_type();
   meta.shape = ReductionOutputShape(self, dims, keepdim)[0];
-  return {meta};
+  return metaVec;
 }
 
 OutputMetaDataVector StdVarMeanMeta(const at::Stack& stack) {
-  auto meta = StdVarMeta(stack)[0];
-  return {meta, meta};
+  auto metaVec = StdVarMeta(stack);
+  metaVec.push_back(metaVec[0]);
+  return metaVec;
 }
 
 std::vector<synapse_helpers::tensor> slice_size_helper(
@@ -74,16 +80,17 @@ std::vector<synapse_helpers::tensor> slice_size_helper(
   std::vector<synapse_helpers::tensor> slice_axis_output;
   auto slice_output = input;
 
-  if (rank == 1)
+  if (rank == 1) {
     return OpBackend::BuildNode(
         op, graph, {"size_i32", input, {{{1}, c10::ScalarType::Int}}});
+  }
 
   for (uint64_t i = 0; i < rank; i++) {
     if (std::find(dims.begin(), dims.end(), i) == dims.end()) {
       intermediate_shape[i] = 1;
 
       synSliceAxisParamsV2 slice_params{};
-      slice_params.axis = rank - i - 1;
+      slice_params.axis = safe_convert<unsigned int>(rank - i - 1);
       slice_params.begin = 0;
       slice_params.end = 1;
 
@@ -137,10 +144,11 @@ std::vector<synapse_helpers::tensor> StdVarCommonFunc(
   }
   const size_t ndims = input_shape.size();
   auto dimsVec = dims.vec();
-  LoweringUtil::SortAndRemoveDuplicateDims(dimsVec, ndims);
+  LoweringUtil::SortAndRemoveDuplicateDims(
+      dimsVec, safe_convert<int64_t>(ndims));
 
   const bool enable_reduce_sum = needsReduceSum(dimsVec);
-  const int min_dim = (dimsVec.empty()) ? 0 : dimsVec.front();
+  const int64_t min_dim = (dimsVec.empty()) ? 0 : dimsVec.front();
   std::vector<synapse_helpers::tensor> outputs;
 
   // when keepdim is false there will be incompatible input sizes for the
@@ -151,7 +159,7 @@ std::vector<synapse_helpers::tensor> StdVarCommonFunc(
       input[0],
       "reduce_mean_multi_dim_fwd",
       dimsVec,
-      ndims,
+      safe_convert<int64_t>(ndims),
       true,
       {output_attr[1]});
 
@@ -180,7 +188,7 @@ std::vector<synapse_helpers::tensor> StdVarCommonFunc(
       difference[0].get(),
       "reduce_sum_square_multi_dim_fwd",
       enable_reduce_sum ? std::vector<int64_t>{min_dim} : dimsVec,
-      ndims,
+      safe_convert<int64_t>(ndims),
       enable_reduce_sum ? true : keepdim,
       {{reduce_sum_square_output_shape, output_attr[0].dtype}});
 
@@ -191,14 +199,14 @@ std::vector<synapse_helpers::tensor> StdVarCommonFunc(
             sum_square[0].get(),
             "reduce_sum_multi_dim_fwd",
             std::vector(dimsVec.begin() + 1, dimsVec.end()),
-            ndims,
+            safe_convert<int64_t>(ndims),
             keepdim,
             {{output_attr[0].sizes, output_attr[0].dtype}})
       : std::move(sum_square);
 
   std::vector<synapse_helpers::tensor> reciprocal;
   auto slice_size_output = slice_size_helper(op, graph, self, input, dimsVec);
-  if (correction) {
+  if (correction != 0.0) {
     auto correction_tensor =
         OpBackend::BuildConstant(op, graph, correction, at::kFloat);
     auto diff = OpBackend::BuildNode(
@@ -269,10 +277,11 @@ std::vector<synapse_helpers::tensor> StdVarCommonFunc(
         for (size_t i = 0; i < dimsVec.size(); ++i) {
           const auto current_rank = temp_size.size();
           const auto dim = dimsVec[i];
-          unsigned int dim_synapse_order = current_rank - dim - 1;
+          auto dim_synapse_order = safe_convert<unsigned int>(
+              current_rank - safe_convert<size_t>(dim) - 1);
           synAxisParams params{dim_synapse_order};
 
-          temp_size.erase(temp_size.begin() + dim);
+          temp_size.erase(temp_size.begin() + safe_convert<ptrdiff_t>(dim));
           NodeAttr::NodeOutputAttr out_attr{
               temp_size,
               output_attr[1].dtype,
@@ -301,10 +310,10 @@ std::vector<synapse_helpers::tensor> StdVarCommonFunc(
 // correction must be 0 or 1, but ivalue can be float/double/int/None.
 double getCorrectionValue(c10::IValue ivalue) {
   if (ivalue.isNone()) {
-    return 1;
+    return 1.0;
   }
   if (ivalue.isInt()) {
-    return ivalue.toInt();
+    return static_cast<double>(ivalue.toInt());
   }
   // computation for floating point
   return ivalue.toDouble();
@@ -321,78 +330,71 @@ SharedMetaDataVector VarStdCommonSharedMeta(
   auto inRank = self.dim();
 
   SharedMetaDataVector out;
+  out.reserve(10 + (2 * inRank));
 
-  SharedMetaData meanSharedMeta{"reduce_mean_multi_dim_fwd"};
+  auto& meanSharedMeta = out.emplace_back("reduce_mean_multi_dim_fwd");
   meanSharedMeta.inputs_data.emplace_back(inRank, dtype);
   meanSharedMeta.outputs_data.emplace_back(inRank, dtype);
-  out.push_back(meanSharedMeta);
 
-  SharedMetaData sub1SharedMeta{"sub_fwd"};
+  auto& sub1SharedMeta = out.emplace_back("sub_fwd");
   sub1SharedMeta.inputs_data.emplace_back(inRank, dtype);
   sub1SharedMeta.inputs_data.emplace_back(1, dtype);
   sub1SharedMeta.outputs_data.emplace_back(inRank, dtype);
-  out.push_back(sub1SharedMeta);
 
-  SharedMetaData sumSquareSharedMeta{"reduce_sum_square_multi_dim_fwd"};
+  auto& sumSquareSharedMeta =
+      out.emplace_back("reduce_sum_square_multi_dim_fwd");
   sumSquareSharedMeta.inputs_data.emplace_back(inRank, dtype);
   sumSquareSharedMeta.outputs_data.emplace_back(inRank, dtype);
-  out.push_back(sumSquareSharedMeta);
 
   auto dims = getDimsVector(stack, self);
   const bool enable_reduce_sum = needsReduceSum(dims);
   if (enable_reduce_sum) {
-    SharedMetaData sumSquareFinalSharedMeta{"reduce_sum_multi_dim_fwd"};
+    auto& sumSquareFinalSharedMeta =
+        out.emplace_back("reduce_sum_multi_dim_fwd");
     sumSquareFinalSharedMeta.inputs_data.emplace_back(inRank, dtype);
     sumSquareFinalSharedMeta.outputs_data.emplace_back(inRank, dtype);
-    out.push_back(sumSquareFinalSharedMeta);
   }
 
   // slice size helper
-  SharedMetaData sz{"size"};
-  sz.inputs_data.emplace_back(inRank, dtype);
-  sz.outputs_data.emplace_back(1, c10::ScalarType::Int);
   if (inRank != 1) {
-    SharedMetaData sliceAxisSharedMeta{"slice_axis"};
+    auto& sliceAxisSharedMeta = out.emplace_back("slice_axis");
     sliceAxisSharedMeta.inputs_data.emplace_back(inRank, dtype);
     sliceAxisSharedMeta.outputs_data.emplace_back(1, dtype);
     for (auto i = 0U; i < inRank; ++i) {
       out.push_back(sliceAxisSharedMeta);
     }
   }
-  out.push_back(sz);
+  auto& sz = out.emplace_back("size");
+  sz.inputs_data.emplace_back(inRank, dtype);
+  sz.outputs_data.emplace_back(1, c10::ScalarType::Int);
 
-  if (correction) {
-    SharedMetaData sub2SharedMeta{"sub_fwd"};
+  if (correction != 0.0) {
+    auto& sub2SharedMeta = out.emplace_back("sub_fwd");
     sub2SharedMeta.inputs_data.emplace_back(1, dtype);
     sub2SharedMeta.inputs_data.emplace_back(1, dtype);
     sub2SharedMeta.outputs_data.emplace_back(1, dtype);
-    out.push_back(sub2SharedMeta);
   }
 
-  SharedMetaData reciprocalSharedMeta{"reciprocal_fwd"};
+  auto& reciprocalSharedMeta = out.emplace_back("reciprocal_fwd");
   reciprocalSharedMeta.inputs_data.emplace_back(1, c10::ScalarType::Float);
   reciprocalSharedMeta.outputs_data.emplace_back(1, c10::ScalarType::Float);
-  out.push_back(reciprocalSharedMeta);
 
-  SharedMetaData multSharedMeta{"mult_fwd"};
+  auto& multSharedMeta = out.emplace_back("mult_fwd");
   multSharedMeta.inputs_data.emplace_back(inRank, c10::ScalarType::Float);
   multSharedMeta.inputs_data.emplace_back(1, c10::ScalarType::Float);
   multSharedMeta.outputs_data.emplace_back(inRank, c10::ScalarType::Float);
-  out.push_back(multSharedMeta);
 
   if (take_sqrt) {
-    SharedMetaData sqrtSharedMeta{"sqrt_fwd"};
+    auto& sqrtSharedMeta = out.emplace_back("sqrt_fwd");
     sqrtSharedMeta.inputs_data.emplace_back(inRank, c10::ScalarType::Float);
     sqrtSharedMeta.outputs_data.emplace_back(inRank, c10::ScalarType::Float);
-    out.push_back(sqrtSharedMeta);
   }
 
   if (mean_op && !keepdim) {
     for (auto i = 0U; i < inRank; ++i) {
-      SharedMetaData squeezeSharedMeta{"squeeze"};
+      auto& squeezeSharedMeta = out.emplace_back("squeeze");
       squeezeSharedMeta.inputs_data.emplace_back(inRank - i, dtype);
       squeezeSharedMeta.outputs_data.emplace_back(inRank - i - 1, dtype);
-      out.push_back(squeezeSharedMeta);
     }
   }
 

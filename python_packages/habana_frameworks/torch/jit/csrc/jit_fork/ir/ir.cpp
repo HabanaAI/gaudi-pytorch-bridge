@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -118,7 +118,7 @@ void findAllNodes(
       ret.push_back(n);
     }
     if (recurse) {
-      for (auto b : n->blocks()) {
+      for (auto* b : n->blocks()) {
         findAllNodes(*b, kind, recurse, ret);
       }
     }
@@ -159,6 +159,7 @@ static std::ostream& operator<<(
 }
 
 struct const_value_list_with_types {
+  // NOLINTNEXTLINE(cppcoreguidelines-avoid-const-or-ref-data-members)
   const ArrayRef<const Value*> values;
   std::string delim;
   const_value_list_with_types(
@@ -171,7 +172,7 @@ static std::ostream& operator<<(
     std::ostream& out,
     const const_value_list_with_types& l) {
   size_t i = 0;
-  for (auto n : l.values) {
+  for (const auto* n : l.values) {
     if (i++ > 0) {
       out << l.delim;
     }
@@ -232,9 +233,10 @@ static void printTypeList(
     const std::vector<TypePtr>& items) {
   out << "[";
   int i = 0;
-  for (auto& item : items) {
-    if (i++ > 0)
+  for (const auto& item : items) {
+    if (i++ > 0) {
       out << ", ";
+    }
     out << *item;
   }
   out << "]";
@@ -354,11 +356,11 @@ std::ostream& Node::print(
   indent(out, level) << const_value_list_with_types(outs);
   out << " = ";
   if (kind() == prim::PythonOp) {
-    auto* pyOp = static_cast<const ::habana_torch::jit::PythonOp*>(this);
+    const auto* pyOp = dynamic_cast<const ::habana_torch::jit::PythonOp*>(this);
     out << "^" << pyOp->name();
     printAttributes(out, /*ignore_subgraph=*/false);
     pyOp->writeScalars(out);
-  } else if (hasAttribute(attr::Subgraph) && groups) {
+  } else if (hasAttribute(attr::Subgraph) && groups != nullptr) {
     out << kind().toQualString() << "_" << groups->size();
     if (print_attributes && numAttributes() > 1 &&
         kind() != prim::DifferentiableGraph) {
@@ -405,11 +407,11 @@ std::ostream& Node::print(
   out << "\n";
 
   for (const auto i : c10::irange(blocks().size())) {
-    auto b = blocks()[i];
+    const auto* b = blocks()[i];
     indent(out, level + 1) << "block" << i << "("
                            << const_value_list_with_types(b->inputs())
                            << "):\n";
-    for (auto nested : b->nodes()) {
+    for (const auto* nested : b->nodes()) {
       nested->print(out, level + 2, groups);
     }
     indent(out, level + 2) << "-> (" << b->outputs() << ")\n";
@@ -426,12 +428,12 @@ std::ostream& Graph::print(std::ostream& out, bool print_source_info) const {
   out << "graph(" << const_value_list_with_types(inputs(), ",\n      ")
       << "):\n";
   std::vector<const Node*> groups;
-  for (auto n : nodes()) {
+  for (const auto* n : nodes()) {
     n->print(out, 1, &groups, print_source_info);
   }
   out << "  return (" << outputs() << ")\n";
   size_t i = 0;
-  for (auto fg : groups) {
+  for (const auto* fg : groups) {
     out << "with " << fg->kind().toQualString() << "_" << i++ << " = "
         << *fg->g(attr::Subgraph);
   }
@@ -467,10 +469,10 @@ static void checkSameDevice(const Node* node) {
       }
     }
   };
-  for (auto input : node->inputs()) {
+  for (const auto* input : node->inputs()) {
     checkValue(input);
   }
-  for (auto output : node->outputs()) {
+  for (const auto* output : node->outputs()) {
     checkValue(output);
   }
 }
@@ -525,7 +527,7 @@ void Node::lint() const {
       break;
     case prim::PythonOp: {
       // Python operator cconv is correct
-      auto* value = static_cast<const PythonOp*>(this);
+      const auto* value = dynamic_cast<const PythonOp*>(this);
       value->lint_python();
       break;
     }
@@ -540,6 +542,9 @@ void Node::lint() const {
       checkSameDevice(this);
       // TODO: Typecheck the parameters
       g(attr::Subgraph)->lint();
+      break;
+    default:
+      // Other node kinds don't have specific lint invariants
       break;
   }
 }
@@ -577,21 +582,23 @@ void Graph::lint() const {
       HABANA_ASSERT(!contains(n));
       nodes.insert(n);
     }
-    // NOLINTNEXTLINE(cppcoreguidelines-non-private-member-variables-in-classes)
-    std::unique_ptr<LintScope> parent;
+    std::unique_ptr<LintScope> take_parent() {
+      return std::move(parent);
+    }
 
    private:
+    std::unique_ptr<LintScope> parent;
     std::unordered_set<const Value*> values;
     std::unordered_set<const Node*> nodes;
   };
   // Struct enables mutual recursion in linting methods.
   // Putting it inside Graph::lint enables access to private Graph members
   struct LintImpl {
-    LintImpl(const Graph& g)
+    LintImpl(const Graph* g)
         : g(g),
           scope(new LintScope()),
-          all_nodes_set(ALL_OF(g.all_nodes)) {} // NB: all_nodes is *unordered*
-    const Graph& g;
+          all_nodes_set(ALL_OF(g->all_nodes)) {} // NB: all_nodes is *unordered*
+    const Graph* g;
     std::unique_ptr<LintScope> scope;
     std::unordered_set<size_t> seen_uniques;
     std::unordered_map<const Node*, int64_t> anticipated_uses;
@@ -602,16 +609,16 @@ void Graph::lint() const {
       scope->insert(v);
       auto b2 = seen_uniques.insert(v->unique());
       HABANA_ASSERT(b2.second); // insertion took place
-      HABANA_ASSERT(v->unique() < g.next_unique_);
+      HABANA_ASSERT(v->unique() < g->next_unique_);
 
       for (auto use : v->uses()) {
         HABANA_ASSERT(!scope->contains(use.user));
-        HABANA_ASSERT(g.all_nodes.count(use.user) == 1);
+        HABANA_ASSERT(g->all_nodes.count(use.user) == 1);
         anticipated_uses[use.user]++; // int default constructs to 0
       }
     }
     void check_node(const Node* n) {
-      for (auto input : n->inputs_) {
+      for (auto* input : n->inputs_) {
         if (!scope->contains(input)) {
           HABANA_ASSERT(0, input->unique(), " not in scope");
         }
@@ -620,14 +627,14 @@ void Graph::lint() const {
           anticipated_uses[n] == static_cast<int64_t>(n->inputs_.size()));
       anticipated_uses[n] = -1; // we saw the anticipated user!
       scope->insert(n);
-      for (auto block : n->blocks()) {
+      for (const auto* block : n->blocks()) {
         scope = std::make_unique<LintScope>(std::move(scope));
         check_block(block);
-        scope = std::move(scope->parent);
+        scope = scope->take_parent();
       }
       size_t i = 0;
 
-      for (auto o : n->outputs()) {
+      for (const auto* o : n->outputs()) {
         HABANA_ASSERT(o->node() == n);
         HABANA_ASSERT(i++ == o->offset_);
         check_value(o);
@@ -637,18 +644,18 @@ void Graph::lint() const {
     void check_block(const Block* b) {
       // Check topological ordering
       HABANA_ASSERT(b->param_node()->isBefore(*b->nodes().begin()));
-      auto curNode = *b->nodes().begin();
+      const auto* curNode = *b->nodes().begin();
       while (curNode != b->return_node()) {
         HABANA_ASSERT(curNode->isBefore(curNode->next()));
         curNode = curNode->next();
       }
 
-      for (auto input : b->inputs()) {
+      for (const auto* input : b->inputs()) {
         check_value(input);
         HABANA_ASSERT(input->node()->kind_ == prim::Param);
       }
 
-      for (auto n : b->nodes()) {
+      for (const auto* n : b->nodes()) {
         HABANA_ASSERT(n->kind_ != prim::Param);
         HABANA_ASSERT(n->kind_ != prim::Return);
         check_node(n);
@@ -678,16 +685,16 @@ void Graph::lint() const {
     }
     void check_graph() {
       node_set all_nodes_set(
-          ALL_OF(g.all_nodes)); // NB: all_nodes is *unordered*
+          ALL_OF(g->all_nodes)); // NB: all_nodes is *unordered*
 
-      check_block(g.block_);
+      check_block(g->block_);
       for (auto kv : anticipated_uses) {
         HABANA_ASSERT(kv.second == -1);
       }
       HABANA_ASSERT(std::includes(ALL_OF(sum_set), ALL_OF(all_nodes_set)));
     }
   };
-  LintImpl(*this).check_graph();
+  LintImpl(this).check_graph();
 }
 
 void Graph::dump() const {
@@ -732,7 +739,7 @@ Block::Block(Graph* graph_, Node* node_)
 
 void Block::reIndexTopology() {
   auto curPos = kLowerBound;
-  for (auto node : nodes()) {
+  for (auto* node : nodes()) {
     HABANA_ASSERT(curPos <= (kUpperBound - kAppendInterval));
     curPos += kAppendInterval;
     node->topo_position_ = curPos;
@@ -749,21 +756,21 @@ void Block::cloneFrom(Block* src, std::function<Value*(Value*)> value_map) {
     return value_map(v);
   };
 
-  auto graph = owningGraph();
-  for (auto input : src->inputs()) {
+  auto* graph = owningGraph();
+  for (auto* input : src->inputs()) {
     local_map[input] = this->addInput()->copyMetadata(input);
   }
 
-  for (auto node : src->nodes()) {
-    auto new_node = this->appendNode(graph->createClone(node, env));
+  for (auto* node : src->nodes()) {
+    auto* new_node = this->appendNode(graph->createClone(node, env));
     for (size_t i = 0; i < node->outputs().size(); ++i) {
-      auto oo = node->outputs()[i];
-      auto no = new_node->outputs()[i];
+      auto* oo = node->outputs()[i];
+      auto* no = new_node->outputs()[i];
       local_map[oo] = no;
       no->copyMetadata(oo);
     }
   }
-  for (auto output : src->outputs()) {
+  for (auto* output : src->outputs()) {
     this->registerOutput(env(output));
   }
 }
@@ -1011,7 +1018,7 @@ static size_t findArgument(
 }
 
 static size_t findArgument(const FunctionSchema& the_schema, Symbol name) {
-  const auto unqualName = name.toUnqualString();
+  const auto* const unqualName = name.toUnqualString();
   return findArgument(the_schema, unqualName);
 }
 
@@ -1073,11 +1080,7 @@ bool Node::matches(const FunctionSchema& schema) const {
   }
 
   // too many inputs
-  if (!schema.is_vararg() && actuals.size() != formals.size()) {
-    return false;
-  }
-
-  return true;
+  return (schema.is_vararg() || actuals.size() == formals.size());
 }
 
 bool Node::matches(
@@ -1122,21 +1125,21 @@ const c10::OperatorName& Node::getOperatorName() const {
 }
 
 const FunctionSchema& Node::schema() const {
-  if (op_) {
+  if (op_ != nullptr) {
     return op_->schema();
   }
   return getOperator().schema();
 }
 
 const FunctionSchema* Node::maybeSchema() const {
-  if (auto op = maybeOperator()) {
+  if (const auto* op = maybeOperator()) {
     return &op->schema();
   }
   return nullptr;
 }
 
 const torch::jit::Operator* Node::maybeOperator() const {
-  if (!op_) {
+  if (op_ == nullptr) {
     const auto& candidates = torch::jit::getAllOperatorsFor(kind());
     for (const auto& candidate : candidates) {
       if (matches(candidate->schema())) {
@@ -1150,7 +1153,7 @@ const torch::jit::Operator* Node::maybeOperator() const {
 
 const torch::jit::Operator& Node::getOperator() const {
   const torch::jit::Operator* maybe = maybeOperator();
-  if (maybe) {
+  if (maybe != nullptr) {
     return *maybe;
   }
 
@@ -1159,14 +1162,15 @@ const torch::jit::Operator& Node::getOperator() const {
   er << "Node: " << *this << "\n";
   er << "Input types:";
   for (const auto i : c10::irange(inputs().size())) {
-    if (i > 0)
+    if (i > 0) {
       er << ", ";
+    }
     er << *inputs()[i]->type();
   }
   const auto& candidates = torch::jit::getAllOperatorsFor(kind());
   if (!candidates.empty()) {
     er << "\ncandidates were:\n";
-    for (auto& candidate : candidates) {
+    for (const auto& candidate : candidates) {
       er << "  " << candidate->schema() << "\n";
     }
   } else {
@@ -1178,14 +1182,14 @@ const torch::jit::Operator& Node::getOperator() const {
 }
 
 bool Node::isNondeterministic() const {
-  const auto schema = maybeSchema();
+  const auto* const schema = maybeSchema();
   if (!kind().is_aten()) {
     return false;
   }
   // All aten ops are expecte to have a schema. However this is left as a
   // warning instead of an assert to ensure that previous use cases do not
   // break.
-  if (!schema) {
+  if (schema == nullptr) {
     TORCH_WARN("aten Schema not found.");
     return false;
   }
@@ -1227,10 +1231,12 @@ bool Node::hasSideEffects() const {
     case prim::Enter:
     case prim::Exit:
       return true;
+    default:
+      break;
   }
 
-  auto op = maybeOperator();
-  if (!op) {
+  const auto* op = maybeOperator();
+  if (op == nullptr) {
     HABANA_ASSERT(
         kind_.is_prim(),
         "Only prim ops are allowed to not have a registered operator but",
@@ -1356,7 +1362,8 @@ void Node::eraseOutput(size_t i) {
 
 Block* Node::addBlock() {
   op_ = nullptr;
-  blocks_.push_back(new Block(owningGraph(), this));
+  blocks_.push_back(new Block(
+      owningGraph(), this)); // NOLINT(cppcoreguidelines-owning-memory)
   return blocks_.back();
 }
 
@@ -1402,13 +1409,13 @@ void Node::replaceAllUsesWith(Node* n) {
 Node* Node::replaceWithNewSymbol(Symbol new_symbol) {
   WithInsertPoint insert_guard{this};
   bool had_operator = maybeOperator() != nullptr;
-  auto graph = owningGraph();
-  auto replace_node = graph->insertNode(graph->create(new_symbol, 0));
+  auto* graph = owningGraph();
+  auto* replace_node = graph->insertNode(graph->create(new_symbol, 0));
   for (Value* v : inputs()) {
     replace_node->addInput(v);
   }
   for (Value* v : outputs()) {
-    auto new_out = replace_node->addOutput()->copyMetadata(v);
+    auto* new_out = replace_node->addOutput()->copyMetadata(v);
     v->replaceAllUsesWith(new_out);
   }
   replace_node->copyMetadata(this);
@@ -1424,7 +1431,7 @@ Node* Node::replaceWithNewSymbol(Symbol new_symbol) {
 
 bool Node::isDominatedBy(const Node* dominator) const {
   const Node* node = this;
-  while (node) {
+  while (node != nullptr) {
     if (node->owningBlock() == dominator->owningBlock()) {
       return dominator->isBefore(node);
     }
@@ -1474,7 +1481,7 @@ void Node::replaceInputWith(Value* from, Value* to) {
   HABANA_ASSERT(to->owningGraph() == graph_);
   op_ = nullptr;
   size_t i = 0;
-  for (auto input : inputs()) {
+  for (auto* input : inputs()) {
     if (input == from) {
       replaceInput(i, to);
     }
@@ -1483,14 +1490,17 @@ void Node::replaceInputWith(Value* from, Value* to) {
 }
 
 Value* Node::addOutput() {
-  outputs_.push_back(new Value(this, outputs_.size()));
+  outputs_.push_back(new Value(
+      this, outputs_.size())); // NOLINT(cppcoreguidelines-owning-memory)
   op_ = nullptr;
   return outputs_.back();
 }
 
 Value* Node::insertOutput(size_t i) {
   op_ = nullptr;
-  outputs_.insert(outputs_.begin() + i, new Value(this, i));
+  outputs_.insert(
+      outputs_.begin() + i,
+      new Value(this, i)); // NOLINT(cppcoreguidelines-owning-memory)
   for (size_t itr = i + 1; itr < outputs_.size(); ++itr) {
     outputs_[itr]->setOffset(outputs_[itr]->offset() + 1);
   }
@@ -1513,13 +1523,13 @@ bool Node::isBeforeOrAfter(const Node* n, MoveSide moveSide) const {
 
   // These nodes don't share a common block. Traverse the blockchains upward
   // until we find the first common block.
-  auto lhs = this;
-  while (lhs) {
+  const auto* lhs = this;
+  while (lhs != nullptr) {
     HABANA_ASSERT(lhs->owningBlock());
 
-    auto rhs = n;
-    while (rhs) {
-      if (!rhs->owningBlock()) {
+    const auto* rhs = n;
+    while (rhs != nullptr) {
+      if (rhs->owningBlock() == nullptr) {
         break;
       }
 
@@ -1645,7 +1655,7 @@ use_list::iterator Node::findUseForInput(size_t i) {
 }
 Value* Node::dropInput(size_t i) {
   HABANA_ASSERT(i < inputs_.size());
-  auto input_node = inputs_[i];
+  auto* input_node = inputs_[i];
   auto use_it = findUseForInput(i);
   input_node->uses_.erase(use_it);
   inputs_[i] = nullptr;
@@ -1699,7 +1709,7 @@ Block* Node::findCommonAncestorBlockWith(Node* n) {
 size_t Node::blocksFromGraphBlock() {
   Node* n = this;
   size_t dist = 0;
-  while (n->owningBlock()->owningNode()) {
+  while (n->owningBlock()->owningNode() != nullptr) {
     n = n->owningBlock()->owningNode();
     ++dist;
   }
@@ -1722,7 +1732,7 @@ Value* Graph::insert(
 
 Node* Graph::create(NodeKind kind, size_t num_outputs) {
   // NB: Node constructor adds node to all_nodes
-  auto n = new Node(this, kind);
+  auto* n = new Node(this, kind); // NOLINT(cppcoreguidelines-owning-memory)
   for (const auto i : c10::irange(num_outputs)) {
     (void)i;
     n->addOutput();
@@ -1734,8 +1744,8 @@ Node* Graph::create(
     NodeKind kind,
     ArrayRef<Value*> inputs,
     size_t num_outputs) {
-  auto n = create(kind, num_outputs);
-  for (auto i : inputs) {
+  auto* n = create(kind, num_outputs);
+  for (auto* i : inputs) {
     n->addInput(i);
   }
   return n;
@@ -1758,7 +1768,7 @@ Node* Graph::createUninitialized(TypePtr type) {
 }
 
 Node* Graph::createWithSubgraph(Symbol kind) {
-  auto n = create(kind, 0);
+  auto* n = create(kind, 0);
   n->g_(attr::Subgraph, std::make_shared<Graph>(current_scope()));
   return n;
 }
@@ -1768,7 +1778,7 @@ Node* Graph::createTuple(at::ArrayRef<Value*> values, TupleTypePtr tuple_type) {
     auto types = fmap(values, [](Value* v) { return v->type(); });
     tuple_type = TupleType::create(std::move(types));
   }
-  auto n = create(prim::TupleConstruct, values);
+  auto* n = create(prim::TupleConstruct, values);
 
   n->output()->setType(tuple_type);
   return n;
@@ -1776,8 +1786,8 @@ Node* Graph::createTuple(at::ArrayRef<Value*> values, TupleTypePtr tuple_type) {
 
 Node* Graph::createTupleUnpack(Value* v) {
   TupleTypePtr tt = v->type()->expect<TupleType>();
-  auto n = create(prim::TupleUnpack, {v}, 0);
-  for (auto& element : tt->elements()) {
+  auto* n = create(prim::TupleUnpack, {v}, 0);
+  for (const auto& element : tt->elements()) {
     n->addOutput()->setType(element);
   }
   return n;
@@ -1787,7 +1797,7 @@ Node* Graph::createTupleIndex(
     Value* tup,
     Value* idx,
     const TypePtr& output_type) {
-  auto n = create(prim::TupleIndex, {tup, idx});
+  auto* n = create(prim::TupleIndex, {tup, idx});
   n->output()->setType(output_type);
   return n;
 }
@@ -1804,28 +1814,29 @@ Node* Graph::createTupleSlice(
   int64_t i = beg;
   for (const auto j : c10::irange(num_values)) {
     (void)j; // Suppress unused variable warning
-    auto idx = insertConstant(IValue(i));
-    auto tupleIndex = insertNode(createTupleIndex(tup, idx, tt->elements()[i]));
+    auto* idx = insertConstant(IValue(i));
+    auto* tupleIndex =
+        insertNode(createTupleIndex(tup, idx, tt->elements()[i]));
 
     new_vals.push_back(tupleIndex->output());
     i += step_size;
   }
 
-  auto n = createTuple(new_vals);
+  auto* n = createTuple(new_vals);
   return n;
 }
 
 Node* Graph::createEnumName(Value* e) {
   e->type()->expect<EnumType>();
   assert(e->type()->cast<EnumType>());
-  auto n = create(prim::EnumName, {e});
+  auto* n = create(prim::EnumName, {e});
   n->output()->setType(StringType::get());
   return n;
 }
 
 Node* Graph::createEnumValue(Value* e) {
   auto enum_type = e->type()->expect<EnumType>();
-  auto n = create(prim::EnumValue, {e});
+  auto* n = create(prim::EnumValue, {e});
   n->output()->setType(enum_type->getValueType());
   return n;
 }
@@ -1833,7 +1844,7 @@ Node* Graph::createEnumValue(Value* e) {
 Node* Graph::createList(
     const TypePtr& contained_type,
     at::ArrayRef<Value*> values) {
-  auto n = create(prim::ListConstruct, values);
+  auto* n = create(prim::ListConstruct, values);
   for (const auto& v : values) {
     HABANA_ASSERT(
         v->type()->isSubtypeOf(*contained_type),
@@ -1850,7 +1861,7 @@ Node* Graph::createList(
 Node* Graph::createListUnpack(Value* v, size_t size) {
   ListTypePtr list_type = v->type()->expect<ListType>();
   TypePtr elem_type = list_type->getElementType();
-  auto n = create(prim::ListUnpack, {v}, 0);
+  auto* n = create(prim::ListUnpack, {v}, 0);
   for (const auto i : c10::irange(size)) {
     (void)i; // Suppress unused variable warning
     n->addOutput()->setType(elem_type);
@@ -1880,7 +1891,7 @@ Node* Graph::createDict(
     at::ArrayRef<Value*> keys,
     at::ArrayRef<Value*> values) {
   HABANA_ASSERT(keys.size() == values.size());
-  auto n = create(prim::DictConstruct, 1);
+  auto* n = create(prim::DictConstruct, 1);
   for (const auto i : c10::irange(keys.size())) {
     AT_ASSERT(keys[i]->type()->isSubtypeOf(*key_type));
     AT_ASSERT(values[i]->type()->isSubtypeOf(*value_type));
@@ -1899,7 +1910,7 @@ Node* Graph::createNumToTensor(Value* value) {
 }
 
 Node* Graph::createObject(const ClassTypePtr& type) {
-  auto result = create(prim::CreateObject);
+  auto* result = create(prim::CreateObject);
   result->output()->setType(type);
   return result;
 }
@@ -1908,7 +1919,7 @@ Node* Graph::createSetAttr(
     Value* obj,
     const std::string& field,
     Value* newValue) {
-  auto n = create(prim::SetAttr, {obj, newValue}, /*num_outputs=*/0);
+  auto* n = create(prim::SetAttr, {obj, newValue}, /*num_outputs=*/0);
   n->s_(attr::name, field);
   return n;
 }
@@ -1916,7 +1927,7 @@ Node* Graph::createSetAttr(
 Node* Graph::createGetAttr(Value* obj, const std::string& field) {
   const auto classType = obj->type()->expect<ClassType>();
 
-  auto n = create(prim::GetAttr, {obj}, /*num_outputs=*/1);
+  auto* n = create(prim::GetAttr, {obj}, /*num_outputs=*/1);
   n->s_(attr::name, field);
 
   const auto outputType = classType->getAttribute(field);
@@ -1926,20 +1937,20 @@ Node* Graph::createGetAttr(Value* obj, const std::string& field) {
 }
 
 Node* Graph::createStore(const std::string& name, Value* v) {
-  auto n = create(prim::Store, {v}, /*num_outputs*/ 0);
+  auto* n = create(prim::Store, {v}, /*num_outputs*/ 0);
   n->s_(attr::name, name);
   return n;
 }
 
 Node* Graph::createLoad(const std::string& name, const TypePtr& type) {
-  auto n = create(prim::Load, {}, /*num_outputs*/ 1);
+  auto* n = create(prim::Load, {}, /*num_outputs*/ 1);
   n->s_(attr::name, name);
   n->output()->setType(type);
   return n;
 }
 
 Node* Graph::createIsInstance(Value* v, at::ArrayRef<TypePtr> types) {
-  auto n = create(prim::isinstance, {v}, /*num_outputs*/ 1);
+  auto* n = create(prim::isinstance, {v}, /*num_outputs*/ 1);
   n->tys_(attr::types, types.vec());
   n->output()->setType(BoolType::get());
   return n;
@@ -2018,15 +2029,15 @@ Node* Graph::createClone(
     bool copy_blocks) {
   // n can be from a different graph
   Node* r = n->allocNewInstance(this);
-  for (auto o : n->outputs()) {
+  for (auto* o : n->outputs()) {
     r->addOutput()->copyMetadata(o);
   }
   r->cloneFrom(n);
-  for (auto i : n->inputs()) {
+  for (auto* i : n->inputs()) {
     r->addInput(value_map(i));
   }
   if (copy_blocks) {
-    for (auto b : n->blocks()) {
+    for (auto* b : n->blocks()) {
       r->addBlock()->cloneFrom(b, value_map);
     }
   }
@@ -2050,39 +2061,39 @@ std::string Graph::toString(bool print_source_info) const {
 
 Graph::~Graph() {
   for (const Node* n : all_nodes) {
-    delete n;
+    delete n; // NOLINT(cppcoreguidelines-owning-memory)
   }
   for (const Value* v : all_values) {
-    delete v;
+    delete v; // NOLINT(cppcoreguidelines-owning-memory)
   }
   for (const Block* b : all_blocks) {
-    delete b;
+    delete b; // NOLINT(cppcoreguidelines-owning-memory)
   }
 }
 
 void Graph::freeNode(Node* n) {
   auto it = all_nodes.find(n);
   HABANA_ASSERT(it != all_nodes.end());
-  delete *it;
+  delete *it; // NOLINT(cppcoreguidelines-owning-memory)
   all_nodes.erase(it);
 }
 void Graph::freeValue(Value* v) {
   v->setDebugName("");
   auto it = all_values.find(v);
   HABANA_ASSERT(it != all_values.end());
-  delete *it;
+  delete *it; // NOLINT(cppcoreguidelines-owning-memory)
   all_values.erase(it);
 }
 void Graph::freeBlock(Block* b) {
   auto it = all_blocks.find(b);
   HABANA_ASSERT(it != all_blocks.end());
-  delete *it;
+  delete *it; // NOLINT(cppcoreguidelines-owning-memory)
   all_blocks.erase(it);
 }
 
 std::shared_ptr<::torch::jit::Graph> Graph::copyToUpstreamGraph() {
   auto new_graph = std::make_shared<::torch::jit::Graph>();
-  auto src_graph = this;
+  auto* src_graph = this;
   src_graph->cloneToUpstreamGraph(new_graph);
   return new_graph;
 }
@@ -2207,7 +2218,7 @@ void Node::copyAttributesIntoUpstreamNode(::torch::jit::Node* dst_node) {
 
 void Graph::cloneToUpstreamGraph(
     std::shared_ptr<::torch::jit::Graph>& dst_graph) {
-  auto src_graph = this;
+  auto* src_graph = this;
 
   std::unordered_map<Value*, ::torch::jit::Value*> value_map;
 
@@ -2215,28 +2226,28 @@ void Graph::cloneToUpstreamGraph(
   auto src_inputs_count = src_inputs.size();
 
   for (auto i = 0U; i < src_inputs_count; i++) {
-    auto new_input = dst_graph->addInput();
+    auto* new_input = dst_graph->addInput();
     auto src_type = src_inputs[i]->type();
     new_input->setType(src_type);
 
     value_map[src_inputs[i]] = new_input;
   }
 
-  for (auto src_node : src_graph->nodes()) {
+  for (auto* src_node : src_graph->nodes()) {
     auto kind = src_node->kind();
     auto src_node_inputs = src_node->inputs();
     std::vector<::torch::jit::Value*> dst_inputs;
-    for (auto src_node_input : src_node_inputs) {
+    for (auto* src_node_input : src_node_inputs) {
       dst_inputs.emplace_back(value_map[src_node_input]);
     }
 
     ::c10::ArrayRef<::torch::jit::Value*> dst_node_inputs_ref(
         dst_inputs.data(), dst_inputs.size());
     auto num_outputs = src_node->outputs().size();
-    auto dst_node = dst_graph->create(kind, dst_node_inputs_ref, num_outputs);
+    auto* dst_node = dst_graph->create(kind, dst_node_inputs_ref, num_outputs);
     for (auto i = 0U; i < num_outputs; i++) {
-      auto dst_output = dst_node->outputs()[i];
-      auto src_output = src_node->outputs()[i];
+      auto* dst_output = dst_node->outputs()[i];
+      auto* src_output = src_node->outputs()[i];
       dst_output->setType(src_output->type());
       if (habana_torch::jit::Value::isValidName(src_output->debugName())) {
         dst_output->setDebugName(src_output->debugName());
@@ -2247,9 +2258,9 @@ void Graph::cloneToUpstreamGraph(
     src_node->copyAttributesIntoUpstreamNode(dst_node);
 
     auto src_node_outputs = src_node->outputs();
-    auto src_node_outputs_iterator = src_node_outputs.begin();
+    const auto* src_node_outputs_iterator = src_node_outputs.begin();
     auto dst_node_outputs = dst_node->outputs();
-    auto dst_node_outputs_iterator = dst_node_outputs.begin();
+    const auto* dst_node_outputs_iterator = dst_node_outputs.begin();
 
     for (; src_node_outputs_iterator != src_node_outputs.end() and
          dst_node_outputs_iterator != dst_node_outputs.end();
@@ -2259,7 +2270,7 @@ void Graph::cloneToUpstreamGraph(
   }
 
   // register outputs phase
-  for (auto src_graph_output : src_graph->outputs()) {
+  for (auto* src_graph_output : src_graph->outputs()) {
     dst_graph->registerOutput(value_map[src_graph_output]);
   }
 }
@@ -2284,7 +2295,7 @@ void copyAttributesFromUpstreamNode(
         break;
       }
       case ::torch::jit::AttributeKind ::fs: {
-        auto gotAttr = src_node->fs(src_attr_name);
+        const auto& gotAttr = src_node->fs(src_attr_name);
         dst_node->fs_(src_attr_name, gotAttr);
         break;
       }
@@ -2294,7 +2305,7 @@ void copyAttributesFromUpstreamNode(
         break;
       }
       case ::torch::jit::AttributeKind ::cs: {
-        auto gotAttr = src_node->cs(src_attr_name);
+        const auto& gotAttr = src_node->cs(src_attr_name);
         dst_node->cs_(src_attr_name, gotAttr);
 
         break;
@@ -2305,30 +2316,30 @@ void copyAttributesFromUpstreamNode(
         break;
       }
       case ::torch::jit::AttributeKind ::is: {
-        auto gotAttr = src_node->is(src_attr_name);
+        const auto& gotAttr = src_node->is(src_attr_name);
         dst_node->is_(src_attr_name, gotAttr);
 
         break;
       }
       case ::torch::jit::AttributeKind ::s: {
-        auto gotAttr = src_node->s(src_attr_name);
+        const auto& gotAttr = src_node->s(src_attr_name);
         dst_node->s_(src_attr_name, gotAttr);
 
         break;
       }
       case ::torch::jit::AttributeKind ::ss: {
-        auto gotAttr = src_node->ss(src_attr_name);
+        const auto& gotAttr = src_node->ss(src_attr_name);
         dst_node->ss_(src_attr_name, gotAttr);
 
         break;
       }
       case ::torch::jit::AttributeKind ::t: {
-        auto gotAttr = src_node->t(src_attr_name);
+        const auto& gotAttr = src_node->t(src_attr_name);
         dst_node->t_(src_attr_name, gotAttr);
         break;
       }
       case ::torch::jit::AttributeKind ::ts: {
-        auto gotAttr = src_node->ts(src_attr_name);
+        const auto& gotAttr = src_node->ts(src_attr_name);
         dst_node->ts_(src_attr_name, gotAttr);
         break;
       }
@@ -2349,17 +2360,17 @@ void copyAttributesFromUpstreamNode(
         break;
       }
       case ::torch::jit::AttributeKind ::ty: {
-        auto gotAttr = src_node->ty(src_attr_name);
+        const auto& gotAttr = src_node->ty(src_attr_name);
         dst_node->ty_(src_attr_name, gotAttr);
         break;
       }
       case ::torch::jit::AttributeKind ::tys: {
-        auto gotAttr = src_node->tys(src_attr_name);
+        const auto& gotAttr = src_node->tys(src_attr_name);
         dst_node->tys_(src_attr_name, gotAttr);
         break;
       }
       case ::torch::jit::AttributeKind ::ival: {
-        auto gotAttr = src_node->ival(src_attr_name);
+        const auto& gotAttr = src_node->ival(src_attr_name);
         dst_node->ival_(src_attr_name, gotAttr);
         break;
       }
@@ -2380,28 +2391,28 @@ void cloneFromUpstreamGraph(
   auto src_inputs_count = src_inputs.size();
 
   for (auto i = 0U; i < src_inputs_count; i++) {
-    auto new_input = dst_graph->addInput();
+    auto* new_input = dst_graph->addInput();
     auto src_type = src_inputs[i]->type();
     new_input->setType(src_type);
 
     value_map[src_inputs[i]] = new_input;
   }
 
-  for (auto src_node : src_graph->nodes()) {
+  for (auto* src_node : src_graph->nodes()) {
     auto kind = src_node->kind();
     auto src_node_inputs = src_node->inputs();
     std::vector<Value*> dst_inputs;
-    for (auto src_node_input : src_node_inputs) {
+    for (auto* src_node_input : src_node_inputs) {
       dst_inputs.emplace_back(value_map[src_node_input]);
     }
 
     ::c10::ArrayRef<Value*> dst_node_inputs_ref(
         dst_inputs.data(), dst_inputs.size());
     auto num_outputs = src_node->outputs().size();
-    auto dst_node = dst_graph->create(kind, dst_node_inputs_ref, num_outputs);
+    auto* dst_node = dst_graph->create(kind, dst_node_inputs_ref, num_outputs);
     for (auto i = 0U; i < num_outputs; i++) {
-      auto dst_output = dst_node->outputs()[i];
-      auto src_output = src_node->outputs()[i];
+      auto* dst_output = dst_node->outputs()[i];
+      auto* src_output = src_node->outputs()[i];
       dst_output->setType(src_output->type());
       if (!isNumber(src_output->debugName())) {
         dst_output->setDebugName(src_output->debugName());
@@ -2412,9 +2423,9 @@ void cloneFromUpstreamGraph(
     copyAttributesFromUpstreamNode(src_node, dst_node);
 
     auto src_node_outputs = src_node->outputs();
-    auto src_node_outputs_iterator = src_node_outputs.begin();
+    const auto* src_node_outputs_iterator = src_node_outputs.begin();
     auto dst_node_outputs = dst_node->outputs();
-    auto dst_node_outputs_iterator = dst_node_outputs.begin();
+    const auto* dst_node_outputs_iterator = dst_node_outputs.begin();
 
     for (; src_node_outputs_iterator != src_node_outputs.end() and
          dst_node_outputs_iterator != dst_node_outputs.end();
@@ -2424,7 +2435,7 @@ void cloneFromUpstreamGraph(
   }
 
   // register outputs phase
-  for (auto src_graph_output : src_graph->outputs()) {
+  for (auto* src_graph_output : src_graph->outputs()) {
     dst_graph->registerOutput(value_map[src_graph_output]);
   }
 }
@@ -2452,7 +2463,7 @@ static void inlineCallStackOfBlock(
     torch::jit::Function* callee,
     Node* to_replace,
     std::optional<ModuleInstanceInfo> m_info) {
-  for (auto n : b->nodes()) {
+  for (auto* n : b->nodes()) {
     inlineCallStackOfNode(n, new_cs_entries, callee, to_replace, m_info);
   }
 }
@@ -2468,7 +2479,7 @@ void inlineCallStackOfNode(
   InlinedCallStack* raw_callstack_ptr =
       new_node_cs ? new_node_cs->get() : nullptr;
 
-  if (!new_cs_entries.count(raw_callstack_ptr)) {
+  if (new_cs_entries.count(raw_callstack_ptr) == 0U) {
     if (new_node_cs) {
       new_cs_entries[raw_callstack_ptr] = c10::make_intrusive<InlinedCallStack>(
           *new_node_cs, callee, to_replace->sourceRange(), m_info);
@@ -2481,7 +2492,7 @@ void inlineCallStackOfNode(
   // We updated the inlined callstack of new_node.
   // Same must be done for the nodes of the blocks of new_node.
   // For example If node's block otherwise is not annotated appropriately.
-  for (auto block : new_node->blocks()) {
+  for (auto* block : new_node->blocks()) {
     inlineCallStackOfBlock(block, new_cs_entries, callee, to_replace, m_info);
   }
 }
@@ -2492,7 +2503,7 @@ std::vector<Value*> unpackOutputs(const std::vector<Value*>& outputs) {
     return outputs;
   }
 
-  auto tup = outputs[0];
+  auto* tup = outputs[0];
   for (Value* v : createTupleUnpack(tup)) {
     new_outputs.emplace_back(v);
   }
@@ -2509,7 +2520,7 @@ std::vector<Node*> findAllNodes(
     Symbol kind,
     bool recurse) {
   std::vector<Node*> ret;
-  for (auto block : array) {
+  for (auto* block : array) {
     findAllNodes(*block, kind, recurse, ret);
   }
   return ret;
@@ -2558,26 +2569,27 @@ std::vector<Value*> insertGraph(
 
 void ProfileOp::cloneFrom(Node* other_) {
   Node::cloneFrom(other_);
-  auto other = other_->cast<ProfileOp>();
+  auto* other = other_->cast<ProfileOp>();
   this->callback_ = other->getCallback();
 }
 
 Node* ProfileOp::allocNewInstance(Graph* g) {
-  return new ProfileOp(g, {nullptr});
+  return new ProfileOp(g, {nullptr}); // NOLINT(cppcoreguidelines-owning-memory)
 }
 
 void ProfileIValueOp::cloneFrom(Node* other_) {
   Node::cloneFrom(other_);
-  auto other = other_->cast<ProfileIValueOp>();
+  auto* other = other_->cast<ProfileIValueOp>();
   this->callback_ = other->getCallback();
 }
 
 Node* ProfileIValueOp::allocNewInstance(Graph* g) {
-  return new ProfileIValueOp(g, {nullptr});
+  return new ProfileIValueOp(
+      g, {nullptr}); // NOLINT(cppcoreguidelines-owning-memory)
 }
 
 TypePtr NamedValue::type() const {
-  if (value_) {
+  if (value_ != nullptr) {
     return value_->type();
   } else {
     return ivalue_.type();

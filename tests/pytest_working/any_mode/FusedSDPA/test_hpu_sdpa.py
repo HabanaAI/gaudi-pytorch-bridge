@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -45,10 +45,7 @@ def create_dropout_mask(input, shape, p, generator=None):
 
 
 def dropout_with_mask(input, p, mask):
-    if p == 1.0:
-        dropout_scaling = 0.0
-    else:
-        dropout_scaling = 1.0 / (1.0 - p)
+    dropout_scaling = 0.0 if p == 1.0 else 1.0 / (1.0 - p)
     # RTC: should type_as be done ouside to avoid this being done within the loop in BWD
     # because this may have d2d copy. but then it can increase temp. mem if converted
     # upfront to float.
@@ -81,10 +78,7 @@ def create_attention_mask_for_test(
     attn_mask = attn_mask.to(dtype)
 
     if shape == "Bx1x1xN":
-        if n_heads == 0:
-            mask_shape = (batch_size, 1, seq_len_N_s)
-        else:
-            mask_shape = (batch_size, 1, 1, seq_len_N_s)
+        mask_shape = (batch_size, 1, seq_len_N_s) if n_heads == 0 else (batch_size, 1, 1, seq_len_N_s)
         attn_mask = attn_mask.expand(mask_shape)
     elif shape == "Bx1xNxN":
         if n_heads == 0:
@@ -1225,10 +1219,7 @@ def is_param_combo_valid(
         return False
 
     # sink is not supported in 3D case
-    if use_sink and n_heads == 0:
-        return False
-
-    return True
+    return not (use_sink and n_heads == 0)
 
 
 # DONOT remove next line:Disable black formatting for easier parameter update
@@ -1499,10 +1490,7 @@ def test_sdpa(
         grad_k_atol = 0.23
 
     attn_mask_shape = "Bx1xNxN"
-    if use_float_mask:
-        mask_dtype = dtype
-    else:
-        mask_dtype = torch.bool
+    mask_dtype = dtype if use_float_mask else torch.bool
 
     vb_print("\nbatch_size = ", batch_size)
     vb_print("num_heads = ", n_heads)

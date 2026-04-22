@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -77,10 +77,16 @@ const std::unordered_set<std::string> AccThread::SupportedNonAutogenOps = {
 
 thread_local bool AccThread::acc_thread_allowed = true;
 std::unique_ptr<AccThread> AccThread::instance_{nullptr};
-std::once_flag AccThread::initialize_once_flag_;
+
+AccThread& AccThread::Get() {
+  static std::once_flag call_once_flag;
+  std::call_once(call_once_flag, CreateInstance);
+  HABANA_ASSERT(instance_);
+  return *instance_;
+}
 
 void AccThread::CreateInstance() {
-  instance_.reset(new AccThread());
+  instance_.reset(new AccThread()); // NOLINT(cppcoreguidelines-owning-memory)
   habana::hpu_registrar().register_acc_thread(
       []() { instance_.reset(nullptr); });
 }
@@ -109,7 +115,7 @@ bool AccThread::IsAccThreadEnabled() {
       GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 1; // only default lazy
 }
 
-bool AccThread::CanUseAccThreadInternal() {
+bool AccThread::CanUseAccThreadInternal() const {
   return IsAccThreadEnabled() &&
       !inAccThreadContext(); // avoid using acc thread pool inside the pool
 }
@@ -142,7 +148,7 @@ void AccThread::SyncAccThreadPool() {
 
 void AccThread::SyncManualOpIfNeeded(const std::string& op) {
   if (IsAccThreadEnabled()) {
-    if (!SupportedNonAutogenOps.count(op)) {
+    if (SupportedNonAutogenOps.count(op) == 0U) {
       PT_LAZY_PARALLEL_ACC_DEBUG(
           op, " op not supported for parallel accumulation");
       SyncAccThreadPool();

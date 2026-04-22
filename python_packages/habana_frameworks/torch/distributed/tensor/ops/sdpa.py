@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2025 Intel Corporation
+# Copyright (c) 2025-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,18 +14,23 @@
 ###############################################################################
 
 import torch
+from habana_frameworks.torch.utils.version_checker import is_pytorch_older_than
 from torch.distributed.tensor._op_schema import (
     OpSchema,
     OpStrategy,
 )
 from torch.distributed.tensor._ops.utils import (
     expand_to_full_mesh_op_strategy,
-    register_op_strategy,
 )
 from torch.distributed.tensor.placement_types import (
     Replicate,
     Shard,
 )
+
+if is_pytorch_older_than("2.11"):
+    from torch.distributed.tensor._ops.registration import register_op_strategy
+else:
+    from torch.distributed.tensor._ops.utils import register_op_strategy
 
 aten = torch.ops.aten
 hpu = torch.ops.hpu
@@ -64,10 +69,8 @@ def _create_sdpa_forward_strategy(
     single_mesh_dim_strategies = []
 
     # Strategy 1: Full replication
-    all_replicate = []
     # Add output placements
-    for _ in range(num_outputs):
-        all_replicate.append(Replicate())
+    all_replicate = [Replicate() for _ in range(num_outputs)]
     # Add input placements - map to all schema args (tensor and non-tensor)
     for arg_spec in op_schema.args_schema:
         if isinstance(arg_spec, OpStrategy):
@@ -82,8 +85,7 @@ def _create_sdpa_forward_strategy(
     output_sharding = Shard(0)  # batch dim
     # Add output placements
     batch_dim_sharding.append(output_sharding)  # primary output
-    for _ in range(num_outputs - 1):
-        batch_dim_sharding.append(Replicate())
+    batch_dim_sharding.extend(Replicate() for _ in range(num_outputs - 1))
 
     # Add input placements
     for i, arg_spec in enumerate(op_schema.args_schema):
@@ -103,8 +105,7 @@ def _create_sdpa_forward_strategy(
     num_heads_dim_sharding = []
     # Add output placements
     num_heads_dim_sharding.append(output_sharding)  # primary output
-    for _ in range(num_outputs - 1):
-        num_heads_dim_sharding.append(Replicate())
+    num_heads_dim_sharding.extend(Replicate() for _ in range(num_outputs - 1))
 
     # Add input placements - map to all schema args
     for i, arg_spec in enumerate(op_schema.args_schema):
@@ -124,8 +125,7 @@ def _create_sdpa_forward_strategy(
     seq_dim_sharding = []
     # Add output placements
     seq_dim_sharding.append(output_sharding)  # primary output
-    for _ in range(num_outputs - 1):
-        seq_dim_sharding.append(Replicate())
+    seq_dim_sharding.extend(Replicate() for _ in range(num_outputs - 1))
 
     # Add input placements - map to all schema args
     for i, arg_spec in enumerate(op_schema.args_schema):
@@ -163,10 +163,8 @@ def _create_sdpa_backward_strategy(op_schema: OpSchema) -> OpStrategy:
     single_mesh_dim_strategies = []
 
     # Strategy 1: Full replication
-    all_replicate = []
     # Add output placements
-    for _ in range(num_outputs):
-        all_replicate.append(Replicate())
+    all_replicate = [Replicate() for _ in range(num_outputs)]
     # Add input placements
     for arg_spec in op_schema.args_schema:
         if isinstance(arg_spec, OpStrategy):
@@ -176,11 +174,9 @@ def _create_sdpa_backward_strategy(op_schema: OpSchema) -> OpStrategy:
     single_mesh_dim_strategies.append(all_replicate)
 
     # Strategy 2: Batch dimension sharding
-    batch_dim_sharding = []
     grad_sharding = Shard(0)
     # Add output placements
-    for _ in range(min(3, num_outputs)):
-        batch_dim_sharding.append(grad_sharding)
+    batch_dim_sharding = [grad_sharding for _ in range(min(3, num_outputs))]
     if num_outputs > 3:
         batch_dim_sharding.append(Replicate())
 
@@ -199,10 +195,8 @@ def _create_sdpa_backward_strategy(op_schema: OpSchema) -> OpStrategy:
 
     # Strategy 3: Tensor parallelism - shard on num heads dimension
     grad_sharding = Shard(1)
-    num_heads_dim_sharding = []
     # Add output placements - grad_q, grad_k, grad_v
-    for _ in range(min(3, num_outputs)):
-        num_heads_dim_sharding.append(grad_sharding)
+    num_heads_dim_sharding = [grad_sharding for _ in range(min(3, num_outputs))]
     if num_outputs > 3:  # FP8 operations may have amax output
         num_heads_dim_sharding.append(Replicate())
 
@@ -221,10 +215,8 @@ def _create_sdpa_backward_strategy(op_schema: OpSchema) -> OpStrategy:
 
     # Strategy 4: Context Parallelism - shard on the sequence dimension (dim 2)
     grad_sharding = Shard(2)
-    seq_dim_sharding = []
     # Add output placements - grad_q, grad_k, grad_v
-    for _ in range(min(3, num_outputs)):
-        seq_dim_sharding.append(grad_sharding)
+    seq_dim_sharding = [grad_sharding for _ in range(min(3, num_outputs))]
     if num_outputs > 3:  # FP8 operations may have amax output
         seq_dim_sharding.append(Replicate())
 

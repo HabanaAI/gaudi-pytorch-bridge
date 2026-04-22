@@ -35,10 +35,11 @@ OutputMetaDataVector IndexCopyMeta(const at::Stack& stack) {
       input_tensor.sizes().vec(),
       " and source slice shape: ",
       copy_tensor.sizes().vec());
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.dtype = input_tensor.scalar_type();
   meta.shape = input_tensor.sizes().vec();
-  return {meta};
+  return metaVec;
 }
 
 FillParamsT FillIndexCopyParams(const at::Stack& stack) {

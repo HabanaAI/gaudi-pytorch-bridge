@@ -31,7 +31,7 @@ class HpuOpTest : public HpuOpTestUtil {
       std::vector<at::Tensor> expected,
       std::vector<at::Tensor> results) {
     EXPECT_TRUE(expected.size() == results.size());
-    for (int i = 0; i < expected.size(); ++i) {
+    for (size_t i = 0; i < expected.size(); ++i) {
       Compare(expected[i], results[i]);
     }
   }
@@ -43,7 +43,7 @@ class HpuOpTest : public HpuOpTestUtil {
       FunctionOneList& fn) {
     std::vector<at::Tensor> cpu_in;
     std::vector<at::Tensor> hpu_in;
-    for (int i = 0; i < sizes.size(); ++i) {
+    for (size_t i = 0; i < sizes.size(); ++i) {
       GenerateInputs(1, {sizes[i]}, dtypes[i]);
       cpu_in.push_back(GetCpuInput(0));
       hpu_in.push_back(GetHpuInput(0));
@@ -65,7 +65,7 @@ class HpuOpTest : public HpuOpTestUtil {
     std::vector<at::Tensor> cpu_in2;
     std::vector<at::Tensor> hpu_in1;
     std::vector<at::Tensor> hpu_in2;
-    for (int i = 0; i < sizes.size(); ++i) {
+    for (size_t i = 0; i < sizes.size(); ++i) {
       GenerateInputs(2, {sizes[i], otherSizes[i]}, {dtypes[i], otherDtypes[i]});
 
       cpu_in1.push_back(GetCpuInput(0));
@@ -87,7 +87,7 @@ class HpuOpTest : public HpuOpTestUtil {
       FunctionOneListInplace& fn) {
     std::vector<at::Tensor> cpu_in;
     std::vector<at::Tensor> hpu_in;
-    for (int i = 0; i < sizes.size(); ++i) {
+    for (size_t i = 0; i < sizes.size(); ++i) {
       GenerateInputs(1, {sizes[i]}, dtypes[i]);
       cpu_in.push_back(GetCpuInput(0));
       hpu_in.push_back(GetHpuInput(0));
@@ -109,7 +109,7 @@ class HpuOpTest : public HpuOpTestUtil {
     std::vector<at::Tensor> cpu_in2;
     std::vector<at::Tensor> hpu_in1;
     std::vector<at::Tensor> hpu_in2;
-    for (int i = 0; i < sizes.size(); ++i) {
+    for (size_t i = 0; i < sizes.size(); ++i) {
       GenerateInputs(2, {sizes[i], otherSizes[i]}, {dtypes[i], otherDtypes[i]});
 
       cpu_in1.push_back(GetCpuInput(0));

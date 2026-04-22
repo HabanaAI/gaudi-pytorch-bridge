@@ -14,7 +14,10 @@
  */
 
 #include <synapse_api.h> // IWYU pragma: keep
-#include "logging.h"
+#include <synapse_api_types.h>
+#include <synapse_common_types.h>
+#include <cstddef>
+#include <cstdint>
 #include "partial_event_emulation.h"
 #include "synapse_shim/synapse_api_shim.h"
 
@@ -46,7 +49,7 @@ synStatus SYN_API_CALL synStreamCreateGeneric(
   return syn_api->synStreamCreateGeneric(pStreamHandle, deviceId, flags);
 }
 
-synStatus SYN_API_CALL synStreamDestroy(const synStreamHandle streamHandle) {
+synStatus SYN_API_CALL synStreamDestroy(synStreamHandle streamHandle) {
   return syn_api->synStreamDestroy(streamHandle);
 }
 
@@ -58,23 +61,22 @@ synStatus SYN_API_CALL synDeviceGetNextStreamAffinity(
 
 synStatus SYN_API_CALL synStreamSetAffinity(
     const synDeviceId deviceId,
-    const synStreamHandle pStreamHandle,
+    synStreamHandle pStreamHandle,
     uint64_t availAffinity) {
   return syn_api->synStreamSetAffinity(deviceId, pStreamHandle, availAffinity);
 }
 synStatus SYN_API_CALL synStreamWaitEvent(
-    const synStreamHandle streamHandle,
+    synStreamHandle streamHandle,
     synEventHandle eventHandle,
     const uint32_t flags) {
   return syn_api->synStreamWaitEvent(streamHandle, eventHandle, flags);
 }
 
-synStatus SYN_API_CALL
-synStreamSynchronize(const synStreamHandle streamHandle) {
+synStatus SYN_API_CALL synStreamSynchronize(synStreamHandle streamHandle) {
   return syn_api->synStreamSynchronize(streamHandle);
 }
 
-synStatus SYN_API_CALL synStreamQuery(const synStreamHandle streamHandle) {
+synStatus SYN_API_CALL synStreamQuery(synStreamHandle streamHandle) {
   return syn_api->synStreamQuery(streamHandle);
 }
 
@@ -90,32 +92,32 @@ synStatus SYN_API_CALL synEventDestroy(synEventHandle eventHandle) {
 }
 
 synStatus SYN_API_CALL
-synEventRecord(synEventHandle eventHandle, const synStreamHandle streamHandle) {
+synEventRecord(synEventHandle eventHandle, synStreamHandle streamHandle) {
   return syn_api->synEventRecord(eventHandle, streamHandle);
 }
 
-synStatus SYN_API_CALL synEventQuery(const synEventHandle eventHandle) {
+synStatus SYN_API_CALL synEventQuery(synEventHandle eventHandle) {
   return syn_api->synEventQuery(eventHandle);
 }
 
-synStatus SYN_API_CALL synEventSynchronize(const synEventHandle eventHandle) {
+synStatus SYN_API_CALL synEventSynchronize(synEventHandle eventHandle) {
   return syn_api->synEventSynchronize(eventHandle);
 }
 
 synStatus SYN_API_CALL synEventElapsedTime(
     uint64_t* pMilliseconds,
-    const synEventHandle eventHandleStart,
-    const synEventHandle eventHandleEnd) {
+    synEventHandle eventHandleStart,
+    synEventHandle eventHandleEnd) {
   return syn_api->synEventElapsedTime(
       pMilliseconds, eventHandleStart, eventHandleEnd);
 }
 
 synStatus SYN_API_CALL synLaunch(
-    const synStreamHandle streamHandle,
+    synStreamHandle streamHandle,
     const synLaunchTensorInfo* launchTensorsInfo,
     uint32_t numberTensors,
     uint64_t pWorkspace,
-    const synRecipeHandle pRecipehandle,
+    synRecipeHandle pRecipehandle,
     uint32_t flags) {
   return syn_api->synLaunch(
       streamHandle,
@@ -126,14 +128,13 @@ synStatus SYN_API_CALL synLaunch(
       flags);
 }
 
-synStatus SYN_API_CALL synWorkspaceGetSize(
-    uint64_t* pWorkspaceSize,
-    const synRecipeHandle recipeHandle) {
+synStatus SYN_API_CALL
+synWorkspaceGetSize(uint64_t* pWorkspaceSize, synRecipeHandle recipeHandle) {
   return syn_api->synWorkspaceGetSize(pWorkspaceSize, recipeHandle);
 }
 
 synStatus SYN_API_CALL synMemCopyAsync(
-    const synStreamHandle streamHandle,
+    synStreamHandle streamHandle,
     const uint64_t src,
     const uint64_t size,
     const uint64_t dst,
@@ -142,7 +143,7 @@ synStatus SYN_API_CALL synMemCopyAsync(
 }
 
 synStatus SYN_API_CALL synMemCopyAsyncMultiple(
-    const synStreamHandle streamHandle,
+    synStreamHandle streamHandle,
     const uint64_t* src,
     const uint64_t* size,
     const uint64_t* dst,
@@ -188,12 +189,12 @@ synDeviceGetName(char* pName, const int len, const synDeviceId deviceId) {
   return syn_api->synDeviceGetName(pName, len, deviceId);
 }
 
-synStatus SYN_API_CALL synTensorDestroy(const synTensor tensor) {
+synStatus SYN_API_CALL synTensorDestroy(synTensor tensor) {
   return syn_api->synTensorDestroy(tensor);
 }
 
 synStatus SYN_API_CALL synTensorRetrieveIds(
-    const synRecipeHandle pRecipeHandle,
+    synRecipeHandle pRecipeHandle,
     const char** tensorNames,
     uint64_t* tensorIds,
     const uint32_t numOfTensors) {
@@ -204,7 +205,7 @@ synStatus SYN_API_CALL synTensorRetrieveIds(
 synStatus SYN_API_CALL synSectionCreate(
     synSectionHandle* sectionHandle,
     uint64_t memoryAttributes,
-    const synGraphHandle graph) {
+    synGraphHandle graph) {
   return syn_api->synSectionCreate(sectionHandle, memoryAttributes, graph);
 }
 
@@ -248,7 +249,7 @@ synStatus SYN_API_CALL synRecipeSectionHostBuffersClear(
 }
 
 synStatus SYN_API_CALL synRecipeSectionGetProp(
-    const synRecipeHandle pRecipeHandle,
+    synRecipeHandle pRecipeHandle,
     const synSectionId sectionId,
     const synSectionProp prop,
     uint64_t* propertyPtr) {
@@ -257,7 +258,7 @@ synStatus SYN_API_CALL synRecipeSectionGetProp(
 }
 
 synStatus SYN_API_CALL synNodeCreate(
-    const synGraphHandle graphHandle,
+    synGraphHandle graphHandle,
     const synTensor* pInputsTensorList,
     const synTensor* pOutputsTensorList,
     const uint32_t numberInputs,
@@ -283,7 +284,7 @@ synStatus SYN_API_CALL synNodeCreate(
 }
 
 synStatus SYN_API_CALL synNodeCreateWithId(
-    const synGraphHandle graphHandle,
+    synGraphHandle graphHandle,
     const synTensor* pInputsTensorList,
     const synTensor* pOutputsTensorList,
     const uint32_t numberInputs,
@@ -311,7 +312,7 @@ synStatus SYN_API_CALL synNodeCreateWithId(
 }
 
 synStatus SYN_API_CALL synNodeSetDeterministic(
-    const synGraphHandle graphHandle,
+    synGraphHandle graphHandle,
     const synNodeId nodeId,
     const bool useDeterministic) {
   return syn_api->synNodeSetDeterministic(
@@ -319,7 +320,7 @@ synStatus SYN_API_CALL synNodeSetDeterministic(
 }
 
 synStatus synNodeDependencySet(
-    const synGraphHandle graphHandle,
+    synGraphHandle graphHandle,
     const synNodeId* pBlockingNodesIdList,
     const synNodeId* pBlockedNodesIdList,
     const uint32_t numberblocking,
@@ -333,7 +334,7 @@ synStatus synNodeDependencySet(
 }
 
 synStatus SYN_API_CALL synNodeSetUserProgrammability(
-    const synGraphHandle graphHandle,
+    synGraphHandle graphHandle,
     const synNodeId nodeId,
     const synUserProgrammability* userProgrammability) {
   return syn_api->synNodeSetUserProgrammability(
@@ -342,7 +343,7 @@ synStatus SYN_API_CALL synNodeSetUserProgrammability(
 
 synStatus SYN_API_CALL synGraphCompile(
     synRecipeHandle* pRecipeHandle,
-    const synGraphHandle graphHandle,
+    synGraphHandle graphHandle,
     const char* pRecipeName,
     const char* pBuildLog) {
   return syn_api->synGraphCompile(
@@ -391,7 +392,7 @@ synStatus SYN_API_CALL synGraphInferShapes(synGraphHandle graphHandle) {
   return syn_api->synGraphInferShapes(graphHandle);
 }
 
-synStatus SYN_API_CALL synGraphDestroy(const synGraphHandle graphHandle) {
+synStatus SYN_API_CALL synGraphDestroy(synGraphHandle graphHandle) {
   return syn_api->synGraphDestroy(graphHandle);
 }
 
@@ -399,7 +400,7 @@ synStatus SYN_API_CALL synMemsetD32Async(
     uint64_t pDeviceMem,
     const uint32_t value,
     const size_t numOfElements,
-    const synStreamHandle streamHandle) {
+    synStreamHandle streamHandle) {
   return syn_api->synMemsetD32Async(
       pDeviceMem, value, numOfElements, streamHandle);
 }
@@ -408,7 +409,7 @@ synStatus SYN_API_CALL synMemsetD8Async(
     uint64_t pDeviceMem,
     const unsigned char value,
     const size_t numOfElements,
-    const synStreamHandle streamHandle) {
+    synStreamHandle streamHandle) {
   return syn_api->synMemsetD8Async(
       pDeviceMem, value, numOfElements, streamHandle);
 }
@@ -417,7 +418,7 @@ synStatus SYN_API_CALL synMemsetD16Async(
     uint64_t pDeviceMem,
     const uint16_t value,
     const size_t numOfElements,
-    const synStreamHandle streamHandle) {
+    synStreamHandle streamHandle) {
   return syn_api->synMemsetD16Async(
       pDeviceMem, value, numOfElements, streamHandle);
 }
@@ -532,9 +533,8 @@ synStatus SYN_API_CALL synConfigurationGet(
       configurationName, configurationValue, size);
 }
 
-synStatus SYN_API_CALL synRecipeSerialize(
-    const synRecipeHandle recipeHandle,
-    const char* recipeFileName) {
+synStatus SYN_API_CALL
+synRecipeSerialize(synRecipeHandle recipeHandle, const char* recipeFileName) {
   return syn_api->synRecipeSerialize(recipeHandle, recipeFileName);
 }
 
@@ -548,7 +548,7 @@ synStatus SYN_API_CALL synRecipeGetAttribute(
     uint64_t* retVal,
     const synRecipeAttribute* recipeAttr,
     const unsigned querySize,
-    const synRecipeHandle recipeHandle) {
+    synRecipeHandle recipeHandle) {
   return syn_api->synRecipeGetAttribute(
       retVal, recipeAttr, querySize, recipeHandle);
 }
@@ -592,7 +592,7 @@ synTensorSetSectionOffset(synTensor tensor, uint64_t byteOffset) {
 }
 
 synStatus SYN_API_CALL synNodeGetUserParams(
-    const synGraphHandle graphHandle,
+    synGraphHandle graphHandle,
     const synNodeId nodeId,
     void* userParams,
     unsigned* paramsSize) {
@@ -601,7 +601,7 @@ synStatus SYN_API_CALL synNodeGetUserParams(
 }
 
 synStatus SYN_API_CALL synNodeSetUserParams(
-    const synGraphHandle graphHandle,
+    synGraphHandle graphHandle,
     const synNodeId nodeId,
     const void* userParams,
     const unsigned paramsSize) {
@@ -636,7 +636,7 @@ synStatus SYN_API_CALL synConstTensorCreate(
 synStatus SYN_API_CALL synTensorCreate(
     synTensor* pTensor,
     const synTensorDescriptor* descriptor,
-    const synSectionHandle pSectionHandle,
+    synSectionHandle pSectionHandle,
     const uint64_t sectionOffset) {
   return syn_api->synTensorCreate(
       pTensor, descriptor, pSectionHandle, sectionOffset);
@@ -659,18 +659,18 @@ synTensorSetMemoryReuse(synTensor tensor, bool isReusable) {
 }
 
 synStatus SYN_API_CALL
-synTensorGetName(const synTensor tensor, const uint64_t size, char* name) {
+synTensorGetName(synTensor tensor, const uint64_t size, char* name) {
   return syn_api->synTensorGetName(tensor, size, name);
 }
 
 synStatus SYN_API_CALL synTensorRetrieveLaunchAmount(
-    const synRecipeHandle pRecipeHandle,
+    synRecipeHandle pRecipeHandle,
     uint32_t* numOfTensors) {
   return syn_api->synTensorRetrieveLaunchAmount(pRecipeHandle, numOfTensors);
 }
 
 synStatus SYN_API_CALL synTensorRetrieveLaunchIds(
-    const synRecipeHandle pRecipeHandle,
+    synRecipeHandle pRecipeHandle,
     uint64_t* tensorsIds,
     const uint32_t numOfTensors) {
   return syn_api->synTensorRetrieveLaunchIds(
@@ -678,7 +678,7 @@ synStatus SYN_API_CALL synTensorRetrieveLaunchIds(
 }
 
 synStatus SYN_API_CALL synTensorRetrieveLaunchInfoById(
-    const synRecipeHandle pRecipeHandle,
+    synRecipeHandle pRecipeHandle,
     const uint32_t numOfTensors,
     synRetrievedLaunchTensorInfo* tensorsLaunchInfo) {
   return syn_api->synTensorRetrieveLaunchInfoById(
@@ -686,7 +686,7 @@ synStatus SYN_API_CALL synTensorRetrieveLaunchInfoById(
 }
 
 synStatus SYN_API_CALL synTensorGetGeometry(
-    const synTensor tensor,
+    synTensor tensor,
     synTensorGeometry* geometry,
     synGeometryType geometryType) {
   return syn_api->synTensorGetGeometry(tensor, geometry, geometryType);
@@ -719,38 +719,40 @@ synStatus SYN_API_CALL synTensorSetQuantizationData(
 }
 
 synStatus SYN_API_CALL synTensorExtExtractExecutionOrder(
-    const synRecipeHandle recipeHandle,
+    synRecipeHandle recipeHandle,
     uint32_t numOfExternalTensors,
     uint64_t* tensorIds) {
   if (UsePartialEventEmulation()) {
     auto& partial_event_emulation = PartialEventEmulation::Instance();
     return partial_event_emulation.synTensorExtExtractExecutionOrder(
         recipeHandle, numOfExternalTensors, tensorIds);
-  } else
+  } else {
     return syn_api->synTensorExtExtractExecutionOrder(
         recipeHandle, numOfExternalTensors, tensorIds);
+  }
 }
 
 synStatus SYN_API_CALL synEventMapTensor(
     synEventHandle* eventHandle,
     size_t numOfEvents,
     const synLaunchTensorInfo* launchTensorsInfo,
-    const synRecipeHandle recipeHandle) {
+    synRecipeHandle recipeHandle) {
   if (UsePartialEventEmulation()) {
     auto& partial_event_emulation = PartialEventEmulation::Instance();
     return partial_event_emulation.synEventMapTensor(
         eventHandle, numOfEvents, launchTensorsInfo, recipeHandle);
-  } else
+  } else {
     return syn_api->synEventMapTensor(
         eventHandle, numOfEvents, launchTensorsInfo, recipeHandle);
+  }
 }
 
 synStatus SYN_API_CALL synLaunchWithExternalEvents(
-    const synStreamHandle streamHandle,
+    synStreamHandle streamHandle,
     const synLaunchTensorInfo* launchTensorsInfo,
     const uint32_t numberOfTensors,
     uint64_t pWorkspace,
-    const synRecipeHandle pRecipeHandle,
+    synRecipeHandle pRecipeHandle,
     synEventHandle* eventHandleList,
     const uint32_t numberOfEvents,
     uint32_t flags) {
@@ -765,7 +767,7 @@ synStatus SYN_API_CALL synLaunchWithExternalEvents(
         eventHandleList,
         numberOfEvents,
         flags);
-  } else
+  } else {
     return syn_api->synLaunchWithExternalEvents(
         streamHandle,
         launchTensorsInfo,
@@ -775,23 +777,26 @@ synStatus SYN_API_CALL synLaunchWithExternalEvents(
         eventHandleList,
         numberOfEvents,
         flags);
+  }
 }
 
 synStatus SYN_API_CALL synTensorSetExternal(synTensor tensor, bool isExternal) {
   if (UsePartialEventEmulation()) {
     auto& partial_event_emulation = PartialEventEmulation::Instance();
     return partial_event_emulation.synTensorSetExternal(tensor, isExternal);
-  } else
+  } else {
     return syn_api->synTensorSetExternal(tensor, isExternal);
+  }
 }
 
 synStatus SYN_API_CALL
-synTensorGetExternal(const synTensor tensor, bool* isExternal) {
+synTensorGetExternal(synTensor tensor, bool* isExternal) {
   if (UsePartialEventEmulation()) {
     auto& partial_event_emulation = PartialEventEmulation::Instance();
     return partial_event_emulation.synTensorGetExternal(tensor, isExternal);
-  } else
+  } else {
     return syn_api->synTensorGetExternal(tensor, isExternal);
+  }
 }
 
 synStatus SYN_API_CALL
@@ -800,7 +805,7 @@ synTensorSetMinimalLatency(synTensor tensor, bool isMinLatency) {
 }
 
 synStatus SYN_API_CALL
-synTensorGetMinimalLatency(const synTensor tensor, bool* isMinLatency) {
+synTensorGetMinimalLatency(synTensor tensor, bool* isMinLatency) {
   return syn_api->synTensorGetMinimalLatency(tensor, isMinLatency);
 }
 

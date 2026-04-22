@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -37,8 +37,9 @@ from ._helpers import (
     jit_node_shape_propagation,
     remove_duplicated_outputs,
     remove_no_effect_inplace_add,
+    wrap_random_ops,
 )
-from ._passes.random import propagate_for_random_ops, wrap_random_ops
+from ._passes.random import propagate_for_random_ops
 from .recipe_compiler import get_callable_recipe
 
 logger = get_compile_backend_logger()
@@ -53,10 +54,9 @@ class _ClusterCompiler(torch.fx.Interpreter):
         self._has_random_ops = False
 
     def fx_to_jit_ir(self, submod, args):
-        additional_random_args: tuple[torch.Tensor, torch.Tensor] = wrap_random_ops(submod)
-        if additional_random_args:
-            self._has_random_ops = True
-            propagate_for_random_ops(submod, args, additional_random_args)
+        self._has_random_ops = wrap_random_ops(submod)
+        if self._has_random_ops:
+            propagate_for_random_ops(submod, args)
         remove_duplicated_outputs(submod)
         remove_no_effect_inplace_add(submod)
 
@@ -87,7 +87,7 @@ class _ClusterCompiler(torch.fx.Interpreter):
         # run_node function.
         logger.debug("Node: %s Op: %s Target: %s", n, n.op, n.target)
         with self._set_current_node(n):
-            if "val" not in n.meta.keys():
+            if "val" not in n.meta:
                 raise AssertionError(f"{n=} {n.target=} {n.meta.keys()=}")
             if n.op == "call_module":
                 args, kwargs = self.fetch_args_kwargs_from_env(n)

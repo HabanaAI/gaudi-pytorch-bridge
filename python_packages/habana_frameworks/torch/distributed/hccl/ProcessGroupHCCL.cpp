@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -133,6 +133,7 @@ void ProcessGroupHCCL::initializeCommForDevice(int deviceId) {
 
 void ProcessGroupHCCL::initComms() {
   std::vector<int> devices;
+  devices.reserve(hccl_communicator_.size());
   for (const auto& it : hccl_communicator_) {
     devices.push_back(it.first);
   }
@@ -217,8 +218,9 @@ ProcessGroupHCCL::~ProcessGroupHCCL() {
 }
 
 void ProcessGroupHCCL::destroy() {
-  if (is_destroyed_)
+  if (is_destroyed_) {
     return;
+  }
   PT_DISTRIBUTED_DEBUG(
       "Destroy ProcessGroupHCCL name:",
       group_name_,
@@ -263,12 +265,7 @@ bool ProcessGroupHCCL::WorkHCCL::isCompleted() {
 }
 
 bool ProcessGroupHCCL::WorkHCCL::isSuccess() const {
-  if (exception()) {
-    // Already detected an exception.
-    return false;
-  }
-  // Add support for query from device
-  return true;
+  return !exception();
 }
 
 // Same as calling synchronize().
@@ -337,7 +334,7 @@ std::vector<int> ProcessGroupHCCL::getDeviceList(
     const std::vector<at::Tensor>& tensors) {
   std::vector<int> res;
   res.reserve(tensors.size());
-  for (auto& tensor : tensors) {
+  for (const auto& tensor : tensors) {
     res.push_back(tensor.get_device());
   }
   return res;
@@ -389,7 +386,7 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::pointToPoint(
   auto work = initWork(tensors, devices, comms, deviceCtxts);
 
   for (size_t i = 0; i < tensors.size(); ++i) {
-    auto deviceCtxt = deviceCtxts[i];
+    const auto& deviceCtxt = deviceCtxts[i];
     synStreamHandle collective_stream = commStreams[i];
     auto tensor_storage_ptr =
         (synapse_helpers::device_ptr)tensors[i].storage().data_ptr().get();
@@ -550,7 +547,7 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::collective(
       continue;
     }
 
-    auto deviceCtxt = deviceCtxts[i];
+    const auto& deviceCtxt = deviceCtxts[i];
     synStreamHandle collective_stream = commStreams[i];
     auto input_storage_ptr =
         (synapse_helpers::device_ptr)in_view_vec[i].storage().data_ptr().get();
@@ -709,7 +706,7 @@ void ProcessGroupHCCL::permutedSendTensorsToDense(
     auto self_hb_tensor = habana_lazy::GetHbLazyTensor(tensor);
     auto self_internal_tensor = self_hb_tensor.EvaluateTensorData();
     std::vector<uint8_t> permutation;
-    auto hb_weight_impl =
+    auto* hb_weight_impl =
         habana_lazy::GetHbInternalTensorImpl(self_internal_tensor);
     HABANA_ASSERT(
         hb_weight_impl != nullptr,
@@ -763,7 +760,7 @@ void ProcessGroupHCCL::clearPermutesFromRecvTensors(
       }
     }
     auto self_internal_tensor = self_hb_tensor.EvaluateTensorData();
-    auto hb_weight_impl =
+    auto* hb_weight_impl =
         habana_lazy::GetHbInternalTensorImpl(self_internal_tensor);
     if (is_non_contiguous_view) {
       HABANA_ASSERT(

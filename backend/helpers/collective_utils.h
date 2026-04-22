@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,19 +23,11 @@
 
 namespace habana_helpers {
 
-typedef enum {
-  collectiveAllReduce = 0,
-  collectiveReduce = 1,
-  collectiveAllGather = 2,
-  collectiveReduceScatter = 3,
-  collectiveBroadcast = 4,
-} collectiveKind_t;
-
 hcclRedOp_t getHCCLReduceOp(
     const c10d::ReduceOp reduceOp,
     const at::ScalarType type);
 
-size_t getHCCLSliceSize(collectiveKind_t kind, bool lazy_collective = false);
+size_t getHCCLSliceSize();
 size_t getHCCLDataSize(hcclDataType_t type);
 void getCountDatatype(
     c10::ScalarType scalar_type,

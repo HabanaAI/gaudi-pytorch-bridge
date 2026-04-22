@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,7 +31,8 @@
 namespace habana_helpers::signalHandler {
 
 struct sigaction* GetPreviousSigaction(int signum) {
-  for (auto handler = SignalHandlersList; handler->name != nullptr; handler++) {
+  for (auto* handler = SignalHandlersList; handler->name != nullptr;
+       handler++) {
     if (handler->signum == signum) {
       return &handler->previous;
     }
@@ -40,7 +41,8 @@ struct sigaction* GetPreviousSigaction(int signum) {
 }
 
 const char* GetSignalName(int signum) {
-  for (auto handler = SignalHandlersList; handler->name != nullptr; handler++) {
+  for (auto* handler = SignalHandlersList; handler->name != nullptr;
+       handler++) {
     if (handler->signum == signum) {
       return handler->name;
     }
@@ -53,7 +55,7 @@ void CallPreviousSignalHandler(
     int signum,
     siginfo_t* info,
     void* ctx) {
-  if (!action->sa_handler) {
+  if (action->sa_handler == nullptr) {
     return;
   }
   if ((action->sa_flags & SA_SIGINFO) == SA_SIGINFO) {
@@ -69,7 +71,7 @@ void HabanaSignalHandler(int signum, siginfo_t* info, void* ctx) {
 
   // If there is no signal registered, we should just return? How does
   // it reach here anyway?
-  if (!name) {
+  if (name == nullptr) {
     CallPreviousSignalHandler(GetPreviousSigaction(signum), signum, info, ctx);
     return;
   }
@@ -78,7 +80,7 @@ void HabanaSignalHandler(int signum, siginfo_t* info, void* ctx) {
   registeredHandler(signum, info, ctx);
 
   // Raise the signal again in case of a previous signal handler
-  if (GetPreviousSigaction(signum)) {
+  if (GetPreviousSigaction(signum) != nullptr) {
     sigaction(signum, GetPreviousSigaction(signum), nullptr);
     if (raise(signum) != 0) {
       PT_HABHELPER_WARN("Failed to raise signal %d: errno %d", signum, errno);

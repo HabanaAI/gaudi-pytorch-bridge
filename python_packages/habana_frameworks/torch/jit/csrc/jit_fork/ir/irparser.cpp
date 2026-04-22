@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -61,7 +61,7 @@ class IRParser {
   IRParser(
       const std::string& str,
       Graph* graph,
-      std::unordered_map<std::string, Value*>& vmap,
+      std::unordered_map<std::string, Value*>* vmap,
       bool parse_tensor_constants)
       : L(std::make_shared<Source>(str)),
         g(graph),
@@ -106,7 +106,7 @@ class IRParser {
 
   Lexer L;
   Graph* g = nullptr;
-  std::unordered_map<std::string, Value*>& vmap;
+  std::unordered_map<std::string, Value*>* vmap;
   SchemaTypeParser type_parser;
   bool parse_tensor_constants_;
   std::vector<Node*> deferred_tensor_value_initializations_;
@@ -143,7 +143,7 @@ void parseIR(
     Graph* graph,
     std::unordered_map<std::string, Value*>& vmap,
     bool parse_tensor_constants) {
-  IRParser p(str, graph, vmap, parse_tensor_constants);
+  IRParser p(str, graph, &vmap, parse_tensor_constants);
   p.parse();
 }
 
@@ -533,8 +533,8 @@ void IRParser::parseBlockInputs(Block* b) {
     VarWithType v = parseVarWithType();
     // If the name isn't valid, don't use it
     std::string uniq_name = Value::isValidName(v.name) ? v.name : "";
-    vmap[v.name] = b->addInput(uniq_name);
-    vmap[v.name]->setType(v.type);
+    (*vmap)[v.name] = b->addInput(uniq_name);
+    (*vmap)[v.name]->setType(v.type);
   });
 }
 
@@ -613,10 +613,10 @@ void IRParser::parseOperator(Block* b) {
   // Register outputs.
   unsigned idx = 0;
   for (const VarWithType& v : outs) {
-    vmap[v.name] = n->outputs()[idx];
-    vmap[v.name]->setDebugName(v.name, true /*allow_numbers*/);
+    (*vmap)[v.name] = n->outputs()[idx];
+    (*vmap)[v.name]->setDebugName(v.name, true /*allow_numbers*/);
 
-    if (schema && !schema->is_varret()) {
+    if (schema != nullptr && !schema->is_varret()) {
       HABANA_ASSERT(
           schema->returns().size() > idx,
           "Operator parsing error: out of bounds access at ",
@@ -626,7 +626,7 @@ void IRParser::parseOperator(Block* b) {
           " in size");
       auto schema_return_type = schema->returns().at(idx).type();
       if (!v.type) {
-        vmap[v.name]->setType(schema_return_type);
+        (*vmap)[v.name]->setType(schema_return_type);
       } else {
         // Don't currently support checking against type variables
         // TODO: support?
@@ -641,10 +641,10 @@ void IRParser::parseOperator(Block* b) {
               " for operator ",
               *schema);
         }
-        vmap[v.name]->setType(v.type);
+        (*vmap)[v.name]->setType(v.type);
       }
     } else {
-      vmap[v.name]->setType(v.type ? v.type : TensorType::get());
+      (*vmap)[v.name]->setType(v.type ? v.type : TensorType::get());
     }
     idx++;
   }
@@ -664,8 +664,8 @@ void IRParser::parseGraphInputs() {
     VarWithType v = parseVarWithType();
     // If the name isn't valid, don't use it
     std::string uniq_name = Value::isValidName(v.name) ? v.name : "";
-    vmap[v.name] = g->addInput(uniq_name);
-    vmap[v.name]->setType(v.type);
+    (*vmap)[v.name] = g->addInput(uniq_name);
+    (*vmap)[v.name]->setType(v.type);
   });
 }
 
@@ -724,7 +724,7 @@ void IRParser::parse() {
     HABANA_ASSERT(device);
     auto dtype = tt->scalarType();
     HABANA_ASSERT(dtype);
-    auto options = at::TensorOptions(*device).dtype(*dtype);
+    auto options = at::TensorOptions(*device).dtype(dtype);
     n->t_(attr::value, at::empty_strided(*sizes, *strides, options));
   }
 
@@ -760,11 +760,11 @@ void IRParser::parseList(
 }
 
 Value* IRParser::findValueInVMap(const std::string& name) {
-  if (!vmap.count(name)) {
+  if (vmap->count(name) == 0U) {
     throw build_error_report(
         L.cur().range, "Cannot find a variable with name '", name, "'");
   }
-  return vmap.at(name);
+  return vmap->at(name);
 }
 
 } // namespace habana_torch::jit

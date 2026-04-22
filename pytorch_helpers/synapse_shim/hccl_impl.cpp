@@ -13,9 +13,11 @@
  * limitations under the License.
  */
 
+#include <cstddef>
+#include <cstdint>
+
 #include <hccl.h>
 #include <hccl_types.h>
-#include <synapse_api_types.h>
 #include "synapse_shim/hccl_api_shim.h"
 
 namespace shim_hccl {

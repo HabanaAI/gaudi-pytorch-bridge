@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,8 +21,6 @@
 using at::native::detail::GridSamplerInterpolation;
 using at::native::detail::GridSamplerPadding;
 
-namespace sh = synapse_helpers;
-
 namespace habana {
 OutputMetaDataVector GridSamplerMeta(const at::Stack& stack) {
   constexpr int SELF_POS = 0;
@@ -37,20 +35,21 @@ OutputMetaDataVector GridSamplerMeta(const at::Stack& stack) {
   const bool is3d = self.dim() == 5;
   constexpr int N_SELF = 0;
   constexpr int C_SELF = 1;
-  const int D_GRID = is3d;
-  const int H_GRID = 1 + is3d;
-  const int W_GRID = 2 + is3d;
+  const int D_GRID = static_cast<int>(is3d);
+  const int H_GRID = 1 + static_cast<int>(is3d);
+  const int W_GRID = 2 + static_cast<int>(is3d);
 
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.dtype = self.scalar_type();
-  meta.shape.reserve(4 + is3d);
+  meta.shape.reserve(4 + static_cast<int>(is3d));
   meta.shape = {self.sizes()[N_SELF], self.sizes()[C_SELF]};
   if (is3d) {
     meta.shape.emplace_back(grid.sizes()[D_GRID]);
   }
   meta.shape.emplace_back(grid.sizes()[H_GRID]);
   meta.shape.emplace_back(grid.sizes()[W_GRID]);
-  return {meta};
+  return metaVec;
 }
 
 OutputMetaDataVector GridSamplerBwdMeta(const at::Stack& stack) {
@@ -120,71 +119,4 @@ FillParamsT FillGridSamplerParams(const at::Stack& stack) {
 FillParamsT FillGridSamplerBwdParams(const at::Stack& stack) {
   return FillGridSamplerParamsCommon(stack, 3);
 }
-
-void GridSamplerBwd::AddNode(sh::graph& graph, const at::Stack& stack) {
-  StackGetter stackGetter(this, stack, "GridSamplerBwd::AddNode");
-  auto grad_output = stackGetter.getNextInput<TensorsPair>();
-  auto input = stackGetter.getNextInput<TensorsPair>();
-  auto grid = stackGetter.getNextInput<TensorsPair>();
-  auto metas = OutputMeta(stack);
-  auto params = FillParams(stack);
-
-  auto InputPermutation = [this, &graph](const TensorsPair& tp) {
-    return PermuteHelper(
-        graph,
-        tp.syn_t,
-        tp.pt_t.sizes().vec(),
-        {0, 2, 3, 1},
-        tp.pt_t.scalar_type());
-  };
-
-  auto grad_output_permuted = InputPermutation(grad_output);
-  auto input_permuted = InputPermutation(input);
-
-  auto shape = metas[0].shape;
-  shape.insert(shape.end(), shape[1]);
-  shape.erase(shape.begin() + 1);
-
-  auto grads = BuildOp(
-      graph,
-      GetGuid(),
-      {grad_output_permuted.get(), input_permuted.get(), grid.syn_t},
-      {{shape, metas[0].dtype}, {metas[1].shape, metas[1].dtype, 1}},
-      params.ptr(),
-      params.size());
-
-  auto grad_input = PermuteHelper(
-      graph, grads[0].get(), shape, {0, 3, 1, 2}, metas[0].dtype, 0);
-
-  syn_out(0) = std::move(grad_input);
-  syn_out(1) = std::move(grads[1]);
-}
-
-SharedMetaDataVector GridSamplerBwdSharedMeta(
-    const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode /*unused*/) {
-  SharedMetaDataVector sharedMetaDataVector;
-  sharedMetaDataVector.emplace_back("transpose");
-  sharedMetaDataVector.emplace_back("transpose");
-  sharedMetaDataVector.emplace_back("grid_sampler_bwd");
-
-  for (int i = 0; i < 3; ++i) {
-    auto ithInput = stack_tensor(stack, i);
-    auto rank = ithInput.dim();
-    auto dtype = ithInput.scalar_type();
-
-    sharedMetaDataVector[2].inputs_data.emplace_back(rank, dtype);
-    if (i > 0) {
-      sharedMetaDataVector[2].outputs_data.emplace_back(rank, dtype);
-    }
-
-    if (i < 2) {
-      sharedMetaDataVector[i].inputs_data.emplace_back(rank, dtype);
-      sharedMetaDataVector[i].outputs_data.emplace_back(rank, dtype);
-    }
-  }
-
-  return sharedMetaDataVector;
-}
-
 } // namespace habana

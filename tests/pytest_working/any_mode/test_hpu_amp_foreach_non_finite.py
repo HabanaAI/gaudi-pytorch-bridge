@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -54,10 +54,7 @@ def test_amp_foreach(dtype):
         return grads, found_inf
 
     def convert_to_hpu_list(cpu_list):
-        hpu_list = []
-        for tensor in cpu_list:
-            hpu_list.append(tensor.to("hpu"))
-        return hpu_list
+        return [tensor.to("hpu") for tensor in cpu_list]
 
     for grads, _ in cases:
         found_inf.zero_()

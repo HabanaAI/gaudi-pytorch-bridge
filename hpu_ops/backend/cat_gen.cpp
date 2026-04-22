@@ -23,9 +23,9 @@ namespace sh = synapse_helpers;
 namespace habana {
 OutputMetaDataVector CatMeta(const at::Stack& stack) {
   auto tensors_ = stack[0].toTensorVector();
-  for (auto& input : tensors_)
+  for (auto& input : tensors_) {
     CONVERT_0D_TO_1D(input);
-
+  }
   HABANA_ASSERT(!tensors_.empty(), "Empty tensors list!");
   const at::Tensor& first_tensor = tensors_[0];
   auto tensors = at::filter(tensors_, [](const at::Tensor& tensor) {
@@ -35,8 +35,9 @@ OutputMetaDataVector CatMeta(const at::Stack& stack) {
   std::vector<int64_t> ref_out_size;
   if (stack.size() > 2) {
     auto tensor_out = stack[2].toTensor();
-    if (tensor_out.dim() != 1 || tensor_out.size(0) != 0)
+    if (tensor_out.dim() != 1 || tensor_out.size(0) != 0) {
       ref_out_size = tensor_out.sizes().vec();
+    }
   }
 
   std::vector<int64_t> out_size;
@@ -100,8 +101,11 @@ SharedMetaDataVector CatSharedMeta(
   auto firstNon1DElement = std::find_if(
       std::begin(ranks), std::end(ranks), [](int rank) { return rank > 1; });
   bool isAll1D = firstNon1DElement == std::end(ranks);
-  SharedMetaData concatMeta("concat");
   auto outputRank = isAll1D ? 2 : *firstNon1DElement;
+
+  SharedMetaDataVector vec;
+  vec.reserve(1);
+  auto& concatMeta = vec.emplace_back("concat");
 
   /* It's not possible to check if tensor is invalid (empty 1D) due to DSD
      Pytorch will reject op with valid tensors with different ranks.
@@ -111,20 +115,21 @@ SharedMetaDataVector CatSharedMeta(
   */
   for (decltype(inputsSize) i = 0;
        i < inputsSize && i < SharedLayer::MAX_TENSOR_NR;
-       i++)
+       i++) {
     concatMeta.inputs_data.emplace_back(
         (!isAll1D && ranks[i] == 1) ? outputRank : ranks[i], dtype);
+  }
   concatMeta.outputs_data.emplace_back(outputRank, dtype);
-  return {concatMeta};
+  return vec;
 }
 
 void CatHabanaOperator::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   auto in_tensors = stack[0].toTensorList().vec();
-  for (auto& input : in_tensors)
+  for (auto& input : in_tensors) {
     CONVERT_0D_TO_1D(input);
-
+  }
   HABANA_ASSERT(!in_tensors.empty(), "Empty tensors list!");
   auto dim = stack[1].toInt();
 

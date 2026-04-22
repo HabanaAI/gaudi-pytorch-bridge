@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,8 +14,10 @@
  */
 
 #include <iostream>
+#include <stdexcept>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include "backend/profiling/json_file_parser.h"
 #include "backend/profiling/kineto_activity_profiler.h"
@@ -39,9 +41,10 @@ class JsonActivityProfiler : public Profiler {
   }
 
   static void exportProfilerLogs(const std::string_view& path) {
-    auto profiler(instance());
-    if (profiler)
+    auto* profiler(instance());
+    if (profiler != nullptr) {
       profiler->parser_.merge(path);
+    }
   }
 
  private:

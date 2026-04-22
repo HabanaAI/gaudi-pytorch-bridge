@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,7 +36,7 @@ struct ListUnpackDesc {
     HABANA_ASSERT(!m_output_list.empty());
     for (habana_torch::jit::Value* out : m_output_list) {
       if (nullptr != out) {
-        auto new_out = m_node->addOutput()->copyMetadata(out);
+        auto* new_out = m_node->addOutput()->copyMetadata(out);
         out->replaceAllUsesWith(new_out);
       } else {
         m_node->addOutput();
@@ -60,7 +60,7 @@ struct ReplaceGetItemWithListUnpackPass {
  private:
   bool processBlocks(at::ArrayRef<habana_torch::jit::Block*> blocks) {
     bool changed{false};
-    for (auto block : blocks) {
+    for (auto* block : blocks) {
       changed |= processBlock(block);
     }
     return changed;
@@ -99,15 +99,15 @@ struct ReplaceGetItemWithListUnpackPass {
       if (getitem_symbol == it->kind()) {
         habana_torch::jit::Node* node{*it};
         HABANA_ASSERT(2 == node->inputs().size());
-        auto list_unpack_input{node->input(0)};
+        auto* list_unpack_input{node->input(0)};
         HABANA_ASSERT(
             *list_unpack_input->type() == *torch::ListType::ofTensors(),
             "Unsupported aten::__getitem__ in compiled graph");
         if (list_unpack_desc_map.find(list_unpack_input) ==
             list_unpack_desc_map.end()) {
           habana_torch::jit::WithInsertPoint insert_guard{node};
-          auto graph{node->owningGraph()};
-          auto list_unpack_node{
+          auto* graph{node->owningGraph()};
+          auto* list_unpack_node{
               graph->insertNode(graph->create(list_unpack_symbol, 0))};
           list_unpack_node->addInput(list_unpack_input);
           list_unpack_desc_map.emplace(
@@ -118,7 +118,7 @@ struct ReplaceGetItemWithListUnpackPass {
             list_unpack_desc_map.find(list_unpack_input)->second};
         // Obtaining output position in ListUnpack from output nodes gattherd
         // in previous loop.
-        auto getitem_idx_input{node->input(1)};
+        auto* getitem_idx_input{node->input(1)};
         HABANA_ASSERT(
             output_to_const_map.find(getitem_idx_input) !=
                 output_to_const_map.end(),

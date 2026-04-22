@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2025 Intel Corporation
+# Copyright (c) 2025-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -233,10 +233,7 @@ class RowParallelLinear(torch.nn.Module):
         #     input_parallel = scatter_to_model_parallel_region(input_)
         output_parallel = F.linear(input_, self.weight)
         output_ = reduce_from_model_parallel_region(output_parallel)
-        if self.bias is not None:
-            output = output_ + self.bias
-        else:
-            output = output_
+        output = output_ + self.bias if self.bias is not None else output_
 
         return output
 

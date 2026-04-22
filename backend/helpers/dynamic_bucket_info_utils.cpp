@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -49,7 +49,8 @@ std::string ResultShapes::DebugString(const InpTensorShapes& inp_shapes) {
       auto dim{dims.at(i)};
       auto dim_lo{dim};
       auto dim_hi{dim};
-      if (min_shapes.count(tshape_idx) && max_shapes.count(tshape_idx)) {
+      if (min_shapes.count(tshape_idx) != 0U &&
+          max_shapes.count(tshape_idx) != 0U) {
         dim_lo = min_shapes.at(tshape_idx).get_dims().at(i);
         dim_hi = max_shapes.at(tshape_idx).get_dims().at(i);
       }
@@ -59,8 +60,8 @@ std::string ResultShapes::DebugString(const InpTensorShapes& inp_shapes) {
     }
     tshape_str_lo += "]";
     tshape_str_hi += "]";
-    result += std::to_string(tshape_idx) + " : " + tshape_str_lo + " -" +
-        tshape_str_hi;
+    result +=
+        fmt::format("{} : {} -{}", tshape_idx, tshape_str_lo, tshape_str_hi);
   }
   return result;
 }
@@ -68,8 +69,8 @@ std::string ResultShapes::DebugString(const InpTensorShapes& inp_shapes) {
 bool HistoryItem::IsInRange(const ResultShapes& r) {
   bool isInRange{true};
   for (const auto& a : tshapes_) {
-    auto& tidx{a.first};
-    auto& tshape{a.second};
+    const auto& tidx{a.first};
+    const auto& tshape{a.second};
 
     HABANA_ASSERT(
         r.min_shapes.count(tidx) && r.max_shapes.count(tidx),
@@ -77,12 +78,12 @@ bool HistoryItem::IsInRange(const ResultShapes& r) {
         tidx,
         " is missing from ResultShapes");
 
-    auto& tshape_min{r.min_shapes.at(tidx)};
-    auto& tshape_max{r.max_shapes.at(tidx)};
+    const auto& tshape_min{r.min_shapes.at(tidx)};
+    const auto& tshape_max{r.max_shapes.at(tidx)};
 
-    for (auto& p : tshape) {
-      auto& dim_idx{p.first};
-      auto& dim_val{p.second};
+    for (const auto& p : tshape) {
+      const auto& dim_idx{p.first};
+      const auto& dim_val{p.second};
 
       if (tshape_min.dim_size(dim_idx) > dim_val ||
           tshape_max.dim_size(dim_idx) < dim_val) {
@@ -127,7 +128,8 @@ std::tuple<bool, size_t, bool> HistoryItemLog::FindMidPoint(
       for (auto dim_it : tensor_it.second) {
         const auto& dim_idx{dim_it.first};
         auto dim_val{dim_it.second};
-        if (d.count(tensor_idx) && d.at(tensor_idx).count(dim_idx)) {
+        if (d.count(tensor_idx) != 0U &&
+            d.at(tensor_idx).count(dim_idx) != 0U) {
           dim_val = d.at(tensor_idx).at(dim_idx);
         }
         distr_lo[tensor_idx][dim_idx] =
@@ -159,7 +161,8 @@ std::tuple<bool, size_t, bool> HistoryItemLog::FindMidPoint(
       for (auto dim_it : tensor_it.second) {
         const auto& dim_idx{dim_it.first};
         auto dim_val{dim_it.second};
-        if (d.count(tensor_idx) && d.at(tensor_idx).count(dim_idx)) {
+        if (d.count(tensor_idx) != 0U &&
+            d.at(tensor_idx).count(dim_idx) != 0U) {
           dim_val = d.at(tensor_idx).at(dim_idx);
         }
         auto dim_mid{distr_mid[tensor_idx][dim_idx]};
@@ -184,8 +187,8 @@ std::tuple<bool, size_t, bool> HistoryItemLog::FindMidPoint(
     const auto& tensor_idx{tensor_it.first};
     for (auto dim_it : tensor_it.second) {
       const auto& dim_idx{dim_it.first};
-      if (distr_split.count(tensor_idx) &&
-          distr_split.at(tensor_idx).count(dim_idx)) {
+      if (distr_split.count(tensor_idx) != 0U &&
+          distr_split.at(tensor_idx).count(dim_idx) != 0U) {
         distr_sp_copy[tensor_idx][dim_idx] =
             distr_split.at(tensor_idx).at(dim_idx);
       }
@@ -224,13 +227,16 @@ size_t HistoryItemLog::WithinRangeCount(
         auto dim_min{dim_it.second};
         auto dim_max{dim_it.second};
 
-        if (d.count(tensor_idx) && d.at(tensor_idx).count(dim_idx)) {
+        if (d.count(tensor_idx) != 0U &&
+            d.at(tensor_idx).count(dim_idx) != 0U) {
           dim_val = d.at(tensor_idx).at(dim_idx);
         }
-        if (lo.count(tensor_idx) && lo.at(tensor_idx).count(dim_idx)) {
+        if (lo.count(tensor_idx) != 0U &&
+            lo.at(tensor_idx).count(dim_idx) != 0U) {
           dim_min = lo.at(tensor_idx).at(dim_idx);
         }
-        if (hi.count(tensor_idx) && hi.at(tensor_idx).count(dim_idx)) {
+        if (hi.count(tensor_idx) != 0U &&
+            hi.at(tensor_idx).count(dim_idx) != 0U) {
           dim_max = hi.at(tensor_idx).at(dim_idx);
         }
         if (dim_min > dim_val || dim_val > dim_max) {
@@ -255,7 +261,7 @@ void HistoryItemLog::Serialize(std::ostream& os) const {
   using namespace serialization;
   serialize(os, ref_tshapes_);
   serialize(os, static_cast<int>(hist_items_.size()));
-  for (auto& hist_item : hist_items_) {
+  for (const auto& hist_item : hist_items_) {
     hist_item.Serialize(os);
   }
 }

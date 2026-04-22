@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,11 +31,12 @@ std::vector<synapse_helpers::tensor> TopK_Helper(
   synBeamParams Topk_params{};
   Topk_params.bsw = kvalue;
   Topk_params.axis = reduction_axis;
-  Topk_params.bottomK = descending_order;
+  Topk_params.bottomK = descending_order != 0;
   auto indices_dtype =
       common::IsInt64Supported() ? c10::ScalarType::Long : c10::ScalarType::Int;
-  if (variant == 1)
+  if (variant == 1) {
     Topk_params.axis = get_dim_in_tpc_order(reduction_axis, ndimension);
+  }
   at::ScalarType topk_dtype =
       (out_dtype == std::nullopt) ? op->ScalarType() : out_dtype.value();
   return OpBackend::BuildNode(

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -81,13 +81,12 @@ struct StridedOpExpandParams {
   bool implicit = false;
 };
 
-union OpParams {
-  StridedOpSliceParams slice_param;
-  StridedOpTransposeParams transpose_param;
-  StridedOpSqueezeParams squeeze_param;
-  StridedOpExpandParams expand_param;
-  OpParams() {};
-};
+using OpParams = std::variant<
+    std::monostate,
+    StridedOpSliceParams,
+    StridedOpTransposeParams,
+    StridedOpSqueezeParams,
+    StridedOpExpandParams>;
 
 struct StrideParams {
   // storing the tensor helps to retain extend the lifetime of tensor until all
@@ -631,7 +630,7 @@ struct HbContext {
 
 class HbContextArena {
  public:
-  static HbContextArena* Get();
+  static HbContextArena& Get();
   void RegisterTensor(std::shared_ptr<Data> data);
   void UnregisterTensor(Data* data);
   std::weak_ptr<Data>& GetTensorDataPtrFromHbContext(Data* data);
@@ -643,15 +642,16 @@ class HbContextArena {
   std::recursive_mutex& GetMutex() {
     return m_mtx;
   }
-  HbContext* GetHbContext(const c10::Device& device);
-  HbContext* GetHbContext();
+  std::shared_ptr<HbContext> GetHbContext(const c10::Device& device);
+  std::shared_ptr<HbContext> GetHbContext();
 
  private:
-  std::vector<HbContext*> GetAllHbContexts();
+  std::vector<std::shared_ptr<HbContext>> GetAllHbContexts();
   void ForAllHbContexts(
-      const std::function<void(HbContext*)>& fn,
+      const std::function<void(std::shared_ptr<HbContext>)>& fn,
       const c10::Device* device);
-  std::unordered_map<c10::Device, HbContext*> mp_device_contexts;
+  std::unordered_map<c10::Device, std::shared_ptr<HbContext>>
+      mp_device_contexts;
   std::recursive_mutex m_mtx;
 };
 

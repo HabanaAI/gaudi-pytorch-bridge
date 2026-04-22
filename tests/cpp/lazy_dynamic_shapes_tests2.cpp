@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,9 +32,9 @@ using namespace habana_lazy;
 class LazyDynamicShapesTest2 : public habana_lazy_test::LazyDynamicTest {};
 
 TEST_F(LazyDynamicShapesTest2, SliceOnChlastInput) {
-  int N = 2, C = 3, H = 4, W = 5;
+  int N = 2, C = 3, H = 4;
   std::vector<int> in_sizes{8, 10, 12, 20};
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     int W = in_sizes[i];
     torch::Tensor A =
         torch::randn({N, C, H, W}).contiguous(c10::MemoryFormat::ChannelsLast);
@@ -47,9 +47,9 @@ TEST_F(LazyDynamicShapesTest2, SliceOnChlastInput) {
 }
 
 TEST_F(LazyDynamicShapesTest2, SliceOnChlast3dInput) {
-  int N = 2, C = 3, D = 4, H = 5, W = 6;
+  int N = 2, C = 3, D = 4, H = 5;
   std::vector<int> in_sizes{8, 10, 12, 20};
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     int W = in_sizes[i];
     torch::Tensor A = torch::randn({N, C, D, H, W})
                           .contiguous(c10::MemoryFormat::ChannelsLast3d);
@@ -62,9 +62,9 @@ TEST_F(LazyDynamicShapesTest2, SliceOnChlast3dInput) {
 }
 
 TEST_F(LazyDynamicShapesTest2, SelectOnChlast3dInput) {
-  int N = 2, C = 3, D = 4, H = 5, W = 6;
+  int N = 2, C = 3, D = 4, H = 5;
   std::vector<int> in_sizes{8, 10, 12, 20};
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     int W = in_sizes[i];
     torch::Tensor A = torch::randn({N, C, D, H, W})
                           .contiguous(c10::MemoryFormat::ChannelsLast3d);
@@ -77,9 +77,9 @@ TEST_F(LazyDynamicShapesTest2, SelectOnChlast3dInput) {
 }
 
 TEST_F(LazyDynamicShapesTest2, InplaceView) {
-  int N = 2, C = 3, H = 4, W = 5;
+  int N = 2, C = 3, H = 4;
   std::vector<int> in_sizes{8, 10, 12, 20};
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     int W = in_sizes[i];
     torch::Tensor A = torch::randn({N, C, H, W});
     auto hA = A.to(torch::kHPU);
@@ -96,8 +96,7 @@ TEST_F(LazyDynamicShapesTest2, InplaceView) {
 TEST_F(LazyDynamicShapesTest2, InplaceViewon3d) {
   int N = 2, C = 3, D = 4, H = 5, W = 6;
   std::vector<int> in_sizes{8, 10, 12, 20};
-  for (int i = 0; i < in_sizes.size(); i++) {
-    // int W = in_sizes[i];
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     torch::Tensor A = torch::randn({N, C, D, H, W});
     auto hA = A.to(torch::kHPU);
     auto B = A.view(-1);
@@ -114,9 +113,9 @@ TEST_F(LazyDynamicShapesTest2, InplaceViewonChlast) {
   if (isGaudi3()) {
     GTEST_SKIP() << "Test skipped on Gaudi3.";
   }
-  int N = 2, C = 3, H = 4, W = 5;
+  int N = 2, C = 3, H = 4;
   std::vector<int> in_sizes{8, 10, 12, 20};
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     int W = in_sizes[i];
     torch::Tensor A =
         torch::randn({N, C, H, W}).contiguous(c10::MemoryFormat::ChannelsLast);
@@ -133,9 +132,9 @@ TEST_F(LazyDynamicShapesTest2, InplaceViewonChlast) {
 
 // Enable this once SW-102924 is fixed.
 TEST_F(LazyDynamicShapesTest2, DISABLED_InplaceViewonChlast3d) {
-  int N = 2, C = 3, D = 4, H = 5, W = 6;
+  int N = 2, C = 3, D = 4, H = 5;
   std::vector<int> in_sizes{8, 10, 12, 20};
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     int W = in_sizes[i];
     torch::Tensor A = torch::randn({N, C, D, H, W})
                           .contiguous(c10::MemoryFormat::ChannelsLast3d);
@@ -158,9 +157,8 @@ TEST_F(LazyDynamicShapesTest2, DynamicShapeSimple_min_max_current) {
   int A = 4;
   const int C = 3;
   std::vector<int> in_sizes{6, 8, 10};
-  int num;
 
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     int B = in_sizes[i];
     PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
     torch::Tensor c0 = torch::randn({C, B, A}, torch::requires_grad(false));

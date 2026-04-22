@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,23 +23,26 @@
 namespace habana {
 
 OutputMetaDataVector ClampMeta(const at::Stack& stack) {
-  OutputMetaData meta{};
   auto selfSizes = stack_tensor(stack, 0).sizes();
   bool minMaxScalar = stack.at(1).isScalar() || stack.at(2).isScalar();
   bool minTensorDefined = stack.at(1).isTensor();
   bool maxTensorDefined = stack.at(2).isTensor();
 
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
+
   if (minMaxScalar) {
     meta.shape = selfSizes.vec();
   } else {
-    if (minTensorDefined && maxTensorDefined)
+    if (minTensorDefined && maxTensorDefined) {
       meta.shape = at::infer_size(
           at::infer_size(selfSizes, stack_tensor(stack, 1).sizes()),
           stack_tensor(stack, 2).sizes());
-    else if (minTensorDefined)
+    } else if (minTensorDefined) {
       meta.shape = at::infer_size(selfSizes, stack_tensor(stack, 1).sizes());
-    else
+    } else {
       meta.shape = at::infer_size(selfSizes, stack_tensor(stack, 2).sizes());
+    }
   }
 
   meta.dtype = habana_helpers::DTypeHelper::get_compute_dtype(
@@ -48,7 +51,7 @@ OutputMetaDataVector ClampMeta(const at::Stack& stack) {
       habana_helpers::DTypeHelper::DtypePromoteVariant::kPromoteToCommon,
       false);
 
-  return {meta};
+  return metaVec;
 }
 
 template <typename ScalarType>
@@ -125,12 +128,14 @@ SharedMetaDataVector ClampSharedMeta(
   auto self = stack_tensor(stack, 0);
   auto selfRank = self.dim();
 
-  auto min = stack.at(1);
-  auto max = stack.at(2);
+  const auto& min = stack.at(1);
+  const auto& max = stack.at(2);
   auto isMinTensor = min.isTensor();
   auto isMaxTensor = max.isTensor();
 
-  SharedMetaData clampSharedMeta{"clamp_pt_fwd"};
+  SharedMetaDataVector meta;
+  meta.reserve(1);
+  auto& clampSharedMeta = meta.emplace_back("clamp_pt_fwd");
   clampSharedMeta.inputs_data.emplace_back(selfRank, dtype);
   clampSharedMeta.inputs_data.push_back(
       isMinTensor ? SharedMetaTensor{min.toTensor().dim(), dtype}
@@ -140,7 +145,7 @@ SharedMetaDataVector ClampSharedMeta(
                   : createOptionalNotPresentSharedMetaTensor());
 
   clampSharedMeta.outputs_data.emplace_back(selfRank, dtype);
-  return {clampSharedMeta};
+  return meta;
 }
 
 SharedMetaDataVector ClampMinSharedMeta(

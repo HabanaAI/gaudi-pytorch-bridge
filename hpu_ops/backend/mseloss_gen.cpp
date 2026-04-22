@@ -21,21 +21,23 @@ OutputMetaDataVector MseLossFwdMeta(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 0);
   int64_t reduction = stack.at(2).toInt();
 
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.dtype = self.scalar_type();
   meta.shape = (reduction == at::Reduction::Reduction::None)
       ? self.sizes().vec()
       : std::vector<int64_t>{};
-  return {meta};
+  return metaVec;
 }
 
 OutputMetaDataVector MseLossBwdMeta(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 1);
 
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.dtype = self.scalar_type();
   meta.shape = self.sizes().vec();
-  return {meta};
+  return metaVec;
 }
 
 FillParamsT FillMseLossParams(const at::Stack& stack) {

@@ -69,3 +69,4 @@ print("set_profiler_tracer_memory", htexp._set_profiler_tracer_memory(0))
 
 htdebug._hg_print("HPU Graph prints, user can invoke through LOG_LEVEL_PT_HPUGRAPH")
 htexp._set_scale_attributes(True, 13)
+htexp._set_is_dynamic_quantization(False)

@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -81,12 +81,12 @@ def pytest_runtest_setup(item):
 
     if (
         pytest.mode == "compile"
-        and pytest.chip in pytest.eager_fallback_tests.keys()
+        and pytest.chip in pytest.eager_fallback_tests
         and (
             get_testname(item) in pytest.eager_fallback_tests[pytest.chip]
             or get_testname(item) in pytest.eager_fallback_tests["all"]
         )
-        and not os.getenv("PTT_STOP_EAGER_FALLBACK", 0)
+        and not os.getenv("PTT_STOP_EAGER_FALLBACK", None)
     ):
         import warnings
 
@@ -99,12 +99,12 @@ def pytest_runtest_setup(item):
 def pytest_runtest_teardown(item):
     if (
         pytest.mode == "compile"
-        and pytest.chip in pytest.eager_fallback_tests.keys()
+        and pytest.chip in pytest.eager_fallback_tests
         and (
             get_testname(item) in pytest.eager_fallback_tests[pytest.chip]
             or get_testname(item) in pytest.eager_fallback_tests["all"]
         )
-        and not os.getenv("PTT_STOP_EAGER_FALLBACK", 0)
+        and not os.getenv("PTT_STOP_EAGER_FALLBACK", None)
     ):
         from habana_frameworks.torch.dynamo.compile_backend.config import (
             configuration_flags,
@@ -195,10 +195,7 @@ def pytest_collection_modifyitems(config, items):
 
 
 def get_testname(item: pytest.Function | str) -> str:
-    if isinstance(item, str):
-        testname = item
-    else:
-        testname = item.name
+    testname = item if isinstance(item, str) else item.name
     try:
         if "::" in testname:
             testname = testname.split("::")[1]

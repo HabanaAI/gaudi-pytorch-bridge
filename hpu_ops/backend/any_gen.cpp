@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,17 +22,19 @@ namespace habana {
 OutputMetaDataVector AllAnyMeta(const at::Stack& stack) {
   const auto self = stack.at(0).toTensor();
 
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.dtype = at::kBool;
   meta.shape = {};
-  return {meta};
+  return metaVec;
 }
 
 OutputMetaDataVector AllAnyDimMeta(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 0);
   const bool keepdim = stack.at(2).toBool();
 
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   if (stack.at(1).isInt()) {
     auto dim = stack.at(1).toInt();
     meta.shape = ReductionOutputShape(self, dim, keepdim)[0];
@@ -45,7 +47,7 @@ OutputMetaDataVector AllAnyDimMeta(const at::Stack& stack) {
   }
 
   meta.dtype = at::kBool;
-  return {meta};
+  return metaVec;
 }
 
 SharedMetaDataVector AnySharedMeta(
@@ -55,17 +57,19 @@ SharedMetaDataVector AnySharedMeta(
 
   std::pair<int, at::ScalarType> metaTensor{self.dim(), c10::ScalarType::Float};
 
-  SharedMetaData absMetaData{"abs_fwd"};
+  SharedMetaDataVector meta;
+  meta.reserve(2);
+  auto& absMetaData = meta.emplace_back("abs_fwd");
   absMetaData.inputs_data = {metaTensor};
   absMetaData.outputs_data = {metaTensor};
 
-  SharedMetaData reduceMetaData{"reduce_sum_multi_dim_fwd"};
+  auto& reduceMetaData = meta.emplace_back("reduce_sum_multi_dim_fwd");
   reduceMetaData.inputs_data = {metaTensor};
 
   int outDim = stack.size() > 1 and stack.at(1).isInt() ? (int)self.dim() : 1;
   reduceMetaData.outputs_data = {{outDim, c10::ScalarType::Float}};
 
-  return {absMetaData, reduceMetaData};
+  return meta;
 }
 
 static synapse_helpers::tensor AnyCommonFunc(
@@ -97,7 +101,7 @@ static synapse_helpers::tensor AnyCommonFunc(
       FillReductionParams(rank, dims, keepdim);
 
   using namespace std::literals;
-  auto reduce_sum = op->BuildNode(
+  auto reduce_sum = OpBackend::BuildNode(
       op,
       graph,
       {get_guid_with_precision("reduce_sum_multi_dim_fwd"sv, dtype),
@@ -112,7 +116,7 @@ static synapse_helpers::tensor AnyCommonFunc(
 
 void AnyDims::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto self = stack_tensor(stack, 0);
-  auto dims = stack.at(1);
+  const auto& dims = stack.at(1);
   c10::DimVector dims_vec;
   if (dims.isNone()) {
     dims_vec = std::vector<int64_t>{};

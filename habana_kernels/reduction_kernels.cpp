@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -63,10 +63,10 @@ void allocate_reduction_result(
   }
 
   if (result.defined()) {
-    auto tht_result = result.unsafeGetTensorImpl();
-    if (result.numel() || is_result_persistent)
+    auto* tht_result = result.unsafeGetTensorImpl();
+    if ((result.numel() != 0) || is_result_persistent) {
       THHTensor_resizeNd(tht_result, shape.size(), shape.data(), nullptr);
-    else {
+    } else {
       THHTensor_resizeNd_nonpersistent(
           tht_result, shape.size(), shape.data(), nullptr);
     }
@@ -509,7 +509,8 @@ ReduceOperator::CreateReductionGraph(
     const auto tensor_dim = pyt_tensor.dim();
     const auto reduction_dim = tensor_dim - in_dim[j] - 1;
     params.reductionDimension = safe_convert<unsigned int>(reduction_dim);
-    const int offset_calc = static_cast<int>(i) + (i != 0) * first_input_pos;
+    const int offset_calc =
+        static_cast<int>(i) + (static_cast<int>(i != 0) * first_input_pos);
     const auto input_index_offset = safe_convert<size_t>(offset_calc);
     std::vector<synTensor> syn_in{
         syn_helper_intermediate[input_index_offset].ref().get()};
@@ -522,7 +523,7 @@ ReduceOperator::CreateReductionGraph(
         std::move(syn_out),
         &params,
         sizeof(params),
-        std::move(node_type),
+        node_type,
         nullptr,
         nullptr,
         nullptr,
@@ -536,7 +537,7 @@ ReduceOperator::CreateReductionGraph(
     const auto input_index_offset = [&] {
       if (num_tpc_outputs > 1) {
         const auto num_tpc_outputs_u = safe_convert<size_t>(num_tpc_outputs);
-        return num_tpc_outputs_u * in_dim_size - 1;
+        return (num_tpc_outputs_u * in_dim_size) - 1;
       } else {
         return in_dim_size;
       }
@@ -545,7 +546,7 @@ ReduceOperator::CreateReductionGraph(
         syn_helper_intermediate[input_index_offset].ref().get()};
     std::vector<synTensor> syn_out{
         syn_helper_intermediate
-            [safe_convert<size_t>(num_tpc_outputs) * in_dim_size + 1]
+            [(safe_convert<size_t>(num_tpc_outputs) * in_dim_size) + 1]
                 .ref()
                 .get()};
 
@@ -598,8 +599,8 @@ InferOutputMetaRetType SumDimOperator::InferOutputMeta(
         self_dim,
         ", dim.size=",
         dim_size);
-    const auto output_dims =
-        self_dim - (!(keepdim) * static_cast<int64_t>(dim_size));
+    const auto output_dims = self_dim -
+        (static_cast<int64_t>(!keepdim) * static_cast<int64_t>(dim_size));
     // output follows input memory_format for all cases
     // except when output has less than 4 dims
     auto memory_format = self.suggest_memory_format();
@@ -643,8 +644,8 @@ void SumDimOperator::AllocateAndAddSynapseNode(
   // Remove duplicates in dim list
   LoweringUtil::SortAndRemoveDuplicateDims(dim, self.dim());
   // compute number of output dims
-  auto output_dims_signed =
-      self.dim() - (!(keepdim) * static_cast<int64_t>(dim.size()));
+  auto output_dims_signed = self.dim() -
+      (static_cast<int64_t>(!keepdim) * static_cast<int64_t>(dim.size()));
   HABANA_ASSERT(output_dims_signed >= 0, "output_dims must be non-negative");
   auto output_dims = static_cast<size_t>(output_dims_signed);
   // output follows input memory_format for all cases
@@ -681,6 +682,7 @@ InferOutputMetaRetType SumDimOutOperator::InferOutputMeta(
   // implies that all dims need to be reduced.
   std::vector<int64_t> data;
   auto ndim = self.dim();
+  data.reserve(static_cast<size_t>(ndim));
   for (int i = 0; i < ndim; i++) {
     data.push_back(i);
   }
@@ -726,6 +728,7 @@ void SumDimOutOperator::AllocateAndAddSynapseNode(
   // implies that all dims need to be reduced.
   std::vector<int64_t> data;
   auto ndim = self.dim();
+  data.reserve(static_cast<size_t>(ndim));
   for (int i = 0; i < ndim; i++) {
     data.push_back(i);
   }
@@ -753,12 +756,12 @@ InferOutputMetaRetType SumOperator::InferOutputMeta(torch::jit::Stack& inputs) {
         self, {0}, self.options(), at::MemoryFormat::Contiguous, false);
 
     auto ndim = self.dim();
-    int64_t data[HABANA_DIM_MAX];
+    std::array<int64_t, HABANA_DIM_MAX> data;
     for (int i = 0; i < ndim; i++) {
       data[i] = i;
     }
     HABANA_ASSERT(ndim >= 0, "ndim must be non-negative");
-    IntArrayRef dim(data, static_cast<size_t>(ndim));
+    IntArrayRef dim(data.data(), static_cast<size_t>(ndim));
     bool keepdim = false;
 
     inputs.insert(inputs.begin(), IValue(output));
@@ -786,12 +789,12 @@ void SumOperator::AllocateAndAddSynapseNode(
       output_metadata.at(0).persistent);
 
   auto ndim = self.dim();
-  int64_t data[HABANA_DIM_MAX];
+  std::array<int64_t, HABANA_DIM_MAX> data;
   for (int i = 0; i < ndim; i++) {
     data[i] = i;
   }
   HABANA_ASSERT(ndim >= 0, "ndim must be non-negative");
-  IntArrayRef dim(data, static_cast<size_t>(ndim));
+  IntArrayRef dim(data.data(), static_cast<size_t>(ndim));
   bool keepdim = false;
 
   inputs.insert(inputs.begin(), IValue(output));
@@ -805,12 +808,12 @@ void SumOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   Tensor self = inputs[0].toTensor();
   Tensor output;
   auto ndim = self.dim();
-  int64_t data[HABANA_DIM_MAX];
+  std::array<int64_t, HABANA_DIM_MAX> data;
   for (int i = 0; i < ndim; i++) {
     data[i] = i;
   }
   HABANA_ASSERT(ndim >= 0, "ndim must be non-negative");
-  IntArrayRef dim(data, static_cast<size_t>(ndim));
+  IntArrayRef dim(data.data(), static_cast<size_t>(ndim));
   bool keepdim = false;
 
   inputs.insert(inputs.begin(), IValue(output));
@@ -828,6 +831,7 @@ InferOutputMetaRetType MeanOperator::InferOutputMeta(
 
     std::vector<int64_t> data;
     auto ndim = self.dim();
+    data.reserve(static_cast<size_t>(ndim));
     for (int i = 0; i < ndim; i++) {
       data.push_back(i);
     }
@@ -854,7 +858,7 @@ void MeanOperator::AllocateAndAddSynapseNode(
 
   Tensor self = inputs[0].toTensor();
 
-  auto& mdata = output_metadata.at(0);
+  const auto& mdata = output_metadata.at(0);
   Tensor output;
   if (!graph.is_dry_run() && mdata.allocated_tensor.has_value()) {
     output = mdata.allocated_tensor.value();
@@ -869,6 +873,7 @@ void MeanOperator::AllocateAndAddSynapseNode(
 
   std::vector<int64_t> data;
   auto ndim = self.dim();
+  data.reserve(static_cast<size_t>(ndim));
   for (int i = 0; i < ndim; i++) {
     data.push_back(i);
   }
@@ -887,12 +892,12 @@ void MeanOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   Tensor self = inputs[0].toTensor();
   Tensor output;
   auto ndim = self.dim();
-  int64_t data[HABANA_DIM_MAX];
+  std::array<int64_t, HABANA_DIM_MAX> data;
   for (int i = 0; i < ndim; i++) {
     data[i] = i;
   }
   HABANA_ASSERT(ndim >= 0, "ndim must be non-negative");
-  IntArrayRef dim(data, static_cast<size_t>(ndim));
+  IntArrayRef dim(data.data(), static_cast<size_t>(ndim));
   bool keepdim = false;
 
   inputs.insert(inputs.begin(), IValue(output));

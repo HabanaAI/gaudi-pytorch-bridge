@@ -50,7 +50,8 @@ sizes_vec AddMMOutshape(const at::Stack& stack) {
 }
 
 OutputMetaDataVector AddMMMeta(const at::Stack& stack) {
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   // Take output tensor dtype
   std::optional<at::Tensor> output_tensor = std::nullopt;
   std::optional<c10::ScalarType> output_type = std::nullopt;
@@ -65,7 +66,7 @@ OutputMetaDataVector AddMMMeta(const at::Stack& stack) {
       false,
       output_type);
   meta.shape = AddMMOutshape(stack)[0];
-  return {meta};
+  return metaVec;
 }
 
 SharedMetaDataVector AddMMSharedMeta(
@@ -105,13 +106,13 @@ OutputMetaDataVector AddBMMMeta(const at::Stack& stack) {
       "addbmm: Expected batch2 to be 3-D, but got ",
       batch2.dim(),
       "-D");
-  std::vector<int64_t> outshape{
-      batch1.sizes()[1], batch2.sizes()[2]}; // (b, n, m)@(b, m, p) -> (n, p)
 
-  OutputMetaData meta;
-  meta.shape = outshape;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
+  meta.shape = {
+      batch1.sizes()[1], batch2.sizes()[2]}; // (b, n, m)@(b, m, p) -> (n, p)
   meta.dtype = self.scalar_type();
-  return {meta};
+  return metaVec;
 }
 
 using namespace std::literals;
@@ -172,7 +173,7 @@ void AddMMActivation::AddNode(
   const bool shouldUseParams = beta_val == 0.0 || beta_val == 1.0 ||
       alpha_val == 1.0 || alpha_val == 0.0;
 
-  const bool append_activation = !(alpha_val == 0 && beta_val == 0);
+  const bool append_activation = alpha_val != 0 || beta_val != 0;
 
   std::vector<synapse_helpers::tensor> result;
   if (shouldUseParams) {

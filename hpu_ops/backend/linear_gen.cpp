@@ -23,7 +23,8 @@ namespace habana {
 OutputMetaDataVector LinearMeta(const at::Stack& stack) {
   const auto& input = stack.at(0).toTensor();
   const auto& weight = stack.at(1).toTensor();
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.dtype = input.scalar_type();
   meta.shape = input.sizes().vec();
   meta.shape[static_cast<size_t>(input.dim() - 1)] = weight.sizes().vec()[0];
@@ -31,8 +32,9 @@ OutputMetaDataVector LinearMeta(const at::Stack& stack) {
   // Number of dimensions in matrix 1 can vary
   long mat1_dim0 = 1;
   long dim_i = 0;
-  for (; dim_i < input.dim() - 1; ++dim_i)
+  for (; dim_i < input.dim() - 1; ++dim_i) {
     mat1_dim0 *= input.sizes().vec()[static_cast<size_t>(dim_i)];
+  }
   HABANA_ASSERT(
       input.sizes().vec()[static_cast<size_t>(input.dim() - 1)] ==
           weight.sizes().vec()[1],
@@ -46,7 +48,7 @@ OutputMetaDataVector LinearMeta(const at::Stack& stack) {
       weight.sizes().vec()[0],
       ")");
 
-  return {meta};
+  return metaVec;
 }
 
 void Linear::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {

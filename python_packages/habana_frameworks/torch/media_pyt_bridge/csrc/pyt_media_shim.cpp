@@ -16,16 +16,14 @@
 #include <dlfcn.h>
 #include <link.h>
 #include <media_pytorch_proxy.h>
+#include <string>
 #include "synapse_shim/logging.h"
-
-#define MEDIA_API_INIT_PTR(func) \
-  CHECK_NULL((func) = (decltype(func))dlsym(lib_handle, #func))
 
 namespace shim_media {
 decltype(&::mediaPytFwProxy_init) mediaPytFwProxy_init = nullptr;
 
 void LoadSymbols(void* lib_handle) {
-  MEDIA_API_INIT_PTR(mediaPytFwProxy_init);
+  INIT_FUNC_PTR(mediaPytFwProxy_init);
 }
 
 } // namespace shim_media

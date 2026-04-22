@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -53,7 +53,7 @@ Node* MutationRemover::createSpecialMappedOp(Node* n) {
   Node* new_node = nullptr;
   if (n->matches(
           "aten::fill_.Scalar(Tensor(a!) self, Scalar value) -> Tensor(a!)")) {
-    auto dtype = graph_->insert(prim::dtype, {inputs.at(0)});
+    auto* dtype = graph_->insert(prim::dtype, {inputs.at(0)});
     new_node = graph_
                    ->insert(
                        aten::full_like,
@@ -71,12 +71,12 @@ Node* MutationRemover::createSpecialMappedOp(Node* n) {
     // normal(float mean, float std, int[] size, *, Generator? generator=None,
     // ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool?
     // pin_memory=None) -> Tensor
-    auto size = graph_->insert(aten::size, {n->inputs().at(0)});
-    auto dtype = graph_->insert(prim::dtype, {n->inputs().at(0)});
-    auto layout = graph_->insert(prim::layout, {n->inputs().at(0)});
-    auto device = graph_->insert(prim::device, {n->inputs().at(0)});
-    auto pin_memory = graph_->insert(aten::is_pinned, {n->inputs().at(0)});
-    auto generator = graph_->insertConstant(IValue());
+    auto* size = graph_->insert(aten::size, {n->inputs().at(0)});
+    auto* dtype = graph_->insert(prim::dtype, {n->inputs().at(0)});
+    auto* layout = graph_->insert(prim::layout, {n->inputs().at(0)});
+    auto* device = graph_->insert(prim::device, {n->inputs().at(0)});
+    auto* pin_memory = graph_->insert(aten::is_pinned, {n->inputs().at(0)});
+    auto* generator = graph_->insertConstant(IValue());
     new_node = graph_->insertNode(graph_->create(
         aten::normal,
         {n->inputs().at(1),
@@ -103,7 +103,7 @@ static bool removableSetItem(Node* n) {
   if (n->inputs().at(0)->node()->kind() != prim::ListConstruct) {
     return false;
   }
-  auto li_node = n->inputs().at(0)->node();
+  auto* li_node = n->inputs().at(0)->node();
   auto opt_index = constant_as<int64_t>(n->input(1));
   HABANA_ASSERT(opt_index.has_value(), "Optional variable has no value!");
   int64_t index = opt_index.value();
@@ -155,10 +155,10 @@ bool MutationRemover::tryMakeUnaliasedIfOutputAndMutationAtomic(
     return false;
   }
 
-  auto if_node = mutated_value->node();
+  auto* if_node = mutated_value->node();
   auto offset = mutated_value->offset();
-  auto true_value = if_node->blocks().at(0)->outputs().at(offset);
-  auto false_value = if_node->blocks().at(1)->outputs().at(offset);
+  auto* true_value = if_node->blocks().at(0)->outputs().at(offset);
+  auto* false_value = if_node->blocks().at(1)->outputs().at(offset);
 
   if (true_value->uses().size() > 1 || false_value->uses().size() > 1) {
     return false;
@@ -238,7 +238,7 @@ bool MutationRemover::RemoveListMutation(Block* block) {
 
     // process use-chain and aliasing of node output
     bool has_output = (!node->outputs().empty());
-    auto db_alias = getOrCreateAliasDb();
+    auto* db_alias = getOrCreateAliasDb();
     if (has_output && db_alias->writeIndex_.has_value()) {
       node->output()->replaceAllUsesWith(mutated_value);
       db_alias->writeIndex_->erase(node);
@@ -297,7 +297,7 @@ bool MutationRemover::RemoveTensorMutation(Block* block) {
 
       // weird case where there is an inplace op and an equivalent functional op
       // of the same symbol, but they have different schemas
-      if (!new_node->maybeOperator()) {
+      if (new_node->maybeOperator() == nullptr) {
         new_node->destroy();
         continue;
       }
@@ -328,7 +328,7 @@ bool MutationRemover::RemoveTensorMutation(Block* block) {
     getOrCreateAliasDb()->createValue(mutated_value);
 
     // We must erase the destroyed node from the AliasDb lists of writes
-    auto db_alias = getOrCreateAliasDb();
+    auto* db_alias = getOrCreateAliasDb();
     if (db_alias->writeIndex_.has_value()) {
       db_alias->writeIndex_->erase(node);
       node->destroy();
@@ -358,8 +358,8 @@ bool MutationRemover::inplaceOpVariant(Node* n) {
   }
 
   // needs to have alias analysis by schema
-  auto op = n->maybeOperator();
-  if (!op) {
+  const auto* op = n->maybeOperator();
+  if (op == nullptr) {
     return false;
   }
   if (op->aliasAnalysisKind() != c10::AliasAnalysisKind::FROM_SCHEMA) {

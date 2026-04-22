@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,10 +29,9 @@ OutputMetaDataVector FusedClipNormOp::FusedClipNormMeta(
   auto grads = stack[0].toTensorList();
   meta_vec.reserve(grads.size());
   SUPPRESS_WDANGLING_REFERENCE(for (const at::Tensor& grad : grads)) {
-    OutputMetaData meta;
+    auto& meta = meta_vec.emplace_back();
     meta.dtype = grad.scalar_type();
     meta.shape = grad.sizes().vec();
-    meta_vec.push_back(meta);
   }
 
   return meta_vec;
@@ -48,66 +47,59 @@ SharedMetaDataVector FusedClipNormSharedMeta(
   const auto num_params = gradients.size() - 1;
   SharedMetaTensor constant_tensor{1, precision_type};
   SharedMetaDataVector shared_meta_vec;
+  shared_meta_vec.reserve(7 + (2 * num_params));
 
   SharedMetaVector concat_inputs;
   for (size_t i = 0; i < num_params && i < SharedLayer::MAX_TENSOR_NR; i++) {
-    SharedMetaData sum_shared_meta{"reduce_sum_square_multi_dim_fwd"};
+    auto& sum_shared_meta =
+        shared_meta_vec.emplace_back("reduce_sum_square_multi_dim_fwd");
     sum_shared_meta.inputs_data = {{gradients[i].dim(), precision_type}};
     sum_shared_meta.outputs_data = {constant_tensor};
-    shared_meta_vec.push_back(sum_shared_meta);
 
-    SharedMetaData norm_shared_meta{"sqrt_fwd"};
+    auto& norm_shared_meta = shared_meta_vec.emplace_back("sqrt_fwd");
     norm_shared_meta.inputs_data = sum_shared_meta.outputs_data;
     norm_shared_meta.outputs_data = {constant_tensor};
     concat_inputs.push_back(constant_tensor);
-    shared_meta_vec.push_back(norm_shared_meta);
   }
 
-  SharedMetaData concat_shared_meta{"concat"};
+  auto& concat_shared_meta = shared_meta_vec.emplace_back("concat");
   concat_shared_meta.inputs_data = concat_inputs;
   concat_shared_meta.outputs_data = {constant_tensor};
-  shared_meta_vec.push_back(concat_shared_meta);
 
-  SharedMetaData sum_shared_meta{"reduce_sum_square_fwd"};
+  auto& sum_shared_meta = shared_meta_vec.emplace_back("reduce_sum_square_fwd");
   sum_shared_meta.inputs_data = concat_shared_meta.outputs_data;
   sum_shared_meta.outputs_data = sum_shared_meta.inputs_data;
-  shared_meta_vec.push_back(sum_shared_meta);
 
-  SharedMetaData total_norm_shared_meta{"sqrt_fwd"};
+  auto& total_norm_shared_meta = shared_meta_vec.emplace_back("sqrt_fwd");
   total_norm_shared_meta.inputs_data = sum_shared_meta.outputs_data;
   total_norm_shared_meta.outputs_data = total_norm_shared_meta.inputs_data;
-  shared_meta_vec.push_back(total_norm_shared_meta);
 
-  SharedMetaData add_shared_meta{"add_fwd"};
+  auto& add_shared_meta = shared_meta_vec.emplace_back("add_fwd");
   add_shared_meta.inputs_data = {
       total_norm_shared_meta.outputs_data[0], constant_tensor};
   add_shared_meta.outputs_data = {constant_tensor};
-  shared_meta_vec.push_back(add_shared_meta);
 
-  SharedMetaData clip_coef_shared_meta{"div_fwd"};
+  auto& clip_coef_shared_meta = shared_meta_vec.emplace_back("div_fwd");
   clip_coef_shared_meta.inputs_data = {
       {max_norm.dim(), precision_type}, add_shared_meta.outputs_data[0]};
   clip_coef_shared_meta.outputs_data = {constant_tensor};
-  shared_meta_vec.push_back(clip_coef_shared_meta);
 
-  SharedMetaData clamp_shared_meta{"clamp_pt_fwd"};
+  auto& clamp_shared_meta = shared_meta_vec.emplace_back("clamp_pt_fwd");
   clamp_shared_meta.inputs_data = {
       clip_coef_shared_meta.outputs_data[0],
       createOptionalNotPresentSharedMetaTensor(),
       constant_tensor};
   clamp_shared_meta.outputs_data = {constant_tensor};
-  shared_meta_vec.push_back(clamp_shared_meta);
 
   for (size_t i = 0; i < num_params; i++) {
-    SharedMetaData mult_shared_meta{"mult_fwd"};
+    auto& mult_shared_meta = shared_meta_vec.emplace_back("mult_fwd");
     mult_shared_meta.inputs_data = {
         clamp_shared_meta.outputs_data[0],
         {gradients[i].dim(), precision_type}};
     mult_shared_meta.outputs_data.emplace_back(
         gradients[i].dim(), precision_type);
-    shared_meta_vec.push_back(mult_shared_meta);
   }
-  return {shared_meta_vec};
+  return shared_meta_vec;
 }
 
 FusedClipNormOp::FusedClipNormOp(int device_id, c10::ScalarType scalar_type)
@@ -155,20 +147,19 @@ std::vector<synapse_helpers::tensor> FusedClipNormOp::compute_total_norm(
     const std::vector<TensorsPair>& grads,
     c10::ScalarType scalar_type) {
   auto num_params = grads.size() - 1;
-  int64_t scalar_shape[] = {1};
-  double eps = 1e-6;
+  int64_t scalar_shape = 1L;
+  const float eps = 1e-6F;
+  const at::IntArrayRef scalar_shape_ref = c10::makeArrayRef(&scalar_shape, 1);
 
   // constant nodes.
-  auto eps_ch =
-      ConstantHelper(graph, static_cast<float>(eps), scalar_type, scalar_shape);
-  auto zero_ch = ConstantHelper(graph, 0, scalar_type, scalar_shape);
-  auto one_ch =
-      ConstantHelper(graph, static_cast<float>(1.0), scalar_type, scalar_shape);
+  auto eps_ch = ConstantHelper(graph, eps, scalar_type, scalar_shape_ref);
+  auto zero_ch = ConstantHelper(graph, 0, scalar_type, scalar_shape_ref);
+  auto one_ch = ConstantHelper(graph, 1.0F, scalar_type, scalar_shape_ref);
 
   std::vector<std::vector<synapse_helpers::tensor>> compute_norm_result;
   std::vector<synTensor> concat_inputs;
   for (size_t i = 0; i < num_params; ++i) {
-    auto norm_result = compute_norm(graph, std::move(grads[i]), scalar_type);
+    auto norm_result = compute_norm(graph, grads[i], scalar_type);
     compute_norm_result.push_back(std::move(norm_result));
     concat_inputs.emplace_back(compute_norm_result.back().back().get());
   }
@@ -207,14 +198,13 @@ std::vector<synapse_helpers::tensor> FusedClipNormOp::compute_clip_coeff(
     const TensorsPair& max_norm,
     const synapse_helpers::tensor& total_norm,
     c10::ScalarType scalar_type) {
-  int64_t scalar_shape[] = {1};
-  double eps = 1e-6;
+  int64_t scalar_shape = 1L;
+  constexpr float eps = 1e-6F;
+  const at::IntArrayRef scalar_shape_ref = c10::makeArrayRef(&scalar_shape, 1);
 
   // constant nodes.
-  auto eps_ch =
-      ConstantHelper(graph, static_cast<float>(eps), scalar_type, scalar_shape);
-  auto one_ch =
-      ConstantHelper(graph, static_cast<float>(1.0), scalar_type, scalar_shape);
+  auto eps_ch = ConstantHelper(graph, eps, scalar_type, scalar_shape_ref);
+  auto one_ch = ConstantHelper(graph, 1.0F, scalar_type, scalar_shape_ref);
 
   // total_norm + eps
   auto add_op = BuildOp(
@@ -249,9 +239,9 @@ void FusedClipNormOp::AddNode(
   auto max_norm = stackGetter.getNextInput<TensorsPair>();
   auto norm_type = stackGetter.getNextInput<double>();
   auto scalar_type = gradients.at(0).pt_t.scalar_type();
-
-  if (norm_type != 2)
+  if (norm_type != 2) {
     HABANA_ASSERT(0, "unsupported norm_type for FusedClipNorm");
+  }
 
   // gradients.back() returns a preallocated tensor to save the grads total
   // norm result. it must be the last element of grads list feeding this

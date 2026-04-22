@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,11 +19,10 @@ from typing import Any
 import habana_frameworks.torch as htorch
 
 import torch
+from torch.types import Device
 
 get_hpu_stream: Callable[[int], int] | None
 from habana_frameworks.torch._hpu_C import _hpu_getCurrentRawStream as get_hpu_stream  # noqa E402
-
-_device_t = torch.device | str | int | None
 
 # Recording the device properties in the main process but used in worker process.
 caching_worker_device_properties: dict[str, Any] = {}
@@ -36,7 +35,7 @@ class DeviceInterface:
     """
 
     class device:
-        def __new__(cls, device: _device_t):
+        def __new__(cls, device: Device):
             raise NotImplementedError()
 
     class Event:
@@ -68,7 +67,7 @@ class DeviceInterface:
             raise NotImplementedError()
 
         @staticmethod
-        def get_device_properties(device: _device_t = None):
+        def get_device_properties(device: Device = None):
             raise NotImplementedError()
 
     @staticmethod
@@ -76,7 +75,7 @@ class DeviceInterface:
         raise NotImplementedError()
 
     @staticmethod
-    def set_device(device: _device_t):
+    def set_device(device: Device):
         raise NotImplementedError()
 
     @staticmethod
@@ -108,15 +107,15 @@ class DeviceInterface:
         raise NotImplementedError()
 
     @staticmethod
-    def synchronize(device: _device_t = None):
+    def synchronize(device: Device = None):
         raise NotImplementedError()
 
     @staticmethod
-    def get_device_properties(device: _device_t = None):
+    def get_device_properties(device: Device = None):
         raise NotImplementedError()
 
     @staticmethod
-    def get_compute_capability(device: _device_t = None):
+    def get_compute_capability(device: Device = None):
         raise NotImplementedError()
 
 
@@ -149,7 +148,7 @@ class HpuInterface(DeviceInterface):
             return torch.hpu.current_device()
 
         @staticmethod
-        def get_device_properties(device: _device_t = None):
+        def get_device_properties(device: Device = None):
             if not htorch.hpu.is_initialized():
                 return
 
@@ -186,5 +185,5 @@ class HpuInterface(DeviceInterface):
         return torch.hpu.is_available()
 
     @staticmethod
-    def get_compute_capability(device: _device_t = None):
+    def get_compute_capability(device: Device = None):
         return torch.hpu.get_device_capability(device)

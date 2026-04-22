@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -60,8 +60,6 @@ Issue raised:https://jira.habana-labs.com/browse/SW-68424
 TEST_F(HpuOpTest, logit_backward) {
   const std::vector<int64_t> size = {7, 6};
   GenerateInputs(2, {size, size}, torch::kBFloat16);
-
-  torch::ScalarType dtype = torch::kBFloat16;
 
   auto expected =
       torch::logit_backward(GetCpuInput(1), GetCpuInput(0), /*eps*/ 4e-10);

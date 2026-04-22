@@ -36,10 +36,12 @@ SharedMetaDataVector FloorDivideSharedMeta(
   const auto selfDim = self.toTensor().dim();
   const auto otherDim = other.isTensor() ? other.toTensor().dim() : 1;
 
-  SharedMetaData floorDivideMeta("round_divide_fwd");
+  SharedMetaDataVector vec;
+  vec.reserve(1);
+  auto& floorDivideMeta = vec.emplace_back("round_divide_fwd");
   floorDivideMeta.inputs_data.emplace_back(selfDim, dtype);
   floorDivideMeta.inputs_data.emplace_back(otherDim, dtype);
   floorDivideMeta.outputs_data.emplace_back(std::max(selfDim, otherDim), dtype);
-  return {floorDivideMeta};
+  return vec;
 }
 } // namespace habana

@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-#include <torch/extension.h>
+#include <pybind11/pybind11.h>
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("get_commit_hash", []() { return GIT_COMMIT_HASH_FULL; });

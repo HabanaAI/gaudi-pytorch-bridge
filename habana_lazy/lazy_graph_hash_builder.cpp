@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ uint64_t OpArrayEntry::getNodeOpHash() {
   for (auto& m : meta_data) {
     hash = at::hash_combine(m.first, hash);
     if (m.second.isList()) {
-      for (auto& v : m.second.toListRef()) {
+      for (const auto& v : m.second.toListRef()) {
         hash = ival_hash(v, hash);
       }
     } else {
@@ -45,7 +45,7 @@ uint64_t OpArrayEntry::getNodeOpHash() {
 void OpArrayEntry::populateMetaData(
     const std::vector<c10::IValue>& input_tensors) {
   size_t index = 0;
-  for (auto& input : input_tensors) {
+  for (const auto& input : input_tensors) {
     // TODO: Fetch tensor from generator before running hash.
     // We cannot hash the generator but we need the Tensor it produces because
     // it's a graph input. Until that is fixed Generator-typed args will reach
@@ -66,7 +66,7 @@ bool OpArrayEntry::isMetadataCandidate(const at::IValue& input) const {
       input.isString() || input.isNone() ||
       (input.isList() &&
        !input.toList().elementType()->cast<at::TensorType>() &&
-       !input.toList().elementType()->cast<at::OptionalType>()->ofTensor());
+       !at::OptionalType::ofTensor());
 }
 
 size_t OpArrayEntry::ival_hash(const torch::jit::IValue& v, size_t h) {
@@ -143,15 +143,15 @@ void GraphHashBuilder::prepareInputsStackMap(
   }
 }
 
-uint64_t GraphHashBuilder::getFwdRunningHash() {
+uint64_t GraphHashBuilder::getFwdRunningHash() const {
   return fwd_running_hash;
 }
 
 void GraphHashBuilder::invalidateDeviceTids(c10::Device& device) {
-  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GRAPH_RUNNING_HASH))
+  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GRAPH_RUNNING_HASH)) {
     return;
-
-  HbContext* devctx = habana_lazy::HbContextArena::Get()->GetHbContext(device);
+  }
+  auto devctx = habana_lazy::HbContextArena::Get().GetHbContext(device);
   for (auto& uid_wptr : devctx->tensors_data) {
     std::shared_ptr<Data> data = uid_wptr.second.lock();
     if (data != nullptr) {
@@ -235,7 +235,7 @@ void GraphHashBuilder::rememberIfInput(const at::Tensor& tensor) {
 
 void GraphHashBuilder::addInputTensors(const at::Tensor& tensor) {
   PT_LAZY_TRACE;
-  auto impl = dynamic_cast<HbLazyTensorImpl*>(tensor.unsafeGetTensorImpl());
+  auto* impl = dynamic_cast<HbLazyTensorImpl*>(tensor.unsafeGetTensorImpl());
   if (impl == nullptr) {
     return;
   }
@@ -291,7 +291,7 @@ void GraphHashBuilder::hashCombineTensor(
     const at::Tensor& tensor,
     size_t& hash) {
   // prepare hash using tID
-  auto hbimpl = dynamic_cast<HbLazyTensorImpl*>(tensor.unsafeGetTensorImpl());
+  auto* hbimpl = dynamic_cast<HbLazyTensorImpl*>(tensor.unsafeGetTensorImpl());
   HABANA_ASSERT((hbimpl != nullptr), "GetHbLazyTensor for a non lazy tensor");
   HbLazyTensor hl_t = hbimpl->tensor();
   // we add dtype and memoryformat, mostly this is going to be pure graph
@@ -314,7 +314,7 @@ void GraphHashBuilder::addInputTensors(
     const std::vector<c10::IValue>& input_tensors) {
   PT_LAZY_TRACE;
   size_t idx = 0;
-  for (auto& t : input_tensors) {
+  for (const auto& t : input_tensors) {
     fwd_running_hash =
         at::hash_combine(fwd_running_hash, idx++); // this is pointless
 
@@ -328,7 +328,7 @@ void GraphHashBuilder::addInputTensors(
         addInputTensors(tensor);
       }
     } else if (t.isList()) {
-      for (auto& v : t.toListRef()) {
+      for (const auto& v : t.toListRef()) {
         if (v.isTensor()) {
           if (v.toTensor().defined()) {
             addInputTensors(v.toTensor());
@@ -352,14 +352,15 @@ uint64_t GraphHashBuilder::combineSyncData(
   if (indices.size() == 1) {
     fwd_running_hash = HbLazyTensorViews::updateViewHash(
         tensors[indices[0]], fwd_running_hash);
-    for (auto& s : tensors[indices[0]].GetSizes()) {
+    for (const auto& s : tensors[indices[0]].GetSizes()) {
       fwd_running_hash =
           at::hash_combine(fwd_running_hash, static_cast<size_t>(s));
     }
   }
 
-  for (auto idx : indices)
+  for (auto idx : indices) {
     fwd_running_hash = at::hash_combine(fwd_running_hash, idx);
+  }
   PT_LAZY_DEBUG("\nFwd_running_hash : ", fwd_running_hash);
   return fwd_running_hash;
 }
@@ -380,12 +381,13 @@ void GraphHashBuilder::reset() {
 
 void GraphHashBuilder::validateAccumJitOps(
     std::shared_ptr<torch::jit::Graph> mp_g) {
-  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GRAPH_RUNNING_HASH))
+  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GRAPH_RUNNING_HASH)) {
     return;
+  }
   {
     std::set<std::string> fwdOpL;
     for (const auto& fwd_op : nodes_array) {
-      auto op = fwd_op.getOp().toQualString();
+      const auto* op = fwd_op.getOp().toQualString();
       fwdOpL.emplace(op);
     }
   }
@@ -401,7 +403,7 @@ void GraphHashBuilder::validateAccumJitOps(
     }
     bool match_found = false;
     for (const auto& fwd_op : nodes_array) {
-      auto op = fwd_op.getOp().toQualString();
+      const auto* op = fwd_op.getOp().toQualString();
       if (strcmp(node->kind().toQualString(), op) == 0) {
         match_found = true;
         break;

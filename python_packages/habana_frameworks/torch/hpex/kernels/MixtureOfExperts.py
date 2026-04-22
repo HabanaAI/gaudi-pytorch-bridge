@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2025 Intel Corporation
+# Copyright (c) 2025-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -168,16 +168,20 @@ def mixture_of_experts_fwd_fp8_wrapper(
         is_gaudi2=is_gaudi2,
     )
     d_scale_intermediate_hidden_states_fwd, d_scale_intermediate_hidden_states_bwd = _split_scales_into_fwd_and_bwd(
-        d_scale_intermediate_hidden_states, hybrid_mode, need_bwd_143_scales=recomp, is_gaudi2=is_gaudi2
+        d_scale_intermediate_hidden_states,
+        hybrid_mode,
+        need_fwd_152_scales=not recomp,
+        need_bwd_143_scales=recomp,
+        is_gaudi2=is_gaudi2,
     )
     d_scale_w1_fwd, d_scale_w1_bwd = _split_scales_into_fwd_and_bwd(
-        d_scale_w1, hybrid_mode, need_fwd_152_scales=not recomp, need_bwd_143_scales=recomp, is_gaudi2=is_gaudi2
+        d_scale_w1, hybrid_mode, need_bwd_143_scales=recomp, is_gaudi2=is_gaudi2
     )
     d_scale_w2_fwd, d_scale_w2_bwd = _split_scales_into_fwd_and_bwd(
-        d_scale_w2, hybrid_mode, need_fwd_152_scales=not recomp, need_bwd_143_scales=recomp, is_gaudi2=is_gaudi2
+        d_scale_w2, hybrid_mode, need_bwd_143_scales=recomp, is_gaudi2=is_gaudi2
     )
     d_scale_w12_fwd, d_scale_w12_bwd = _split_scales_into_fwd_and_bwd(
-        d_scale_w12, hybrid_mode, need_fwd_152_scales=not recomp, need_bwd_143_scales=recomp, is_gaudi2=is_gaudi2
+        d_scale_w12, hybrid_mode, need_bwd_143_scales=recomp, is_gaudi2=is_gaudi2
     )
     d_scale_w3_fwd, d_scale_w3_bwd = _split_scales_into_fwd_and_bwd(
         d_scale_w3, hybrid_mode, need_bwd_143_scales=recomp, is_gaudi2=is_gaudi2
@@ -262,12 +266,17 @@ def mixture_of_experts_bwd_fp8_wrapper(
     d_scale_activation_grad: list[torch.Tensor] | None = None,
     d_scale_first_gemm_grad: list[torch.Tensor] | None = None,
     d_scale_second_gemm_grad: list[torch.Tensor] | None = None,
+    is_first_amax: bool | None = None,
+    is_second_amax: bool | None = None,
 ):
     is_fused = ctx.is_fused
     experts_num = ctx.experts_num
     recomp = ctx.recomp
-    is_first_amax = ctx.is_first_amax
-    is_second_amax = ctx.is_second_amax
+
+    if is_first_amax is None:
+        is_first_amax = ctx.is_first_amax
+    if is_second_amax is None:
+        is_second_amax = ctx.is_second_amax
 
     kwargs = {
         "permuted_weights": ctx.permuted_weights,
@@ -328,10 +337,7 @@ def mixture_of_experts_bwd_fp8_wrapper(
             first_amax_bwd = moe_bwd_output[2], moe_bwd_output[3]
             second_amax_bwd = moe_bwd_output[4]
     elif is_first_amax:
-        if ctx.is_fused:
-            first_amax_bwd = moe_bwd_output[2]
-        else:
-            first_amax_bwd = moe_bwd_output[2], moe_bwd_output[3]
+        first_amax_bwd = moe_bwd_output[2] if ctx.is_fused else (moe_bwd_output[2], moe_bwd_output[3])
     elif is_second_amax:
         second_amax_bwd = moe_bwd_output[2]
 

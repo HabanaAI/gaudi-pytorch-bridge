@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +13,8 @@
 # limitations under the License.
 ###############################################################################
 
-add_habana_library(_recipe_compiler_C SHARED recipe_compiler.cpp)
+add_habana_library(_recipe_compiler_C SHARED recipe_compiler.cpp
+                   ${CMAKE_SOURCE_DIR}/python_packages/habana_frameworks/torch/jit/csrc/pytorch_compat_symbols.cpp)
 target_compile_definitions(_recipe_compiler_C PRIVATE TORCH_EXTENSION_NAME=_recipe_compiler_C)
 set_target_properties(_recipe_compiler_C PROPERTIES PREFIX "")
 target_link_libraries(_recipe_compiler_C PUBLIC bindings torch absl::hash npu::jit_fork ${TORCH_PYTHON_LIBRARY})

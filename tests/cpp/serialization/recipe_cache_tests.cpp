@@ -23,13 +23,13 @@ static const std::string kTestCacheDir = "/tmp/recipe_cache_test/";
 class RecipeCacheDiskTest : public ::testing::Test {
  protected:
   void SetUp() override {
-    fs::remove_all(kTestCacheDir);
+    std::filesystem::remove_all(kTestCacheDir);
     // Do not create directory here; RecipeCache should create it on demand.
     // make sure the environment variable is not set
     UNSET_ENV_FLAG_NEW(PT_HPU_RECIPE_CACHE_CONFIG);
   }
   void TearDown() override {
-    fs::remove_all(kTestCacheDir);
+    std::filesystem::remove_all(kTestCacheDir);
     // clear env var after test
     UNSET_ENV_FLAG_NEW(PT_HPU_RECIPE_CACHE_CONFIG);
   }
@@ -76,9 +76,9 @@ TEST_F(RecipeCacheDiskTest, RecipeCacheConfigCustomConfigNFS) {
 TEST_F(RecipeCacheDiskTest, CreatesDirectoryOnDemand) {
   PrepareRecipeCacheConfig(kTestCacheDir, true, 2048, false);
   RecipeCacheConfig config;
-  ASSERT_FALSE(fs::exists(kTestCacheDir));
+  ASSERT_FALSE(std::filesystem::exists(kTestCacheDir));
   RecipeCache cache(config);
-  EXPECT_TRUE(fs::exists(kTestCacheDir));
+  EXPECT_TRUE(std::filesystem::exists(kTestCacheDir));
 }
 
 // TODO: Add tests with actual synRecipe store/lookup

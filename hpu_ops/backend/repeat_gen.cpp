@@ -23,11 +23,12 @@ OutputMetaDataVector RepeatMeta(const at::Stack& stack) {
   auto repeats = stack.at(1).isTensor() ? stack.at(1).toTensor().sizes().vec()
                                         : stack.at(1).toIntList().vec();
 
-  OutputMetaData meta{};
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.dtype = self.scalar_type();
   meta.shape = RepeatOperator::compute_output_shape(self, repeats);
 
-  return {meta};
+  return metaVec;
 }
 
 SharedMetaDataVector RepeatSharedMeta(
@@ -43,11 +44,13 @@ SharedMetaDataVector RepeatSharedMeta(
     outputRank = std::max(repeats, outputRank);
   }
 
-  SharedMetaData repeatSharedMeta{"repeat_pt_fwd"};
+  SharedMetaDataVector meta;
+  meta.reserve(1);
+  auto& repeatSharedMeta = meta.emplace_back("repeat_pt_fwd");
   repeatSharedMeta.inputs_data.emplace_back(inputRank, dtype);
   repeatSharedMeta.outputs_data.emplace_back(outputRank, dtype);
 
-  return {repeatSharedMeta};
+  return meta;
 }
 
 FillParamsT FillRepeatFwdParams(const at::Stack& stack) {

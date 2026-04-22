@@ -59,9 +59,7 @@ HPU_SORT_TEST(sort_Int16_asc, sort, torch::kInt16, false)
 
 TEST_F(HpuOpTest, sort_Float16_asc) {
   GenerateInputs(1, {{10, 3, 2}});
-  auto k = 3;
   auto dim = 0;
-  bool sorted = true;
   bool largest = false;
 
   auto expected = torch::sort(GetCpuInput(0), dim, largest);
@@ -73,9 +71,7 @@ TEST_F(HpuOpTest, sort_Float16_asc) {
 
 TEST_F(HpuOpTest, sort) {
   GenerateInputs(1, {{10, 3, 2}});
-  auto k = 3;
   auto dim = 0;
-  bool sorted = true;
   bool largest = true;
 
   auto expected = torch::sort(GetCpuInput(0), dim, largest);

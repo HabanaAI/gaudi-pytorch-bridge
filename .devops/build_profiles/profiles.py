@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,7 +20,6 @@ import json
 import os
 from collections.abc import Sequence
 from dataclasses import astuple, dataclass
-from enum import Enum
 
 
 @dataclass(frozen=True)
@@ -63,13 +62,9 @@ def get_version_literal_and_source(version_name: str, strict: bool = False) -> V
         if node["version"] is None:
             return None
 
-        if strict:
-            version = node["version"]
-        else:
-            # just the major.minor version
-            version = ".".join(node["version"].split(".", 2)[:2])
+        version = node["version"] if strict else ".".join(node["version"].split(".", 2)[:2])
 
-        return VersionLiteralAndSource(version, node["default_source"])
+        return VersionLiteralAndSource(version, "build")
     except KeyError as exc:
         raise KeyError(f'pt_version "{version_name}" is not defined') from exc
 
@@ -131,7 +126,7 @@ def get_available_profiles():
 def get_available_versions() -> Sequence[VersionLiteralAndSource]:
     profiles_json = get_profiles_json()
     available_versions = [
-        VersionLiteralAndSource(version_spec["version"], version_spec["default_source"])
+        VersionLiteralAndSource(version_spec["version"], "build")
         for version_spec in profiles_json["pt_versions"].values()
         if version_spec["version"] is not None and version_spec["version"] != "nightly"
     ]
@@ -139,38 +134,8 @@ def get_available_versions() -> Sequence[VersionLiteralAndSource]:
     return available_versions
 
 
-class RequirementPurpose(Enum):
-    BUILD = "build"
-    RUNTIME = "runtime"
-
-
-def get_required_pt_package_name(pt_ver, purpose) -> str:
-    profiles_json = get_profiles_json()
-    required_pt = profiles_json["required_pt"]
-    if pt_ver in required_pt:
-        req = required_pt[pt_ver]
-    else:
-        req = required_pt["default"]
-
-    if isinstance(req, dict):
-        return req[purpose.value]
-
-    return req
-
-
-def get_required_pt(pt_ver, purpose) -> str:
-    pt_package_name = get_required_pt_package_name(pt_ver, purpose)
-    if pt_ver == "nightly":
-        return pt_package_name
-    return f"{pt_package_name}=={pt_ver}"
-
-
-def get_wheel_install_requires(pt_versions):
-    required_pts = {get_required_pt_package_name(pt_ver.label, RequirementPurpose.RUNTIME) for pt_ver in pt_versions}
-    if len(required_pts) != 1:
-        return ""
-
-    return f"{required_pts.pop()} >= {min(pt_versions)}, <= {max(pt_versions)}"
+def get_required_pt(pt_ver) -> str:
+    return f"torch=={pt_ver}"
 
 
 def check_profile_file_integrity():
@@ -187,19 +152,9 @@ def check_profile_file_integrity():
         _ = get_args_for_profile(profile)
 
     for ver in get_available_versions() + ["nightly"]:
-        _ = get_required_pt(ver, RequirementPurpose.RUNTIME)
-        _ = get_required_pt(ver, RequirementPurpose.BUILD)
+        _ = get_required_pt(ver)
 
     print("OK")
-
-
-def get_cmakelists_supported_vers():
-    return ";".join(
-        {
-            f"{version[0]}\\.{version[1]}\\..*"
-            for version in (ver_source.version.split(".") for ver_source in get_available_versions())
-        }
-    )
 
 
 def get_extras_version(package_name: str, pt_version_id: str) -> str:
@@ -207,7 +162,7 @@ def get_extras_version(package_name: str, pt_version_id: str) -> str:
     available_pt_versions = profiles_json["pt_versions"]
     try:
         node = available_pt_versions[pt_version_id]
-        return node["extras"][package_name]
+        return node[package_name]
     except KeyError as exc:
         raise KeyError(f'{package_name} version for "{pt_version_id}" is not defined') from exc
 

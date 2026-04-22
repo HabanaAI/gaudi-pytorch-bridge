@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -50,8 +50,8 @@ FillParamsT FillBinaryWithAlphaParams(
     const at::Stack& stack,
     BinaryWithAlphaMode_t mode) {
   PARAMS_STUB(ns_BinaryWithAlphaKernel::Params);
-  auto self = stack.at(SELF_INDEX);
-  auto other = stack.at(OTHER_INDEX);
+  const auto& self = stack.at(SELF_INDEX);
+  const auto& other = stack.at(OTHER_INDEX);
   at::ScalarType selfType =
       self.isScalar() ? self.toScalar().type() : self.toTensor().scalar_type();
   at::ScalarType otherType = other.isScalar() ? other.toScalar().type()
@@ -65,8 +65,9 @@ FillParamsT FillBinaryWithAlphaParams(
         "For integral input tensors, argument alpha must not be a floating",
         "point number.");
     params->alpha.i = alpha.to<int>();
-  } else
+  } else {
     params->alpha.f = static_cast<float>(alpha.to<double>());
+  }
 
   params->mode = mode;
   return paramsT;
@@ -161,8 +162,9 @@ bool MulTensorDSSTMetaFn(
   PT_BRIDGE_DEBUG("MulDSSTMeta called");
   static_cast<void>(outputs);
 
-  if (inputs[0].isScalar() || inputs[1].isScalar())
+  if (inputs[0].isScalar() || inputs[1].isScalar()) {
     return false;
+  }
 
   // detect type promotion for mul.Tensor and update output shape
   if (inputs[0].getScalarType() != inputs[1].getScalarType()) {
@@ -274,16 +276,15 @@ static SharedMetaDataVector ForeachBinaryOneIterationSharedMeta(
     bool supportI8,
     bool supportI16,
     bool mulOrDiv) {
-  const auto& self = stack_tensor(stack, SELF_INDEX);
-  const auto other = stack.at(OTHER_INDEX);
-  auto selfRank = self.dim();
+  const auto& selfTensor = stack_tensor(stack, SELF_INDEX);
+  const auto& other = stack.at(OTHER_INDEX);
+  auto selfRank = selfTensor.dim();
   int64_t otherRank = 1;
   at::optional<at::Scalar> alpha = std::nullopt;
   bool autocastToF32 = false;
   at::ScalarType resultType;
   std::string updatedGuid = guid;
 
-  SharedMetaDataVector metaVec;
   if (other.isTensor()) {
     const auto& otherTensor = other.toTensor();
     if (stack.size() > ALPHA_INDEX && stack.at(ALPHA_INDEX).isScalar()) {
@@ -294,7 +295,7 @@ static SharedMetaDataVector ForeachBinaryOneIterationSharedMeta(
     // aten.result_type doesn't implicitly allow number as tensor, so here we
     // need explicitly create scalar and then call result_type.Scalar variant
     if (!otherTensor.unsafeGetTensorImpl()->is_wrapped_number()) {
-      resultType = at::result_type(self, otherTensor);
+      resultType = at::result_type(selfTensor, otherTensor);
     } else {
       // create a new dummy scalar with default type, and
       // then call result_type(Tensor, Scalar) variant
@@ -304,37 +305,38 @@ static SharedMetaDataVector ForeachBinaryOneIterationSharedMeta(
       } else {
         newOtherScalar = at::Scalar(1LL);
       }
-      resultType = at::result_type(self, newOtherScalar);
+      resultType = at::result_type(selfTensor, newOtherScalar);
     }
 
     update_result_type(
         resultType, updatedGuid, castIntToFloat, supportI8, supportI16);
   } else {
     const auto& otherScalar = stack.at(OTHER_INDEX).toScalar();
-    resultType = at::result_type(self, otherScalar);
+    resultType = at::result_type(selfTensor, otherScalar);
     update_result_type(
         resultType, updatedGuid, castIntToFloat, supportI8, supportI16);
     const float value = otherScalar.toFloat();
-    if (mulOrDiv && is_value_out_of_scalar_range(value, resultType))
+    if (mulOrDiv && is_value_out_of_scalar_range(value, resultType)) {
       autocastToF32 = true;
+    }
   }
 
+  SharedMetaDataVector metaVec;
+  metaVec.reserve(2);
   if (alpha.has_value() && alpha.value().toFloat() != 1.) {
-    SharedMetaData multSharedMeta{"mult"};
+    auto& multSharedMeta = metaVec.emplace_back("mult");
     multSharedMeta.inputs_data = {{otherRank, resultType}, {1, resultType}};
     multSharedMeta.outputs_data.emplace_back(otherRank, resultType);
-    metaVec.push_back(multSharedMeta);
   }
 
-  if (autocastToF32)
+  if (autocastToF32) {
     resultType = torch::kFloat32;
-
+  }
   auto outputRank = std::max(selfRank, otherRank);
-  SharedMetaData sharedMetaBinary{guid};
+  auto& sharedMetaBinary = metaVec.emplace_back(guid);
   sharedMetaBinary.inputs_data = {
       {selfRank, resultType}, {otherRank, resultType}};
   sharedMetaBinary.outputs_data.emplace_back(outputRank, resultType);
-  metaVec.push_back(sharedMetaBinary);
   return metaVec;
 }
 
@@ -497,8 +499,8 @@ void ForeachBinary::AddNode(
 void BinaryWithAlpha::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  const at::Tensor& self = stack_tensor(stack, SELF_INDEX);
-  auto other = stack.at(OTHER_INDEX);
+  const at::Tensor& self_tensor = stack_tensor(stack, SELF_INDEX);
+  const auto& other = stack.at(OTHER_INDEX);
   at::ScalarType result_type;
 
   auto params = FillParams(stack);
@@ -509,16 +511,16 @@ void BinaryWithAlpha::AddNode(
   if (other.isTensor()) {
     isAlphaIntegralType =
         c10::isIntegralType(other.toTensor().scalar_type(), true) &&
-        c10::isIntegralType(self.scalar_type(), true);
+        c10::isIntegralType(self_tensor.scalar_type(), true);
 
     const at::Tensor& other_tensor = stack_tensor(stack, OTHER_INDEX);
-    result_type = at::result_type(self, other_tensor);
+    result_type = at::result_type(self_tensor, other_tensor);
   } else {
     isAlphaIntegralType = c10::isIntegralType(other.toScalar().type(), true) &&
-        c10::isIntegralType(self.scalar_type(), true);
+        c10::isIntegralType(self_tensor.scalar_type(), true);
 
     const auto& other_scalar = stack.at(OTHER_INDEX).toScalar();
-    result_type = at::result_type(self, other_scalar);
+    result_type = at::result_type(self_tensor, other_scalar);
   }
 
   const auto& filledParams =
@@ -573,24 +575,25 @@ OutputMetaDataVector BinaryMeta(
     bool castIntToFloat,
     bool supportI8,
     bool supportI16) {
-  const auto& self = stack_tensor(stack, 0);
-  const auto other = stack.at(1);
+  const auto& selfTensor = stack_tensor(stack, 0);
+  const auto& other = stack.at(1);
   const bool out_is_available = (stack.size() > 2 && stack.at(2).isTensor());
   at::ScalarType resultType;
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   if (other.isTensor()) {
     const auto& otherTensor = other.toTensor();
     resultType = out_is_available ? stack.at(2).toTensor().scalar_type()
-                                  : at::result_type(self, otherTensor);
+                                  : at::result_type(selfTensor, otherTensor);
   } else {
     const auto& otherScalar = stack.at(1).toScalar();
     resultType = out_is_available ? stack.at(2).toTensor().scalar_type()
-                                  : at::result_type(self, otherScalar);
+                                  : at::result_type(selfTensor, otherScalar);
   }
   update_result_type(resultType, guid, castIntToFloat, supportI8, supportI16);
   meta.dtype = resultType;
   meta.shape = BinaryOutputShape(stack)[0];
-  return {meta};
+  return metaVec;
 }
 
 OutputMetaDataVector MulMeta(const at::Stack& stack) {

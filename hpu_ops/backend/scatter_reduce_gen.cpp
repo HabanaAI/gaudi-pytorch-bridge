@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -46,11 +46,11 @@ FillParamsT ScatterReduceParams(const at::Stack& stack) {
       };
 
   auto it = reduceModes.find(reduce);
-  if (it != reduceModes.end())
+  if (it != reduceModes.end()) {
     mode = it->second;
-  else
+  } else {
     HABANA_ASSERT(false, "Unsupported reduce: ", reduce);
-
+  }
   params->dim = safe_convert<int>(dim);
   params->include_self = includeSelf;
   params->mode = mode;
@@ -59,23 +59,24 @@ FillParamsT ScatterReduceParams(const at::Stack& stack) {
 }
 
 OutputMetaDataVector ScatterReduceMeta(const at::Stack& stack) {
-  auto self = stack.at(SELF_INDEX);
+  const auto& self = stack.at(SELF_INDEX);
   std::vector<int64_t> outputShape;
   at::ScalarType dtype;
 
   if (self.isTensor()) {
-    auto selfTensor = self.toTensor();
+    const auto& selfTensor = self.toTensor();
     outputShape = selfTensor.sizes().vec();
     dtype = selfTensor.scalar_type();
   } else {
     dtype = self.toScalar().type();
   }
 
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.dtype = dtype;
   meta.shape = outputShape;
 
-  return {meta};
+  return metaVec;
 }
 
 } // namespace habana

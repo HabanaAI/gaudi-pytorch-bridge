@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -70,11 +70,9 @@ device_memory::device_memory(device& device) : device_{device} {
     case pool_allocator::startegy_coalesce_stringent:
       try {
         PT_DEVMEM_DEBUG("startegy_coalesce_stringent:: ", pool_size_);
-        suballoc_ = new pool_allocator::SubAllocator(
-            new pool_allocator::CoalescedStringentPooling(device_));
-        if (suballoc_ == nullptr) {
-          PT_DEVMEM_FATAL("unable to create pool allocator");
-        }
+        suballoc_ = std::make_unique<pool_allocator::SubAllocator>(
+            std::make_unique<pool_allocator::CoalescedStringentPooling>(
+                device_));
       } catch (...) {
         PT_DEVMEM_FATAL("unknown pool error");
       }
@@ -116,33 +114,34 @@ device_memory::~device_memory() {
 #endif
 
   if (pool_strategy_ == pool_allocator::startegy_coalesce_stringent) {
-    if (!threads_in_defragmenter_critical_section_->empty())
+    if (!threads_in_defragmenter_critical_section_->empty()) {
       PT_DEVMEM_DEBUG(
           "Some allocated buffers are in use during device memory destructor call.",
           " It may be caused by device memory leak");
+    }
   }
   if (suballoc_) {
     suballoc_->pool_destroy();
-    delete suballoc_;
   }
-  suballoc_ = nullptr;
 }
 
 // Note:: This is only in used defragementer where
 // we wanted to reset and start the degramenter test.
 void device_memory::reset_pool() {
   if (pool_strategy_ == pool_allocator::startegy_coalesce_stringent) {
-    if (!threads_in_defragmenter_critical_section_->empty())
+    if (!threads_in_defragmenter_critical_section_->empty()) {
       PT_DEVMEM_DEBUG(
           "Some allocated buffers are in use during device memory destructor call."
           "It may be caused by device memory leak");
+    }
   }
   if (suballoc_) {
     suballoc_->pool_destroy();
   }
   for (auto const& h2p : handle2pointer_) {
-    if (h2p.ptr_size_.ptr_ == nullptr)
+    if (h2p.ptr_size_.ptr_ == nullptr) {
       continue;
+    }
     handle2pointer_.ResetHandlesMap(h2p.id_);
   }
 
@@ -155,7 +154,7 @@ void device_memory::reset_pool() {
   PT_DEVMEM_DEBUG("POOL Creation Stats", stats.DebugString());
 }
 
-size_t device_memory::block_align(size_t n) {
+size_t device_memory::block_align(size_t n) const {
   return (n + alignment_ - 1) & ~(alignment_ - 1);
 }
 
@@ -240,7 +239,8 @@ synStatus device_memory::alloc(
   uint64_t ptr{0};
   synStatus status{synStatus::synSuccess};
   if (pool_strategy_ != pool_allocator::strategy_none) {
-    ptr = (uint64_t)suballoc_->pool_alloc_chunk(block_align(size), stream);
+    ptr =
+        (uint64_t)suballoc_->pool_alloc_chunk(block_align(size), stream != 0U);
 
     if ((void*)ptr == nullptr) {
       memory_reporter_event_create(device_, MEM_REPORTER_ALLOC_FAILS);
@@ -289,7 +289,7 @@ synStatus device_memory::malloc(
     *v_ptr = reinterpret_cast<void*>(ptr);
   }
   towl::emitDeviceMemoryAllocated(*v_ptr, size, stream);
-  log_synDeviceMalloc(ptr, size, status);
+  log_synDeviceMalloc(ptr, size, status != synStatus::synSuccess);
   record(*v_ptr, size, true);
   return status;
 }
@@ -308,8 +308,9 @@ synStatus device_memory::free_with_stream(void* free_ptr) {
     }
     const auto id = h.id();
     std::unique_lock<std::mutex> lock(mutex_);
-    if (handle2pointer_.checkIdIsReset(id))
+    if (handle2pointer_.checkIdIsReset(id)) {
       return status;
+    }
     auto ptr_and_size = handle2pointer_.GetPtrSize(id);
     bool is_stream_uses_empty = true;
     if (ptr_and_size.ptr_ != nullptr) {
@@ -319,13 +320,16 @@ synStatus device_memory::free_with_stream(void* free_ptr) {
     if (is_stream_uses_empty) {
       handle2pointer_.Erase(id);
       log_synDeviceMemStats(*this);
-      log_synDeviceFree(reinterpret_cast<uint64_t>(free_ptr), status);
+      log_synDeviceFree(
+          reinterpret_cast<uint64_t>(free_ptr),
+          status != synStatus::synSuccess);
       towl::emitDeviceMemoryDeallocated(free_ptr);
       record(free_ptr, 0, false);
     } // TODO fixme if there are other stream, need to erase the h_id
   } else {
     status = deallocate(free_ptr);
-    log_synDeviceFree(reinterpret_cast<uint64_t>(free_ptr), status);
+    log_synDeviceFree(
+        reinterpret_cast<uint64_t>(free_ptr), status != synStatus::synSuccess);
     towl::emitDeviceMemoryDeallocated(free_ptr);
     record(free_ptr, 0, false);
   }
@@ -348,7 +352,7 @@ synStatus device_memory::malloc(void** v_ptr, uint64_t size) {
   }
 
   towl::emitDeviceMemoryAllocated(*v_ptr, size, 0);
-  log_synDeviceMalloc(ptr, size, status);
+  log_synDeviceMalloc(ptr, size, status != synStatus::synSuccess);
   record(*v_ptr, size, true);
   return status;
 }
@@ -375,8 +379,9 @@ synStatus device_memory::free(void* free_ptr, bool deferred_free) {
     }
     const auto id = h.id();
     std::unique_lock<std::mutex> lock(mutex_);
-    if (handle2pointer_.checkIdIsReset(id))
+    if (handle2pointer_.checkIdIsReset(id)) {
       return status;
+    }
     auto ptr_and_size = handle2pointer_.GetPtrSize(id);
     handle2pointer_.Erase(id);
     if (ptr_and_size.ptr_ != nullptr) {
@@ -385,7 +390,8 @@ synStatus device_memory::free(void* free_ptr, bool deferred_free) {
   } else {
     status = deallocate(free_ptr);
   }
-  log_synDeviceFree(reinterpret_cast<uint64_t>(free_ptr), status);
+  log_synDeviceFree(
+      reinterpret_cast<uint64_t>(free_ptr), status != synStatus::synSuccess);
   towl::emitDeviceMemoryDeallocated(free_ptr);
   record(free_ptr, 0, false);
   return status;
@@ -454,11 +460,11 @@ void* device_memory::workspace_alloc(
       std::unique_lock<std::mutex> lock(defragmentation_mutex_);
 
       auto extend_high_memory_alloc = [&](size_t new_workspace_size,
-                                          size_t curr_size) -> void* {
+                                          size_t current_ws_size) -> void* {
         std::unique_lock<std::mutex> lock(mutex_);
         void* v_ptr{nullptr};
         v_ptr = suballoc_->extend_high_memory_allocation(
-            new_workspace_size, curr_size);
+            new_workspace_size, current_ws_size);
         return v_ptr;
       };
       auto& recipe_counter = device_.get_active_recipe_counter();
@@ -522,7 +528,8 @@ void* device_memory::workspace_alloc(
 
 synStatus device_memory::workspace_free(void* ptr) {
   auto status = deallocate(ptr);
-  log_synDeviceFree(reinterpret_cast<uint64_t>(ptr), status);
+  log_synDeviceFree(
+      reinterpret_cast<uint64_t>(ptr), status != synStatus::synSuccess);
   record(ptr, 0, false);
   return status;
 }
@@ -566,8 +573,9 @@ void device_memory::check_and_limit_recipe_execution(size_t size) {
     uint64_t counter_state{0};
     do {
       counter_state = recipe_counter.wait_for_next_decrease_call();
-      if (suballoc_->is_memory_available(size))
+      if (suballoc_->is_memory_available(size)) {
         break;
+      }
     } while (counter_state > DEFAULT_RECIPE_COUNT);
 
     habana_lazy::log_dev_mem_stats("Post-Recipe-Decrease-Lock-Addr", "", size);
@@ -588,13 +596,13 @@ class Lock : public device_ptr_lock_interface {
   Lock& operator=(const Lock&) = delete;
   Lock& operator=(Lock&&) = delete;
 
-  device_ptr_lock_interface::iterator_t begin() const override {
+  [[nodiscard]] device_ptr_lock_interface::iterator_t begin() const override {
     return locked_addresses_.data();
   }
-  device_ptr_lock_interface::iterator_t end() const override {
+  [[nodiscard]] device_ptr_lock_interface::iterator_t end() const override {
     return locked_addresses_.data() + locked_addresses_.size();
   }
-  device_ptr at(size_t position) const override {
+  [[nodiscard]] device_ptr at(size_t position) const override {
     return locked_addresses_.at(position);
   }
 
@@ -630,23 +638,23 @@ struct HandleMover {
         actual_size_(actual_size),
         stream_(stream) {}
 
-  void* GetSource() const {
+  [[nodiscard]] void* GetSource() const {
     return source_pointer_;
   }
 
-  void* GetDestination() const {
+  [[nodiscard]] void* GetDestination() const {
     return destination_pointer_;
   }
 
-  bool moveRequired() const {
+  [[nodiscard]] bool moveRequired() const {
     return source_pointer_ != destination_pointer_;
   }
 
-  size_t Size() const {
+  [[nodiscard]] size_t Size() const {
     return size_;
   }
 
-  size_t ActualSize() const {
+  [[nodiscard]] size_t ActualSize() const {
     return actual_size_;
   }
 
@@ -829,8 +837,9 @@ bool device_memory::defragment_memory(
     std::vector<std::tuple<uint64_t, uint64_t, size_t>> move_address;
 
     if (!alloc_first) {
-      for (auto& mover : movers)
+      for (auto& mover : movers) {
         mover.Deallocate(*suballoc_);
+      }
     }
 
     for (auto& mover : movers) {
@@ -840,8 +849,8 @@ bool device_memory::defragment_memory(
         PT_DEVMEM_DEBUG("Skipping. Resource was not moved in memory");
         continue;
       }
-      auto previous_destination = mover.GetSource();
-      auto destination = mover.GetDestination();
+      auto* previous_destination = mover.GetSource();
+      auto* destination = mover.GetDestination();
       if (previous_destination < destination) {
         if (static_cast<void*>(
                 static_cast<int8_t*>(previous_destination) +
@@ -855,7 +864,7 @@ bool device_memory::defragment_memory(
       size_t size = mover.ActualSize();
       uint64_t src_end_addr = src_base_addr + size;
       uint64_t dst_end_addr = dst_base_addr + size;
-      if (!(dst_end_addr <= src_base_addr || src_end_addr <= dst_base_addr)) {
+      if (dst_end_addr > src_base_addr && src_end_addr > dst_base_addr) {
         PT_DEVMEM_DEBUG(
             "Address overlapping...",
             "src_base_addr::",
@@ -882,8 +891,9 @@ bool device_memory::defragment_memory(
     }
     MoveData(device_, move_address);
     if (alloc_first) {
-      for (auto& mover : movers)
+      for (auto& mover : movers) {
         mover.Deallocate(*suballoc_);
+      }
     }
     PT_DEVMEM_DEBUG(
         "Move of resources completed no of resources::", movers.size());
@@ -957,7 +967,7 @@ void device_memory::log_defragmentation_warning_if_needed() {
 
   // Check if the number of defragmentation events in the last 5 minutes exceeds
   // 100
-  if (defragmentation_timestamps.size() == 100) {
+  if (defragmentation_timestamps.size() >= 100) {
     TORCH_WARN_ONCE(
         "defragmentation triggered more than 100 times in the last 5 minutes");
   }
@@ -971,8 +981,9 @@ size_t device_memory::get_total_memory_required(
     std::unique_lock<std::mutex> lock(mutex_);
     for (const auto address : addresses) {
       auto h = mem_handle::reinterpret_from_pointer(address);
-      if (!h.is_valid())
+      if (!h.is_valid()) {
         continue;
+      }
       auto ptr_size = handle2pointer_.GetPtrSize(h.id());
       if (ptr_size.ptr_ == nullptr) {
         auto found = umap_addr.find(h.id());
@@ -1119,7 +1130,7 @@ device_ptr device_memory::get_pointer(mem_handle h) {
         "Allocation failed for size::",
         size,
         " (",
-        static_cast<double>(size) / (1024 * 1024.),
+        static_cast<double>(size) / (1024 * 1024),
         ")MB");
   }
 

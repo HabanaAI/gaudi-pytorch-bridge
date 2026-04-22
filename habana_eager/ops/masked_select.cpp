@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,7 +36,7 @@ at::Tensor& masked_select_out_eager(
   auto output = masked_select_eager(self, mask);
   std::vector<int64_t> out_shape{output.sizes().vec()[0]};
   if (out.sizes().vec() != out_shape) {
-    auto out_reshaped = out.unsafeGetTensorImpl();
+    auto* out_reshaped = out.unsafeGetTensorImpl();
     THHTensor_resizeNd(
         out_reshaped, out_shape.size(), out_shape.data(), nullptr);
     out.unsafeGetTensorImpl()->set_sizes_contiguous(

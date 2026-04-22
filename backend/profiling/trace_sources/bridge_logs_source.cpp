@@ -130,13 +130,14 @@ struct BridgeLogsSourceImpl : public TraceSource {
     is_started_ = false;
   }
   void extract(TraceSink& output) override {
-    if (events_.empty())
+    if (events_.empty()) {
       return;
+    }
     const auto pid =
         static_cast<pid_t>(static_cast<unsigned int>(getpid()) + offset_);
     std::lock_guard<std::mutex> lg{m};
     for (const auto& event : events_) {
-      if (eventsToIndexes_.count({event.tid, event.time})) {
+      if (eventsToIndexes_.count({event.tid, event.time}) != 0U) {
         auto index = eventsToIndexes_[{event.tid, event.time}];
         output.addActivity(
             {event.name,
@@ -147,12 +148,13 @@ struct BridgeLogsSourceImpl : public TraceSource {
             {},
             event.time,
             event.begin);
-      } else
+      } else {
         output.addActivity(
             {event.name, {}, ActivityType::HPU_RUNTIME, pid, event.tid},
             {},
             event.time,
             event.begin);
+      }
     }
     for (const auto& entry : threadNames) {
       std::string name =
@@ -171,7 +173,7 @@ struct BridgeLogsSourceImpl : public TraceSource {
 
  private:
   void updateThreadNames(pid_t tid) {
-    if (not threadNames.count(tid)) {
+    if (threadNames.count(tid) == 0U) {
       auto name = getThreadName();
       threadNames[tid] = name;
     }
@@ -234,26 +236,26 @@ size_t RecipeRegistry::invalidId() {
 }
 
 void RecipeRegistry::registerRecipe(const std::string& name, std::size_t id) {
-  if (!habana::profile::bridge::linked_events_enabled() or id == invalidId())
+  if (!habana::profile::bridge::linked_events_enabled() or id == invalidId()) {
     return;
-
+  }
   std::unique_lock<std::shared_mutex> lock(mtx_);
   recipes_[name] = id;
 }
 
 size_t RecipeRegistry::getRecipeId(std::string_view name) {
-  if (!habana::profile::bridge::linked_events_enabled())
+  if (!habana::profile::bridge::linked_events_enabled()) {
     return invalidId();
-
+  }
   std::shared_lock<std::shared_mutex> lock(mtx_);
   auto it = recipes_.find(std::string(name));
   return (it != recipes_.end()) ? it->second : invalidId();
 }
 
 bool RecipeRegistry::hasRecipeName(std::string_view name) {
-  if (!habana::profile::bridge::linked_events_enabled())
+  if (!habana::profile::bridge::linked_events_enabled()) {
     return false;
-
+  }
   std::shared_lock<std::shared_mutex> lock(mtx_);
   return recipes_.find(std::string(name)) != recipes_.end();
 }

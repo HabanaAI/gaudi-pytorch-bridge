@@ -32,10 +32,11 @@ FillParamsT FillIndexAddParams(const at::Stack& stack) {
 OutputMetaDataVector IndexAddMeta(const at::Stack& stack) {
   const auto& input = stack.at(0).toTensor();
 
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.dtype = input.scalar_type();
   meta.shape = input.sizes().vec();
-  return {meta};
+  return metaVec;
 }
 
 void IndexAdd::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {

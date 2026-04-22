@@ -21,11 +21,12 @@ namespace habana {
 
 OutputMetaDataVector SelectBackwardMeta(const at::Stack& stack) {
   auto self = stack[0].toTensor();
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.dtype = self.scalar_type();
   meta.shape = stack[1].toIntList().vec();
 
-  return {meta};
+  return metaVec;
 }
 
 SharedMetaDataVector SelectBwdSharedMeta(
@@ -35,10 +36,12 @@ SharedMetaDataVector SelectBwdSharedMeta(
   auto dtype = grad.scalar_type();
   auto rank = stack.at(1).toIntList().size();
 
-  SharedMetaData stridedSliceGrad{"strided_slice_grad"};
+  SharedMetaDataVector meta;
+  meta.reserve(1);
+  auto& stridedSliceGrad = meta.emplace_back("strided_slice_grad");
   stridedSliceGrad.inputs_data.emplace_back(rank, dtype);
   stridedSliceGrad.outputs_data.emplace_back(rank, dtype);
-  return {stridedSliceGrad};
+  return meta;
 }
 
 static long normalize_idx(long idx, int64_t size) {

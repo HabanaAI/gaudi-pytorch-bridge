@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ namespace habana {
 FillParamsT FillCdistFwdParams(const at::Stack& stack) {
   PARAMS_STUB(ns_Cdist::Params);
   params->p = static_cast<float>(stack.at(2).toScalar().toDouble());
-  c10::IValue cmVal = stack.at(3);
+  const c10::IValue& cmVal = stack.at(3);
   params->compute_mode =
       static_cast<CdistComputeMode_t>(cmVal.isInt() ? cmVal.toInt() : 0);
   return paramsT;
@@ -97,12 +97,14 @@ SharedMetaDataVector CdistBwdSharedMeta(
   const auto& x2 = stack_tensor(stack, 2);
 
   auto dtype = grad.scalar_type();
-  SharedMetaData meta{"cdist_bwd"};
+  SharedMetaDataVector metaVec;
+  metaVec.reserve(1);
+  auto& meta = metaVec.emplace_back("cdist_bwd");
   meta.inputs_data = {
       {grad.dim(), dtype}, {x1.dim(), dtype}, {x2.dim(), dtype}};
   meta.outputs_data = {{x1.dim(), dtype}, {x2.dim(), dtype}};
 
-  return {meta};
+  return metaVec;
 }
 
 void CdistBwd::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {

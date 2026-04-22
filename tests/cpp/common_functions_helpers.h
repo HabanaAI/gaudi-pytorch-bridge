@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,7 +42,7 @@ void dump_tensor(
     const auto* t = convert_to_type_supported_on_cpu<T>(tin, storage);
     auto ptr = (T*)t->data_ptr();
     std::cout << label << " shape = " << tin.sizes() << std::endl;
-    for (size_t i = 0; i < t->numel(); ++i) {
+    for (int i = 0; i < t->numel(); ++i) {
       std::cout << i << " : " << ptr[i] << std::endl;
     }
   }
@@ -63,9 +63,9 @@ void dump_tensors(
     auto ptr2 = (T*)t2->data_ptr();
     std::cout << label << " shapes = " << t1in.sizes() << ", " << t2in.sizes()
               << std::endl;
-    for (size_t i = 0; (i < t1->numel()) && (i < t2->numel()); ++i) {
+    for (int i = 0; (i < t1->numel()) && (i < t2->numel()); ++i) {
       auto d = fabs(ptr1[i] - ptr2[i]);
-      auto r = ptr1[i] ? d / abs(ptr1[i]) : INFINITY;
+      auto r = (ptr1[i]) ? d / abs(ptr1[i]) : INFINITY;
       std::cout << i << " : " << ptr1[i] << " vs " << ptr2[i] << " D = " << d
                 << " R = " << r << std::endl;
     }
@@ -148,12 +148,12 @@ bool CompareRecursiveForCompareFewTensors(
 template <class T, class U>
 bool CompareRecursiveForCompareFewTensors(
     bool equal,
-    int id,
-    const U& hpu,
-    const U& cpu,
-    bool verbose,
-    float atol,
-    float rtol) {
+    [[maybe_unused]] int id,
+    [[maybe_unused]] const U& hpu,
+    [[maybe_unused]] const U& cpu,
+    [[maybe_unused]] bool verbose,
+    [[maybe_unused]] float atol,
+    [[maybe_unused]] float rtol) {
   return equal;
 }
 

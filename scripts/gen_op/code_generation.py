@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -68,9 +68,7 @@ def generate_entry_debug_code(fname, params, is_eager_frontend):
     else:
         code = "  PT_EAGER_TRACE;\n"
 
-    params_names = []
-    for p in params:
-        params_names.append(parser.param_name(p))
+    params_names = [parser.param_name(p) for p in params]
     params_count = len(params)
     dump_args = "DUMP_ARG" if params_count == 1 else f"DUMP_{params_count}ARGS"
     code += f'  PT_OP_INFO("{fname}: ", {dump_args}({", ".join(params_names)}));\n\n'
@@ -178,8 +176,12 @@ def get_op_backend_class_impl(ctxop, fname, cname, num_out_tensors, param_vars):
             raise AssertionError("Input layouts size should be atleast 1.")
         if not len(synapse_layouts[1]):
             raise AssertionError("Output layouts size should be atleast 1.")
-        in_layouts = ", ".join(["synapse_helpers::layouts::SynapseLayoutFormat::" + l for l in synapse_layouts[0]])
-        out_layouts = ", ".join(["synapse_helpers::layouts::SynapseLayoutFormat::" + l for l in synapse_layouts[1]])
+        in_layouts = ", ".join(
+            ["synapse_helpers::layouts::SynapseLayoutFormat::" + layout for layout in synapse_layouts[0]]
+        )
+        out_layouts = ", ".join(
+            ["synapse_helpers::layouts::SynapseLayoutFormat::" + layout for layout in synapse_layouts[1]]
+        )
         ctor_extra_calls.append(f"SetSynapseLayouts({{{in_layouts}}}, {{{out_layouts}}});")
 
     if is_out_fn(is_custom_op_out_variant, fname) and num_out_tensors > 1:
@@ -196,9 +198,7 @@ def get_op_backend_class_impl(ctxop, fname, cname, num_out_tensors, param_vars):
         else:
             type_promo_variant = "PromoteToCommon"
             dtype_helper_inputs = promote_to_common_type
-        input_indices = []
-        for input in dtype_helper_inputs:
-            input_indices.append(param_vars.index(input))
+        input_indices = [param_vars.index(input) for input in dtype_helper_inputs]
         ctor_extra_calls.append(
             f"SetOutputMetaFn("
             f"PointwiseMeta<static_cast<int>(DTypeHelper::DtypePromoteVariant::k{type_promo_variant}), "
@@ -337,10 +337,10 @@ def generate_header_decls(fgens, gen_check_node_with_sl_val=False):
     fc_fns = set()
     output_mask_handler_fns = set()
 
-    def build(fn, fns_set, macro, args=[]):
+    def build(fn, fns_set, macro):
         if fn and fn not in fns_set:
             fns_set.add(fn)
-            return f"{macro}({', '.join([fn] + args)});\n"
+            return f"{macro}({fn});\n"
         return ""
 
     reg_decls = ""
@@ -636,10 +636,7 @@ def handle_validator_generator(
     # check shape tensor and h2d tensor string
     check_st_h2d_str = ""
     if fallback_if_prefix and not is_check_kernel_support:
-        if check_st_h2d:
-            check_st_h2d_str = "true, "
-        else:
-            check_st_h2d_str = "false, "
+        check_st_h2d_str = "true, " if check_st_h2d else "false, "
     if use_compute_type:
         code += "  {}{}{}({}{}{}, {}{}{})\n".format(
             fallback_if_prefix,
@@ -659,7 +656,7 @@ def handle_validator_generator(
 
         check_per_tensor = False
         if isinstance(dtypes, dict) and (
-            any(p in dtypes.keys() for p in param_vars) or any(isinstance(x, dict) for x in dtypes.values())
+            any(p in dtypes for p in param_vars) or any(isinstance(x, dict) for x in dtypes.values())
         ):
             check_per_tensor = True
         code += fallback_if_unsupported(
@@ -720,9 +717,7 @@ def handle_output_meta(ctxop, promote_types, dtype_helper_inputs, param_vars, ty
     if output_meta:
         code = f"  hpu_op.SetOutputMetaFn({output_meta});\n"
     elif promote_types:
-        input_indices = []
-        for input in dtype_helper_inputs:
-            input_indices.append(param_vars.index(input))
+        input_indices = [param_vars.index(input) for input in dtype_helper_inputs]
 
         code = (
             f"  hpu_op.SetOutputMetaFn("
@@ -842,8 +837,9 @@ def lazy_frontend(
     early_exit_fun = ctxop.get_early_exit_fun()
 
     if early_exit_fun is not None:
-        code += f"  if (auto eePath = {early_exit_fun}Condition({', '.join(param_vars)}))\n"
-        code += f"    return {early_exit_fun}(eePath, {', '.join(param_vars)});\n\n"
+        code += f"  if (auto eePath = {early_exit_fun}Condition({', '.join(param_vars)})) {{\n"
+        code += f"    return {early_exit_fun}(eePath, {', '.join(param_vars)});\n"
+        code += "  }\n\n"
 
     op_frontend_class = ctxop.get_op_frontend_class()
     schema_fn = f"{ns}::{opname}"
@@ -1013,8 +1009,9 @@ def eager_frontend(
     early_exit_fun = ctxop.get_early_exit_fun()
 
     if early_exit_fun is not None:
-        code += f"  if (auto eePath = {early_exit_fun}Condition({', '.join(param_vars)}))\n"
-        code += f"    return {early_exit_fun}(eePath, {', '.join(param_vars)});\n\n"
+        code += f"  if (auto eePath = {early_exit_fun}Condition({', '.join(param_vars)})) {{\n"
+        code += f"    return {early_exit_fun}(eePath, {', '.join(param_vars)});\n"
+        code += "  }\n\n"
 
     op_frontend_class = "eager::EagerOp" if ctxop.get_op_frontend_class() == "LazyOp" else ctxop.get_op_frontend_class()
 
@@ -1074,9 +1071,7 @@ def generate_op(fndef, op_name, ctxop, op_params, is_check_kernel_support=False,
     if is_check_kernel_support:
         sig = prepare_sig_for_kernel_support(sig)
 
-    out_indices = (
-        op_params["inplace_ids"] if isinstance(op_params, dict) and "inplace_ids" in op_params.keys() else None
-    )
+    out_indices = op_params["inplace_ids"] if isinstance(op_params, dict) and "inplace_ids" in op_params else None
     param_vars, call_args, out_indices, fc_params, tfetcher = parse_params(
         params,
         rtype,
@@ -1251,7 +1246,9 @@ def extract_pt_ops(path, hpu_ops):
     pt_ops = {}
     all_ops_metas = []
 
-    for line in open(path):
+    with open(path) as f:
+        lines = f.readlines()
+    for line in lines:
         m = re.match(r"\s*([^\s].*); //\s+(.*)", line)
         if not m:
             continue
@@ -1549,9 +1546,9 @@ def generate_frontend(args, fgens, op_validator_map, out_dir, namespace="aten"):
 
 def check_valid_fields(op_name, op_params) -> list[str]:
     exceptions = []
-    for field in op_params.keys():
-        if field not in constants.AVAILABLE_FIELDS:
-            exceptions.append(f"Invalid field for {op_name}: {field}\n")
+    exceptions = [
+        f"Invalid field for {op_name}: {field}\n" for field in op_params if field not in constants.AVAILABLE_FIELDS
+    ]
     return exceptions
 
 
@@ -1719,7 +1716,7 @@ def generate(args):
     fgens_native = []
     fgens_hpu_wrap_lazy = []
     fgens_hpu_wrap_eager = []
-    fgens_custom_namespaces = {name: [] for name in constants.NAMESPACE_TO_POSTFIX.keys()}
+    fgens_custom_namespaces = {name: [] for name in constants.NAMESPACE_TO_POSTFIX}
     fgens_autograd = []
 
     check_op_params(yaml_ctx.get_op_data())
@@ -1738,7 +1735,7 @@ def generate(args):
             fndef = fndef_from_schema(ctxop.get_custom_op_schema(), ctxop.get_custom_cpp_sig())
             namespace = re.search(r"^(.*)::", ctxop.get_custom_op_schema()).group(1)
             generated = generate_op(fndef, op_name, ctxop, op_params, ns=namespace)
-            if namespace in constants.NAMESPACE_TO_POSTFIX.keys():
+            if namespace in constants.NAMESPACE_TO_POSTFIX:
                 fgens_custom_namespaces[namespace].append(generated)
             if ctxop.is_op_autograd():
                 fgens_autograd.append(generated)
@@ -1799,7 +1796,7 @@ def generate_slrg_files(args, op_validator_map):
 
 def generate_slrg_stack_generators(args, op_validator_map):
     headers = []
-    for key in op_validator_map.keys():
+    for key in op_validator_map:
         op_validator = op_validator_map[key]
         headers.append(f'#include "{op_validator["validator_header_rel_path"]}"')
 
@@ -1813,7 +1810,7 @@ def generate_slrg_registry_cpp(args, op_validator_map):
     generators = []
     executors = []
     funcs = []
-    for key in op_validator_map.keys():
+    for key in op_validator_map:
         op_validator = op_validator_map[key]
         generators.append(
             f'static SchemaStackGenerator {op_validator["generator_name"]}("{op_validator["schema"]}", "{op_validator["op_name"]}", "{op_validator["overload"]}");'
@@ -1832,7 +1829,7 @@ def generate_slrg_registry_cpp(args, op_validator_map):
                 if op_validator["overwritten_op_names_in_slrg"] is not None and namespace != "torch.nn":
                     op_names = op_validator["overwritten_op_names_in_slrg"]
                 for op_name in op_names:
-                    funcs.append(
+                    funcs.append(  # noqa: PERF401
                         f'  report_generator->register_op({{"{op_name}", "{op_validator["overload"]}", "{namespace}"}}, &{op_validator["executor_name"]});'
                     )
     print(

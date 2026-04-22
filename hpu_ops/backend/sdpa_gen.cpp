@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -426,7 +426,7 @@ void Fp8SDPAFwd::AddNode(
   SDPA_SET_FLAGS(seq_padding_type == "right", flags, SEQ_PADDING_RIGHT)
   if (d_scale_s) {
     // TODO: add the flag definition to perf_lib_layer_paras.h
-    flags |= (1 << 13);
+    flags |= (1 << 13); // NOLINT(readability-magic-numbers)
   }
 
   fillSdpaParams(
@@ -985,10 +985,11 @@ void Fp8SDPARecompFwd::AddNode(
       auto scale_t = scaleOpt.toTensorsPair();
       fp8::HandleScaleTensor(
           this, graph, scale_t.pt_t, scale_t.syn_t, adjusted_scale, syn_inputs);
-      if (scale_t.pt_t.numel() > 0)
+      if (scale_t.pt_t.numel() > 0) {
         flags |= flag_name;
+      }
     } else {
-      auto scale_s = scaleOpt.toIValue();
+      const auto& scale_s = scaleOpt.toIValue();
       if (scale_s.isDouble() && (scale_s.toDouble() != 0.)) {
         fp8::HandleScaleScalar(
             this,
@@ -1048,7 +1049,7 @@ void Fp8SDPARecompFwd::AddNode(
       fwdOutType = scale_t.pt_t.numel() > 0 ? at::ScalarType::Float8_e4m3fn
                                             : at::ScalarType::BFloat16;
     } else {
-      auto scale_s = q_scale_o.toIValue();
+      const auto& scale_s = q_scale_o.toIValue();
       fwdOutType = (scale_s.isDouble() && (scale_s.toDouble() != 0.))
           ? at::ScalarType::Float8_e4m3fn
           : at::ScalarType::BFloat16;

@@ -33,9 +33,9 @@ struct LockFreeQueueDefaultSize : public LockFreeQueue<T> {
 };
 
 std::unique_ptr<AccThreadPoolBase> CreateAccThreadPool() {
-  if (GET_ENV_FLAG_NEW(PT_HPU_SYNCHRONOUS_ACC_QUEUE_FLUSHING))
+  if (GET_ENV_FLAG_NEW(PT_HPU_SYNCHRONOUS_ACC_QUEUE_FLUSHING)) {
     return std::make_unique<AccNoThread>();
-  else {
+  } else {
     int thread_ver = GET_ENV_FLAG_NEW(PT_HPU_ACC_THREAD_VERSION);
     switch (thread_ver) {
       case 0:
@@ -121,9 +121,9 @@ void AccThreadPool::run(std::function<void()>&& func) {
 }
 
 void AccThreadPool::waitWorkComplete() {
-  while (task_count_ > 0)
+  while (task_count_ > 0) {
     std::this_thread::yield();
-
+  }
   checkNoException();
 }
 
@@ -264,8 +264,9 @@ void AccThreadPoolFast<Queue>::main_loop() {
   // in case of exception has been thrown
   while (!tasks_.empty()) {
     auto task = tasks_.pop();
-    if (task.intra_task_)
+    if (task.intra_task_) {
       task.fun_();
+    }
   }
 }
 

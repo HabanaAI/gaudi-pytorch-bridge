@@ -175,7 +175,7 @@ class InferOutputMetaRetType {
     return kernel_outputs_.size();
   }
   void AddNodeParams(void* data, size_t size) {
-    node_params_.emplace_back(InferNodeParams(data, size));
+    node_params_.emplace_back(data, size);
   }
   const std::vector<InferNodeParams>& GetNodeParams() const {
     return node_params_;
@@ -340,7 +340,9 @@ inline SharedMetaTensor getSharedMetaFromOptionalTensor(
 
 struct SharedMetaData {
   struct SharedMetaValidationOptions {
-    bool allowLongType = false;
+    bool allow_long_type = false;
+    bool force_fallback = false;
+    std::string fallback_reason = "";
   };
   std::string guid;
   SharedMetaVector inputs_data;
@@ -349,6 +351,11 @@ struct SharedMetaData {
 
   SharedMetaData(const std::string& guid) : guid(guid) {}
   SharedMetaData() = default;
+  SharedMetaData(const SharedMetaData&) = default;
+  SharedMetaData& operator=(const SharedMetaData&) = default;
+  SharedMetaData(SharedMetaData&&) = default;
+  SharedMetaData& operator=(SharedMetaData&&) = default;
+  ~SharedMetaData() = default;
 };
 using SharedMetaDataVector = std::vector<SharedMetaData>;
 
@@ -610,7 +617,7 @@ class HabanaOperator {
   }
 
   void add_syn_input_tensor_orig(synapse_helpers::tensor& inp_orig) {
-    p_context_->syn_input_orig_.push_back(inp_orig);
+    p_context_->syn_input_orig_.emplace_back(inp_orig);
   }
 
   void clear_syn_input_tensor_orig() {
@@ -848,7 +855,8 @@ class RegisterKernel {
  private:
   c10::OperatorName getOperatorName(const std::string& op) {
     std::istringstream iss{op};
-    std::string name, overload_name;
+    std::string name;
+    std::string overload_name;
     std::getline(iss, name, '.');
     std::getline(iss, overload_name);
 

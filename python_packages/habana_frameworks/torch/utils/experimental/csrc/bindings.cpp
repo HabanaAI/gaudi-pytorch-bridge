@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,11 +24,11 @@
 intptr_t GetDataPtr(const at::Tensor& t) {
   void* data_ptr = common::GetDataPtrFromTensor(t);
 
-  if (data_ptr) {
+  if (data_ptr != nullptr) {
     auto& device = habana::HPUDeviceContext::get_device(
         static_cast<synDeviceId>(t.device().index()));
 
-    auto address = reinterpret_cast<void*>(device.get_fixed_address(data_ptr));
+    auto* address = reinterpret_cast<void*>(device.get_fixed_address(data_ptr));
     return reinterpret_cast<intptr_t>(address);
   }
 
@@ -46,7 +46,7 @@ void SetProfilerTracerMemory(const uint32_t device_id) {
     void* data_ptr{nullptr};
     auto& device = habana::HPUDeviceContext::get_device(device_id);
     device.get_device_memory().malloc(&data_ptr, bytes_req);
-    auto user_buff =
+    auto* user_buff =
         reinterpret_cast<void*>(device.get_fixed_address(data_ptr));
     status = synProfilerSetUserBuffer(device_id, user_buff);
     if (status != synSuccess) {
@@ -134,6 +134,13 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   });
   m.def("get_scale_attribute_hash_id", []() {
     return habana::HPUDeviceContext::get_scale_attribute_hash_id();
+  });
+  m.def("set_is_dynamic_quantization", [](bool is_dynamic_quantization) {
+    habana::HPUDeviceContext::set_is_dynamic_quantization(
+        is_dynamic_quantization);
+  });
+  m.def("get_is_dynamic_quantization", []() {
+    return habana::HPUDeviceContext::get_is_dynamic_quantization();
   });
   m.doc() =
       "This module registers hpu experimental API used by Media internal component.";

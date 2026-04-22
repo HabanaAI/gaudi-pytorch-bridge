@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -63,7 +63,7 @@ struct ValueMapper {
       existing_last_uses_ = gatherLastUses((*existing_subgraph)->outputs());
     }
     WithInsertPoint guard(to_merge);
-    auto g = to_merge->owningGraph();
+    auto* g = to_merge->owningGraph();
     // temporary node to put the aliasing properties of the node before its
     // merged and destroyed
     placeholder_node_ = g->insertNode(g->create(prim::Uninitialized, 0));
@@ -193,7 +193,7 @@ void collectNodesToUnfuse(Node* start, std::set<Node*, topo_cmp_node>& s) {
       "collectNodesToUnfuse: inserting node ", utils::getHeader(start));
   s.insert(start);
 
-  for (auto o : start->outputs()) {
+  for (auto* o : start->outputs()) {
     for (auto use : o->uses()) {
       collectNodesToUnfuse(use.user, s);
     }
@@ -206,10 +206,10 @@ std::vector<std::set<Value*, topo_cmp_value>> buildAliasedSets(
   AliasDb alias_db(std::move(subgraph));
   HABANA_ASSERT(outputs.size() > 1);
   std::vector<std::set<Value*, topo_cmp_value>> res;
-  for (auto o : outputs) {
+  for (auto* o : outputs) {
     auto grouped = false;
     for (auto& s : res) {
-      auto os = *s.begin();
+      auto* os = *s.begin();
       auto aliased = alias_db.mayContainAlias(os, o);
       PT_BRIDGE_DEBUG(
           "comparing %",
@@ -240,7 +240,7 @@ std::shared_ptr<Graph> getSubgraph(Node* n) {
 
 void unmergeSubgraph(Node* subgraphNode) {
   // Inline the graph, replace uses of node outputs and destroy the node
-  auto outerGraph = subgraphNode->owningGraph();
+  auto* outerGraph = subgraphNode->owningGraph();
   WithInsertPoint guard(subgraphNode);
   const auto subgraphOutputs = insertGraph(
       *outerGraph, *getSubgraph(subgraphNode), subgraphNode->inputs());
@@ -256,7 +256,7 @@ static void collectNestedUses(
     std::unordered_set<Value*>& new_values,
     std::unordered_map<Value*, Value*>& externalValuesMap,
     Node* input_node) {
-  for (auto input : input_node->inputs()) {
+  for (auto* input : input_node->inputs()) {
     if (externalValuesMap.count(input) == 0 && new_values.count(input) == 0) {
       closed_over_values.insert(input);
     }
@@ -305,12 +305,12 @@ static std::unordered_set<Value*> closedOverValues(
 }
 
 void mergeNodeIntoSubgraph(
-    Node* toMerge,
+    Node* sourceNode,
     Node* subgraphNode,
     bool destroyNode) {
-  AT_ASSERT(hasSubgraph(subgraphNode) && toMerge != subgraphNode);
-  if (hasSubgraph(toMerge)) {
-    mergeSubgraph(subgraphNode, toMerge);
+  AT_ASSERT(hasSubgraph(subgraphNode) && sourceNode != subgraphNode);
+  if (hasSubgraph(sourceNode)) {
+    mergeSubgraph(subgraphNode, sourceNode);
     return;
   }
 
@@ -321,7 +321,7 @@ void mergeNodeIntoSubgraph(
 
   AT_ASSERT(subgraphNode->inputs().size() == subgraph->inputs().size());
   size_t idx = 0;
-  for (auto input : subgraphNode->inputs()) {
+  for (auto* input : subgraphNode->inputs()) {
     externalValuesMap[input] = subgraph->inputs()[idx];
     idx++;
   }
@@ -333,42 +333,42 @@ void mergeNodeIntoSubgraph(
 
   // Add n's inputs to the group's input list if we don't already have them
 
-  bool merging_node_after_subgraph = toMerge->isAfter(subgraphNode);
+  bool merging_node_after_subgraph = sourceNode->isAfter(subgraphNode);
   Node* guard_node = merging_node_after_subgraph ? *subgraph->nodes().end()
                                                  : *subgraph->nodes().begin();
   WithInsertPoint guard(guard_node);
 
   std::unordered_set<Value*> closedValues =
-      closedOverValues(toMerge, externalValuesMap);
+      closedOverValues(sourceNode, externalValuesMap);
 
   // There are currently downstream usage that relies on a fixed ordering
   // of graph inputs. TODO: remove
   std::vector<Value*> orderedClosedValues;
   std::unordered_set<Value*> orderedSeenValues;
-  for (Value* input : toMerge->inputs()) {
+  for (Value* input : sourceNode->inputs()) {
     orderedClosedValues.push_back(input);
     orderedSeenValues.insert(input);
   }
   for (Value* closedValue : closedValues) {
-    if (!orderedSeenValues.count(closedValue)) {
+    if (orderedSeenValues.count(closedValue) == 0U) {
       orderedClosedValues.push_back(closedValue);
       orderedSeenValues.insert(closedValue);
     }
   }
 
-  for (auto input : orderedClosedValues) {
+  for (auto* input : orderedClosedValues) {
     if (externalValuesMap.count(input) == 0) {
       // Clone constants inside the subgraph instead of referencing them, to
       // enable more optimizations
       if (auto value = toIValue(input)) {
-        auto nv = subgraph->insertConstant(*value);
+        auto* nv = subgraph->insertConstant(*value);
         nv->copyMetadata(input);
         externalValuesMap[input] = nv;
       } else {
         // The common case: this is a regular input, so just register it with
         // the group node and inner subgraph
         subgraphNode->addInput(input);
-        auto inputToGraph = subgraph->addInput();
+        auto* inputToGraph = subgraph->addInput();
         inputToGraph->copyMetadata(input);
         externalValuesMap[input] = inputToGraph;
       }
@@ -376,8 +376,8 @@ void mergeNodeIntoSubgraph(
   }
 
   // Merge the node into the graph
-  auto mergedNode = subgraph->insertNode(subgraph->createClone(
-      toMerge, [&](Value* v) { return externalValuesMap[v]; }));
+  auto* mergedNode = subgraph->insertNode(subgraph->createClone(
+      sourceNode, [&](Value* v) { return externalValuesMap[v]; }));
 
   if (!merging_node_after_subgraph) {
     // If n's outputs were inputs to `group`, remove them since we just merged
@@ -387,8 +387,9 @@ void mergeNodeIntoSubgraph(
     // x = f(w); group(x, y, z) becomes group(w, y, z).
     // x, y, z = f(w); group(x, y, z) becomes group(w).
     auto inputs = subgraphNode->inputs();
-    for (size_t i = 0; i < toMerge->outputs().size(); ++i) {
-      auto it = std::find(inputs.begin(), inputs.end(), toMerge->outputs()[i]);
+    for (size_t i = 0; i < sourceNode->outputs().size(); ++i) {
+      const auto* it =
+          std::find(inputs.begin(), inputs.end(), sourceNode->outputs()[i]);
       if (it != inputs.end()) {
         size_t p = it - inputs.begin();
         subgraphNode->removeInput(p);
@@ -399,21 +400,21 @@ void mergeNodeIntoSubgraph(
   }
 
   // Add n's outputs to the group node and inner subgraph outputs.
-  for (const auto i : c10::irange(toMerge->outputs().size())) {
-    auto oldOutput = toMerge->outputs()[i];
-    auto newOutput = mergedNode->outputs()[i];
+  for (const auto i : c10::irange(sourceNode->outputs().size())) {
+    auto* oldOutput = sourceNode->outputs()[i];
+    auto* newOutput = mergedNode->outputs()[i];
     subgraph->registerOutput(newOutput);
-    auto groupOutput = subgraphNode->addOutput();
+    auto* groupOutput = subgraphNode->addOutput();
     groupOutput->copyMetadata(oldOutput);
     oldOutput->replaceAllUsesWith(groupOutput);
   }
   // Remove the original node now that the merge is complete
   if (destroyNode) {
-    toMerge->destroy();
+    sourceNode->destroy();
   }
 
-  // We wait till destroying `toMerge` before pruning subgraph outputs,
-  // since destroying `toMerge` could cause a subgraph output to no longer
+  // We wait till destroying `sourceNode` before pruning subgraph outputs,
+  // since destroying `sourceNode` could cause a subgraph output to no longer
   // have any uses
   const auto hasUsesOutsideSubgraph = [&](Value* v) {
     return std::any_of(
@@ -431,8 +432,8 @@ void mergeNodeIntoSubgraph(
 }
 
 Node* createSingletonSubgraph(Node* n, Symbol subgraphKind) {
-  auto graph = n->owningGraph();
-  auto subgraph = graph->create(subgraphKind, 0);
+  auto* graph = n->owningGraph();
+  auto* subgraph = graph->create(subgraphKind, 0);
   subgraph->g_(attr::Subgraph, std::make_shared<Graph>(graph->current_scope()));
   subgraph->insertBefore(n);
   mergeNodeIntoSubgraph(n, subgraph);
@@ -466,7 +467,7 @@ bool unmergeOutputsAlisingInputs(Node* subgraphNode) {
   AliasDb alias_db(subgraph);
 
   std::set<Node*, topo_cmp_node> nodes;
-  for (auto o : subgraph->outputs()) {
+  for (auto* o : subgraph->outputs()) {
     if (alias_db.mayContainAlias(o, subgraph->inputs())) {
       collectNodesToUnfuse(o->node(), nodes);
     }
@@ -530,7 +531,7 @@ bool unmergeAliasedOutputs(Node* subgraphNode) {
 void unmergeNode(Node* n, Node* subgraphNode) {
   // collect output indices
   PT_BRIDGE_DEBUG("unfuseNode node ", utils::getHeader(n));
-  auto subgraph = n->owningGraph();
+  auto* subgraph = n->owningGraph();
 
   std::set<Value*> node_outputs(n->outputs().begin(), n->outputs().end());
   std::set<size_t> output_indices;
@@ -573,7 +574,7 @@ void unmergeNode(Node* n, Node* subgraphNode) {
 
   // these node inputs need to be added to subgraph's outputs
   // put them in vmap
-  for (auto ni : node_inputs) {
+  for (auto* ni : node_inputs) {
     if (local_map.count(ni) != 0) {
       // this could happen if `n` uses two or more outputs
       // of a constant node and we already cloned the constant
@@ -583,7 +584,7 @@ void unmergeNode(Node* n, Node* subgraphNode) {
 
     Value* sno = nullptr;
     if (ni->node()->kind() == prim::Constant) {
-      auto copy = subgraphNode->owningGraph()->createClone(ni->node(), env);
+      auto* copy = subgraphNode->owningGraph()->createClone(ni->node(), env);
       subgraphNode->owningGraph()->insertNode(copy);
       // in case we have a multi-output const, map the rest of the outputs
       // so when we get to clone `n`, `n`'s clone will use the outputs of this
@@ -605,12 +606,12 @@ void unmergeNode(Node* n, Node* subgraphNode) {
     }
   }
 
-  auto copy = subgraphNode->owningGraph()->createClone(n, env);
+  auto* copy = subgraphNode->owningGraph()->createClone(n, env);
   PT_BRIDGE_DEBUG("copy ", *copy);
 
   for (auto i : c10::irange(n->outputs().size())) {
-    auto oo = n->outputs()[i];
-    auto no = copy->outputs()[i];
+    auto* oo = n->outputs()[i];
+    auto* no = copy->outputs()[i];
     no->copyMetadata(oo);
     PT_BRIDGE_DEBUG("Mapping %", oo->debugName(), " to %", no->debugName());
     local_map[oo] = no;
@@ -619,7 +620,7 @@ void unmergeNode(Node* n, Node* subgraphNode) {
   subgraphNode->owningGraph()->insertNode(copy);
 
   for (auto it = output_indices.rbegin(); it != output_indices.rend(); it++) {
-    auto replace_val = local_map[subgraph->outputs().at(*it)];
+    auto* replace_val = local_map[subgraph->outputs().at(*it)];
     subgraphNode->outputs().at(*it)->replaceAllUsesWith(replace_val);
     subgraphNode->eraseOutput(*it);
     subgraph->eraseOutput(*it);

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,13 +43,13 @@ static void check_matmul_params(
   HABANA_ASSERT(mat1.ndimension() == 2, "matmul_hpu supports only 2d matrices");
   HABANA_ASSERT(mat2.ndimension() == 2, "matmul_hpu supports only 2d matrices");
 
-  if (mat1_transposed == false && mat2_transposed == false) {
+  if (!mat1_transposed && !mat2_transposed) {
     HABANA_ASSERT(
         mat1.size(1) == mat2.size(0), "matmul inner dimensions doesn't match");
-  } else if (mat1_transposed == true && mat2_transposed == false) {
+  } else if (mat1_transposed && !mat2_transposed) {
     HABANA_ASSERT(
         mat1.size(0) == mat2.size(0), "matmul inner dimensions doesn't match");
-  } else if (mat1_transposed == false && mat2_transposed == true) {
+  } else if (!mat1_transposed && mat2_transposed) {
     HABANA_ASSERT(
         mat1.size(1) == mat2.size(1), "matmul inner dimensions doesn't match");
   } else {
@@ -73,9 +73,10 @@ static void check_matmul_params(
       mat2.sizes(),
       "mat2 strides: ",
       mat2.strides());
-  if (bias)
+  if (bias) {
     HABANA_ASSERT(
         bias.value()->ndimension() == 1, "matmul_hpu supports only 1d bias");
+  }
 }
 
 std::vector<int64_t> habana::MMOperator::compute_output_shape(
@@ -83,14 +84,15 @@ std::vector<int64_t> habana::MMOperator::compute_output_shape(
     at::Tensor other,
     bool self_transposed,
     bool other_transposed) {
-  if (self_transposed == false && other_transposed == false)
+  if (!self_transposed && !other_transposed) {
     return {self.size(0), other.size(1)};
-  else if (self_transposed == true && other_transposed == false)
+  } else if (self_transposed && !other_transposed) {
     return {self.size(1), other.size(1)};
-  else if (self_transposed == false && other_transposed == true)
+  } else if (!self_transposed && other_transposed) {
     return {self.size(0), other.size(0)};
-  else
+  } else {
     return {self.size(1), other.size(0)};
+  }
 }
 
 void habana::MMOperator::AllocateAndAddSynapseNode(
@@ -179,8 +181,8 @@ std::vector<int64_t> habana::BmmOperator::compute_output_shape(
   auto mat2_sizes = mat2.sizes();
   auto self_dims = self.dim();
   auto mat2_dims = mat2.dim();
-  auto self_end_iter = self_sizes.end();
-  auto mat2_end_iter = mat2_sizes.end();
+  const auto* self_end_iter = self_sizes.end();
+  const auto* mat2_end_iter = mat2_sizes.end();
 
   HABANA_ASSERT(self_dims >= 3 && "BMM Input1 should be at least 3D")
   HABANA_ASSERT(mat2_dims >= 2 && "BMM Input2 should be at least 2D")
@@ -280,10 +282,10 @@ void habana::DotOperator::AllocateAndAddSynapseNode(
 
   std::vector<c10::IValue> stack;
   // ReShape Operator to covert 1d tensor to 2d for mat1
-  int64_t data_m1[2];
+  std::array<int64_t, 2> data_m1;
   data_m1[0] = 1;
   data_m1[1] = mat1.numel();
-  c10::IntArrayRef shape_m1(data_m1, 2);
+  c10::IntArrayRef shape_m1(data_m1.data(), 2);
   auto ReShapeOp_m1 = make_operator<ReshapeOperator>(
       this->p_context_->device_id_, mat1.scalar_type());
   ReShapeOp_m1->SetSynapseInput(p_context_->syn_inputs_[0]);
@@ -295,10 +297,10 @@ void habana::DotOperator::AllocateAndAddSynapseNode(
   stack.clear();
 
   // ReShape Operator to covert 1d tensor to 2d for mat2
-  int64_t data_m2[2];
+  std::array<int64_t, 2> data_m2;
   data_m2[0] = mat2.numel();
   data_m2[1] = 1;
-  c10::IntArrayRef shape_m2(data_m2, 2);
+  c10::IntArrayRef shape_m2(data_m2.data(), 2);
   // Create the operator
   auto ReShapeOp_m2 = make_operator<ReshapeOperator>(
       this->p_context_->device_id_, mat2.scalar_type());
@@ -323,9 +325,9 @@ void habana::DotOperator::AllocateAndAddSynapseNode(
   stack.clear();
 
   // ReShape Operator to covert 2d tensor to 1d for output
-  int64_t data[1];
-  data[0] = mmOp->GetOutputs()[0].numel();
-  c10::IntArrayRef shape(data, 1);
+  int64_t data;
+  data = mmOp->GetOutputs()[0].numel();
+  c10::IntArrayRef shape(&data, 1);
   auto ReShapeOp_out = make_operator<ReshapeOperator>(
       this->p_context_->device_id_, mmOp->GetOutputs()[0].scalar_type());
   ReShapeOp_out->SetSynapseInput(mmOp->GetSynOutputs()[0]);
@@ -361,10 +363,10 @@ void habana::MvOperator::AllocateAndAddSynapseNode(
   auto mat2 = inputs[1].toTensor(); // size of mat2 is n
 
   // ReShape Operator to covert n to nx1 for mat2
-  int64_t data[2];
+  std::array<int64_t, 2> data;
   data[0] = mat2.numel();
   data[1] = 1;
-  c10::IntArrayRef shape(data, 2);
+  c10::IntArrayRef shape(data.data(), 2);
   // Create the operator
   auto ReShapeOp = make_operator<ReshapeOperator>(
       this->p_context_->device_id_, mat2.scalar_type());
@@ -389,9 +391,9 @@ void habana::MvOperator::AllocateAndAddSynapseNode(
 
   // PT expects 1-D
   // ReShape Operator to covert mx1 to 1xm for output of Matmul Operator
-  int64_t data2[1];
-  data2[0] = mmOp->GetOutputs()[0].numel();
-  c10::IntArrayRef shape2(data2, 1);
+  int64_t data2;
+  data2 = mmOp->GetOutputs()[0].numel();
+  c10::IntArrayRef shape2(&data2, 1);
   auto ReShapeOp_2 = make_operator<ReshapeOperator>(
       this->p_context_->device_id_, mmOp->GetOutputs()[0].scalar_type());
   ReShapeOp_2->SetSynapseInput(mmOp->GetSynOutputs()[0]);
@@ -480,9 +482,7 @@ void habana::MatMulOperator::AllocateAndAddSynapseNode(
   auto dim_tensor2 = tensor2.dim();
   bool bias1d_present_for_bmm =
       (((inputs.size() == 3) || (inputs.size() == 5)) &&
-       (inputs[2].toTensor().dim() == 1))
-      ? true
-      : false;
+       (inputs[2].toTensor().dim() == 1));
   bool mat1_transposed = false;
   bool mat2_transposed = false;
   if (inputs.size() == 4) {

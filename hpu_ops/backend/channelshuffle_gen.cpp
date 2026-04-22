@@ -14,6 +14,7 @@
  */
 
 #include "generated/backend/channel_shuffle.h"
+#include "habana_helpers/conversion.h"
 
 namespace habana {
 
@@ -36,15 +37,16 @@ OutputMetaDataVector ChannelShuffleMeta(const at::Stack& stack) {
       (inputChannels % groups == 0),
       "Channel shuffle expects number of channels to be divisible by groups");
 
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.shape = shape;
   meta.dtype = input.scalar_type();
 
-  return {meta};
+  return metaVec;
 }
 
 FillParamsT FillChannelShuffleParams(const at::Stack& stack) {
-  const auto groups = stack.at(1).toInt();
+  const auto groups = safe_convert<unsigned>(stack.at(1).toInt());
   PARAMS_STUB(ns_ChannelShuffle::Params);
   params->groups = groups;
   return paramsT;

@@ -89,7 +89,7 @@ class GraphExec {
       const std::string& pass_name,
       int& pass_counter);
   std::string LogRecipeInfo(torch::jit::Stack& example_inputs);
-  bool IsDynamicGraph();
+  bool IsDynamicGraph() const;
   bool ProcessDynamicGraph(torch::jit::Stack& example_inputs);
   std::vector<c10::IValue> ProcessDynamicStack(torch::jit::Stack& stack, bool);
   void PatchScaleH2dTensors(torch::jit::Stack& orig_stack);

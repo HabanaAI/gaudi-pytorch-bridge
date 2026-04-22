@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -431,7 +431,7 @@ void accumulate_grads_(
   if (variables[0].mutable_grad().defined()) {
     std::vector<at::Tensor> current_grads_list;
     current_grads_list.reserve(variables.size());
-    for (auto& variable : variables) {
+    for (const auto& variable : variables) {
       current_grads_list.push_back(variable.mutable_grad());
     }
     habana::eager::EagerOp<void> hpu_op{
@@ -933,8 +933,9 @@ fp8_sdpa_recomp_fwd(
   auto fwdOutType = q.scalar_type();
 
   if (q.scalar_type() == at::ScalarType::Float8_e4m3fn &&
-      (!q_scale_o.has_value()))
+      (!q_scale_o.has_value())) {
     fwdOutType = at::ScalarType::BFloat16;
+  }
   return fp8_sdpa_recomp_fwd_common<std::optional<at::Tensor>>(
       q,
       k,
@@ -991,9 +992,9 @@ fp8_sdpa_recomp_scalar_fwd(
     const std::optional<at::Tensor>& sink) {
   PT_EAGER_TRACE;
   auto fwdOutType = q.scalar_type();
-  if (q.scalar_type() == at::ScalarType::Float8_e4m3fn && (q_scale_o == 0.))
+  if (q.scalar_type() == at::ScalarType::Float8_e4m3fn && (q_scale_o == 0.)) {
     fwdOutType = at::ScalarType::BFloat16;
-
+  }
   return fp8_sdpa_recomp_fwd_common<double>(
       q,
       k,
@@ -1092,26 +1093,6 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> fp8_sdpa_recomp_bwd(
   return hpu_op.call();
 }
 
-at::Tensor block_softmax_adjustment(
-    const at::Tensor& block_maxes,
-    const at::Tensor& block_sums,
-    const at::Tensor& block_groups,
-    const int64_t batch_size,
-    const at::OptionalIntArrayRef out_shape) {
-  PT_EAGER_TRACE;
-  PT_OP_INFO(
-      "block_softmax_adjustment:",
-      DUMP_5ARGS(block_maxes, block_sums, block_groups, batch_size, out_shape));
-
-  habana::eager::EagerOp<at::Tensor> hpu_op{
-      "hpu::block_softmax_adjustment",
-      {block_maxes, block_sums, block_groups, batch_size, out_shape},
-      {{out_shape.has_value() ? out_shape.value().vec()
-                              : block_maxes.sizes().vec()}}};
-
-  return hpu_op.call();
-}
-
 /***********************************************************************************
  * Native ops
  **********************************************************************************/
@@ -1126,7 +1107,7 @@ at::Tensor nms(
   // max_classes set for COCO dataset for now, can be increased in future
   // based on requirement. larger max_classes => smaller max size for
   // num_boxes allowed because of memory trade-off.
-  int max_classes = 81;
+  constexpr int max_classes = 81;
 
   auto indices = at::zeros_like(scores, torch::kInt32);
   const int64_t box_id_out_shape{scores.sizes()[0] * max_classes};
@@ -1240,9 +1221,9 @@ struct DropoutFunction : public torch::autograd::Function<DropoutFunction> {
       double p,
       bool train) {
     ctx->saved_data["p"] = train ? p : 0.0;
-    if ((p == 0) || !train)
+    if ((p == 0) || !train) {
       return input.clone();
-
+    }
     at::Tensor result1;
     at::Tensor result2;
     std::tie(result1, result2) = at::native_dropout(input, p, train);
@@ -1262,7 +1243,7 @@ struct DropoutFunction : public torch::autograd::Function<DropoutFunction> {
     }
 
     torch::autograd::variable_list saved_vars = ctx->get_saved_variables();
-    auto mask = saved_vars[0];
+    const auto& mask = saved_vars[0];
     auto scale = 1.0 / (1.0 - p);
     at::Tensor result = grad_output[0] * mask * scale;
 
@@ -1410,7 +1391,7 @@ void amp_foreach_non_finite_check_and_unscale_inplace(
   // modified TensorList
 
   std::vector<at::Tensor> has_inf;
-  for (auto& tensor : self) {
+  for (const auto& tensor : self) {
     // we can compare 1d bool tensor using logical_or
     auto temp = torch::logical_or(
         torch::any(torch::isinf(tensor)), torch::any(torch::isnan(tensor)));
@@ -1639,8 +1620,6 @@ TORCH_LIBRARY(hpu, m) {
       {at::Tag::nondeterministic_seeded});
   m.def(
       "hpu::habana_random(Tensor seed, Tensor self, int low, int? high) -> Tensor");
-  m.def(
-      "hpu::block_softmax_adjustment(Tensor block_maxes, Tensor block_sums, Tensor block_groups, int batch_size, int[]? out_shape=None) -> Tensor");
 }
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {
@@ -1728,7 +1707,6 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::one_hot", one_hot_forward);
   m.impl("hpu::dequantize_nf4", dequantize_nf4_impl);
   m.impl("hpu::quantize_nf4", quantize_nf4_impl);
-  m.impl("hpu::block_softmax_adjustment", block_softmax_adjustment);
 }
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {

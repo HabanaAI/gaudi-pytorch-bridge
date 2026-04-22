@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -58,7 +58,7 @@ class CtxManagerTests(torch._dynamo.test_case.TestCase):
         res = opt_fn(x)
         self.assertEqual(ref, res)
         self.assertEqual(cnts.frame_count, 1)
-        self.assertEqual(cnts.op_count, 12)
+        self.assertEqual(cnts.op_count, 9)
 
     @unittest.expectedFailure  # https://github.com/pytorch/pytorch/issues/118204
     @unittest.skipIf(not torch.hpu.is_available(), "requires hpu")
@@ -160,14 +160,13 @@ class CtxManagerTests(torch._dynamo.test_case.TestCase):
 
         x = torch.randn((2, 2), device="hpu")
         ref = fn(x)
-        cnts = torch._dynamo.testing.CompileCounter()
-        # opt_fn = torch._dynamo.optimize(cnts)(fn)
+        cnts = torch._dynamo.testing.CompileCounterWithBackend("hpu_backend")
         opt_fn = torch._dynamo.optimize(cnts, nopython=True)(fn)
         res = opt_fn(x)
         print("Number of graphs: ", cnts.frame_count, " ops:", cnts.op_count)
         self.assertTrue(same(ref, res))
         self.assertEqual(cnts.frame_count, 1)
-        self.assertEqual(cnts.op_count, 20)
+        self.assertEqual(cnts.op_count, 14)
 
     @unittest.skipIf(not torch.hpu.is_available(), "requires hpu")
     def test_hpu_stream_compared_with_constant(self):
@@ -275,7 +274,7 @@ class CtxManagerTests(torch._dynamo.test_case.TestCase):
         res = opt_fn(x, cur_stream, new_stream)
         self.assertEqual(ref, res)
         self.assertEqual(cnts.frame_count, 1)
-        self.assertEqual(cnts.op_count, 19)
+        self.assertEqual(cnts.op_count, 16)
 
     @unittest.skipIf(not torch.hpu.is_available(), "requires hpu")
     def test_hpu_event_method(self):
@@ -316,7 +315,7 @@ class CtxManagerTests(torch._dynamo.test_case.TestCase):
         res = opt_fn(x)
         self.assertTrue(same(ref, res))
         self.assertEqual(cnts.frame_count, 1)
-        self.assertEqual(cnts.op_count, 19)
+        self.assertEqual(cnts.op_count, 16)
 
 
 skip_if_no_hpu = pytest.mark.skipif(not torch.hpu.is_available(), reason="hpu required")

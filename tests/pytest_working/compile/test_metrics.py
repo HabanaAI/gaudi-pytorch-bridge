@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ import pytest
 import torch
 import torch.multiprocessing as pt_mp
 from habana_frameworks.torch.hpu.metrics import (
-    MetricNotFound,
+    MetricNotFoundError,
     metric_debug_atexit,
     metric_debug_enable_saver,
     metric_debug_reload,
@@ -224,7 +224,7 @@ class TestMetricsAPI:
         assert metric is None
 
     def test_get_nonexisting_local_metric(self):
-        with pytest.raises(MetricNotFound), metric_localcontext("non-existing") as m:
+        with pytest.raises(MetricNotFoundError), metric_localcontext("non-existing") as m:
             pass
 
 
@@ -243,9 +243,11 @@ def set_flag_in_env(name: str, value):
 
 
 @contextmanager
-def env_var_in_scope(vars={}):
+def env_var_in_scope(vars=None):
+    if vars is None:
+        vars = {}
     orig_vars = {}
-    for key in vars.keys():
+    for key in vars:
         orig_vars[key] = os.environ.get(key, None)
         set_flag_in_env(key, vars[key])
     try:
@@ -281,7 +283,8 @@ class TestMetricsDump:
         environmental variables.
         """
 
-        def runner_func(worker_function, *args, env={}, **kwargs):
+        def runner_func(worker_function, *args, env=None, **kwargs):
+            env = {} if env is None else env
             with env_var_in_scope(env):
                 metric_debug_reload()
                 metric_debug_enable_saver()

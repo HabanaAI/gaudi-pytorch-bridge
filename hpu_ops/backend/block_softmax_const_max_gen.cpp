@@ -125,11 +125,12 @@ OutputMetaDataVector BlockSoftmaxConstMaxMeta(const at::Stack& stack) {
       " and ",
       attn_shape[0]);
 
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.shape = attn_shape.vec();
   meta.dtype = out_dtype;
 
-  return {meta};
+  return metaVec;
 }
 
 SharedMetaDataVector BlockSoftmaxConstMaxSharedMeta(
@@ -140,7 +141,10 @@ SharedMetaDataVector BlockSoftmaxConstMaxSharedMeta(
   const auto& block_groups = stack_tensor(stack, 2);
   const auto input_dtype = attn.scalar_type();
 
-  SharedMetaData meta_stage1("block_softmax_constant_max_stage1");
+  SharedMetaDataVector vec;
+  vec.reserve(2);
+
+  auto& meta_stage1 = vec.emplace_back("block_softmax_constant_max_stage1");
   meta_stage1.inputs_data.emplace_back(attn.dim(), input_dtype);
   meta_stage1.inputs_data.emplace_back(
       block_bias.dim(), block_bias.scalar_type());
@@ -151,7 +155,7 @@ SharedMetaDataVector BlockSoftmaxConstMaxSharedMeta(
   meta_stage1.outputs_data.emplace_back(2, input_dtype);
   meta_stage1.outputs_data.emplace_back(3, input_dtype);
 
-  SharedMetaData meta_stage2("block_softmax_constant_max_stage2");
+  auto& meta_stage2 = vec.emplace_back("block_softmax_constant_max_stage2");
   meta_stage2.inputs_data.emplace_back(3, input_dtype);
   meta_stage2.inputs_data.emplace_back(2, input_dtype);
   meta_stage2.inputs_data.emplace_back(
@@ -160,7 +164,7 @@ SharedMetaDataVector BlockSoftmaxConstMaxSharedMeta(
 
   meta_stage2.outputs_data.emplace_back(attn.dim(), getOutDtype(stack));
 
-  return {meta_stage1, meta_stage2};
+  return vec;
 }
 
 void BlockSoftmaxConstMax::AddNode(

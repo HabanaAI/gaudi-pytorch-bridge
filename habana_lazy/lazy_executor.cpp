@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,7 +37,8 @@ std::unique_ptr<SingleTonExecThreadPool> SingleTonExecThreadPool::instance_{
 std::once_flag SingleTonExecThreadPool::initialize_once_flag_;
 
 void SingleTonExecThreadPool::CreateInstance() {
-  instance_.reset(new SingleTonExecThreadPool());
+  instance_.reset(
+      new SingleTonExecThreadPool()); // NOLINT(cppcoreguidelines-owning-memory)
   habana::hpu_registrar().register_lazy_exec_thread_pool(
       []() { instance_.reset(nullptr); });
 }
@@ -175,7 +176,7 @@ void HbExecutionContext::saveInputsAndOutputs(
   m_output_vals = std::move(outputVals);
 
   m_hblazy_tensors.clear();
-  for (auto& i : indices) {
+  for (const auto& i : indices) {
     tensors[i].SetHpuGraphOutTensor(true);
     m_hblazy_tensors.emplace_back((tensors)[i]);
   }
@@ -215,7 +216,7 @@ HbExecutionContext* HbExecutionContextArena::getDeviceExecutionContext() {
 }
 
 void HbExecutionContextArena::CreateInstance() {
-  instance_.reset(new HbExecutionContextArena());
+  instance_ = std::make_unique<HbExecutionContextArena>();
   habana::hpu_registrar().register_lazy_execution_arena(
       []() { instance_.reset(nullptr); });
 }

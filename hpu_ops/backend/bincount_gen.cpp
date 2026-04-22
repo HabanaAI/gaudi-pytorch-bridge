@@ -21,11 +21,12 @@ OutputMetaDataVector BinCountMeta(const at::Stack& stack) {
   int64_t length = stack.at(1).toInt();
   auto weights = stack.at(2).toOptional<at::Tensor>();
 
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.shape = {length};
   meta.dtype = weights.has_value() ? weights.value().scalar_type()
                                    : c10::ScalarType::Int;
-  return {meta};
+  return metaVec;
 }
 
 BinCount::BinCount(int device_id, c10::ScalarType scalar_type)

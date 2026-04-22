@@ -15,18 +15,21 @@
 #include "generated/backend/_adaptive_avg_pool3d.h"
 #include "generated/backend/_adaptive_avg_pool3d_backward.h"
 #include "generated/backend/adaptive_avg_pool3d.h"
+#include "habana_helpers/conversion.h"
 #include "hpu_ops/shared_meta_common.h"
 
 namespace habana {
 
 FillParamsT FillAdaptiveAvgPool3dParamsFwd(const at::Stack& stack) {
-  const auto outputSize = stack[1].toIntList().vec();
+  const auto outputSize = stack[1].toIntList();
   PARAMS_STUB(ns_AdaptiveAvgPool3D::Params);
-  params->outputBatch = outputSize[0];
-  params->outputHeight =
-      outputSize.size() == 1 ? params->outputBatch : outputSize[1];
-  params->outputWidth =
-      outputSize.size() == 1 ? params->outputBatch : outputSize[2];
+  params->outputBatch = safe_convert<int>(outputSize[0]);
+  params->outputHeight = outputSize.size() == 1
+      ? params->outputBatch
+      : safe_convert<int>(outputSize[1]);
+  params->outputWidth = outputSize.size() == 1
+      ? params->outputBatch
+      : safe_convert<int>(outputSize[2]);
   return paramsT;
 }
 
@@ -39,26 +42,28 @@ OutputMetaDataVector AdaptiveAvgPool3dMeta(const at::Stack& stack) {
       "AdaptiveAvgPool3d expects input rank to be 4 or 3, but got size ",
       inputSize);
 
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
+
   const int64_t output_N = outputSize[0];
   const int64_t output_H = outputSize.size() == 1 ? output_N : outputSize[1];
   const int64_t output_W = outputSize.size() == 1 ? output_N : outputSize[2];
-  std::vector<int64_t> outshape;
-  if (inputSize == 5)
-    outshape = {self.size(0), self.size(1), output_N, output_H, output_W};
-  else
-    outshape = {self.size(0), output_N, output_H, output_W};
-  OutputMetaData meta;
-  meta.shape = outshape;
+  if (inputSize == 5) {
+    meta.shape = {self.size(0), self.size(1), output_N, output_H, output_W};
+  } else {
+    meta.shape = {self.size(0), output_N, output_H, output_W};
+  }
   meta.dtype = self.scalar_type();
-  return {meta};
+  return metaVec;
 }
 
 OutputMetaDataVector AdaptiveAvgPool3dBwdMeta(const at::Stack& stack) {
   const auto& input = stack_tensor(stack, 1);
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.shape = input.sizes().vec();
   meta.dtype = input.scalar_type();
-  return {meta};
+  return metaVec;
 }
 
 SharedMetaDataVector AdaptiveAvgPool3dFwdSharedMeta(

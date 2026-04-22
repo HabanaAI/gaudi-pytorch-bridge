@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +13,7 @@
 # limitations under the License.
 ###############################################################################
 
-
+import contextlib
 import os
 import struct
 from itertools import product
@@ -78,10 +78,8 @@ def test_process_group_destroy_order(tmp_path, cache_pg_objects):
     """
 
     filestore_file = f"{tmp_path}/filestore"
-    try:
+    with contextlib.suppress(FileNotFoundError):
         os.remove(filestore_file)
-    except FileNotFoundError:
-        pass
 
     torch.multiprocessing.spawn(
         worker_fn, args=(filestore_file, cache_pg_objects), nprocs=1, join=True, daemon=False, start_method="spawn"

@@ -32,43 +32,42 @@ SharedMetaDataVector OptimizerEmaSharedMeta(
 
   SharedMetaTensor constant_tensor{1, precision_type};
   SharedMetaDataVector shared_meta_vec;
-  SharedMetaData one_minus_decay_shared_meta{"sub_fwd"};
+  const size_t vec_size = model_inputs.size();
+  shared_meta_vec.reserve((vec_size * 3) + 1);
+  auto& one_minus_decay_shared_meta = shared_meta_vec.emplace_back("sub_fwd");
   one_minus_decay_shared_meta.inputs_data = {
       constant_tensor, {decay_rank, precision_type}};
   one_minus_decay_shared_meta.outputs_data.emplace_back(
       decay_rank, precision_type);
-  shared_meta_vec.push_back(one_minus_decay_shared_meta);
 
-  size_t vec_size = model_inputs.size();
   for (size_t i = 0; i < vec_size; ++i) {
     const auto& input = model_inputs[i];
     const auto& ema = updated_ema[i];
     const auto input_rank = input.dim();
 
-    SharedMetaData ema_times_decay_shared_meta{"mult_fwd"};
+    auto& ema_times_decay_shared_meta =
+        shared_meta_vec.emplace_back("mult_fwd");
     ema_times_decay_shared_meta.inputs_data.emplace_back(
         ema.dim(), precision_type);
     ema_times_decay_shared_meta.inputs_data.emplace_back(
         decay_rank, precision_type);
     ema_times_decay_shared_meta.outputs_data.emplace_back(
         input_rank, precision_type);
-    shared_meta_vec.push_back(ema_times_decay_shared_meta);
 
-    SharedMetaData one_minus_decay_times_input_shared_meta{"mult_fwd"};
+    auto& one_minus_decay_times_input_shared_meta =
+        shared_meta_vec.emplace_back("mult_fwd");
     one_minus_decay_times_input_shared_meta.inputs_data = {
         ema_times_decay_shared_meta.outputs_data[0],
         {input_rank, precision_type}};
     one_minus_decay_times_input_shared_meta.outputs_data =
         ema_times_decay_shared_meta.outputs_data;
-    shared_meta_vec.push_back(one_minus_decay_times_input_shared_meta);
 
-    SharedMetaData new_ema_shared_meta{"add_fwd"};
+    auto& new_ema_shared_meta = shared_meta_vec.emplace_back("add_fwd");
     new_ema_shared_meta.inputs_data = {
         ema_times_decay_shared_meta.outputs_data[0],
         one_minus_decay_times_input_shared_meta.outputs_data[0]};
     new_ema_shared_meta.outputs_data =
         one_minus_decay_times_input_shared_meta.outputs_data;
-    shared_meta_vec.push_back(new_ema_shared_meta);
   }
   return shared_meta_vec;
 }
@@ -108,8 +107,9 @@ void OptimizerFusedEmaOperator::AddNode(
   std::string sub_node = get_guid_with_precision("sub_fwd"sv, ScalarType());
   std::string mul_node = get_guid_with_precision("mult_fwd"sv, ScalarType());
 
-  int64_t scalar_shape[] = {1};
-  auto c_one = ConstantHelper(graph, 1.0F, ScalarType(), scalar_shape);
+  int64_t scalar_shape = 1L;
+  auto c_one = ConstantHelper(
+      graph, 1.0F, ScalarType(), c10::makeArrayRef(&scalar_shape, 1));
 
   const auto dtype = ScalarType();
   const auto& decay_shape = decay.pt_t.sizes();

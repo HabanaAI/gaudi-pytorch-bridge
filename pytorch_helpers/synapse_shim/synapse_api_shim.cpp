@@ -15,8 +15,7 @@
 #include "synapse_shim/synapse_api_shim.h"
 #include <dlfcn.h>
 #include <link.h>
-#include <iostream>
-#include <memory>
+#include <functional>
 #include <mutex>
 #include "synapse_shim/hccl_api_shim.h"
 #include "synapse_shim/lib_synapse_loader.h"

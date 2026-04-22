@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,7 +27,6 @@
 #include "backend/helpers/tensor_info.h"
 #include "backend/synapse_helpers/device.h"
 #include "common/utils.h"
-#include "habana_helpers/dtype_helpers.h"
 #include "habana_helpers/logging.h"
 #include "habana_helpers/python_utils.h"
 #include "pytorch_helpers/habana_helpers/logging_pt.h" // IWYU pragma: keep // NOLINT
@@ -95,7 +94,7 @@ void PtTensorInferenceData::update_entry(
     float max,
     bool align) {
   auto name = tensor_name;
-  if (align == true) {
+  if (align) {
     name = extract_key_name(tensor_name, "/");
   }
   if (inference_tensor_map.find(name) != inference_tensor_map.end()) {
@@ -202,13 +201,13 @@ void habana_helpers::copy_scalar_to_device(
     void* src_ptr,
     const at::Tensor& dst,
     uint64_t size) {
-  auto device_id = dst.device().index();
+  auto device_id = static_cast<synDeviceId>(dst.device().index());
   auto& device = habana::HPUDeviceContext::get_device(device_id);
   if (device.IsStreamASyncEnabled()) {
     // keeps a reference to the tensor it is
     // operating on to prevent it from being deallocated while the
     // operation is still in flight.
-    const at::Tensor dstRef = dst;
+    const at::Tensor& dstRef = dst;
     habana::HPUDeviceContext::copy_data_to_device(
         src_ptr,
         reinterpret_cast<synapse_helpers::device_ptr>(dst.data_ptr()),
@@ -216,7 +215,7 @@ void habana_helpers::copy_scalar_to_device(
             dst.storage().data_ptr().get()),
         size,
         [dstRef]() { return; },
-        c10::hpu::getCurrentHPUStream());
+        c10::hpu::getCurrentHPUStream() != 0U);
   } else {
     std::atomic<bool> copyDone{false};
     habana::HPUDeviceContext::copy_data_to_device(
@@ -226,7 +225,7 @@ void habana_helpers::copy_scalar_to_device(
             dst.storage().data_ptr().get()),
         size,
         [&copyDone]() { copyDone = true; },
-        c10::hpu::getCurrentHPUStream());
+        c10::hpu::getCurrentHPUStream() != 0U);
 
     // Release GIL if going to wait
     habana_helpers::AutoNoGIL gil_release;
@@ -365,14 +364,14 @@ void habana_helpers::copy_data_to_host(
     const at::Tensor& dst,
     bool non_blocking,
     synapse_helpers::hpuStream_t hpu_stream) {
-  size_t device_id = src.device().index();
+  const auto device_id = static_cast<synDeviceId>(src.device().index());
   auto& device = habana::HPUDeviceContext::get_device(device_id);
   bool is_pinned = habana::PinnedMemoryAllocator_is_pinned(dst.data_ptr());
   if (src.nbytes() == 0) {
     return;
   }
 
-  auto tmeta{habana::get_tensor_extra_meta(src)};
+  auto* tmeta{habana::get_tensor_extra_meta(src)};
   if (tmeta->has_valid_const_id()) {
     HABANA_ASSERT(
         tmeta->get_host_ptr() != nullptr,
@@ -383,7 +382,7 @@ void habana_helpers::copy_data_to_host(
     return;
   }
 
-  auto src_data_ptr = src.data_ptr();
+  auto* src_data_ptr = src.data_ptr();
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 0 && src.storage_offset() != 0) {
     // HPU is implicitly casting Long to Int and Double to Float without showing
     // this information to torch This results in data_ptr offset being computed
@@ -393,13 +392,13 @@ void habana_helpers::copy_data_to_host(
         if (!common::IsInt64Supported()) {
           src_data_ptr = reinterpret_cast<void*>(
               reinterpret_cast<uint8_t*>(src_data_ptr) -
-              src.storage_offset() * sizeof(long) / 2);
+              (static_cast<size_t>(src.storage_offset()) * sizeof(long) / 2));
         }
         break;
       case c10::ScalarType::Double:
         src_data_ptr = reinterpret_cast<void*>(
             reinterpret_cast<uint8_t*>(src_data_ptr) -
-            src.storage_offset() * sizeof(double) / 2);
+            (static_cast<size_t>(src.storage_offset()) * sizeof(double) / 2));
         break;
       default:
         break;
@@ -472,7 +471,7 @@ void habana_helpers::copy_data_to_device(
     bool non_blocking,
     synapse_helpers::hpuStream_t hpu_stream,
     void* host_ptr) {
-  auto device_id = dst.device().index();
+  const auto device_id = static_cast<synDeviceId>(dst.device().index());
   auto& device = habana::HPUDeviceContext::get_device(device_id);
   bool is_pinned = habana::PinnedMemoryAllocator_is_pinned(src.data_ptr());
 
@@ -485,7 +484,7 @@ void habana_helpers::copy_data_to_device(
     // already allocated in the main thread
     void* host_cpu_data = nullptr;
     if (!is_pinned) {
-      if (host_ptr) {
+      if (host_ptr != nullptr) {
         host_cpu_data = host_ptr;
       }
     }
@@ -548,7 +547,7 @@ void habana_helpers::copy_data_within_device(
     const at::Tensor& src,
     const at::Tensor& dst,
     bool non_blocking) {
-  auto device_id = dst.device().index();
+  const auto device_id = static_cast<synDeviceId>(dst.device().index());
   auto& device = habana::HPUDeviceContext::get_device(device_id);
   synapse_helpers::hpuStream_t current_stream = c10::hpu::getCurrentHPUStream();
 
@@ -602,29 +601,30 @@ void habana_helpers::copy_data_within_device(
 size_t habana_helpers::hash_combine_scalars(
     size_t hash_code,
     at::ArrayRef<habana_torch::jit::IValue> input_refs) {
-  auto num_inputs = input_refs.size();
-  for (unsigned i = 0; i < num_inputs; i++) {
+  const auto num_inputs = input_refs.size();
+  for (size_t i = 0; i < num_inputs; i++) {
     if (!input_refs[i].isTensor()) {
       if (input_refs[i].isInt()) {
-        int val = input_refs[i].toInt();
-        std::hash<int> valhash;
+        const auto val = input_refs[i].toInt();
+        std::hash<std::remove_const_t<decltype(val)>> valhash;
         hash_code = at::hash_combine(hash_code, valhash(val));
       } else if (input_refs[i].isBool()) {
         bool val = input_refs[i].toBool();
-        hash_code = at::hash_combine(hash_code, val);
+        hash_code = at::hash_combine(hash_code, static_cast<size_t>(val));
       } else if (input_refs[i].isDouble()) {
         double val = input_refs[i].toDouble();
         std::hash<double> valhash;
         hash_code = at::hash_combine(hash_code, valhash(val));
       } else if (input_refs[i].isList()) {
         auto vlist = input_refs[i].toListRef();
-        for (auto& v : vlist) {
+        for (const auto& v : vlist) {
           if (v.isInt()) {
-            int val = v.toInt();
-            std::hash<int> valhash;
+            const auto val = v.toInt();
+            std::hash<std::remove_const_t<decltype(val)>> valhash;
             hash_code = at::hash_combine(hash_code, valhash(val));
           } else if (v.isBool()) {
-            hash_code = at::hash_combine(hash_code, v.toBool());
+            hash_code =
+                at::hash_combine(hash_code, static_cast<size_t>(v.toBool()));
           } else if (v.isDouble()) {
             double val = v.toDouble();
             std::hash<double> valhash;
@@ -645,10 +645,10 @@ void habana_helpers::recalc_strides(
   if (self_strides.empty()) {
     return;
   }
-  int k;
   self_strides[self_strides.size() - 1] = 1;
-  for (k = self_strides.size() - 2; k >= 0; k--) {
-    self_strides[k] = self_strides[k + 1] * self_sizes[k + 1];
+  for (size_t k = self_strides.size() - 1; k > 0; --k) {
+    const auto idx = k - 1;
+    self_strides[idx] = self_strides[k] * self_sizes[k];
   }
 }
 
@@ -700,8 +700,9 @@ std::vector<int64_t> habana_helpers::calculate_strides(
   if (dim_ > 0) {
     const auto last_idx = dim_ - 1;
     strides[last_idx] = 1;
-    for (int64_t i = last_idx - 1; i >= 0; --i) {
-      strides[i] = strides[i + 1] * std::max<int64_t>(sizes[i + 1], 1);
+    for (size_t i = last_idx; i > 0; --i) {
+      const auto idx = i - 1;
+      strides[idx] = strides[i] * std::max<int64_t>(sizes[i], 1);
     }
   }
   return strides;
@@ -711,14 +712,15 @@ std::string habana_helpers::detail::
     InternalFormatter<habana_helpers::FormatTokens>::format(
         const at::Tensor& tensor,
         habana_helpers::FormatTokens token) {
-  auto tmeta{habana::get_tensor_extra_meta(tensor, true)};
-  if (!tmeta) {
+  auto* tmeta{habana::get_tensor_extra_meta(tensor, true)};
+  if (tmeta == nullptr) {
     return "<NO_TMETA>";
   }
-  auto smeta{habana::get_storage_extra_meta(tensor)};
+  auto* smeta{habana::get_storage_extra_meta(tensor)};
   switch (token) {
     case habana_helpers::FormatTokens::Permutations:
-      return (smeta ? VecToString(smeta->get_memory_permutation()) : "");
+      return (
+          smeta != nullptr ? VecToString(smeta->get_memory_permutation()) : "");
     case habana_helpers::FormatTokens::Layout:
       return habana::DebugString(tmeta->get_tensor_layout());
     case habana_helpers::FormatTokens::ImplPtr:

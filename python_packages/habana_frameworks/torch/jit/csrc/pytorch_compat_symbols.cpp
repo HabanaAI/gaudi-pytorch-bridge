@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,14 +12,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <gtest/gtest.h>
 
-#include "common/utils.h"
+#include <torch/csrc/jit/python/pybind_utils.h>
 
-TEST(Common, LoadedLibraryType) {
-#ifdef EAGER_TESTS
-  EXPECT_EQ(common::getLoadedLibraryType(), common::LibraryType::EAGER);
-#else
-  EXPECT_EQ(common::getLoadedLibraryType(), common::LibraryType::LAZY);
+#ifdef USE_DISTRIBUTED
+#include <torch/csrc/distributed/c10d/ProcessGroup.hpp>
 #endif
+
+#include "habana_helpers/pt_version_check.h"
+
+#if IS_PYTORCH_AT_LEAST(2, 11)
+
+namespace torch::jit {
+
+std::optional<InferredType> detail::_tryToInferTypeImpl(py::handle input) {
+#ifdef USE_DISTRIBUTED
+  if (py::isinstance<c10d::ProcessGroup>(input)) {
+    return InferredType(c10::CapsuleType::get());
+  }
+#endif
+  return std::nullopt;
 }
+
+} // namespace torch::jit
+
+#endif

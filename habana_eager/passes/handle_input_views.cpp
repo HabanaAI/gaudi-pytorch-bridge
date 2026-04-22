@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -61,17 +61,18 @@ struct HandleInputViewsPass {
         continue;
       }
 
-      [[maybe_unused]] auto storage_meta{
+      [[maybe_unused]] auto* storage_meta{
           habana::get_storage_extra_meta(input_tensor)};
 
       if (!habana::is_view_lowering(input_tensor) &&
-          input_tensor.is_contiguous())
+          input_tensor.is_contiguous()) {
         continue;
+      }
 
-      auto& uses = input->uses();
-      auto& first_use = uses[0];
+      const auto& uses = input->uses();
+      const auto& first_use = uses[0];
       habana_torch::jit::Node* first_user = first_use.user;
-      auto& last_use = uses.back();
+      const auto& last_use = uses.back();
       habana_torch::jit::Node* last_user = last_use.user;
 
       static const std::array<c10::Symbol, 4> view_ops_symbols{
@@ -172,14 +173,14 @@ struct HandleInputViewsPass {
     habana_torch::jit::WithInsertPoint insert_point(node);
 
     auto op_strided_view = c10::Symbol::fromQualString("aten::as_strided");
-    auto value_sizes =
+    auto* value_sizes =
         m_graph->insertConstant(habana_torch::jit::IValue(p.getViewSizes()));
-    auto value_strides =
+    auto* value_strides =
         m_graph->insertConstant(habana_torch::jit::IValue(p.getViewStrides()));
-    auto value_offset =
+    auto* value_offset =
         m_graph->insertConstant(habana_torch::jit::IValue(p.getViewOffset()));
 
-    auto jit_node = m_graph->create(
+    auto* jit_node = m_graph->create(
         op_strided_view,
         {value_in, value_sizes, value_strides, value_offset},
         1);
@@ -219,12 +220,12 @@ struct HandleInputViewsPass {
 
     auto op_strided_insert =
         c10::Symbol::fromQualString("hpu::strided_insert_");
-    auto value_strides =
+    auto* value_strides =
         m_graph->insertConstant(habana_torch::jit::IValue(p.getViewStrides()));
-    auto value_offset =
+    auto* value_offset =
         m_graph->insertConstant(habana_torch::jit::IValue(p.getViewOffset()));
 
-    auto jit_node = m_graph->create(
+    auto* jit_node = m_graph->create(
         op_strided_insert,
         {value_in, value_out, value_strides, value_offset},
         1);
@@ -272,7 +273,7 @@ struct HandleInputViewsPass {
         " is replaced by: ",
         new_name);
 
-    auto new_node =
+    auto* new_node =
         m_graph->create(c10::Symbol::fromQualString(std::string(new_name)));
     for (size_t i = 0; i < node->inputs().size(); ++i) {
       new_node->addInput(node->input(i));

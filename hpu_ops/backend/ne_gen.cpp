@@ -21,10 +21,9 @@ SharedMetaDataVector CompareNeSharedMeta(
     const at::Stack& stack,
     habana_helpers::HabanaExecutionMode /*unused*/) {
   auto equalSharedMetaVec = CompareSharedMeta(stack, "equal_fwd");
-  SharedMetaData notSharedMeta{"not_fwd"};
+  auto& notSharedMeta = equalSharedMetaVec.emplace_back("not_fwd");
   notSharedMeta.inputs_data = {equalSharedMetaVec[0].outputs_data[0]};
   notSharedMeta.outputs_data = {notSharedMeta.inputs_data[0]};
-  equalSharedMetaVec.push_back(notSharedMeta);
   return equalSharedMetaVec;
 }
 

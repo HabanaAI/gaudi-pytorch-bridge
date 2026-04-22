@@ -132,6 +132,7 @@ add_habana_library(
   backend/dot_gen.cpp
   backend/_efficientzerotensor_gen.cpp
   backend/elu_gen.cpp
+  backend/embedding_bag_gen.cpp
   backend/embedding_dense_backward_gen.cpp
   backend/embedding_gen.cpp
   backend/empty_gen.cpp
@@ -279,6 +280,7 @@ add_habana_library(
   backend/signbit_gen.cpp
   backend/slice_backward_gen.cpp
   backend/smooth_l1_loss_gen.cpp
+  backend/softmax_fa2_gen.cpp
   backend/softmax_fp8_gen.cpp
   backend/softmax_gen.cpp
   backend/softplus_gen.cpp

@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -52,7 +52,7 @@ import torch
 
 
 execution_set_count = 1  # number of consequtive, independent execution
-env_var_thread_pool_size = int(os.getenv("PT_HPU_COMPILE_THREAD_POOL_SIZE", 1))  # number of compiler threads
+env_var_thread_pool_size = int(os.getenv("PT_HPU_COMPILE_THREAD_POOL_SIZE", "1"))  # number of compiler threads
 compilation_count = 32
 
 
@@ -78,7 +78,7 @@ def direct_execution(input1_list, input2_list, functor_count_list):
         for _ in range(execution_set_count):
             start = time.perf_counter()
             for input1, input2 in zip(input1_list, input2_list, strict=True):
-                result = functor(input1, input2)
+                functor(input1, input2)
             habana_frameworks.torch.hpu.synchronize()
             stop = time.perf_counter()
 
@@ -113,7 +113,7 @@ def compiled_execution(input1_list, input2_list, functor_count_list):
 
             start = time.perf_counter()
             for input1, input2 in zip(input1_list, input2_list, strict=True):
-                result = functor_compiled(input1, input2)
+                functor_compiled(input1, input2)
             habana_frameworks.torch.hpu.synchronize()
             stop = time.perf_counter()
 

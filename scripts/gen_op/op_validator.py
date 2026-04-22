@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2025 Intel Corporation
+# Copyright (c) 2025-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -124,8 +124,7 @@ def get_promotion_ids(ctxop, cpp_sig):
         # Below regex extracts op's arguments from cpp signature.
         m = re.search(r"\(([^)]*)", cpp_sig)
         if m:
-            for input in m.group(1).split(", "):
-                inputs.append(input.split(" ")[-1])
+            inputs = [input.split(" ")[-1] for input in m.group(1).split(", ")]
         promotion_ids = [inputs.index(x) for x in promotion_inputs if x in inputs]
     return sorted(promotion_ids), bool(promote_int_to_float)
 

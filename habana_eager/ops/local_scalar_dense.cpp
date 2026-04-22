@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,11 +37,7 @@ void Copy_Scalar_To_Host_Empty_Compile_Task(
     uint32_t size,
     c10::hpu::HPUStream stream) {
   habana::HPUDeviceContext::execute_thread().enqueue(
-      Copy_Scalar_To_Host_Execute_Task,
-      std::move(src),
-      std::move(dst),
-      size,
-      std::move(stream));
+      Copy_Scalar_To_Host_Execute_Task, src, dst, size, stream);
   if (!GET_ENV_FLAG_NEW(PT_HPU_EAGER_PIPELINE_ENABLE)) {
     habana::HPUDeviceContext::execute_thread().waitWorkComplete();
   }
@@ -53,11 +49,7 @@ void Copy_Scalar_To_Host_Empty_Lowering_Task(
     uint32_t size,
     c10::hpu::HPUStream stream) {
   habana::HPUDeviceContext::compile_thread_pool().enqueue(
-      Copy_Scalar_To_Host_Empty_Compile_Task,
-      std::move(src),
-      std::move(dst),
-      size,
-      std::move(stream));
+      Copy_Scalar_To_Host_Empty_Compile_Task, src, dst, size, stream);
   if (!GET_ENV_FLAG_NEW(PT_HPU_EAGER_PIPELINE_ENABLE)) {
     habana::HPUDeviceContext::compile_thread_pool().waitWorkComplete();
   }
@@ -83,6 +75,8 @@ at::Scalar _local_scalar_dense_hpu(const at::Tensor& self) {
 // (clang does not have this check at all)
 #pragma GCC diagnostic ignored "-Wstrict-aliasing"
 #pragma GCC diagnostic ignored "-Warray-bounds"
+#pragma GCC diagnostic ignored "-Wconversion"
+#pragma GCC diagnostic ignored "-Wfloat-conversion"
 
   AT_DISPATCH_ALL_TYPES_AND_COMPLEX_AND5(
       at::ScalarType::Bool,

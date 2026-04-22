@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,7 +31,7 @@ class PipeClient {
   explicit PipeClient(const std::string& out = "/tmp/pipe_memory_data.txt");
   ~PipeClient();
 
-  void communicate(const std::vector<uint64_t>& msg);
+  void communicate(const std::vector<uint64_t>& msg) const;
 
  private:
   int wfd_;

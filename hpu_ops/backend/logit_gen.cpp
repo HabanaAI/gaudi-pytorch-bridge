@@ -17,9 +17,9 @@
 namespace habana {
 FillParamsT FillLogitParams(const at::Stack& stack, const size_t index) {
   // check if eps=None
-  if (stack.at(index).isNone())
+  if (stack.at(index).isNone()) {
     return {};
-
+  }
   PARAMS_STUB(ns_LogitKernel::Params);
   params->epsilon = static_cast<float>(stack.at(index).toDouble());
 

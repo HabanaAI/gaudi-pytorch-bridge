@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@
 #include "generated/backend/_fused_dropout.h"
 #include "generated/backend/native_dropout.h"
 #include "generated/backend/native_dropout_backward.h"
-#include "habana_kernels/random_gen_kernels.h"
 #include "hpu_ops/habana_random_ops.h"
 #include "hpu_ops/op_backend.h"
 
@@ -44,13 +43,15 @@ std::vector<synapse_helpers::tensor> DropoutCommon(
 }
 FillParamsT FillFusedNativeDropoutParams(const at::Stack& stack) {
   PARAMS_STUB(ns_DropoutKernel::Params);
-  auto ratioId = (stack.at(0).isTensor() && stack.at(1).isTensor()) ? 2 : 1;
-  params->ratio = stack.at(ratioId).toScalar().toDouble();
+  const size_t ratioId =
+      (stack.at(0).isTensor() && stack.at(1).isTensor()) ? 2 : 1;
+  params->ratio = static_cast<float>(stack.at(ratioId).toScalar().toDouble());
   return paramsT;
 }
 
 OutputMetaDataVector FusedNativeDropoutMeta(const at::Stack& stack) {
-  auto selfId = (stack.at(0).isTensor() && stack.at(1).isTensor()) ? 1 : 0;
+  const size_t selfId =
+      (stack.at(0).isTensor() && stack.at(1).isTensor()) ? 1 : 0;
   at::Tensor self = stack_tensor(stack, selfId);
   auto shape = self.sizes().vec();
 
@@ -66,12 +67,12 @@ OutputMetaDataVector FusedNativeDropoutMeta(const at::Stack& stack) {
 SharedMetaDataVector FusedNativeDropoutSharedMeta(
     const at::Stack& stack,
     habana_helpers::HabanaExecutionMode /*unused*/) {
-  auto seed = stack.at(2);
+  const auto& seed = stack.at(2);
   auto isSeedTensor = seed.isTensor();
   at::ScalarType seedDtype = at::ScalarType::Int;
-  auto seedRank = 1;
+  int64_t seedRank = 1;
   if (isSeedTensor) {
-    auto seedTensor = seed.toTensor();
+    const auto& seedTensor = seed.toTensor();
     seedRank = seedTensor.dim();
     seedDtype = seedTensor.scalar_type();
   }
@@ -81,25 +82,27 @@ SharedMetaDataVector FusedNativeDropoutSharedMeta(
       : stack_tensor(stack, 0);
   auto selfRank = self.dim();
   auto selfDtype = self.scalar_type();
-  SharedMetaData dropoutSharedMeta{"dropout_fwd"};
+  SharedMetaDataVector dropoutSharedMetaVec;
+  dropoutSharedMetaVec.reserve(1);
+  auto& dropoutSharedMeta = dropoutSharedMetaVec.emplace_back("dropout_fwd");
   dropoutSharedMeta.inputs_data = {
       {selfRank, selfDtype}, {seedRank, seedDtype}};
   dropoutSharedMeta.outputs_data = {
       {selfRank, selfDtype}, {selfRank, at::ScalarType::Char}};
-  return {dropoutSharedMeta};
+  return dropoutSharedMetaVec;
 }
 
 void FusedNativeDropout::AddNode(sh::graph& graph, const at::Stack& stack) {
-  auto seed = stack.at(2);
+  const auto& seed = stack.at(2);
   auto params = FillParams(stack);
   auto metas = FusedNativeDropoutMeta(stack);
 
   std::vector<synTensor> inputTensors = {syn_in(0)};
-  if (seed.isTensor())
+  if (seed.isTensor()) {
     inputTensors.push_back(syn_in(1));
-  else
+  } else {
     inputTensors.push_back(syn_seed());
-
+  }
   auto dropout = DropoutCommon(this, graph, params, metas, inputTensors);
   syn_out(0) = std::move(dropout[0]);
   syn_out(1) = std::move(dropout[1]);
@@ -114,58 +117,40 @@ SharedMetaDataVector NativeDropoutBackwardSharedMeta(
   auto grad_output = stack_tensor(stack, 0);
   auto grad_dtype = grad_output.scalar_type();
   auto grad_rank = grad_output.dim();
+  auto mask = stack_tensor(stack, 1);
 
-  SharedMetaTensor common_data = {grad_rank, grad_dtype};
+  SharedMetaDataVector metaVec;
+  metaVec.reserve(1);
+  auto& dropoutSharedMeta = metaVec.emplace_back("dropout_bwd");
+  dropoutSharedMeta.inputs_data = {
+      {grad_rank, grad_dtype}, {mask.dim(), mask.scalar_type()}};
+  dropoutSharedMeta.outputs_data = {{grad_rank, grad_dtype}};
 
-  SharedMetaData mul1{};
-  mul1.guid = "mult_fwd";
-  mul1.inputs_data = {2, common_data};
-  mul1.outputs_data = {common_data};
+  return metaVec;
+}
 
-  SharedMetaData mul2{};
-  mul2.guid = "mult_fwd";
-  mul2.inputs_data = {common_data, {1, grad_dtype}};
-  mul2.outputs_data = {common_data};
-
-  return {mul1, mul2};
+FillParamsT FillNativeDropoutBackwardParams(const at::Stack& stack) {
+  PARAMS_STUB(ns_DropoutKernel::Params);
+  params->ratio = static_cast<float>(stack.at(2).toScalar().toDouble());
+  return paramsT;
 }
 
 void NativeDropoutBackward::AddNode(sh::graph& graph, const at::Stack& stack) {
   StackGetter stackGetter(this, stack, "NativeDropoutBackward::AddNode");
   auto grad_output = stackGetter.getNextInput<TensorsPair>();
-  auto mask = stackGetter.getNextInput<TensorsPair>();
-  auto scale = stackGetter.getNextInput<double>();
-
   auto grad_dtype = grad_output.pt_t.scalar_type();
-  auto mask_dtype = mask.pt_t.scalar_type();
+  auto mask = stackGetter.getNextInput<TensorsPair>();
+  auto params = FillParams(stack);
 
-  auto scale_t_storage =
-      ConstantHelper(graph, static_cast<float>(scale), grad_dtype, {1});
-
-  auto mask_syn_t = mask.syn_t;
-  std::optional<sh::tensor> storage;
-  if (mask_dtype != grad_dtype) {
-    storage = BuildCast(
-        this, graph, mask_syn_t, mask.pt_t.sizes(), mask_dtype, grad_dtype);
-    mask_syn_t = storage->get();
-  }
-
-  std::string mul_node = get_guid_with_precision("mult_fwd"sv, grad_dtype);
-  const auto& grad_sizes = grad_output.pt_t.sizes();
-
-  auto mul1 = BuildOp(
+  auto dropout_bwd = BuildOp(
       graph,
-      mul_node,
-      {grad_output.syn_t, mask_syn_t},
-      {{grad_sizes, grad_dtype}});
+      get_guid_with_precision("dropout_bwd"sv, grad_dtype),
+      {grad_output.syn_t, mask.syn_t},
+      {{grad_output.pt_t.sizes(), grad_dtype, 0}},
+      &params,
+      sizeof(params));
 
-  auto mul2 = BuildOp(
-      graph,
-      mul_node,
-      {mul1[0].get(), scale_t_storage.get()},
-      {{grad_sizes, grad_dtype, 0}});
-
-  syn_out(0) = std::move(mul2[0]);
+  syn_out(0) = std::move(dropout_bwd[0]);
 }
 
 //===----------------------------------------------------------------------===//

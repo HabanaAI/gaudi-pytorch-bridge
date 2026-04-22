@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,7 +29,12 @@ namespace habana::profile {
 
 using namespace std::chrono;
 
-enum EventType { begin = 'B', end = 'E', metadata = 'M', complete = 'X' };
+enum EventType : std::uint8_t {
+  begin = 'B',
+  end = 'E',
+  metadata = 'M',
+  complete = 'X'
+};
 
 const char* StringOrFallback(const char* main, const char* fallback) {
   return (main == nullptr or std::strlen(main) == 0) ? fallback : main;
@@ -160,12 +165,17 @@ struct EngineDatabase {
     // Create host engine type first
     synTraceEvent* host_meta_event_ptr = events_ptr;
     for (uint64_t i = 0; i < num_events; i++, host_meta_event_ptr++) {
-      if (host_meta_event_ptr->type != EventType::metadata)
+      if (host_meta_event_ptr->type != EventType::metadata) {
         break;
+      }
       if (host_meta_event_ptr->engineIndex == 0 &&
-          EngineType::isHost(host_meta_event_ptr->arguments.name)) {
+          EngineType::isHost(
+              host_meta_event_ptr->arguments
+                  .name)) { // NOLINT(cppcoreguidelines-pro-type-union-access)
         auto& engine_type = engine_types[host_meta_event_ptr->engineType];
-        engine_type.name = host_meta_event_ptr->arguments.name;
+        engine_type.name =
+            host_meta_event_ptr->arguments
+                .name; // NOLINT(cppcoreguidelines-pro-type-union-access)
         break;
       }
     }
@@ -176,9 +186,13 @@ struct EngineDatabase {
         break;
       }
       if (events_ptr->engineIndex == 0 &&
-          EngineType::isInteresting(events_ptr->arguments.name)) {
+          EngineType::isInteresting(
+              events_ptr->arguments
+                  .name)) { // NOLINT(cppcoreguidelines-pro-type-union-access)
         auto& engine_type = engine_types[events_ptr->engineType];
-        engine_type.name = events_ptr->arguments.name;
+        engine_type.name =
+            events_ptr->arguments
+                .name; // NOLINT(cppcoreguidelines-pro-type-union-access)
         continue;
       }
       auto engine_type_it = engine_types.find(events_ptr->engineType);
@@ -186,7 +200,9 @@ struct EngineDatabase {
         auto& engine_type = engine_type_it->second;
         engine_type.engines.push_back(
             {.index = events_ptr->engineIndex,
-             .name = events_ptr->arguments.name});
+             .name =
+                 events_ptr->arguments
+                     .name}); // NOLINT(cppcoreguidelines-pro-type-union-access)
         setLine(engine_type, events_ptr->engineIndex);
       }
     }
@@ -218,18 +234,15 @@ void HpuTraceParser::Export(
 }
 
 bool HpuTraceParser::skipEvent(const synTraceEvent* events_ptr) {
-  if (events_ptr->type == EventType::metadata)
-    return true;
-
-  auto& engine_types = engine_type_database_->engine_types_;
-  if (engine_types.find(events_ptr->engineType) == engine_types.end())
-    return true;
-
-  std::string_view name = events_ptr->name;
-  if (name.find("write to mem") != std::string_view::npos) {
+  if (events_ptr->type == EventType::metadata) {
     return true;
   }
-  return false;
+  auto& engine_types = engine_type_database_->engine_types_;
+  if (engine_types.find(events_ptr->engineType) == engine_types.end()) {
+    return true;
+  }
+  std::string_view name = events_ptr->name;
+  return name.find("write to mem") != std::string_view::npos;
 }
 
 void HpuTraceParser::initLanes(TraceSink& trace_sink) {
@@ -237,7 +250,7 @@ void HpuTraceParser::initLanes(TraceSink& trace_sink) {
   auto& engine_types = engine_type_database_->engine_types_;
   for (auto& e : engine_types) {
     auto& engine_type = e.second;
-    auto& engine_type_index = e.first;
+    const auto& engine_type_index = e.first;
 
     if (EngineType::isHost(engine_type.name)) {
       for (auto& engine : engine_type.engines) {
@@ -260,7 +273,7 @@ void HpuTraceParser::initLanes(TraceSink& trace_sink) {
 bool HpuTraceParser::isEventInTime(
     long double start,
     long double end,
-    long double wall_stop_time) {
+    long double wall_stop_time) const {
   start *= 1000;
   end *= 1000;
   return start > hpu_start_time_ && end < wall_stop_time;
@@ -276,6 +289,7 @@ void HpuTraceParser::processActivity(
   if (isEventInTime(event_start_time, event_end_time, wall_stop_time)) {
     auto start = timeStampHpuToTB(event_start_time);
     auto end = timeStampHpuToTB(event_end_time);
+    // NOLINTBEGIN(cppcoreguidelines-pro-type-union-access)
     std::string name =
         StringOrFallback(events_ptr->arguments.operation, events_ptr->name);
 
@@ -292,6 +306,7 @@ void HpuTraceParser::processActivity(
              events_ptr->arguments.eventHandle}),
         start,
         end);
+    // NOLINTEND(cppcoreguidelines-pro-type-union-access)
 
     if (enqueue_events_ptr != nullptr && enqueue_events_ptr != events_ptr) {
       trace_sink.addFlowEvent(
@@ -327,7 +342,7 @@ void HpuTraceParser::convertEventsToActivities(
     if (skipEvent(events_ptr)) {
       continue;
     }
-
+    // NOLINTBEGIN(cppcoreguidelines-pro-type-union-access)
     if (events_ptr->arguments.recipeId != 0 &&
         Contains(events_ptr->name, "enqueueWithExternalEvents")) {
       activeEnqueueEvents[events_ptr->arguments.recipeId] = events_ptr;
@@ -366,11 +381,15 @@ void HpuTraceParser::convertEventsToActivities(
             activeEnqueueEvents[events_ptr->arguments.recipeId],
             trace_sink);
       } break;
+      default:
+        // Other event types (like metadata) are filtered out by skipEvent()
+        break;
     }
+    // NOLINTEND(cppcoreguidelines-pro-type-union-access)
   }
 }
 
-int64_t HpuTraceParser::timeStampHpuToTB(long double t) {
+int64_t HpuTraceParser::timeStampHpuToTB(long double t) const {
   t *= 1000;
   if (t > hpu_start_time_) {
     return static_cast<int64_t>(roundl(t - hpu_start_time_ + wall_start_time_));
@@ -387,26 +406,33 @@ int64_t HpuTraceParser::getDevice(const synTraceEvent* events_ptr) {
 
 bool HpuTraceParser::isEventKernel(const synTraceEvent* events_ptr) {
   return engine_type_database_->isKernelWhitelist(
-             events_ptr->arguments.operation) ||
+             events_ptr->arguments
+                 .operation) || // NOLINT(cppcoreguidelines-pro-type-union-access)
       engine_type_database_->isEngineTypeMME(events_ptr->engineType) ||
       engine_type_database_->isEngineTypeTPC(events_ptr->engineType);
 }
 
 ActivityType HpuTraceParser::getActivityType(const synTraceEvent* events_ptr) {
-  std::string name =
-      StringOrFallback(events_ptr->arguments.operation, events_ptr->name);
+  std::string name = StringOrFallback(
+      events_ptr->arguments
+          .operation, // NOLINT(cppcoreguidelines-pro-type-union-access)
+      events_ptr->name);
 
-  if (isEventKernel(events_ptr))
+  if (isEventKernel(events_ptr)) {
     return ActivityType::KERNEL;
-  if (name.find("memcpy") == 0)
+  }
+  if (name.find("memcpy") == 0) {
     return ActivityType::MEMCPY;
-  if (name.find("memset") == 0)
+  }
+  if (name.find("memset") == 0) {
     return ActivityType::MEMSET;
+  }
   return ActivityType::RUNTIME;
 }
 
 std::unordered_map<std::string, std::string> HpuTraceParser::getExtraArgs(
     const synTraceEvent* events_ptr) {
+  // NOLINTBEGIN(cppcoreguidelines-pro-type-union-access)
   std::unordered_map<std::string, std::string> extraArgs;
   extraArgs.reserve(events_ptr->arguments.extraArgs.count + 2);
 
@@ -436,5 +462,6 @@ std::unordered_map<std::string, std::string> HpuTraceParser::getExtraArgs(
     }
   }
   return extraArgs;
+  // NOLINTEND(cppcoreguidelines-pro-type-union-access)
 }
 }; // namespace habana::profile

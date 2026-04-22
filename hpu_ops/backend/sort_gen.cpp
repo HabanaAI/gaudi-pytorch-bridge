@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,11 +34,11 @@ void ArgSortStable::AddNode(
   const auto dim_ = stack.at(2).isNone() ? self.dim() : stack.at(2).toInt();
   const auto dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
   const auto descending = stack.at(3).isNone() ? false : stack.at(3).toBool();
-  const auto k = self.dim() ? self.size(dim) : 1;
+  const auto k = self.dim() != 0 ? self.size(dim) : 1;
 
   const auto meta = SortStableMeta(stack);
-  const auto meta_value = meta[0];
-  const auto meta_index = meta[1];
+  const auto& meta_value = meta[0];
+  const auto& meta_index = meta[1];
   const auto outshape = meta_value.shape;
 
   std::vector<synTensor> syn_inputs{syn_in(0)};
@@ -80,8 +80,9 @@ OutputMetaDataVector SortStableMeta(const at::Stack& stack) {
   auto self = stack_tensor(stack, 0);
   auto memoryFormat = self.suggest_memory_format();
 
-  OutputMetaData meta_value{};
-  OutputMetaData meta_index{};
+  OutputMetaDataVector metaVec(2);
+  auto& meta_value = metaVec[0];
+  auto& meta_index = metaVec[1];
 
   meta_value.dtype = self.scalar_type();
   meta_value.shape = self.sizes().vec();
@@ -90,7 +91,7 @@ OutputMetaDataVector SortStableMeta(const at::Stack& stack) {
   meta_index.dtype = c10::ScalarType::Long;
   meta_index.shape = self.sizes().vec();
   meta_index.mem_format = memoryFormat;
-  return {meta_value, meta_index};
+  return metaVec;
 }
 
 void SortStable::AddNode(
@@ -101,7 +102,7 @@ void SortStable::AddNode(
   auto dim_ = stack.at(2).isNone() ? self.dim() : stack.at(2).toInt();
   auto dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
   bool descending = stack.at(3).isNone() ? false : stack.at(3).toBool();
-  auto k = self.dim() ? self.size(dim) : 1;
+  auto k = self.dim() != 0 ? self.size(dim) : 1;
 
   auto meta = SortStableMeta(stack);
   auto meta_value = meta[0];

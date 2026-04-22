@@ -48,13 +48,13 @@ TORCH_API Node* createSingletonSubgraphAndUpdateAliasing(
     Symbol subgraphKind,
     AliasDb& db);
 
-// Merge a node into a subgraph node. If `toMerge` is also a subgraph, the
+// Merge a node into a subgraph node. If `sourceNode` is also a subgraph, the
 // subgraphs are merged.
-// If `destroyNode` is true `toMerge` is destroyed.
+// If `destroyNode` is true `sourceNode` is destroyed.
 // An optional argument 'vmap' could be used to retrieve value mappings.
 // Values will be mapped to their new subgraph values
 TORCH_API void mergeNodeIntoSubgraph(
-    Node* toMerge,
+    Node* sourceNode,
     Node* subgraphNode,
     bool destroyNode = true);
 

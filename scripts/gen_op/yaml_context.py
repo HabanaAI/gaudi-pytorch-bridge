@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2025 Intel Corporation
+# Copyright (c) 2025-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -64,7 +64,7 @@ class YamlContext:
             all_keys |= fields
 
         for key in duplicated_keys:
-            if key not in merged.keys():
+            if key not in merged:
                 raise AssertionError(
                     f"For fields that occurs in multiple templates require field: {key} to be defined explicitly."
                 )

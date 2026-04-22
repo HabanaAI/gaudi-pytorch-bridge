@@ -20,7 +20,8 @@
 namespace habana {
 
 OutputMetaDataVector GluMeta(const at::Stack& stack) {
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   auto self = stack.at(0).toTensor();
   meta.shape = self.sizes().vec();
   meta.dtype = self.scalar_type();
@@ -29,15 +30,16 @@ OutputMetaDataVector GluMeta(const at::Stack& stack) {
   auto dim = static_cast<size_t>(
       (axis >= 0) ? axis : stack.at(0).toTensor().dim() + axis);
   meta.shape[dim] = meta.shape[dim] / 2;
-  return {meta};
+  return metaVec;
 }
 
 OutputMetaDataVector GluBwdMeta(const at::Stack& stack) {
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   auto self = stack.at(1).toTensor();
   meta.shape = self.sizes().vec();
   meta.dtype = self.scalar_type();
-  return {meta};
+  return metaVec;
 }
 
 FillParamsT FillGluParams(const at::Stack& stack, const size_t dim_index) {

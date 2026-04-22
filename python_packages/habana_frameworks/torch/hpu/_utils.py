@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 import os
 from typing import Any
 
+import habana_frameworks.torch.utils.experimental as htexp
 from habana_frameworks.torch import hpu
 
 import torch
@@ -63,11 +64,10 @@ def _get_device_index(device: Any, optional: bool = False, allow_cpu: bool = Fal
 
 
 def _get_module_id_from_environ():
-    device_id = os.getenv(HLS_MODULE_ID_VAR, -1)
-    if device_id:
-        device_index = int(device_id)
-    else:
+    device_index = int(os.getenv(HLS_MODULE_ID_VAR, "-1"))
+    if not device_index:
         device_index = -1
+
     return device_index
 
 
@@ -78,6 +78,10 @@ def _get_available_modules_from_environ():
         # For handling situation when {HABANA_VISIBLE_MODULES_VAR}
         # is set, but empty
         return [0, 1, 2, 3, 4, 5, 6, 7]
-    if not (len(visible_modules) > 0 and len(visible_modules) <= 8):
+    module_size = len(visible_modules)
+    is_gaudi3 = htexp._get_device_type() == htexp.synDeviceType.synDeviceGaudi3
+    # GAUDI3 support rack-scale project, so visible device length may more than 1 and 2^n modules
+    # practically 4 or 16 rack scale up configuration
+    if not (module_size > 0 and module_size <= 8 and not (is_gaudi3 and module_size > 1 and (module_size % 2) != 0)):
         raise AssertionError(f"{HABANA_VISIBLE_MODULES_VAR} does not have valid value.")
     return visible_modules

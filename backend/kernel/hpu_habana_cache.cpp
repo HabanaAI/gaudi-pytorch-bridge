@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@ namespace {
 [[nodiscard]] size_t ComputeOffsetHashCode(
     at::ArrayRef<habana_torch::jit::IValue> input_refs) {
   size_t offset_hash_code = 0;
-  for (auto& input : input_refs) {
+  for (const auto& input : input_refs) {
     if (input.isTensor()) {
       auto pt_tensor = input.toTensor();
       auto storage_data_ptr_ = reinterpret_cast<synapse_helpers::device_ptr>(
@@ -54,12 +54,12 @@ namespace {
 [[nodiscard]] size_t ComputeH2DHashCode(
     at::ArrayRef<habana_torch::jit::IValue> input_refs) {
   size_t h2d_hash_code = 0;
-  for (auto& input : input_refs) {
+  for (const auto& input : input_refs) {
     if (input.isTensor()) {
       auto pt_tensor = input.toTensor();
-      auto tmeta{habana::get_tensor_extra_meta(pt_tensor, true)};
+      auto* tmeta{habana::get_tensor_extra_meta(pt_tensor, true)};
       const bool is_h2d_tensor =
-          tmeta && tmeta->get_tensor_type() == HOST_TO_DEVICE_TENSOR;
+          tmeta != nullptr && tmeta->get_tensor_type() == HOST_TO_DEVICE_TENSOR;
       if (is_h2d_tensor && tmeta->peek_H2D_data_for_bucketing()) {
         size_t h2d_size = tmeta->get_host_size();
 
@@ -98,8 +98,8 @@ namespace {
         }
         h2d_hash_code = at::hash_combine(h2d_hash_code, h2d_single_value);
       } else if (is_h2d_tensor) {
-        h2d_hash_code =
-            at::hash_combine(h2d_hash_code, tmeta->is_h2d_not_reciprocal());
+        h2d_hash_code = at::hash_combine(
+            h2d_hash_code, static_cast<size_t>(tmeta->is_h2d_not_reciprocal()));
       }
     }
   }
@@ -116,8 +116,9 @@ HbCas::HbCas(bool with_grad, at::ArrayRef<c10::IValue> inputs) {
   size_t num_tensors = 0;
   const auto num_inputs = inputs.size();
   for (const auto i : c10::irange(num_inputs)) {
-    if (!inputs[i].isTensor())
+    if (!inputs[i].isTensor()) {
       continue;
+    }
     num_tensors++;
   }
 
@@ -127,9 +128,9 @@ HbCas::HbCas(bool with_grad, at::ArrayRef<c10::IValue> inputs) {
   offsets_data.resize(num_tensors);
   uint64_t* next_offset = offsets_data.data();
   for (const auto i : c10::irange(num_inputs)) {
-    if (!inputs[i].isTensor())
+    if (!inputs[i].isTensor()) {
       continue;
-
+    }
     auto pt_tensor = inputs[i].toTensor();
     auto storage_data_ptr_ = reinterpret_cast<synapse_helpers::device_ptr>(
         pt_tensor.storage().data_ptr().get());
@@ -252,7 +253,7 @@ RecipeArgumentSpec::RecipeArgumentSpec(
       permhash);
 
   for (auto* node : irgraph->nodes()) {
-    auto node_qual_str = node->kind().toQualString();
+    const auto* node_qual_str = node->kind().toQualString();
     /*Ignore the const & meta nodes*/
     if (node->kind().is_prim() ||
         HabanaMetaOpList::isHabanaMetaOp(node_qual_str)) {
@@ -325,7 +326,7 @@ std::ostream& operator<<(std::ostream& O, const RecipeValueSpec& v) {
   O << "dtensorinfos #" << v.dtensorinfos.size() << "::";
   O << '\n';
   size_t idx{0};
-  for (auto& a : v.dtensorinfos) {
+  for (const auto& a : v.dtensorinfos) {
     O << idx++ << " : ";
     O << *a << '\n';
   }
@@ -334,7 +335,7 @@ std::ostream& operator<<(std::ostream& O, const RecipeValueSpec& v) {
     std::ostringstream oss;
     oss << '\n';
     size_t sidx = 0;
-    for (auto& a : v.dtensorinfos) {
+    for (const auto& a : v.dtensorinfos) {
       oss << sidx++ << " : " << *a << '\n';
     }
     dtensorinfo_dump = oss.str();
@@ -344,6 +345,7 @@ std::ostream& operator<<(std::ostream& O, const RecipeValueSpec& v) {
     O << "sif_tidx_to_tinfo_map #" << v.sif_tidx_to_tinfo_map.size() << "::";
     O << '\n';
     std::vector<size_t> tidx_vec;
+    tidx_vec.reserve(v.sif_tidx_to_tinfo_map.size());
     for (auto const& p : v.sif_tidx_to_tinfo_map) {
       tidx_vec.emplace_back(p.first);
     }
@@ -381,7 +383,7 @@ std::string RecipeValueSpec::build_header_str() const {
   return O.str();
 }
 
-std::string RecipeValueSpec::digest_str() {
+std::string RecipeValueSpec::digest_str() const {
   std::ostringstream O;
   auto& recipe_cache = HPUDeviceContext::get_device().get_recipe_handle_cache();
   O << "Recipe digest : total size of graph recipes "
@@ -401,13 +403,13 @@ std::string RecipeValueSpec::digest_str() {
   return O.str();
 }
 
-int RecipeValueSpec::update_hit_count() {
+int RecipeValueSpec::update_hit_count() const {
   auto& device = HPUDeviceContext::get_device();
   device.get_recipe_handle_cache().increaseHitCount(key);
   auto rv_hit_count = device.get_recipe_handle_cache().getHitCount(key);
 
   auto max_hit_count = GET_ENV_FLAG_NEW(PT_HABANA_MAX_RECIPE_HIT_COUNT);
-  if (max_hit_count && rv_hit_count >= int(max_hit_count)) {
+  if (max_hit_count != 0U && rv_hit_count >= int(max_hit_count)) {
     device.get_recipe_handle_cache().printHitCount();
     PT_BRIDGE_DEBUG(
         "Max hit count ",
@@ -538,6 +540,7 @@ void RecipeValueSpec::Serialize(std::ostream& os) const {
     for (auto const& ele : sif_tidx_to_tinfo_map) {
       tinfo_to_sif_tidx_map[ele.second] = ele.first;
     }
+    sif_tensor_indices.reserve(dtensorinfos.size());
     for (const PtTensorInfoShared& tinfo : dtensorinfos) {
       sif_tensor_indices.push_back(tinfo_to_sif_tidx_map[tinfo]);
     }
@@ -617,7 +620,7 @@ inline void RecipeValueSpec::update_new_tensor(
     tinfo = dtensorinfos.at(ridx);
   }
 
-  auto orig_handle = tinfo->get_orig_syn_handle();
+  auto* orig_handle = tinfo->get_orig_syn_handle();
 
   PT_EAGER_DEBUG(
       "[SHAPE AGNOSTIC] Tensor ridx : ", ridx, " orig_handle : ", orig_handle);
@@ -655,7 +658,7 @@ inline void RecipeValueSpec::update_new_tensor(
       " output idx : ",
       tinfo->get_output_index());
 
-  if (new_handle) {
+  if (new_handle != nullptr) {
     update_tensor_shape(new_handle, tinfo, new_shape);
     if (tensor_offset_opt.has_value()) {
       const auto& new_offset = tensor_offset_opt.value();
@@ -689,6 +692,7 @@ void RecipeValueSpec::update_patching_table(
   if (dynamic_graph) {
     if (enable_fast_shape_inf && GET_ENV_FLAG_NEW(PT_HPU_RUN_HYBRID_SIF)) {
       std::vector<size_t> sif_tidx_vec;
+      sif_tidx_vec.reserve(sif_tidx_to_tinfo_map.size());
       for (auto& idx_tensor_pair : sif_tidx_to_tinfo_map) {
         sif_tidx_vec.push_back(idx_tensor_pair.first);
       }
@@ -736,8 +740,7 @@ void RecipeValueSpec::update_patching_table(
       for (size_t i = 0; i < dtensorinfos.size(); ++i) {
         auto& ti = *(dtensorinfos.at(i));
         auto tensor_id = ti.get_tensor_id();
-        if (enable_optim_output_sif_ == true &&
-            ti.tensor_type() != SHAPE_TENSOR) {
+        if (enable_optim_output_sif_ && ti.tensor_type() != SHAPE_TENSOR) {
           continue;
         }
         if (!enable_optim_output_sif_) {
@@ -746,7 +749,7 @@ void RecipeValueSpec::update_patching_table(
           HABANA_ASSERT(
               m_actual_shapes.count(tensor_id), "Tensor ID ", tensor_id);
         }
-        if (m_actual_shapes.count(tensor_id)) {
+        if (m_actual_shapes.count(tensor_id) != 0U) {
           auto dims = m_actual_shapes.at(tensor_id).get_dims();
           auto syn_shape = ti.get_shape();
 
@@ -778,10 +781,10 @@ void RecipeValueSpec::update_patching_table(
   std::unordered_map<size_t, IValPtrShared> inputIVpshMap;
   for (auto const& input : input_refs) {
     if (input.isTensor()) {
-      auto& tensor = input.toTensor();
-      auto tmeta{habana::get_tensor_extra_meta(tensor)};
+      const auto& tensor = input.toTensor();
+      auto* tmeta{habana::get_tensor_extra_meta(tensor)};
       if (tmeta->has_valid_const_id()) {
-        auto impl{tensor.unsafeGetTensorImpl()};
+        auto* impl{tensor.unsafeGetTensorImpl()};
         if (impl->storage().nbytes() == 0) {
           PT_BRIDGE_DEBUG(
               "Skipping patching info for constant id: ",
@@ -801,7 +804,7 @@ void RecipeValueSpec::update_patching_table(
         if (is_shape_agnostic_graph) {
           std::optional<uint64_t> tensor_offset_opt = std::nullopt;
           const auto& tensor = input.toTensor();
-          if (tensor.data_ptr()) {
+          if (tensor.data_ptr() != nullptr) {
             tensor_offset_opt = tensor.storage_offset() * tensor.itemsize();
           }
           update_new_tensor(
@@ -818,9 +821,9 @@ void RecipeValueSpec::update_patching_table(
     } else if (input.isTensorList()) {
       SUPPRESS_WDANGLING_REFERENCE(
           for (const at::Tensor& t : input.toTensorList())) {
-        auto tmeta{habana::get_tensor_extra_meta(t)};
+        auto* tmeta{habana::get_tensor_extra_meta(t)};
         if (tmeta->has_valid_const_id()) {
-          auto impl{t.unsafeGetTensorImpl()};
+          auto* impl{t.unsafeGetTensorImpl()};
           if (impl->storage().nbytes() == 0) {
             PT_BRIDGE_DEBUG(
                 "Skipping patching info for constant id: ",
@@ -837,7 +840,7 @@ void RecipeValueSpec::update_patching_table(
         inputIVpshMap.emplace(ridx, ivpsh);
         if (is_shape_agnostic_graph) {
           std::optional<uint64_t> t_offset_opt = std::nullopt;
-          if (t.data_ptr()) {
+          if (t.data_ptr() != nullptr) {
             t_offset_opt = t.storage_offset() * t.itemsize();
           }
           update_new_tensor(
@@ -857,7 +860,7 @@ void RecipeValueSpec::update_patching_table(
       num_inputs);
 
   // Patch the duplicates if there are any
-  if (num_induplicates) {
+  if (num_induplicates != 0U) {
     size_t induplicates_index_end = num_inputs + num_induplicates;
     PT_EAGER_DEBUG(
         "[SHAPE AGNOSTIC] ridx : ",
@@ -881,7 +884,7 @@ void RecipeValueSpec::update_patching_table(
       if (is_shape_agnostic_graph) {
         auto tshape{parent_ti->get_shape()};
         std::optional<uint64_t> toffset_opt = std::nullopt;
-        if (parent_ti->get_buffer()) {
+        if (parent_ti->get_buffer() != nullptr) {
           toffset_opt = parent_ti->get_offset();
         }
         update_new_tensor(
@@ -893,7 +896,7 @@ void RecipeValueSpec::update_patching_table(
 
   // To Do - to patch for the shape agnostic graph
   // Patch the dma inputs if there are any
-  if (num_dma_inputs) {
+  if (num_dma_inputs != 0U) {
     // For DMA inputs patching works in reverse. The tensor is stored
     // within recipe and the corresponding index is stored in the tinfo.
     // The DMA input tensor needs to be populated.
@@ -1099,7 +1102,7 @@ void RecipeValueSpec::update_patching_table(
       num_outduplicates);
   // Patch the duplicates of output that are going back to graph
   size_t outduplicates_end = outputs_end + num_outduplicates;
-  if (num_outduplicates) {
+  if (num_outduplicates != 0U) {
     for (; ridx < outduplicates_end; ridx++) {
       PT_EAGER_DEBUG(
           "[SHAPE AGNOSTIC] outduplicates ridx : ",
@@ -1125,7 +1128,7 @@ void RecipeValueSpec::update_patching_table(
   // Patch the input duplicates if there are any
   size_t input_to_outduplicates_end =
       outduplicates_end + num_input_to_outduplicates;
-  if (num_input_to_outduplicates) {
+  if (num_input_to_outduplicates != 0U) {
     for (; ridx < input_to_outduplicates_end; ridx++) {
       if (is_shape_agnostic_graph) {
         auto output_idx = dtensorinfos.at(ridx)->get_output_index();
@@ -1138,7 +1141,7 @@ void RecipeValueSpec::update_patching_table(
         size_t parent_idx = dtensorinfos.at(ridx)->get_parent_index();
         auto parent_ti = dtensorinfos.at(parent_idx);
         std::optional<uint64_t> offset_opt = std::nullopt;
-        if (parent_ti->get_buffer()) {
+        if (parent_ti->get_buffer() != nullptr) {
           offset_opt = parent_ti->get_offset();
         }
         update_new_tensor(
@@ -1174,7 +1177,7 @@ void RecipeValueSpec::update_patching_table(
   const size_t interim_to_outduplicates_start = input_to_outduplicates_end;
   const size_t interim_to_outduplicates_end =
       input_to_outduplicates_end + num_intermediate_to_outduplicates;
-  if (num_intermediate_to_outduplicates) {
+  if (num_intermediate_to_outduplicates != 0U) {
     constexpr bool shape_agnostic = false;
     for (; ridx < interim_to_outduplicates_end; ridx++) {
       if (is_shape_agnostic_graph) {
@@ -1208,7 +1211,7 @@ void RecipeValueSpec::update_patching_table(
   // Patch the output duplicates if there are any
   size_t output_to_outduplicates_end =
       interim_to_outduplicates_end + num_output_to_outduplicates;
-  if (num_output_to_outduplicates) {
+  if (num_output_to_outduplicates != 0U) {
     for (; ridx < output_to_outduplicates_end; ridx++) {
       if (is_shape_agnostic_graph) {
         auto output_idx = dtensorinfos.at(ridx)->get_output_index();
@@ -1315,7 +1318,7 @@ void RecipeValueSpec::update_patching_table(
       patch_intermediate_tensor(ridx);
     }
 
-    if (num_intermediate_to_outduplicates) {
+    if (num_intermediate_to_outduplicates != 0U) {
       for (size_t ridx = interim_to_outduplicates_start;
            ridx < interim_to_outduplicates_end;
            ridx++) {
@@ -1339,11 +1342,11 @@ void RecipeValueSpec::update_node_params(
     const std::unordered_map<synNodeId, synNodeId>&
         synapse_node_orig_to_new_handle,
     const std::vector<synNodeId>& syn_node_id_vec,
-    const synGraphHandle duplicate_graph_handle,
+    synGraphHandle duplicate_graph_handle,
     std::shared_ptr<std::vector<InferNodeParams>>& node_params_vec_ptr) {
   HABANA_ASSERT(node_params_vec_ptr != nullptr, "node params are empty !");
 
-  const auto node_params_vec = *node_params_vec_ptr;
+  const auto& node_params_vec = *node_params_vec_ptr;
   HABANA_ASSERT(
       syn_node_id_vec.size() == node_params_vec.size(),
       "Mismatch, Orig graph syn node id vec size: ",
@@ -1367,9 +1370,9 @@ void RecipeValueSpec::update_node_params(
           " not present in the synapse_node_orig_to_new_handle map");
     } else {
       const auto& params = node_params_vec[idx];
-      const auto params_data = params.get_data();
+      const auto* const params_data = params.get_data();
       const auto params_size = params.get_size();
-      if (params_data && params_size) {
+      if (params_data != nullptr && params_size != 0U) {
         synNodeId new_handle = synapse_node->second;
         PT_EAGER_DEBUG(
             "[SHAPE AGNOSTIC] node index: ",
@@ -1392,9 +1395,9 @@ void RecipeValueSpec::update_node_params(
 
 void RecipeValueSpec::populate_syn_tensor_ids(
     const synapse_helpers::graph::recipe_handle& recipe) {
-  if (!GET_ENV_FLAG_NEW(PT_HPU_USE_SYN_TENSOR_IDS))
+  if (!GET_ENV_FLAG_NEW(PT_HPU_USE_SYN_TENSOR_IDS)) {
     return;
-
+  }
   HABANA_ASSERT(tensor_ids_.empty());
 
   auto num_tinfos = dtensorinfos.size();
@@ -1546,7 +1549,7 @@ void MaybePrintDebugInfo(
     }
     if (!aten_outputs.empty()) {
       size_t idx{0};
-      for (auto& a : aten_outputs) {
+      for (const auto& a : aten_outputs) {
         PT_BRIDGE_DEBUG(
             "Output[", idx, "] -> ", habana_helpers::DebugString(a));
         idx += 1;
@@ -1618,7 +1621,7 @@ void RecipeLauncher::Launch(
   PT_BRIDGE_BEGIN_WITH_INDEX(debug_id_);
   MaybePrintDebugInfo(
       input_refs, intermediate_tensors_ptr, aten_outputs, *this);
-  if (recipe_) {
+  if (recipe_ != nullptr) {
     habana::profile::RecipeRegistry::registerRecipe(
         recipe_->recipe_name_, debug_id_);
   }
@@ -1627,72 +1630,74 @@ void RecipeLauncher::Launch(
 
   std::vector<at::Tensor> ptRefs;
   std::vector<at::Tensor> outPtRefs;
-  std::vector<synapse_helpers::device_ptr> outDevPtr;
-
   size_t active_graph_key_ = 0;
 
   if (device.IsStreamASyncEnabled()) {
-    // Get the reference to the tensor it is operating on to prevent
-    // it from being deallocated while the operation is still in flight.
     std::vector<synapse_helpers::device_ptr> inDevPtr;
-    inDevPtr.reserve(num_inputs_);
-    for (auto& input : input_refs) {
-      if (input.isTensor()) {
-        at::Tensor tensor = input.toTensor();
-        ptRefs.push_back(std::move(tensor));
-        inDevPtr.push_back(
-            reinterpret_cast<synapse_helpers::device_ptr>(
-                input.toTensor().storage().data_ptr().get()));
-      }
-    }
-    if (!dma_inputs.empty()) {
-      for (auto& dma_input : dma_inputs) {
-        HABANA_ASSERT(
-            dma_input->isTensor(), "Only tensor is supported as dma_input");
-        at::Tensor tensor = dma_input->toTensor();
-        ptRefs.push_back(std::move(tensor));
-        inDevPtr.push_back(
-            reinterpret_cast<uint64_t>((dma_input->toTensor()).data_ptr()));
-      }
-    }
-    // wait for input DMA to complete before launching the compute.
-    device.add_wait_events_on_stream(inDevPtr, stream_handle);
+    std::vector<synapse_helpers::device_ptr> outDevPtr;
 
-    // Hold on to the pytorch tensors for the intermediates untill the recipe
-    // execution completes
-    if (intermediate_tensors_ptr != nullptr &&
-        !intermediate_tensors_ptr->empty()) {
-      for (auto& intermediate_tensor : *intermediate_tensors_ptr) {
-        at::Tensor tensor = intermediate_tensor->toTensor();
-        ptRefs.push_back(std::move(tensor));
-      }
-    }
-
+    ptRefs.reserve(
+        num_inputs_ + dma_inputs.size() +
+        (intermediate_tensors_ptr ? intermediate_tensors_ptr->size() : 0));
+    inDevPtr.reserve(num_inputs_ + dma_inputs.size());
     outDevPtr.reserve(
         num_inputs_ + num_outputs_ + num_input_to_outduplicates_ +
         num_intermediate_to_outduplicates_);
-    for (auto& output : aten_outputs) {
-      if (output && output->isTensor()) {
-        at::Tensor tensor = output->toTensor();
-        outDevPtr.push_back(
+
+    for (const auto& input : input_refs) {
+      if (input.isTensor()) {
+        auto& tensor = ptRefs.emplace_back(input.toTensor());
+        inDevPtr.push_back(
             reinterpret_cast<synapse_helpers::device_ptr>(
                 tensor.storage().data_ptr().get()));
-        outPtRefs.push_back(std::move(tensor));
       }
     }
 
-    // Write after read dependancy, add event for the inputs. So all the
+    // Process DMA inputs if present
+    if (!dma_inputs.empty()) {
+      for (const auto& dma_input : dma_inputs) {
+        HABANA_ASSERT(
+            dma_input->isTensor(), "Only tensor is supported as dma_input");
+        auto& tensor = ptRefs.emplace_back(dma_input->toTensor());
+        inDevPtr.push_back(reinterpret_cast<uint64_t>(tensor.data_ptr()));
+      }
+    }
+
+    // wait for input DMA to complete before launching the compute.
+    device.add_wait_events_on_stream(inDevPtr, stream_handle);
+
+    // Hold on to the pytorch tensors for the intermediates until the recipe
+    // execution completes
+    if (intermediate_tensors_ptr != nullptr &&
+        !intermediate_tensors_ptr->empty()) {
+      for (const auto& intermediate_tensor : *intermediate_tensors_ptr) {
+        ptRefs.emplace_back(intermediate_tensor->toTensor());
+      }
+    }
+
+    outPtRefs.reserve(aten_outputs.size());
+    for (const auto& output : aten_outputs) {
+      if (output && output->isTensor()) {
+        auto& tensor = outPtRefs.emplace_back(output->toTensor());
+        outDevPtr.push_back(
+            reinterpret_cast<synapse_helpers::device_ptr>(
+                tensor.storage().data_ptr().get()));
+      }
+    }
+
+    // Write after read dependency, add event for the inputs. So all the
     // tensors being written to will appear in the read side.
     outDevPtr.insert(outDevPtr.end(), inDevPtr.begin(), inDevPtr.end());
 
     std::vector<synapse_helpers::shared_event> ext_events;
-    for (auto external_idx : external_tensor_info_indexes) {
+    ext_events.reserve(external_tensor_info_indexes.size());
+    for (const auto external_idx : external_tensor_info_indexes) {
       synLaunchTensorInfo& ti = syn_launch_info.at(external_idx);
       PT_BRIDGE_DEBUG("Map event to external tensor ", ti.tensorName);
       ext_events.emplace_back(device.map_event_to_tensor(
           stream_handle, recipe_->syn_recipe_handle_, &ti, []() {}));
 
-      // Remove collective kenrel inputs from outDevPtr since they will be
+      // Remove collective kernel inputs from outDevPtr since they will be
       // signaled from the graph (if they are external)
       PT_BRIDGE_DEBUG(
           "Remove tensor ",
@@ -1711,7 +1716,7 @@ void RecipeLauncher::Launch(
     std::unique_ptr<synapse_helpers::device_ptr_lock> address_lock;
     {
       synapse_helpers::TimeScope ts(std::move(time_slot_));
-      if (recipe_) {
+      if (recipe_ != nullptr) {
         if (synapse_helpers::memory_reporter_enable()) {
           active_graph_key_ =
               get_active_graph_unique_key(recipe_->recipe_name_);
@@ -1756,10 +1761,10 @@ void RecipeLauncher::Launch(
       auto resource_holder = std::shared_ptr<GenericResourceHolder>(
           new GenericResourceHolder(),
           [](GenericResourceHolder* resource_holder) {
-            auto recipe_counter_ptr = resource_holder->recipe_counter_ptr();
+            auto* recipe_counter_ptr = resource_holder->recipe_counter_ptr();
             auto recipe_handle = resource_holder->recipe_id();
             const auto active_graph_key = resource_holder->active_graph_key();
-            delete resource_holder;
+            delete resource_holder; // NOLINT(cppcoreguidelines-owning-memory)
             recipe_counter_ptr->decrease_and_notify();
             if (synapse_helpers::memory_reporter_enable() &&
                 active_graph_key > 0) {
@@ -1806,10 +1811,10 @@ void RecipeLauncher::Launch(
       auto resource_holder = std::shared_ptr<GenericResourceHolder>(
           new GenericResourceHolder(),
           [](GenericResourceHolder* resource_holder) {
-            auto recipe_counter_ptr = resource_holder->recipe_counter_ptr();
+            auto* recipe_counter_ptr = resource_holder->recipe_counter_ptr();
             auto recipe_handle = resource_holder->recipe_id();
             const auto active_graph_key = resource_holder->active_graph_key();
-            delete resource_holder;
+            delete resource_holder; // NOLINT(cppcoreguidelines-owning-memory)
             recipe_counter_ptr->decrease_and_notify();
             if (synapse_helpers::memory_reporter_enable() &&
                 active_graph_key > 0) {
@@ -1844,8 +1849,7 @@ void RecipeLauncher::Launch(
       }
 
       stream_utils::GenericRecordStream(device, hpu_stream, inDevPtr);
-      stream_utils::GenericRecordStream(
-          device, hpu_stream, std::move(outDevPtr));
+      stream_utils::GenericRecordStream(device, hpu_stream, outDevPtr);
 
       // Launch collective ops
       if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_COLLECTIVES_HOLD_TENSORS)) {

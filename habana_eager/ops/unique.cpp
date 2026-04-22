@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,8 +23,8 @@ namespace habana::eager {
     const at::Tensor& self,
     bool sorted,
     bool return_inverse) {
-  int elements = self.numel();
-  auto inputShape = self.sizes().vec();
+  const auto elements = self.numel();
+  const auto inputShape = self.sizes();
   std::vector<int64_t> output_shape{elements};
   std::vector<int64_t> valid_count_shape{1};
   at::Tensor result{};

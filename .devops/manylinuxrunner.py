@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 ###############################################################################
-# Copyright (c) 2025 Intel Corporation
+# Copyright (c) 2025-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,7 +30,9 @@ log = logging.getLogger(__file__)
 
 
 class GenericManylinuxRunner:
-    def __init__(self, with_icecc=False, py_versions={Version(sys.version_info)}):
+    DEFAULT_PY_VERSIONS = {Version(sys.version_info)}
+
+    def __init__(self, with_icecc=False, py_versions=DEFAULT_PY_VERSIONS):
         self.policy = "manylinux_2_28"
         self.arch = "x86_64"
         self.py_versions = py_versions
@@ -130,7 +132,8 @@ class GenericManylinuxRunner:
         """
 
         try:
-            free_memory = next(l for l in open("/proc/meminfo").readlines() if "MemAvailable" in l).strip().split(" ")
+            with open("/proc/meminfo") as f:
+                free_memory = next(line for line in f.readlines() if "MemAvailable" in line).strip().split(" ")
             assert free_memory[-1] == "kB", "unexpected memory unit in procinfo"
             memory_limit = int(0.9 * int(free_memory[-2])) // 1024
             return f"--memory={memory_limit}m"

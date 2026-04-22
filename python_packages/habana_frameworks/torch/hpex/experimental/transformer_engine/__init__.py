@@ -32,4 +32,4 @@ for name in dir(te):
             sys.modules[f"habana_frameworks.torch.hpex.experimental.transformer_engine.{name}"] = attr
         globals()[name] = attr
 
-__all__ = dir(te)
+__all__ = list(dir(te))

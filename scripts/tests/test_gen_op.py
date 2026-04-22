@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -88,7 +88,10 @@ def test_ops_generation_e2e(monkeypatch):
 
     monkeypatch.setattr(os.path, "basename", mock_gen_op_file)
 
-    ref_output_dir = ".".join(torch.__version__.split(".")[:2])
+    # Using common reference_output dir for both PyTorch versions (currently 2.9 and 2.10)
+    # IF codegen diverges in next releases, return to per-version reference output
+    ref_output_dir = "common"
+
     test_path = pathlib.Path(__file__).parent.resolve()
     output_dir = os.path.join(test_path, "output")
     reference_dir = os.path.join(test_path, "files/ops_generation_e2e/reference_output", ref_output_dir)

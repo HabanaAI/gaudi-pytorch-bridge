@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,7 +12,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <ATen/core/Tensor.h>
+
 #include "generated/eager/convolution_overrideable.h"
+#include "habana_eager/ops/eager_op.h"
 #include "hpu_ops/hpu_op_helper.h"
 
 namespace habana {

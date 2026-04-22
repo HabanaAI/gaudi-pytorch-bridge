@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -45,10 +45,7 @@ def test_graph_control_flow_static():
     sizes1 = [6, 11, 14, 17, 17]
 
     def raw_function(t1, t2):
-        if t1 < t2:
-            out_hpu = torch.add(t1, t2)
-        else:
-            out_hpu = torch.add(t2, t1)
+        out_hpu = torch.add(t1, t2) if t1 < t2 else torch.add(t2, t1)
         return out_hpu
 
     compiled_fn = compile_function_if_compile_mode(raw_function, dynamic=True)

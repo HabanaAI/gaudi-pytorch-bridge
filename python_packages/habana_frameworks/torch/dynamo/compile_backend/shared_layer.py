@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@ hpu_supported_op_list = {
     "instance_norm_backward",
     # Custom ops
     "block_softmax_adjustment",
-    "block_softmax",
+    "block_softmax_staged_sum_max",
     "convert_from_int4",
     "convert_from_uint4",
     "dequantize_nf4",
@@ -181,12 +181,9 @@ def is_index_op_self_dim_upto_4d(node):
             shape = tensor_meta.shape
         elif isinstance(tensor_meta, py_sym_types):
             shape = tensor_meta
-    if len(shape) <= 4 and len(shape) == len(indices_arg):
-        return True
-    else:
-        # if not shape or len(shape) != 2 or len(shape) != len(indices_arg):
-        # Currently, we only handle 2D tensors
-        return False
+    # if not shape or len(shape) != 2 or len(shape) != len(indices_arg):
+    # Currently, we only handle 2D tensors
+    return len(shape) <= 4 and len(shape) == len(indices_arg)
 
 
 # Returns True when the index.hacked_twin op needs to fallback to eager
@@ -294,7 +291,7 @@ def check_for_default_fallback(op_name, node, is_dynamic=False):
         if torch.is_tensor(arg):
             continue
 
-        if arg != arg:
+        if arg != arg:  # noqa PLR0124
             return True, "Scalar NaN is not supported in graph mode"
 
     return False, ""
@@ -345,7 +342,6 @@ def is_eager_fallback_required(node: torch.fx.Node, is_dynamic=False) -> bool:
         return False
 
     args, kwargs = node.val_args, node.val_kwargs
-    arg_types = []
     op_name = node.target.__name__.split(".")[0]
 
     default_fallback, reason = check_for_default_fallback(op_name, node, is_dynamic)
@@ -362,8 +358,7 @@ def is_eager_fallback_required(node: torch.fx.Node, is_dynamic=False) -> bool:
     if conditional_graph_support:
         return execute_fallback(False, reason)
 
-    for arg in args:
-        arg_types.append(type(arg))
+    arg_types = [type(arg) for arg in args]
     normalized_args = torch.fx.operator_schemas.normalize_function(node.target, args, kwargs, arg_types)
 
     if normalized_args is None:
@@ -415,7 +410,7 @@ def is_eager_fallback_required(node: torch.fx.Node, is_dynamic=False) -> bool:
             logger.debug(reason)
     except Exception as e:
         if str(e) == META_SHAPE_CHANGED_EXCEPTION:
-            raise Exception(f"Shared layer modified node output shape in {node.target}. Aborting.")
+            raise Exception(f"Shared layer modified node output shape in {node.target}. Aborting.") from e
         reason = f"Exception raised in shared layer validation. Exception: {str(e)}"
         logger.debug(reason)
         do_fallback = True

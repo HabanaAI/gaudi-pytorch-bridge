@@ -256,7 +256,7 @@ struct OptimizedJITGraphAndMetaData {
 
   void SetOpName(std::string name);
 
-  size_t GetGraphIndex();
+  size_t GetGraphIndex() const;
 
   void SetGraphIndex(size_t index);
 
@@ -271,7 +271,7 @@ struct OptimizedJITGraphAndMetaData {
 
   const std::vector<bool>& GetIsReusable();
 
-  bool IsUserMarkDynamic();
+  bool IsUserMarkDynamic() const;
 
   void set_is_control_edge_processing_required();
 
@@ -302,7 +302,11 @@ struct OptimizedJITGraphAndMetaData {
   }
 
   void set_shape_agnostic_recipe(
-      std::shared_ptr<habana::RecipeValueSpec> shape_agnostic_recipe) {
+      std::shared_ptr<habana::RecipeValueSpec>&& rvs) {
+    cur_shape_agnostic_rvalpsh = std::move(rvs);
+  }
+  void set_shape_agnostic_recipe(
+      const std::shared_ptr<habana::RecipeValueSpec>& shape_agnostic_recipe) {
     cur_shape_agnostic_rvalpsh = shape_agnostic_recipe;
   }
 

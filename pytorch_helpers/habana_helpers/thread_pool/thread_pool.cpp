@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -73,8 +73,9 @@ void ThreadPoolBase<Queue, Task, ThreadPolicy>::Init(
     uint64_t threads_number) {
   for (uint64_t i = 0; i < threads_number; i++) {
     threads_.emplace_back([this, init_thread]() {
-      if (init_thread)
+      if (init_thread) {
         init_thread();
+      }
       this->main_loop();
     });
   }
@@ -89,12 +90,13 @@ ThreadPoolBase<Queue, Task, ThreadPolicy>::~ThreadPoolBase() {
   // set flag to true to break main loop in the thread
   stop_ = true;
   active_task_count_ += threads_.size();
-  for (size_t i = 0; i < threads_.size(); ++i)
+  for (size_t i = 0; i < threads_.size(); ++i) {
     tasks_.push(Task{[]() {}});
-
+  }
   try {
-    for (auto& thread : threads_)
+    for (auto& thread : threads_) {
       thread.join();
+    }
   } catch (const std::exception& ex) {
     PT_BRIDGE_WARN("Exception in pool destructor: ", ex.what());
   }

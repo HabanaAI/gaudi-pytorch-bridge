@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025 Intel Corporation
+ * Copyright (c) 2025-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -296,7 +296,7 @@ std::vector<at::Tensor> Fp8GemmV2Function::backward(
   auto fwdTensors = ctx->get_saved_variables();
   int fwdTensorsIdx = 0;
 
-  auto grad_in = grad[0];
+  const auto& grad_in = grad[0];
   auto A = fwdTensors[fwdTensorsIdx++];
   auto B = fwdTensors[fwdTensorsIdx++];
 
@@ -376,9 +376,9 @@ std::vector<at::Tensor> Fp8GemmV2ScalarFunction::backward(
 
   auto fwdTensors = ctx->get_saved_variables();
 
-  auto grad_in = grad[0];
-  auto A = fwdTensors[0];
-  auto B = fwdTensors[1];
+  const auto& grad_in = grad[0];
+  const auto& A = fwdTensors[0];
+  const auto& B = fwdTensors[1];
 
   auto results = _fp8_gemm_bwd_dispatch(
       grad_in,
@@ -451,9 +451,9 @@ std::vector<at::Tensor> Fp8GemmV2ScalarListFunction::backward(
   bool has_bias = ctx->saved_data["has_bias"].toBool();
 
   auto fwdTensors = ctx->get_saved_variables();
-  auto grad_in = grad[0];
-  auto A = fwdTensors[0];
-  auto B = fwdTensors[1];
+  const auto& grad_in = grad[0];
+  const auto& A = fwdTensors[0];
+  const auto& B = fwdTensors[1];
 
   auto results = _fp8_gemm_bwd_dispatch(
       grad_in,

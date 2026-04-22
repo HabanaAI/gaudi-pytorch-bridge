@@ -13,170 +13,341 @@
  * limitations under the License.
  */
 
-#include <perf_lib_layer_params.h>
-#include <cmath>
-#include <string_view>
-#include <vector>
-#include "hpu_ops/hpu_op_helper.h"
-#include "hpu_ops/stack_getter.h"
-
-namespace sh = synapse_helpers;
+#include "generated/backend/block_softmax_adjustment.h"
+#include "hpu_ops/custom_op_outshape.h"
 
 #define CEIL_TO_VEC_SIZE(num, roundup) \
-  (((num) + ((roundup) - 1)) & ~((roundup) - 1))
+  ((((num) + (roundup) - 1) / (roundup)) * (roundup))
+
 namespace habana {
 
-OutputMetaDataVector BlockSoftmaxAdjustmentMeta(const at::Stack& stack) {
-  auto block_maxes = stack_tensor(stack, 0);
-  auto adjustment_out_shape = stack[4].toIntList().vec();
+/* ======= block_softmax ======= */
 
-  OutputMetaData meta;
-  meta.shape = adjustment_out_shape;
-  meta.dtype = block_maxes.scalar_type();
+template <class DimT>
+std::tuple<std::vector<DimT>, std::vector<DimT>, std::vector<DimT>>
+BlockSoftmaxOutputSize(
+    c10::ArrayRef<DimT> block_maxes_shape,
+    const at::ScalarType block_maxes_dtype) {
+  auto common_dim =
+      block_maxes_shape[1] * block_maxes_shape[2] * block_maxes_shape[3];
 
-  return {meta};
+  if (habana::HPUDeviceContext::get_device().type() == synDeviceGaudi3) {
+    const int64_t vec_size =
+        (block_maxes_dtype == c10::ScalarType::Float) ? 64 : 128;
+    common_dim = CEIL_TO_VEC_SIZE(common_dim, vec_size);
+  }
+  const std::vector<DimT> out_shape_maxes{block_maxes_shape[0], common_dim};
+  return {block_maxes_shape.vec(), out_shape_maxes, out_shape_maxes};
 }
 
-FillParamsT BlockSoftmaxAdjustmentParams(const at::Stack& stack) {
-  const auto batchSize = stack.at(3).toScalar().toInt();
-
-  PARAMS_STUB(ns_BlockSoftmaxAdjustment::Params);
-  params->batchSize = batchSize;
-  return paramsT;
+sym_sizes_vec block_softmax_out_shape(
+    const std::vector<at::Tensor>& inputs,
+    const std::vector<int64_t>& params) {
+  HABANA_ASSERT(inputs.size() == 1);
+  HABANA_ASSERT(params.empty());
+  const auto [out_shape_attn, out_shape_maxes, out_shape_sums] =
+      BlockSoftmaxOutputSize(inputs[0].sym_sizes(), inputs[0].scalar_type());
+  return {out_shape_attn, out_shape_maxes, out_shape_sums};
 }
+
+REGISTER_CUSTOM_OP_OUTSHAPE_FUN(block_softmax, block_softmax_out_shape);
 
 // Meta function for block_softmax
 OutputMetaDataVector BlockSoftmaxMeta(const at::Stack& stack) {
   // Calculate output shapes
-  auto attn = stack_tensor(stack, 0);
-  const c10::ScalarType dtype = attn.scalar_type();
+  const auto& attn = stack_tensor(stack, 0);
+  const auto input_dtype = attn.scalar_type();
+  const auto attn_shape = attn.sizes();
+  const auto block_bias_shape = stack_tensor(stack, 1).sizes();
+  const auto block_indicators_shape = stack_tensor(stack, 2).sizes();
 
-  const int64_t num_blocks = attn.size(0);
-  const int64_t kv_heads = attn.size(1);
-  const int64_t gqa = attn.size(2);
-  const int64_t num_tokens = attn.size(3);
+  static constexpr int input_dim = 5;
+  const auto out_dtype =
+      stack.at(4).toOptional<c10::ScalarType>().value_or(input_dtype);
 
-  OutputMetaData attn_meta;
-  OutputMetaData block_maxes_meta;
-  OutputMetaData block_sums_meta;
-
-  // Output 1: attn - same shape as input attn
-  attn_meta.shape = attn.sizes().vec();
-  attn_meta.dtype = dtype;
-
-  // Output 2 & 3: b_maxes, b_sums - reshape and align to vector size
-  const int64_t vec_size = (dtype == c10::ScalarType::Float) ? 64 : 128;
-  int64_t flat_size = kv_heads * gqa * num_tokens;
-  int64_t aligned_flat_size = CEIL_TO_VEC_SIZE(flat_size, vec_size);
-
-  const bool is_gaudi2 =
-      habana::HPUDeviceContext::get_device().type() == synDeviceGaudi2;
-
-  std::vector<int64_t> reduced_shape;
-
-  if (is_gaudi2) // no padding for gaudi2
-    reduced_shape = {num_blocks, flat_size};
-  else
-    reduced_shape = {num_blocks, aligned_flat_size};
-
-  block_maxes_meta.shape = reduced_shape;
-  block_maxes_meta.dtype = dtype;
-
-  block_sums_meta.shape = reduced_shape;
-  block_sums_meta.dtype = dtype;
-
-  return {attn_meta, block_maxes_meta, block_sums_meta};
-}
-
-SharedMetaDataVector BlockSoftmaxAdjustmentSharedMeta(
-    const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode /*unused*/) {
-  const auto& block_maxes = stack_tensor(stack, 0);
-  const auto& block_sums = stack_tensor(stack, 1);
-  const auto& block_groups = stack_tensor(stack, 2);
-  auto precision_type = block_maxes.scalar_type();
-
-  SharedMetaData adjustment_meta{"block_softmax_adjustment"};
-  adjustment_meta.inputs_data = {
-      {block_maxes.dim(), precision_type},
-      {block_sums.dim(), precision_type},
-      {block_groups.dim(), at::ScalarType::Int},
-      {1, at::ScalarType::Int}};
-  adjustment_meta.outputs_data.emplace_back(block_maxes.dim(), precision_type);
-
-  return {adjustment_meta};
-}
-
-using namespace std::literals;
-class BlockSoftmaxAdjustmentOperator : public OpBackend {
- public:
-  BlockSoftmaxAdjustmentOperator(int device_id, c10::ScalarType scalar_type)
-      : OpBackend(
-            device_id,
-            NO_TPC + "block_softmax_adjustment",
-            scalar_type,
-            {0},
-            {}, // inplace ids
-            {},
-            false) {}
-
-  void AddNode(sh::graph& graph, const at::Stack& stack) override;
-};
-
-void BlockSoftmaxAdjustmentOperator::AddNode(
-    sh::graph& graph,
-    const at::Stack& stack) {
-  StackGetter stackGetter(
-      this, stack, "BlockSoftmaxAdjustmentOperator::AddNode");
-  auto block_maxes = stackGetter.getNextInput<TensorsPair>();
-  auto block_sums = stackGetter.getNextInput<TensorsPair>();
-  auto block_groups = stackGetter.getNextInput<TensorsPair>();
-  auto batch_size = stackGetter.getNextInput<long>();
-  const auto& out_shape = stack.at(4).to<std::optional<std::vector<int64_t>>>();
-
-  std::vector<int64_t> adjustment_out_shape;
-
-  // If out_shape is provided, then use it or it is expected to be 5D
-  if (out_shape.has_value()) {
-    adjustment_out_shape = out_shape.value();
-  } else {
-    HABANA_ASSERT(
-        (block_maxes.pt_t.ndimension() == 5) &&
-            (block_sums.pt_t.ndimension() == 5),
-        "Block maxes and Block sums must have 5D inputs or out_shape provided "
-        "Found block_maxes.ndim=",
-        block_maxes.pt_t.ndimension(),
-        " and block_sums.ndim=",
-        block_sums.pt_t.ndimension());
-
-    adjustment_out_shape = block_maxes.pt_t.sizes().vec();
+  if (out_dtype == at::ScalarType::Float8_e4m3fn) {
+    TORCH_CHECK(
+        attn.scalar_type() == at::ScalarType::BFloat16,
+        "When output_dtype is float8_e4m3fn, input_dtype must be bfloat16, got ",
+        attn.scalar_type());
   }
 
-  ns_BlockSoftmaxAdjustment::Params adjustment_params;
-  HABANA_ASSERT(
-      batch_size <= std::numeric_limits<int>::max(),
-      "Batch size exceeds maximum limit for adjustment parameters");
-  adjustment_params.batchSize = static_cast<int>(batch_size);
+  TORCH_CHECK(
+      attn_shape.size() == input_dim,
+      "attn tensor must be ",
+      input_dim,
+      "-dimensional, got ",
+      attn_shape.size());
 
-  std::string adjustment_guid = get_guid_with_precision(
-      "block_softmax_adjustment"sv, block_maxes.pt_t.scalar_type());
+  for (const auto dim : {1, 2}) {
+    TORCH_CHECK(
+        block_bias_shape[dim] == 1,
+        "block_bias tensor must have size 1 at dimension ",
+        dim,
+        ", got ",
+        block_bias_shape[dim]);
+  }
 
-  std::vector<synTensor> input = {
-      block_maxes.syn_t, block_sums.syn_t, block_groups.syn_t};
-  auto adjustment = BuildOp(
-      graph,
-      adjustment_guid,
-      std::move(input),
-      {NodeAttr::NodeOutputAttr{
-          adjustment_out_shape, block_maxes.pt_t.scalar_type(), 0}},
-      &adjustment_params,
-      sizeof(adjustment_params));
-  syn_out(0) = std::move(adjustment.at(0));
+  for (const auto dim : {0, 3, 4}) {
+    TORCH_CHECK(
+        attn_shape[dim] == block_bias_shape[dim],
+        "attn tensor and block_bias tensor must have the same size at dimension ",
+        dim,
+        ", got ",
+        attn_shape[dim],
+        " and ",
+        block_bias_shape[dim]);
+  }
+
+  TORCH_CHECK(
+      block_indicators_shape.size() == 1,
+      "block_indicators tensor must be 1D tensor",
+      ", got ",
+      block_indicators_shape.size());
+
+  TORCH_CHECK(
+      block_indicators_shape[0] == attn_shape[0],
+      "block_indicators tensor must be 1D tensor of size ",
+      attn_shape[0],
+      ", got ",
+      block_indicators_shape[0]);
+
+  const auto [out_shape_attn, out_shape_maxes, out_shape_sums] =
+      BlockSoftmaxOutputSize(attn_shape, input_dtype);
+
+  OutputMetaDataVector metaVec = {
+      {out_dtype, out_shape_attn},
+      {input_dtype, out_shape_maxes},
+      {input_dtype, out_shape_sums}};
+
+  return metaVec;
+}
+
+FillParamsT BlockSoftmaxParams(const at::Stack& stack) {
+  PARAMS_STUB(ns_BlockSoftmax::Params);
+
+  const auto out_dtype = stack.at(4).toOptional<c10::ScalarType>().value_or(
+      stack_tensor(stack, 0).scalar_type());
+  unsigned mode = BLOCK_SOFTMAX_MODE_DEFAULT;
+  if (out_dtype == at::ScalarType::Float8_e4m3fn) {
+    mode |= BLOCK_SOFTMAX_MODE_HF8_OUT;
+    const auto output_scale = stack.at(3).toDouble();
+    if (stack.at(5).toBool()) {
+      TORCH_CHECK(
+          output_scale == 1.0,
+          "When use_hf8_exp_lut is true, output_scale must be 1.0, got ",
+          output_scale);
+      mode |= BLOCK_SOFTMAX_MODE_USE_HF8_EXP_LUT;
+    } else {
+      params->outputScale = output_scale;
+    }
+  }
+
+  params->mode = static_cast<BlockSoftmaxMode_t>(mode);
+  return paramsT;
+}
+
+/* ======= block_softmax_adjustment ======= */
+
+OutputMetaDataVector BlockSoftmaxAdjustmentMeta(const at::Stack& stack) {
+  const auto& block_maxes = stack_tensor(stack, 0);
+  const auto block_maxes_shape = block_maxes.sizes();
+  const auto& block_sums = stack_tensor(stack, 1);
+  const auto block_sums_shape = block_sums.sizes();
+  const auto& block_groups = stack_tensor(stack, 2);
+  const auto block_groups_shape = block_groups.sizes();
+  const auto out_shape = stack.at(4).toOptional<std::vector<int64_t>>();
+  const auto is_fused_mult = stack.at(5).isTensor();
+  const auto out_dtype = stack.at(7).toOptional<c10::ScalarType>().value_or(
+      block_maxes.scalar_type());
+  const bool is_staged = stack.at(8).toBool();
+  static constexpr int input_dim = 5;
+  std::vector<int64_t> adjustment_out_shape;
+
+  if (out_dtype == at::ScalarType::Float8_e4m3fn) {
+    TORCH_CHECK(
+        block_maxes.scalar_type() == at::ScalarType::BFloat16,
+        "When output_dtype is float8_e4m3fn, input_dtype must be bfloat16, got ",
+        block_maxes.scalar_type());
+  }
+
+  if (is_staged) {
+    TORCH_CHECK(
+        out_shape.has_value() or is_fused_mult,
+        "In staged mode, either out_shape or fused_mult must be provided.");
+    const int staged_input_dim = 2;
+    TORCH_CHECK(
+        block_maxes_shape.size() == staged_input_dim,
+        "In staged mode block_maxes tensor must be ",
+        staged_input_dim,
+        "-dimensional, got ",
+        block_maxes_shape.size());
+    TORCH_CHECK(
+        block_maxes_shape[1] == block_sums_shape[1],
+        "In staged mode block_maxes and block_sums tensors must have the same size of dim 1, got ",
+        block_maxes_shape[1],
+        " and ",
+        block_sums_shape[1]);
+    TORCH_CHECK(
+        block_sums_shape[0] == stack.at(3).toInt(),
+        "In staged mode block_sums tensor dim 0 size must be equal to batch_size, got ",
+        block_sums_shape[0],
+        " and ",
+        stack.at(3).toInt());
+  } else if (not out_shape.has_value()) {
+    TORCH_CHECK(
+        block_maxes_shape.size() == input_dim,
+        "If no out_shape provided, block_maxes tensor must be ",
+        input_dim,
+        "-dimensional, got ",
+        block_maxes_shape.size());
+    TORCH_CHECK(
+        block_maxes_shape == block_sums_shape,
+        "block_maxes and block_sums tensors must have the same shape, got ",
+        block_maxes_shape,
+        " and ",
+        block_sums_shape);
+  }
+
+  TORCH_CHECK(
+      block_groups_shape.size() == 1,
+      "block_groups tensor must be 1D tensor",
+      ", got ",
+      block_groups_shape.size());
+
+  TORCH_CHECK(
+      block_groups_shape[0] == block_maxes_shape[0],
+      "block_groups tensor must be 1D tensor of size ",
+      block_maxes_shape[0],
+      ", got ",
+      block_groups_shape[0]);
+
+  if (is_fused_mult) {
+    const auto& fused_mult = stack_tensor(stack, 5);
+    adjustment_out_shape = fused_mult.sizes().vec();
+    TORCH_CHECK(
+        adjustment_out_shape.size() == input_dim,
+        "fused_mult_attn tensor must be ",
+        input_dim,
+        "-dimensional, got ",
+        adjustment_out_shape.size());
+  } else if (out_shape.has_value()) {
+    adjustment_out_shape = out_shape.value();
+  } else {
+    adjustment_out_shape = block_maxes_shape.vec();
+  }
+
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
+  meta.shape = adjustment_out_shape;
+  meta.dtype = out_dtype;
+
+  return metaVec;
+}
+
+FillParamsT BlockSoftmaxAdjustmentParams(const at::Stack& stack) {
+  const auto input_dtype = stack_tensor(stack, 0).scalar_type();
+  const auto is_fused_mult_attn = not stack.at(5).isNone();
+  const auto out_dtype = stack.at(7).toOptional<c10::ScalarType>().value_or(
+      stack_tensor(stack, 0).scalar_type());
+  const bool is_staged = stack.at(8).toBool();
+
+  PARAMS_STUB(ns_BlockSoftmaxAdjustment::ParamsV2);
+  params->batchSize = stack.at(3).toInt();
+
+  unsigned mode = BLOCK_SOFTMAX_ADJUSTMENT_MODE_DEFAULT_MODE;
+  if (out_dtype == at::ScalarType::Float8_e4m3fn) {
+    TORCH_CHECK(
+        input_dtype == at::ScalarType::BFloat16,
+        "When output_dtype is float8_e4m3fn, input_dtype must be bfloat16, got ",
+        input_dtype);
+    mode |= BLOCK_SOFTMAX_ADJUSTMENT_MODE_HF8_OUT;
+    params->outputScale = stack.at(6).toDouble();
+  }
+  if (is_fused_mult_attn) {
+    mode |= BLOCK_SOFTMAX_ADJUSTMENT_MODE_FUSED_MULT_ATTN;
+  }
+  if (is_staged) {
+    mode |= BLOCK_SOFTMAX_ADJUSTMENT_MODE_ADJUSTMENT_STAGE;
+  }
+
+  params->mode = static_cast<BlockSoftmaxAdjustmentMode_t>(mode);
+  return paramsT;
+}
+
+/* ======= block_softmax_staged_sum_max ======= */
+
+template <class DimT>
+std::tuple<std::vector<DimT>, std::vector<DimT>>
+BlockSoftmaxStagedSumMaxOutputSize(
+    c10::ArrayRef<DimT> block_maxes_shape,
+    const at::ScalarType block_maxes_dtype,
+    const int64_t batch_size) {
+  DimT common_dim{};
+  if (block_maxes_shape.size() == 5) {
+    common_dim =
+        block_maxes_shape[1] * block_maxes_shape[2] * block_maxes_shape[3];
+
+    if (habana::HPUDeviceContext::get_device().type() == synDeviceGaudi3) {
+      const int64_t vec_size =
+          (block_maxes_dtype == c10::ScalarType::Float) ? 64 : 128;
+      common_dim = CEIL_TO_VEC_SIZE(common_dim, vec_size);
+    }
+  } else if (block_maxes_shape.size() == 2) {
+    common_dim = block_maxes_shape[1];
+  } else {
+    TORCH_CHECK(
+        false,
+        "block_maxes tensor must be either 5D or 2D tensor, got ",
+        block_maxes_shape.size(),
+        "D tensor");
+  }
+
+  const std::vector<DimT> out_shape_maxes{block_maxes_shape[0], common_dim};
+  const std::vector<DimT> out_shape_sums{batch_size, common_dim};
+  return {out_shape_maxes, out_shape_sums};
+}
+
+sym_sizes_vec block_softmax_staged_sum_max_out_shape(
+    const std::vector<at::Tensor>& inputs,
+    const std::vector<int64_t>& params) {
+  HABANA_ASSERT(inputs.size() == 1);
+  HABANA_ASSERT(params.size() == 1);
+  const auto [out_shape_maxes, out_shape_sums] =
+      BlockSoftmaxStagedSumMaxOutputSize(
+          inputs[0].sym_sizes(), inputs[0].scalar_type(), params[0]);
+  return {out_shape_maxes, out_shape_sums};
+}
+
+REGISTER_CUSTOM_OP_OUTSHAPE_FUN(
+    block_softmax_staged_sum_max,
+    block_softmax_staged_sum_max_out_shape);
+
+OutputMetaDataVector BlockSoftmaxStagedSumMaxMeta(const at::Stack& stack) {
+  const auto& block_maxes = stack_tensor(stack, 0);
+  const auto [out_shape_maxes, out_shape_sums] =
+      BlockSoftmaxStagedSumMaxOutputSize(
+          block_maxes.sizes(), block_maxes.scalar_type(), stack.at(3).toInt());
+  const auto out_dtype = block_maxes.scalar_type();
+
+  OutputMetaData meta_maxes;
+  meta_maxes.shape = out_shape_maxes;
+  meta_maxes.dtype = out_dtype;
+
+  OutputMetaData meta_sums;
+  meta_sums.shape = out_shape_sums;
+  meta_sums.dtype = out_dtype;
+
+  return {meta_maxes, meta_sums};
+}
+
+FillParamsT BlockSoftmaxStagedSumMaxParams(const at::Stack& stack) {
+  PARAMS_STUB(ns_BlockSoftmaxAdjustment::ParamsV2);
+  params->batchSize = stack.at(3).toInt();
+  params->mode = static_cast<BlockSoftmaxAdjustmentMode_t>(
+      BLOCK_SOFTMAX_ADJUSTMENT_MODE_DEFAULT_MODE |
+      BLOCK_SOFTMAX_ADJUSTMENT_MODE_MAX_SUM_STAGES);
+  return paramsT;
 }
 
 } // namespace habana
-
-static auto& BlockSoftmaxAdjustmentKernelRegistry =
-    habana::KernelRegistry().REGISTER_HPU_BACKEND(
-        "hpu::block_softmax_adjustment",
-        habana::BlockSoftmaxAdjustmentOperator);

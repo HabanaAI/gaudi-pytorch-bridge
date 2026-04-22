@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
  */
 
 #include <limits>
+#include "backend/habana_operator.h"
 #include "generated/backend/log_normal.h"
 #include "generated/backend/normal.h"
 #include "generated/backend/random.h"
@@ -29,7 +30,7 @@ constexpr unsigned SIZE_INDEX = 2;
 constexpr unsigned DTYPE_INDEX = 4;
 constexpr unsigned LAYOUT_INDEX = 5;
 
-enum NormalVariant {
+enum NormalVariant : std::uint8_t {
   NORMAL_FF = 0,
   NORMAL_TF = 1,
   NORMAL_FT = 2,
@@ -48,10 +49,12 @@ OutputMetaDataVector NormalMetaCommon(
   size_t dtype_idx = DTYPE_INDEX + idx_shift;
   size_t layout_idx = LAYOUT_INDEX + idx_shift;
 
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   c10::ScalarType dtype;
   auto normal_variant =
-      (NormalVariant)(mean_ival.isTensor() + std_ival.isTensor() * 2);
+      (NormalVariant)(static_cast<int>(mean_ival.isTensor()) +
+                      (static_cast<int>(std_ival.isTensor()) * 2));
   if (stack.size() > DTYPE_INDEX) {
     dtype = stack.at(dtype_idx).toOptional<at::ScalarType>().value_or(
         at::get_default_dtype_as_scalartype());
@@ -79,7 +82,7 @@ OutputMetaDataVector NormalMetaCommon(
                       .toOptional<at::Layout>()
                       .value_or(at::Layout::Strided);
   }
-  return {meta};
+  return metaVec;
 }
 
 OutputMetaDataVector HabanaNormalMeta(const at::Stack& stack) {
@@ -101,13 +104,17 @@ FillParamsT RandomUniformParams(
   switch (type) {
     case at::ScalarType::Float: // [-(2^24), 2^24]
     case at::ScalarType::Double: // [-(2^53), 2^53]
-      params->high.f = to.has_value() ? *to : 1 << 24;
+      params->high.f =
+          to.has_value() ? *to : 1 << 24; // NOLINT(readability-magic-numbers)
       break;
     case at::ScalarType::Half: // [-(2^11), 2^11]
-      params->high.f = to.has_value() ? *to : 1 << 11;
+      params->high.f =
+          to.has_value() ? *to : 1 << 11; // NOLINT(readability-magic-numbers)
       break;
     case at::ScalarType::Short:
-      params->high.i = to.has_value() ? static_cast<int>(*to) : 1 << 15;
+      params->high.i = to.has_value()
+          ? static_cast<int>(*to)
+          : 1 << 15; // NOLINT(readability-magic-numbers)
       break;
     case at::ScalarType::Int: {
       params->high.i = to.has_value() ? static_cast<int>(*to)
@@ -129,8 +136,10 @@ FillParamsT RandomUniformParams(
       const auto value = to.has_value()
           ? static_cast<int64_t>(*to)
           : static_cast<int64_t>(max_safe_int64_f);
+      // NOLINTBEGIN(readability-magic-numbers)
       params->high_low_32_Bit = static_cast<int>(value & 0xFFFFFFFF);
       params->high_high_32_Bit = static_cast<int>(value >> 32);
+      // NOLINTEND(readability-magic-numbers)
     } break;
     case at::ScalarType::Bool:
       params->high.i = 2;
@@ -155,7 +164,8 @@ FillParamsT RandomUniformParams(
       break;
     case at::ScalarType::Long: {
       const int64_t value = from.has_value() ? static_cast<int64_t>(*from) : 0;
-      params->low_low_32_Bit = static_cast<int>(value & 0xFFFFFFFF);
+      params->low_low_32_Bit =
+          static_cast<int>(value & std::numeric_limits<unsigned int>::max());
       params->low_high_32_Bit = static_cast<int>(value >> 32);
     } break;
     case at::ScalarType::Bool:
@@ -248,7 +258,7 @@ synapse_helpers::tensor NormalTensorHelper(
   PARAMS_STUB(ns_RandomNormal::ParamsV2);
   params->mean = static_cast<float>(0.); // mean;
   params->stddev = static_cast<float>(1.); // stddev;
-  params->usePhilox = use_philox;
+  params->usePhilox = static_cast<int>(use_philox);
   op->CreateShapeTensorInput(graph, meta.dtype, meta.shape, inputs);
   auto normal = OpBackend::BuildNode(
       op,
@@ -348,7 +358,7 @@ synapse_helpers::tensor NormalFloatFloatHelper(
   PARAMS_STUB(ns_RandomNormal::ParamsV2);
   params->mean = static_cast<float>(mean);
   params->stddev = static_cast<float>(stddev);
-  params->usePhilox = use_philox;
+  params->usePhilox = static_cast<int>(use_philox);
 
   // Input tensors to random_normal_fwd are stddev and seed tensors
   std::vector<synTensor> inputs{nullptr, syn_seed_t};
@@ -369,13 +379,14 @@ SharedMetaDataVector NormalSharedMeta(
     habana_helpers::HabanaExecutionMode /*unused*/) {
   c10::ScalarType dtype = at::get_default_dtype_as_scalartype();
   auto normalVariant = static_cast<NormalVariant>(
-      stack.at(0).isTensor() + stack.at(1).isTensor() * 2);
+      static_cast<int>(stack.at(0).isTensor()) +
+      (static_cast<int>(stack.at(1).isTensor()) * 2));
   auto meanStddevRank = 1;
-  if (stack.size() > DTYPE_INDEX)
+  if (stack.size() > DTYPE_INDEX) {
     dtype = stack.at(DTYPE_INDEX)
                 .toOptional<at::ScalarType>()
                 .value_or(at::get_default_dtype_as_scalartype());
-  else if (normalVariant == NORMAL_TT) {
+  } else if (normalVariant == NORMAL_TT) {
     const auto& mean = stack.at(0).toTensor();
     const auto& stddev = stack.at(1).toTensor();
     dtype = at::result_type(mean, stddev);
@@ -391,19 +402,21 @@ SharedMetaDataVector NormalSharedMeta(
   }
 
   int64_t outputRank;
-  if (stack.at(0).isTensor())
+  if (stack.at(0).isTensor()) {
     outputRank = stack.at(0).toTensor().dim();
-  else if (stack.at(1).isTensor())
+  } else if (stack.at(1).isTensor()) {
     outputRank = stack.at(1).toTensor().dim();
-  else
+  } else {
     outputRank =
         static_cast<int64_t>(stack.at(SIZE_INDEX).toIntVector().size());
+  }
 
   std::optional<int64_t> seedTensorIndex = std::nullopt;
-  if (stack.at(stack.size() - 1).isTensor())
+  if (stack.at(stack.size() - 1).isTensor()) {
     seedTensorIndex = 2;
-  else if (normalVariant == NORMAL_FF && stack.at(3).isTensor())
+  } else if (normalVariant == NORMAL_FF && stack.at(3).isTensor()) {
     seedTensorIndex = 3;
+  }
 
   SharedMetaTensor seedTensorMeta = {1, c10::ScalarType::Int};
   if (seedTensorIndex.has_value() &&
@@ -414,13 +427,18 @@ SharedMetaDataVector NormalSharedMeta(
   }
 
   SharedMetaTensor commonTensor = {outputRank, dtype};
-  SharedMetaData randomSharedMeta;
+  SharedMetaDataVector randomSharedMetaVec;
+  randomSharedMetaVec.reserve(1);
   if (normalVariant == NORMAL_FF) {
-    randomSharedMeta.guid = "random_normal_fwd";
+    auto& randomSharedMeta =
+        randomSharedMetaVec.emplace_back("random_normal_fwd");
     randomSharedMeta.inputs_data.push_back(
         createOptionalNotPresentSharedMetaTensor());
+    randomSharedMeta.inputs_data.push_back(seedTensorMeta);
+    randomSharedMeta.outputs_data = {commonTensor};
   } else {
-    randomSharedMeta.guid = "random_normal_cguid_fwd";
+    auto& randomSharedMeta =
+        randomSharedMetaVec.emplace_back("random_normal_cguid_fwd");
     if (normalVariant == NORMAL_TT) {
       randomSharedMeta.inputs_data.emplace_back(meanStddevRank, dtype);
       randomSharedMeta.inputs_data.emplace_back(meanStddevRank, dtype);
@@ -433,11 +451,11 @@ SharedMetaDataVector NormalSharedMeta(
           createOptionalNotPresentSharedMetaTensor());
       randomSharedMeta.inputs_data.emplace_back(meanStddevRank, dtype);
     }
+    randomSharedMeta.inputs_data.push_back(seedTensorMeta);
+    randomSharedMeta.outputs_data = {commonTensor};
   }
-  randomSharedMeta.inputs_data.push_back(seedTensorMeta);
-  randomSharedMeta.outputs_data = {commonTensor};
 
-  return {randomSharedMeta};
+  return randomSharedMetaVec;
 }
 
 void NormalBE::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
@@ -446,7 +464,8 @@ void NormalBE::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   // the last element in the stack.
   // create the correct enum
   auto normal_variant =
-      (NormalVariant)(stack.at(0).isTensor() + stack.at(1).isTensor() * 2);
+      (NormalVariant)(static_cast<int>(stack.at(0).isTensor()) +
+                      (static_cast<int>(stack.at(1).isTensor()) * 2));
   synTensor syn_seed_t;
   if (stack.at(stack.size() - 1).isTensor()) { // eager mode
     if (normal_variant == NORMAL_TT) { // tensors = mean, stddev, seed
@@ -472,7 +491,7 @@ void NormalBE::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   PARAMS_STUB(ns_RandomNormal::ParamsV2);
   params->mean = 0.0F;
   params->stddev = 1.0F;
-  params->usePhilox = use_philox;
+  params->usePhilox = static_cast<int>(use_philox);
   if (normal_variant == NORMAL_TT) {
     syn_mean = syn_in(0);
     syn_std = syn_in(1);
@@ -499,10 +518,10 @@ SharedMetaDataVector RandomSeedTensorInputIntegersSharedMeta(
     const at::Stack& stack,
     habana_helpers::HabanaExecutionMode /*unused*/) {
   auto self = stack_tensor(stack, 0);
-  auto seed = stack.back();
+  const auto& seed = stack.back();
   SharedMetaTensor seedSharedTensor = {1, c10::ScalarType::Int};
   if (seed.isTensor()) {
-    const auto seedTensor = seed.toTensor();
+    const auto& seedTensor = seed.toTensor();
     seedSharedTensor = {seedTensor.dim(), seedTensor.scalar_type()};
   }
   auto dtype = self.scalar_type();
@@ -511,18 +530,18 @@ SharedMetaDataVector RandomSeedTensorInputIntegersSharedMeta(
       dtype == c10::ScalarType::Char || dtype == c10::ScalarType::Bool;
   auto computeDtype = convertToI16 ? c10::ScalarType::Short : dtype;
 
-  SharedMetaData randomSharedMeta{"random_uniform_pt_fwd"};
+  SharedMetaDataVector sharedMetaVec;
+  sharedMetaVec.reserve(2);
+  auto& randomSharedMeta = sharedMetaVec.emplace_back("random_uniform_pt_fwd");
   randomSharedMeta.inputs_data.emplace_back(self.dim(), computeDtype);
   randomSharedMeta.inputs_data.push_back(seedSharedTensor);
   randomSharedMeta.outputs_data.emplace_back(self.dim(), computeDtype);
   if (!convertToI16 && c10::isFloatingType(dtype)) {
-    SharedMetaData floorSharedMeta{"floor_fwd"};
+    auto& floorSharedMeta = sharedMetaVec.emplace_back("floor_fwd");
     floorSharedMeta.inputs_data = randomSharedMeta.outputs_data;
     floorSharedMeta.outputs_data = floorSharedMeta.inputs_data;
-    return {randomSharedMeta, floorSharedMeta};
-  } else {
-    return {randomSharedMeta};
   }
+  return sharedMetaVec;
 }
 
 SharedMetaDataVector RandomNormalSharedMeta(
@@ -703,8 +722,10 @@ HabanaNormal::HabanaNormal(int device_id, c10::ScalarType scalar_type)
 void HabanaNormal::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  auto normal_variant = (NormalVariant)(stack.at(MEAN_INDEX + 1).isTensor() +
-                                        stack.at(STD_INDEX + 1).isTensor() * 2);
+  auto normal_variant =
+      (NormalVariant)(static_cast<int>(stack.at(MEAN_INDEX + 1).isTensor()) +
+                      (static_cast<int>(stack.at(STD_INDEX + 1).isTensor()) *
+                       2));
   synTensor syn_seed_t = syn_in(0);
 
   if (normal_variant == NORMAL_FF) {
@@ -718,7 +739,7 @@ void HabanaNormal::AddNode(
   PARAMS_STUB(ns_RandomNormal::ParamsV2);
   params->mean = 0.0F;
   params->stddev = 1.0F;
-  params->usePhilox = use_philox;
+  params->usePhilox = static_cast<int>(use_philox);
   if (normal_variant == NORMAL_TT) {
     syn_mean = syn_in(1);
     syn_std = syn_in(2);
@@ -749,11 +770,12 @@ void HabanaNormal::AddNode(
 OutputMetaDataVector HabanaRandomMeta(const at::Stack& stack) {
   const auto& self = stack_tensor(stack, 1);
 
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.dtype = self.scalar_type();
   meta.shape = self.sizes().vec();
 
-  return {meta};
+  return metaVec;
 }
 
 HabanaRandom::HabanaRandom(int device_id, c10::ScalarType scalar_type)

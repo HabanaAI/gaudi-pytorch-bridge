@@ -56,10 +56,11 @@ OutputMetaDataVector ScatterAddMeta(const at::Stack& stack) {
     }
   }
 
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.dtype = selfTensor.scalar_type();
   meta.shape = selfTensor.sizes().vec();
 
-  return {meta};
+  return metaVec;
 }
 } // namespace habana

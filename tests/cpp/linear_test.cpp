@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,8 +30,6 @@ class LazyLinearTest : public habana_lazy_test::LazyTest {};
 TEST_F(LazyLinearTest, LinearBwdTest) {
   int out_features = 4;
   int in_features = 2;
-  int m = 2;
-  int n = 2;
 
   auto in = torch::randn({in_features}, torch::requires_grad());
   auto hin = in.to(torch::kHPU);

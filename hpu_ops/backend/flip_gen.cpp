@@ -30,16 +30,20 @@ SharedMetaDataVector FlipSharedMeta(
   auto dimList = stack.at(1).toIntList().vec();
   auto dimListSize = dimList.size();
   if (dimListSize == 0) {
-    SharedMetaData memcpySharedMeta("memcpy");
+    SharedMetaDataVector memcpySharedMetaVec;
+    memcpySharedMetaVec.reserve(1);
+    auto& memcpySharedMeta = memcpySharedMetaVec.emplace_back("memcpy");
     memcpySharedMeta.inputs_data = {{rank, dtype}};
     memcpySharedMeta.outputs_data = {{rank, dtype}};
-    return {memcpySharedMeta};
+    return memcpySharedMetaVec;
   }
 
-  SharedMetaData reverseSharedMeta(GUID);
+  SharedMetaDataVector reverseSharedMetaVec;
+  reverseSharedMetaVec.reserve(1);
+  auto& reverseSharedMeta = reverseSharedMetaVec.emplace_back(GUID);
   reverseSharedMeta.inputs_data = {{rank, dtype}, {1, at::ScalarType::Int}};
   reverseSharedMeta.outputs_data = {{rank, dtype}};
-  return {reverseSharedMeta};
+  return reverseSharedMetaVec;
 }
 
 void Flip::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
@@ -52,7 +56,7 @@ void Flip::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
       stack.at(1).isIntList(), "Input arg 2 for Flip op needs to be Int List");
 
   auto self = stack.at(0).toTensor();
-  auto ndim = self.dim();
+  auto rank = self.dim();
   std::vector<int64_t> dim_list = stack.at(1).toIntList().vec();
   auto dim_list_size = dim_list.size();
 
@@ -73,8 +77,8 @@ void Flip::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
   // Converting scalar dims to tensor
   for (size_t i = 0; i < dim_list_size - 1; i++) {
-    auto flip_axis = at::maybe_wrap_dim(dim_list[i], ndim, true);
-    flip_axis = static_cast<int64_t>(get_dim_in_tpc_order(flip_axis, ndim));
+    auto flip_axis = at::maybe_wrap_dim(dim_list[i], rank, true);
+    flip_axis = static_cast<int64_t>(get_dim_in_tpc_order(flip_axis, rank));
 
     auto const_dim = ConstantHelper(graph, flip_axis);
 
@@ -87,9 +91,9 @@ void Flip::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
     intermediate_output_itr.emplace_back(intermediate_output[0].get());
   }
   auto final_flip_axis =
-      at::maybe_wrap_dim(dim_list[dim_list_size - 1], ndim, true);
+      at::maybe_wrap_dim(dim_list[dim_list_size - 1], rank, true);
   final_flip_axis =
-      static_cast<int64_t>(get_dim_in_tpc_order(final_flip_axis, ndim));
+      static_cast<int64_t>(get_dim_in_tpc_order(final_flip_axis, rank));
 
   auto final_const_dim = ConstantHelper(graph, final_flip_axis);
 

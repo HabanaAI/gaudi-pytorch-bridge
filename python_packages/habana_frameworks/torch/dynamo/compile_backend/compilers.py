@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -49,15 +49,12 @@ _gen_graph_name.ordinal = 0
 
 
 def copy_graph_if_backward(original_graph_module, is_backward):
-    if is_backward:
-        # [SW-219941] / [https://github.com/pytorch/pytorch/pull/153827]
-        # In backward, we need to use the copy of graph module
-        # to avoid issues with the graph being modified in-place.
-        # There was issue that creating fused modules and
-        # input list caused problems with autograd graph.
-        graph_module = copy.deepcopy(original_graph_module)
-    else:
-        graph_module = original_graph_module
+    # [SW-219941] / [https://github.com/pytorch/pytorch/pull/153827]
+    # In backward, we need to use the copy of graph module
+    # to avoid issues with the graph being modified in-place.
+    # There was issue that creating fused modules and
+    # input list caused problems with autograd graph.
+    graph_module = copy.deepcopy(original_graph_module) if is_backward else original_graph_module
 
     return graph_module
 
@@ -142,7 +139,7 @@ def hpu_compiler_inner(
     """
     graph_module = copy_graph_if_backward(graph_module_org, is_backward)
 
-    if not is_training and str_to_bool(os.environ.get("PT_HPU_USE_FUSE_SDPA_PASS", False)):
+    if not is_training and str_to_bool(os.environ.get("PT_HPU_USE_FUSE_SDPA_PASS", "False")):
         # optimize the module before partitioning it
         # we will fuse the attention module here
         from habana_frameworks.torch.dynamo.compile_backend._passes.fuse_attention import (

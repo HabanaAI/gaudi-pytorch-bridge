@@ -14,15 +14,11 @@
  */
 
 #include "generated/lazy/embedding.h"
-#include "generated/lazy/embedding_dense_backward.h"
 
 namespace habana {
 
 bool EmbeddingFallbackCheck(bool scale_grad_by_freq, bool sparse) {
-  if (scale_grad_by_freq == true || sparse == true) {
-    return false;
-  } else
-    return true;
+  return !scale_grad_by_freq && !sparse;
 }
 
 } // namespace habana

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,8 +19,6 @@ class HpuOpTest : public HpuOpTestUtil {};
 
 TEST_F(HpuOpTest, flatten_dense_tensors_2_inputs) {
   GenerateInputs(2, {{64}, {64}}, torch::kBFloat16);
-
-  torch::ScalarType dtype = torch::kBFloat16;
 
   auto expected =
       torch::flatten_dense_tensors({GetCpuInput(0), GetCpuInput(1)});

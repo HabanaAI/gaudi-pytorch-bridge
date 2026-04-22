@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@ size_t getValuePosInStack(
     const torch::jit::Value* value) {
   auto graph_ins = graph->inputs();
   size_t idx = 0;
-  for (auto value_in : graph_ins) {
+  for (auto* value_in : graph_ins) {
     if (value->unique() == value_in->unique()) {
       return idx;
     }
@@ -166,7 +166,7 @@ void* GetDataInHostBuffer(
       return host_ptr;
     }
 
-    const auto value = node->input(uidx);
+    auto* const value = node->input(uidx);
     const auto index = getValuePosInStack(graph, value);
     // std::cout << "[GetDataInHostBuffer] idx := " << idx << std::endl <<
     // std::flush; std::cout << "[GetDataInHostBuffer] getValuePosInStack := "
@@ -180,7 +180,7 @@ void* GetDataInHostBuffer(
         if (tensor.has_storage()) {
           // std::cout << "[GetDataInHostBuffer] [" << idx << "] has_storage" <<
           // std::endl << std::flush;
-          auto tmeta{habana::get_tensor_extra_meta(tensor)};
+          auto* tmeta{habana::get_tensor_extra_meta(tensor)};
           host_ptr = tmeta->get_host_ptr();
           if (host_ptr == nullptr) {
             auto& device = habana::HPUDeviceContext::get_device();
@@ -221,7 +221,7 @@ void* GetDataInHostBuffer(
       if (tensor.has_storage()) {
         // std::cout << "[GetDataInHostBuffer] [" << idx << "] has_storage" <<
         // std::endl << std::flush;
-        auto tmeta{habana::get_tensor_extra_meta(tensor)};
+        auto* tmeta{habana::get_tensor_extra_meta(tensor)};
         host_ptr = tmeta->get_host_ptr();
         if (host_ptr == nullptr) {
           auto& device = habana::HPUDeviceContext::get_device();
@@ -265,7 +265,7 @@ void UpdateDataInDeviceMem(
     const auto index = getValuePosInStack(graph, value);
     tensor = stack[index].toTensor();
   } else {
-    auto value = node->input(0);
+    auto* value = node->input(0);
     auto index = getValuePosInStack(graph, value);
     tensor = stack[index].toTensor();
   }
@@ -297,40 +297,40 @@ void UpdateDataInDeviceMem(
 void RecalculateBatchnormParams(
     std::shared_ptr<torch::jit::Graph>& graph,
     torch::jit::Stack& stack) {
-  for (auto node : graph->nodes()) {
-    auto node_name = node->kind().toQualString();
+  for (auto* node : graph->nodes()) {
+    const auto* node_name = node->kind().toQualString();
     PT_BRIDGE_DEBUG("Node Name: ", node_name);
 
     if (strcmp(node_name, "hpu::native_batch_norm_inf") == 0) {
       PT_LAZY_DEBUG("[RecalculateBatchnormParams] [Apply]");
 
-      auto bn = node;
+      auto* bn = node;
       std::optional<size_t> idx_bias{1};
 
       habana::TensorExtraMeta* bn_b_tmeta_ptr{nullptr};
       habana::StorageExtraMeta* bn_b_smeta_ptr{nullptr};
       std::tie(bn_b_tmeta_ptr, bn_b_smeta_ptr) =
           GetBackEndTensorMeta(graph, stack, bn, idx_bias);
-      auto bn_b = GetDataInHostBuffer(graph, stack, bn, idx_bias);
-      if (!bn_b_tmeta_ptr || !bn_b) {
+      auto* bn_b = GetDataInHostBuffer(graph, stack, bn, idx_bias);
+      if ((bn_b_tmeta_ptr == nullptr) || (bn_b == nullptr)) {
         continue;
       }
 
       int idx_weight = 2;
-      auto bn_w = GetDataInHostBuffer(graph, stack, bn, idx_weight);
-      if (!bn_w) {
+      auto* bn_w = GetDataInHostBuffer(graph, stack, bn, idx_weight);
+      if (bn_w == nullptr) {
         continue;
       }
 
       int idx_running_mean = 3;
-      auto bn_rm = GetDataInHostBuffer(graph, stack, bn, idx_running_mean);
-      if (!bn_rm) {
+      auto* bn_rm = GetDataInHostBuffer(graph, stack, bn, idx_running_mean);
+      if (bn_rm == nullptr) {
         continue;
       }
 
       int idx_running_var = 4;
-      auto bn_rv = GetDataInHostBuffer(graph, stack, bn, idx_running_var);
-      if (!bn_rv) {
+      auto* bn_rv = GetDataInHostBuffer(graph, stack, bn, idx_running_var);
+      if (bn_rv == nullptr) {
         continue;
       }
 

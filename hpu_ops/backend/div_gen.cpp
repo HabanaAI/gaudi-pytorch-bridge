@@ -34,20 +34,23 @@ SharedMetaDataVector DivideSharedMeta(
     otherRank = 1;
   }
 
-  if (c10::isIntegralType(selfType, true))
+  if (c10::isIntegralType(selfType, true)) {
     selfType = GetCommonDtype({self, other}, true);
-
+  }
   auto resultType = GetResultDtype({self, other}, true);
   std::string guid = "div";
   if (selfType == at::ScalarType::Float &&
       IS_ENV_FLAG_DEFINED_NEW(PT_HPU_ENABLE_DIV_PRECISE) &&
-      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_DIV_PRECISE))
+      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_DIV_PRECISE)) {
     guid = "div_precise";
+  }
 
-  SharedMetaData divMeta{guid};
+  SharedMetaDataVector meta;
+  meta.reserve(1);
+  auto& divMeta = meta.emplace_back(guid);
   divMeta.inputs_data = {{selfRank, resultType}, {otherRank, resultType}};
   divMeta.outputs_data = {{std::max(selfRank, otherRank), resultType}};
-  return {divMeta};
+  return meta;
 }
 
 void Divide::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {

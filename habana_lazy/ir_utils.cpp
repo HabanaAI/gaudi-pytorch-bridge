@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,8 +19,10 @@
 namespace habana_lazy::ir {
 
 size_t Utils::StdHashCombine(uint64_t a, uint64_t b) {
+  // NOLINTBEGIN(readability-magic-numbers)
   return a ^
       (b * 0x27d4eb2f165667c5 + 0x9e3779b97f4a7c15 + (a << 6) + (a >> 2));
+  // NOLINTEND(readability-magic-numbers)
 }
 
 /*

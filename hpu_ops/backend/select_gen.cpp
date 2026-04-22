@@ -25,13 +25,13 @@ habana::sizes_vec SelectOutputShape(const at::Stack& stack) {
   const auto dim_unwrapped = stack[1].toInt();
   auto index = stack[2].toInt();
 
-  const auto ndim = self.dim();
-  if (ndim == 0) {
+  const auto rank = self.dim();
+  if (rank == 0) {
     TORCH_CHECK_INDEX(false, "slice() cannot be applied to a 0-dim tensor.");
   }
   auto sizes = self.sizes().vec();
 
-  const auto dim = static_cast<size_t>(at::maybe_wrap_dim(dim_unwrapped, ndim));
+  const auto dim = static_cast<size_t>(at::maybe_wrap_dim(dim_unwrapped, rank));
 
   if (index < 0) {
     index += sizes[dim];
@@ -77,11 +77,12 @@ sizes_vec SelectHpuOutputShape(const at::Stack& stack) {
 
 OutputMetaDataVector SelectHpuMeta(const at::Stack& stack) {
   auto self = stack[0].toTensor();
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.dtype = self.scalar_type();
   meta.shape = SelectHpuOutputShape(stack)[0];
 
-  return {meta};
+  return metaVec;
 }
 
 class SelectHpu : public OpBackend {

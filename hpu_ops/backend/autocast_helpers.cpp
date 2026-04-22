@@ -127,9 +127,9 @@ std::unordered_set<std::string> load_ops_list(
     const std::filesystem::path& path_to_list,
     const std::unordered_set<std::string>& default_list) {
   // Loading default empty path should silently return default list.
-  if (path_to_list.empty())
+  if (path_to_list.empty()) {
     return default_list;
-
+  }
   const auto verification_status = validate_ops_list_path(path_to_list);
   if (not verification_status.is_valid) {
     std::cerr << "[WARNING][PT_BRIDGE][AUTOCAST] "

@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,11 @@ import ctypes
 from collections.abc import Mapping
 
 import torch
+from torch.fx.graph_module import GraphModule
 from torch.fx.passes.infra.partitioner import CapabilityBasedPartitioner
 from torch.fx.passes.operator_support import OperatorSupport
+from torch.fx.passes.tools_common import stable_topological_sort
+from torch.fx.passes.utils.fuser_utils import erase_nodes, fuse_as_graphmodule, topo_sort
 
 
 class HabanaClusterOperatorSupport(OperatorSupport):
@@ -33,6 +36,48 @@ class HabanaPartitioner(CapabilityBasedPartitioner):
             sup_op(),
             allows_single_node_partition=True,
         )
+
+    def fuse_partitions(self, partitions, prefix: str = "fused_") -> GraphModule:
+        """Override upstream to support side-effect-only partitions (in-place ops)."""
+        for partition_id, partition in enumerate(partitions):
+            if not partition.nodes:
+                continue
+
+            sorted_nodes = topo_sort(list(partition.nodes))
+            sub_gm, orig_inputs, orig_outputs = fuse_as_graphmodule(
+                self.graph_module, sorted_nodes, prefix + str(partition_id), partition.nodes
+            )
+
+            # Insertion anchor: last output, or last partition node if side-effect only
+            anchor_candidates = orig_outputs or sorted_nodes
+            anchor = next(n for n in reversed(self.graph_module.graph.nodes) if n in anchor_candidates)
+
+            submod_name = sub_gm.__class__.__name__
+            self.graph_module.add_submodule(submod_name, sub_gm)
+
+            with self.graph_module.graph.inserting_after(anchor):
+                call = self.graph_module.graph.call_module(submod_name, args=orig_inputs)
+
+            if not orig_outputs:
+                call.meta["val"] = ()
+            else:
+                is_single = len(orig_outputs) == 1 and not isinstance(sub_gm.graph.output_node().args[0], tuple)
+                with self.graph_module.graph.inserting_before(call.next):
+                    if is_single:
+                        orig_outputs[0].replace_all_uses_with(call, propagate_meta=True)
+                    else:
+                        for i, out in enumerate(orig_outputs):
+                            out.replace_all_uses_with(
+                                torch.fx.Proxy(call)[i].node,
+                                propagate_meta=True,  # type: ignore
+                            )
+                        call.meta["val"] = tuple(out.meta.get("val") for out in orig_outputs)
+
+            erase_nodes(self.graph_module, sorted_nodes)
+
+        stable_topological_sort(self.graph_module)
+        self.graph_module.graph.lint()
+        return self.graph_module
 
 
 class NodeWrapper:

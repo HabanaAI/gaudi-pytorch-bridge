@@ -152,8 +152,9 @@ static auto get_platform_cast_map() {
 
 std::optional<std::string> habana_helpers::direct_cast_guid(
     std::pair<c10::ScalarType, c10::ScalarType> type_key) {
-  if (type_key.first == type_key.second)
+  if (type_key.first == type_key.second) {
     return "cast_identity";
+  }
   static auto cast_map{get_platform_cast_map()};
   auto iter = cast_map.find(type_key);
   if (iter != cast_map.end()) {

@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -38,10 +38,10 @@ from habana_frameworks.torch.utils.internal import Timer
 
 import torch
 import torch.fx
-from torch._inductor.pattern_matcher import stable_topological_sort
 from torch.fx.experimental.proxy_tensor import py_sym_types
 from torch.fx.node import map_arg
 from torch.fx.passes.operator_support import OperatorSupport
+from torch.fx.passes.tools_common import stable_topological_sort
 
 from ._helpers import (
     TensorInfoPropagation,
@@ -60,6 +60,7 @@ from ._helpers import (
 )
 from ._passes.batch_as_strided import batch_as_strided, group_batch_as_strided
 from ._passes.debug.insert_debug_nan_asserts import pass_insert_debug_nan_asserts
+from ._passes.fsdp2 import pass_remove_fsdp2_unsharded_param_graph_input_usage
 from ._passes.fuse_allreduce_calls import pass_fuse_collectives
 from ._passes.fuse_view_chains import pass_fuse_view_chains
 from ._passes.pattern_rewriter import pass_pattern_rewriter
@@ -76,6 +77,7 @@ from ._passes.utils import (
     SchedulePolicy,
 )
 from .cluster_compiler import pass_compile_clusters_jit_fork_version
+from .fx_graph_utils import remove_noop_alias_nodes
 from .partitioner import HabanaPartitioner
 from .random_utils import is_backward_checkpoint_op
 from .recipe_compiler import get_callable_recipe
@@ -125,6 +127,7 @@ def get_passes(stage: OptimizationPassPlacement):
             pass_annotate_nodes_and_inline_submodule,
             # These passes will be ran once, they always get and produce a flat graph without submodules.
             pass_graph_print,
+            pass_remove_fsdp2_unsharded_param_graph_input_usage,
             pass_reorder_custom_ops,
             pass_propose_collective_blocks,
             pass_fuse_collectives,
@@ -179,6 +182,7 @@ def get_passes(stage: OptimizationPassPlacement):
             # These passes will be ran once, they have to work on graph with submodules.
             pass_graph_print,
             pass_summarize_graph,
+            pass_remove_noop_alias,
             pass_check_eager_fallbacks,
             pass_detect_partition_in_to_out_duplicates,
             pass_propagate_reusable_input_info_to_submod_in_bwd,
@@ -306,8 +310,7 @@ def pass_reorder_collectives(ctx: OptimizerContext) -> bool:
             wt_move_target = n
         elif "wait_tensor" in str(n.target):
             wait_tensor_nodes.append(n)
-            for arg in n.all_input_nodes:
-                collective_nodes.append(arg)
+            collective_nodes.extend(n.all_input_nodes)
 
     for col_node in collective_nodes:
         upstream_nodes = col_node.all_input_nodes
@@ -708,7 +711,7 @@ def pass_annotate_nodes_and_inline_submodule(ctx: OptimizerContext) -> bool:
             # hints is empty, there is no more actions for node annotation
             logger.debug("no hints provided for node ", n)
         else:
-            for h in hints.keys():
+            for h in hints:
                 if h not in get_supported_hints():
                     logger.warn(
                         f"hint key '{h}' is not support yet hence expect to not take effect. Supported hint keys are {get_supported_hints()}"
@@ -727,18 +730,16 @@ def pass_annotate_nodes_and_inline_submodule(ctx: OptimizerContext) -> bool:
         if not is_hints_wrapper_node(node_to_replace):
             raise AssertionError("Not a hints wrapper node")
 
-        getitem_nodes_to_be_removed = []
-        for u in node_to_replace.users:
-            if u.op == "call_function" and u.target.__name__ == "getitem":
-                getitem_nodes_to_be_removed.append(u)
+        getitem_nodes_to_be_removed = [
+            u for u in node_to_replace.users if u.op == "call_function" and u.target.__name__ == "getitem"
+        ]
 
         node_args = node_to_replace.args
         # unpack input tensors
         new_node_args = []
         for arg in node_args:
             if isinstance(arg, tuple):
-                for a in arg:
-                    new_node_args.append(a)
+                new_node_args.extend(a for a in arg)
                 continue
             new_node_args.append(arg)
 
@@ -1215,7 +1216,7 @@ def post_process_partitions(
             return all(is_view_node(node) for node in part.nodes)
 
         partition_changed = False
-        for _id, partition in partitions_by_id.items():
+        for partition in partitions_by_id.values():
             if not is_partition_with_only_view_ops(partition):
                 continue
 
@@ -1268,7 +1269,6 @@ def pass_fuse_partitions(ctx: OptimizerContext) -> bool:
         raise AssertionError("Missing habana partitioner")
 
     ctx.habana_partitioner.fuse_partitions(ctx.current_partitions + ctx.current_partitions_non_mergeable)
-
     return True
 
 
@@ -1627,7 +1627,7 @@ def merge_paths(
 
     # Build color graph
     for node in graph_module.graph.nodes:
-        for user in node.users.keys():
+        for user in node.users:
             user_color = user.meta.get("merge_path_color")
             node_color = node.meta.get("merge_path_color")
             color_graph.add_node(user_color, node_color)
@@ -1697,14 +1697,8 @@ class resolve_negative_dim:
 
         if node_name in negative_dim_ops:
             if node_name in ["slice", "constant_pad_nd"]:
-                for node_in in node.args:
-                    if isinstance(node_in, torch.fx.Node):
-                        meta_val = node_in.meta.get("val", node_in.meta.get("tensor_meta", None))
-                        return True
-                return False
+                return any(isinstance(node_in, torch.fx.Node) for node_in in node.args)
             elif node_name == "view":
-                node_arg0 = node.args[0]
-                meta_val = node_arg0.meta.get("val", node.meta.get("tensor_meta", None))
                 in_args_1 = node.args[1]
                 # skip for non-iterable arg for example view(dtype)
                 if not hasattr(in_args_1, "__iter__"):
@@ -1733,7 +1727,6 @@ class resolve_negative_dim:
                 new_node.meta["output_device"] = torch.device("cpu")
                 for arg in node.args[1]:
                     new_args1.append(arg)
-                neg_node = new_args1[cls.view_dim_index]
                 new_args1[cls.view_dim_index] = new_node
             # replace call_function and recompile the graph
             with ctx.graph_module.graph.inserting_before(node):
@@ -2004,15 +1997,12 @@ def pass_detect_reusable_inputs_for_partition(ctx: OptimizerContext):
         in_to_out_dups = submod.meta["in_to_out_dups"]
         out_to_in_dups = {v: k for k, v in in_to_out_dups.items()}
 
-        if out_idx in out_to_in_dups:
-            return True
-
-        return False
+        return out_idx in out_to_in_dups
 
     def not_share_mem_with_others(node: Node):
         # make sure the tensor doesn't have any alias to easy the algo and ensure safety
         # TODO: consider more complex situations, and refer to the alias check in reinplacer
-        no_other_alias = not any((is_view_node(user) or is_inplaced_node(user)) for user in node.users.keys())
+        no_other_alias = not any((is_view_node(user) or is_inplaced_node(user)) for user in node.users)
         not_an_alias = not (is_view_node(node) or is_inplaced_node(node) or is_shared_with_partition_input(node))
         return no_other_alias and not_an_alias
 
@@ -2062,8 +2052,7 @@ def pass_stable_topological_sort(ctx: OptimizerContext):
     """
     This pass is supposed to run stable topological sort on the graph.
     """
-    graph = ctx.graph_module.graph
-    stable_topological_sort(graph)
+    stable_topological_sort(ctx.graph_module)
 
     ctx.graph_module.graph.lint()
     ctx.graph_module.recompile()
@@ -2288,11 +2277,11 @@ def pass_reinplace_inplaceable_ops(ctx: OptimizerContext) -> bool:
     the output of copy is the same view as allreduce then the combination
     is replace with all_reduce_ which is an inplace variant of collective
     """
-    graph_changed = False
     if not hpu_backend_config.use_inplace_allreduce or hpu_backend_config.use_generic_reinplacer:
-        return graph_changed
+        return False
 
-    def reinplace_collective_ops(gm: torch.fx.GraphModule):
+    def reinplace_collective_ops(gm: torch.fx.GraphModule) -> bool:
+        graph_changed = False
         replace_dict: dict[torch.fx.Node, torch.fx.Node] = {}
 
         for node in gm.graph.nodes:
@@ -2321,9 +2310,9 @@ def pass_reinplace_inplaceable_ops(ctx: OptimizerContext) -> bool:
 
         gm.recompile()
 
-    reinplace_collective_ops(ctx.graph_module)
+        return graph_changed
 
-    return graph_changed
+    return reinplace_collective_ops(ctx.graph_module)
 
 
 def pass_reinplace_inplaceable_ops_v2(ctx: OptimizerContext) -> bool:
@@ -2353,8 +2342,6 @@ def pass_reinplace_index_copy_ops(ctx: OptimizerContext) -> bool:
     graph_changed = False
     if not hpu_backend_config.use_inplace_index_copy or hpu_backend_config.use_generic_reinplacer:
         return graph_changed
-
-    graph = ctx.graph_module.graph
 
     def has_any_eager_users(node: torch.fx.Node):
         user_nodes = list(node.users.keys())
@@ -2460,10 +2447,7 @@ def pass_detect_partition_in_to_out_duplicates(ctx: OptimizerContext):
 
     # currently, we only consider the duplications caused by inplace op.
     def detect_in_to_out_duplicates(graph_module: torch.fx.GraphModule):
-        in_nodes = []
-        for node in graph_module.graph.nodes:
-            if node.op == "placeholder":
-                in_nodes.append(node)
+        in_nodes = [node for node in graph_module.graph.nodes if node.op == "placeholder"]
 
         in_to_out_dups = {}
         visited = set()
@@ -2571,13 +2555,25 @@ def pass_check_eager_fallbacks(ctx: OptimizerContext):
                 not in {
                     "operator.getitem",
                     "habana_frameworks.torch.dynamo.compile_backend.symbolic_execution.symexpr_python",
+                    "torch.ops.aten.alias.default",
                 }
                 and node._pretty_print_target(node.target) not in host_call_functions
             ) and node.meta["placement"] == "eager":
-                eager_nodes.append(str(node) + ":" + node._pretty_print_target(node.target))
+                eager_nodes.append(str(node) + ":" + node._pretty_print_target(node.target))  # noqa PERF401
         if not len(eager_nodes) == 0:
             raise AssertionError(f"Eager fallback in nodes: {eager_nodes}")
     return False
+
+
+def pass_remove_noop_alias(ctx: OptimizerContext) -> bool:
+    if ctx.graph_module is None:
+        raise AssertionError("Missing graph module")
+
+    return any(
+        remove_noop_alias_nodes(module)
+        for module in ctx.graph_module.modules()
+        if isinstance(module, torch.fx.GraphModule)
+    )
 
 
 def pass_inference_fuse_linear(ctx: OptimizerContext) -> bool:
@@ -2809,9 +2805,7 @@ def pass_remove_unnecessary_expand(ctx: OptimizerContext):
         if node.op == "call_function" and node.target == torch.ops.aten.expand.default:
             input_node, target_shape_params = node.args
             input_shape = get_node_shape(input_node)
-            target_shape = []
-            for dim in target_shape_params:
-                target_shape.append(get_node_shape(dim))
+            target_shape = [get_node_shape(dim) for dim in target_shape_params]
 
             if input_shape and list(input_shape) == target_shape:
                 for user in list(node.users.keys()):
@@ -2840,10 +2834,7 @@ def pass_make_boxed_graph(ctx: OptimizerContext) -> bool:
 
     # Step 1: make the graph input boxed, which is converting the non-list
     # inputs to a single list
-    orig_inputs = []
-    for node in ctx.graph_module.graph.nodes:
-        if node.op == "placeholder":
-            orig_inputs.append(node)
+    orig_inputs = [node for node in ctx.graph_module.graph.nodes if node.op == "placeholder"]
 
     with ctx.graph_module.graph.inserting_before():
         list_placeholder = ctx.graph_module.graph.placeholder("input_list", type_expr=list)
@@ -2895,14 +2886,15 @@ def pass_fix_arange_device(ctx: OptimizerContext):
         index: "f32[32, 64]" = torch.ops.aten.index.Tensor(arg0_1, [arange_start_step]);  arg0_1 = arange_start_step = None
         return index
     """
-    replace_node_list = []
-    for node in ctx.graph_module.graph.nodes:
-        if node.op == "call_function" and node.target in (
+
+    def should_replace(node):
+        return node.op == "call_function" and node.target in (
             torch.ops.aten.arange,
             torch.ops.aten.arange.start,
             torch.ops.aten.arange.start_step,
-        ):
-            replace_node_list.append(node)
+        )
+
+    replace_node_list = [node for node in ctx.graph_module.graph.nodes if should_replace(node)]
 
     graph_changed = False
     for node in replace_node_list:
@@ -2923,9 +2915,7 @@ def pass_fix_arange_device(ctx: OptimizerContext):
             node_device = node.meta["val"].device
             (user_device,) = user_devices
             if node_device.type != user_device.type:
-                repl_kwargs = {}
-                for k, v in node.kwargs.items():
-                    repl_kwargs[k] = v
+                repl_kwargs = dict(node.kwargs)
                 repl_kwargs["device"] = user_device
 
                 with ctx.graph_module.graph.inserting_before(node):

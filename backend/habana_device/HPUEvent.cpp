@@ -20,15 +20,17 @@
 
 namespace at::hpu {
 HPUEvent::~HPUEvent() {
-  if (is_created_ && habana::HPUDeviceContext::is_device_acquired())
-    habana::HPUDeviceContext::get_device().delete_event(id_, flags_);
+  if (is_created_ && habana::HPUDeviceContext::is_device_acquired()) {
+    habana::HPUDeviceContext::get_device().delete_event(
+        id_, static_cast<bool>(flags_));
+  }
 }
 
 void HPUEvent::createEvent([[maybe_unused]] DeviceIndex device_index) {
   // get device
   auto& dev = habana::HPUDeviceContext::get_device();
   device_index_ = static_cast<c10::DeviceIndex>(dev.id());
-  id_ = dev.create_event(flags_);
+  id_ = dev.create_event(static_cast<bool>(flags_));
   is_created_ = true;
   PT_DEVICE_DEBUG("created event with ::", id_);
 }
@@ -57,8 +59,9 @@ void HPUEvent::record() {
 }
 
 void HPUEvent::recordOnce(const c10::hpu::HPUStream& stream) {
-  if (!was_recorded_)
+  if (!was_recorded_) {
     record(stream);
+  }
 }
 
 // Note: hpuEventRecord must be called on the same device as the event.
@@ -91,7 +94,7 @@ void HPUEvent::record(const c10::hpu::HPUStream& stream) {
       PT_DEVICE_DEBUG("Reocrd Stream current and record stream are same");
       PT_IRGRAPH_DEBUG("step marker due to HPUEvent::record");
       habana_lazy::HbLazyTensor::StepMarker(
-          {}, nullptr, {}, (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SFG) == true));
+          {}, nullptr, {}, GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SFG));
     }
   } else if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 0) {
     c10::hpu::joinEagerThreadsCB();
@@ -104,7 +107,7 @@ void HPUEvent::record(const c10::hpu::HPUStream& stream) {
 
 // Note: hpuStreamWaitEvent must be called on the same device as the stream.
 // The event has no actual HPU resources associated with it.
-void HPUEvent::block(const c10::hpu::HPUStream& stream) {
+void HPUEvent::block(const c10::hpu::HPUStream& stream) const {
   if (is_created_) {
     if (stream.stream() == recorded_stream_) {
       return;

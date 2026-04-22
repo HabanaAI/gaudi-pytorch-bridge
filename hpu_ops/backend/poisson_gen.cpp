@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,18 +30,20 @@ SharedMetaDataVector PoissonSharedMeta(
   auto self = stack_tensor(stack, 0);
   auto selfDtype = self.scalar_type();
   auto rank = self.dim();
-  auto seed = stack.at(1);
+  const auto& seed = stack.at(1);
   SharedMetaTensor seedSharedTensor = {1, c10::ScalarType::Int};
   if (seed.isTensor()) {
-    const auto seedTensor = seed.toTensor();
+    const auto& seedTensor = seed.toTensor();
     seedSharedTensor = {seedTensor.dim(), seedTensor.scalar_type()};
   }
 
-  SharedMetaData poissonSharedMeta{"random_poisson_fwd"};
+  SharedMetaDataVector meta;
+  meta.reserve(1);
+  auto& poissonSharedMeta = meta.emplace_back("random_poisson_fwd");
   poissonSharedMeta.inputs_data.emplace_back(rank, selfDtype);
   poissonSharedMeta.inputs_data.push_back(seedSharedTensor);
   poissonSharedMeta.outputs_data.emplace_back(rank, selfDtype);
-  return {poissonSharedMeta};
+  return meta;
 }
 
 using namespace std::literals;

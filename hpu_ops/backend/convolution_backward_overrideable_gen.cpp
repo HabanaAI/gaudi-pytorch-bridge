@@ -12,6 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "backend/habana_operator.h"
 #include "backend/helpers/lowering_util.h"
 #include "backend/synapse_helpers/layout_utils.h"
 #include "generated/backend/convolution_backward_overrideable.h"
@@ -79,8 +80,10 @@ static synapse_helpers::tensor ComputeBiasGradGraph(
 
   std::vector<int64_t> dim_to_reduce;
   for (int64_t i = 0; i < grad_output.ndimension(); ++i) {
-    if (i != static_cast<int64_t>(channel_dim)) // skip C dimension
+    if (i != static_cast<int64_t>(channel_dim)) {
+      // skip C dimension
       dim_to_reduce.push_back(i);
+    }
   }
 
   auto num_dims_to_reduce = dim_to_reduce.size();
@@ -136,7 +139,7 @@ static synapse_helpers::tensor ComputeBiasGradGraph(
            sizeof(params)});
     }
 
-    synapse_helpers::tensor flattenOp = op->BuildFlatten(
+    synapse_helpers::tensor flattenOp = OpBackend::BuildFlatten(
         op,
         graph,
         syn_tmp[0].get(),
@@ -283,21 +286,28 @@ OutputMetaDataVector ConvolutionOverrideableMetaBwd(const at::Stack& stack) {
   auto output_mask_in = c10::List<bool>();
 
   auto elem = stack.at(9);
-  if (!elem.isBoolList())
+  if (!elem.isBoolList()) {
     elem = stack.at(10);
-  if (elem.isBoolList())
+  }
+  if (elem.isBoolList()) {
     output_mask_in = elem.toBoolList();
+  }
 
-  OutputMetaData input_meta = CreateMetaData(input, output_mask_in, 0);
-  OutputMetaData weight_meta = CreateMetaData(weight, output_mask_in, 1);
+  OutputMetaDataVector metaVec;
+  metaVec.reserve(3);
+  // input_meta
+  metaVec.emplace_back(CreateMetaData(input, output_mask_in, 0));
+
+  auto& weight_meta =
+      metaVec.emplace_back(CreateMetaData(weight, output_mask_in, 1));
   weight_meta.mem_format = at::MemoryFormat::Contiguous;
 
-  OutputMetaData grad_output_meta =
-      CreateMetaData(grad_output, output_mask_in, 2);
+  auto& grad_output_meta =
+      metaVec.emplace_back(CreateMetaData(grad_output, output_mask_in, 2));
   grad_output_meta.shape = std::vector<int64_t>{grad_output_meta.shape[1]};
   grad_output_meta.mem_format = at::MemoryFormat::Contiguous;
 
-  return {input_meta, weight_meta, grad_output_meta};
+  return metaVec;
 }
 
 SharedMetaDataVector ConvolutionBwdCommonSharedMeta(
@@ -322,90 +332,90 @@ SharedMetaDataVector ConvolutionBwdCommonSharedMeta(
   const bool is_conv_1d = inputRank == 3;
 
   SharedMetaDataVector convolutionBwdCommonSharedMeta;
+  convolutionBwdCommonSharedMeta.reserve(14);
 
-  auto expandSharedMeta = [](auto& rank, auto type) {
-    SharedMetaData expandSharedMeta("expand_dims");
+  auto addExpandSharedMeta = [&convolutionBwdCommonSharedMeta](
+                                 auto& rank, auto type) {
+    auto& expandSharedMeta =
+        convolutionBwdCommonSharedMeta.emplace_back("expand_dims");
     expandSharedMeta.inputs_data.emplace_back(rank, type);
     expandSharedMeta.outputs_data.emplace_back(++rank, type);
-    return expandSharedMeta;
   };
 
-  auto squeezeSharedMeta = [](auto rank, auto type) {
-    SharedMetaData squeezeSharedMeta("squeeze");
+  auto addSqueezeSharedMeta = [&convolutionBwdCommonSharedMeta](
+                                  auto rank, auto type) {
+    auto& squeezeSharedMeta =
+        convolutionBwdCommonSharedMeta.emplace_back("squeeze");
     squeezeSharedMeta.inputs_data.emplace_back(rank, type);
     squeezeSharedMeta.outputs_data.emplace_back(rank - 1, type);
-    return squeezeSharedMeta;
   };
 
   if (is_conv_1d) {
-    convolutionBwdCommonSharedMeta.push_back(
-        expandSharedMeta(gradRank, gradDtype));
-    convolutionBwdCommonSharedMeta.push_back(
-        expandSharedMeta(inputRank, inputDtype));
-    convolutionBwdCommonSharedMeta.push_back(
-        expandSharedMeta(weightRank, weightDtype));
+    addExpandSharedMeta(gradRank, gradDtype);
+    addExpandSharedMeta(inputRank, inputDtype);
+    addExpandSharedMeta(weightRank, weightDtype);
   }
 
   if (transposed) {
     if (output_mask_in[0]) {
-      SharedMetaData convSharedMeta("spatial_convolution");
+      auto& convSharedMeta =
+          convolutionBwdCommonSharedMeta.emplace_back("spatial_convolution");
       convSharedMeta.inputs_data.emplace_back(gradRank, gradDtype);
       convSharedMeta.inputs_data.emplace_back(weightRank, weightDtype);
       convSharedMeta.outputs_data.emplace_back(gradRank, gradDtype);
-      convolutionBwdCommonSharedMeta.push_back(convSharedMeta);
-      if (is_conv_1d)
-        convolutionBwdCommonSharedMeta.push_back(
-            squeezeSharedMeta(gradRank, gradDtype));
+      if (is_conv_1d) {
+        addSqueezeSharedMeta(gradRank, gradDtype);
+      }
     }
     if (output_mask_in[1]) {
-      SharedMetaData dedwSharedMeta(is_conv_3d ? "dedw3d" : "dedw");
+      auto& dedwSharedMeta = convolutionBwdCommonSharedMeta.emplace_back(
+          is_conv_3d ? "dedw3d" : "dedw");
       dedwSharedMeta.inputs_data.emplace_back(inputRank, inputDtype);
       dedwSharedMeta.inputs_data.emplace_back(gradRank, gradDtype);
       dedwSharedMeta.outputs_data.emplace_back(inputRank, inputDtype);
-      convolutionBwdCommonSharedMeta.push_back(dedwSharedMeta);
-      if (is_conv_1d)
-        convolutionBwdCommonSharedMeta.push_back(
-            squeezeSharedMeta(inputRank, inputDtype));
+      if (is_conv_1d) {
+        addSqueezeSharedMeta(inputRank, inputDtype);
+      }
     }
   } else {
     if (output_mask_in[0]) {
-      SharedMetaData dedxSharedMeta(is_conv_3d ? "dedx3d" : "dedx");
+      auto& dedxSharedMeta = convolutionBwdCommonSharedMeta.emplace_back(
+          is_conv_3d ? "dedx3d" : "dedx");
       dedxSharedMeta.inputs_data.emplace_back(gradRank, gradDtype);
       dedxSharedMeta.inputs_data.emplace_back(weightRank, weightDtype);
       dedxSharedMeta.outputs_data.emplace_back(gradRank, gradDtype);
-      convolutionBwdCommonSharedMeta.push_back(dedxSharedMeta);
-      if (is_conv_1d)
-        convolutionBwdCommonSharedMeta.push_back(
-            squeezeSharedMeta(gradRank, gradDtype));
+      if (is_conv_1d) {
+        addSqueezeSharedMeta(gradRank, gradDtype);
+      }
     }
     if (output_mask_in[1]) {
-      SharedMetaData dedwSharedMeta(is_conv_3d ? "dedw3d" : "dedw");
+      auto& dedwSharedMeta = convolutionBwdCommonSharedMeta.emplace_back(
+          is_conv_3d ? "dedw3d" : "dedw");
       dedwSharedMeta.inputs_data.emplace_back(gradRank, gradDtype);
       dedwSharedMeta.inputs_data.emplace_back(inputRank, inputDtype);
       dedwSharedMeta.outputs_data.emplace_back(gradRank, gradDtype);
-      convolutionBwdCommonSharedMeta.push_back(dedwSharedMeta);
-      if (is_conv_1d)
-        convolutionBwdCommonSharedMeta.push_back(
-            squeezeSharedMeta(gradRank, gradDtype));
+      if (is_conv_1d) {
+        addSqueezeSharedMeta(gradRank, gradDtype);
+      }
     }
   }
 
   if (output_mask_in[2]) {
     if (mode == habana_helpers::HabanaExecutionMode::EAGER) {
-      SharedMetaData reduceSumSharedMeta("reduce_sum_multi_dim");
+      auto& reduceSumSharedMeta =
+          convolutionBwdCommonSharedMeta.emplace_back("reduce_sum_multi_dim");
       reduceSumSharedMeta.inputs_data.emplace_back(gradRank, gradDtype);
       reduceSumSharedMeta.outputs_data.emplace_back(1, gradDtype);
-      convolutionBwdCommonSharedMeta.push_back(reduceSumSharedMeta);
     } else {
-      SharedMetaData reduceSumSharedMeta("reduce_sum_fwd");
+      auto& reduceSumSharedMeta =
+          convolutionBwdCommonSharedMeta.emplace_back("reduce_sum_fwd");
       reduceSumSharedMeta.inputs_data.emplace_back(gradRank, gradDtype);
       reduceSumSharedMeta.outputs_data.emplace_back(gradRank, gradDtype);
-      convolutionBwdCommonSharedMeta.push_back(reduceSumSharedMeta);
 
-      SharedMetaData flattenFwdSharedMeta("flatten_fwd");
+      auto& flattenFwdSharedMeta =
+          convolutionBwdCommonSharedMeta.emplace_back("flatten_fwd");
       flattenFwdSharedMeta.inputs_data.emplace_back(gradRank, gradDtype);
       flattenFwdSharedMeta.outputs_data.emplace_back(1, gradDtype);
-      convolutionBwdCommonSharedMeta.push_back(flattenFwdSharedMeta);
     }
   }
 
@@ -432,14 +442,14 @@ static int64_t ComputeOutputSize(
     const int64_t stride,
     const bool transposed) {
   if (!transposed) {
-    return (input_dim + 2 * padding - dilation * (kernel_size - 1) - 1) /
-        stride +
+    return ((input_dim + 2 * padding - dilation * (kernel_size - 1) - 1) /
+            stride) +
         1;
   } else {
     // conv2d fwd output shape computation done as per formula provided below
     // https://pytorch.org/docs/stable/generated/torch.nn.ConvTranspose2d.html#torch.nn.ConvTranspose2d
-    return (input_dim - 1) * stride - 2 * padding +
-        dilation * (kernel_size - 1) + 1;
+    return ((input_dim - 1) * stride) - (2 * padding) +
+        (dilation * (kernel_size - 1)) + 1;
   }
 }
 

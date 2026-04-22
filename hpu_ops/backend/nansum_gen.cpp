@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,11 +28,12 @@ OutputMetaDataVector NanSumIntListMeta(const at::Stack& stack) {
   }
   const bool keepdim = stack.at(2).toBool();
 
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.dtype =
       stack.at(3).toOptional<at::ScalarType>().value_or(self.scalar_type());
   meta.shape = ReduceOperator::compute_output_shape(self, dim, keepdim);
-  return {meta};
+  return metaVec;
 }
 
 SharedMetaDataVector NanSumSharedMeta(
@@ -41,9 +42,9 @@ SharedMetaDataVector NanSumSharedMeta(
   const auto& self = stack_tensor(stack, 0);
   auto computeDtype =
       stack.at(3).toOptional<at::ScalarType>().value_or(self.scalar_type());
-  if (c10::isIntegralType(computeDtype, true))
+  if (c10::isIntegralType(computeDtype, true)) {
     computeDtype = c10::ScalarType::Int;
-
+  }
   const auto inputRank = self.dim();
   int64_t outputRank = 1;
   const bool keepDim = stack.at(2).toBool();
@@ -56,8 +57,9 @@ SharedMetaDataVector NanSumSharedMeta(
     outputRank = inputRank;
   }
 
-  if (outputRank <= 0)
+  if (outputRank <= 0) {
     outputRank = 1;
+  }
 
   SharedMetaTensor commonTensor = {inputRank, computeDtype};
 
@@ -65,20 +67,24 @@ SharedMetaDataVector NanSumSharedMeta(
   // flow. In fact, this node is always created with a shape {1}, which is
   // supported by SAG.
 
-  SharedMetaData isNanSharedMeta{"isnan_fwd"};
+  SharedMetaDataVector nansumSharedMetaVec;
+  nansumSharedMetaVec.reserve(3);
+
+  auto& isNanSharedMeta = nansumSharedMetaVec.emplace_back("isnan_fwd");
   isNanSharedMeta.inputs_data = {commonTensor};
   isNanSharedMeta.outputs_data = {{inputRank, c10::ScalarType::Char}};
 
-  SharedMetaData whereSharedMeta{"where_fwd"};
+  auto& whereSharedMeta = nansumSharedMetaVec.emplace_back("where_fwd");
   whereSharedMeta.inputs_data = {
       isNanSharedMeta.outputs_data[0], commonTensor, commonTensor};
   whereSharedMeta.outputs_data = {commonTensor};
 
-  SharedMetaData reduceSharedMeta{"reduce_sum_multi_dim_fwd"};
+  auto& reduceSharedMeta =
+      nansumSharedMetaVec.emplace_back("reduce_sum_multi_dim_fwd");
   reduceSharedMeta.inputs_data = {commonTensor};
   reduceSharedMeta.outputs_data.emplace_back(outputRank, computeDtype);
 
-  return {isNanSharedMeta, whereSharedMeta, reduceSharedMeta};
+  return nansumSharedMetaVec;
 }
 
 void NansumList::AddNode(
@@ -89,9 +95,9 @@ void NansumList::AddNode(
   const auto& inputShape = self.sizes();
   auto inputType = self.scalar_type();
   std::vector<int64_t> dim;
-  if (!stack.at(1).isNone())
+  if (!stack.at(1).isNone()) {
     dim = stack.at(1).toIntVector();
-
+  }
   auto keepDim = stack.at(2).toBool();
   auto params = FillReductionParams(self.dim(), dim, keepDim);
 
@@ -104,7 +110,7 @@ void NansumList::AddNode(
     castedInput = OpBackend::BuildCast(
         this, graph, syn_in(0), inputShape, inputType, compute_type);
   }
-  auto input = castedInput.has_value() ? castedInput.value().get() : syn_in(0);
+  auto* input = castedInput.has_value() ? castedInput.value().get() : syn_in(0);
 
   using namespace std::literals;
   // isNan on input

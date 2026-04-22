@@ -41,11 +41,12 @@ idx_t normalize_idx(idx_t idx, size_t size) {
 OutputMetaDataVector SliceBackwardMeta(const at::Stack& stack) {
   auto self = stack[0].toTensor();
 
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.dtype = self.scalar_type();
   meta.shape = stack[1].toIntList().vec();
 
-  return {meta};
+  return metaVec;
 }
 
 SharedMetaDataVector SliceBwdSharedMeta(
@@ -63,17 +64,21 @@ SharedMetaDataVector SliceBwdSharedMeta(
             std::end(inputSizes),
             1,
             std::multiplies<int>()) > 1) {
-      SharedMetaData constantSharedMeta{"constant"};
+      SharedMetaDataVector meta;
+      meta.reserve(1);
+      auto& constantSharedMeta = meta.emplace_back("constant");
       constantSharedMeta.outputs_data.emplace_back(rank, dtype);
-      return {constantSharedMeta};
+      return meta;
     }
     return {};
   } else {
-    SharedMetaData stridedSliceGrad{"strided_slice_grad"};
+    SharedMetaDataVector meta;
+    meta.reserve(1);
+    auto& stridedSliceGrad = meta.emplace_back("strided_slice_grad");
     stridedSliceGrad.inputs_data.emplace_back(rank, dtype);
     stridedSliceGrad.outputs_data.emplace_back(rank, dtype);
 
-    return {stridedSliceGrad};
+    return meta;
   }
 }
 

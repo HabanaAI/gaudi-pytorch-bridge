@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -71,7 +71,7 @@ inline int GetTrilNumel(int row, int col, int offset) {
   // number of elements in the first row of the tril
   auto mFirstRow = offset > 0 ? std::min<int>(col, 1 + offset)
                               : // upper bounded by col
-      row + offset > 0; // either 0 or 1
+      static_cast<int>(row + offset > 0); // either 0 or 1
   // number of elements in the last row of the tril, bounded by [0, col]
   auto mLastRow = std::max<int>(0, std::min<int>(col, row + offset));
   // number of rows, bounded by [0, row]
@@ -90,7 +90,7 @@ inline int GetTrilNumel(int row, int col, int offset) {
 }
 
 inline int GetTriuNumel(int row, int col, int offset) {
-  return row * col - GetTrilNumel(row, col, offset - 1);
+  return (row * col) - GetTrilNumel(row, col, offset - 1);
 }
 
 OutputMetaDataVector TriluIndicesMeta(
@@ -110,12 +110,11 @@ OutputMetaDataVector TriluIndicesMeta(
   const auto numel = lowerTriangle ? GetTrilNumel(row, col, offset)
                                    : GetTriuNumel(row, col, offset);
 
-  std::vector<int64_t> out_shape = {2, numel};
-
-  OutputMetaData meta;
-  meta.shape = out_shape;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
+  meta.shape = {2, numel};
   meta.dtype = out_dtype;
-  return {meta};
+  return metaVec;
 }
 
 OutputMetaDataVector TrilIndicesMeta(const at::Stack& stack) {
@@ -137,9 +136,11 @@ SharedMetaDataVector TrilTriuIndicesSharedMeta(
     habana_helpers::HabanaExecutionMode /*unused*/) {
   const auto dtype =
       stack.at(3).toOptional<at::ScalarType>().value_or(at::ScalarType::Long);
-  SharedMetaData triluIndicesMeta{"trilu_indices"};
+  SharedMetaDataVector meta;
+  meta.reserve(1);
+  auto& triluIndicesMeta = meta.emplace_back("trilu_indices");
   triluIndicesMeta.outputs_data.emplace_back(2, dtype);
-  return {triluIndicesMeta};
+  return meta;
 }
 
 void TriluIndices::AddNode(

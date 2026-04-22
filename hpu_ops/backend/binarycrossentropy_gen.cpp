@@ -26,35 +26,40 @@ namespace habana {
 
 OutputMetaDataVector BinaryCrossEntropyFwdMetaData(const at::Stack& stack) {
   auto self = stack.at(index_of_fwd_self).toTensor();
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.dtype = self.scalar_type();
   auto reduction = stack.at(index_of_fwd_mode).toInt();
-  if (reduction == at::Reduction::Reduction::None)
+  if (reduction == at::Reduction::Reduction::None) {
     meta.shape = self.sizes().vec();
-  else
+  } else {
     meta.shape = {};
-  return {meta};
+  }
+  return metaVec;
 }
 
 OutputMetaDataVector BinaryCrossEntropyWithLogitsFwdMetaData(
     const at::Stack& stack) {
   auto self = stack.at(index_of_fwd_self).toTensor();
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.dtype = self.scalar_type();
   auto reduction = stack.at(index_of_fwd_reduction).toInt();
-  if (reduction == at::Reduction::Reduction::None)
+  if (reduction == at::Reduction::Reduction::None) {
     meta.shape = self.sizes().vec();
-  else
+  } else {
     meta.shape = {};
-  return {meta};
+  }
+  return metaVec;
 }
 
 OutputMetaDataVector BinaryCrossEntropyBwdMetaData(const at::Stack& stack) {
   auto self = stack.at(index_of_bwd_self).toTensor();
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.dtype = self.scalar_type();
   meta.shape = self.sizes().vec();
-  return {meta};
+  return metaVec;
 }
 
 SharedMetaDataVector BinaryCrossEntropyFwdSharedMeta(
@@ -68,15 +73,18 @@ SharedMetaDataVector BinaryCrossEntropyFwdSharedMeta(
   auto outputRank =
       reduction == at::Reduction::Reduction::None ? self.dim() : 1;
 
-  SharedMetaData binaryCrossEntropyFwdSharedMeta{"binary_cross_entropy_fwd"};
+  SharedMetaDataVector binaryCrossEntropyFwdVec;
+  binaryCrossEntropyFwdVec.reserve(1);
+  auto& binaryCrossEntropyFwdSharedMeta =
+      binaryCrossEntropyFwdVec.emplace_back("binary_cross_entropy_fwd");
   binaryCrossEntropyFwdSharedMeta.inputs_data = {
       {self.dim(), dtype}, {target.dim(), dtype}};
-  if (weights.has_value())
+  if (weights.has_value()) {
     binaryCrossEntropyFwdSharedMeta.inputs_data.emplace_back(
         target.dim(), dtype);
-
+  }
   binaryCrossEntropyFwdSharedMeta.outputs_data.emplace_back(outputRank, dtype);
-  return {binaryCrossEntropyFwdSharedMeta};
+  return binaryCrossEntropyFwdVec;
 }
 
 SharedMetaDataVector BinaryCrossEntropyWithLogitsFwdSharedMeta(
@@ -92,21 +100,24 @@ SharedMetaDataVector BinaryCrossEntropyWithLogitsFwdSharedMeta(
   auto outputRank =
       reduction == at::Reduction::Reduction::None ? self.dim() : 1;
 
-  SharedMetaData binaryCrossEntropyWithLogitsFwdSharedMeta{
-      "binary_cross_entropy_fwd"};
+  SharedMetaDataVector binaryCrossEntropyWithLogitsFwdVec;
+  binaryCrossEntropyWithLogitsFwdVec.reserve(1);
+  auto& binaryCrossEntropyWithLogitsFwdSharedMeta =
+      binaryCrossEntropyWithLogitsFwdVec.emplace_back(
+          "binary_cross_entropy_fwd");
   binaryCrossEntropyWithLogitsFwdSharedMeta.inputs_data = {
       {self.dim(), dtype}, {target.dim(), dtype}};
-  if (posWeights.has_value())
+  if (posWeights.has_value()) {
     binaryCrossEntropyWithLogitsFwdSharedMeta.inputs_data.emplace_back(
         posWeights.value().dim(), dtype);
-
-  if (weights.has_value())
+  }
+  if (weights.has_value()) {
     binaryCrossEntropyWithLogitsFwdSharedMeta.inputs_data.emplace_back(
         target.dim(), dtype);
-
+  }
   binaryCrossEntropyWithLogitsFwdSharedMeta.outputs_data.emplace_back(
       outputRank, dtype);
-  return {binaryCrossEntropyWithLogitsFwdSharedMeta};
+  return binaryCrossEntropyWithLogitsFwdVec;
 }
 
 SharedMetaDataVector BinaryCrossEntropyBwdSharedMeta(
@@ -119,23 +130,26 @@ SharedMetaDataVector BinaryCrossEntropyBwdSharedMeta(
   auto rank = self.dim();
   auto dtype = self.scalar_type();
 
-  SharedMetaData negGradSharedMeta{"neg_fwd"};
+  SharedMetaDataVector binaryCrossEntropyBwdVec;
+  binaryCrossEntropyBwdVec.reserve(2);
+  auto& negGradSharedMeta = binaryCrossEntropyBwdVec.emplace_back("neg_fwd");
   negGradSharedMeta.inputs_data.emplace_back(grad.dim(), dtype);
   negGradSharedMeta.outputs_data = {negGradSharedMeta.inputs_data[0]};
 
-  SharedMetaData binaryCrossEntropyBwdSharedMeta{"binary_cross_entropy_bwd"};
+  auto& binaryCrossEntropyBwdSharedMeta =
+      binaryCrossEntropyBwdVec.emplace_back("binary_cross_entropy_bwd");
   binaryCrossEntropyBwdSharedMeta.inputs_data = {
       {rank, dtype}, {target.dim(), dtype}};
-  if (weights.has_value())
+  if (weights.has_value()) {
     binaryCrossEntropyBwdSharedMeta.inputs_data.emplace_back(
         weights.value().dim(), dtype);
-
+  }
   binaryCrossEntropyBwdSharedMeta.inputs_data.push_back(
       negGradSharedMeta.outputs_data[0]);
 
   binaryCrossEntropyBwdSharedMeta.outputs_data.emplace_back(rank, dtype);
 
-  return {negGradSharedMeta, binaryCrossEntropyBwdSharedMeta};
+  return binaryCrossEntropyBwdVec;
 }
 
 static FillParamsT BceParams(

@@ -919,60 +919,6 @@ PT_HPU_ENABLE_H2D_SCALES:
   doc: "When this flag is enabled, CPU scales in cast_to_fp8_v2, cast_from_fp8, fp8_gemm_v2,
         fp8_sdpa and mixture_of_experts ops are converted to H2D tensors."
 
-PT_HPU_PT2EQ_SCALE_LOAD_PATH:
-  default: ""
-  settable: true
-  constraints:
-    type: filepath
-    value: is_dir & is_create=false
-  doc: "This is the PT2E quantization scale path. During inference scales are loaded from this path
-        which is saved after calibration."
-
-PT_HPU_PT2EQ_SCALE_DUMP_PATH:
-  default: ""
-  settable: true
-  constraints:
-    type: filepath
-    value: is_dir & is_create=false
-  doc: "This is the path PT2E quantization scales are dumped after calibration."
-
-PT_HPU_PT2EQ_FX_GRAPH_PATTERN_MATCHING:
-  type: bool
-  default: false
-  settable: true
-  doc: "This flag is to enable FX graph pattern matching for quantized operations at bridge.
-        If bridge pattern matching is not enabled, synapse pattern matching will get activated."
-
-PT_HPU_PT2EQ_FSDPA_QUANT:
-  type: bool
-  default: true
-  settable: true
-  doc: "This flag is to enable FP8 FSDPA in the PT2E inference flow."
-
-PT_HPU_PT2EQ_USE_EXPORT_PROGRAM:
-  type: bool
-  default: false
-  settable: true
-  doc: "This flag enables the usage of export program in the PT2E quant backend."
-
-PT_HPU_PT2EQ_FX_GRAPH_FREEZING:
-  type: bool
-  default: true
-  settable: true
-  doc: "This flag enable bridge graph freezing by default in the PT2E quant backend."
-
-PT_HPU_PT2EQ_KVCQ:
-  type: bool
-  default: true
-  settable: true
-  doc: "This flag enable KVCache quantization and KV cache pattern matching in PT2E quant backend."
-
-PT_HPU_PT2EQ_USE_WEIGHT_PCQ:
-  type: bool
-  default: false
-  settable: true
-  doc: "This flag enable PCQ Weight quantization in PT2E quant backend."
-
 PT_HPU_PRINT_DEVICE_CONFIG:
   type: bool
   default: false

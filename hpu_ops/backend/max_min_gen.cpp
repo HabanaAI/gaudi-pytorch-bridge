@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 
+#include "backend/habana_operator.h"
 #include "generated/backend/max.h"
 #include "generated/backend/min.h"
 #include "hpu_ops/backend/reduction_template.h"
@@ -22,10 +23,11 @@ namespace habana {
 OutputMetaDataVector ReduceMinMaxMeta(const at::Stack& stack) {
   const auto self = stack.at(0).toTensor();
 
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.dtype = self.scalar_type();
   meta.shape = {};
-  return {meta};
+  return metaVec;
 }
 
 FillParamsT FillMinMaxParams(const at::Stack& /*unused*/) {
@@ -48,17 +50,18 @@ OutputMetaDataVector MinMaxMeta(const at::Stack& stack) {
   auto outputShape = MinMaxOutputShape(stack)[0];
   auto memoryFormat = self.suggest_memory_format();
 
-  OutputMetaData metaMinMax;
+  OutputMetaDataVector metaVec(2);
+  auto& metaMinMax = metaVec[0];
   metaMinMax.shape = outputShape;
   metaMinMax.mem_format = memoryFormat;
   metaMinMax.dtype = self.scalar_type();
 
-  OutputMetaData metaIndices;
+  auto& metaIndices = metaVec[1];
   metaIndices.shape = outputShape;
   metaIndices.mem_format = memoryFormat;
   metaIndices.dtype = c10::ScalarType::Long;
 
-  return {metaMinMax, metaIndices};
+  return metaVec;
 }
 
 SharedMetaDataVector MinMaxSharedMeta(
@@ -68,14 +71,18 @@ SharedMetaDataVector MinMaxSharedMeta(
   auto dtype = self.scalar_type();
   const auto rank = self.dim();
 
-  if (c10::isIntegralType(dtype, true))
+  if (c10::isIntegralType(dtype, true)) {
     dtype = c10::ScalarType::Int;
+  }
 
-  SharedMetaData reduceMinMaxMultiDimFwdSharedMeta{guid};
-  reduceMinMaxMultiDimFwdSharedMeta.options.allowLongType = true;
+  SharedMetaDataVector reduceMinMaxMultiDimFwdSharedMetaVec;
+  reduceMinMaxMultiDimFwdSharedMetaVec.reserve(1);
+  auto& reduceMinMaxMultiDimFwdSharedMeta =
+      reduceMinMaxMultiDimFwdSharedMetaVec.emplace_back(guid);
+  reduceMinMaxMultiDimFwdSharedMeta.options.allow_long_type = true;
   reduceMinMaxMultiDimFwdSharedMeta.inputs_data.emplace_back(rank, dtype);
   reduceMinMaxMultiDimFwdSharedMeta.outputs_data.emplace_back(1, dtype);
-  return {reduceMinMaxMultiDimFwdSharedMeta};
+  return reduceMinMaxMultiDimFwdSharedMetaVec;
 }
 
 SharedMetaDataVector MinMaxDimSharedMeta(
@@ -86,20 +93,24 @@ SharedMetaDataVector MinMaxDimSharedMeta(
   const auto selfDim = self.dim();
   const bool keepDim = stack.at(2).toBool();
 
-  if (c10::isIntegralType(dtype, true))
+  if (c10::isIntegralType(dtype, true)) {
     dtype = c10::ScalarType::Int;
-
+  }
   auto outputDim = selfDim;
-  if (!keepDim && outputDim > 1)
+  if (!keepDim && outputDim > 1) {
     --outputDim;
+  }
 
-  SharedMetaData reduceMinMaxMultiDimFwdSharedMeta{guid};
-  reduceMinMaxMultiDimFwdSharedMeta.options.allowLongType = true;
+  SharedMetaDataVector reduceMinMaxMultiDimFwdSharedMetaVec;
+  reduceMinMaxMultiDimFwdSharedMetaVec.reserve(1);
+  auto& reduceMinMaxMultiDimFwdSharedMeta =
+      reduceMinMaxMultiDimFwdSharedMetaVec.emplace_back(guid);
+  reduceMinMaxMultiDimFwdSharedMeta.options.allow_long_type = true;
   reduceMinMaxMultiDimFwdSharedMeta.inputs_data.emplace_back(selfDim, dtype);
   reduceMinMaxMultiDimFwdSharedMeta.outputs_data.emplace_back(outputDim, dtype);
   reduceMinMaxMultiDimFwdSharedMeta.outputs_data.emplace_back(
       outputDim, c10::ScalarType::Long);
-  return {reduceMinMaxMultiDimFwdSharedMeta};
+  return reduceMinMaxMultiDimFwdSharedMetaVec;
 }
 
 SharedMetaDataVector MinSharedMeta(
@@ -143,8 +154,9 @@ void MinMax::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto precisionType = ScalarType();
 
   if (c10::isIntegralType(precisionType, true) &&
-      precisionType != c10::ScalarType::Long)
+      precisionType != c10::ScalarType::Long) {
     update_guid_dtype(guid_, c10::ScalarType::Int);
+  }
 
   auto result = BuildOp(
       graph,
@@ -170,8 +182,9 @@ void MinMaxOut::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto precisionType = ScalarType();
 
   if (c10::isIntegralType(precisionType, true) &&
-      precisionType != c10::ScalarType::Long)
+      precisionType != c10::ScalarType::Long) {
     update_guid_dtype(guid_, c10::ScalarType::Int);
+  }
 
   auto result = OpBackend::BuildNode(
       this,

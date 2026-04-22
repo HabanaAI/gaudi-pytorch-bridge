@@ -31,14 +31,12 @@ OutputMetaDataVector AdaptiveMaxPool2DMeta(const at::Stack& stack) {
       "AdaptiveMaxPool2D requires input tensor with at least 3 dimensions, but got ",
       self.dim());
 
-  std::vector<int64_t> output_shape(self.sizes().vec());
-  output_shape.at(output_shape.size() - 2) = output_size[0];
-  output_shape.at(output_shape.size() - 1) = output_size[1];
-
   OutputMetaDataVector meta(2);
-  meta[0].shape = output_shape;
+  meta[0].shape = self.sizes().vec();
+  meta[0].shape.at(meta[0].shape.size() - 2) = output_size[0];
+  meta[0].shape.at(meta[0].shape.size() - 1) = output_size[1];
   meta[0].dtype = self.scalar_type();
-  meta[1].shape = output_shape;
+  meta[1].shape = meta[0].shape;
   meta[1].dtype = at::kLong;
 
   return meta;
@@ -53,15 +51,13 @@ OutputMetaDataVector AdaptiveMaxPool3DMeta(const at::Stack& stack) {
       "AdaptiveMaxPool3D requires input tensor with at least 4 dimensions, but got ",
       self.dim());
 
-  std::vector<int64_t> output_shape(self.sizes().vec());
-  output_shape.at(output_shape.size() - 3) = output_size[0];
-  output_shape.at(output_shape.size() - 2) = output_size[1];
-  output_shape.at(output_shape.size() - 1) = output_size[2];
-
   OutputMetaDataVector meta(2);
-  meta[0].shape = output_shape;
+  meta[0].shape = self.sizes().vec();
+  meta[0].shape.at(meta[0].shape.size() - 3) = output_size[0];
+  meta[0].shape.at(meta[0].shape.size() - 2) = output_size[1];
+  meta[0].shape.at(meta[0].shape.size() - 1) = output_size[2];
   meta[0].dtype = self.scalar_type();
-  meta[1].shape = output_shape;
+  meta[1].shape = meta[0].shape;
   meta[1].dtype = at::kLong;
 
   return meta;
@@ -148,12 +144,14 @@ SharedMetaDataVector AdaptiveMaxPoolCommonSharedMeta(
   const auto dtype = self.scalar_type();
   const auto index_type = computeKernelIndexType(self);
 
-  SharedMetaData maxPoolWithIndicesSharedMeta{guid};
+  SharedMetaDataVector meta;
+  meta.reserve(1);
+  auto& maxPoolWithIndicesSharedMeta = meta.emplace_back(guid);
   maxPoolWithIndicesSharedMeta.inputs_data.emplace_back(rank, dtype);
   maxPoolWithIndicesSharedMeta.outputs_data = {
       {rank, index_type}, {rank, dtype}};
 
-  return {maxPoolWithIndicesSharedMeta};
+  return meta;
 }
 
 SharedMetaDataVector AdaptiveMaxPool2DSharedMeta(

@@ -36,4 +36,9 @@ namespace shim {
     }                                                                       \
   } while (0)
 // NOLINTEND(bugprone-macro-parentheses)
+
+#define INIT_FUNC_PTR(func)                          \
+  (func) = (decltype(func))dlsym(lib_handle, #func); \
+  CHECK_NULL(func)
+
 } // namespace shim

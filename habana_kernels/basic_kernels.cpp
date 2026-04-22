@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,7 +39,7 @@ using namespace habana;
 
 namespace {
 void print_stride_warning(const Tensor& src, const Tensor& dst) {
-  if (src.strides() != dst.strides())
+  if (src.strides() != dst.strides()) {
     PT_KERNEL_DEBUG(
         "src device: ",
         src.device(),
@@ -54,6 +54,7 @@ void print_stride_warning(const Tensor& src, const Tensor& dst) {
         " dst.sizes(): ",
         dst.sizes(),
         "\nData will be copied with with basic memcopy so you can expect wrong results");
+  }
 }
 
 // Add new src->dst cast mappings to this
@@ -134,12 +135,12 @@ void adjustPTSizes(Tensor& t) {
 }
 
 void do_copy_transpose(Tensor& dst, const Tensor& src) {
-  int64_t dim_chl_pos[] = {
+  std::array<int64_t, 4> dim_chl_pos = {
       LayoutFormatDims::N,
       LayoutFormatDims::H,
       LayoutFormatDims::W,
       LayoutFormatDims::C};
-  at::IntArrayRef chl_pos = dim_chl_pos;
+  at::IntArrayRef chl_pos = c10::makeArrayRef(dim_chl_pos);
   dst = src.permute(chl_pos);
   adjustPTSizes(dst);
 }
@@ -169,8 +170,9 @@ void do_d2d_copy(Tensor& dst, const Tensor& src_in, bool non_blocking) {
   if ((src_iter != d2d_copy_supported_casts.end()) &&
       (std::find(
            src_iter->second.begin(), src_iter->second.end(), dst_scalar_type) !=
-       src_iter->second.end()))
+       src_iter->second.end())) {
     cast_supported = true;
+  }
 
   if (cast_supported) { // if supported src->dst mapping
     CONVERT_0D_TO_1D(src);
@@ -459,7 +461,7 @@ void AsStridedLayoutOperator::AllocateAndAddSynapseNode(
   std::optional<int64_t> opt_offset = c10::make_optional((int64_t)0);
   auto sizes = self.sizes().vec();
   auto dims = inputs[1].toIntVector();
-  auto is_5d_layout = dims.size() == 5 ? true : false;
+  auto is_5d_layout = dims.size() == 5;
   std::vector<int64_t> swapped_sizes = {
       sizes[static_cast<size_t>(dims[0])],
       sizes[static_cast<size_t>(dims[1])],
@@ -633,9 +635,9 @@ void SliceInsertOperator::ComputeParams(
   size_t num_slice_params = paramsList.size() / 4;
   for (size_t i = 0; i < num_slice_params; i++) {
     int64_t dim = paramsList[i * 4];
-    int64_t start = paramsList[i * 4 + 1];
-    int64_t end = paramsList[i * 4 + 2];
-    int64_t step = paramsList[i * 4 + 3];
+    int64_t start = paramsList[(i * 4) + 1];
+    int64_t end = paramsList[(i * 4) + 2];
+    int64_t step = paramsList[(i * 4) + 3];
     size_t wrapped_dim{};
     FixSliceParams(self, dim, start, end, step, wrapped_dim);
     params.axes[i] = get_dim_in_tpc_order(dim, self.dim());
@@ -664,7 +666,7 @@ void SliceInsertOperator::ValidateSliceInsertInputs(
     std::vector<int64_t>& step,
     std::vector<int64_t>& start) {
   for (unsigned i = 0; i < inp_shape.size(); i++) {
-    if (inp_shape[i]) {
+    if (inp_shape[i] != 0) {
       HABANA_ASSERT(
           (start[i] < inp_shape[i]),
           "SliceInsert starts param, which is greater or equal to the dimension");
@@ -674,7 +676,7 @@ void SliceInsertOperator::ValidateSliceInsertInputs(
     // sizes[dim] = (end_val - start_val + step - 1) / step; // round-up
     // inverse to find end
     // end_val = sizes[dim]*step + 1 - step + start_val
-    auto end_val = out_shape[i] * step[i] + 1 - step[i] + start[i];
+    auto end_val = (out_shape[i] * step[i]) + 1 - step[i] + start[i];
 
     HABANA_ASSERT(
         (end_val <= inp_shape[i]),
@@ -795,7 +797,7 @@ void SliceInsertOperator::AllocateAndAddSynapseNode(
   }
   std::vector<int64_t> shape = self.sizes().vec();
 
-  auto& mdata = output_metadata.at(0);
+  const auto& mdata = output_metadata.at(0);
   Tensor output;
   if (!graph.is_dry_run() && mdata.allocated_tensor.has_value()) {
     output = mdata.allocated_tensor.value();
@@ -988,10 +990,7 @@ bool StridedInsertOperator::verifyViewMemoryAccess(
     }
     lastElementOffset += strides[d] * (view.sizes()[d] - 1);
   }
-  if (offset + lastElementOffset >= realTensorElements) {
-    return false;
-  }
-  return true;
+  return (offset + lastElementOffset < realTensorElements);
 }
 
 namespace {
@@ -1002,8 +1001,8 @@ bool HasFrontendStrides(const torch::jit::Stack& inputs) {
   bool frontend_stride = false;
   if (inputs.size() >= 4) {
     auto tensor = inputs[3].toTensor();
-    auto impl = habana_lazy::GetHbInternalTensorImpl(tensor);
-    if (impl && impl->isShapeTensor()) {
+    auto* impl = habana_lazy::GetHbInternalTensorImpl(tensor);
+    if ((impl != nullptr) && impl->isShapeTensor()) {
       frontend_stride = true;
     }
   }
@@ -1017,7 +1016,7 @@ bool IsStridesRatioUsed(const torch::jit::Stack& inputs) {
     auto offset_t = inputs[3].toTensor();
 
     // Offset shape tensor is created only in case the ratio is used
-    auto tmeta_offset{get_tensor_extra_meta(offset_t)};
+    auto* tmeta_offset{get_tensor_extra_meta(offset_t)};
     auto stride_ratios = tmeta_offset->get_shape_struct().get_stride_ratios();
     if (!stride_ratios.empty()) {
       stride_ratio_used = true;
@@ -1045,7 +1044,7 @@ std::vector<int64_t> GetAsStridedOperatorStrideData(
   std::vector<int64_t> strides;
   size_t data_size = static_cast<size_t>(stride_t.sizes()[0]);
 
-  auto tmeta{get_tensor_extra_meta(stride_t)};
+  auto* tmeta{get_tensor_extra_meta(stride_t)};
   habana::HostDataType h2d_dt_type = tmeta->get_host_dt_type();
   void* host_ptr = nullptr;
   if (dry_run) {
@@ -1099,7 +1098,7 @@ std::vector<int64_t> GetStridedInsertOperatorH2DStrides(
     strides = GetAsStridedOperatorStrideData(stride_t, is_dry_run);
   } else {
     auto offset_tensor = inputs[3].toTensor();
-    auto impl = habana_lazy::GetHbInternalTensorImpl(offset_tensor);
+    auto* impl = habana_lazy::GetHbInternalTensorImpl(offset_tensor);
     HABANA_ASSERT(impl, "impl is invalid");
     // if it is MIN or MAX pass we need to manipulate the srides
     // otherwise pass the strides coming from frontend.
@@ -1135,7 +1134,7 @@ std::vector<int64_t> GetStridedViewOperatorH2DStrides(
   } else {
     auto offset_t = inputs[3].toTensor();
     auto input_t = inputs[0].toTensor();
-    auto impl = get_tensor_extra_meta(offset_t);
+    auto* impl = get_tensor_extra_meta(offset_t);
     if (graph_dry_run &&
         (habana::ShapeInference::GetCurrentPass() ==
              habana::ShapeInfo::InferencePass::MIN_SHAPE ||
@@ -1164,7 +1163,7 @@ std::vector<int64_t> GetStridedInsertOperatorStrides(
     strides = inputs[2].toTensor().sizes().vec();
   } else {
     auto offset_st = inputs[2].toTensor();
-    auto impl = habana_lazy::GetHbInternalTensorImpl(offset_st);
+    auto* impl = habana_lazy::GetHbInternalTensorImpl(offset_st);
     HABANA_ASSERT(impl, "impl is invalid");
     // if it is MIN or MAX pass we need to manipulate the srides
     // otherwise pass the strides coming from frontend.
@@ -1243,7 +1242,7 @@ void StridedInsertOperator::compute_params_h2d(
       stride_data_vec.push_back(static_cast<uint64_t>(0));
     }
 
-    auto tmeta{get_tensor_extra_meta(stride_tensor)};
+    auto* tmeta{get_tensor_extra_meta(stride_tensor)};
     if (habana::ShapeInference::GetCurrentPass() ==
         habana::ShapeInfo::InferencePass::MIN_SHAPE) {
       tmeta->set_min<uint64_t>(stride_data_vec);
@@ -1449,7 +1448,7 @@ void StridedInsertOperator::AllocateAndAddSynapseNode(
 
   PT_EAGER_INFO("Input: ", habana_helpers::DebugString(orig_t));
 
-  auto& mdata = output_metadata.at(0);
+  const auto& mdata = output_metadata.at(0);
   if (!graph.is_dry_run() && mdata.allocated_tensor.has_value()) {
     AllocateSynapseOutput(graph, mdata.allocated_tensor.value(), mdata);
   } else {
@@ -1557,10 +1556,7 @@ bool StridedViewOperator::verifyViewMemoryAccess(
     }
     lastElementOffset += strides[d] * (view.sizes()[d] - 1);
   }
-  if (offset + lastElementOffset >= realTensorElements) {
-    return false;
-  }
-  return true;
+  return (offset + lastElementOffset < realTensorElements);
 }
 
 namespace {
@@ -1574,7 +1570,7 @@ std::vector<int64_t> GetStridedViewOperatorStrides(
   if (HasFrontendStrides(inputs)) {
     strides = inputs[2].toTensor().sizes().vec();
   } else {
-    auto impl = habana_lazy::GetHbInternalTensorImpl(size_st);
+    auto* impl = habana_lazy::GetHbInternalTensorImpl(size_st);
     if (graph_dry_run &&
         (habana::ShapeInference::GetCurrentPass() ==
              habana::ShapeInfo::InferencePass::MIN_SHAPE ||
@@ -1645,7 +1641,7 @@ InferOutputMetaRetType StridedViewOperator::InferOutputMeta(
   }
 
   // Node params for eager mode
-  if (!meta_op &&
+  if ((meta_op == 0) &&
       GetExecutionMode() == habana_helpers::HabanaFrontendTypes::EAGER) {
     populateStridedOpParams(inputs, out);
   }
@@ -1698,7 +1694,7 @@ void StridedViewOperator::compute_params_h2d(
       stride_data_vec.push_back(static_cast<uint64_t>(0));
     }
 
-    auto tmeta{get_tensor_extra_meta(stride_tensor)};
+    auto* tmeta{get_tensor_extra_meta(stride_tensor)};
     if (habana::ShapeInference::GetCurrentPass() ==
         habana::ShapeInfo::InferencePass::MIN_SHAPE) {
       tmeta->set_min<uint64_t>(stride_data_vec);
@@ -1864,7 +1860,7 @@ void StridedViewOperator::AllocateAndAddSynapseNode(
   }
 
   at::Tensor output;
-  auto& mdata = output_metadata.at(0);
+  const auto& mdata = output_metadata.at(0);
   if (!graph.is_dry_run() && mdata.allocated_tensor.has_value()) {
     output = mdata.allocated_tensor.value();
   } else {
@@ -1877,7 +1873,7 @@ void StridedViewOperator::AllocateAndAddSynapseNode(
   }
   AllocateSynapseOutput(graph, output, mdata);
 
-  if (!meta_op) {
+  if (meta_op == 0) {
     // If shape tensors are not created at frontend we need to create
     // Shape tensor at backend and also pass the params. Otherwise no params are
     // required.
@@ -1927,7 +1923,7 @@ void StridedViewOperator::ReuseMemoryAndAddSynapseNode(
   // gradient_as_bucket_view = True
   if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GRADIENT_VIEW_LAYOUT_OPT)) {
     syn_tensor_output.set_dont_allow_permute(true);
-    auto smeta{habana::get_storage_extra_meta(output)};
+    auto* smeta{habana::get_storage_extra_meta(output)};
     HABANA_ASSERT(smeta);
     smeta->set_dont_allow_permutation(true);
   }

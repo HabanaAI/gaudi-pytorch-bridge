@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,7 +37,8 @@ void HPURegistrar::create_instance() {
     PT_BRIDGE_DEBUG("static finalization");
     finalize_instance();
   }};
-  instance_.reset(new HPURegistrar());
+  instance_.reset(
+      new HPURegistrar()); // NOLINT(cppcoreguidelines-owning-memory)
   if (Py_IsInitialized() != 0) {
     // If the interpreter is initialized we anticipate to be running in a python
     // session. In such case HPURegistrar must be deleted even earlier when it

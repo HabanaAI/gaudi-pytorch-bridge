@@ -24,9 +24,9 @@ SupportedDtypes::SupportedDtypes(std::unordered_set<at::ScalarType> dtypes)
     : m_dtypes(std::move(dtypes)) {}
 
 bool SupportedDtypes::count(at::ScalarType type) const {
-  return m_dtypes.count(type) ||
+  return m_dtypes.count(type) != 0U ||
       (!common::IsInt64Supported() && type == at::ScalarType::Long &&
-       m_dtypes.count(at::ScalarType::Int));
+       m_dtypes.count(at::ScalarType::Int) != 0U);
 }
 
 bool SupportedDtypes::count(const at::Tensor& tensor) const {

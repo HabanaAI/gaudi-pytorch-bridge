@@ -133,152 +133,28 @@ include(PrepareDependencies)
 
 set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
 set(CMAKE_INSTALL_RPATH "$ORIGIN")
-
 set(CMAKE_INSTALL_PREFIX "")
 message(STATUS "CMake installation prefix unset")
 
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+
 add_subdirectory(pytorch_helpers)
 add_subdirectory(backend)
-
-# workaround for cmake3.5. Starting from 3.13 sources are optional and we can add them in add_subdirectories
-add_habana_library(
-  habana_pytorch_plugin
-  SHARED
-  common/lazy/utils.cpp
-  common/lazy/pipeline_deleter.cpp
-  pytorch_helpers/lazy_to_backend.cpp
-  pytorch_helpers/habana_helpers/logging.cpp
-  pytorch_helpers/habana_helpers/signal_handler.cpp
-  pytorch_helpers/habana_helpers/frontend_utils.cpp
-  pytorch_helpers/habana_helpers/h2d_scales.cpp
-  pytorch_helpers/habana_helpers/kernels_accumulation.cpp
-  pytorch_helpers/habana_helpers/misc_utils.cpp
-  pytorch_helpers/habana_helpers/thread_pool/acc_thread_pool.cpp
-  pytorch_helpers/habana_helpers/thread_pool/thread_pool.cpp
-  pytorch_helpers/habana_helpers/dtype_helpers.cpp
-  pytorch_helpers/habana_helpers/towl.cpp
-  pytorch_helpers/low_overhead_profiler/profiler.cpp
-  pytorch_helpers/serialize/export.cpp
-  pytorch_helpers/visualize/visualize.cpp
-  habana_kernels/basic_kernels.cpp
-  habana_kernels/binary_kernels.cpp
-  habana_kernels/binary_inplace_kernels.cpp
-  habana_kernels/compare_kernels.cpp
-  habana_kernels/embedding_kernels.cpp
-  habana_kernels/fallback_helper.cpp
-  habana_kernels/shape_agnostic_helper.cpp
-  habana_kernels/hccl_kernels.cpp
-  habana_kernels/h2d_scales_lazy.cpp
-  habana_kernels/index_kernels.cpp
-  habana_kernels/instance_norm_utils.cpp
-  habana_kernels/mixture_of_experts.cpp
-  habana_kernels/nonzero_kernel.cpp
-  habana_kernels/kernel_input_checks.cpp
-  habana_kernels/kernels_register.cpp
-  habana_kernels/kernel_utils.cpp
-  habana_kernels/lazy_custom_ops.cpp
-  habana_kernels/lazy_kernels.cpp
-  habana_kernels/lazy_optimizer_kernels.cpp
-  habana_kernels/lazy_op.cpp
-  habana_kernels/linear_kernels.cpp
-  habana_kernels/loss_kernels.cpp
-  habana_kernels/nms_kernels.cpp
-  habana_kernels/norm_kernels.cpp
-  habana_kernels/optimizer_kernels.cpp
-  habana_kernels/random_gen_kernels.cpp
-  habana_kernels/reduction_kernels.cpp
-  habana_kernels/repeat.cpp
-  habana_kernels/roi_align_kernels.cpp
-  habana_kernels/tensor_shape_kernels.cpp
-  habana_kernels/threshold_kernels.cpp
-  habana_kernels/topk_kernels.cpp
-  habana_kernels/unary_kernels.cpp
-  habana_kernels/custom_op_kernel.cpp
-  habana_lazy/aten_lazy_bridge.cpp
-  habana_lazy/lazy_graph_hash_disabler.cpp
-  habana_lazy/debug_utils.cpp
-  habana_lazy/memlog.cpp
-  habana_lazy/hpu_lazy_tensors.cpp
-  habana_lazy/ir.cpp
-  habana_lazy/ir_utils.cpp
-  habana_lazy/tensor_impl.cpp
-  habana_lazy/hlexec.cpp
-  habana_lazy/habana_custom_op.cpp
-  habana_lazy/user_custom_op_frontend.cpp
-  habana_lazy/passes/pass_utils.cpp
-  habana_lazy/passes/recalculate_batchnorm_params.cpp
-  habana_lazy/passes/fold_conv_batchnorm.cpp
-  habana_lazy/passes/fuse_mm_transpose.cpp
-  habana_lazy/passes/fuse_bn_relu_residual_add.cpp
-  habana_lazy/passes/transform_graph.cpp
-  habana_lazy/passes/fuse_strided_views.cpp
-  habana_lazy/passes/replace_inplace_ops.cpp
-  habana_lazy/passes/replace_views_with_reshapes.cpp
-  habana_lazy/lazy_arg_spec.cpp
-  habana_lazy/lazy_executor.cpp
-  habana_lazy/permute_tensors.cpp
-  habana_lazy/lazy_storage.cpp
-  habana_lazy/lazy_graph_hash_builder.cpp
-  habana_lazy/view_utils.cpp
-  habana_lazy/hpu_stage_submission.cpp)
+add_subdirectory(habana_eager)
 add_subdirectory(hpu_ops)
 add_subdirectory(python_packages/habana_frameworks/torch)
-target_compile_features(habana_pytorch_plugin PRIVATE cxx_std_17)
 
-# Disable clang-tidy checks for lazy mode
-set_target_properties(habana_pytorch_plugin PROPERTIES CXX_CLANG_TIDY "")
-
-# Link against LibTorch and synapse
-target_link_libraries(
-  habana_pytorch_plugin
-  PRIVATE Python::Python npu::habana_serialization nlohmann_json::nlohmann_json
-  PUBLIC npu::habana_pytorch_backend npu::habana_pytorch_frontend_ops torch absl::hash)
-
-target_include_directories(habana_pytorch_plugin PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/pytorch_helpers
-                                                         ${CMAKE_BINARY_DIR})
-
-# Create symlink to latest build from tests dir
-# TODO: make it play nicely with building multiple versions in build.py
-add_custom_command(
-  TARGET habana_pytorch_plugin
-  POST_BUILD
-  COMMAND ${CMAKE_COMMAND} -E create_symlink $<TARGET_FILE:habana_pytorch_plugin>
-          ${CMAKE_SOURCE_DIR}/tests/$<TARGET_FILE_NAME:habana_pytorch_plugin>
-  COMMAND ${CMAKE_COMMAND} -E create_symlink $<TARGET_FILE:habana_pytorch_plugin>
-          $ENV{BUILD_ROOT_LATEST}/$<TARGET_FILE_NAME:habana_pytorch_plugin>)
-
-install(TARGETS habana_pytorch_plugin LIBRARY DESTINATION habana_torch_plugin/lib)
-
-add_subdirectory(habana_eager)
 add_habana_library(
-  habana_pytorch2_plugin
-  SHARED
-  common/eager/utils.cpp
-  common/eager/pipeline_deleter.cpp
-  pytorch_helpers/lazy_to_backend.cpp
-  pytorch_helpers/habana_helpers/dtype_helpers.cpp
-  pytorch_helpers/habana_helpers/frontend_utils.cpp
-  pytorch_helpers/habana_helpers/h2d_scales.cpp
-  pytorch_helpers/habana_helpers/kernels_accumulation.cpp
-  pytorch_helpers/habana_helpers/logging.cpp
-  pytorch_helpers/habana_helpers/misc_utils.cpp
-  pytorch_helpers/habana_helpers/signal_handler.cpp
-  pytorch_helpers/habana_helpers/thread_pool/acc_thread_pool.cpp
-  pytorch_helpers/habana_helpers/thread_pool/thread_pool.cpp
-  pytorch_helpers/habana_helpers/towl.cpp
-  pytorch_helpers/low_overhead_profiler/profiler.cpp
-  pytorch_helpers/visualize/visualize.cpp
-  pytorch_helpers/serialize/export.cpp
+  habana_pytorch_plugin_common
+  OBJECT
   habana_kernels/basic_kernels.cpp
   habana_kernels/binary_inplace_kernels.cpp
   habana_kernels/binary_kernels.cpp
   habana_kernels/compare_kernels.cpp
   habana_kernels/embedding_kernels.cpp
   habana_kernels/fallback_helper.cpp
-  habana_kernels/shape_agnostic_helper.cpp
   habana_kernels/hccl_kernels.cpp
   habana_kernels/index_kernels.cpp
   habana_kernels/instance_norm_utils.cpp
@@ -294,6 +170,7 @@ add_habana_library(
   habana_kernels/reduction_kernels.cpp
   habana_kernels/repeat.cpp
   habana_kernels/roi_align_kernels.cpp
+  habana_kernels/shape_agnostic_helper.cpp
   habana_kernels/tensor_shape_kernels.cpp
   habana_kernels/threshold_kernels.cpp
   habana_kernels/topk_kernels.cpp
@@ -303,8 +180,8 @@ add_habana_library(
   habana_lazy/hlexec.cpp
   habana_lazy/hpu_lazy_tensors.cpp
   habana_lazy/hpu_stage_submission.cpp
-  habana_lazy/ir_utils.cpp
   habana_lazy/ir.cpp
+  habana_lazy/ir_utils.cpp
   habana_lazy/lazy_arg_spec.cpp
   habana_lazy/lazy_executor.cpp
   habana_lazy/lazy_graph_hash_builder.cpp
@@ -322,6 +199,75 @@ add_habana_library(
   habana_lazy/passes/transform_graph.cpp
   habana_lazy/tensor_impl.cpp
   habana_lazy/view_utils.cpp
+  pytorch_helpers/habana_helpers/dtype_helpers.cpp
+  pytorch_helpers/habana_helpers/frontend_utils.cpp
+  pytorch_helpers/habana_helpers/h2d_scales.cpp
+  pytorch_helpers/habana_helpers/kernels_accumulation.cpp
+  pytorch_helpers/habana_helpers/logging.cpp
+  pytorch_helpers/habana_helpers/misc_utils.cpp
+  pytorch_helpers/habana_helpers/signal_handler.cpp
+  pytorch_helpers/habana_helpers/thread_pool/acc_thread_pool.cpp
+  pytorch_helpers/habana_helpers/thread_pool/thread_pool.cpp
+  pytorch_helpers/habana_helpers/towl.cpp
+  pytorch_helpers/lazy_to_backend.cpp
+  pytorch_helpers/low_overhead_profiler/profiler.cpp
+  pytorch_helpers/serialize/export.cpp
+  pytorch_helpers/visualize/visualize.cpp)
+
+# TODO: remove once there's a proper target for habana_kernels
+target_include_directories(habana_pytorch_plugin_common PUBLIC ${PROJECT_SOURCE_DIR})
+
+target_link_libraries(habana_pytorch_plugin_common PUBLIC npu::habana_pytorch_backend npu::habana_serialization torch
+                                                          nlohmann_json::nlohmann_json)
+
+add_habana_library(
+  habana_pytorch_plugin
+  SHARED
+  common/lazy/pipeline_deleter.cpp
+  common/lazy/utils.cpp
+  habana_kernels/custom_op_kernel.cpp
+  habana_kernels/h2d_scales_lazy.cpp
+  habana_kernels/kernels_register.cpp
+  habana_kernels/lazy_custom_ops.cpp
+  habana_kernels/lazy_kernels.cpp
+  habana_kernels/lazy_op.cpp
+  habana_kernels/lazy_optimizer_kernels.cpp
+  habana_kernels/mixture_of_experts.cpp
+  habana_lazy/habana_custom_op.cpp
+  habana_lazy/permute_tensors.cpp
+  habana_lazy/user_custom_op_frontend.cpp)
+
+target_compile_features(habana_pytorch_plugin PRIVATE cxx_std_17)
+
+# Disable clang-tidy checks for lazy mode
+set_target_properties(habana_pytorch_plugin PROPERTIES CXX_CLANG_TIDY "")
+
+target_link_libraries(
+  habana_pytorch_plugin
+  PRIVATE Python::Python npu::habana_serialization
+  PUBLIC npu::habana_pytorch_plugin_common npu::habana_pytorch_backend npu::habana_pytorch_frontend_ops torch
+         absl::hash)
+
+target_include_directories(habana_pytorch_plugin PRIVATE ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/pytorch_helpers
+                                                         ${CMAKE_BINARY_DIR})
+
+# Create symlink to latest build from tests dir
+# TODO: make it play nicely with building multiple versions in build.py
+add_custom_command(
+  TARGET habana_pytorch_plugin
+  POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E create_symlink $<TARGET_FILE:habana_pytorch_plugin>
+          ${PROJECT_SOURCE_DIR}/tests/$<TARGET_FILE_NAME:habana_pytorch_plugin>
+  COMMAND ${CMAKE_COMMAND} -E create_symlink $<TARGET_FILE:habana_pytorch_plugin>
+          $ENV{BUILD_ROOT_LATEST}/$<TARGET_FILE_NAME:habana_pytorch_plugin>)
+
+install(TARGETS habana_pytorch_plugin LIBRARY DESTINATION habana_torch_plugin/lib)
+
+add_habana_library(
+  habana_pytorch2_plugin
+  SHARED
+  common/eager/pipeline_deleter.cpp
+  common/eager/utils.cpp
   hpu_ops/lazy/binaryscalar2tensor.cpp
   hpu_ops/lazy/bitwise_gen.cpp
   hpu_ops/lazy/bitwise_shift_gen.cpp
@@ -331,18 +277,22 @@ add_habana_library(
   hpu_ops/lazy/index_select_gen.cpp
   hpu_ops/lazy/maxpool_gen.cpp
   hpu_ops/lazy/upsample_gen.cpp
-  hpu_ops/lazy/xlogy_gen.cpp
-  ${habana_pytorch2_plugin_glob_files})
+  hpu_ops/lazy/xlogy_gen.cpp)
 
-target_include_directories(habana_pytorch2_plugin PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/pytorch_helpers
+target_include_directories(habana_pytorch2_plugin PRIVATE ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/pytorch_helpers
                                                           ${CMAKE_BINARY_DIR})
 target_compile_features(habana_pytorch2_plugin PRIVATE cxx_std_17)
 
-# Link against LibTorch and synapse
 target_link_libraries(
   habana_pytorch2_plugin
-  PRIVATE Python::Python npu::habana_serialization nlohmann_json::nlohmann_json
-  PUBLIC npu::habana_pytorch_backend habana_pytorch2_frontend torch absl::hash npu::hllogger fmt::fmt-header-only)
+  PRIVATE Python::Python npu::habana_serialization
+  PUBLIC npu::habana_pytorch_plugin_common
+         npu::habana_pytorch_backend
+         npu::habana_pytorch2_frontend
+         torch
+         absl::hash
+         npu::hllogger
+         fmt::fmt-header-only)
 
 # Create symlink to latest build from tests dir
 # TODO: make it play nicely with building multiple versions in build.py
@@ -350,7 +300,7 @@ add_custom_command(
   TARGET habana_pytorch2_plugin
   POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E create_symlink $<TARGET_FILE:habana_pytorch2_plugin>
-          ${CMAKE_SOURCE_DIR}/tests/$<TARGET_FILE_NAME:habana_pytorch2_plugin>
+          ${PROJECT_SOURCE_DIR}/tests/$<TARGET_FILE_NAME:habana_pytorch2_plugin>
   COMMAND ${CMAKE_COMMAND} -E create_symlink $<TARGET_FILE:habana_pytorch2_plugin>
           $ENV{BUILD_ROOT_LATEST}/$<TARGET_FILE_NAME:habana_pytorch2_plugin>)
 add_dependencies(habana_pytorch2_plugin habana_pytorch_frontend_ops)
@@ -366,6 +316,7 @@ option(BUILD_SL_REPORT_GENERATOR "Build Shared Layer Report Generator" OFF)
 if(BUILD_SL_REPORT_GENERATOR)
   add_subdirectory(sl_report_generator)
 endif()
+
 option(BUILD_PKGS "Build python packages" OFF)
 option(INSTALL_PKGS "Install python packages" OFF)
 

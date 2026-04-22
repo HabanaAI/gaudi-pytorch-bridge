@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -109,9 +109,8 @@ class FusedLamb(Optimizer):
             closure (callable, optional): A closure that re-evaluates the model
                 and returns the loss.
         """
-        loss = None
         if closure is not None:
-            loss = closure()
+            closure()
 
         max_grad_norm = self.defaults["max_grad_norm"]
         if max_grad_norm is not None:

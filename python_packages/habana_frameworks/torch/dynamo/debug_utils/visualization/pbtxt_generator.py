@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -75,7 +75,7 @@ if HAS_PROTOBUF and HAS_PYDOT:
                 label = node.get("label")
                 attributes = self.__extract_attributes_from_label_string(label)
                 proto_node = proto_graph.node.add()
-                for key in attributes.keys():
+                for key in attributes:
                     if key == "name":
                         proto_node.name = attributes[key]
                     elif key == "dtype":
@@ -98,7 +98,7 @@ if HAS_PROTOBUF and HAS_PYDOT:
             drawer = FxGraphDrawer(self.graph_module, self.graph_name)
             dot_graphs = drawer.get_all_dot_graphs()
 
-            for key in dot_graphs.keys():
+            for key in dot_graphs:
                 proto_graph_name = key
                 if "fused" in proto_graph_name:  # move fused_x to conform with the rest of the naming convention
                     name_split = proto_graph_name.split("_fused")

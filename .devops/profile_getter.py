@@ -20,9 +20,7 @@ import argparse
 import sys
 
 from build_profiles.profiles import (
-    RequirementPurpose,
     check_profile_file_integrity,
-    get_cmakelists_supported_vers,
     get_extras_version,
     get_profiles_json,
     get_required_pt,
@@ -45,11 +43,6 @@ if __name__ == "__main__":
         help="Prints required PyTorch pip package for given pt_version_id (e.g. current), including the patch version.",
     )
     actions.add_argument("--get-version-literal", action="store", help="Prints version literal for provided version ID")
-    actions.add_argument(
-        "--get-cmakelists-supported-vers",
-        action="store_true",
-        help="Prints value that Torch_SUPPORTED_VERSIONS should be set to in CMakeLists",
-    )
     actions.add_argument("--check", action="store_true", help="Checks profile file integrity")
     actions.add_argument(
         "--get-extras-version",
@@ -67,20 +60,15 @@ if __name__ == "__main__":
         check_profile_file_integrity()
         sys.exit()
     if args.get_pt_requirement:
-        print(
-            get_required_pt(get_version_literal_and_source(args.get_pt_requirement).version, RequirementPurpose.RUNTIME)
-        )
+        print(get_required_pt(get_version_literal_and_source(args.get_pt_requirement).version))
     if args.get_strict_pt_requirement:
         print(
             get_required_pt(
                 get_version_literal_and_source(args.get_strict_pt_requirement, strict=True).version,
-                RequirementPurpose.RUNTIME,
             )
         )
     if args.get_version_literal:
         found = get_version_literal_and_source(args.get_version_literal)
         print(found.version if found else None)
-    if args.get_cmakelists_supported_vers:
-        print(get_cmakelists_supported_vers())
     if args.get_extras_version:
         print(get_extras_version(args.get_extras_version[0], args.get_extras_version[1]))

@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
 ###############################################################################
 
 
+import contextlib
 from typing import Any
 
 import torch
@@ -80,10 +81,8 @@ class HabanaParameterWrapper(torch.nn.Parameter):
         return super().__torch_function__(func, types, new_args, kwargs)
 
     def __del__(self):
-        try:
+        with contextlib.suppress(BaseException):
             del HabanaParameterWrapper.db[id(self)]
-        except:
-            pass
 
 
 def update_habana_parameter(result):

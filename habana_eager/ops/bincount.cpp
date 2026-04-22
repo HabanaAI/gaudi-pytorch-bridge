@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@
 #include "hpu_ops/bincount.h"
 #include "habana_eager/ops/bincount.h"
 #include "habana_eager/ops/eager_op.h"
-#include "habana_helpers/pt_version_check.h"
 
 namespace habana::eager {
 
@@ -74,8 +73,9 @@ at::Tensor bincount_eager(
   const auto self_dtype = self.scalar_type();
   auto maybe_casted_self = self;
   if (self_dtype == c10::ScalarType::Short ||
-      self_dtype == c10::ScalarType::Char)
+      self_dtype == c10::ScalarType::Char) {
     maybe_casted_self = self.to(c10::ScalarType::Int);
+  }
 
   auto max_in_input =
       static_cast<int64_t>(at::max(maybe_casted_self).item<int64_t>());
@@ -90,8 +90,9 @@ at::Tensor bincount_eager(
       0};
   hpu_op.SetOutputMetaFn(BinCountMeta);
   auto result_bincount = hpu_op.call();
-  if (result_bincount.scalar_type() != out_dtype)
+  if (result_bincount.scalar_type() != out_dtype) {
     return result_bincount.to(out_dtype);
+  }
   return result_bincount;
 }
 

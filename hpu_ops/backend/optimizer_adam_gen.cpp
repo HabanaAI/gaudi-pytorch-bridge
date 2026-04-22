@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,8 +13,6 @@
  * limitations under the License.
  */
 #include "generated/backend/_fused_adam.h"
-#include "hpu_ops/backend/reduction_template.h"
-#include "hpu_ops/hpu_op_helper.h"
 #include "hpu_ops/op_backend.h"
 
 namespace sh = synapse_helpers;
@@ -38,7 +36,8 @@ SharedMetaDataVector AdamSharedMetaCommon(
 
   SharedMetaTensor constant_tensor{1, precision_type};
   SharedMetaDataVector shared_meta_vec;
-  size_t vec_size = grads_vec.size();
+  const size_t vec_size = grads_vec.size();
+  shared_meta_vec.reserve(vec_size * 18); // NOLINT(readability-magic-numbers)
   for (size_t i = 0; i < vec_size; ++i) {
     const auto& gradient = grads_vec[i];
     const auto gradient_rank = gradient.dim();
@@ -50,141 +49,134 @@ SharedMetaDataVector AdamSharedMetaCommon(
 
     const auto& exp_avg_sq = exp_avg_sqs_vec[i];
     const auto exp_avg_sq_rank = exp_avg_sq.dim();
+    SharedMetaData* grad_shared_meta;
 
     //------will not calculate maximize part----------//
     //------calculate grad when weight decay not equal to zero----------//
-    SharedMetaData grad_shared_meta{"copy_fwd"};
     if (weight_decay != 0) {
       // g_t = g_t + weight_decay * theta_t_1
-      SharedMetaData weight_lr_shared_meta{"mult_fwd"};
+      auto& weight_lr_shared_meta = shared_meta_vec.emplace_back("mult_fwd");
       weight_lr_shared_meta.inputs_data.emplace_back(
           weight_rank, precision_type);
       weight_lr_shared_meta.inputs_data.push_back(constant_tensor);
       weight_lr_shared_meta.outputs_data.emplace_back(
           weight_rank, precision_type);
-      shared_meta_vec.push_back(weight_lr_shared_meta);
 
-      SharedMetaData weight_shared_meta{"add_fwd"};
+      auto& weight_shared_meta = shared_meta_vec.emplace_back("add_fwd");
       weight_shared_meta.inputs_data.emplace_back(
           gradient_rank, precision_type);
       weight_shared_meta.inputs_data.push_back(
           weight_lr_shared_meta.outputs_data[0]);
       weight_shared_meta.outputs_data.emplace_back(
           gradient_rank, precision_type);
-      shared_meta_vec.push_back(weight_shared_meta);
 
-      grad_shared_meta.inputs_data.emplace_back(
+      grad_shared_meta = &shared_meta_vec.emplace_back("copy_fwd");
+      grad_shared_meta->inputs_data.emplace_back(
           weight_shared_meta.outputs_data[0]);
-      grad_shared_meta.outputs_data.emplace_back(gradient_rank, precision_type);
-      shared_meta_vec.push_back(grad_shared_meta);
+      grad_shared_meta->outputs_data.emplace_back(
+          gradient_rank, precision_type);
     } else {
       // g_t = g_t
-      grad_shared_meta.inputs_data.emplace_back(gradient_rank, precision_type);
-      grad_shared_meta.outputs_data.emplace_back(gradient_rank, precision_type);
-      shared_meta_vec.push_back(grad_shared_meta);
+      grad_shared_meta = &shared_meta_vec.emplace_back("copy_fwd");
+      grad_shared_meta->inputs_data.emplace_back(gradient_rank, precision_type);
+      grad_shared_meta->outputs_data.emplace_back(
+          gradient_rank, precision_type);
     }
 
     //------calculate first moment----------//
     // m_t = beta1 * m_t_1 + (1-beta1) * g_t
     // here beta1 and (1-beta1) we will count as a constant tensors
-    SharedMetaData exp_avg_mul_beta_shared_meta{"mult_fwd"};
+    auto& exp_avg_mul_beta_shared_meta =
+        shared_meta_vec.emplace_back("mult_fwd");
     exp_avg_mul_beta_shared_meta.inputs_data.emplace_back(
         exp_avg_rank, precision_type);
     exp_avg_mul_beta_shared_meta.inputs_data.push_back(constant_tensor);
     exp_avg_mul_beta_shared_meta.outputs_data.emplace_back(
         exp_avg_rank, precision_type);
-    shared_meta_vec.push_back(exp_avg_mul_beta_shared_meta);
 
-    SharedMetaData grad_scaled_shared_meta{"mult_fwd"};
+    auto& grad_scaled_shared_meta = shared_meta_vec.emplace_back("mult_fwd");
     grad_scaled_shared_meta.inputs_data.emplace_back(
-        grad_shared_meta.outputs_data[0]);
+        grad_shared_meta->outputs_data[0]);
     grad_scaled_shared_meta.inputs_data.push_back(constant_tensor);
     grad_scaled_shared_meta.outputs_data.emplace_back(
         gradient_rank, precision_type);
-    shared_meta_vec.push_back(grad_scaled_shared_meta);
 
-    SharedMetaData exp_avg_add_shared_meta{"add_fwd"};
+    auto& exp_avg_add_shared_meta = shared_meta_vec.emplace_back("add_fwd");
     exp_avg_add_shared_meta.inputs_data.push_back(
         exp_avg_mul_beta_shared_meta.outputs_data[0]);
     exp_avg_add_shared_meta.inputs_data.push_back(
         grad_scaled_shared_meta.outputs_data[0]);
     exp_avg_add_shared_meta.outputs_data = grad_scaled_shared_meta.outputs_data;
-    shared_meta_vec.push_back(exp_avg_add_shared_meta);
 
     //------calculate second moment----------//
     // v_t = beta2 * v_t_1 + (1-beta2) * g_t * g_t
     // here beta2 and (1-beta2) we will count as a constant tensors
-    SharedMetaData gradient_sq_shared_meta{"mult_fwd"};
+    auto& gradient_sq_shared_meta = shared_meta_vec.emplace_back("mult_fwd");
     gradient_sq_shared_meta.inputs_data = {
-        {grad_shared_meta.outputs_data[0]}, {grad_shared_meta.outputs_data[0]}};
+        {grad_shared_meta->outputs_data[0]},
+        {grad_shared_meta->outputs_data[0]}};
     gradient_sq_shared_meta.outputs_data.emplace_back(
         gradient_rank, precision_type);
-    shared_meta_vec.push_back(gradient_sq_shared_meta);
 
-    SharedMetaData gradient_sq_scaled_shared_meta{"mult_fwd"};
+    auto& gradient_sq_scaled_shared_meta =
+        shared_meta_vec.emplace_back("mult_fwd");
     gradient_sq_scaled_shared_meta.inputs_data = {
         gradient_sq_shared_meta.outputs_data[0], constant_tensor};
     gradient_sq_scaled_shared_meta.outputs_data =
         gradient_sq_shared_meta.outputs_data;
-    shared_meta_vec.push_back(gradient_sq_scaled_shared_meta);
 
-    SharedMetaData exp_avg_sq_mul_beta_shared_meta{"mult_fwd"};
+    auto& exp_avg_sq_mul_beta_shared_meta =
+        shared_meta_vec.emplace_back("mult_fwd");
     exp_avg_sq_mul_beta_shared_meta.inputs_data = {
         {exp_avg_sq_rank, precision_type}, constant_tensor};
     exp_avg_sq_mul_beta_shared_meta.outputs_data.emplace_back(
         exp_avg_sq_rank, precision_type);
-    shared_meta_vec.push_back(exp_avg_sq_mul_beta_shared_meta);
 
-    SharedMetaData exp_avg_sq_add_shared_meta{"add_fwd"};
+    auto& exp_avg_sq_add_shared_meta = shared_meta_vec.emplace_back("add_fwd");
     exp_avg_sq_add_shared_meta.inputs_data = {
         exp_avg_sq_mul_beta_shared_meta.outputs_data[0],
         gradient_sq_scaled_shared_meta.outputs_data[0]};
     exp_avg_sq_add_shared_meta.outputs_data.emplace_back(
         gradient_rank, precision_type);
-    shared_meta_vec.push_back(exp_avg_sq_add_shared_meta);
 
     //------calculate m^------------------------//
     // m^ = m_t/(1-beta_1^t)
-    SharedMetaData exp_avg_cap_shared_meta{"div_fwd"};
+    auto& exp_avg_cap_shared_meta = shared_meta_vec.emplace_back("div_fwd");
     exp_avg_cap_shared_meta.inputs_data = {
         exp_avg_add_shared_meta.outputs_data[0], constant_tensor};
     exp_avg_cap_shared_meta.outputs_data = exp_avg_add_shared_meta.outputs_data;
-    shared_meta_vec.push_back(exp_avg_cap_shared_meta);
 
     //------calculate only amsgrad else part for simplicity---------------//
     //------calculate v^-------------------//
     // v_t^ = v_t/(1-beta_2^t)
-    SharedMetaData exp_avg_sq_cap_shared_meta{"div_fwd"};
+    auto& exp_avg_sq_cap_shared_meta = shared_meta_vec.emplace_back("div_fwd");
     exp_avg_sq_cap_shared_meta.inputs_data = {
         exp_avg_sq_add_shared_meta.outputs_data[0], constant_tensor};
     exp_avg_sq_cap_shared_meta.outputs_data =
         exp_avg_sq_add_shared_meta.outputs_data;
-    shared_meta_vec.push_back(exp_avg_sq_cap_shared_meta);
 
     //------calculate final weight------------//
     // theta_t = theta_t_1 - gamma * m_t^/(sqrt(v_t^)+epsilon)
 
-    SharedMetaData exp_avg_sq_sqrt_shared_meta{"sqrt_fwd"};
+    auto& exp_avg_sq_sqrt_shared_meta =
+        shared_meta_vec.emplace_back("sqrt_fwd");
     exp_avg_sq_sqrt_shared_meta.inputs_data = {
         exp_avg_sq_cap_shared_meta.outputs_data[0]};
     exp_avg_sq_sqrt_shared_meta.outputs_data =
         exp_avg_sq_cap_shared_meta.outputs_data;
-    shared_meta_vec.push_back(exp_avg_sq_sqrt_shared_meta);
 
-    SharedMetaData denom_shared_meta{"add_fwd"};
+    auto& denom_shared_meta = shared_meta_vec.emplace_back("add_fwd");
     denom_shared_meta.inputs_data = {
         exp_avg_sq_sqrt_shared_meta.outputs_data[0], constant_tensor};
     denom_shared_meta.outputs_data = exp_avg_sq_sqrt_shared_meta.outputs_data;
-    shared_meta_vec.push_back(denom_shared_meta);
 
-    SharedMetaData ratio_shared_meta{"div_fwd"};
+    auto& ratio_shared_meta = shared_meta_vec.emplace_back("div_fwd");
     ratio_shared_meta.inputs_data = {
         exp_avg_cap_shared_meta.outputs_data[0],
         denom_shared_meta.outputs_data[0]};
     ratio_shared_meta.outputs_data = exp_avg_cap_shared_meta.outputs_data;
-    shared_meta_vec.push_back(ratio_shared_meta);
 
-    SharedMetaData scaled_ratio_shared_meta{"mult_fwd"};
+    auto& scaled_ratio_shared_meta = shared_meta_vec.emplace_back("mult_fwd");
     if (lr_tensor.has_value() && lr_tensor.value().defined()) {
       scaled_ratio_shared_meta.inputs_data.emplace_back(
           ratio_shared_meta.outputs_data[0]);
@@ -195,16 +187,14 @@ SharedMetaDataVector AdamSharedMetaCommon(
           ratio_shared_meta.outputs_data[0], constant_tensor};
     }
     scaled_ratio_shared_meta.outputs_data = ratio_shared_meta.outputs_data;
-    shared_meta_vec.push_back(scaled_ratio_shared_meta);
 
-    SharedMetaData final_weight_shared_meta{"sub_fwd"};
+    auto& final_weight_shared_meta = shared_meta_vec.emplace_back("sub_fwd");
     final_weight_shared_meta.inputs_data.emplace_back(
         weight_rank, precision_type);
     final_weight_shared_meta.inputs_data.push_back(
         scaled_ratio_shared_meta.outputs_data[0]);
     final_weight_shared_meta.outputs_data.emplace_back(
         weight_rank, precision_type);
-    shared_meta_vec.push_back(final_weight_shared_meta);
   }
   return shared_meta_vec;
 }
@@ -230,7 +220,7 @@ SharedMetaDataVector AdamSharedMeta(
   [[maybe_unused]] const auto& found_inf =
       stack.at(14).to<std::optional<at::Tensor>>();
   std::optional<at::Tensor> lr_tensor = std::nullopt;
-  SharedMetaDataVector shared_meta_vec = AdamSharedMetaCommon(
+  return AdamSharedMetaCommon(
       self_vec,
       grads_vec,
       exp_avgs_vec,
@@ -239,7 +229,6 @@ SharedMetaDataVector AdamSharedMeta(
       state_steps_vec,
       lr_tensor,
       weight_decay);
-  return shared_meta_vec;
 }
 // followed implementation : aten/src/ATen/native/cpu/FusedAdamKernel.cpp
 std::vector<synapse_helpers::tensor> FusedAdamCommon(
@@ -269,7 +258,7 @@ std::vector<synapse_helpers::tensor> FusedAdamCommon(
     int64_t i,
     bool empty_max_exp_avg_sqs) {
   std::vector<synapse_helpers::tensor> output;
-  int64_t scalar_shape[] = {1};
+  int64_t scalar_shape = 1L;
   std::vector<NodeAttr::NodeOutputAttr> gradient_attr = {
       {gradient.pt_t.sizes(), scalar_dtype}};
   std::vector<NodeAttr::NodeOutputAttr> weight_attr = {
@@ -279,7 +268,7 @@ std::vector<synapse_helpers::tensor> FusedAdamCommon(
   std::vector<NodeAttr::NodeOutputAttr> exp_avg_sq_attr = {
       {exp_avg_sq.pt_t.sizes(), scalar_dtype}};
   std::vector<NodeAttr::NodeOutputAttr> scalar_1d_attr = {
-      {scalar_shape, scalar_dtype}};
+      {c10::makeArrayRef(&scalar_shape, 1), scalar_dtype}};
 
   //------calculate maximize part----------//
   std::optional<int> finalIndex =
@@ -348,7 +337,7 @@ std::vector<synapse_helpers::tensor> FusedAdamCommon(
       graph,
       {get_guid_with_precision("add_fwd"sv, scalar_dtype),
        {exp_avg_mul_beta1[0].get(), grad_scaled[0].get()},
-       {{exp_avg.pt_t.sizes(), scalar_dtype, i + 2 * vec_size}}});
+       {{exp_avg.pt_t.sizes(), scalar_dtype, i + (2 * vec_size)}}});
 
   //------calculate second moment----------//
   // v_t = beta2 * v_t_1 + (1-beta2) * g_t * g_t
@@ -378,7 +367,7 @@ std::vector<synapse_helpers::tensor> FusedAdamCommon(
       graph,
       {get_guid_with_precision("add_fwd"sv, scalar_dtype),
        {exp_avg_sq_mul_beta2[0].get(), grad_sq_scaled[0].get()},
-       {{gradient.pt_t.sizes(), scalar_dtype, i + 3 * vec_size}}});
+       {{gradient.pt_t.sizes(), scalar_dtype, i + (3 * vec_size)}}});
 
   //------calculate m^------------------------//
   // m^ = m_t/(1-beta_1^t) // need to handle power of t properly
@@ -544,49 +533,50 @@ void FusedAdam::AddNode(sh::graph& graph, const at::Stack& stack) {
   }
   const auto scalar_dtype = self.front().pt_t.scalar_type();
 
-  int64_t scalar_shape[] = {1};
-  double constant_values[] = {
+  int64_t scalar_shape = 1L;
+  at::IntArrayRef scalar_shape_ref = c10::makeArrayRef(&scalar_shape, 1);
+  std::array constant_values{
       1.0, beta1, beta2, 1.0 - beta1, 1.0 - beta2, lr, weight_decay, eps};
   const auto& one_t = OpBackend::ConstantHelper(
       graph,
       static_cast<float>(constant_values[0]),
       scalar_dtype,
-      scalar_shape);
+      scalar_shape_ref);
   const auto& beta1_t = ConstantHelper(
       graph,
       static_cast<float>(constant_values[1]),
       scalar_dtype,
-      scalar_shape);
+      scalar_shape_ref);
   const auto& beta2_t = ConstantHelper(
       graph,
       static_cast<float>(constant_values[2]),
       scalar_dtype,
-      scalar_shape);
+      scalar_shape_ref);
   const auto& one_minus_beta1_t = ConstantHelper(
       graph,
       static_cast<float>(constant_values[3]),
       scalar_dtype,
-      scalar_shape);
+      scalar_shape_ref);
   const auto& one_minus_beta2_t = ConstantHelper(
       graph,
       static_cast<float>(constant_values[4]),
       scalar_dtype,
-      scalar_shape);
+      scalar_shape_ref);
   const auto& lr_t = ConstantHelper(
       graph,
       static_cast<float>(constant_values[5]),
       scalar_dtype,
-      scalar_shape);
+      scalar_shape_ref);
   const auto& wt_decay_t = ConstantHelper(
       graph,
       static_cast<float>(constant_values[6]),
       scalar_dtype,
-      scalar_shape);
+      scalar_shape_ref);
   const auto& epsilon_t = ConstantHelper(
       graph,
       static_cast<float>(constant_values[7]),
       scalar_dtype,
-      scalar_shape);
+      scalar_shape_ref);
 
   size_t vec_size = grads.size();
   for (size_t i = 0; i < vec_size; ++i) {
@@ -626,10 +616,10 @@ void FusedAdam::AddNode(sh::graph& graph, const at::Stack& stack) {
         empty_max_exp_avg_sqs);
     syn_out(i) = std::move(result[0]);
     syn_out(i + vec_size) = std::move(result[1]);
-    syn_out(i + 2 * vec_size) = std::move(result[2]);
-    syn_out(i + 3 * vec_size) = std::move(result[3]);
+    syn_out(i + (2 * vec_size)) = std::move(result[2]);
+    syn_out(i + (3 * vec_size)) = std::move(result[3]);
     if (!empty_max_exp_avg_sqs) {
-      syn_out(i + 4 * vec_size) = std::move(result[4]);
+      syn_out(i + (4 * vec_size)) = std::move(result[4]);
     }
   }
 }
@@ -656,7 +646,7 @@ SharedMetaDataVector AdamLrSharedMeta(
       stack.at(14).to<std::optional<at::Tensor>>();
 
   std::optional<at::Tensor> lr_tensor = std::optional<at::Tensor>(lr);
-  SharedMetaDataVector shared_meta_vec = AdamSharedMetaCommon(
+  return AdamSharedMetaCommon(
       self_vec,
       grads_vec,
       exp_avgs_vec,
@@ -665,7 +655,6 @@ SharedMetaDataVector AdamLrSharedMeta(
       state_steps_vec,
       lr_tensor,
       weight_decay);
-  return shared_meta_vec;
 }
 
 void FusedAdamLr::AddNode(sh::graph& graph, const at::Stack& stack) {
@@ -709,45 +698,46 @@ void FusedAdamLr::AddNode(sh::graph& graph, const at::Stack& stack) {
   const auto& first_moment_dtype = exp_avgs.front().pt_t.scalar_type();
   const auto scalar_dtype = at::promote_types(ScalarType(), first_moment_dtype);
 
-  int64_t scalar_shape[] = {1};
+  int64_t scalar_shape = 1L;
+  at::IntArrayRef scalar_shape_ref = c10::makeArrayRef(&scalar_shape, 1);
 
-  double constant_values[] = {
+  std::array constant_values{
       1.0, beta1, beta2, 1.0 - beta1, 1.0 - beta2, weight_decay, eps};
   const auto& one_t = ConstantHelper(
       graph,
       static_cast<float>(constant_values[0]),
       scalar_dtype,
-      scalar_shape);
+      scalar_shape_ref);
   const auto& beta1_t = ConstantHelper(
       graph,
       static_cast<float>(constant_values[1]),
       scalar_dtype,
-      scalar_shape);
+      scalar_shape_ref);
   const auto& beta2_t = ConstantHelper(
       graph,
       static_cast<float>(constant_values[2]),
       scalar_dtype,
-      scalar_shape);
+      scalar_shape_ref);
   const auto& one_minus_beta1_t = ConstantHelper(
       graph,
       static_cast<float>(constant_values[3]),
       scalar_dtype,
-      scalar_shape);
+      scalar_shape_ref);
   const auto& one_minus_beta2_t = ConstantHelper(
       graph,
       static_cast<float>(constant_values[4]),
       scalar_dtype,
-      scalar_shape);
+      scalar_shape_ref);
   const auto& wt_decay_t = ConstantHelper(
       graph,
       static_cast<float>(constant_values[5]),
       scalar_dtype,
-      scalar_shape);
+      scalar_shape_ref);
   const auto& epsilon_t = ConstantHelper(
       graph,
       static_cast<float>(constant_values[6]),
       scalar_dtype,
-      scalar_shape);
+      scalar_shape_ref);
 
   size_t vec_size = grads.size();
   for (size_t i = 0; i < vec_size; ++i) {
@@ -789,10 +779,10 @@ void FusedAdamLr::AddNode(sh::graph& graph, const at::Stack& stack) {
 
     syn_out(i) = std::move(result[0]);
     syn_out(i + vec_size) = std::move(result[1]);
-    syn_out(i + 2 * vec_size) = std::move(result[2]);
-    syn_out(i + 3 * vec_size) = std::move(result[3]);
+    syn_out(i + (2 * vec_size)) = std::move(result[2]);
+    syn_out(i + (3 * vec_size)) = std::move(result[3]);
     if (!empty_max_exp_avg_sqs) {
-      syn_out(i + 4 * vec_size) = std::move(result[4]);
+      syn_out(i + (4 * vec_size)) = std::move(result[4]);
     }
   }
 }

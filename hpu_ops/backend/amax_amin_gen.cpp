@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,9 +31,14 @@ static std::tuple<at::Tensor, at::DimVector, bool> ParseSignature(
   const bool is_dim_none = stack.size() == 1 || stack.at(1).isNone();
   const bool keepdim = stack.size() >= 3 && stack.at(2).toBool();
 
-  at::DimVector dim_vec = is_dim_none ? at::DimVector{}
-      : stack.at(1).isInt()           ? at::DimVector{stack.at(1).toInt()}
-                                      : stack.at(1).toDimVector();
+  at::DimVector dim_vec;
+  if (is_dim_none) {
+    dim_vec = at::DimVector{};
+  } else if (stack.at(1).isInt()) {
+    dim_vec = at::DimVector{stack.at(1).toInt()};
+  } else {
+    dim_vec = stack.at(1).toDimVector();
+  }
   return {self, dim_vec, keepdim};
 }
 
@@ -119,7 +124,7 @@ void Aminmax::AddNode(sh::graph& graph, const at::Stack& stack) {
       update_guid_dtype(guids[i], c10::ScalarType::Int);
     }
 
-    auto input =
+    auto* input =
         castedInput.has_value() ? castedInput.value().get() : syn_in(0);
     auto op = BuildOp(
         graph,
@@ -149,7 +154,7 @@ void AminAmax::AddNode(sh::graph& graph, const at::Stack& stack) {
         this, graph, syn_in(0), self.sizes(), c10::ScalarType::Bool);
   }
 
-  auto input = castedInput.has_value() ? castedInput.value().get() : syn_in(0);
+  auto* input = castedInput.has_value() ? castedInput.value().get() : syn_in(0);
   auto op = BuildOp(
       graph,
       GetGuid(),

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2023-2025 Intel Corporation
+ * Copyright (c) 2023-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 
 #include "hpu_ops/fp8_ops.h"
 #include <limits>
+#include "backend/habana_operator.h"
 #include "generated/backend/cast_from_fp8.h"
 #include "generated/backend/cast_to_fp8.h"
 #include "generated/backend/cast_to_fp8_v2.h"
@@ -92,7 +93,7 @@ void HandleScaleScalar(
     const c10::IValue& scale_shape_ival) {
   if (scale.isDouble()) {
     maybe_const_scale.emplace_back(
-        op->BuildConstantTensor(op, graph, scale.toDouble()));
+        OpBackend::BuildConstantTensor(op, graph, scale.toDouble()));
     syn_inputs.push_back(maybe_const_scale.back().get());
   } else if (scale.isDoubleList() and not op->isOutputInfMode()) {
     maybe_const_scale.emplace_back(op->AllocateConstantSynapseTensor(
@@ -205,7 +206,9 @@ SharedMetaDataVector CastToFp8SharedMeta(
       ? stack.at(4).toScalarType()
       : stack.at(3).toTensor().scalar_type();
 
-  SharedMetaData sharedMeta("convert_to_fp8");
+  SharedMetaDataVector sharedMetaVec;
+  sharedMetaVec.reserve(1);
+  auto& sharedMeta = sharedMetaVec.emplace_back("convert_to_fp8");
   sharedMeta.inputs_data = {
       getSharedMetaFromTensor(input),
       getSharedMetaTensorFromScale(stack.at(1))};
@@ -215,17 +218,17 @@ SharedMetaDataVector CastToFp8SharedMeta(
     sharedMeta.outputs_data.emplace_back(1, c10::ScalarType::Float);
   }
 
-  return {sharedMeta};
+  return sharedMetaVec;
 }
 
 void CastToFp8V2::AddNode(sh::graph& graph, const at::Stack& stack) {
   auto self = stack_tensor(stack, 0);
-  auto scale = stack[1];
+  const auto& scale = stack[1];
   bool stochastic_rounding = stack[2].toBool();
   bool is_amax = stack[3].toBool();
   auto src_type = self.scalar_type();
   auto dst_type = stack[4].toScalarType();
-  auto scale_shape = stack[5];
+  const auto& scale_shape = stack[5];
 
   auto is_fp8_input = src_type == at::ScalarType::Float8_e5m2 or
       src_type == at::ScalarType::Float8_e4m3fn;
@@ -292,10 +295,11 @@ void CastToFp8V2::AddNode(sh::graph& graph, const at::Stack& stack) {
 /********** CastFromFp8 **********/
 
 OutputMetaDataVector CastFromFp8Meta(const at::Stack& stack) {
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.shape = stack[0].toTensor().sizes().vec();
   meta.dtype = stack[2].toScalarType();
-  return {meta};
+  return metaVec;
 }
 
 SharedMetaDataVector CastFromFp8SharedMeta(
@@ -308,23 +312,25 @@ SharedMetaDataVector CastFromFp8SharedMeta(
       "inputDim is out of int range");
   const int inputDim = static_cast<int>(inputDim_int64);
 
-  SharedMetaData sharedMeta("convert_from_fp8");
+  SharedMetaDataVector sharedMetaVec;
+  sharedMetaVec.reserve(1);
+  auto& sharedMeta = sharedMetaVec.emplace_back("convert_from_fp8");
   sharedMeta.inputs_data = {
       getSharedMetaFromTensor(input),
       getSharedMetaTensorFromScale(stack.at(1))};
 
   sharedMeta.outputs_data.emplace_back(inputDim, stack.at(2).toScalarType());
 
-  return {sharedMeta};
+  return sharedMetaVec;
 }
 
 void CastFromFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
   HABANA_ASSERT(stack.size() == 4, "CastFromFp8 must have 4 input arguments");
 
   auto self = stack_tensor(stack, 0);
-  auto scale = stack[1];
+  const auto& scale = stack[1];
   auto dst_type = stack[2].toScalarType();
-  auto scale_shape = stack[3];
+  const auto& scale_shape = stack[3];
   auto sizes = self.sizes();
 
   ValidateScaleShape(scale, scale_shape);
@@ -380,10 +386,11 @@ OutputMetaDataVector InPlaceInterleaveMeta(const at::Stack& stack) {
   HABANA_ASSERT(shape.size() == 4, "Input has to be a 4D tensor.");
   HABANA_ASSERT(shape[0] % 4 == 0, "Batch size has to be a multiple of 4.");
 
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.shape = shape;
   meta.dtype = self.scalar_type();
-  return {meta};
+  return metaVec;
 }
 
 struct InPlaceInterleave : OpBackend {
@@ -409,7 +416,8 @@ DimT ComputeConv2dOutputDim(
     const int64_t dilation,
     const DimT kernel_size,
     const int64_t stride) {
-  return (input_dim + 2 * padding - dilation * (kernel_size - 1) - 1) / stride +
+  return ((input_dim + 2 * padding - dilation * (kernel_size - 1) - 1) /
+          stride) +
       1;
 }
 
@@ -455,11 +463,12 @@ OutputMetaDataVector Conv2dFp8Meta(const at::Stack& stack) {
   const auto out_dtype =
       stack[7].toOptional<at::ScalarType>().value_or(at::ScalarType::BFloat16);
 
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.dtype = out_dtype;
   meta.shape = ComputeConv2dOutputSize(
       input_shape, weight_shape, stride, padding, dilation);
-  return {meta};
+  return metaVec;
 }
 
 SharedMetaDataVector Conv2dFp8SharedMeta(
@@ -472,7 +481,9 @@ SharedMetaDataVector Conv2dFp8SharedMeta(
       stack.at(7).toOptional<at::ScalarType>().value_or(
           at::ScalarType::BFloat16);
 
-  SharedMetaData sharedMeta("conv2d_fp8");
+  SharedMetaDataVector sharedMetaVec;
+  sharedMetaVec.reserve(1);
+  auto& sharedMeta = sharedMetaVec.emplace_back("conv2d_fp8");
   sharedMeta.inputs_data.push_back(getSharedMetaFromTensor(inputTensor));
   sharedMeta.inputs_data.push_back(
       getSharedMetaFromTensor(stack_tensor(stack, 1)));
@@ -482,7 +493,7 @@ SharedMetaDataVector Conv2dFp8SharedMeta(
 
   sharedMeta.outputs_data.emplace_back(inputTensor.dim(), outDtype);
 
-  return {sharedMeta};
+  return sharedMetaVec;
 }
 
 static synConvolutionParams FillConv2dFp8Params(

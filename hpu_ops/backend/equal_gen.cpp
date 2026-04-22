@@ -25,10 +25,11 @@ FillParamsT FillEqualParams(const at::Stack& stack) {
 }
 
 OutputMetaDataVector EqualMeta(const at::Stack& /*unused*/) {
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.shape = {};
   meta.dtype = c10::ScalarType::Bool;
-  return {meta};
+  return metaVec;
 }
 
 } // namespace habana

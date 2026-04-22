@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025 Intel Corporation
+ * Copyright (c) 2025-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,10 +31,11 @@ at::Tensor UpsampleBicubic2DCustomVecFunction::forward(
   at::AutoDispatchBelowADInplaceOrView guard;
 
   ctx->saved_data["input_size"] = input.sizes().vec();
-  if (output_size.has_value())
+  if (output_size.has_value()) {
     ctx->saved_data["output_size"] = *output_size;
-  else if (scale_factors.has_value())
+  } else if (scale_factors.has_value()) {
     ctx->saved_data["scale_factors"] = *scale_factors;
+  }
   ctx->saved_data["align_corners"] = align_corners;
 
   return upsample_bicubic2d_custom_vec_dispatch(
@@ -46,20 +47,20 @@ torch::autograd::variable_list UpsampleBicubic2DCustomVecFunction::backward(
     const torch::autograd::variable_list& grads) {
   at::AutoDispatchBelowADInplaceOrView guard;
 
-  const auto grad_output = grads[0];
+  const auto& grad_output = grads[0];
   const auto input_size = ctx->saved_data["input_size"].toIntVector();
   const auto align_corners = ctx->saved_data["align_corners"].toBool();
 
   at::Tensor grad_input;
 
-  if (ctx->saved_data.find("output_size") != ctx->saved_data.end())
+  if (ctx->saved_data.find("output_size") != ctx->saved_data.end()) {
     grad_input = at::redispatch::upsample_bicubic2d_backward(
         c10::DispatchKeySet(c10::DispatchKey::HPU),
         grad_output,
         ctx->saved_data["output_size"].toIntVector(),
         input_size,
         align_corners);
-  else if (ctx->saved_data.find("scale_factors") != ctx->saved_data.end()) {
+  } else if (ctx->saved_data.find("scale_factors") != ctx->saved_data.end()) {
     const auto scale_factors =
         ctx->saved_data["scale_factors"].toDoubleVector();
 
@@ -86,10 +87,11 @@ at::Tensor UpsampleTrilinear3DCustomVecFunction::forward(
   at::AutoDispatchBelowADInplaceOrView guard;
 
   ctx->saved_data["input_size"] = input.sizes().vec();
-  if (output_size.has_value())
+  if (output_size.has_value()) {
     ctx->saved_data["output_size"] = *output_size;
-  else if (scale_factors.has_value())
+  } else if (scale_factors.has_value()) {
     ctx->saved_data["scale_factors"] = *scale_factors;
+  }
   ctx->saved_data["align_corners"] = align_corners;
 
   return upsample_trilinear3d_custom_vec_dispatch(
@@ -101,19 +103,19 @@ torch::autograd::variable_list UpsampleTrilinear3DCustomVecFunction::backward(
     const torch::autograd::variable_list& grad_outputs) {
   at::AutoDispatchBelowADInplaceOrView guard;
 
-  const auto grad_output = grad_outputs[0];
+  const auto& grad_output = grad_outputs[0];
   const auto input_size = ctx->saved_data["input_size"].toIntVector();
   const auto align_corners = ctx->saved_data["align_corners"].toBool();
 
   at::Tensor grad_input;
 
-  if (ctx->saved_data.find("output_size") != ctx->saved_data.end())
+  if (ctx->saved_data.find("output_size") != ctx->saved_data.end()) {
     grad_input = at::upsample_trilinear3d_backward(
         grad_output,
         ctx->saved_data["output_size"].toIntVector(),
         input_size,
         align_corners);
-  else if (ctx->saved_data.find("scale_factors") != ctx->saved_data.end()) {
+  } else if (ctx->saved_data.find("scale_factors") != ctx->saved_data.end()) {
     const auto scale_factors =
         ctx->saved_data["scale_factors"].toDoubleVector();
 

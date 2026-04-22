@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,9 +33,9 @@ namespace synapse_helpers {
 deviceMallocData::deviceMallocData() {
   iteration_number = 0;
   running_memory = iteration_high_watermark = overall_high_watermark = 0;
-  bt_depth = 40;
+  bt_depth = 40; // NOLINT(readability-magic-numbers)
   const char* rank_str = std::getenv("RANK");
-  std::string node_id = rank_str ? rank_str : "0";
+  std::string node_id = rank_str != nullptr ? rank_str : "0";
   filename = absl::StrFormat(
       "%s_%s", GET_ENV_FLAG_NEW(PT_HABANA_MEM_LOG_FILENAME), node_id);
   memory_reporter_name = absl::StrFormat("memory.reporter_%s.json", node_id);
@@ -187,7 +187,7 @@ std::string deviceMallocData::get_formatted_func_name(
     const auto len = end_of_func_name - start_of_func_name - 1;
     int status;
     const auto& name = string.substr(start_of_func_name + 1, len);
-    const auto demangled_name =
+    auto* const demangled_name =
         abi::__cxa_demangle(name.c_str(), nullptr, nullptr, &status);
     if (!print_all_frames &&
         !interesting_function((status == 0) ? demangled_name : name)) {
@@ -258,9 +258,9 @@ void deviceMallocData::collect_backtrace(
     bool alloc,
     size_t size,
     bool failure) {
-  if (!logging_enabled_)
+  if (!logging_enabled_) {
     return;
-
+  }
   int nptrs;
   std::vector<void*> vbuf;
   vbuf.reserve(bt_depth);
@@ -423,8 +423,9 @@ void deviceMallocData::collect_backtrace(
 }
 
 void deviceMallocData::report_fragmentation(bool from_free) {
-  if (!logging_enabled_)
+  if (!logging_enabled_) {
     return;
+  }
 
   print_live_allocations(from_free ? "Free failure" : "Allocation failure");
 
@@ -523,7 +524,7 @@ void deviceMallocData::print_live_allocations(const char* msg) {
   out_stream << "=========================\n";
   out_stream << "DRAM start: 0x" << std::hex << dram_start_ << "\n";
   out_stream << "DRAM size: " << std::dec << dram_size_ << " ("
-             << static_cast<double>(dram_size_) / (1024 * 1024 * 1024.)
+             << static_cast<double>(dram_size_) / (1024 * 1024 * 1024)
              << " GB)\n";
   std::vector<std::pair<uint64_t, size_bt_pair_t>> sorted_by_size_log(
       ptr_bt_map.begin(), ptr_bt_map.end());
@@ -540,17 +541,17 @@ void deviceMallocData::print_live_allocations(const char* msg) {
     total_live_size += entry.second.first;
   }
   out_stream << "Total memory held : " << total_live_size << " ("
-             << static_cast<double>(total_live_size) / (1024 * 1024.)
+             << static_cast<double>(total_live_size) / (1024 * 1024)
              << " MB)\n";
 
   // Stats on peak memory usage
   out_stream << "Peak memory usage : " << overall_high_watermark << " ("
-             << static_cast<double>(overall_high_watermark) / (1024 * 1024.)
+             << static_cast<double>(overall_high_watermark) / (1024 * 1024)
              << " MB)\n";
 
   out_stream << "Peak memory usage from last log : " << iteration_high_watermark
              << " ("
-             << static_cast<double>(iteration_high_watermark) / (1024 * 1024.)
+             << static_cast<double>(iteration_high_watermark) / (1024 * 1024)
              << " MB)\n";
 
   ++iteration_number;
@@ -673,32 +674,25 @@ void deviceMallocData::create_fragment_json_entry(
       std::to_string(stat_idx++) + std::string(", \"pid\":") +
       std::to_string(getpid()) + std::string(", ");
 
-  bool first_chunk_reported = false;
+  bool is_first_chunk = true;
 
   auto json_out_stream = get_memory_json_out_stream();
 
   for (auto& chunk : occupied_chunks_map) {
-    std::string frag_chunk_begin = frag_line_header;
-    if (!first_chunk_reported) {
-      frag_chunk_begin += std::string("\"ts\":") + std::to_string(0);
-      frag_chunk_begin += std::string(", \"name\":\"") + graph_name +
-          std::string("\", \"ph\":\"B\", \"func\":\"Graph") +
-          std::string("\", \"args\":{\"graph name\":\"") + graph_name +
-          std::string("\"}}\n");
-      std::string frag_chunk_end = frag_line_header;
-      frag_chunk_end +=
-          std::string("\"ts\":") + std::to_string((chunk.first) / (1024));
-      frag_chunk_end += std::string(", \"name\":\"") + graph_name +
-          std::string("\", \"ph\":\"E\", \"func\":\"Graph") +
-          std::string("\", \"args\":{\"graph name\":\"") + graph_name +
-          std::string("\"}}\n");
+    if (is_first_chunk) {
+      json_out_stream
+          << frag_line_header << "\"ts\":" << 0 << ", \"name\":\"" << graph_name
+          << "\", \"ph\":\"B\", \"func\":\"Graph\", \"args\":{\"graph name\":\""
+          << graph_name << "\"}}\n"
+          << frag_line_header << "\"ts\":" << (chunk.first / 1024)
+          << ", \"name\":\"" << graph_name
+          << "\", \"ph\":\"E\", \"func\":\"Graph\", \"args\":{\"graph name\":\""
+          << graph_name << "\"}}\n";
 
-      json_out_stream << frag_chunk_begin;
-      json_out_stream << frag_chunk_end;
-      first_chunk_reported = true;
+      is_first_chunk = false;
     }
 
-    frag_chunk_begin = frag_line_header;
+    std::string frag_chunk_begin = frag_line_header;
     frag_chunk_begin +=
         std::string("\"ts\":") + std::to_string(chunk.first / (1024));
     frag_chunk_begin +=

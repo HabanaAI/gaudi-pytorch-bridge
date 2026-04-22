@@ -394,7 +394,7 @@ auto get_or_create_tensor(
     PT_LAZY_PARALLEL_ACC_DEBUG("Running ", #op, " in accumulation thread"); \
     scheduleAccTask(std::move(lazy_op), self);                              \
     MAYBE_FLUSH_OP();                                                       \
-    return self;                                                            \
+    return std::move(self);                                                 \
   }                                                                         \
   return (lazy_op).call(self);
 

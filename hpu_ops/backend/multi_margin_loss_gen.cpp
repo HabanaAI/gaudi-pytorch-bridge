@@ -14,6 +14,8 @@
  */
 
 #include "generated/backend/multi_margin_loss.h"
+#include "pytorch_helpers/habana_helpers/conversion.h"
+#include "pytorch_helpers/habana_helpers/logging.h"
 
 namespace habana {
 
@@ -44,16 +46,16 @@ static FillParamsT MultiMarginLossParamsCommon(
 }
 
 FillParamsT FillMultiMarginLossParams(const at::Stack& stack) {
-  int p = stack.at(2).toInt();
-  float margin = stack.at(3).toScalar().toDouble();
+  int p = safe_convert<int>(stack.at(2).toInt());
+  float margin = static_cast<float>(stack.at(3).toScalar().toDouble());
   int64_t reduction = stack.at(5).toInt();
 
   return MultiMarginLossParamsCommon(p, margin, reduction);
 }
 
 FillParamsT FillMultiMarginLossBackwardParams(const at::Stack& stack) {
-  int p = stack.at(3).toInt();
-  float margin = stack.at(4).toScalar().toDouble();
+  int p = safe_convert<int>(stack.at(3).toInt());
+  float margin = static_cast<float>(stack.at(4).toScalar().toDouble());
   int64_t reduction = stack.at(6).toInt();
 
   return MultiMarginLossParamsCommon(p, margin, reduction);

@@ -49,10 +49,13 @@ SharedMetaDataVector FMinSharedMeta(
   const auto selfDim = stack.at(0).toTensor().dim();
   const auto otherDim = stack.at(1).toTensor().dim();
 
-  SharedMetaData fMinMeta(c10::isFloatingType(dtype) ? "fmin_fwd" : "min_fwd");
+  SharedMetaDataVector vec;
+  vec.reserve(1);
+  auto& fMinMeta =
+      vec.emplace_back(c10::isFloatingType(dtype) ? "fmin_fwd" : "min_fwd");
   fMinMeta.inputs_data.emplace_back(selfDim, dtype);
   fMinMeta.inputs_data.emplace_back(otherDim, dtype);
   fMinMeta.outputs_data.emplace_back(std::max(selfDim, otherDim), dtype);
-  return {fMinMeta};
+  return vec;
 }
 } // namespace habana

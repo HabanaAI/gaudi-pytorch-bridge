@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,15 +16,10 @@
 #include <perf_lib_layer_params.h>
 #include <torch/script.h>
 #include "backend/create_pt_tensor.h"
-#include "backend/habana_device/hpu_cached_devices.h"
-#include "backend/helpers/dynamic_shape_info.h"
-#include "backend/helpers/tensor_utils.h"
 #include "backend/kernel/hpu_shape_inference.h"
+#include "habana_helpers/conversion.h"
 #include "habana_helpers/logging.h"
-#include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/tensor_shape_kernels.h"
-#include "habana_lazy/aten_lazy_bridge.h"
-#include "habana_lazy/tensor_impl.h"
 #include "hpu_ops/hpu_op_helper.h"
 
 using namespace torch;
@@ -33,7 +28,9 @@ using namespace habana;
 std::vector<int64_t> RepeatOperator::compute_output_shape(
     const at::Tensor& self,
     at::IntArrayRef repeats) {
-  int64_t num_new_dimensions = repeats.size() - self.dim();
+  const auto self_dim = safe_convert<size_t>(self.dim());
+  const size_t num_new_dimensions =
+      repeats.size() > self_dim ? repeats.size() - self_dim : 0;
   std::vector<int64_t> padded_size(num_new_dimensions, 1);
   padded_size.insert(
       padded_size.end(), self.sizes().begin(), self.sizes().end());
@@ -47,7 +44,9 @@ std::vector<int64_t> RepeatOperator::compute_output_shape(
 std::vector<int64_t> RepeatOperator::compute_reshape_output(
     const at::Tensor& self,
     at::IntArrayRef repeats) {
-  int64_t num_new_dimensions = repeats.size() - self.dim();
+  const auto self_dim = safe_convert<size_t>(self.dim());
+  const size_t num_new_dimensions =
+      repeats.size() > self_dim ? repeats.size() - self_dim : 0;
   std::vector<int64_t> padded_size(num_new_dimensions, 1);
   padded_size.insert(
       padded_size.end(), self.sizes().begin(), self.sizes().end());
@@ -56,7 +55,7 @@ std::vector<int64_t> RepeatOperator::compute_reshape_output(
 
 std::vector<int64_t> RepeatOperatorHT::ComputeRepeatShapefromH2DTensor(
     const at::Tensor& host_tensor) {
-  auto tmeta{get_tensor_extra_meta(host_tensor)};
+  auto* tmeta{get_tensor_extra_meta(host_tensor)};
 
   bool is_dry_run = false;
   if (habana::ShapeInference::GetCurrentPass() ==
@@ -82,6 +81,7 @@ std::vector<int64_t> RepeatOperatorHT::ComputeRepeatShapefromH2DTensor(
 
   std::vector<int64_t> repeat;
   auto* h2d_data = static_cast<uint32_t*>(host_ptr);
+  repeat.reserve(h2d_data_size);
   for (size_t i = 0; i < h2d_data_size; i++) {
     repeat.push_back(*h2d_data++);
   }
@@ -143,6 +143,7 @@ void RepeatOperatorHT::AllocateAndAddSynapseNode(
   });
 
   std::vector<int32_t> repeats;
+  repeats.reserve(repeat_shape.size());
   for (auto t : repeat_shape) {
     repeats.push_back(static_cast<int32_t>(t));
   }
@@ -188,9 +189,9 @@ void RepeatOperator::AllocateAndAddSynapseNode(
       "Input arg2 expected to be intlist for repeat operator");
   auto input = inputs[0].toTensor();
   auto repeats = inputs[1].toIntVector();
-  int64_t size = repeats.size();
+  const auto size = repeats.size();
 
-  if (size > input.ndimension()) {
+  if (safe_convert<int64_t>(size) > input.ndimension()) {
     torch::jit::Stack temp_stack;
     auto reshapeSize = RepeatOperator::compute_reshape_output(input, repeats);
     auto reshapeOp = make_operator<ReshapeOperator>(
@@ -219,8 +220,8 @@ void RepeatOperator::AllocateAndAddSynapseNode(
     AllocateSynapseOutput(graph, output, output_metadata.at(0));
   }
 
-  for (int64_t i = 0; i < size; ++i) {
-    params.repeat[size - i - 1] = repeats[i];
+  for (size_t i = 0; i < size; ++i) {
+    params.repeat[size - i - 1] = safe_convert<int>(repeats[i]);
   }
 
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
@@ -231,7 +232,7 @@ std::vector<int64_t> RepeatInlvOperator::compute_output_shape(
     int64_t dim,
     int64_t out_size) {
   auto outshape = input.sizes().vec();
-  outshape[dim] = out_size;
+  outshape[safe_convert<size_t>(dim)] = out_size;
   return outshape;
 }
 
@@ -272,7 +273,7 @@ void RepeatInlvOperator::AllocateAndAddSynapseNode(
   auto out_shape = inputs[3].toTensor();
 
   ns_RepeatKernelGaudiTF::Params params;
-  params.axis = input.dim() - 1 - dim;
+  params.axis = safe_convert<int>(input.dim() - 1 - dim);
   auto output = habana::createPTTensor(
       input,
       out_shape.sizes(),
@@ -286,7 +287,7 @@ void RepeatInlvOperator::AllocateAndAddSynapseNode(
 
 std::vector<int64_t> RepeatInlvOperatorHT::ComputeRepeatShapefromH2DTensor(
     const at::Tensor& host_tensor) {
-  auto tmeta{get_tensor_extra_meta(host_tensor)};
+  auto* tmeta{get_tensor_extra_meta(host_tensor)};
 
   bool is_dry_run = false;
   if (habana::ShapeInference::GetCurrentPass() ==
@@ -312,6 +313,7 @@ std::vector<int64_t> RepeatInlvOperatorHT::ComputeRepeatShapefromH2DTensor(
 
   std::vector<int64_t> repeat;
   auto* h2d_data = static_cast<uint32_t*>(host_ptr);
+  repeat.reserve(h2d_data_size);
   for (size_t i = 0; i < h2d_data_size; i++) {
     repeat.push_back(*h2d_data++);
   }
@@ -327,7 +329,8 @@ InferOutputMetaRetType RepeatInlvOperatorHT::InferOutputMeta(
 
   auto repeat_vec = ComputeRepeatShapefromH2DTensor(repeats_ht);
   auto out_size = std::accumulate(repeat_vec.begin(), repeat_vec.end(), 0LL);
-  auto out_shape = RepeatInlvOperator::compute_output_shape(input, 0, out_size);
+  auto out_shape =
+      RepeatInlvOperator::compute_output_shape(input, 0LL, out_size);
 
   auto out_metadata = TensorMetaData(
       out_shape,
@@ -358,7 +361,7 @@ void RepeatInlvOperatorHT::AllocateAndAddSynapseNode(
 
   auto repeats_ht = inputs[1].toTensor();
   HABANA_ASSERT(p_context_->syn_inputs_[1].ref().is_host_to_device_tensor());
-  auto tmeta{get_tensor_extra_meta(repeats_ht)};
+  auto* tmeta{get_tensor_extra_meta(repeats_ht)};
 
   HABANA_ASSERT(
       tmeta->get_host_dt_type() == habana::HostDataType::INT32_T,
@@ -370,10 +373,11 @@ void RepeatInlvOperatorHT::AllocateAndAddSynapseNode(
   auto repeat_vec = ComputeRepeatShapefromH2DTensor(repeats_ht);
   auto out_size = std::accumulate(repeat_vec.begin(), repeat_vec.end(), 0LL);
 
-  auto out_shape = RepeatInlvOperator::compute_output_shape(input, 0, out_size);
+  auto out_shape =
+      RepeatInlvOperator::compute_output_shape(input, 0LL, out_size);
 
   ns_RepeatKernelGaudiTF::Params params;
-  params.axis = input.dim() - 1 - dim;
+  params.axis = safe_convert<int>(input.dim() - 1 - dim);
   auto output = habana::createPTTensor(
       input, out_shape, input.options(), output_metadata.at(0).persistent);
   AllocateSynapseOutput(graph, output, output_metadata.at(0));

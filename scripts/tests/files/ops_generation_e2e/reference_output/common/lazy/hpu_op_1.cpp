@@ -51,8 +51,9 @@ namespace habana {
   HPU_SUPPORTED_DTYPES(({at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}))
   FALLBACK_IF_UNSUPPORTED_DTYPE(input, native_dropout, input, p, train)
 
-  if (auto eePath = NativeDropoutEarlyExitCondition(input, p, train))
+  if (auto eePath = NativeDropoutEarlyExitCondition(input, p, train)) {
     return NativeDropoutEarlyExit(eePath, input, p, train);
+  }
 
   NativeDropoutFE<::std::tuple<at::Tensor,at::Tensor>> hpu_op{"hpu::native_dropout", {input, p, train}};
   hpu_op.SetOutputMetaFn(FusedNativeDropoutMeta);

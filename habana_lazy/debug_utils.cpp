@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -69,6 +69,9 @@ std::optional<AttrTag> ParseAttrTag(
           nested_open = static_cast<unsigned char>(node_string[pos]);
           nested_close = '}';
           break;
+        default:
+          // No nested structure to track for other characters
+          break;
       }
     } else if (node_string[pos] == nested_close) {
       --nest_count;
@@ -87,7 +90,7 @@ std::optional<AttrTag> ParseAttrTag(
 
 NodeIdMap GenerateIdMap(const std::vector<ir::NodePtr>& post_order) {
   NodeIdMap id_map;
-  for (auto& node : post_order) {
+  for (const auto& node : post_order) {
     id_map.emplace(node, id_map.size());
   }
   return id_map;
@@ -172,7 +175,7 @@ std::string GenerateTextNodeSpec(
   std::stringstream ss;
   ss << /*node->shape() << " " <<*/ node->op().toQualString() << "(";
   size_t count = 0;
-  for (auto& output : node->GetInputs()) {
+  for (const auto& output : node->GetInputs()) {
     if (count > 0) {
       ss << ", ";
     }
@@ -203,12 +206,12 @@ std::string IrGraphDumpUtil::PostOrderToDot(
   NodeIdMap id_map = GenerateIdMap(post_order);
   std::stringstream ss;
   ss << "digraph G {\n";
-  for (auto& node : post_order) {
+  for (const auto& node : post_order) {
     ss << "  node" << id_map.at(node) << " ["
        << GenerateDotNodeSpec(node, roots_ids, use_ir_names) << "]\n";
   }
   for (auto it = post_order.rbegin(); it != post_order.rend(); ++it) {
-    ir::NodePtr node = *it;
+    const ir::NodePtr& node = *it;
     size_t id = id_map.at(node);
     const auto& node_ips = node->GetInputs();
     for (size_t i = 0; i < node_ips.size(); ++i) {
@@ -248,7 +251,7 @@ std::string IrGraphDumpUtil::PostOrderToText(
   NodeIdMap id_map = GenerateIdMap(post_order);
   std::stringstream ss;
   ss << "IR {\n";
-  for (auto& node : post_order) {
+  for (const auto& node : post_order) {
     auto opt_root_id = GetRootNodeId(node, roots_ids);
     if (use_ir_names) {
       ss << "  ";

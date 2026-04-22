@@ -101,37 +101,46 @@ static SharedMetaDataVector ForeachPowOneIterationSharedMeta(
     auto otherRank = otherTensor.dim();
     auto outputRank = std::max(selfRank, otherRank);
     auto dtype = at::result_type(selfTensor, otherTensor);
-    if (isIntegralType(dtype, true))
+    if (isIntegralType(dtype, true)) {
       dtype = torch::kFloat32;
+    }
 
-    SharedMetaData powSharedMeta{"pow_fwd"};
+    SharedMetaDataVector powSharedMetaVec;
+    powSharedMetaVec.reserve(1);
+    auto& powSharedMeta = powSharedMetaVec.emplace_back("pow_fwd");
     powSharedMeta.inputs_data = {{selfRank, dtype}, {otherRank, dtype}};
     powSharedMeta.outputs_data = {{outputRank, dtype}};
-    return {powSharedMeta};
+    return powSharedMetaVec;
   } else if (self.isTensor() && other.isScalar()) {
     const auto& selfTensor = self.toTensor();
     auto rank = selfTensor.dim();
     const auto& otherScalar = other.toScalar();
     auto dtype = at::result_type(selfTensor, otherScalar);
-    if (isIntegralType(dtype, true))
+    if (isIntegralType(dtype, true)) {
       dtype = torch::kFloat32;
+    }
 
-    SharedMetaData powSharedMeta{"pow_fwd"};
+    SharedMetaDataVector powSharedMetaVec;
+    powSharedMetaVec.reserve(1);
+    auto& powSharedMeta = powSharedMetaVec.emplace_back("pow_fwd");
     powSharedMeta.inputs_data = {{rank, dtype}, {1, dtype}};
     powSharedMeta.outputs_data = {{rank, dtype}};
-    return {powSharedMeta};
+    return powSharedMetaVec;
   } else {
     const auto& selfScalar = self.toScalar();
     const auto& otherTensor = other.toTensor();
     auto rank = otherTensor.dim();
     auto dtype = at::result_type(selfScalar, otherTensor);
-    if (isIntegralType(dtype, true))
+    if (isIntegralType(dtype, true)) {
       dtype = torch::kFloat32;
+    }
 
-    SharedMetaData powSharedMeta{"pow_fwd"};
+    SharedMetaDataVector powSharedMetaVec;
+    powSharedMetaVec.reserve(1);
+    auto& powSharedMeta = powSharedMetaVec.emplace_back("pow_fwd");
     powSharedMeta.inputs_data = {{1, dtype}, {rank, dtype}};
     powSharedMeta.outputs_data = {{rank, dtype}};
-    return {powSharedMeta};
+    return powSharedMetaVec;
   }
 }
 

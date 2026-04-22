@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,19 +27,24 @@ TEST(SynapseHelpersGraphTest, graphAttributes) {
   if (synapse_device.type() == synDeviceGaudi2) {
     habana_helpers::EnableInferenceMode();
     habana_helpers::EnableQuantization();
+    synapse_device.set_is_dynamic_quantization(true);
     synapse_helpers::graph graph = habana_helpers::create_graph(
         synapse_device.id(), "attributesTestGraph");
     auto handle = graph.get_graph_handle();
     ASSERT_NE(handle, nullptr);
-    std::vector<synGraphAttributeVal> getValues(2);
+    std::vector<synGraphAttributeVal> getValues(3);
     synGraphAttribute att[] = {
-        GRAPH_ATTRIBUTE_INFERENCE, GRAPH_ATTRIBUTE_QUANTIZATION};
+        GRAPH_ATTRIBUTE_INFERENCE,
+        GRAPH_ATTRIBUTE_QUANTIZATION,
+        GRAPH_ATTRIBUTE_USE_DYNAMIC_QUANTIZATION};
     ASSERT_EQ(
         synSuccess,
         synGraphGetAttributes(handle, att, getValues.data(), getValues.size()));
     ASSERT_EQ(getValues[0].iAttrVal, 1);
     ASSERT_EQ(getValues[1].iAttrVal, 1);
+    ASSERT_EQ(getValues[2].iAttrVal, 1);
     habana_helpers::DisableInferenceMode();
     habana_helpers::DisableQuantization();
+    synapse_device.set_is_dynamic_quantization(false);
   }
 }

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -80,6 +80,7 @@ struct HabanaLaunchOpLauncher : Launcher {
     habana_launch_op_.run(stack, cached_rarg_psh, {}, {}, dry_run);
   }
 
+ private:
   habana::HabanaLaunchOpPT habana_launch_op_;
 };
 
@@ -134,7 +135,7 @@ void HlExec::Launch(
     std::shared_ptr<habana::RecipeArgumentSpec> cached_rarg_psh,
     bool dry_run) {
   PT_LAZY_TRACE;
-  auto context = get_device_lazy_execution_context();
+  auto* context = get_device_lazy_execution_context();
   // TODO : remove this env variable use
   // This is temporarily done to deactivate code in synapse helpers for lazy
   // mode kernel registration We will move to using shape utilities instead and
@@ -191,7 +192,7 @@ void HlExec::Launch(
     const c10::hpu::HPUStream& stream,
     bool dry_run) {
   PT_LAZY_TRACE;
-  auto context = get_device_lazy_execution_context();
+  auto* context = get_device_lazy_execution_context();
   // TODO : remove this env variable use
   // This is temporarily done to deactivate code in synapse helpers for lazy
   // mode kernel registration We will move to using shape utilities instead and
@@ -284,7 +285,7 @@ void HlExec::FindDuplicateInStack(
     if (input_addr_map.count(input_addr) != 0 && input_addr != 0) {
       auto pidx = input_addr_map.at(input_addr);
       auto parent_tensor = stack[pidx].toTensor();
-      auto input_tensor = input.toTensor();
+      const auto& input_tensor = input.toTensor();
       // Check for shape and stride match
       if (input_tensor.sizes() == parent_tensor.sizes() &&
           input_tensor.strides() == parent_tensor.strides()) {
@@ -347,7 +348,7 @@ void HlExec::PruneDuplicateGraphInputs(
           parent_idx,
           " found for input index ",
           i);
-      auto vptr = jit_ir_graph_inputs[parent_idx];
+      auto* vptr = jit_ir_graph_inputs[parent_idx];
       PT_LAZY_DEBUG(
           "Replacing %",
           jit_ir_graph_inputs[i]->debugName(),
@@ -389,7 +390,7 @@ void HlExec::deleteRedundantInputsFromInputStack(torch::jit::Stack& stack) {
 
   for (size_t i = 0; i < stack.size(); i++) {
     auto tensor = stack[i].toTensor();
-    auto impl = habana_lazy::GetHbInternalTensorImpl(tensor);
+    auto* impl = habana_lazy::GetHbInternalTensorImpl(tensor);
     if (impl->isRedundant()) {
       indices_for_deletion.push_back(i);
     }
@@ -417,9 +418,9 @@ void HlExec::SearchAndDeleteRedundantInputs(
   std::vector<size_t> po_data_input_indices_for_deletion;
   auto jit_ir_graph_inputs = mp_g_->inputs();
 
-  for (auto r_value_in : redundant_inputs) {
+  for (auto* r_value_in : redundant_inputs) {
     size_t idx = 0;
-    for (auto value_in : jit_ir_graph_inputs) {
+    for (auto* value_in : jit_ir_graph_inputs) {
       if (r_value_in->unique() == value_in->unique()) {
         indices_for_deletion.emplace_back(idx);
       }
@@ -427,7 +428,7 @@ void HlExec::SearchAndDeleteRedundantInputs(
     }
   }
 
-  for (auto r_value_in : redundant_inputs) {
+  for (auto* r_value_in : redundant_inputs) {
     size_t idx = 0;
     for (const auto& value_in : po_data.inputs) {
       std::string str1 = r_value_in->debugName();
@@ -451,7 +452,7 @@ void HlExec::SearchAndDeleteRedundantInputs(
       mp_g_->eraseInput(i);
 
       auto tensor = stack[i].toTensor();
-      auto impl = habana_lazy::GetHbInternalTensorImpl(tensor);
+      auto* impl = habana_lazy::GetHbInternalTensorImpl(tensor);
       impl->setRedundant();
 
       stack.erase(stack.cbegin() + i);
@@ -467,7 +468,7 @@ void HlExec::SearchAndDeleteRedundantInputs(
     }
   }
 
-  auto context = get_device_lazy_execution_context();
+  auto* context = get_device_lazy_execution_context();
   // Save po_data input and output to context for perf mode
   if (context->getCapturing() &&
       context->updateInputsRequired(po_data_input_indices_for_deletion)) {
@@ -484,8 +485,8 @@ float GetH2dScaleValue(const ir::Value& scale) {
           .CurrentTensorAttached();
   HABANA_ASSERT(
       opt_scale_internal.has_value(), "Optional variable has no value!");
-  auto scale_internal = opt_scale_internal.value();
-  auto tmeta{habana::get_tensor_extra_meta(scale_internal)};
+  const auto& scale_internal = opt_scale_internal.value();
+  auto* tmeta{habana::get_tensor_extra_meta(scale_internal)};
   if (scale_internal.dtype() == at::ScalarType::Float) {
     return *reinterpret_cast<float*>(tmeta->get_host_ptr());
   } else {
@@ -523,8 +524,8 @@ void HlExec::CollectAdjacentCastFp8Nodes(const ir::NodePtrList& nodes) {
     const auto& parent_op = parent_node->op();
     const bool node_is_cast_to = cast_to_fp8_symbol == op;
 
-    if (not((node_is_cast_to and cast_from_fp8_symbol == parent_op) or
-            (not node_is_cast_to and cast_to_fp8_symbol == parent_op))) {
+    if ((!node_is_cast_to || cast_from_fp8_symbol != parent_op) &&
+        (node_is_cast_to || cast_to_fp8_symbol != parent_op)) {
       continue;
     }
 
@@ -563,8 +564,8 @@ void HlExec::MarkNonReciprocalH2dScales(const ir::NodePtrList& nodes) {
   std::vector<ir::NodePtr> known_reciprocals{};
 
   for (const auto& [parent_id, child_id] : adjacent_cast_fp8_indices) {
-    auto parent_node = nodes[parent_id];
-    auto child_node = nodes[child_id];
+    const auto& parent_node = nodes[parent_id];
+    const auto& child_node = nodes[child_id];
 
     if (std::find(
             known_reciprocals.begin(), known_reciprocals.end(), parent_node) !=
@@ -710,7 +711,7 @@ void HlExec::GetOrCreate(ir::PostOrderData& po_data, torch::jit::Stack& stack) {
         }
       }};
 
-  if (std::getenv("PT_HPU_LAZY_CACHE_DISABLE")) {
+  if (std::getenv("PT_HPU_LAZY_CACHE_DISABLE") != nullptr) {
     PT_LAZY_DEBUG(
         "JIT Cache disabled :: key ",
         m_g_hash_,
@@ -783,7 +784,7 @@ void HlExec::GetOrCreate(ir::PostOrderData& po_data, torch::jit::Stack& stack) {
     bool IsOptimizedLazyEagerCached =
         habana::OptimizedJitGraphCache::GetOptimizedJitCache().IsCached(
             optimized_lazy_eager_key);
-    if (IsOptimizedLazyEagerCached == false) {
+    if (!IsOptimizedLazyEagerCached) {
       habana::OptimizedJitGraphCache::GetOptimizedJitCache().Add(
           optimized_lazy_eager_key, mp_g_and_meta_data_);
       // To Do - To incorporate the Graph index change
@@ -908,7 +909,7 @@ void HlExec::Create(
   LazyOutputToJitValueMap ir_map;
 
   for (const auto& inp : inputs) {
-    auto t = mp_g_->addInput(inp.ToString());
+    auto* t = mp_g_->addInput(inp.ToString());
     HABANA_ASSERT(!inp.m_data_ptr.expired());
     std::shared_ptr<Data> data = inp.m_data_ptr.lock();
     HABANA_ASSERT(
@@ -935,7 +936,7 @@ void HlExec::Create(
       // like avoiding multiply with 1 can be removed).
       // Keeping it as a variable (1-elem input) allows to be able to
       // reuse the same graph when the scalar values change.
-      auto c = mp_g_->insertConstant(scalar_const);
+      auto* c = mp_g_->insertConstant(scalar_const);
       ir_map[node->GetOutput(0)] = c;
     } else if (
         std::string(node->op().toQualString()).find("hpu::input") !=
@@ -990,7 +991,7 @@ void HlExec::Create(
                 c10::Symbol::fromQualString("debug::" + scope_name)));
       }
       at::ArrayRef<torch::jit::Value*> args(node_inputs);
-      auto jit_node = mp_g_->create(node->op(), args, node->GetNumOutputs());
+      auto* jit_node = mp_g_->create(node->op(), args, node->GetNumOutputs());
       // if (AccThread::IsAccThreadEnabled()) {
       //   jit_node->setScope(c10::make_intrusive<torch::jit::Scope>(
       //       torch::jit::ScopePtr(),
@@ -999,15 +1000,16 @@ void HlExec::Create(
 
       jit_node->i_(
           torch::jit::attr::deterministic,
-          node->getDeterministic() ||
-              at::globalContext().deterministicAlgorithms());
+          static_cast<int64_t>(
+              node->getDeterministic() ||
+              at::globalContext().deterministicAlgorithms()));
 
       mp_g_->insertNode(jit_node);
 
       if (c10::Symbol::fromQualString("prim::ListConstruct") == node->op() ||
           node->is_output_tensor_list()) {
         auto* list_node = dynamic_cast<ir::ListConstruct*>(node.get());
-        if (list_node && list_node->isOptional()) {
+        if ((list_node != nullptr) && list_node->isOptional()) {
           jit_node->output()->setType(
               torch::jit::ListType::create(
                   torch::jit::OptionalType::ofTensor()));
@@ -1019,7 +1021,7 @@ void HlExec::Create(
           if (jit_node->output(idx)->type()->kind() ==
               c10::TypeKind::TensorType) {
             auto irout_val = node->GetOutput(idx);
-            auto jit_value_out = jit_node->output(idx);
+            auto* jit_value_out = jit_node->output(idx);
             HABANA_ASSERT(
                 irout_val.get_scalar_type().has_value(),
                 "Optional variable has no scalar type data");
@@ -1040,7 +1042,7 @@ void HlExec::Create(
       }
       auto jit_outputs = jit_node->outputs();
       int i = 0;
-      for (const auto jit_output : jit_outputs) {
+      for (auto* const jit_output : jit_outputs) {
         ir_map[node->GetOutput(i++)] = jit_output;
       }
     }

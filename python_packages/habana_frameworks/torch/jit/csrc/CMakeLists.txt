@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@ set(TORCH_JIT_ROOT "${CMAKE_CURRENT_SOURCE_DIR}")
 
 add_subdirectory(jit_fork)
 
-add_habana_library(${TARGET_NAME} SHARED init_python_jit_bindings.cpp _C.cpp)
+add_habana_library(${TARGET_NAME} SHARED init_python_jit_bindings.cpp pytorch_compat_symbols.cpp _C.cpp)
 
 target_compile_definitions(${TARGET_NAME} PRIVATE TORCH_EXTENSION_NAME=${TARGET_NAME})
 

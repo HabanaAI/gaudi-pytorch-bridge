@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -160,7 +160,7 @@ at::Tensor _copy_from_d2h(
   synapse_helpers::layouts::MemoryPermutation permutation;
   std::tie(permutation, std::ignore) =
       habana_helpers::get_tensor_memory_permutation(self_);
-  auto tmeta{habana::get_tensor_extra_meta(self_)};
+  auto* tmeta{habana::get_tensor_extra_meta(self_)};
   if (!permutation.empty()) {
     // translate synapse permtue to pt permute
     auto pt_permute = translateSynapsePermuteToPt(permutation);
@@ -233,8 +233,8 @@ static void clear_permutation_info(const at::Tensor& tensor) {
     return;
   }
 
-  auto smeta{get_storage_extra_meta(tensor)};
-  if (smeta) {
+  auto* smeta{get_storage_extra_meta(tensor)};
+  if (smeta != nullptr) {
     auto synapse_permute = smeta->get_memory_permutation();
     if (!synapse_permute.empty()) {
       PT_LAYOUTS_DEBUG("clearing memory permute ", VecToString(synapse_permute))
@@ -249,7 +249,7 @@ void Register_Copy_In_Pipeline(
     bool non_blocking,
     c10::hpu::HPUStream stream) {
   // Set pipeline metadata on the dst hpu tensor
-  auto dst_hb_tmeta{habana::get_tensor_extra_meta(dst)};
+  auto* dst_hb_tmeta{habana::get_tensor_extra_meta(dst)};
   dst_hb_tmeta->set_tensor_pipelined();
 
   void* host_ptr = nullptr;
@@ -378,9 +378,9 @@ at::Tensor _copy_from_d2d(const at::Tensor& self, const at::Tensor& dst) {
   bool is_zst_view = false;
   if (dst.sizes() == 0) {
     auto is_tensor_pipelined = false;
-    auto tmeta{habana::get_tensor_extra_meta(dst)};
-    if (tmeta) {
-      if (auto hb_tmeta = dynamic_cast<habana::TensorExtraMeta*>(tmeta)) {
+    auto* tmeta{habana::get_tensor_extra_meta(dst)};
+    if (tmeta != nullptr) {
+      if (auto* hb_tmeta = dynamic_cast<habana::TensorExtraMeta*>(tmeta)) {
         is_tensor_pipelined = hb_tmeta->is_tensor_pipelined();
       }
     }
@@ -403,8 +403,9 @@ at::Tensor _copy_from_d2d(const at::Tensor& self, const at::Tensor& dst) {
     }
 
     auto dstShape = dst.sizes();
-    if (dstShape.vec() != self_.sizes().vec())
+    if (dstShape.vec() != self_.sizes().vec()) {
       self_ = self_.broadcast_to(dstShape);
+    }
     habana::eager::EagerOp<at::Tensor&> hpu_op{
         "hpu::_copy_from", {self_, dst}, {dst.sizes().vec()}, 1};
     hpu_op.set_eager_op_info(

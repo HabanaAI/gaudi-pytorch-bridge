@@ -79,7 +79,7 @@ class IShape {
   void UpdateTensor(std::vector<int64_t> tensorShape);
   void UpdateScalar(at::Scalar scalar);
   void ResetIshapeUpdate();
-  bool IsUpdated();
+  bool IsUpdated() const;
   bool isScalar();
   bool isTensor();
 };

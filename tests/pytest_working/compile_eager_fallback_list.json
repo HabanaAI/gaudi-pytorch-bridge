@@ -1213,7 +1213,8 @@
                 "test_scalar_bool",
                 "test_recipe_cache1",
                 "test_index_put_ellipsis[inputs_shape0]",
-                "test_index_put_cpu_index[inputs_shape0]"
+                "test_index_put_cpu_index[inputs_shape0]",
+                "test_reinplace_broadcast_add_on_cpu"
         ],
         "gaudi2": [
                 "test_op_square_inplace_output",

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,14 +19,15 @@ namespace habana {
 OutputMetaDataVector TraceMeta(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 0);
 
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.shape = {};
   if (self.scalar_type() == c10::ScalarType::Int) {
     meta.dtype = c10::ScalarType::Long;
   } else {
     meta.dtype = self.scalar_type();
   }
-  return {meta};
+  return metaVec;
 }
 
 } // namespace habana

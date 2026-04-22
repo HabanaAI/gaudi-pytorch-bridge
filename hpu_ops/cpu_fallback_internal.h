@@ -403,7 +403,7 @@ struct _dispatch_fallback<Op, at::Tensor&(at::Tensor&, ParameterTypes...)>
         const auto originalDtype = t.scalar_type();
         at::Tensor& cast_input{cast_arg(arg_changed, at::ScalarType::Float, t)};
 
-        at::Tensor& new_tensor{
+        at::Tensor new_tensor{
             redispatch_if_any_arg_changed<
                 Op,
                 at::Tensor&,

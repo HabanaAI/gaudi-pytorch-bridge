@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -136,9 +136,7 @@ def is_fp8_run(fp8_run_out_type, inference, is_amax_s, is_amax_o, is_amax_ds):
         if is_amax_o:
             return False
         # the following is rundundant. is_amax_ds should not be true in inference
-        if is_amax_ds:
-            return False
-        return True
+        return not is_amax_ds
     else:
         return True
 
@@ -156,19 +154,13 @@ def get_scale_values(name, t, is_t_amax=False, scale_limit=None):
             return 0.00390625
 
     FP8_MAX_143 = 240 * 0.9
-    if is_t_amax is False:
-        maxT = torch.max(torch.abs(t)).to(torch.float).item()
-    else:
-        maxT = t.item()
+    maxT = torch.max(torch.abs(t)).to(torch.float).item() if is_t_amax is False else t.item()
     scaleT = FP8_MAX_143 / maxT
 
     lg2 = math.log2(scaleT)
     lg2_int = int(lg2)
 
-    if not is_gaudi3():
-        scaleT_pow2 = map_to_g2_hwa_scales(lg2_int)
-    else:
-        scaleT_pow2 = 2.0**lg2_int
+    scaleT_pow2 = 2.0**lg2_int if is_gaudi3() else map_to_g2_hwa_scales(lg2_int)
 
     scaleTInv = 1.0 / scaleT_pow2
     vb_print(name, ": scale", scaleT)
@@ -293,10 +285,7 @@ def create_attention_mask_for_test(batch_size, q_heads, seq_len_N_t, seq_len_N_s
     attn_mask = attn_mask.to(dtype)
 
     if shape == "Bx1x1xN":
-        if q_heads == 0:
-            mask_shape = (batch_size, 1, seq_len_N_s)
-        else:
-            mask_shape = (batch_size, 1, 1, seq_len_N_s)
+        mask_shape = (batch_size, 1, seq_len_N_s) if q_heads == 0 else (batch_size, 1, 1, seq_len_N_s)
         attn_mask = attn_mask.expand(mask_shape)
     else:
         if q_heads == 0:
@@ -320,10 +309,7 @@ def vanilla_attention_impl_for_test(
 ):
     sqrt_dim_head = query.shape[-1] ** 0.5
     scores = torch.matmul(query, key.transpose(-2, -1))
-    if scale is None:
-        scores = scores / sqrt_dim_head
-    else:
-        scores = scores * scale
+    scores = scores / sqrt_dim_head if scale is None else scores * scale
 
     if attn_mask is not None:
         if attn_mask.dtype == torch.bool:
@@ -1233,10 +1219,7 @@ def test_sdpa(
         vb_print("fp8_dtype = ", fp8_dtype)
 
     attn_mask_shape = "Bx1x1xN"
-    if use_float_mask:
-        mask_dtype = dtype
-    else:
-        mask_dtype = torch.bool
+    mask_dtype = dtype if use_float_mask else torch.bool
 
     attn_scale = attention_scale
     vb_print("\nbatch_size = ", batch_size)

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -67,17 +67,19 @@ class ProcessGetItemNodes {
   std::optional<int> getIndex(const Value* index_value) const {
     const auto index_ivalue = toIValue(index_value);
     // We assume the index value is int
-    if (!index_ivalue.has_value() || !index_ivalue.value().isInt())
+    if (!index_ivalue.has_value() || !index_ivalue.value().isInt()) {
       return std::nullopt;
+    }
     // Convert from ivalue to int
     return index_ivalue.value().toInt();
   }
 
   Node* getUnpackNode(Value* container_value) const {
     const auto it = unpack_map.find(container_value);
-    if (it == unpack_map.end())
+    if (it == unpack_map.end()) {
       // Not found
       return nullptr;
+    }
     // Container was unpacked
     return it->second;
   }
@@ -85,9 +87,9 @@ class ProcessGetItemNodes {
   Value* getDestValue(const at::ArrayRef<Value*>& inputs) {
     // Obtain index value from getitem node (the second argument)
     const std::optional<int> index = getIndex(inputs[INDEX_ARG]);
-    if (!index.has_value())
+    if (!index.has_value()) {
       return nullptr;
-
+    }
     Value* dest_value = nullptr;
     // Get container construction node such as:
     //  %getitem : Float(shape=[...], strides=[...], ..) | OUTPUT[0]
@@ -119,8 +121,9 @@ class ProcessGetItemNodes {
 
       // Check if container was unpacked at some point before
       Node* unpack_node = getUnpackNode(inputs[CONTAINER_ARG]);
-      if (unpack_node == nullptr)
+      if (unpack_node == nullptr) {
         return nullptr;
+      }
       // Here we obtain value from the container at given 'index'
       // and outputs of the unpack are elements of the continer
       dest_value = unpack_node->outputs()[index.value()];
@@ -138,15 +141,16 @@ class ProcessGetItemNodes {
       //      )
       // Input here will be argument to ListUnpack function ->
       // "%split_with_sizes"
-      const auto container = n->input(CONTAINER_ARG);
+      auto* const container = n->input(CONTAINER_ARG);
       unpack_map[container] = n;
     }
   }
 
   bool isGetItemNodeWithConst(const Node* n) const {
     // We are only interested in aten::__getitem__ and prim::TupleIndex nodes
-    if (!(n->kind() == aten::__getitem__ || n->kind() == prim::TupleIndex))
+    if (!(n->kind() == aten::__getitem__ || n->kind() == prim::TupleIndex)) {
       return false;
+    }
     // The node needs to have 2 arguments - container and index
     const auto inputs = n->inputs();
     if (inputs.size() != 2) {
@@ -160,7 +164,7 @@ class ProcessGetItemNodes {
     return true;
   }
 
-  bool isNumber(std::string_view str) const {
+  [[nodiscard]] bool isNumber(std::string_view str) const {
     return str.find_first_not_of("0123456789") == std::string::npos;
   }
 
@@ -195,13 +199,14 @@ class ProcessGetItemNodes {
         value_new_names_map.begin(),
         value_new_names_map.end(),
         [&](auto& value) {
-          if (!isNumber(value.second))
+          if (!isNumber(value.second)) {
             PT_BRIDGE_DEBUG(
                 "Renaming value ",
                 value.first->debugName(),
                 " to ",
                 value.second,
                 ".");
+          }
           value.first->setDebugName(value.second);
         });
   }

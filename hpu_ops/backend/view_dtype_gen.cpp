@@ -25,10 +25,11 @@ OutputMetaDataVector ViewDtypeMeta(const at::Stack& stack) {
       static_cast<float>(scalarTypeToTypeMeta(dtype).itemsize()) /
       self.element_size();
   sizes[self.dim() - 1] /= size_ratio;
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.dtype = dtype;
   meta.shape = sizes;
-  return {meta};
+  return metaVec;
 }
 
 void ViewDtype::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {

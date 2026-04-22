@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -127,7 +127,6 @@ struct TORCH_API Node {
   // linked list is implemented as an array to allow the same iterator
   // class for forward and reversed Node lists. Taken together, this
   // list also represents a topological sort of the Nodes in the Graph.
-  // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays,cppcoreguidelines-non-private-member-variables-in-classes,modernize-avoid-c-arrays)
   Node* next_in_graph[2] = {nullptr, nullptr};
 
   std::shared_ptr<Wrap<Node>> wrap() {

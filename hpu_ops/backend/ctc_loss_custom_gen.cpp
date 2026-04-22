@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,7 +40,7 @@ calculate_output_shapes_for_ctc_loss_custom_fwd_common(
   auto alpha_shape = std::vector<DimT>{
       input_sequence_length,
       batch_size,
-      2 * max_target_length + 1}; // (T, N, 2*S+1)
+      (2 * max_target_length) + 1}; // (T, N, 2*S+1)
 
   return std::make_tuple(loss_shape, alpha_shape);
 }
@@ -76,7 +76,9 @@ SharedMetaDataVector OptimizerCTCLossCustomSharedMeta(
   const auto& target_lengths = stack.at(3).toTensor();
   const auto precision_type = log_probs.scalar_type();
 
-  SharedMetaData ctc_loss_custom_shared_meta{"ctc_loss_fwd"};
+  SharedMetaDataVector meta;
+  meta.reserve(1);
+  auto& ctc_loss_custom_shared_meta = meta.emplace_back("ctc_loss_fwd");
   ctc_loss_custom_shared_meta.inputs_data = {
       {log_probs.dim(), precision_type},
       getSharedMetaFromTensor(targets),
@@ -85,7 +87,7 @@ SharedMetaDataVector OptimizerCTCLossCustomSharedMeta(
   ctc_loss_custom_shared_meta.outputs_data = {
       {1, precision_type}, {3, precision_type}};
 
-  return {ctc_loss_custom_shared_meta};
+  return meta;
 }
 
 SharedMetaDataVector OptimizerCTCLossCustomBackwardSharedMeta(
@@ -100,7 +102,9 @@ SharedMetaDataVector OptimizerCTCLossCustomBackwardSharedMeta(
   const auto& log_alpha = stack.at(6).toTensor();
   const auto precision_type = log_probs.scalar_type();
 
-  SharedMetaData ctc_loss_bwd_shared_meta{"ctc_loss_bwd"};
+  SharedMetaDataVector meta;
+  meta.reserve(1);
+  auto& ctc_loss_bwd_shared_meta = meta.emplace_back("ctc_loss_bwd");
   ctc_loss_bwd_shared_meta.inputs_data = {
       {grad.dim(), precision_type},
       getSharedMetaFromTensor(log_probs),
@@ -111,7 +115,7 @@ SharedMetaDataVector OptimizerCTCLossCustomBackwardSharedMeta(
       {log_alpha.dim(), precision_type}};
   ctc_loss_bwd_shared_meta.outputs_data = {getSharedMetaFromTensor(log_probs)};
 
-  return {ctc_loss_bwd_shared_meta};
+  return meta;
 }
 
 OutputMetaDataVector CTCLossCustomMeta(const at::Stack& stack) {
@@ -120,23 +124,25 @@ OutputMetaDataVector CTCLossCustomMeta(const at::Stack& stack) {
   auto shapes = calculate_output_shapes_for_ctc_loss_custom_fwd(
       log_probs, targets, stack.at(5).toInt());
 
-  OutputMetaData meta_loss;
+  OutputMetaDataVector metaVec(2);
+  auto& meta_loss = metaVec[0];
   meta_loss.dtype = log_probs.scalar_type();
   meta_loss.shape = std::get<0>(shapes);
 
-  OutputMetaData meta_alpha;
+  auto& meta_alpha = metaVec[1];
   meta_alpha.dtype = log_probs.scalar_type();
   meta_alpha.shape = std::get<1>(shapes);
 
-  return {meta_loss, meta_alpha};
+  return metaVec;
 }
 
 OutputMetaDataVector CTCLossCustomBackwardMeta(const at::Stack& stack) {
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
   const at::Tensor log_probs = stack_tensor(stack, 1);
+  auto& meta = metaVec.front();
   meta.shape = log_probs.sizes().vec();
   meta.dtype = log_probs.scalar_type();
-  return {meta};
+  return metaVec;
 }
 
 void CTCLossCustom::AddNode(
@@ -149,23 +155,27 @@ void CTCLossCustom::AddNode(
 
   LossMode_t reduction_mode{LossMode_t::LOSS_REDUCTION_MODE_NONE};
   auto reduction = stack.at(5).toInt();
-  if (reduction == 1)
+  if (reduction == 1) {
     reduction_mode = LossMode_t::LOSS_REDUCTION_MODE_MEAN;
-  else if (reduction == 2)
+  } else if (reduction == 2) {
     reduction_mode = LossMode_t::LOSS_REDUCTION_MODE_SUM;
+  }
 
   ns_CTCLoss::Params params;
   params.blankIndex = safe_convert<int>(blank_index);
   params.reductionMode = reduction_mode;
-  params.zeroInfinity = zero_infinity;
+  params.zeroInfinity = static_cast<int>(zero_infinity);
 
   update_guid_dtype(guid_, log_probs.scalar_type());
 
   auto meta = CTCLossCustomMeta(stack);
 
   std::vector<synTensor> inputs{};
-  for (size_t i = 0; i < 4; ++i)
+  constexpr size_t num_inputs = 4;
+  inputs.reserve(num_inputs);
+  for (size_t i = 0; i < num_inputs; ++i) {
     inputs.push_back(syn_in(i));
+  }
 
   auto op = OpBackend::BuildNode(
       this,
@@ -200,7 +210,7 @@ void CTCLossCustomBackward::AddNode(
     const auto maxTargetSize = targetsCurrentMaxShape.size() > 1
         ? targetsCurrentMaxShape.at(1)
         : targetsCurrentMaxShape.at(0);
-    const auto expectedLastDimSizeInLogAlphaTensor = maxTargetSize * 2 + 1;
+    const auto expectedLastDimSizeInLogAlphaTensor = (maxTargetSize * 2) + 1;
 
     HABANA_ASSERT(
         (actualLastDimSizeInLogAlphaTensor <=
@@ -223,21 +233,25 @@ void CTCLossCustomBackward::AddNode(
   LossMode_t reduction_mode{LossMode_t::LOSS_REDUCTION_MODE_NONE};
 
   auto reduction = stack.at(8).toInt();
-  if (reduction == 1)
+  if (reduction == 1) {
     reduction_mode = LossMode_t::LOSS_REDUCTION_MODE_MEAN;
-  else if (reduction == 2)
+  } else if (reduction == 2) {
     reduction_mode = LossMode_t::LOSS_REDUCTION_MODE_SUM;
+  }
 
   ns_CTCLoss::Params params;
   params.blankIndex = safe_convert<int>(blank_index);
   params.reductionMode = reduction_mode;
-  params.zeroInfinity = zero_infinity;
+  params.zeroInfinity = static_cast<int>(zero_infinity);
 
   update_guid_dtype(guid_, log_probs.scalar_type());
 
   std::vector<synTensor> inputs{};
-  for (size_t i = 0; i < 7; ++i)
+  constexpr size_t num_inputs = 7;
+  inputs.reserve(num_inputs);
+  for (size_t i = 0; i < num_inputs; ++i) {
     inputs.push_back(syn_in(i));
+  }
 
   auto op = OpBackend::BuildNode(
       this,

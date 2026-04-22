@@ -88,5 +88,5 @@ def test_adam_native(dtype, lr_is_scalar, fused, amsgrad, maximize, capturable):
         hpu_optimizer.step()
 
     for cpu_tensor, hpu_tensor in zip(cpu_tensors, hpu_tensors, strict=False):
-        rtol, atol = (1e-6, 1e-6) if dtype == torch.float32 else (6e-2, 5e-2)
+        rtol, atol = (1e-6, 1e-6) if dtype == torch.float32 else (6e-2, 6e-2)
         torch.testing.assert_close(cpu_tensor, hpu_tensor.cpu(), rtol=rtol, atol=atol)

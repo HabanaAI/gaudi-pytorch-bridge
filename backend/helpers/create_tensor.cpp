@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@
 namespace {
 void handle_const_section_tensor(const at::Tensor& tensor) {
   if (habana_helpers::IsConstSectionSerialization()) {
-    auto tmeta{habana::get_tensor_extra_meta(tensor)};
+    auto* tmeta{habana::get_tensor_extra_meta(tensor)};
     if (tmeta->is_const_tensor()) {
       if (!tmeta->get_const_section_data_serializer()->isSerialized(
               tmeta->get_const_id())) {
@@ -74,7 +74,7 @@ synapse_helpers::tensor create_tensor(
   uint64_t tensor_id{synapse_helpers::INVALID_SYN_TENSOR_ID};
   // In case of dynamic graph update the name shape map
   if (graph.is_dynamic_graph() &&
-      (graph.is_optim_output_sif_enabled() == false ||
+      (!graph.is_optim_output_sif_enabled() ||
        habana::ShapeInference::GetCurrentPass() !=
            habana::ShapeInfo::InferencePass::OUTPUT_SHAPE)) {
     tensor_id = habana::ShapeInference::UpdateShapeInfo(graph, shape.vec());
@@ -151,7 +151,7 @@ synapse_helpers::tensor create_tensor(
   uint64_t tensor_id{synapse_helpers::INVALID_SYN_TENSOR_ID};
   // In case of dynamic graph update the name shape map
   if (graph.is_dynamic_graph() &&
-      (graph.is_optim_output_sif_enabled() == false ||
+      (!graph.is_optim_output_sif_enabled() ||
        habana::ShapeInference::GetCurrentPass() !=
            habana::ShapeInfo::InferencePass::OUTPUT_SHAPE)) {
     tensor_id =
@@ -160,7 +160,7 @@ synapse_helpers::tensor create_tensor(
 
   auto syn_dtype =
       pytorch_to_synapse_type(dtype.value_or(tensor.scalar_type()));
-  auto tmeta{habana::get_tensor_extra_meta(tensor)};
+  auto* tmeta{habana::get_tensor_extra_meta(tensor)};
 
   if (graph.is_dry_run()) {
     // For dry run mode, just create a placeholder tensor
@@ -338,7 +338,7 @@ synapse_helpers::tensor create_tensor(
 
   // In case of dynamic graph update the name shape map
   if (graph.is_dynamic_graph() &&
-      (graph.is_optim_output_sif_enabled() == false ||
+      (!graph.is_optim_output_sif_enabled() ||
        habana::ShapeInference::GetCurrentPass() !=
            habana::ShapeInfo::InferencePass::OUTPUT_SHAPE)) {
     tensor_id = habana::ShapeInference::UpdateShapeInfo(graph, tensor_shape);
@@ -465,7 +465,7 @@ void update_backend_ST_info(
     bool is_op_dynamic,
     uint64_t& tensor_id) {
   tensor_id = synapse_helpers::detail::tensor_name_generator::get_tensor_id();
-  if (graph.is_optim_output_sif_enabled() == true) {
+  if (graph.is_optim_output_sif_enabled()) {
     if (is_op_dynamic) {
       uint64_t shape_tensor_id =
           habana::ShapeInference::ReadAndIncrementShapeTensorId();
@@ -523,7 +523,7 @@ void update_frontend_ST_info(
     synapse_helpers::graph& graph,
     uint64_t& tensor_id) {
   tensor_id = synapse_helpers::detail::tensor_name_generator::get_tensor_id();
-  if (graph.is_optim_output_sif_enabled() == true) {
+  if (graph.is_optim_output_sif_enabled()) {
     if (habana::ShapeInference::GetCurrentPass() !=
         habana::ShapeInfo::InferencePass::OUTPUT_SHAPE) {
       PT_DYNAMIC_SHAPE_DEBUG("Creating Frontend ST at TID = ", tensor_id);
@@ -900,7 +900,7 @@ synapse_helpers::tensor duplicate_tensor_in_memory_section(
   PT_BRIDGE_TRACE;
 
   if (graph.is_dynamic_graph() &&
-      (graph.is_optim_output_sif_enabled() == false ||
+      (!graph.is_optim_output_sif_enabled() ||
        habana::ShapeInference::GetCurrentPass() !=
            habana::ShapeInfo::InferencePass::OUTPUT_SHAPE)) {
     habana::ShapeInference::UpdateShapeInfo(graph, tensor.pt_shape());
@@ -955,7 +955,7 @@ synapse_helpers::tensor duplicate_tensor_in_memory_section_with_size(
   PT_BRIDGE_TRACE;
 
   if (graph.is_dynamic_graph() &&
-      (graph.is_optim_output_sif_enabled() == false ||
+      (!graph.is_optim_output_sif_enabled() ||
        habana::ShapeInference::GetCurrentPass() !=
            habana::ShapeInfo::InferencePass::OUTPUT_SHAPE)) {
     habana::ShapeInference::UpdateShapeInfo(graph, sizes);
@@ -1139,23 +1139,22 @@ get_tensor_memory_permutation(const at::Tensor& tensor) {
         habana::StorageExtraMeta().get_memory_permutation(),
         habana::StorageExtraMeta().get_dont_allow_permutation()};
   } else {
-    auto smeta{habana::get_storage_extra_meta(tensor)};
-    if (smeta) {
-      return {
-          smeta->get_memory_permutation(), smeta->get_dont_allow_permutation()};
-    } else {
+    auto* smeta{habana::get_storage_extra_meta(tensor)};
+    if (smeta == nullptr) {
       return {
           habana::StorageExtraMeta().get_memory_permutation(),
           habana::StorageExtraMeta().get_dont_allow_permutation()};
     }
+    return {
+        smeta->get_memory_permutation(), smeta->get_dont_allow_permutation()};
   }
 }
 
 void set_tensor_memory_permutations(
     const at::Tensor& tensor,
     const synapse_helpers::layouts::MemoryPermutation& permutation) {
-  auto smeta{habana::get_storage_extra_meta(tensor)};
-  if (!smeta && permutation.empty()) {
+  auto* smeta{habana::get_storage_extra_meta(tensor)};
+  if (smeta == nullptr && permutation.empty()) {
     PT_BRIDGE_DEBUG(
         "Trying to set empty permute on tensor without StorageExtraMeta, ignoring..");
     return;
@@ -1195,7 +1194,7 @@ void set_tensor_memory_permutations(
 void update_tensor_layout_and_permutation(
     const at::Tensor& pt_tensor,
     const PtTensorInfo& ti) {
-  auto tmeta{habana::get_tensor_extra_meta(pt_tensor)};
+  auto* tmeta{habana::get_tensor_extra_meta(pt_tensor)};
   auto internal_lf = tmeta->get_tensor_layout();
   auto internal_lf_new = ti.getHbInternalLayoutFormat();
   if (internal_lf != internal_lf_new) {

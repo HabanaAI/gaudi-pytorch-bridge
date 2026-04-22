@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -113,7 +113,7 @@ bool computeUpdatedConvWeightAndBias(
     auto t = s[i];
 
     auto cb_old = cb[i];
-    auto cb_new = (float)(((double)cb_old - (double)m[i]) * t + (double)b[i]);
+    auto cb_new = (float)((((double)cb_old - (double)m[i]) * t) + (double)b[i]);
 
     cb[i] = cb_new;
     b[i] = all_bias_zero ? cb_new : 0;
@@ -152,7 +152,7 @@ void CheckIfAutoCastNodePresent(
     torch::jit::Node* conv,
     std::vector<torch::jit::Node*>& w_auto_cast,
     std::vector<torch::jit::Node*>& b_auto_cast) {
-  for (auto node : graph->nodes()) {
+  for (auto* node : graph->nodes()) {
     if ((strcmp(node->kind().toQualString(), "hpu::cast") == 0)) {
       auto cast_uses = node->output(0)->uses();
       for (auto cast_u : cast_uses) {
@@ -185,14 +185,14 @@ bool FuseConvBatchnorm(
   bool graph_modified = false;
   PtTensorInferenceData::get_instance().print_map();
 
-  for (auto node : graph->nodes()) {
-    auto node_name = node->kind().toQualString();
+  for (auto* node : graph->nodes()) {
+    const auto* node_name = node->kind().toQualString();
     PT_LAZY_DEBUG("Node Name: ", node_name);
     if ((strcmp(node_name, "hpu::native_batch_norm_inf") == 0) &&
         (node->inputs().at(0)->node()->kind() ==
          torch::jit::aten::convolution_overrideable)) {
-      auto conv = node->inputs().at(0)->node();
-      auto bn = node;
+      auto* conv = node->inputs().at(0)->node();
+      auto* bn = node;
 
       std::vector<torch::jit::Node*> w_auto_cast;
       std::vector<torch::jit::Node*> b_auto_cast;
@@ -201,26 +201,26 @@ bool FuseConvBatchnorm(
       auto b_auto_cast_en = !b_auto_cast.empty();
 
       auto ib = b_auto_cast_en ? std::nullopt : std::optional<size_t>{2};
-      auto nb = b_auto_cast_en ? b_auto_cast.at(0) : conv;
+      auto* nb = b_auto_cast_en ? b_auto_cast.at(0) : conv;
 
       habana::TensorExtraMeta* conv_b_tmeta_ptr{nullptr};
       habana::StorageExtraMeta* conv_b_smeta_ptr{nullptr};
       std::tie(conv_b_tmeta_ptr, conv_b_smeta_ptr) =
           habana_lazy::GetBackEndTensorMeta(graph, stack, nb, ib);
-      auto conv_b = habana_lazy::GetDataInHostBuffer(graph, stack, nb, ib);
-      if (!conv_b_tmeta_ptr || !conv_b) {
+      auto* conv_b = habana_lazy::GetDataInHostBuffer(graph, stack, nb, ib);
+      if ((conv_b_tmeta_ptr == nullptr) || (conv_b == nullptr)) {
         PT_LAZY_DEBUG("[FuseConvBatchnorm] Convolution bias not found");
       }
 
       auto iw = w_auto_cast_en ? std::nullopt : std::optional<size_t>{1};
-      auto nw = w_auto_cast_en ? w_auto_cast.at(0) : conv;
+      auto* nw = w_auto_cast_en ? w_auto_cast.at(0) : conv;
 
       habana::TensorExtraMeta* conv_w_tmeta_ptr{nullptr};
       habana::StorageExtraMeta* conv_w_smeta_ptr{nullptr};
       std::tie(conv_w_tmeta_ptr, conv_w_smeta_ptr) =
           habana_lazy::GetBackEndTensorMeta(graph, stack, nw, iw);
-      auto conv_w = habana_lazy::GetDataInHostBuffer(graph, stack, nw, iw);
-      if (!conv_w_tmeta_ptr || !conv_w) {
+      auto* conv_w = habana_lazy::GetDataInHostBuffer(graph, stack, nw, iw);
+      if ((conv_w_tmeta_ptr == nullptr) || (conv_w == nullptr)) {
         PT_LAZY_DEBUG(
             "[FuseConvBatchnorm] Convolution without weight not yet supported");
         continue;
@@ -240,14 +240,14 @@ bool FuseConvBatchnorm(
       // }
 
       size_t idx_bias = 1;
-      auto bn_b = habana_lazy::GetDataInHostBuffer(graph, stack, bn, idx_bias);
-      if (!bn_b) {
+      auto* bn_b = habana_lazy::GetDataInHostBuffer(graph, stack, bn, idx_bias);
+      if (bn_b == nullptr) {
         PT_LAZY_DEBUG("[FuseConvBatchnorm] BN without bias not yet supported");
         continue;
       }
       // If convolution doesn't have a bias, we will re-use bn bias as
       // convolution bias in the graph
-      if (conv_b_tmeta_ptr && conv_b) {
+      if ((conv_b_tmeta_ptr != nullptr) && (conv_b != nullptr)) {
         redundant_inputs.emplace_back(bn->input(idx_bias));
         PT_LAZY_DEBUG(
             "[FuseConvBatchnorm] redundant_input: ",
@@ -255,9 +255,9 @@ bool FuseConvBatchnorm(
       }
 
       size_t idx_weight = 2;
-      auto bn_w =
+      auto* bn_w =
           habana_lazy::GetDataInHostBuffer(graph, stack, bn, idx_weight);
-      if (!bn_w) {
+      if (bn_w == nullptr) {
         redundant_inputs.pop_back();
         continue;
       }
@@ -267,9 +267,9 @@ bool FuseConvBatchnorm(
           bn->input(idx_weight)->debugName());
 
       size_t idx_running_mean = 3;
-      auto bn_rm =
+      auto* bn_rm =
           habana_lazy::GetDataInHostBuffer(graph, stack, bn, idx_running_mean);
-      if (!bn_rm) {
+      if (bn_rm == nullptr) {
         redundant_inputs.pop_back();
         redundant_inputs.pop_back();
         continue;
@@ -280,9 +280,9 @@ bool FuseConvBatchnorm(
           bn->input(idx_running_mean)->debugName());
 
       size_t idx_running_var = 4;
-      auto bn_rv =
+      auto* bn_rv =
           habana_lazy::GetDataInHostBuffer(graph, stack, bn, idx_running_var);
-      if (!bn_rv) {
+      if (bn_rv == nullptr) {
         redundant_inputs.pop_back();
         redundant_inputs.pop_back();
         redundant_inputs.pop_back();
@@ -322,7 +322,7 @@ bool FuseConvBatchnorm(
       PT_LAZY_DEBUG("[FuseConvBatchnorm] Update conv parameters");
       habana_lazy::UpdateDataInDeviceMem(graph, stack, nw, iw, conv_w);
 
-      if (conv_b_tmeta_ptr) {
+      if (conv_b_tmeta_ptr != nullptr) {
         habana_lazy::UpdateDataInDeviceMem(graph, stack, nb, ib, conv_b);
       }
 
@@ -336,12 +336,12 @@ bool FuseConvBatchnorm(
 
       bn->output()->replaceAllUsesWith(conv->output());
 
-      if (!conv_b_tmeta_ptr) {
+      if (conv_b_tmeta_ptr == nullptr) {
         PT_LAZY_DEBUG("[FuseConvBatchnorm] Use batchnorm bias as conv bias");
         if (w_auto_cast_en) {
           torch::jit::WithInsertPoint insert_point(conv);
-          auto to_cast_type = graph->insertConstant(c10::ScalarType::BFloat16);
-          auto bn_bias_cast_node =
+          auto* to_cast_type = graph->insertConstant(c10::ScalarType::BFloat16);
+          auto* bn_bias_cast_node =
               graph->create(nw->kind(), {bn->input(idx_bias), to_cast_type}, 1);
           bn_bias_cast_node->setScope(nw->scope());
           bn_bias_cast_node->copyAttributes(*nw);
@@ -364,7 +364,7 @@ bool FuseConvBatchnorm(
   }
 
   PT_LAZY_DEBUG("[FuseConvBatchnorm] Remove batch-norm nodes");
-  for (auto node : nodes_for_deletion) {
+  for (auto* node : nodes_for_deletion) {
     node->removeAllInputs();
     node->destroy();
   }

@@ -80,11 +80,7 @@ static void createModuleLoggersOnDemand(LoggerType /*unused*/) {
   logging_params.forceDefaultLoggingLevel = true;
   hl_logger::createLoggerOnDemand(LoggerType::PT_TRACE, logging_params);
 
-  // Guarded by additional flag to not enable towl logger
-  // by using common flags like LOG_LEVEL_ALL_PT
-  if (true or GET_ENV_FLAG_NEW(PT_TOWL_LOG_ENABLE)) {
-    createModuleLoggerOnDemandForTowl();
-  }
+  createModuleLoggerOnDemandForTowl();
 }
 
 // a callback when a dtor of your module is called (e.g. close an app, dlclose,
@@ -143,14 +139,14 @@ std::string synStatusToStr(synStatus statusArg) {
   auto idx = static_cast<size_t>(statusArg);
   std::unique_lock<std::mutex> lock(mtx);
   if (statusStr[idx].empty()) {
-    char statusDescription[STATUS_DESCRIPTION_MAX_SIZE];
+    std::array<char, STATUS_DESCRIPTION_MAX_SIZE> statusDescription;
     auto isDescriptionValid =
         synStatusGetBriefDescription(
-            statusArg, statusDescription, STATUS_DESCRIPTION_MAX_SIZE) ==
+            statusArg, statusDescription.data(), statusDescription.size()) ==
         synStatus::synSuccess;
 
     if (isDescriptionValid) {
-      statusStr[idx] = std::string(statusDescription);
+      statusStr[idx] = std::string(statusDescription.data());
       return statusStr[idx];
     } else {
       PT_BRIDGE_WARN("Could not get translation for synStatus: ", statusArg);

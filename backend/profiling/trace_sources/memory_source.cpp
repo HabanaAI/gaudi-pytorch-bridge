@@ -26,7 +26,7 @@ namespace habana::profile {
 
 struct MemoryLogger : public TraceSource {
   MemoryLogger() = default;
-  bool enabled() {
+  bool enabled() const {
     return enabled_;
   }
   static MemoryLogger& instance() {

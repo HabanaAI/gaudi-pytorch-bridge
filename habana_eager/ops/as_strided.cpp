@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,7 +36,7 @@ at::Tensor as_strided_hpu(
   auto src_backend = habana::eager::HbEagerTensorPool::get_backend_tensor(self);
   auto dst_backend =
       habana::eager::HbEagerTensorPool::get_backend_tensor(result);
-  auto dst_hb_tmeta{habana::get_tensor_extra_meta(dst_backend)};
+  auto* dst_hb_tmeta{habana::get_tensor_extra_meta(dst_backend)};
   dst_hb_tmeta->set_tensor_pipelined();
 
   habana::eager::PipelineOrExecuteTask(

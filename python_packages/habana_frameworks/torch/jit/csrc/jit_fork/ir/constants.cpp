@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -113,7 +113,7 @@ std::optional<Value*> tryInsertConstant(
     n->c_(attr::value, val.toComplexDouble());
     n->output()->setType(ComplexType::get());
   } else if (val.isBool()) {
-    n->i_(attr::value, val.toBool());
+    n->i_(attr::value, static_cast<int64_t>(val.toBool()));
     n->output()->setType(BoolType::get());
   } else if (val.isList()) {
     bool fast_path_list =
@@ -170,10 +170,12 @@ std::optional<Value*> tryInsertConstant(
     n->destroy();
     return std::nullopt;
   }
-  if (loc)
+  if (loc) {
     n->setSourceRange(*loc);
-  if (scope)
+  }
+  if (scope) {
     n->setScope(*scope);
+  }
   return g.insertNode(n)->output();
 }
 

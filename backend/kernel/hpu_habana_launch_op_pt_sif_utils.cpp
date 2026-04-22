@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ void mapGraphInputsToInputsOnStack(
     const torch::jit::Stack& inputs,
     std::unordered_map<CValPtr, habana_torch::jit::IValue>& val_to_ival_map) {
   auto stackIter = 0;
-  for (const auto input : graph->inputs()) {
+  for (auto* const input : graph->inputs()) {
     val_to_ival_map[input] = inputs[stackIter++];
   }
 }
@@ -32,7 +32,7 @@ c10::ScalarType getNodeScalarTypeFromInputs(
         val_to_ival_map) {
   // Default value is Float if no tensor is found
   auto node_type = c10::ScalarType::Float;
-  for (auto input : node->inputs()) {
+  for (const auto* input : node->inputs()) {
     if (auto inputIter = val_to_ival_map.find(input);
         inputIter != val_to_ival_map.end() and inputIter->second.isTensor()) {
       node_type = inputIter->second.toTensor().scalar_type();
@@ -47,7 +47,7 @@ torch::jit::Stack createInputStackForNode(
     const std::unordered_map<CValPtr, habana_torch::jit::IValue>&
         val_to_ival_map) {
   torch::jit::Stack stack;
-  for (auto input : node->inputs()) {
+  for (const auto* input : node->inputs()) {
     if (auto inputIter = val_to_ival_map.find(input);
         inputIter != val_to_ival_map.end()) {
       stack.push_back(inputIter->second);

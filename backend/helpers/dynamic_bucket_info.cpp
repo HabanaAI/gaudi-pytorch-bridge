@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -67,9 +67,9 @@ void Bucket::CreateSplitStatImpl(SplitPolicy sp) {
 void SplitStatImplDynamic::Increment(
     const DynamicRanges& ranges,
     const std::vector<int64_t>& dims) {
-  if (0 == num_dyn_ranges_)
+  if (0 == num_dyn_ranges_) {
     return;
-
+  }
   HABANA_ASSERT(
       ranges.size() <= dims.size(),
       "wrong dynamic dims size ",
@@ -80,7 +80,7 @@ void SplitStatImplDynamic::Increment(
   std::vector<bool> pos(num_dyn_ranges_, false);
   for (size_t i = 0; i < ranges.size(); ++i) {
     auto mid{(ranges[i].second + ranges[i].first) / 2};
-    pos[i] = (dims[i] > mid ? 1 : 0);
+    pos[i] = dims[i] > mid;
   }
 
   if (split_stat_impl_.count(pos) == 0) {
@@ -104,9 +104,9 @@ void SplitStatImplDynamic::CalculateNewRanges(
       num_dyn_ranges_);
 
   for (size_t i = 0; i < ranges.size(); i++) {
-    auto& el = ranges[i];
+    const auto& el = ranges[i];
     int64_t mid = (el.second + el.first) / 2;
-    if (max_pos_[i] == 0) {
+    if (!max_pos_[i]) {
       new_ranges.emplace_back(el.first, mid);
     } else {
       new_ranges.emplace_back(mid, el.second);
@@ -127,8 +127,9 @@ Bucket::Bucket(
   if (is_refine_enabled) {
     CreateSplitStatImpl(sp);
   }
-  for (auto& el : ranges_)
+  for (auto& el : ranges_) {
     score_ += el.second - el.first;
+  }
   token_ = habana_helpers::UniqueTokenGenerator::get_gen().token();
 }
 
@@ -146,8 +147,9 @@ Bucket::Bucket(
   if (is_refine_enabled) {
     CreateSplitStatImpl(sp);
   }
-  for (auto& el : ranges_)
+  for (auto& el : ranges_) {
     score_ += el.second - el.first;
+  }
   token_ = habana_helpers::UniqueTokenGenerator::get_gen().token(
       ranges_, dynamic_dims_, shapes_);
 }
@@ -246,7 +248,7 @@ bool Bucket::IsInRange(
       continue;
     }
 
-    if (true == GET_ENV_FLAG_NEW(PT_HPU_ENABLE_ZERO_MIN)) {
+    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_ZERO_MIN)) {
       if ((ranges_[i].first == ranges_[i].second) &&
           (ranges_[i].first != dims[i])) {
         return false;
@@ -272,7 +274,7 @@ void Bucket::UpdateRunTime(uint64_t elapsed_time) {
   }
 
   run_time_stat_.Update(elapsed_time);
-  if (created_by_refinement_ == false) {
+  if (!created_by_refinement_) {
     DynamicBucketInfo::inc_original_syn_runtime(elapsed_time);
   } else {
     DynamicBucketInfo::inc_refined_syn_runtime(elapsed_time);
@@ -358,8 +360,8 @@ DynamicBucketInfo::DynamicBucketInfo(size_t key)
 }
 
 bool DynamicBucketInfo::IsBucketMember(int64_t tensor_idx, uint64_t bucket) {
-  auto& dynamic_dims = buckets_[bucket].getDynamicDims();
-  return dynamic_dims.count(tensor_idx);
+  const auto& dynamic_dims = buckets_[bucket].getDynamicDims();
+  return dynamic_dims.count(tensor_idx) != 0U;
 }
 
 void DynamicBucketInfo::UpdateShapes(
@@ -375,11 +377,11 @@ void DynamicBucketInfo::UpdateShapes(
         habana::ShapeInfo::InferencePass::MIN_SHAPE)),
       "UpdateShape is supported from min/max passes only")
 
-  auto& dynamic_dims = buckets_[bucket].getDynamicDims();
-  if (dynamic_dims.count(tensor_idx) &&
-      dynamic_dims.at(tensor_idx).count(dim_idx)) {
+  const auto& dynamic_dims = buckets_[bucket].getDynamicDims();
+  if ((dynamic_dims.count(tensor_idx) != 0U) &&
+      (dynamic_dims.at(tensor_idx).count(dim_idx) != 0U)) {
     auto range_idx = dynamic_dims.at(tensor_idx).at(dim_idx);
-    auto& ranges = buckets_[bucket].getRanges();
+    const auto& ranges = buckets_[bucket].getRanges();
     HABANA_ASSERT(
         (range_idx < static_cast<int64_t>(ranges.size())),
         "UpdateShapes ranges exceed the index");
@@ -407,10 +409,10 @@ ResultShapes DynamicBucketInfo::CalculateShapes(uint64_t bucket) {
       " encountered, should be less than ",
       buckets_.size());
 
-  auto& ranges = buckets_[bucket].getRanges();
-  auto& dynamic_dims = buckets_[bucket].getDynamicDims();
+  const auto& ranges = buckets_[bucket].getRanges();
+  const auto& dynamic_dims = buckets_[bucket].getDynamicDims();
 
-  for (auto& input : dynamic_dims) {
+  for (const auto& input : dynamic_dims) {
     auto shape_min = shapes_.at(input.first);
     auto shape_max = shape_min;
 
@@ -561,8 +563,9 @@ size_t DynamicBucketInfo::GetBucketId(
     if (in_range &&
         ((best_bucket.has_value() &&
           buckets_[best_bucket.value()].getScore() > buckets_[i].getScore()) ||
-         !best_bucket.has_value()))
+         !best_bucket.has_value())) {
       best_bucket = i;
+    }
   }
 
   if (best_bucket.has_value()) {
@@ -601,7 +604,7 @@ std::optional<uint64_t> DynamicBucketInfo::CheckForSplitBucket(
     std::shared_ptr<habana_helpers::DynamicBucketInfo> dbipsh,
     torch::jit::Stack& stack) {
   PT_DYNAMIC_SHAPE_DEBUG("Checking buckets for refinement");
-  if (refine_enabled_ == false) {
+  if (!refine_enabled_) {
     PT_DYNAMIC_SHAPE_DEBUG("Refinement is not enabled");
     return {};
   }
@@ -632,7 +635,7 @@ std::optional<uint64_t> DynamicBucketInfo::CheckForSplitBucket(
   statistics_->SetCurrentParentBucketID(curr_mfu_id);
   statistics_->SetCurrentParentLastStep(
       buckets_[curr_mfu_id].GetLastUsedStep());
-  if (buckets_[curr_mfu_id].IsRefinementCandidate() == false) {
+  if (!buckets_[curr_mfu_id].IsRefinementCandidate()) {
     PT_DYNAMIC_SHAPE_DEBUG(
         "Bucket ", curr_mfu_id, " is not a candidate for refinement");
     return {};
@@ -659,7 +662,7 @@ std::optional<uint64_t> DynamicBucketInfo::CheckForSplitBucket(
       buckets_[curr_mfu_id].GetInputHistIdxes().end());
   std::tie(is_valid_split, min_dist_idx, choose_lower) =
       input_history_.FindMidPoint(bucket_hist_idxes);
-  if (is_valid_split == false) {
+  if (!is_valid_split) {
     PT_DYNAMIC_SHAPE_DEBUG(
         "Range mid point is matching with one of the endpoints.",
         " Abandoning refinement.");
@@ -791,7 +794,7 @@ size_t DynamicBucketInfo::GetUserBucketId(
        dynamic_dims != max_user_shapes_.end();
        dynamic_dims++) {
     auto tensor_idx = dynamic_dims->first;
-    auto range_info = range_infos[tensor_idx];
+    const auto& range_info = range_infos[tensor_idx];
     auto tensor_sizes_min = range_info.min_shape;
     auto tensor_sizes_max = range_info.max_shape;
     std::map<int64_t, int64_t> dim_range_map;
@@ -834,13 +837,13 @@ Bucket DynamicBucketInfo::ConstructNewBucket(
     const Bucket& mfu_bucket,
     size_t min_dist_idx,
     bool choose_lower) {
-  auto& ranges = mfu_bucket.getRanges();
-  auto& dynamic_dims = mfu_bucket.getDynamicDims();
+  const auto& ranges = mfu_bucket.getRanges();
+  const auto& dynamic_dims = mfu_bucket.getDynamicDims();
   const DimsHistoryElement& distr_split{input_history_[min_dist_idx].tshapes()};
   const DimsHistoryElement& ref{input_history_.ref_tshapes()};
   DynamicRanges new_ranges{ranges};
 
-  for (auto& input : dynamic_dims) {
+  for (const auto& input : dynamic_dims) {
     auto tensor_idx{input.first};
     auto shape_min = shapes_.at(tensor_idx);
     auto shape_max = shape_min;
@@ -848,8 +851,8 @@ Bucket DynamicBucketInfo::ConstructNewBucket(
     for (auto dim : input.second) {
       auto dim_idx{dim.first};
       auto split_dim_val{ref.at(tensor_idx).at(dim_idx)};
-      if (distr_split.count(tensor_idx) &&
-          distr_split.at(tensor_idx).count(dim_idx)) {
+      if ((distr_split.count(tensor_idx) != 0U) &&
+          (distr_split.at(tensor_idx).count(dim_idx) != 0U)) {
         split_dim_val = distr_split.at(tensor_idx).at(dim_idx);
       }
       auto range_idx{dim.second};
@@ -887,7 +890,7 @@ void DynamicBucketInfo::split_history(
 void DynamicBucketInfo::Serialize(std::ostream& os) const {
   using namespace serialization;
   serialize(os, static_cast<int>(buckets_.size()));
-  for (auto& bucket : buckets_) {
+  for (const auto& bucket : buckets_) {
     bucket.Serialize(os);
   }
   serialize(os, global_count);
@@ -896,7 +899,7 @@ void DynamicBucketInfo::Serialize(std::ostream& os) const {
   serialize(os, current_run_count);
   statistics_->Serialize(os);
   serialize(os, static_cast<int>(shapes_.size()));
-  for (auto& shape : shapes_) {
+  for (const auto& shape : shapes_) {
     serialize(os, shape.first);
     shape.second.Serialize(os);
   }
@@ -906,10 +909,10 @@ void DynamicBucketInfo::Serialize(std::ostream& os) const {
   serialize(os, local_max_history_success_shapes_);
   serialize(os, max_user_shapes_);
   serialize(os, min_user_shapes_);
-  for (auto& element : local_pt_history_tensor_shapes_) {
+  for (const auto& element : local_pt_history_tensor_shapes_) {
     serialize(os, element);
   }
-  for (auto& element : local_pt_history_success_shapes_) {
+  for (const auto& element : local_pt_history_success_shapes_) {
     serialize(os, element);
   }
   serialize(os, min_policy_);
@@ -1061,16 +1064,18 @@ bool DynamicBucketInfo::IsInRangeStaticDims(
       dims.size(),
       " expected ",
       dynamic_dims_helper_.flat_dd_.size());
-  for (size_t i = num; i < dims.size(); ++i)
-    if (dynamic_dims_helper_.flat_dd_[i].previous_val != dims[i])
+  for (size_t i = num; i < dims.size(); ++i) {
+    if (dynamic_dims_helper_.flat_dd_[i].previous_val != dims[i]) {
       return false;
+    }
+  }
   return true;
 }
 
 int64_t DynamicBucketInfo::GetMaxMultiplier(const PadShapes& pad_shapes) {
   int64_t max_multiplier = default_max_multiplier_;
   // by default MAX size is calculated as current * multiplier
-  for (auto& pad_shape : pad_shapes) {
+  for (const auto& pad_shape : pad_shapes) {
     int64_t num_dyn_dims_in_tensor =
         dynamic_dims_helper_.dd_.at(pad_shape.first).size();
     if (auto multiplier =
@@ -1128,8 +1133,9 @@ DynamicBucketInfo::DimMultipliers DynamicBucketInfo::
       for (auto& dim : input.second) {
         dim.second.second *= max_multiplier; // max_multiplier
         num_dynamic_dims_for_max--;
-        if (num_dynamic_dims_for_max == 0)
+        if (num_dynamic_dims_for_max == 0) {
           break;
+        }
       }
     }
     int64_t num_dynamic_dims_for_min = max_num_dynamic_dims_for_min;
@@ -1143,11 +1149,13 @@ DynamicBucketInfo::DimMultipliers DynamicBucketInfo::
         } else {
           dim.second.first = dim_size; // min_value
         }
-        if (num_dynamic_dims_for_min == 0)
+        if (num_dynamic_dims_for_min == 0) {
           break;
+        }
       }
-      if (num_dynamic_dims_for_min == max_num_dynamic_dims_for_min)
+      if (num_dynamic_dims_for_min == max_num_dynamic_dims_for_min) {
         break;
+      }
     }
   }
   return dim_multipliers;
@@ -1228,8 +1236,7 @@ size_t DynamicBucketInfo::CalculateHistoric(
     }
 
     // Only update the min if the history_element is a valid fit
-    if (is_fit_history_element &&
-        false == comp(history_element_xin_size, xin_val)) {
+    if (is_fit_history_element && !comp(history_element_xin_size, xin_val)) {
       xin_idx = history_idx;
       xin_val = history_element_xin_size;
       is_xin_found = true;
@@ -1451,15 +1458,16 @@ DynamicRanges DynamicBucketInfo::CalculateRanges(
         break;
       case DynamicDimsPolicy::HISTORIC:
         min_value = ref_dim_val;
-        if (min_dim_shapes.count(tensor_idx)) {
+        if (min_dim_shapes.count(tensor_idx) != 0U) {
           auto& dim_map = min_dim_shapes.at(tensor_idx);
-          if (dim_map.count(dim_idx)) {
+          if (dim_map.count(dim_idx) != 0U) {
             min_value = dim_map.at(dim_idx);
           }
         }
         // Not allowed to go from non-0 to 0
-        if (min_value == 0)
+        if (min_value == 0) {
           min_value = current_shape.dim_size(el.pos);
+        }
         break;
       case DynamicDimsPolicy::LOCAL_HISTORIC:
       case DynamicDimsPolicy::LOCAL_HIST_PER_TSR:
@@ -1469,16 +1477,17 @@ DynamicRanges DynamicBucketInfo::CalculateRanges(
           min_value = shapes.at(el.num).dim_size(el.pos);
         } else {
           min_value = ref_dim_val;
-          if (min_dim_shapes.count(tensor_idx)) {
+          if (min_dim_shapes.count(tensor_idx) != 0U) {
             auto& dim_map = min_dim_shapes.at(tensor_idx);
-            if (dim_map.count(dim_idx)) {
+            if (dim_map.count(dim_idx) != 0U) {
               min_value = dim_map.at(dim_idx);
             }
           }
         }
         // Not allowed to go from non-0 to 0
-        if (min_value == 0)
+        if (min_value == 0) {
           min_value = current_shape.dim_size(el.pos);
+        }
         break;
       case DynamicDimsPolicy::CURRENT:
         min_value = current_shape.dim_size(el.pos);
@@ -1491,7 +1500,9 @@ DynamicRanges DynamicBucketInfo::CalculateRanges(
         break;
       case DynamicDimsPolicy::CALCULATED:
         if (1 != current_shape.dim_size(el.pos)) {
-          min_value = current_shape.dim_size(el.pos) * 0.5;
+          min_value = static_cast<int64_t>(
+              // NOLINTNEXTLINE(readability-magic-numbers)
+              static_cast<double>(current_shape.dim_size(el.pos)) * 0.5);
         }
         break;
     }
@@ -1504,9 +1515,9 @@ DynamicRanges DynamicBucketInfo::CalculateRanges(
         HABANA_ASSERT(0, "Unrecognized condition");
         break;
       case DynamicDimsPolicy::HISTORIC:
-        if (max_dim_shapes.count(tensor_idx)) {
+        if (max_dim_shapes.count(tensor_idx) != 0U) {
           auto& dim_map = max_dim_shapes.at(tensor_idx);
-          if (dim_map.count(dim_idx)) {
+          if (dim_map.count(dim_idx) != 0U) {
             max_value = dim_map.at(dim_idx);
           }
         }
@@ -1518,7 +1529,7 @@ DynamicRanges DynamicBucketInfo::CalculateRanges(
           max_value = 1;
         } else {
           auto& dim_map = max_dim_shapes.at(tensor_idx);
-          if (dim_map.count(dim_idx)) {
+          if (dim_map.count(dim_idx) != 0U) {
             max_value = dim_map.at(dim_idx);
           }
         }
@@ -1604,14 +1615,15 @@ void DynamicBucketInfo::UpdateRunTimes() {
     size_t input_hist_idx;
     std::tie(tsbpsh, bucket_id, input_hist_idx) = run_time_q_.front();
     auto time_opt = tsbpsh->getTime();
-    if (false == time_opt.has_value()) {
+    if (!time_opt.has_value()) {
       break;
     }
     auto t_ns{time_opt.value()};
     inc_total_syn_runtime(t_ns);
     // Ignore the first launch runtime
-    if (!buckets_[bucket_id].IsFirstLaunch())
+    if (!buckets_[bucket_id].IsFirstLaunch()) {
       input_history_.hist_items_[input_hist_idx].run_time_ = t_ns;
+    }
     HABANA_ASSERT(
         bucket_id < buckets_.size(),
         "invalid bucket index access in UpdateRunTimes at ",
@@ -1637,7 +1649,7 @@ bool DynamicBucketInfo::NeedRunTimeSlot(uint64_t bucket) {
 std::string DynamicBucketInfo::bucket_range_str(
     const Bucket& bucket,
     bool is_first) const {
-  auto& ref_tshapes{input_history_.ref_tshapes()};
+  const auto& ref_tshapes{input_history_.ref_tshapes()};
   if (is_first) {
     return DebugString(ref_tshapes);
   }
@@ -1657,8 +1669,8 @@ std::string DynamicBucketInfo::bucket_range_str(
       const auto& dim_idx{dim_it.first};
       auto dim_lo{dim_it.second};
       auto dim_hi{dim_it.second};
-      if (dynamic_dims.count(tensor_idx) &&
-          dynamic_dims.at(tensor_idx).count(dim_idx)) {
+      if ((dynamic_dims.count(tensor_idx) != 0U) &&
+          (dynamic_dims.at(tensor_idx).count(dim_idx) != 0U)) {
         auto range_idx = dynamic_dims.at(tensor_idx).at(dim_idx);
         dim_lo = ranges.at(range_idx).first;
         dim_hi = ranges.at(range_idx).second;
@@ -1706,8 +1718,8 @@ std::string DynamicBucketInfo::digest_str() const {
 
 std::string DynamicBucketInfo::history_str() const {
   std::ostringstream O;
-  auto& ref_tshapes{input_history_.ref_tshapes()};
-  auto& dims_history{input_history_.hist_items()};
+  const auto& ref_tshapes{input_history_.ref_tshapes()};
+  const auto& dims_history{input_history_.hist_items()};
   O << "Number of historical inputs: " << dims_history.size() << '\n';
   bool skipped{false};
   size_t i{0};
@@ -1760,7 +1772,7 @@ void DynamicBucketInfo::DynamicDimsHelper::Serialize(std::ostream& os) const {
   serialize(os, dd_);
   serialize(os, rem_size_);
   serialize(os, static_cast<int>(flat_dd_.size()));
-  for (auto& ele : flat_dd_) {
+  for (const auto& ele : flat_dd_) {
     ele.Serialize(os);
   }
 }
@@ -1789,8 +1801,9 @@ void DynamicBucketInfo::create_statistics(
 void DynamicBucketInfo::DumpDynamicRecipeStat() {
   size_t launch_time_increase_cnt{0};
   for (auto k : improvement_map_) {
-    if (k.second == false)
+    if (!k.second) {
       launch_time_increase_cnt += 1;
+    }
   }
   PT_REFINEMENT_DEBUG(
       "  #original_recipes=",

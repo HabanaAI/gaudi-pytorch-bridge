@@ -28,18 +28,21 @@ SharedMetaDataVector RotaryPosEmbeddingFwdBwdSharedMeta(
   const auto& position_ids = stack.at(3).toOptional<at::Tensor>();
   const auto precision_type = input.scalar_type();
 
-  SharedMetaData rotary_pos_embedding_shared_meta{guid};
+  SharedMetaDataVector meta;
+  meta.reserve(1);
+  auto& rotary_pos_embedding_shared_meta = meta.emplace_back(guid);
   rotary_pos_embedding_shared_meta.inputs_data = {
       getSharedMetaFromTensor(input),
       {sin.dim(), precision_type},
       {cos.dim(), precision_type}};
-  if (position_ids)
+  if (position_ids) {
     rotary_pos_embedding_shared_meta.inputs_data.push_back(
         getSharedMetaFromOptionalTensor(position_ids));
+  }
   rotary_pos_embedding_shared_meta.outputs_data = {
       getSharedMetaFromTensor(input)};
 
-  return {rotary_pos_embedding_shared_meta};
+  return meta;
 }
 
 SharedMetaDataVector RotaryPosEmbeddingFwdSharedMeta(
@@ -84,9 +87,9 @@ static std::vector<long int> CalcFinalSinShape(
     final_sin_shape = sin_shape;
   }
 
-  if (offset != 0)
+  if (offset != 0) {
     final_sin_shape[final_sin_shape.size() - 1] -= offset;
-
+  }
   return final_sin_shape;
 }
 
@@ -166,12 +169,13 @@ void RotaryPosEmbedding::AddNode(
           std::get<1>(habana::ShapeInference::GetMinMaxShape(pos_tensor.id()));
     }
 
-    if (!input_current_shape.empty() && !sin_current_shape.empty())
+    if (!input_current_shape.empty() && !sin_current_shape.empty()) {
       CheckInputShapes(
           input_current_shape,
           sin_current_shape,
           position_ids_current_shape_opt,
           offset);
+    }
   }
 
   std::vector<synTensor> inputs = {input.syn_t, sin.syn_t, cos.syn_t};
@@ -229,12 +233,13 @@ void RotaryPosEmbeddingBackward::AddNode(
           std::get<1>(habana::ShapeInference::GetMinMaxShape(pos_tensor.id()));
     }
 
-    if (!grad_in_current_shape.empty() && !sin_current_shape.empty())
+    if (!grad_in_current_shape.empty() && !sin_current_shape.empty()) {
       CheckInputShapes(
           grad_in_current_shape,
           sin_current_shape,
           position_ids_current_shape,
           offset);
+    }
   }
 
   ns_RoPESt2::ParamsV2 params{};

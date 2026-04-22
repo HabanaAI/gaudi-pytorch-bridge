@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -80,6 +80,7 @@ void HlMlMemoryReporter::PublishTimestamp(std::uint64_t timestamp) {
 int HlMlMemoryReporter::OpenSharedObject() {
   int flags = O_CREAT | O_TRUNC | O_RDWR;
 
+  // NOLINTNEXTLINE(readability-magic-numbers)
   int fd = shm_open(m_path.c_str(), flags, 0666);
   if (fd == -1) {
     throw Error("shm_open", errno);
@@ -92,7 +93,7 @@ hlml_shm_data* HlMlMemoryReporter::MmapSharedObject() {
   m_fd = OpenSharedObject();
 
   try {
-    auto data = PrepareSharedObject(m_fd);
+    auto* data = PrepareSharedObject(m_fd);
     return data;
   } catch (const Error&) {
     // If something went wrong just clean up resources and continue

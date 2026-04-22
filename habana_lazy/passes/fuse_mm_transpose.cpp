@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,14 +29,15 @@ void fuse_mm_transpose(std::shared_ptr<torch::jit::Graph>& graph) {
     if (node->kind() == torch::jit::aten::t) {
       auto uses = node->output(0)->uses();
       for (auto u : uses) {
-        auto mm_node = u.user;
+        auto* mm_node = u.user;
         if (strcmp(mm_node->kind().toQualString(), "aten::mm") == 0) {
           auto single_use = mm_node->output(0)->uses();
           if (single_use.size() == 1) {
-            auto tnode = single_use.at(0).user;
+            auto* tnode = single_use.at(0).user;
             if (strcmp(tnode->kind().toQualString(), "aten::t") == 0) {
-              if (tmmt_nodes.find(mm_node) == tmmt_nodes.end())
+              if (tmmt_nodes.find(mm_node) == tmmt_nodes.end()) {
                 tmmt_nodes[mm_node] = {node, tnode};
+              }
             }
           }
         }
@@ -44,17 +45,17 @@ void fuse_mm_transpose(std::shared_ptr<torch::jit::Graph>& graph) {
     }
   }
   for (auto node : tmmt_nodes) {
-    auto next_mm_node = node.first;
-    auto first_t_node = node.second.first;
-    auto last_t_node = node.second.second;
+    auto* next_mm_node = node.first;
+    auto* first_t_node = node.second.first;
+    auto* last_t_node = node.second.second;
     torch::jit::WithInsertPoint insert_point(next_mm_node);
     auto op = c10::Symbol::fromQualString("hpu::mm_t");
-    auto transpose_val = graph->insertConstant(at::IValue(true));
-    auto no_transpose_val = graph->insertConstant(at::IValue(false));
+    auto* transpose_val = graph->insertConstant(at::IValue(true));
+    auto* no_transpose_val = graph->insertConstant(at::IValue(false));
     bool At_B_flag = next_mm_node->input(0) == first_t_node->output(0);
     bool A_Bt_flag = next_mm_node->input(1) == first_t_node->output(0);
     if (At_B_flag) {
-      auto mm_t_tnode = graph->create(
+      auto* mm_t_tnode = graph->create(
           op,
           {next_mm_node->input(1),
            first_t_node->input(0),
@@ -70,7 +71,7 @@ void fuse_mm_transpose(std::shared_ptr<torch::jit::Graph>& graph) {
       last_t_node->destroy();
     }
     if (A_Bt_flag) {
-      auto mm_t_tnode = graph->create(
+      auto* mm_t_tnode = graph->create(
           op,
           {first_t_node->input(0),
            next_mm_node->input(0),

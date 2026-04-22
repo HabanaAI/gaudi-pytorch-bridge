@@ -38,8 +38,9 @@ OutputMetaDataVector TopkMeta(const at::Stack& stack) {
   auto self = stack_tensor(stack, 0);
   auto memoryFormat = self.suggest_memory_format();
 
-  OutputMetaData meta_value{};
-  OutputMetaData meta_index{};
+  OutputMetaDataVector metaVec(2);
+  auto& meta_value = metaVec[0];
+  auto& meta_index = metaVec[1];
 
   meta_value.dtype = self.scalar_type();
   meta_value.shape = shapes[0];
@@ -48,7 +49,7 @@ OutputMetaDataVector TopkMeta(const at::Stack& stack) {
   meta_index.dtype = c10::ScalarType::Long;
   meta_index.shape = shapes[1];
   meta_index.mem_format = memoryFormat;
-  return {meta_value, meta_index};
+  return metaVec;
 }
 
 void Topk::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {

@@ -252,7 +252,7 @@ TEST_F(ShapeAgnosticTest, ResizeZST) {
   auto& device = habana::HPUDeviceContext::get_device();
   if (device.type() == synDeviceGaudi2) {
     std::vector<int> in_shapes = {16, 32};
-    for (auto i = 0; i < in_shapes.size(); i++) {
+    for (size_t i = 0; i < in_shapes.size(); i++) {
       torch::Tensor input = torch::randn(
           {in_shapes[i], in_shapes[i]}, torch::dtype(torch::kFloat));
       // empty zst tensors
@@ -285,7 +285,7 @@ TEST_F(ShapeAgnosticTest, CopyD2HView) {
   auto& device = habana::HPUDeviceContext::get_device();
   if (device.type() == synDeviceGaudi2) {
     std::vector<int> in_shapes = {16, 32};
-    for (auto i = 0; i < in_shapes.size(); i++) {
+    for (size_t i = 0; i < in_shapes.size(); i++) {
       torch::Tensor in0 =
           torch::arange(in_shapes[i], torch::dtype(torch::kInt32));
       // non contiguous view
@@ -306,7 +306,7 @@ TEST_F(ShapeAgnosticTest, CopyH2DView) {
   auto& device = habana::HPUDeviceContext::get_device();
   if (device.type() == synDeviceGaudi2) {
     std::vector<int> in_shapes = {16, 32};
-    for (auto i = 0; i < in_shapes.size(); i++) {
+    for (size_t i = 0; i < in_shapes.size(); i++) {
       // input is non contiguous view
       torch::Tensor in0 =
           torch::arange(in_shapes[i], torch::dtype(torch::kInt32))
@@ -329,7 +329,7 @@ TEST_F(ShapeAgnosticTest, CopyD2DView) {
   auto& device = habana::HPUDeviceContext::get_device();
   if (device.type() == synDeviceGaudi2) {
     std::vector<int> in_shapes = {16, 32};
-    for (auto i = 0; i < in_shapes.size(); i++) {
+    for (size_t i = 0; i < in_shapes.size(); i++) {
       // input is non contiguous view
       torch::Tensor in0 =
           torch::arange(in_shapes[i], torch::dtype(torch::kInt32))
@@ -354,7 +354,7 @@ TEST_F(ShapeAgnosticTest, CopyD2DOffsetView) {
     std::vector<int> in_shapes = {16, 32};
     std::vector<int> in_offsets = {4, 8};
 
-    for (auto i = 0; i < in_shapes.size(); i++) {
+    for (size_t i = 0; i < in_shapes.size(); i++) {
       torch::Tensor in0 =
           torch::arange(in_shapes[i], torch::dtype(torch::kInt32));
       auto in0_hpu = in0.to(torch::kHPU);
@@ -378,7 +378,7 @@ TEST_F(ShapeAgnosticTest, AddView) {
   auto& device = habana::HPUDeviceContext::get_device();
   if (device.type() == synDeviceGaudi2) {
     std::vector<int> in_shapes = {16, 32};
-    for (auto i = 0; i < in_shapes.size(); i++) {
+    for (size_t i = 0; i < in_shapes.size(); i++) {
       torch::Tensor in0 = torch::randn({in_shapes[i]});
       auto in0_hpu = in0.to(torch::kHPU);
 
@@ -400,7 +400,7 @@ TEST_F(ShapeAgnosticTest, Gelu) {
   auto& device = habana::HPUDeviceContext::get_device();
   if (device.type() == synDeviceGaudi2) {
     std::vector<int> in_shapes = {16, 32};
-    for (auto i = 0; i < in_shapes.size(); i++) {
+    for (size_t i = 0; i < in_shapes.size(); i++) {
       auto input = torch::randn({in_shapes[i]}, torch::dtype(torch::kFloat));
       auto input_hpu = input.to(torch::kHPU);
 
@@ -421,7 +421,7 @@ TEST_F(ShapeAgnosticTest, GeluView) {
   auto& device = habana::HPUDeviceContext::get_device();
   if (device.type() == synDeviceGaudi2) {
     std::vector<int> in_shapes = {32, 64};
-    for (auto i = 0; i < in_shapes.size(); i++) {
+    for (size_t i = 0; i < in_shapes.size(); i++) {
       torch::Tensor in0 = torch::randn({in_shapes[i]});
       auto in0_hpu = in0.to(torch::kHPU);
 
@@ -443,7 +443,7 @@ TEST_F(ShapeAgnosticTest, EqWithCast) {
   auto& device = habana::HPUDeviceContext::get_device();
   if (device.type() == synDeviceGaudi2) {
     std::vector<int> in_shapes = {16, 32};
-    for (auto i = 0; i < in_shapes.size(); i++) {
+    for (size_t i = 0; i < in_shapes.size(); i++) {
       auto input = torch::arange({in_shapes[i]}, torch::dtype(torch::kInt32))
                        .to(torch::dtype(torch::kFloat));
       auto input_hpu = input.to(torch::kHPU);
@@ -465,7 +465,7 @@ TEST_F(ShapeAgnosticTest, EqWithCastView) {
   auto& device = habana::HPUDeviceContext::get_device();
   if (device.type() == synDeviceGaudi2) {
     std::vector<int> in_shapes = {16, 32};
-    for (auto i = 0; i < in_shapes.size(); i++) {
+    for (size_t i = 0; i < in_shapes.size(); i++) {
       auto input = torch::arange({in_shapes[i]}, torch::dtype(torch::kInt32))
                        .to(torch::dtype(torch::kFloat));
       auto input_hpu = input.to(torch::kHPU);
@@ -490,7 +490,7 @@ TEST_F(ShapeAgnosticTest, Div) {
   auto& device = habana::HPUDeviceContext::get_device();
   if (device.type() == synDeviceGaudi2) {
     std::vector<int> in_shapes = {0, 0};
-    for (auto i = 0; i < in_shapes.size(); i++) {
+    for (size_t i = 0; i < in_shapes.size(); i++) {
       auto input = torch::empty({in_shapes[i]});
       auto input_hpu = input.to(torch::kHPU);
 
@@ -511,7 +511,7 @@ TEST_F(ShapeAgnosticTest, DISABLED_DivView) {
   auto& device = habana::HPUDeviceContext::get_device();
   if (device.type() == synDeviceGaudi2) {
     std::vector<int> in_shapes = {256, 512};
-    for (auto i = 0; i < in_shapes.size(); i++) {
+    for (size_t i = 0; i < in_shapes.size(); i++) {
       auto input =
           torch::randn({in_shapes[i], 2048}).to(torch::dtype(torch::kBFloat16));
       auto input_hpu = input.to(torch::kHPU);
@@ -539,7 +539,7 @@ TEST_F(ShapeAgnosticTest, StridedPermute) {
   auto& device = habana::HPUDeviceContext::get_device();
   if (device.type() == synDeviceGaudi2) {
     std::vector<int> in_shapes = {32, 64};
-    for (auto i = 0; i < in_shapes.size(); i++) {
+    for (size_t i = 0; i < in_shapes.size(); i++) {
       torch::Tensor in0 =
           torch::arange(in_shapes[i]).to(torch::dtype(torch::kFloat32));
       auto in0_hpu = in0.to(torch::kHPU);
@@ -573,7 +573,7 @@ TEST_F(ShapeAgnosticTest, StridedPermute2) {
       {131072, 64, 8192, 1},
       {131072, 64, 1, 1024}};
   if (device.type() == synDeviceGaudi2) {
-    for (auto i = 0; i < in_shapes.size(); i++) {
+    for (size_t i = 0; i < in_shapes.size(); i++) {
       int64_t total_tensor_size = std::accumulate(
           in_shapes[i].begin(),
           in_shapes[i].end(),
@@ -603,7 +603,7 @@ TEST_F(ShapeAgnosticTest, StridedPermute3) {
   std::vector<std::vector<int64_t>> in_strides{
       {384, 1, 128, 0, 32}, {384, 1, 128, 0, 32}};
   if (device.type() == synDeviceGaudi2 || device.type() == synDeviceGaudi3) {
-    for (auto i = 0; i < in_shapes.size(); i++) {
+    for (size_t i = 0; i < in_shapes.size(); i++) {
       torch::Tensor in0 = torch::rand({6144});
       auto in0_hpu = in0.to(torch::kHPU);
 
@@ -623,7 +623,7 @@ TEST_F(ShapeAgnosticTest, Zero) {
   std::vector<std::vector<int64_t>> in_shapes{{4, 4}, {4, 4}};
   std::vector<std::vector<int64_t>> in_strides{{1, 4}, {1, 4}};
   if (device.type() == synDeviceGaudi2) {
-    for (auto i = 0; i < shapes.size(); i++) {
+    for (size_t i = 0; i < shapes.size(); i++) {
       torch::Tensor input =
           torch::rand(shapes[i]).to(torch::dtype(torch::kBFloat16));
       auto input_hpu = input.to(torch::kHPU);
@@ -648,7 +648,7 @@ TEST_F(ShapeAgnosticTest, Fill) {
   auto& device = habana::HPUDeviceContext::get_device();
   std::vector<std::vector<int64_t>> shapes{{2, 3}, {4, 6}};
   if (device.type() == synDeviceGaudi2) {
-    for (auto i = 0; i < shapes.size(); i++) {
+    for (size_t i = 0; i < shapes.size(); i++) {
       torch::Tensor input = torch::rand(shapes[i]);
       auto input_hpu = input.to(torch::kHPU);
 
@@ -668,7 +668,7 @@ TEST_F(ShapeAgnosticTest, CatAddView) {
   std::vector<int64_t> in_shapes{32, 48};
   std::vector<int64_t> offset{4, 8};
   if (device.type() == synDeviceGaudi2) {
-    for (auto i = 0; i < in_shapes.size(); i++) {
+    for (size_t i = 0; i < in_shapes.size(); i++) {
       auto a = torch::randn({8, 8}).to(torch::kBFloat16);
       auto b = torch::randn({8, 8}).to(torch::kBFloat16);
       auto c = torch::randn({8, 8}).to(torch::kBFloat16);

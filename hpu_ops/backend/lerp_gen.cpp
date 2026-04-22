@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -60,31 +60,34 @@ SharedMetaDataVector LerpSharedMeta(
   auto dtype = start.scalar_type();
   auto end = stack_tensor(stack, 1);
   auto endRank = end.dim();
-  auto weight = stack.at(2);
+  const auto& weight = stack.at(2);
   int64_t weightRank = 1;
   if (weight.isTensor()) {
-    auto weightTensor = weight.toTensor();
+    const auto& weightTensor = weight.toTensor();
     weightRank = weightTensor.dim();
   };
 
   auto subOutputRank = std::max(startRank, endRank);
-  SharedMetaData subSharedMeta{"sub"};
+  SharedMetaDataVector meta;
+  meta.reserve(3);
+
+  auto& subSharedMeta = meta.emplace_back("sub");
   subSharedMeta.inputs_data = {{endRank, dtype}, {startRank, dtype}};
   subSharedMeta.outputs_data.emplace_back(subOutputRank, dtype);
 
   auto multOutputRank = std::max(subOutputRank, weightRank);
-  SharedMetaData multSharedMeta{"mult"};
+  auto& multSharedMeta = meta.emplace_back("mult");
   multSharedMeta.inputs_data = {
       subSharedMeta.outputs_data[0], {weightRank, dtype}};
   multSharedMeta.outputs_data.emplace_back(multOutputRank, dtype);
 
   auto addOutputRank = std::max(startRank, multOutputRank);
-  SharedMetaData addSharedMeta{"add"};
+  auto& addSharedMeta = meta.emplace_back("add");
   addSharedMeta.inputs_data = {
       {startRank, dtype}, {multSharedMeta.outputs_data[0]}};
   addSharedMeta.outputs_data.emplace_back(addOutputRank, dtype);
 
-  return {subSharedMeta, multSharedMeta, addSharedMeta};
+  return meta;
 }
 
 SharedMetaDataVector ForeachLerpSharedMeta(
@@ -93,7 +96,7 @@ SharedMetaDataVector ForeachLerpSharedMeta(
   const auto& starts = stack.at(0).toList();
   auto startsSize = starts.size();
   const auto& ends = stack.at(1).toList();
-  auto weightTensors = stack.at(2);
+  const auto& weightTensors = stack.at(2);
   std::optional<c10::List<c10::IValue>> weightTensorList = std::nullopt;
   if (weightTensors.isTensorList()) {
     weightTensorList = weightTensors.toList();
@@ -187,7 +190,7 @@ void ForeachLerp::AddNode(
             isWeightTensorList ? stack.at(2).toList()[i] : stack.at(2);)
     std::vector<synTensor> syn_inputs{syn_in(i), syn_in(i + size)};
     if (isWeightTensorList) {
-      syn_inputs.push_back(syn_in(i + 2 * size));
+      syn_inputs.push_back(syn_in(i + (2 * size)));
     }
     std::vector<at::IValue> pt_inputs{self[i], tensor1[i], weight};
 

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,9 +30,9 @@ std::pair<uint64_t, uint64_t> Subscribers::UpdateIndexes(
 
   auto start_index = it->pos_;
 
-  if (start_index == event_size)
+  if (start_index == event_size) {
     return {start_index, 0};
-
+  }
   it->pos_ = event_size;
 
   auto min_result = std::min_element(
@@ -41,9 +41,9 @@ std::pair<uint64_t, uint64_t> Subscribers::UpdateIndexes(
       });
   auto min_index = min_result->pos_;
 
-  for (auto& el : subscribers_)
+  for (auto& el : subscribers_) {
     el.pos_ -= min_index;
-
+  }
   return {start_index, min_index};
 }
 
@@ -62,8 +62,9 @@ void Subscribers::Delete(int64_t sub_id) {
 
 void Subscribers::DecreasePos() {
   for (auto& el : subscribers_) {
-    if (el.pos_ > 0)
+    if (el.pos_ > 0) {
       --el.pos_;
+    }
   }
 }
 
@@ -73,15 +74,17 @@ void TopicQueue::Process(int64_t sub_id, const EventCallback& precess_func) {
   for (size_t i = index; i < events_.size(); i++) {
     precess_func(events_[i]);
   }
-  if (free_el > 0)
+  if (free_el > 0) {
     events_.erase(events_.begin(), events_.begin() + free_el);
+  }
 }
 
 void TopicQueue::Reset(int64_t sub_id) {
   auto [index, free_el] = subscribers_.UpdateIndexes(sub_id, events_.size());
   HABANA_ASSERT(index <= events_.size());
-  if (free_el > 0)
+  if (free_el > 0) {
     events_.erase(events_.begin(), events_.begin() + free_el);
+  }
 }
 
 void TopicQueue::AddSubscriber(int64_t sub_id) {
@@ -147,9 +150,9 @@ void EventDispatcher::unsubscribe_all() {
 void EventDispatcher::unsubscribe(Topic topic, int64_t sub_id) {
   std::lock_guard<std::mutex> ld(mutex_);
   auto it = topic_queues_.find(topic);
-  if (it == topic_queues_.end())
+  if (it == topic_queues_.end()) {
     return;
-
+  }
   it->second.RemoveSubscriber(sub_id);
 }
 
@@ -163,7 +166,7 @@ void EventDispatcher::log_publish_request(
     const EventParams& params) {
   PT_HABHELPER_DEBUG(
       "Published topic: ", topic, " with ", params.size(), " parameters:");
-  for (auto& entry : params) {
+  for (const auto& entry : params) {
     auto param_name = entry.first;
     auto param_data = entry.second;
     PT_HABHELPER_DEBUG("param | [", param_name, "]=", param_data, " |");

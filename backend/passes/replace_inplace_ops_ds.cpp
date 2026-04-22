@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,9 +23,7 @@ namespace habana {
 // Like hpu::strided_insert_
 bool isInplaceOpDS(const Node* node) {
   const std::string& origNodeStrInplace = node->kind().toQualString();
-  if (origNodeStrInplace.back() == '_')
-    return true;
-  return false;
+  return origNodeStrInplace.back() == '_';
 }
 
 // Replace all in-place ops with out-of-place equivalent for which DS support is
@@ -34,13 +32,13 @@ bool isInplaceOpDS(const Node* node) {
 void ReplaceInplaceOpsDS(
     Block* block,
     const std::vector<std::string> DSOpsRegistryInplace) {
-  auto graph = block->owningGraph();
+  auto* graph = block->owningGraph();
   for (auto it = block->nodes().begin(); it != block->nodes().end();) {
-    auto node = *it;
+    auto* node = *it;
     // Mutating block->nodes() can invalidate the iterator;
     // increment first to ensure we already point to the next node.
     ++it;
-    for (auto block : node->blocks()) {
+    for (auto* block : node->blocks()) {
       ReplaceInplaceOpsDS(block, DSOpsRegistryInplace);
     }
 
@@ -54,15 +52,15 @@ void ReplaceInplaceOpsDS(
       // no corresponding out-of-place DS op
       auto dsOp = std::find(
           DSOpsRegistryInplace.begin(), DSOpsRegistryInplace.end(), newNodeStr);
-      if (dsOp == DSOpsRegistryInplace.end())
+      if (dsOp == DSOpsRegistryInplace.end()) {
         continue;
-
-      auto newNode = graph->create(Symbol::fromQualString(newNodeStr));
+      }
+      auto* newNode = graph->create(Symbol::fromQualString(newNodeStr));
       newNode->copyAttributes(*node);
       newNode->insertBefore(node);
       newNode->setScope(node->scope());
       // copy inputs
-      for (auto input : node->inputs()) {
+      for (auto* input : node->inputs()) {
         newNode->addInput(input);
       }
 

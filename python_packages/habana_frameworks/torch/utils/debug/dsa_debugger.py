@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -136,7 +136,7 @@ class DivergenceAnalyzer:
 
     def init_logger(self):
         outfile = self.logdir + "/analyzer_out.log"
-        self.logfile = open(outfile, "w")
+        self.logfile = open(outfile, "w")  # noqa SIM115
 
     def __del__(self):
         if hasattr(self, "logfile") and not self.logfile.closed:
@@ -246,9 +246,7 @@ class DivergenceAnalyzer:
             return data_dict
 
     def is_master_slave_config(self):
-        if self.cfg.master or self.cfg.slave:
-            return True
-        return False
+        return bool(self.cfg.master or self.cfg.slave)
 
     def is_master(self):
         return self.cfg.master
@@ -379,7 +377,7 @@ class DivergenceAnalyzer:
                             self.mismatch_map = {}
                             self.mismatch_static = []
                             self.mismatch_dynamic = []
-                        if graph_name not in self.mismatch_map.keys():
+                        if graph_name not in self.mismatch_map:
                             self.mismatch_map[graph_name] = set()
                             self.log(f"[INFO] Mismatch found in graph {graph_name}")
                         self.mismatch_map[graph_name].add(t_dynamic[idx_tensor_name])
@@ -475,7 +473,7 @@ class DivergenceAnalyzer:
             for index, (static_list, dynamic_list) in enumerate(tqdm(pairs, desc="Processing")):
                 try:
                     results[index] = self.process_pair(static_list, dynamic_list)
-                except Exception as e:
+                except Exception as e:  # noqa PERF203
                     self.log(
                         f"static_list={static_list}, dynamic_list={dynamic_list} generated an exception in process_pair: {e}"
                     )
@@ -592,7 +590,7 @@ class DivergenceAnalyzer:
             if self.mismatch_map is None:
                 delete_file(graph_name)
             else:
-                is_mismatch_graph = any(graph_name in key for key in self.mismatch_map.keys())
+                is_mismatch_graph = any(graph_name in key for key in self.mismatch_map)
                 if not is_mismatch_graph:
                     delete_file(graph_name)
 

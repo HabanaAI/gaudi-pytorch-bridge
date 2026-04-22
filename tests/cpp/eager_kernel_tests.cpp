@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -250,7 +250,6 @@ TEST_F(EagerKernelTest, MatMulTest) {
     auto outHabana = torch::matmul(ht1, ht2);
     auto out = torch::matmul(tensor1, tensor2);
     bool equal;
-    auto& device = habana::HPUDeviceContext::get_device();
     equal = out.allclose(outHabana.to(torch::kCPU), 0.001, 0.001);
     EXPECT_TRUE(equal);
   };

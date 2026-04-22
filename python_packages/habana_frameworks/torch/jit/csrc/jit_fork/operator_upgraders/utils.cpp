@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -58,10 +58,7 @@ bool isOpCurrentBasedOnUpgraderEntries(
     size_t current_version) {
   auto latest_update =
       upgraders_for_schema[upgraders_for_schema.size() - 1].bumped_at_version;
-  if (latest_update > static_cast<int>(current_version)) {
-    return false;
-  }
-  return true;
+  return latest_update <= static_cast<int>(current_version);
 }
 
 bool isOpSymbolCurrent(const std::string& name, size_t current_version) {

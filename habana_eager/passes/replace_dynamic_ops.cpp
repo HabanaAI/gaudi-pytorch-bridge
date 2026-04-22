@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -84,8 +84,9 @@ struct HandleDynamicOpsPass {
     size_t index = 0;
     for (auto& inp : org_stack) {
       if (inp.isTensor()) {
-        if (inp.toTensor().dim() == 0)
+        if (inp.toTensor().dim() == 0) {
           zero_dim_tensor_inds.push_back(index);
+        }
       }
       index++;
     }
@@ -95,8 +96,9 @@ struct HandleDynamicOpsPass {
     // back to zero-dimensional shape
     for (auto index : zero_dim_tensor_inds) {
       auto tensor_ = org_stack.at(index).toTensor();
-      if (tensor_.dim() == 1)
+      if (tensor_.dim() == 1) {
         SET_SIZE_STRIDE_0D(tensor_);
+      }
     }
 
     for (const auto& val_ivalue : value_ivalue_map) {
@@ -131,8 +133,9 @@ struct HandleDynamicOpsPass {
             const auto fcd_stride = strides.get(strides.size() - 1);
             // Dim expansion happens if
             // Fastest Changing Dimension is strided
-            if (fcd_stride > 1)
+            if (fcd_stride > 1) {
               max_dim -= 1;
+            }
           }
         }
       } else if (node_name == "aten::slice_scatter") {
@@ -142,9 +145,10 @@ struct HandleDynamicOpsPass {
           auto sizes = ivalue->toTensor().sizes();
           // Dim expansion does not happen
           // if any dim size value of src input tensor is 1
-          auto it = std::find(sizes.begin(), sizes.end(), 1);
-          if (it == sizes.end())
+          const auto* it = std::find(sizes.begin(), sizes.end(), 1);
+          if (it == sizes.end()) {
             max_dim -= 1;
+          }
         }
       }
     }
@@ -187,8 +191,9 @@ struct HandleDynamicOpsPass {
             "Number of tensor dims exceeds the limit, falling back to static!");
       }
       DynamicOpPtr dsOp = DSOpsRegistry().get(node_name);
-      if (!dsOp)
+      if (!dsOp) {
         continue;
+      }
       if (!habana_helpers::isNodeDynamic(
               node, org_stack_index_map, m_value_ivalue_map)) {
         PT_EAGER_DEBUG(
@@ -203,9 +208,10 @@ struct HandleDynamicOpsPass {
       dsOp->m_range_infos = m_range_infos;
       changed = dsOp->ReplaceWithDynamicHPUOp(
           node, org_stack, org_stack_index_map, m_value_ivalue_map, m_dmeta);
-      if (!changed)
+      if (!changed) {
         PT_EAGER_DEBUG(
             "Replace with Dynamic HPU op failed for node ", node_name);
+      }
     }
 
     // Second pass: remove all nodes that are no longer necessary.
@@ -221,8 +227,9 @@ struct HandleDynamicOpsPass {
       torch::jit::Stack& org_stack) {
     bool changed{true};
     m_dmeta->static_fallback = false;
-    for (auto block : blocks)
+    for (auto* block : blocks) {
       changed &= processBlock(block, org_stack);
+    }
     return changed;
   }
 
@@ -293,8 +300,9 @@ void ResolveNegativeSTSizes(
     habana_torch::jit::Node* node{*it};
     std::string node_name = node->kind().toQualString();
     DynamicOpPtr dsOp = DSOpsRegistry().get(node_name);
-    if (!dsOp)
+    if (!dsOp) {
       continue;
+    }
     dsOp->ResolveNegativeSizes(node, m_value_ivalue_map, launch_shapes);
   }
 }
@@ -302,18 +310,19 @@ void ResolveNegativeSTSizes(
 void ReplaceInUseH2D(torch::jit::Stack& ds_stack, size_t index) {
   PT_EAGER_TRACE;
   auto old_dtensor = ds_stack[index].toTensor();
-  auto old_tmeta{habana::get_tensor_extra_meta(old_dtensor)};
+  auto* old_tmeta{habana::get_tensor_extra_meta(old_dtensor)};
   if (old_tmeta->get_tensor_type() == HOST_TO_DEVICE_TENSOR) {
     at::Tensor new_h2d_tensor = habana::createDynamicTensor(
         old_dtensor.sizes().vec(), HOST_TO_DEVICE_TENSOR);
-    auto new_tmeta{habana::get_tensor_extra_meta(new_h2d_tensor)};
+    auto* new_tmeta{habana::get_tensor_extra_meta(new_h2d_tensor)};
     new_tmeta->set_h2d_data<uint64_t>(old_tmeta->get_h2d_data());
     new_tmeta->set_host_size(old_tmeta->get_host_size());
     new_tmeta->set_host_el_size(old_tmeta->get_host_el_size());
     new_tmeta->set_host_dt_type(old_tmeta->get_host_dt_type());
     new_tmeta->set_host_total_elem(old_tmeta->get_host_total_elem());
-    if (old_tmeta->peek_H2D_data_for_bucketing())
+    if (old_tmeta->peek_H2D_data_for_bucketing()) {
       new_tmeta->set_H2D_data_for_bucketing();
+    }
     ds_stack[index] = habana_torch::jit::IValue(new_h2d_tensor);
   }
 }

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -157,7 +157,7 @@ void stream_event_manager::add_producer(
 }
 void stream_event_manager::add_producer(stream& stream, shared_event event) {
   const auto& device_addresses = event->get_device_ptrs();
-  for (auto& address : device_addresses) {
+  for (const auto& address : device_addresses) {
     auto found = events_by_addr_.find(address);
     if (found == events_by_addr_.end()) {
       PT_SYNHELPER_FATAL(
@@ -188,7 +188,7 @@ void stream_event_manager::add_event_id(
 
 shared_event stream_event_manager::map_event_to_tensor(
     stream& stream,
-    const synRecipeHandle recipe_handle,
+    synRecipeHandle recipe_handle,
     synLaunchTensorInfo* tensor_info,
     event_done_callback done_cb) {
   std::lock_guard<std::mutex> lock(mut_);
@@ -313,8 +313,9 @@ void stream_event_manager::wait_until_done(device_ptr device_address) {
     }
   }
 
-  if (evnt)
+  if (evnt) {
     wait_until_done(evnt);
+  }
 }
 
 void stream_event_manager::wait_until_done(const std::string& event_id) {
@@ -329,8 +330,9 @@ void stream_event_manager::wait_until_done(const std::string& event_id) {
     }
   }
 
-  if (evnt)
+  if (evnt) {
     wait_until_done(evnt);
+  }
 }
 
 void stream_event_manager::wait_until_done(shared_event& event) {
@@ -366,7 +368,7 @@ void stream_event_manager::synchronize_event(shared_event& event) {
       }
       events_by_addr_.erase(it);
     }
-    for (auto& event_id : event->get_event_ids()) {
+    for (const auto& event_id : event->get_event_ids()) {
       auto it = events_by_str_.find(event_id);
       if (it == events_by_str_.end()) {
         PT_SYNHELPER_FATAL("cannot find event for event id \"", event_id, "\"");

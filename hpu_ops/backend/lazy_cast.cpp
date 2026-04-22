@@ -14,6 +14,7 @@
  */
 
 #include "hpu_ops/lazy_cast.h"
+#include "backend/habana_operator.h"
 #include "backend/helpers/cast_sequence.h"
 #include "hpu_ops/hpu_op_helper.h"
 
@@ -65,12 +66,13 @@ CopyFrom::CopyFrom(int device_id, c10::ScalarType scalar_type)
 }
 
 OutputMetaDataVector CopyFrom::CopyFromMeta(const at::Stack& stack) {
-  const auto& src = stack.at(0).toTensor();
-  OutputMetaData meta;
-  meta.shape = src.sizes().vec();
-  meta.dtype = src.scalar_type();
+  const auto& dst = stack.at(1).toTensor();
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
+  meta.shape = dst.sizes().vec();
+  meta.dtype = dst.scalar_type();
 
-  return {meta};
+  return metaVec;
 }
 
 void CopyFrom::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
@@ -81,8 +83,6 @@ void CopyFrom::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto out = CopyHelper(
       self.pt_t.sizes(),
       self.pt_t.scalar_type(),
-      dst.pt_t.sizes(),
-      dst.pt_t.scalar_type(),
       graph,
       {dst.syn_t, self.syn_t},
       meta,
@@ -92,11 +92,12 @@ void CopyFrom::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
 OutputMetaDataVector CopyMeta(const at::Stack& stack) {
   const auto& src = stack.at(0).toTensor();
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.shape = src.sizes().vec();
   meta.dtype = src.scalar_type();
 
-  return {meta};
+  return metaVec;
 }
 
 template <bool is_inplace>
@@ -111,8 +112,6 @@ struct Copy : OpBackend {
     auto out = CopyHelper(
         src.pt_t.sizes(),
         src.pt_t.scalar_type(),
-        self.pt_t.sizes(),
-        self.pt_t.scalar_type(),
         graph,
         {self.syn_t, src.syn_t},
         meta,
@@ -155,9 +154,8 @@ bool ToCopy::ToCopySTMeta(
   auto src_type_cast_type = habana_helpers::DataTypeToCastType(src_type);
   auto dst_type_cast_type = habana_helpers::DataTypeToCastType(dst_type);
   PT_BRIDGE_DEBUG("Performing cast from:\t", src_type, "\t\tto:\t", dst_type);
-  if (!(src_type_cast_type == dst_type_cast_type &&
-        !(dst_type == at::ScalarType::Bool &&
-          src_type == at::ScalarType::Char))) {
+  if (src_type_cast_type != dst_type_cast_type ||
+      (dst_type == at::ScalarType::Bool && src_type == at::ScalarType::Char)) {
     bool handle_from_bool =
         src_type == at::kBool && GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 0;
     if ((handle_from_bool || dst_type == at::kBool)) {
@@ -171,7 +169,8 @@ bool ToCopy::ToCopySTMeta(
 }
 
 OutputMetaDataVector ToCopy::ToCopyMeta(const at::Stack& stack) {
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   auto src = stack_tensor(stack, 0);
   auto dtype =
       stack.at(1).isNone() ? src.scalar_type() : stack.at(1).toScalarType();
@@ -196,7 +195,7 @@ OutputMetaDataVector ToCopy::ToCopyMeta(const at::Stack& stack) {
       meta.shape,
       ", src dtype:",
       src.scalar_type());
-  return {meta};
+  return metaVec;
 }
 
 void ToCopy::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
@@ -206,8 +205,6 @@ void ToCopy::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto out = CopyHelper(
       self.pt_t.sizes(),
       self.pt_t.scalar_type(),
-      meta[0].shape,
-      meta[0].dtype,
       graph,
       {self.syn_t, self.syn_t},
       meta,

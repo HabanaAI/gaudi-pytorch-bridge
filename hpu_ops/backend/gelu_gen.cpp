@@ -20,11 +20,12 @@
 namespace habana {
 OutputMetaDataVector GeluMeta(const at::Stack& stack) {
   auto self = stack_tensor(stack, 0);
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.shape = self.sizes().vec();
   meta.dtype = self.scalar_type();
   meta.mem_format = self.suggest_memory_format();
-  return {meta};
+  return metaVec;
 }
 
 SharedMetaDataVector GeluSharedMeta(

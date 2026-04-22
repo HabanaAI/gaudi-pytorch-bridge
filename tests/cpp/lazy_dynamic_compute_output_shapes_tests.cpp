@@ -75,7 +75,7 @@ TEST_F(LazyDynamicInferOutputMetasTest, AddConv2DBNMaxPoolTest) {
   int H = 16;
 
   std::vector<int> in_sizes{16, 32, 64};
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     PT_TEST_DEBUG("PTI_DBG: Iteration Start -- ", i, " ----\n");
     int W = in_sizes[i];
     // weight_tensor = bias1 + bias2
@@ -154,7 +154,7 @@ TEST_F(LazyDynamicInferOutputMetasTest, Conv2DTransposeBiasTest) {
   int H = 16;
 
   std::vector<int> in_sizes{16, 32, 64};
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     PT_TEST_DEBUG("PTI_DBG: Iteration Start -- ", i, " ----\n");
     int W = in_sizes[i];
 
@@ -191,7 +191,7 @@ TEST_F(LazyDynamicInferOutputMetasTest, SiluBwdTest) {
   int H = 16;
 
   std::vector<int> in_sizes{16, 32, 64};
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     PT_TEST_DEBUG("PTI_DBG: Iteration Start -- ", i, " ----\n");
     int W = in_sizes[i];
 
@@ -272,7 +272,7 @@ TEST_F(LazyDynamicInferOutputMetasTest, SqueezeTest) {
   int H = 16;
 
   std::vector<int> in_sizes{16, 32, 64};
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     PT_TEST_DEBUG("PTI_DBG: Iteration Start -- ", i, " ----\n");
     int W = in_sizes[i];
 
@@ -289,7 +289,7 @@ TEST_F(LazyDynamicInferOutputMetasTest, SqueezeTest) {
 
 TEST_F(LazyDynamicInferOutputMetasTest, AllReduceStridedInsertTest) {
   std::vector<int> in_sizes{16, 24, 32};
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     PT_TEST_DEBUG("PTI_DBG: Iteration Start -- ", i, " ----\n");
     torch::Tensor A = torch::randn({in_sizes[i]}, torch::requires_grad(false));
     auto v1 = A.view(-1);
@@ -316,7 +316,7 @@ TEST_F(LazyDynamicInferOutputMetasTest, AllReduceStridedInsertTest) {
 
 TEST_F(LazyDynamicInferOutputMetasTest, AllReduceStridedViewTest) {
   std::vector<int> in_sizes{16, 24, 32};
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     PT_TEST_DEBUG("PTI_DBG: Iteration Start -- ", i, " ----\n");
     torch::Tensor A = torch::randn({in_sizes[i]}, torch::requires_grad(false));
     auto v1 = A.as_strided({in_sizes[i]}, {1}, 0);
@@ -448,12 +448,9 @@ TEST_F(LazyDynamicInferOutputMetasTest, SigmoidBwdTest) {
 
 // index_select is supported as manual op
 TEST_F(LazyDynamicInferOutputMetasTest, index_select) {
-  auto in_size = 1;
   auto max_value = 1024;
-  auto datatype = torch::kInt;
   auto index_value = 4;
   auto dim = 0;
-  auto out_size = 0;
 
   torch::Tensor cpu_in =
       torch::randint(0, max_value, {index_value}, torch::kInt);
@@ -498,7 +495,6 @@ TEST_F(LazyDynamicInferOutputMetasTest, index_select_1) {
 
 // index_select_out is supported as auto gen op
 TEST_F(LazyDynamicInferOutputMetasTest, index_select_out) {
-  auto in_size = 1;
   auto max_value = 1024;
   auto datatype = torch::kInt;
   auto index_value = 4;
@@ -556,7 +552,7 @@ TEST_F(LazyDynamicInferOutputMetasTest, ReshapeTest) {
   const int C = 4;
   const int H = 8;
   std::vector<int> in_sizes{16, 32, 64};
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     PT_TEST_DEBUG("PTI_DBG: Iteration Start -- ", i, " ----\n");
 
     int W = in_sizes[i];
@@ -605,7 +601,7 @@ TEST_F(LazyDynamicInferOutputMetasTest, AddInplaceViewTest) {
   at::Scalar alpha = 0.5;
   at::Scalar Y = 2.0;
   std::vector<int> in_sizes{8, 10, 12, 20};
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     int W = in_sizes[i];
     PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
     torch::Tensor A = torch::randn({N, C, H, W}, torch::requires_grad(false));
@@ -624,7 +620,7 @@ TEST_F(LazyDynamicInferOutputMetasTest, ArangeTestFloatHt) {
   std::vector<int> start_sizes{0, 0, 0, 0, 0};
   std::vector<int> end_sizes{5, 10, 15, 20, 25};
   std::vector<int> step_sizes{1, 2, 3, 4, 5};
-  for (int i = 0; i < start_sizes.size(); i++) {
+  for (size_t i = 0; i < start_sizes.size(); i++) {
     SET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR, true, 1);
     torch::Scalar start = start_sizes[i];
     torch::Scalar end = end_sizes[i];
@@ -654,7 +650,7 @@ TEST_F(LazyDynamicInferOutputMetasTest, ArangeTestHt) {
   std::vector<int> start_sizes{0, 0, 0, 0, 0};
   std::vector<int> end_sizes{5, 10, 15, 20, 25};
   std::vector<int> step_sizes{1, 2, 3, 4, 5};
-  for (int i = 0; i < start_sizes.size(); i++) {
+  for (size_t i = 0; i < start_sizes.size(); i++) {
     SET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR, true, 1);
     torch::Scalar start = start_sizes[i];
     torch::Scalar end = end_sizes[i];
@@ -714,7 +710,7 @@ TEST_F(LazyDynamicInferOutputMetasTest, DISABLED_RoiAlignBwd) {
 TEST_F(LazyDynamicInferOutputMetasTest, RandPermHT) {
   SET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR, true, 1);
   std::vector<int> in_sizes{8, 10, 15};
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     int n = in_sizes[i];
     std::optional<at::ScalarType> dtype = c10::ScalarType::Int;
     std::optional<at::Device> hb_device = at::DeviceType::HPU;
@@ -729,7 +725,7 @@ TEST_F(LazyDynamicInferOutputMetasTest, RandPermHT) {
 
 TEST_F(LazyDynamicInferOutputMetasTest, Mean) {
   std::vector<int> in_sizes{16, 24, 32};
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     PT_TEST_DEBUG("PTI_DBG: Iteration Start -- ", i, " ----\n");
     torch::Tensor A = torch::randn({in_sizes[i]}, torch::requires_grad(false));
     torch::Tensor hA = A.to(torch::kHPU);
@@ -757,7 +753,7 @@ TEST_F(LazyDynamicInferOutputMetasTest, RepeatTest) {
   int H = 4;
   std::vector<int> c{5, 50, 100};
   std::vector<int> in_sizes{10, 231, 520};
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     int W = in_sizes[i];
     PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
     torch::Tensor A = torch::randn({H, W}, torch::requires_grad(false));

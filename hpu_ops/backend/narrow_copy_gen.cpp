@@ -58,10 +58,11 @@ OutputMetaDataVector NarrowCopyMeta(const at::Stack& stack) {
 
   shape[dim] = length;
 
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.shape = shape;
   meta.dtype = self.scalar_type();
-  return {meta};
+  return metaVec;
 }
 
 FillParamsT FillNarrowCopyParams(const at::Stack& stack) {

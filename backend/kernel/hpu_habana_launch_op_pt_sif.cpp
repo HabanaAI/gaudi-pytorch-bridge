@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,8 +35,8 @@ synapse_helpers::tensor& allocate_synapse_tensor(
     at::Tensor& pt_tensor,
     const HabanaOperatorPtr& habana_op,
     synapse_helpers::graph& syn_graph) {
-  auto tmeta{get_tensor_extra_meta(pt_tensor, true)};
-  if (tmeta && tmeta->is_shape_tensor()) {
+  auto* tmeta{get_tensor_extra_meta(pt_tensor, true)};
+  if (tmeta != nullptr && tmeta->is_shape_tensor()) {
     void* host_ptr = tmeta->get_compile_host_ptr();
     auto& syn_tensor = habana_op->AllocateSynapseInput(
         syn_graph, pt_tensor, true, tmeta->get_tensor_type(), host_ptr);
@@ -54,7 +54,7 @@ torch::jit::Stack HabanaLaunchOpPT::create_stack_for_node(
     bool& flag,
     CValPtrtoIValueMap& val_to_ival_map) {
   torch::jit::Stack node_stack;
-  for (auto ni_val : node->inputs()) {
+  for (const auto* ni_val : node->inputs()) {
     if (val_to_ival_map.count(ni_val) == 0) {
       flag = false;
       continue;
@@ -106,7 +106,7 @@ void create_synapse_inputs(
     const HabanaOperatorPtr& habana_op,
     synapse_helpers::graph& syn_graph,
     CValPtrtoIValueMap& val_to_ival_map) {
-  for (const auto value_in : node->inputs()) {
+  for (auto* const value_in : node->inputs()) {
     auto value_exists = val_to_ival_map.find(value_in);
     HABANA_ASSERT(value_exists != std::end(val_to_ival_map));
     auto ivalue = value_exists->second;
@@ -121,11 +121,11 @@ void create_synapse_inputs(
       HABANA_ASSERT(ivalue.isTensorList(), "TensorList expected");
       PT_DYNAMIC_SHAPE_DEBUG(
           "Tensorlist found for input %", value_in->debugName());
-      auto prev_node = value_in->node();
-      for (auto& prev_value_in : prev_node->inputs()) {
+      auto* prev_node = value_in->node();
+      for (const auto& prev_value_in : prev_node->inputs()) {
         PT_DYNAMIC_SHAPE_DEBUG(
             "Checking prev_value_in %", prev_value_in->debugName());
-        if (val_to_ival_map.count(prev_value_in)) {
+        if (val_to_ival_map.count(prev_value_in) != 0U) {
           HABANA_ASSERT(
               val_to_ival_map[prev_value_in].isTensor(),
               "Input to ListConstruct can not be TensorList");
@@ -178,12 +178,11 @@ int64_t HabanaLaunchOpPT::get_output_tensors_count(
 namespace {
 OutputMetaDataVector populate_node_output_metadata(
     const habana_torch::jit::Node* node) {
-  OutputMetaDataVector output_metadata{};
   // If node output is tensor list
   // tensorList and Unpack pair is supported
   if (*node->output(0)->type() == *torch::ListType::ofTensors() &&
       node->outputs().size() == 1) {
-    auto unpack_node =
+    auto* unpack_node =
         jitgraph_utils::GetUnpackNodeFromTensorList(node->output(0));
     HABANA_ASSERT(
         unpack_node != nullptr,
@@ -193,13 +192,14 @@ OutputMetaDataVector populate_node_output_metadata(
   }
 
   auto node_outs = node->outputs();
-  for (auto value_out : node_outs) {
-    OutputMetaData md(*value_out);
+  OutputMetaDataVector output_metadata{};
+  output_metadata.reserve(node_outs.size());
+  for (const auto* value_out : node_outs) {
+    auto& md = output_metadata.emplace_back(*value_out);
     auto out_ptr = value_out->type()->cast<c10::TensorType>();
     if (out_ptr->scalarType().has_value()) {
       md.dtype = *out_ptr->scalarType();
     }
-    output_metadata.emplace_back(md);
   }
   return output_metadata;
 }
@@ -254,7 +254,7 @@ void HabanaLaunchOpPT::process_outputs(
 
   if (node->output(0)->type() == torch::ListType::ofTensors() &&
       node->outputs().size() == 1) {
-    auto unpack_node =
+    auto* unpack_node =
         jitgraph_utils::GetUnpackNodeFromTensorList(node->output(0));
     HABANA_ASSERT(
         unpack_node != nullptr,
@@ -302,7 +302,7 @@ void HabanaLaunchOpPT::visit_prim_node(
     const habana_torch::jit::Node* node,
     CValPtrtoIValueMap& val_to_ival_map) {
   if (habana_torch::jit::prim::Constant == node->kind()) {
-    for (const auto value : node->outputs()) {
+    for (const auto* const value : node->outputs()) {
       HABANA_ASSERT(val_to_ival_map.count(value) == 0);
       auto opt_val = habana_torch::jit::toIValue(value);
       HABANA_ASSERT(
@@ -315,7 +315,7 @@ void HabanaLaunchOpPT::visit_prim_node(
           habana_helpers::DebugString(val_to_ival_map[value]));
       const CValPtrtoIValueMap& param_val_to_ival_map =
           jit_graph_and_meta_data_->get_param_jit_val_to_ivalue_map();
-      if (param_val_to_ival_map.count(value)) {
+      if (param_val_to_ival_map.count(value) != 0U) {
         val_to_ival_map[value] = param_val_to_ival_map.at(value);
         PT_DYNAMIC_SHAPE_DEBUG(
             "For %",
@@ -327,7 +327,7 @@ void HabanaLaunchOpPT::visit_prim_node(
     }
   } else if (habana_torch::jit::prim::ListConstruct == node->kind()) {
     std::vector<at::Tensor> tensorList;
-    for (const auto input : node->inputs()) {
+    for (const auto* const input : node->inputs()) {
       HABANA_ASSERT(val_to_ival_map.count(input));
       auto input_ival = val_to_ival_map[input];
       HABANA_ASSERT(input_ival.isTensor());
@@ -335,7 +335,7 @@ void HabanaLaunchOpPT::visit_prim_node(
     }
     auto node_outputs = node->outputs();
     HABANA_ASSERT(node_outputs.size() == 1);
-    auto value{node_outputs[0]};
+    const auto* value{node_outputs[0]};
     val_to_ival_map[value] = IVal(tensorList);
     PT_DYNAMIC_SHAPE_DEBUG(
         "For %",
@@ -377,7 +377,7 @@ void mapOutputTensors(
 
   int output_iter = 0;
   for (size_t i = 0; i < nr_of_node_outputs; ++i) {
-    auto output = node->outputs().at(i);
+    const auto* output = node->outputs().at(i);
     HABANA_ASSERT(val_to_ival_map.count(output) == 0);
     if (op_backend) {
       if (not op_backend->GetOutputMetaData()[i].undefined) {
@@ -411,7 +411,7 @@ auto propagateShape(
 
   if (output_nodes.at(0)->type() == torch::ListType::ofTensors() &&
       output_nodes.size() == 1) {
-    auto unpack_node =
+    auto* unpack_node =
         jitgraph_utils::GetUnpackNodeFromTensorList(node->output(0));
     HABANA_ASSERT(
         unpack_node != nullptr,
@@ -460,7 +460,7 @@ void HabanaLaunchOpPT::RunHybridSif(
 
   mapGraphInputsToInputsOnStack(graph, inputs, val_to_ival_map);
 
-  for (auto node : graph->nodes()) {
+  for (auto* node : graph->nodes()) {
     std::string op_name(node->kind().toQualString());
 
     PT_DYNAMIC_SHAPE_DEBUG(" Visiting op ", op_name, " for node ", *node);
@@ -489,14 +489,14 @@ void HabanaLaunchOpPT::RunHybridSif(
 
     // Set the deterministic val
     habana_op->setDeterministic(
-        node->i(habana_torch::jit::attr::deterministic));
+        node->i(habana_torch::jit::attr::deterministic) != 0);
 
     auto op_input_stack = createInputStackForNode(node, val_to_ival_map);
 
     // Setup the config params for the kernels
     auto outputs_metadata = populate_node_output_metadata(node);
 
-    if (not HabanaLaunchOpUtils::disabled_jit_ir_ops().count(op_name)) {
+    if (HabanaLaunchOpUtils::disabled_jit_ir_ops().count(op_name) == 0U) {
       // Set output meta data if auto-gen op
       if (auto op = std::dynamic_pointer_cast<OpBackend>(habana_op)) {
         op->SetOutputMetadata(outputs_metadata);
@@ -570,7 +570,7 @@ bool HabanaLaunchOpPT::RunHybridSif(
   HABANA_ASSERT(
       input_refs_.size() == graph_inputs.size(), "Input size mismatch");
   for (size_t i = 0; i < graph_inputs.size(); i++) {
-    auto input = graph_inputs[i];
+    auto* input = graph_inputs[i];
     val_to_ival_map[input] = input_refs_[i];
   }
 
@@ -617,7 +617,7 @@ bool HabanaLaunchOpPT::RunHybridSif(
 
     // Get node scalar type, Default value Float if no tensor is found
     c10::ScalarType node_type = c10::ScalarType::Float;
-    for (auto input : node->inputs()) {
+    for (auto* input : node->inputs()) {
       if (val_to_ival_map.count(input) && val_to_ival_map[input].isTensor()) {
         node_type = val_to_ival_map[input].toTensor().scalar_type();
         break;
@@ -666,8 +666,8 @@ bool HabanaLaunchOpPT::RunHybridSif(
       for (auto const& input : op_input_stack) {
         if (input.isTensor()) {
           auto tensor = input.toTensor();
-          auto tmeta{get_tensor_extra_meta(tensor, true)};
-          if (tmeta && tmeta->is_H2D_frontend_shape_tensor() == false &&
+          auto* tmeta{get_tensor_extra_meta(tensor, true)};
+          if (tmeta && !tmeta->is_H2D_frontend_shape_tensor() &&
               tmeta->get_tensor_type() == SHAPE_TENSOR) {
             input_shape_tensors_vec.emplace_back(tensor);
           }
@@ -822,8 +822,9 @@ bool HabanaLaunchOpPT::RunHybridSif(
   if constexpr (DynamicShapes) {
     // For all Graph inputs create a sif mapping
     for (size_t i = 0; i < graph_inputs.size(); ++i) {
-      if (input_refs_[i].isScalar())
+      if (input_refs_[i].isScalar()) {
         continue;
+      }
       HABANA_ASSERT(input_refs_[i].isTensor());
       auto inp_sif_tid = habana::ShapeInference::ReadAndIncrementSifTensorId();
       tidx_to_tensor_map.insert({inp_sif_tid, input_refs_[i].toTensor()});

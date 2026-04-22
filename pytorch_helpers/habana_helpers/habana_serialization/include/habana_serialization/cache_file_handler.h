@@ -17,19 +17,12 @@
 
 #include <stddef.h>
 #include <cstdint>
+#include <filesystem>
 #include <memory>
 #include <mutex>
 #include <optional>
 #include <string>
 #include "recipe_cache_config.h"
-
-#if !defined __GNUC__ || __GNUC__ >= 8
-#include <filesystem>
-namespace fs = std::filesystem;
-#else
-#include <experimental/filesystem>
-namespace fs = std::experimental::filesystem;
-#endif
 
 namespace serialization {
 

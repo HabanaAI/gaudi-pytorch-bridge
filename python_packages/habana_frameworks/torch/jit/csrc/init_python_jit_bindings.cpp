@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -67,7 +67,7 @@ class unwrapping_shared_ptr {
     impl->clear_cb = &habana_torch::jit::clear_registered_instances;
   }
 
-  T* get() const {
+  [[nodiscard]] T* get() const {
     if (!impl->elem) {
       throw std::logic_error("has been invalidated");
     }
@@ -137,7 +137,6 @@ CREATE_UNWRAPPING_CASTER(Block);
 template <>
 struct type_caster<habana_torch::jit::IValue> {
  public:
-  // NOLINTNEXTLINE(cppcoreguidelines-non-private-member-variables-in-classes)
   PYBIND11_TYPE_CASTER(habana_torch::jit::IValue, _("IValue"));
 
   bool load(handle src, bool /*unused*/) {
@@ -160,7 +159,6 @@ struct type_caster<habana_torch::jit::IValue> {
 template <>
 struct type_caster<habana_torch::jit::Symbol> {
  public:
-  // NOLINTNEXTLINE(cppcoreguidelines-non-private-member-variables-in-classes)
   PYBIND11_TYPE_CASTER(habana_torch::jit::Symbol, _("Symbol"));
 
   bool load(handle src, bool /*unused*/) {
@@ -188,7 +186,6 @@ struct type_caster<habana_torch::jit::Symbol> {
 template <>
 struct type_caster<habana_torch::jit::AttributeKind> {
  public:
-  // NOLINTNEXTLINE(cppcoreguidelines-non-private-member-variables-in-classes)
   PYBIND11_TYPE_CASTER(habana_torch::jit::AttributeKind, _("AttributeKind"));
 
   bool load(handle /*unused*/, bool /*unused*/) {
@@ -235,7 +232,7 @@ Node* findNode(c10::ArrayRef<Block*> blocks, Symbol kind, bool recurse = true) {
         return n;
       }
       if (recurse) {
-        auto node = findNode(n->blocks(), kind, recurse);
+        auto* node = findNode(n->blocks(), kind, recurse);
         if (node != nullptr) {
           return node;
         }
@@ -251,8 +248,8 @@ Node* findNode(Block* block, Symbol kind, bool recurse = true) {
 }
 
 Node* addNodeToBlock(Block* block, Symbol kind, ArrayRef<Value*> inputs) {
-  auto new_node = block->appendNode(block->owningGraph()->create(kind));
-  for (auto input : inputs) {
+  auto* new_node = block->appendNode(block->owningGraph()->create(kind));
+  for (auto* input : inputs) {
     new_node->addInput(input);
   }
   return new_node;
@@ -452,7 +449,7 @@ void defineGraphClass(pybind11::module& m) {
       .def(
           "makeMultiOutputIntoTuple",
           [](Graph& g) {
-            auto tup = g.createTuple(g.outputs());
+            auto* tup = g.createTuple(g.outputs());
             tup->insertBefore(g.return_node());
             for (int64_t i = g.outputs().size() - 1; i >= 0; i--) {
               g.eraseOutput(0);
@@ -671,7 +668,7 @@ void defineNodeClass(pybind11::module& m) {
              const std::vector<torch::autograd::Variable>& vs) {
             std::vector<at::Tensor> tensors;
             tensors.reserve(vs.size());
-            for (auto& variable : vs) {
+            for (const auto& variable : vs) {
               AT_ASSERT(!variable.requires_grad());
               tensors.push_back(variable);
             }
@@ -895,9 +892,7 @@ void defineRealTypeClasses(pybind11::module& m) {
 
   py::class_<OptionalType, Type, OptionalTypePtr>(
       m, "OptionalType", py::module_local())
-      .def(py::init([](TypePtr a) {
-        return OptionalType::create(std::move(a));
-      }))
+      .def(py::init([](TypePtr a) { return OptionalType::create(a); }))
       .def_static("ofTensor", &OptionalType::ofTensor)
       .def("getElementType", &OptionalType::getElementType);
 

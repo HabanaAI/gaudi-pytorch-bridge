@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -101,7 +101,7 @@ std::tuple<synStatus, host_memory::Block::is_huge_page_t> host_memory::
   if (actual_allocation_size >= size_2mb) {
     auto aligned_actual_allocation_size =
         (actual_allocation_size + size_2mb - 1) -
-        actual_allocation_size % size_2mb;
+        (actual_allocation_size % size_2mb);
     if (remaining_huge_pages_mb_ >= aligned_actual_allocation_size) {
       constexpr auto prot = PROT_READ | PROT_WRITE;
       static const auto flags = MAP_SHARED | MAP_ANONYMOUS | MAP_HUGETLB |
@@ -197,7 +197,7 @@ synStatus host_memory::malloc(void** ptr, const size_t size) {
         8ULL,       8ULL,      8ULL,      8ULL,      8ULL,
         8ULL,       4ULL,      4ULL,      4ULL,      4ULL,
     };
-    auto next_ptr = static_cast<uint8_t*>(*ptr);
+    auto* next_ptr = static_cast<uint8_t*>(*ptr);
     for (const auto block_size : block_sizes) {
       auto [block_it, inserted] = blocks_.insert(
           {next_ptr,
@@ -367,7 +367,7 @@ void host_memory::dropCache() {
 
 bool host_memory::is_host_memory(void* ptr) {
   std::lock_guard<std::mutex> lock(mutex_);
-  if (!ptr) {
+  if (ptr == nullptr) {
     return false;
   }
 
@@ -376,10 +376,7 @@ bool host_memory::is_host_memory(void* ptr) {
     return false;
   } else {
     Block& block = it->second;
-    if (block.allocated)
-      return true;
-    else
-      return false;
+    return static_cast<bool>(block.allocated);
   }
 }
 } // namespace synapse_helpers

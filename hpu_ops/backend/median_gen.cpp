@@ -12,6 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "backend/habana_operator.h"
 #include "generated/backend/median.h"
 
 namespace habana {
@@ -30,10 +31,11 @@ FillParamsT FillMediandimParams(const at::Stack& stack) {
 }
 
 OutputMetaDataVector MedianOutputMeta(const at::Stack& stack) {
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.shape = {};
   meta.dtype = stack_tensor(stack, 0).scalar_type();
-  return {meta};
+  return metaVec;
 }
 
 SharedMetaDataVector MedianSharedMeta(
@@ -41,11 +43,13 @@ SharedMetaDataVector MedianSharedMeta(
     habana_helpers::HabanaExecutionMode /*unused*/) {
   const auto& self = stack_tensor(stack, 0);
 
-  SharedMetaData medianSharedMeta{"median"};
+  SharedMetaDataVector meta;
+  meta.reserve(1);
+  auto& medianSharedMeta = meta.emplace_back("median");
   medianSharedMeta.inputs_data.emplace_back(self.dim(), self.scalar_type());
   medianSharedMeta.outputs_data.emplace_back(1, self.scalar_type());
 
-  return {medianSharedMeta};
+  return meta;
 }
 
 sizes_vec MediandimOutputShape(const at::Stack& stack) {
@@ -62,9 +66,9 @@ sizes_vec MediandimOutputShape(const at::Stack& stack) {
     return {outshape, outshape};
   }
 
-  if (keepdim)
+  if (keepdim) {
     outshape[static_cast<size_t>(reduction_axis)] = 1;
-  else {
+  } else {
     auto itr = outshape.begin() + reduction_axis;
     outshape.erase(itr);
   }
@@ -75,8 +79,9 @@ OutputMetaDataVector MedianDimOutputMeta(const at::Stack& stack) {
   auto medianDimShapes = MediandimOutputShape(stack);
   auto self = stack_tensor(stack, index_of_self);
 
-  OutputMetaData valuesMeta;
-  OutputMetaData indicesMeta;
+  OutputMetaDataVector metaVec(2);
+  auto& valuesMeta = metaVec[0];
+  auto& indicesMeta = metaVec[1];
 
   valuesMeta.shape = medianDimShapes[0];
   valuesMeta.dtype = self.scalar_type();
@@ -85,7 +90,7 @@ OutputMetaDataVector MedianDimOutputMeta(const at::Stack& stack) {
   indicesMeta.dtype =
       common::IsInt64Supported() ? c10::ScalarType::Long : c10::ScalarType::Int;
 
-  return {valuesMeta, indicesMeta};
+  return metaVec;
 }
 
 SharedMetaDataVector MedianDimSharedMeta(
@@ -94,16 +99,18 @@ SharedMetaDataVector MedianDimSharedMeta(
   const auto& self = stack_tensor(stack, 0);
   bool keepDim = stack[index_of_keepdim].toBool();
   auto outputRank = self.dim();
-  if (!keepDim)
+  if (!keepDim) {
     outputRank = outputRank <= 1 ? 1 : (outputRank - 1);
-
-  SharedMetaData medianDimSharedMeta{"mediandim"};
+  }
+  SharedMetaDataVector meta;
+  meta.reserve(1);
+  auto& medianDimSharedMeta = meta.emplace_back("mediandim");
   medianDimSharedMeta.inputs_data.emplace_back(self.dim(), self.scalar_type());
   medianDimSharedMeta.outputs_data.emplace_back(outputRank, self.scalar_type());
   medianDimSharedMeta.outputs_data.emplace_back(
       outputRank, c10::ScalarType::Int);
 
-  return {medianDimSharedMeta};
+  return meta;
 }
 
 void Mediandim::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {

@@ -95,13 +95,15 @@ void ValidateShapeGrouped(
 bool is_equal_except_one_and_divisible(
     const at::IntArrayRef& a,
     const at::IntArrayRef& b) {
-  if (a.size() != b.size())
+  if (a.size() != b.size()) {
     return false;
+  }
   size_t diff_idx = std::numeric_limits<size_t>::max();
   for (size_t i = 0; i < a.size(); ++i) {
     if (a[i] != b[i]) {
-      if (diff_idx != std::numeric_limits<size_t>::max())
+      if (diff_idx != std::numeric_limits<size_t>::max()) {
         return false; // More than one dim differs
+      }
       diff_idx = i;
     }
   }
@@ -206,12 +208,13 @@ void ConvertFromInt4::AddNode(sh::graph& graph, const at::Stack& stack) {
   auto disable_fp8_clipping = stackGetter.getNextInput<bool>();
 
   synDataType syn_type;
-  if (guid_ == "convert_from_int4_i32")
+  if (guid_ == "convert_from_int4_i32") {
     syn_type = syn_type_int4;
-  else if (guid_ == "convert_from_uint4_i32") {
+  } else if (guid_ == "convert_from_uint4_i32") {
     syn_type = syn_type_uint4;
-  } else
+  } else {
     AT_ERROR("Unexpected guid: " + guid_);
+  }
 
   auto ReinterpretCast = [&](const TensorsPair& tensor) {
     auto unpacked_shape = tensor.pt_t.sizes().vec();

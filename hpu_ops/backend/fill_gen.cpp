@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,14 +24,18 @@ SharedMetaDataVector FillScalarSharedMeta(
   const auto rank = input.dim();
   SharedMetaTensor inOutTensor{rank, dtype};
   if (rank > 1) {
-    SharedMetaData constantSharedMeta{"constant"};
+    SharedMetaDataVector constantSharedMetaVec;
+    constantSharedMetaVec.reserve(1);
+    auto& constantSharedMeta = constantSharedMetaVec.emplace_back("constant");
     constantSharedMeta.outputs_data = {inOutTensor};
-    return {constantSharedMeta};
+    return constantSharedMetaVec;
   } else {
-    SharedMetaData memcpySharedMeta{"memcpy"};
+    SharedMetaDataVector memcpySharedMetaVec;
+    memcpySharedMetaVec.reserve(1);
+    auto& memcpySharedMeta = memcpySharedMetaVec.emplace_back("memcpy");
     memcpySharedMeta.inputs_data = {inOutTensor};
     memcpySharedMeta.outputs_data = {inOutTensor};
-    return {memcpySharedMeta};
+    return memcpySharedMetaVec;
   }
 }
 
@@ -42,7 +46,7 @@ void FillScalar::AddNode(
   auto other = stack.at(1).toScalar();
 
   // If self is a ZST then return it as it is since there is nothing to fill
-  if (!self.numel()) {
+  if (self.numel() == 0) {
     const auto& outshape = stack_tensor(stack, 0).sizes();
     auto copy =
         BuildOp(graph, "memcpy", {syn_in(0)}, {{outshape, ScalarType(), 0}});

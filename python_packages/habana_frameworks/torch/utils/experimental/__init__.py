@@ -13,6 +13,7 @@
 # limitations under the License.
 ###############################################################################
 
+import contextlib
 import enum
 import sys
 import warnings
@@ -59,7 +60,7 @@ def _get_device_type() -> int:
 
 
 def _is_fp16_supported() -> bool:
-    return _get_device_type() != synDeviceType.synDeviceGaudi
+    return True
 
 
 def _compute_stream() -> int:
@@ -74,10 +75,8 @@ def _compute_stream() -> int:
 
 def _record_param(name, t_start, t_size, is_param=False, is_grad=False, is_optim_state=False):
     if _is_available():
-        try:
+        with contextlib.suppress(BaseException):
             _experimental_C.record_param(name, is_param, is_grad, is_optim_state, t_start, t_size)
-        except:
-            pass
 
 
 def _is_model_param_initialized() -> bool:
@@ -94,25 +93,21 @@ def _record_params(model=None, optimizer=None, force_model_update=False):
         for submodule_name, submodule in model.named_modules():
             for param_name, param in submodule.named_parameters(recurse=False):
                 if not _is_model_param_initialized():
-                    try:
+                    with contextlib.suppress(BaseException):
                         _record_param(
                             submodule_name + "/" + param_name,
                             _data_ptr(param.data),
                             param.data.numel() * param.data.element_size(),
                             is_param=True,
                         )
-                    except:
-                        pass
                     if param.grad is not None:
-                        try:
+                        with contextlib.suppress(BaseException):
                             _record_param(
                                 submodule_name + "/" + param_name + ".grad",
                                 _data_ptr(param.grad),
                                 param.grad.numel() * param.grad.element_size(),
                                 is_grad=True,
                             )
-                        except:
-                            pass
                 if optimizer is not None and not _is_optim_state_initialized():
                     try:
                         # TBD: Record other optimizer state dict also
@@ -127,15 +122,13 @@ def _record_params(model=None, optimizer=None, force_model_update=False):
                         print("Exception in _record_param for optimizer buffer ", param_name)
                     _is_optim_recorded = True
             for buffer_name, buffer in submodule.named_buffers(recurse=False):
-                try:
+                with contextlib.suppress(BaseException):
                     _record_param(
                         submodule_name + "/buffer_" + buffer_name,
                         _data_ptr(buffer),
                         buffer.numel() * buffer.element_size(),
                         is_param=True,
                     )
-                except:
-                    pass
         _model_params_initialized = True
     _optim_state_initialized = _is_optim_recorded
 
@@ -177,3 +170,22 @@ def _get_scale_attribute_hash_id() -> int:
         hpu.init()
         return _experimental_C.get_scale_attribute_hash_id()
     return 0
+
+
+def _set_is_dynamic_quantization(is_dynamic_quantization) -> None:
+    r"""sets the graph attributes is_dynamic_quantization.
+
+    Args:
+       is_dynamic_quantization - True when quantization is calculated dynamically during runtime
+       False otherwise
+    """
+    if _is_available:
+        hpu.init()
+        _experimental_C.set_is_dynamic_quantization(is_dynamic_quantization)
+
+
+def _get_is_dynamic_quantization() -> bool:
+    if _is_available:
+        hpu.init()
+        return _experimental_C.get_is_dynamic_quantization()
+    return False

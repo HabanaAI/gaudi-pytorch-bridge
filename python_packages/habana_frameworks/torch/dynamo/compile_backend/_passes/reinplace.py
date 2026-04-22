@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -135,29 +135,20 @@ def reinplace_add_extra_check(node) -> bool:
         return False
 
     src0_val, src1_val = src0.meta["val"], src1.meta["val"]
+    conditions = [
+        # condition 1.5: src0_val and src1_val are both tensors
+        lambda: isinstance(src0_val, torch.Tensor) and isinstance(src1_val, torch.Tensor),
+        # condition 2: src0 and src1 have same dtype and are float types
+        lambda: src0_val.dtype == src1_val.dtype and src0_val.dtype in {torch.float32, torch.bfloat16, torch.float16},
+        # condition 3: src0 can't be a viewed tensor
+        lambda: src0_val.is_contiguous(),
+        # condition 4: src0 can't be a zero-volume tensor
+        lambda: src0_val.numel() != 0,
+        # condition 5: src0 and output should have same shape
+        lambda: src0_val.shape == node.meta["val"].shape,
+    ]
 
-    # condition 1.5: src0_val and src1_val are both tensors
-    if not (isinstance(src0_val, torch.Tensor) and isinstance(src1_val, torch.Tensor)):
-        return False
-
-    # condition 2: src0 and src1 have same dtype and are float types
-    if not (src0_val.dtype == src1_val.dtype and src0_val.dtype in {torch.float32, torch.bfloat16, torch.float16}):
-        return False
-
-    # condition 3: src0 can't be a viewd tensor
-    if not src0_val.is_contiguous():
-        return False
-
-    # condition 4: src0 can't be a zero-volume tensor
-    if src0_val.numel() == 0:
-        return False
-
-    # condition 5: src0 and output shold have same shape
-    out_val = node.meta["val"]
-    if src0_val.shape != out_val.shape:
-        return False
-
-    return True
+    return all(condition() for condition in conditions)
 
 
 @dataclass(frozen=True)
@@ -335,10 +326,9 @@ def reinplace_inplaceable_ops_core(graph: torch.fx.Graph) -> bool:
                 # reinplace this add op will cause two inplace op share same
                 # input, this may introduce cycle in synapse graph.
                 return False
-            if any_use_of_views_after_node(node, shared_view_nodes, copy_node=copy_node, mutated_arg=mutated_arg):
-                return False
-
-            return True
+            return not any_use_of_views_after_node(
+                node, shared_view_nodes, copy_node=copy_node, mutated_arg=mutated_arg
+            )
         elif any(view.op in ("placeholder", "get_attr") for view in shared_view_nodes):
             # This should never happen in auto_functionalize_v2 non-inference mode,
             # since all mutated_arg are bases.

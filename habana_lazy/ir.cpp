@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,8 +27,10 @@ std::string getHabanaLazyGraphName() {
 namespace ir {
 
 size_t StdHashCombine(uint64_t a, uint64_t b) {
+  // NOLINTBEGIN(readability-magic-numbers)
   return a ^
       (b * 0x27d4eb2f165667c5 + 0x9e3779b97f4a7c15 + (a << 6) + (a >> 2));
+  // NOLINTEND(readability-magic-numbers)
 }
 
 // This thread local variable will serve as state to save the current namespace.
@@ -109,7 +111,7 @@ std::string Node::ToString() const {
     ss << "n" << m_id << "_";
   }
   ss << m_op.toQualString() << "{";
-  for (auto& v : m_inputs) {
+  for (const auto& v : m_inputs) {
     ss << v.ToString() << " ";
   }
   ss << "}\n";
@@ -127,7 +129,7 @@ std::string Node::GetOpNameString() const {
 std::string Node::ToStringIrGraph() const {
   std::stringstream ss;
   ss << m_op.toQualString() << "{";
-  for (auto& v : m_inputs) {
+  for (const auto& v : m_inputs) {
     ss << v.ToStringIrGraph() << " ";
   }
   ss << "}\n";
@@ -160,8 +162,8 @@ Node::~Node() {
   // auto hash1 = this->get_hash();
   if (GET_ENV_FLAG_NEW(PT_HPU_AVOID_RE_EXECUTE_GRAPHS)) {
     for (const auto& node_ptr : m_uses_reverse_nodes) {
-      auto node = node_ptr.get();
-      if (node) {
+      auto* node = node_ptr.get();
+      if (node != nullptr) {
         auto& uses = node->GetUses();
         /* Note :
           Ideally we dont need to clear all uses. But if its cleared
@@ -224,7 +226,7 @@ void Value::SetNode(
 
   mp_node->m_outputs.emplace_back(*this);
 
-  HbContext* devctx = habana_lazy::HbContextArena::Get()->GetHbContext(device);
+  auto devctx = habana_lazy::HbContextArena::Get().GetHbContext(device);
 
   auto shared_ptr = m_data_ptr.lock();
   // Collect data_ptr corresponding to all non input lazy tensors (graph
@@ -236,7 +238,7 @@ void Value::SetNode(
   if (!mp_node->is_input()) {
     {
       std::lock_guard<std::recursive_mutex> lock(
-          habana_lazy::HbContextArena::Get()->GetMutex());
+          habana_lazy::HbContextArena::Get().GetMutex());
       devctx->insert(shared_ptr->unique_id, m_data_ptr);
     }
     // Set execution status again to Registered because in case of .out op
@@ -314,7 +316,7 @@ void Node::AddInputPtTensors(std::vector<at::Tensor>& input_pt_vec) {
 
 NodePtr Node::Create(c10::Symbol oper, const InlinedValueList& inputs) {
   NodePtr node = std::make_shared<Node>(oper);
-  for (auto& i : inputs) {
+  for (const auto& i : inputs) {
     node->AddInput(i);
   }
   return node;
@@ -329,8 +331,8 @@ size_t Node::get_hash_without_connections() {
         m_node_hash_without_connection, m_meta_data.get_hash());
     // Op deterministic flag
 
-    m_node_hash_without_connection =
-        at::hash_combine(m_node_hash_without_connection, deterministic);
+    m_node_hash_without_connection = at::hash_combine(
+        m_node_hash_without_connection, static_cast<size_t>(deterministic));
   }
   return m_node_hash_without_connection;
 }
@@ -346,7 +348,8 @@ size_t Node::get_hash() {
     }
     m_node_hash = at::hash_combine(m_node_hash, m_meta_data.get_hash());
 
-    m_node_hash = at::hash_combine(m_node_hash, deterministic);
+    m_node_hash =
+        at::hash_combine(m_node_hash, static_cast<size_t>(deterministic));
   }
   return m_node_hash;
 }
@@ -360,7 +363,7 @@ bool Value::IsInplaceOnInput() const {
   if (mp_node && !mp_node->is_control_edge()) {
     std::string node_name = (std::string)mp_node->op().toQualString();
     auto len = node_name.length();
-    if (len && node_name.back() == '_') {
+    if ((len != 0U) && node_name.back() == '_') {
       auto input_mp_node = mp_node->m_inputs[0].mp_node;
       if (input_mp_node && input_mp_node->is_input() &&
           mp_node->m_input_pt_tensors.size() == 1) {
@@ -375,7 +378,7 @@ bool Value::IsInplace() const {
   if (mp_node && !mp_node->is_control_edge()) {
     std::string node_name = (std::string)mp_node->op().toQualString();
     auto len = node_name.length();
-    if (len && node_name.back() == '_') {
+    if ((len != 0U) && node_name.back() == '_') {
       return true;
     }
   }
@@ -422,8 +425,9 @@ Output::Output(const Value& v)
   scalar_type = v.get_scalar_type();
   unique_id = v.get_unique_id();
   tensor_id = 0;
-  if (v.DataPtrValidAndNotExpired())
+  if (v.DataPtrValidAndNotExpired()) {
     tensor_id = v.GetHbLazyTensorUniqueId();
+  }
 }
 
 std::string Output::ToString() const {

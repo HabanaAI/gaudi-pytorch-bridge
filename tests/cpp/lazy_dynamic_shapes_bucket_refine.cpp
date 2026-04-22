@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -57,9 +57,7 @@ TEST_F(LazyDynamicShapesBucketRefineTest, RefineAddMulRelu) {
   std::vector<int> input_sizes{34, 16, 32, 22, 17, 18, 16};
   std::vector<int> test_rounds{1, 1, 1, 1, 1, 2, 50};
 
-  int num;
-
-  for (int i = 0; i < input_sizes.size(); i++) {
+  for (size_t i = 0; i < input_sizes.size(); i++) {
     for (int j = 1; j <= test_rounds[i]; j++) {
       int B = input_sizes[i];
       PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i + 1, ", round ", j, "  START");
@@ -94,10 +92,9 @@ TEST_F(LazyDynamicShapesBucketRefineTest, DISABLED_RefineAddMulReluBig) {
   std::vector<int> input_sizes{34, 16, 32, 22, 17, 18, 16};
   std::vector<int> test_rounds{1, 1, 1, 1, 1, 2, 50};
 
-  int num;
-  int level_cnt = 4;
+  size_t level_cnt = 4;
 
-  for (int i = 0; i < input_sizes.size(); i++) {
+  for (size_t i = 0; i < input_sizes.size(); i++) {
     for (int j = 1; j <= test_rounds[i]; j++) {
       int B = input_sizes[i] * 10;
       PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i + 1, ", round ", j, "  START");
@@ -130,11 +127,11 @@ TEST_F(LazyDynamicShapesBucketRefineTest, DISABLED_RefineAddMulReluBig) {
 
 TEST_F(LazyDynamicShapesBucketRefineTest, DISABLED_RefineWithMatmul) {
   enable_bucket_refinement();
-  int level_cnt = 4;
+  size_t level_cnt = 4;
   int A = 50;
   std::vector<int> input_sizes{340, 160, 320, 220, 170, 180, 160};
   std::vector<int> test_rounds{1, 1, 1, 1, 1, 2, 50};
-  for (int i = 0; i < input_sizes.size(); i++) {
+  for (size_t i = 0; i < input_sizes.size(); i++) {
     for (int j = 1; j <= test_rounds[i]; j++) {
       int B = input_sizes[i];
       PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i + 1, ", round ", j, "  START");
@@ -201,7 +198,6 @@ TEST_F(LazyDynamicShapesBucketRefineTest, DISABLED_RefineUpsamplingNearest2d) {
     grad_mat1_h = torch::upsample_nearest2d_backward(
         grad_out_h, out_sizes, in_sizes, scales_h, scales_w);
 
-    bool equal1 = grad_mat1.allclose(grad_mat1_h.to(torch::kCPU), 0.01, 0.01);
     HbLazyTensor::StepMarker({});
 
     bool equal = out.allclose(outHabana.to(torch::kCPU), 0, 0);

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -171,14 +171,14 @@ void JsonFileParser::addResource(
 
 void JsonFileParser::addDeviceDetails(
     const std::unordered_map<std::string, std::string>& device_details) {
-  for (auto& key_value : device_details) {
+  for (const auto& key_value : device_details) {
     deviceProperties_[key_value.first] = key_value.second;
   }
 }
 
 void JsonFileParser::addDeviceDetails(
     const std::unordered_map<std::string, int64_t>& device_details) {
-  for (auto& key_value : device_details) {
+  for (const auto& key_value : device_details) {
     deviceProperties_[key_value.first] = key_value.second;
   }
 }
@@ -186,8 +186,9 @@ void JsonFileParser::addDeviceDetails(
 nlohmann::json& JsonFileParser::getCreateArray(
     nlohmann::json& json_file,
     const std::string_view& name) {
-  if (json_file.find(name) == json_file.end())
+  if (json_file.find(name) == json_file.end()) {
     json_file[(std::string)name] = nlohmann::json::array();
+  }
   return json_file[(std::string)name];
 }
 
@@ -241,7 +242,7 @@ std::string JsonFileParser::toHex(uint64_t handle) {
 }
 
 double JsonFileParser::convertToMs(uint64_t value) {
-  return static_cast<double>(value) / 1000.0;
+  return static_cast<double>(value) / 1000;
 }
 
 nlohmann::json JsonFileParser::constructEvent(
@@ -298,8 +299,9 @@ nlohmann::json JsonFileParser::constructFlow(
   flow["bp"] = "e"; // if binding point is not set to enclosing slice ("e")
                     // flow will end in the first event after timestamp
   flow["id"] = flow_id_counter_;
-  if (!start)
+  if (!start) {
     flow_id_counter_++;
+  }
   return flow;
 }
 nlohmann::json JsonFileParser::constructMemoryEvent(

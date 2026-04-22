@@ -41,7 +41,7 @@ std::vector<Tensor> MixtureOfExpertsFwdFunction::forward(
 
   size_t num_experts = w1.size();
   torch::autograd::variable_list to_save;
-  to_save.reserve(weights_per_expert * num_experts + outputs_for_bwd);
+  to_save.reserve((weights_per_expert * num_experts) + outputs_for_bwd);
   to_save.insert(to_save.begin(), w1.begin(), w1.end());
   to_save.insert(to_save.begin() + num_experts, w2.begin(), w2.end());
   to_save.insert(to_save.begin() + 2 * num_experts, w3.begin(), w3.end());
@@ -126,7 +126,7 @@ std::vector<Tensor> MixtureOfExpertsFwdFunction::backward(
       ctx->saved_data["router_weights_size"].toIntVector());
 
   const size_t num_fwd_inputs =
-      non_list_inputs + weights_per_expert * num_experts;
+      non_list_inputs + (weights_per_expert * num_experts);
   torch::autograd::variable_list grad_input(num_fwd_inputs, at::Tensor());
 
   grad_input[0] = result[0];
@@ -135,8 +135,8 @@ std::vector<Tensor> MixtureOfExpertsFwdFunction::backward(
     grad_input[non_list_tensors + i] = result[2 + i];
     grad_input[non_list_tensors + num_experts + i] =
         result[2 + num_experts + i];
-    grad_input[non_list_tensors + 2 * num_experts + i] =
-        result[2 + 2 * num_experts + i];
+    grad_input[non_list_tensors + (2 * num_experts) + i] =
+        result[2 + (2 * num_experts) + i];
   }
   return grad_input;
 }
@@ -159,7 +159,7 @@ at::Tensor MixtureOfExpertsRecompFwdFunction::forward(
 
   size_t num_experts = w1.size();
   torch::autograd::variable_list to_save;
-  to_save.reserve(non_list_tensors + weights_per_expert * num_experts);
+  to_save.reserve(non_list_tensors + (weights_per_expert * num_experts));
   to_save.push_back(hidden_states);
   to_save.push_back(expert_routing_table);
   to_save.push_back(router_weights);
@@ -229,7 +229,7 @@ std::vector<at::Tensor> MixtureOfExpertsRecompFwdFunction::backward(
       ctx->saved_data["total_experts"].toInt());
 
   const size_t num_fwd_inputs =
-      non_list_inputs + weights_per_expert * num_experts;
+      non_list_inputs + (weights_per_expert * num_experts);
   torch::autograd::variable_list grad_input(num_fwd_inputs, at::Tensor());
 
   grad_input[0] = result[0];
@@ -238,8 +238,8 @@ std::vector<at::Tensor> MixtureOfExpertsRecompFwdFunction::backward(
     grad_input[non_list_tensors + i] = result[2 + i];
     grad_input[non_list_tensors + num_experts + i] =
         result[2 + num_experts + i];
-    grad_input[non_list_tensors + 2 * num_experts + i] =
-        result[2 + 2 * num_experts + i];
+    grad_input[non_list_tensors + (2 * num_experts) + i] =
+        result[2 + (2 * num_experts) + i];
   }
   return grad_input;
 }
@@ -262,7 +262,7 @@ torch::autograd::variable_list MixtureOfExpertsFwdFusedWeightsFunction::forward(
   size_t num_experts = w12.size();
   torch::autograd::variable_list to_save;
   to_save.reserve(
-      weights_per_expert_fused * num_experts + outputs_for_bwd_fused);
+      (weights_per_expert_fused * num_experts) + outputs_for_bwd_fused);
   to_save.insert(to_save.begin(), w12.begin(), w12.end());
   to_save.insert(to_save.begin() + num_experts, w3.begin(), w3.end());
 
@@ -340,7 +340,7 @@ std::vector<at::Tensor> MixtureOfExpertsFwdFusedWeightsFunction::backward(
       ctx->saved_data["router_weights_size"].toIntVector());
 
   const size_t num_fwd_inputs =
-      non_list_inputs + weights_per_expert_fused * num_experts;
+      non_list_inputs + (weights_per_expert_fused * num_experts);
   torch::autograd::variable_list grad_input(num_fwd_inputs, at::Tensor());
 
   grad_input[0] = result[0];
@@ -370,7 +370,7 @@ at::Tensor MixtureOfExpertsRecompFwdFusedWeightsFunction::forward(
 
   size_t num_experts = w12.size();
   torch::autograd::variable_list to_save;
-  to_save.reserve(non_list_tensors + weights_per_expert_fused * num_experts);
+  to_save.reserve(non_list_tensors + (weights_per_expert_fused * num_experts));
   to_save.push_back(hidden_states);
   to_save.push_back(expert_routing_table);
   to_save.push_back(router_weights);
@@ -430,7 +430,7 @@ std::vector<at::Tensor> MixtureOfExpertsRecompFwdFusedWeightsFunction::backward(
       ctx->saved_data["total_experts"].toInt());
 
   const size_t num_fwd_inputs =
-      non_list_inputs + weights_per_expert_fused * num_experts;
+      non_list_inputs + (weights_per_expert_fused * num_experts);
   torch::autograd::variable_list grad_input(num_fwd_inputs, at::Tensor());
 
   grad_input[0] = result[0];

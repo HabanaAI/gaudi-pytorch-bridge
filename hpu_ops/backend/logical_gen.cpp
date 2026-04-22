@@ -22,22 +22,24 @@
 namespace habana {
 
 OutputMetaDataVector LogicalMeta(const at::Stack& stack) {
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
 
   meta.shape = at::infer_size(
       stack.at(0).toTensor().sizes(), stack.at(1).toTensor().sizes());
   meta.dtype = at::kBool;
 
-  return {meta};
+  return metaVec;
 }
 
 OutputMetaDataVector LogicalNotMeta(const at::Stack& stack) {
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
 
   meta.shape = stack.at(0).toTensor().sizes().vec();
   meta.dtype = at::kBool;
 
-  return {meta};
+  return metaVec;
 }
 
 SharedMetaDataVector LogicalNotSharedMeta(
@@ -46,18 +48,19 @@ SharedMetaDataVector LogicalNotSharedMeta(
   auto self = stack.at(0).toTensor();
   auto rank = self.dim();
   auto dtype = self.scalar_type();
-  SharedMetaDataVector metaVec = {};
+  SharedMetaDataVector metaVec;
   if ((self.scalar_type() == at::kFloat) ||
       (self.scalar_type() == at::kBFloat16) ||
       (self.scalar_type() == at::kInt) || (self.scalar_type() == at::kShort)) {
     metaVec = BoolCastSharedMeta({self}, executionMode);
     dtype = at::kBool;
+  } else {
+    metaVec.reserve(1);
   }
 
-  SharedMetaData notMeta{"not"};
+  auto& notMeta = metaVec.emplace_back("not");
   notMeta.inputs_data = {{rank, dtype}};
   notMeta.outputs_data = {{rank, at::kBool}};
-  metaVec.push_back(notMeta);
   return metaVec;
 }
 

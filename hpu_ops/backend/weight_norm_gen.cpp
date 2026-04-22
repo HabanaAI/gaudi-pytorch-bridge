@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,8 +39,10 @@ static c10::DimVector getDimsToNorm(const int64_t rank, const int64_t dim) {
   dims_to_norm.reserve(static_cast<std::size_t>(rank));
 
   for (int64_t i = 0; i < rank; ++i) {
-    if (i != dim) // skip given dimension
+    if (i != dim) {
+      // skip given dimension
       dims_to_norm.push_back(i);
+    }
   }
 
   return dims_to_norm;
@@ -90,7 +92,7 @@ void WeightNormOp::AddNode(sh::graph& graph, const at::Stack& stack) {
 
   c10::DimVector dims_to_norm = getDimsToNorm(v_in.ndimension(), dim);
 
-  at::Scalar ord = 2.0;
+  constexpr double ord = 2.0;
 
   auto normOp = NormCommon(
       this,

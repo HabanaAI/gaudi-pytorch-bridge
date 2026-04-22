@@ -25,48 +25,21 @@
       ]
     }
   },
-  "required_pt": {
-    "default": "torch"
-  },
   "pt_versions": {
     "previous": {
-      "version": "2.8.0",
-      "default_source": "build",
+      "version": "2.9.1",
       "cpu_index_url": "default",
-      "extras": {
-        "torchvision": "v0.23.0",
-        "torchdata": "v0.11.0"
-      }
+      "torchvision": "v0.24.1"
     },
     "current": {
-      "version": "2.9.0",
-      "default_source": "build",
+      "version": "2.10.0",
       "cpu_index_url": "default",
-      "extras": {
-        "torchvision": "v0.24.0",
-        "torchdata": "v0.11.0"
-      }
+      "torchvision": "v0.25.0"
     },
     "next": {
-      "version": "2.10.0",
-      "default_source": "build",
+      "version": "2.11.0",
       "cpu_index_url": "https://download.pytorch.org/whl/test/cpu",
-      "extras": {
-        "torchvision": "main",
-        "torchdata": "v0.11.0"
-      }
-    },
-    "rc": {
-      "version": null,
-      "default_source": "https://download.pytorch.org/whl/test/cpu"
-    },
-    "future": {
-      "version": "2.10.0",
-      "default_source": "https://download.pytorch.org/whl/nightly/cpu"
-    },
-    "nightly": {
-      "version": "nightly",
-      "default_source": "https://download.pytorch.org/whl/nightly/cpu"
+      "torchvision": "v0.25.0"
     }
   },
   "wheels": {
@@ -79,8 +52,7 @@
     "ci": {
       "wheel_name": "habana_torch_plugin",
       "pt_versions": [
-        "current",
-        "rc"
+        "current"
       ]
     },
     "internal": {

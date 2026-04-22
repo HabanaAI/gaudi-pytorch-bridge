@@ -55,24 +55,24 @@ OutputMetaDataVector CountNonzeroMeta(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 0);
   auto self_shape = self.sizes();
 
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
 
   meta.dtype = c10::ScalarType::Long;
 
   std::vector<int64_t> dims = get_dims_from_stack(stack);
-  std::vector<int64_t> output_shape = {};
+  meta.shape = {};
+  meta.shape.reserve(self_shape.size());
 
   if (!dims.empty()) {
     for (uint64_t i = 0; i < self_shape.size(); ++i) {
       if (std::find(dims.begin(), dims.end(), i) == dims.end()) {
-        output_shape.push_back(self_shape[i]);
+        meta.shape.push_back(self_shape[i]);
       }
     }
   }
 
-  meta.shape = output_shape;
-
-  return {meta};
+  return metaVec;
 }
 
 } // namespace habana

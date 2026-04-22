@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,5 +20,4 @@
 
 namespace habana::eager {
 at::Tensor nonzero_eager(const at::Tensor& self);
-at::Tensor& nonzero_out_eager(const at::Tensor& self, at::Tensor& out);
 } // namespace habana::eager

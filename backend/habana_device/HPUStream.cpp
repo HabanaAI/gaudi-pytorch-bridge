@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -107,7 +107,7 @@ bool HPUStream::query() const {
       habana_lazy::HbLazyTensor::StepMarker({});
     } else {
       // If there are current jobs in stream. return false
-      auto context = habana_lazy::get_device_lazy_execution_context();
+      auto* context = habana_lazy::get_device_lazy_execution_context();
       if (context->HaveJobsInStream(hpu_stream_id)) {
         return false;
       }
@@ -119,12 +119,12 @@ bool HPUStream::query() const {
     return device.query_default_stream();
   } else {
     auto status = stream.query();
-    if (status == synSuccess)
+    if (status == synSuccess) {
       return true;
-    else
+    } else {
       PT_DEVICE_DEBUG(
           Logger::formatStatusMsg(status), "STREAM:: synStreamQuery");
-
+    }
     return false;
   }
 }

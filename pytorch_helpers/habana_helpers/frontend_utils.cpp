@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -46,9 +46,10 @@ at::Tensor habana_helpers::cast_tensor_to_integer(
         false);
   } else {
     if (long_tensor.scalar_type() == c10::ScalarType::Long) {
-      *int_tensor = long_tensor.to("cpu")
-                        .to(c10::ScalarType::Int)
-                        .to(long_tensor.device(), c10::attr::non_blocking);
+      *int_tensor =
+          long_tensor.to("cpu")
+              .to(c10::ScalarType::Int)
+              .to(long_tensor.device(), c10::attr::non_blocking != 0U);
     } else {
       *int_tensor = long_tensor;
     }
@@ -80,9 +81,10 @@ at::Tensor habana_helpers::cast_tensor_to_long(const at::Tensor& int_tensor) {
         false);
   } else {
     if (int_tensor.scalar_type() == c10::ScalarType::Int) {
-      *long_tensor = int_tensor.to("cpu")
-                         .to(c10::ScalarType::Long)
-                         .to(int_tensor.device(), c10::attr::non_blocking);
+      *long_tensor =
+          int_tensor.to("cpu")
+              .to(c10::ScalarType::Long)
+              .to(int_tensor.device(), c10::attr::non_blocking != 0U);
     } else {
       *long_tensor = int_tensor;
     }
@@ -104,7 +106,7 @@ void habana_helpers::copy_scalar_to_host(
     c10::hpu::HPUStream hpu_stream) {
   std::atomic<bool> copyDone{false};
   bool is_pinned = habana::PinnedMemoryAllocator_is_pinned(src.data_ptr());
-  auto tmeta{habana::get_tensor_extra_meta(src)};
+  auto* tmeta{habana::get_tensor_extra_meta(src)};
   if (tmeta->has_valid_const_id() && (tmeta->get_host_ptr() != nullptr)) {
     std::memcpy(dst_ptr, tmeta->get_host_ptr(), size);
     return;

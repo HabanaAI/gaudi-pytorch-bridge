@@ -6419,7 +6419,7 @@ void SharedLayerReportGenerator::register_upsample_exception() {
           "",
           std::vector<std::int64_t>{4}));
   custom_executors.push_back(
-      std::make_unique<GenericSharedLayerExecutor<>>(
+      std::make_unique<CustomSharedLayerExecutor<>>(
           custom_stack_generators.back().get(),
           &habana::validator_upsample_bilinear2d));
 
@@ -6434,7 +6434,7 @@ void SharedLayerReportGenerator::register_upsample_exception() {
        /* op_namespace */ "torch.nn.functional"},
       custom_executors.back().get());
   custom_executors.push_back(
-      std::make_unique<GenericSharedLayerExecutor<>>(
+      std::make_unique<CustomSharedLayerExecutor<>>(
           custom_stack_generators.back().get(),
           &habana::validator__upsample_bilinear2d_aa));
 
@@ -6452,7 +6452,7 @@ void SharedLayerReportGenerator::register_upsample_exception() {
           "",
           std::vector<std::int64_t>{4}));
   custom_executors.push_back(
-      std::make_unique<GenericSharedLayerExecutor<>>(
+      std::make_unique<CustomSharedLayerExecutor<>>(
           custom_stack_generators.back().get(),
           &habana::validator_upsample_bilinear2d));
 
@@ -6477,7 +6477,7 @@ void SharedLayerReportGenerator::register_upsample_out_exception() {
           "upsample_bilinear2d.out",
           std::vector<std::int64_t>{4}));
   custom_executors.push_back(
-      std::make_unique<GenericSharedLayerExecutor<>>(
+      std::make_unique<CustomSharedLayerExecutor<>>(
           custom_stack_generators.back().get(),
           &habana::validator_upsample_bilinear2d_out));
 
@@ -6487,7 +6487,7 @@ void SharedLayerReportGenerator::register_upsample_out_exception() {
        /* op_namespace */ "torch.nn.functional"},
       custom_executors.back().get());
   custom_executors.push_back(
-      std::make_unique<GenericSharedLayerExecutor<>>(
+      std::make_unique<CustomSharedLayerExecutor<>>(
           custom_stack_generators.back().get(),
           &habana::validator__upsample_bilinear2d_aa_out));
 
@@ -6505,7 +6505,7 @@ void SharedLayerReportGenerator::register_upsample_out_exception() {
           "upsample_bicubic2d.out",
           std::vector<std::int64_t>{4}));
   custom_executors.push_back(
-      std::make_unique<GenericSharedLayerExecutor<>>(
+      std::make_unique<CustomSharedLayerExecutor<>>(
           custom_stack_generators.back().get(),
           &habana::validator_upsample_bilinear2d_out));
 

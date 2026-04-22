@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,12 +27,13 @@ FillParamsT FillScaledMaskedSoftmaxParams(const at::Stack& stack) {
 }
 
 OutputMetaDataVector ScaledMaskedTriangularSoftmaxMeta(const at::Stack& stack) {
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   const auto self = stack[0].toTensor();
   meta.shape = self.sizes().vec();
   meta.dtype =
       stack[6].toOptional<c10::ScalarType>().value_or(self.scalar_type());
-  return {meta};
+  return metaVec;
 }
 
 SharedMetaDataVector ScaledMaskedTriangularSoftmaxSharedMeta(
@@ -43,18 +44,18 @@ SharedMetaDataVector ScaledMaskedTriangularSoftmaxSharedMeta(
   const at::ScalarType outDtype =
       stack.at(6).toOptional<c10::ScalarType>().value_or(input.scalar_type());
 
-  SharedMetaData flattenFwdSharedMeta("flatten_fwd");
+  SharedMetaDataVector meta;
+  meta.reserve(2);
+  auto& flattenFwdSharedMeta = meta.emplace_back("flatten_fwd");
   flattenFwdSharedMeta.inputs_data = {getSharedMetaFromTensor(startEnd)};
   flattenFwdSharedMeta.outputs_data = {{1, startEnd.scalar_type()}};
 
-  SharedMetaData sharedMeta("scaled_masked_triangular_softmax_fwd");
-
+  auto& sharedMeta = meta.emplace_back("scaled_masked_triangular_softmax_fwd");
   sharedMeta.inputs_data = {
       getSharedMetaFromTensor(input), {1, startEnd.scalar_type()}};
-
   sharedMeta.outputs_data.emplace_back(input.dim(), outDtype);
 
-  return {flattenFwdSharedMeta, sharedMeta};
+  return meta;
 }
 
 void ScaledMaskedTriangularSoftmax::AddNode(
@@ -103,7 +104,7 @@ void ScaledMaskedTriangularSoftmax::AddNode(
   ns_ScaledMaskedSoftmax::Params params{};
   params.invScaleAttn = static_cast<float>(inv_scale_attn);
   params.groupedBatchSize = safe_convert<unsigned int>(grouped_batch_size);
-  params.isUseMax = use_max;
+  params.isUseMax = static_cast<unsigned int>(use_max);
   params.expMode = static_cast<ScaledMaskedSoftmaxExpMode_t>(mode);
 
   auto output = OpBackend::BuildNode(

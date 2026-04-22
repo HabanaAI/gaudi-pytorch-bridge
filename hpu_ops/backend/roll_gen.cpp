@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,8 @@
  */
 
 #include "generated/backend/roll.h"
+#include "pytorch_helpers/habana_helpers/conversion.h"
+#include "pytorch_helpers/habana_helpers/logging.h"
 
 namespace habana {
 
@@ -26,14 +28,14 @@ FillParamsT FillRollParams(const at::Stack& stack) {
   auto shifts = stack.at(shiftIndex).toIntVector();
   auto dims = stack.at(dimsIndex).toIntVector();
 
-  params->num_dims = dims.size();
+  params->num_dims = safe_convert<unsigned int>(dims.size());
 
   for (size_t i = 0; i < shifts.size(); i++) {
-    params->shifts[i] = shifts[i];
+    params->shifts[i] = safe_convert<int>(shifts[i]);
   }
 
   for (size_t i = 0; i < dims.size(); i++) {
-    params->dims[i] = dims[i];
+    params->dims[i] = safe_convert<int>(dims[i]);
   }
 
   return paramsT;
@@ -45,27 +47,32 @@ SharedMetaDataVector RollSharedMeta(
   const auto& self = stack_tensor(stack, 0);
   const auto rank = self.dim();
   auto dtype = self.scalar_type();
-  if (dtype == c10::ScalarType::Short)
+  if (dtype == c10::ScalarType::Short) {
     dtype = c10::ScalarType::Int;
+  }
+  SharedMetaDataVector meta;
 
   if (!GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE)) {
-    SharedMetaData rollSharedMeta{"roll"};
+    meta.reserve(1);
+    auto& rollSharedMeta = meta.emplace_back("roll");
     rollSharedMeta.inputs_data.emplace_back(rank, dtype);
     rollSharedMeta.outputs_data.emplace_back(rank, dtype);
-    return {rollSharedMeta};
+    return meta;
   }
 
   const auto splitRank = stack.at(2).toIntVector().empty() ? 1 : rank;
   SharedMetaTensor commonTensor = {splitRank, dtype};
-  SharedMetaData splitSharedMeta{"split"};
+  meta.reserve(2);
+
+  auto& splitSharedMeta = meta.emplace_back("split");
   splitSharedMeta.inputs_data.push_back(commonTensor);
   splitSharedMeta.outputs_data = {commonTensor, commonTensor};
 
-  SharedMetaData concatSharedMeta{"concat"};
+  auto& concatSharedMeta = meta.emplace_back("concat");
   concatSharedMeta.inputs_data = {commonTensor, commonTensor};
   concatSharedMeta.outputs_data.push_back(commonTensor);
 
-  return {splitSharedMeta, concatSharedMeta};
+  return meta;
 }
 
 void RollHabanaOperator::AddNode(
@@ -108,8 +115,9 @@ void RollHabanaOperator::AddNode(
   HABANA_ASSERT(
       !shift.empty(), "roll: shift must be a scalar or a 1-D vector.");
 
-  if (flatten_and_restore)
+  if (flatten_and_restore) {
     axis.push_back(0);
+  }
 
   HABANA_ASSERT(!axis.empty(), "roll: axis must be a scalar or a 1-D vector.");
   HABANA_ASSERT(
@@ -122,7 +130,7 @@ void RollHabanaOperator::AddNode(
 
   auto axisElementsCount = axis.size();
 
-  auto intermediate_input = syn_in(0);
+  auto* intermediate_input = syn_in(0);
   std::vector<synapse_helpers::tensor> intermediate_output;
   std::vector<synapse_helpers::tensor> reshape;
 
@@ -146,21 +154,28 @@ void RollHabanaOperator::AddNode(
 
     // Handle negative axis
     axis_flat = c10::maybe_wrap_dim(axis_flat, input.dim(), true);
+    auto axis_flat_size_t = safe_convert<size_t>(axis_flat);
 
     mod_shift = 0;
-    if (input_shape[axis_flat] != 0) {
-      mod_shift = abs(shift_flat) % input_shape[axis_flat];
+    if (input_shape[axis_flat_size_t] != 0) {
+      mod_shift = safe_convert<unsigned int>(
+          abs(shift_flat) % input_shape[axis_flat_size_t]);
     }
 
     // Handle when shift value > larger/smaller than shape of the input tensor
     if (shift_flat > 0) {
-      to_shift = (shift_flat > input_shape[axis_flat])
-          ? (input_shape[axis_flat] - (mod_shift))
-          : (input_shape[axis_flat] - shift_flat);
+      to_shift = (shift_flat > input_shape[axis_flat_size_t])
+          ? safe_convert<unsigned int>(
+                input_shape[axis_flat_size_t] -
+                safe_convert<int64_t>(mod_shift))
+          : safe_convert<unsigned int>(
+                input_shape[axis_flat_size_t] - shift_flat);
     } else {
-      to_shift = (shift_flat < 0) ? (mod_shift) : abs(shift_flat);
+      to_shift = (shift_flat < 0) ? mod_shift
+                                  : safe_convert<unsigned int>(abs(shift_flat));
     }
-    remain_shift = input_shape[axis_flat] - to_shift;
+    remain_shift = safe_convert<unsigned int>(
+        input_shape[axis_flat_size_t] - safe_convert<int64_t>(to_shift));
 
     auto is_final_output = !flatten_and_restore && i == (axisElementsCount - 1)
         ? c10::make_optional<int>(0)
@@ -170,10 +185,11 @@ void RollHabanaOperator::AddNode(
       // Calculate the output shape
       auto out_shape_0 = input_shape.vec();
       auto out_shape_1 = input_shape.vec();
-      out_shape_0[axis_flat] = to_shift;
-      out_shape_1[axis_flat] = remain_shift;
+      out_shape_0[axis_flat_size_t] = safe_convert<int64_t>(to_shift);
+      out_shape_1[axis_flat_size_t] = safe_convert<int64_t>(remain_shift);
 
-      auto dim = static_cast<unsigned>((input_shape.size() - 1) - axis_flat);
+      auto dim =
+          safe_convert<unsigned>((input_shape.size() - 1) - axis_flat_size_t);
 
       auto split_out = BuildOp(
           graph,

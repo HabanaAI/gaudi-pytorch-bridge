@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -68,7 +68,11 @@ std::string stringify(CompilationPass compilation_pass) {
 namespace habana_helpers {
 class CompilationStatisticsNoOp : public CompilationStatistics {
   using CompilationStatistics::CompilationStatistics;
+
+ public:
   ~CompilationStatisticsNoOp() override = default;
+
+ private:
   void LogShape(
       std::string /*index*/,
       const habana_helpers::TensorShape& /*shape*/,
@@ -127,10 +131,10 @@ std::unique_ptr<CompilationStatistics> CompilationStatistics::Create(
   std::unique_ptr<CompilationStatistics> result;
   std::string path = GET_ENV_FLAG_NEW(PT_COMPILATION_STATS_PATH);
   if (!path.empty()) {
-    if (fs::exists(fs::path(path)) == false) {
+    if (!std::filesystem::exists(std::filesystem::path(path))) {
       try {
-        fs::create_directories(path);
-      } catch (fs::filesystem_error const& ex) {
+        std::filesystem::create_directories(path);
+      } catch (std::filesystem::filesystem_error const& ex) {
         std::cerr << ex.what() << std::endl;
         UNSET_ENV_FLAG_NEW(PT_COMPILATION_STATS_PATH);
       }
@@ -143,7 +147,9 @@ std::unique_ptr<CompilationStatistics> CompilationStatistics::Create(
     // Add RANK i.e HLS_MODULE_ID to the file name.
     // For 1x device, it defaults to '0'.
     std::string node_id{
-        std::getenv("RANK") ? (std::string("_") + std::getenv("RANK")) : "_0"};
+        (std::getenv("RANK") == nullptr)
+            ? "_0"
+            : (std::string("_") + std::getenv("RANK"))};
     path += node_id;
 
     // Add graph_hash_code to the file name
@@ -189,8 +195,8 @@ void CompilationStatistics::LogShapes(
     InpTensorShapes& shapes,
     uint64_t step) {
   for (size_t j = 0; j < jit_ir_graph->inputs().size(); j++) {
-    auto value_input = jit_ir_graph->inputs().at(j);
-    if (shapes.count(j)) {
+    auto* value_input = jit_ir_graph->inputs().at(j);
+    if (shapes.count(j) != 0U) {
       std::string tensor_name =
           std::to_string(j) + std::string("_") + value_input->debugName();
       auto tensor_shape = shapes.at(j);
@@ -227,7 +233,7 @@ void CompilationStatistics::LogCompilation(
   compilation["recipe"] = signature;
   compilation["result"] = result;
   compilation["scope"] = stringify(last_compilation_pass);
-  const auto kCompilations = "compilations";
+  const auto* const kCompilations = "compilations";
   auto& json_step = json_file_[GetStep(step)];
   if (json_step.find(kCompilations) == json_step.end()) {
     json_step[kCompilations] = json::array();
@@ -255,8 +261,9 @@ void CompilationStatistics::LogSymbols(
   std::lock_guard<std::mutex> lg(json_file_mutex_);
   json json_symbol_map;
   for (auto& pair : symbol_value_map) {
-    if (pair.second.get())
+    if (pair.second != nullptr) {
       json_symbol_map[pair.first] = *pair.second;
+    }
   }
   json_file_[GetStep(step)]["symbol values"] = json_symbol_map;
 }
@@ -351,7 +358,7 @@ size_t CompilationStatistics::GetCurrentParentLastStep() {
 
 void CompilationStatistics::DumpAndNextStep() {
   std::lock_guard<std::mutex> lg(json_file_mutex_);
-  if (step_) {
+  if (step_ != 0U) {
     file_handle << ",\n";
   }
   file_handle << std::setw(4) << json_file_;
@@ -400,7 +407,7 @@ nlohmann::json CompilationStatistics::GetRanges(
   json result;
   for (size_t j = 0; j < jit_ir_graph->inputs().size(); j++) {
     if (ranges.min_shapes.find(j) != ranges.min_shapes.end()) {
-      auto value_input = jit_ir_graph->inputs().at(j);
+      auto* value_input = jit_ir_graph->inputs().at(j);
       std::string tensor_name =
           std::to_string(j) + std::string("_") + value_input->debugName();
       result[tensor_name] = ranges.min_shapes[j].DebugString() + "-" +

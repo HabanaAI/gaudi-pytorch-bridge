@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@ std::vector<int64_t> CatOperator::compute_output_shape(
       /*wrap_scalar=*/true));
 
   auto in_tensor_count = tensors.size();
-  auto first_tensor = tensors[0];
+  const auto& first_tensor = tensors[0];
   auto out_size = first_tensor.sizes().vec();
   out_size[dim] = 0;
   for (unsigned i = 0; i < in_tensor_count; i++) {
@@ -63,8 +63,8 @@ void CatOperator::validate_cat_tensor_dim_sizes(
   size_t tempT_i = 0;
   for (size_t i = 1; i < tensor_count; i++) {
     // check whether sizes along dimensions match except for cat dimension.
-    auto sz1 = tensors->at(i);
-    auto sz2 = tensors->at(tempT_i);
+    const auto& sz1 = tensors->at(i);
+    const auto& sz2 = tensors->at(tempT_i);
     for (size_t j = 0; j < tensors->at(i).size(); j++) {
       if (j != dim && (sz1[j] - sz2[j]) != 0) {
         HABANA_ASSERT(
@@ -91,7 +91,7 @@ Tensor CatOperator::CheckAllocateOutput(
   auto tensors = inputs[0].toTensorList();
   auto dim_s = inputs[1].toInt();
 
-  auto first_tensor = tensors.get(0);
+  const auto& first_tensor = tensors.get(0);
   const auto dim = static_cast<size_t>(
       at::maybe_wrap_dim(dim_s, first_tensor.dim(), /*wrap_scalar=*/true));
   HABANA_ASSERT(
@@ -103,9 +103,10 @@ Tensor CatOperator::CheckAllocateOutput(
 
   std::vector<std::vector<int64_t>> tensors_size;
   auto tensor_count = tensors.size();
-  for (unsigned i = 0; i < tensor_count; i++)
+  tensors_size.reserve(tensor_count);
+  for (unsigned i = 0; i < tensor_count; i++) {
     tensors_size.emplace_back(tensors.get(i).sizes().vec());
-
+  }
   validate_cat_tensor_dim_sizes(&tensors_size, dim);
 
   if (!is_dry_run && output_metadata.allocated_tensor.has_value()) {
@@ -298,11 +299,13 @@ SharedMetaDataVector TransposeSharedMeta(
   const auto selfDim = self.dim();
   const auto selfDtype = self.scalar_type();
 
-  SharedMetaData transposeSharedMeta("transpose");
+  SharedMetaDataVector transposeSharedMetaVec;
+  transposeSharedMetaVec.reserve(1);
+  auto& transposeSharedMeta = transposeSharedMetaVec.emplace_back("transpose");
   transposeSharedMeta.inputs_data.emplace_back(selfDim, selfDtype);
   transposeSharedMeta.outputs_data.emplace_back(selfDim, selfDtype);
 
-  return {transposeSharedMeta};
+  return transposeSharedMetaVec;
 }
 } // namespace habana
 
@@ -386,7 +389,7 @@ void PermuteOperator::AllocateAndAddSynapseNode(
   std::tie(new_sizes, new_strides) =
       PermuteOperator::compute_output_shape(self, dims);
 
-  auto& mdata = output_metadata.at(0);
+  const auto& mdata = output_metadata.at(0);
   auto output = !graph.is_dry_run() && mdata.allocated_tensor.has_value()
       ? mdata.allocated_tensor.value()
       : habana::createPTTensor(

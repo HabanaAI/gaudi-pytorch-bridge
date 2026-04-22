@@ -18,10 +18,11 @@
 namespace habana {
 OutputMetaDataVector ReplicationPadBwdMeta(const at::Stack& stack) {
   auto self = stack.at(1).toTensor();
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.shape = self.sizes().vec();
   meta.dtype = self.scalar_type();
-  return {meta};
+  return metaVec;
 }
 
 FillParamsT FillReplicationPad1dBwdParams(const at::Stack& stack) {
@@ -53,17 +54,18 @@ std::vector<synapse_helpers::tensor> CommonReplicationPadBwd(
         ComputePadOutputShape({stack.begin() + 1, stack.end()}, pad)[0];
 
     auto currentMaxShapeSize = currentMaxShape.size();
-    for (size_t dim = 0; dim < currentMaxShapeSize; dim++)
+    for (size_t dim = 0; dim < currentMaxShapeSize; dim++) {
       HABANA_ASSERT(
           (currentMaxShape[dim] <= outputShapeExpectedMax[dim]),
           "Dim (%d) size (%d) in max pass is greater than expected size (%d)",
           dim,
           currentMaxShape[dim],
           outputShapeExpectedMax[dim]);
+    }
   }
 
   using namespace std::literals;
-  return op->BuildNode(
+  return OpBackend::BuildNode(
       op,
       graph,
       {get_guid_with_precision("pad_bwd"sv, meta.dtype),

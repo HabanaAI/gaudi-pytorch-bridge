@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,10 +39,11 @@ OutputMetaDataVector NllLossFwdMeta(const at::Stack& stack) {
 OutputMetaDataVector NllLossBwdMeta(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 0);
   const torch::Tensor& target = stack_tensor(stack, 1);
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.dtype = self.scalar_type();
   meta.shape = target.sizes().vec();
-  return {meta};
+  return metaVec;
 }
 
 sizes_vec NllLossBwdShapeTnsrShape(const at::Stack& stack) {
@@ -89,7 +90,6 @@ FillParamsT FillNllLossBwdParams(const at::Stack& stack) {
   auto ignore_index = stack.at(5).toInt();
   return FillNllLossParams(reduction, ignore_index);
 }
-enum modes { Fwd2D, Bwd2D };
 
 static std::vector<synapse_helpers::tensor> NllLoss(
     OpBackend* op,
@@ -165,7 +165,7 @@ static std::vector<synapse_helpers::tensor> ComputeWeightsSum(
   auto flattenTarget = OpBackend::BuildFlatten(
       op,
       graph,
-      std::move(inputs[synTargetIdx]),
+      inputs[synTargetIdx],
       {targetFlattenSize},
       c10::ScalarType::Int); // using Int by default for gaudi3 support
 
@@ -177,8 +177,7 @@ static std::vector<synapse_helpers::tensor> ComputeWeightsSum(
       op,
       graph,
       {get_guid_with_precision("gather_elements_fwd"sv, weights.scalar_type()),
-       std::vector<synTensor>{
-           std::move(inputs[synWeightIdx]), std::move(flattenTarget.get())},
+       std::vector<synTensor>{inputs[synWeightIdx], flattenTarget.get()},
        {{targetFlattenSize, weights.scalar_type()}},
        &gatherParams,
        sizeof(gatherParams)});
@@ -189,7 +188,7 @@ static std::vector<synapse_helpers::tensor> ComputeWeightsSum(
       op,
       graph,
       {get_guid_with_precision("reduce_sum_fwd"sv, meta.dtype),
-       std::vector<synTensor>{std::move(targetMappedToWeights[0].get())},
+       std::vector<synTensor>{targetMappedToWeights[0].get()},
        {{1, meta.dtype, final_index}},
        &reduceParams,
        sizeof(reduceParams)});
@@ -208,28 +207,30 @@ SharedMetaDataVector NllLoss2DFwdSharedMeta(
   const auto dtype = self.scalar_type();
 
   SharedMetaDataVector metaVec;
-  SharedMetaData nllLossFwdSharedMeta{"nll_loss_fwd"};
+  metaVec.reserve(3);
+
+  if (weight.defined()) {
+    const auto weightDtype = weight.scalar_type();
+    auto& gatherElementsSharedMeta =
+        metaVec.emplace_back("gather_elements_fwd");
+    gatherElementsSharedMeta.inputs_data = {
+        {weight.dim(), weightDtype}, {1, target.scalar_type()}};
+    gatherElementsSharedMeta.outputs_data.emplace_back(1, weightDtype);
+
+    auto& reduceWeightSharedMeta = metaVec.emplace_back("reduce_sum_fwd");
+    reduceWeightSharedMeta.inputs_data.emplace_back(weight.dim(), dtype);
+    reduceWeightSharedMeta.outputs_data.emplace_back(1, dtype);
+  }
+
+  auto& nllLossFwdSharedMeta = metaVec.emplace_back("nll_loss_fwd");
   nllLossFwdSharedMeta.outputs_data.emplace_back(outputRank, dtype);
   nllLossFwdSharedMeta.inputs_data = {
       {self.dim(), dtype}, {target.dim(), target.scalar_type()}};
   if (weight.defined()) {
     nllLossFwdSharedMeta.inputs_data.emplace_back(weight.dim(), dtype);
     nllLossFwdSharedMeta.inputs_data.emplace_back(1, dtype);
-
-    const auto weightDtype = weight.scalar_type();
-    SharedMetaData gatherElementsSharedMeta{"gather_elements_fwd"};
-    gatherElementsSharedMeta.inputs_data = {
-        {weight.dim(), weightDtype}, {1, target.scalar_type()}};
-    gatherElementsSharedMeta.outputs_data.emplace_back(1, weightDtype);
-    metaVec.push_back(gatherElementsSharedMeta);
-
-    SharedMetaData reduceWeightSharedMeta{"reduce_sum_fwd"};
-    reduceWeightSharedMeta.inputs_data.emplace_back(weight.dim(), dtype);
-    reduceWeightSharedMeta.outputs_data.emplace_back(1, dtype);
-    metaVec.push_back(reduceWeightSharedMeta);
   }
 
-  metaVec.push_back(nllLossFwdSharedMeta);
   return metaVec;
 }
 
@@ -297,33 +298,33 @@ SharedMetaDataVector NllLossBwdSharedMeta(
   const std::string guid = isWeightTensor ? "cnll_loss_bwd" : "nll_loss_bwd";
 
   SharedMetaDataVector metaVec;
-  SharedMetaData nllLossBwdSharedMeta{guid};
+  metaVec.reserve(3);
+
+  if (!isWeightTensor && reduction == at::Reduction::Reduction::Mean) {
+    auto& divSharedMeta = metaVec.emplace_back("div_fwd");
+    divSharedMeta.inputs_data.emplace_back(1, dtype);
+    divSharedMeta.inputs_data.emplace_back(1, dtype);
+    divSharedMeta.outputs_data.emplace_back(1, dtype);
+
+    auto& mulSharedMeta = metaVec.emplace_back("mult_fwd");
+    mulSharedMeta.inputs_data.emplace_back(rank, dtype);
+    mulSharedMeta.inputs_data.emplace_back(1, dtype);
+    mulSharedMeta.outputs_data.emplace_back(rank, dtype);
+  }
+
+  auto& nllLossBwdSharedMeta = metaVec.emplace_back(guid);
   nllLossBwdSharedMeta.inputs_data.emplace_back(grad.dim(), dtype);
-  if (isWeightTensor)
+  if (isWeightTensor) {
     nllLossBwdSharedMeta.inputs_data.emplace_back(rank, dtype);
+  }
   nllLossBwdSharedMeta.inputs_data.emplace_back(
       target.dim(), target.scalar_type());
   if (isWeightTensor) {
     nllLossBwdSharedMeta.inputs_data.emplace_back(weight.dim(), dtype);
     nllLossBwdSharedMeta.inputs_data.emplace_back(totalWeight.dim(), dtype);
   }
-
   nllLossBwdSharedMeta.outputs_data.emplace_back(rank, dtype);
 
-  if (!isWeightTensor && reduction == at::Reduction::Reduction::Mean) {
-    SharedMetaData divSharedMeta{"div_fwd"};
-    divSharedMeta.inputs_data.emplace_back(1, dtype);
-    divSharedMeta.inputs_data.emplace_back(1, dtype);
-    divSharedMeta.outputs_data.emplace_back(1, dtype);
-
-    SharedMetaData mulSharedMeta{"mult_fwd"};
-    mulSharedMeta.inputs_data.emplace_back(rank, dtype);
-    mulSharedMeta.inputs_data.emplace_back(1, dtype);
-    mulSharedMeta.outputs_data.emplace_back(rank, dtype);
-    metaVec.push_back(divSharedMeta);
-    metaVec.push_back(mulSharedMeta);
-  }
-  metaVec.push_back(nllLossBwdSharedMeta);
   return metaVec;
 }
 
@@ -335,7 +336,7 @@ void NllLossBwd::AddNode(
   const auto shapeTnsrSize = NllLossBwdShapeTnsrShape(stack)[0];
   auto is_weight_none = stack.at(3).isNone();
   int64_t reduction = stack.at(4).toInt();
-  int64_t scalar_shape[] = {1};
+  int64_t scalar_shape = 1L;
 
   // To divide the nll_loss_bwd output with the correct total_weight,
   // first mul with the assumed batch size in tpc and then divide
@@ -348,7 +349,10 @@ void NllLossBwd::AddNode(
         self.sizes().vec().at(0); // batch size used to correct the total_weight
                                   // result from tpc_kernel
     auto batch_size_constant = ConstantHelper(
-        graph, static_cast<float>(batch_size), meta.dtype, scalar_shape);
+        graph,
+        static_cast<float>(batch_size),
+        meta.dtype,
+        c10::makeArrayRef(&scalar_shape, 1));
 
     // mul_factor = batch_size / total_weight
     auto mul_factor = BuildOp(
@@ -405,7 +409,21 @@ SharedMetaDataVector NllLoss2DBwdSharedMeta(
   const std::string guid = "nll_loss_bwd";
 
   SharedMetaDataVector metaVec;
-  SharedMetaData nllLossBwdSharedMeta{guid};
+  metaVec.reserve(3);
+
+  if (!isWeightTensor && reduction == at::Reduction::Reduction::Mean) {
+    auto& divSharedMeta = metaVec.emplace_back("div_fwd");
+    divSharedMeta.inputs_data.emplace_back(1, dtype);
+    divSharedMeta.inputs_data.emplace_back(1, dtype);
+    divSharedMeta.outputs_data.emplace_back(1, dtype);
+
+    auto& mulSharedMeta = metaVec.emplace_back("mult_fwd");
+    mulSharedMeta.inputs_data.emplace_back(rank, dtype);
+    mulSharedMeta.inputs_data.emplace_back(1, dtype);
+    mulSharedMeta.outputs_data.emplace_back(rank, dtype);
+  }
+
+  auto& nllLossBwdSharedMeta = metaVec.emplace_back(guid);
   nllLossBwdSharedMeta.outputs_data.emplace_back(rank, dtype);
   nllLossBwdSharedMeta.inputs_data = {
       {grad.dim(), dtype}, {target.dim(), target.scalar_type()}};
@@ -413,22 +431,6 @@ SharedMetaDataVector NllLoss2DBwdSharedMeta(
     nllLossBwdSharedMeta.inputs_data.emplace_back(weight.dim(), dtype);
     nllLossBwdSharedMeta.inputs_data.emplace_back(1, dtype);
   }
-
-  if (!isWeightTensor && reduction == at::Reduction::Reduction::Mean) {
-    SharedMetaData divSharedMeta{"div_fwd"};
-    divSharedMeta.inputs_data.emplace_back(1, dtype);
-    divSharedMeta.inputs_data.emplace_back(1, dtype);
-    divSharedMeta.outputs_data.emplace_back(1, dtype);
-
-    SharedMetaData mulSharedMeta{"mult_fwd"};
-    mulSharedMeta.inputs_data.emplace_back(rank, dtype);
-    mulSharedMeta.inputs_data.emplace_back(1, dtype);
-    mulSharedMeta.outputs_data.emplace_back(rank, dtype);
-    metaVec.push_back(divSharedMeta);
-    metaVec.push_back(mulSharedMeta);
-  }
-
-  metaVec.push_back(nllLossBwdSharedMeta);
   return metaVec;
 }
 
@@ -440,7 +442,7 @@ void NllLoss2DBwd::AddNode(
   const auto shapeTnsrSize = NllLossBwdShapeTnsrShape(stack)[0];
   int64_t reduction = stack.at(4).toInt();
   const auto& self = stack_tensor(stack, 1); // self tensor
-  int64_t scalar_shape[] = {1};
+  int64_t scalar_shape = 1L;
 
   // from
   // https://github.com/pytorch/pytorch/blob/4015166e5d51bc39d5a81aa59ad49720ec2a23fe/aten/src/ATen/native/LossNLL2d.cpp#L183C17-L183C24
@@ -456,7 +458,10 @@ void NllLoss2DBwd::AddNode(
   if (stack.at(3).isNone()) { // weight is none
     if (reduction == at::Reduction::Reduction::Mean) {
       auto NHW_multiplier_constant = ConstantHelper(
-          graph, static_cast<float>(NHW_multiplier), meta.dtype, scalar_shape);
+          graph,
+          static_cast<float>(NHW_multiplier),
+          meta.dtype,
+          c10::makeArrayRef(&scalar_shape, 1));
 
       // mul_factor = batch_size / total_weight
       auto mul_factor = BuildOp(

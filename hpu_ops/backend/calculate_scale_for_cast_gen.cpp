@@ -24,14 +24,14 @@ FillParamsT FillCalculateScaleForCastParams(const at::Stack& stack) {
   const auto fullscale = stack[5].toDouble();
   const auto backoff = stack[6].toDouble();
 
-  const auto ndims = input.dim();
-  auto axis = c10::maybe_wrap_dim(reduceAxis, ndims);
+  const auto rank = input.dim();
+  auto axis = c10::maybe_wrap_dim(reduceAxis, rank);
 
   PARAMS_STUB(ns_CalculateScaleForCast::Params);
   params->maxMode =
       static_cast<ns_CalculateScaleForCast::CalculateScaleForCastMaxMode_t>(
           stack[1].toInt());
-  params->reduceAxis = safe_convert<int>(ndims - axis - 1);
+  params->reduceAxis = safe_convert<int>(rank - axis - 1);
   params->reduceKeepdim = stack[4].toBool();
   params->maxAbsInputScale = static_cast<float>(1.0 / (fullscale * backoff));
   params->scaleMode =
@@ -58,13 +58,14 @@ std::vector<DimT> getCalculateScaleForCastOutShape(
       break;
 
     case ns_CalculateScaleForCast::CALCULATE_SCALE_FOR_CAST_MAX_ABS_PCS: {
-      const auto ndims = static_cast<int64_t>(inShape.size());
-      auto axis = c10::maybe_wrap_dim(reduceAxis, ndims);
+      const auto rank = static_cast<int64_t>(inShape.size());
+      auto axis = c10::maybe_wrap_dim(reduceAxis, rank);
 
-      if (reduceKeepdim)
+      if (reduceKeepdim) {
         outputShape[static_cast<size_t>(axis)] = 1;
-      else
+      } else {
         outputShape.erase(outputShape.begin() + axis);
+      }
     }
   }
 
@@ -79,12 +80,13 @@ OutputMetaDataVector CalculateScaleForCastMeta(const at::Stack& stack) {
   auto reduceAxis = stack[3].toInt();
   auto reduceKeepdim = stack[4].toBool();
 
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.shape = getCalculateScaleForCastOutShape(
       input.sizes(), maxMode, reduceAxis, reduceKeepdim);
   meta.dtype = input.scalar_type();
 
-  return {meta};
+  return metaVec;
 }
 
 sym_sizes_vec calculate_scale_for_cast_out_shape(

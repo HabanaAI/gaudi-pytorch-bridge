@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <memory>
 #include <stack>
 #include <string>
 #include <thread>
@@ -37,6 +38,8 @@ constexpr int NUM_EXPONENTIAL_BUCKETS = 3;
 constexpr int NUM_EQUIDISTANT_BUCKETS = 5;
 constexpr int NUM_TOP_OPS = 5;
 constexpr int NUM_TIMING_DATA_CNTS = 100;
+
+using FilePtr = std::unique_ptr<FILE, int (*)(FILE*)>;
 
 namespace LOP {
 
@@ -66,12 +69,14 @@ ProfilerEngine::ProfilerEngine()
           NUM_OF_PIPELINE_STAGES,
           std::vector<Event>(GET_ENV_FLAG_NEW(PT_HPU_EVENT_TABLE_SIZE))) {
   char* disable_string = std::getenv("LOP_DISABLE");
-  if (!disable_string || !static_cast<uint32_t>(std::stoi(disable_string))) {
+  if ((disable_string == nullptr) ||
+      (static_cast<uint32_t>(std::stoi(disable_string)) == 0U)) {
     std::chrono::nanoseconds time_1_ns(1);
     std::chrono::nanoseconds time_1000_ns(1000);
     auto pre_test1 = barriered_rdtsc();
-    for (int i = 0; i < 1000; ++i)
+    for (int i = 0; i < 1000; ++i) {
       std::this_thread::sleep_for(time_1_ns);
+    }
     auto post_test1 = barriered_rdtsc();
     auto fragmented_test_result = post_test1 - pre_test1;
 
@@ -80,21 +85,22 @@ ProfilerEngine::ProfilerEngine()
     auto post_test2 = barriered_rdtsc();
     auto consolidated_test_result = post_test2 - pre_test2;
 
-    auto overhead = (fragmented_test_result - consolidated_test_result) / 999;
+    auto overhead = (fragmented_test_result - consolidated_test_result) /
+        999; // NOLINT(readability-magic-numbers)
 
     std::chrono::milliseconds time_100_ms(100);
     auto pre = barriered_rdtsc();
     std::this_thread::sleep_for(time_100_ms);
     auto post = barriered_rdtsc();
     uint64_t tsc_frequency_per_second = (post - pre - overhead) * 10;
-    this->ticks_per_ns_ratio = static_cast<double>(tsc_frequency_per_second) /
-        1000.0 / 1000.0 / 1000.0;
+    this->ticks_per_ns_ratio =
+        static_cast<double>(tsc_frequency_per_second) / 1000 / 1000 / 1000;
 
     printf("TSC freq: %luHz\n", tsc_frequency_per_second);
     printf("          %f ticks per nanosecond\n", this->ticks_per_ns_ratio);
 
     char* log_level_string = std::getenv("LOP_LOG_LEVEL");
-    if (log_level_string) {
+    if (log_level_string != nullptr) {
       this->env_log_level = static_cast<uint32_t>(std::stoi(log_level_string));
     } else {
       this->env_log_level = 3;
@@ -119,7 +125,7 @@ struct OpGroup {
 uint64_t calculate_adaptive_cutoff(
     std::vector<uint64_t>& event_times,
     uint64_t max_time,
-    double percentile = 0.9) {
+    double percentile = 0.9) { // NOLINT(readability-magic-numbers)
   if (event_times.empty()) {
     return max_time;
   }
@@ -189,8 +195,9 @@ void print_histogram(
   for (const auto& event : events) {
     if (event.jit_cache_hit_count > jit_cache_hit_count_threshold &&
         event.name == target_event_name) {
-      if (event.is_begin)
+      if (event.is_begin) {
         continue;
+      }
       event_times.push_back(event.stage_time);
     }
   }
@@ -221,7 +228,7 @@ void print_histogram(
 
   for (size_t i = 0; i < NUM_EQUIDISTANT_BUCKETS;
        ++i) { // print equidistant buckets
-    uint64_t bucket_min = min_time + i * equidistant_bucket_size;
+    uint64_t bucket_min = min_time + (i * equidistant_bucket_size);
     uint64_t bucket_max = (i == NUM_EQUIDISTANT_BUCKETS - 1)
         ? adaptive_cutoff
         : (bucket_min + equidistant_bucket_size - 1);
@@ -238,8 +245,8 @@ void print_histogram(
     uint64_t bucket_max = (i == NUM_EXPONENTIAL_BUCKETS - 1)
         ? max_time
         : (bucket_min +
-           (static_cast<uint64_t>(1) << i) * exponential_range /
-               exponential_base -
+           ((static_cast<uint64_t>(1) << i) * exponential_range /
+            exponential_base) -
            1);
     std::ignore = fprintf(
         metrics_file,
@@ -266,9 +273,9 @@ void print_device_queue_histogram(
   uint64_t total_events = 0;
   for (const auto& event : events) {
     if (event.jit_cache_hit_count > jit_cache_hit_count_threshold) {
-      if (event.is_begin)
+      if (event.is_begin) {
         continue;
-
+      }
       device_queue_len[event.device_queue_length]++;
       total_events++;
     }
@@ -341,7 +348,7 @@ void ProfilerEngine::flush() {
       stage_queue_length_variance;
   std::unordered_map<size_t, std::unordered_map<std::string, int64_t>>
       stage_queue_length_std;
-  uint64_t current_index[NUM_OF_PIPELINE_STAGES] = {0, 0, 0, 0, 0};
+  std::array<uint64_t, NUM_OF_PIPELINE_STAGES> current_index = {0, 0, 0, 0, 0};
   uint64_t device_total_queue_length = 0;
   uint64_t min_device_queue_len = 0;
   uint64_t max_device_queue_len = 0;
@@ -356,7 +363,7 @@ void ProfilerEngine::flush() {
   uint64_t jit_cache_hit_count_threshold =
       GET_ENV_FLAG_NEW(PT_HPU_LOP_JIT_WARM_UP_STEPS);
   const char* base_dir_path = std::getenv("HABANA_LOGS");
-  if (!base_dir_path) {
+  if (base_dir_path == nullptr) {
     base_dir_path = "";
   }
   std::string dir_path = "/";
@@ -365,7 +372,7 @@ void ProfilerEngine::flush() {
     dir_path = "/" + std::string(rank) + "/";
   }
   int rc = mkdir((std::string(base_dir_path) + dir_path).c_str(), S_IRWXU);
-  if (rc && errno != EEXIST) {
+  if ((rc != 0) && errno != EEXIST) {
     // fail to create device/rank folder under HABANA_LOGS directory,
     // so keep under lop files under HABANA_LOGS directory.
     dir_path = "/";
@@ -378,17 +385,18 @@ void ProfilerEngine::flush() {
   std::string timing_data_file_path = std::string(base_dir_path) + dir_path +
       "timing_data_pid" + std::to_string(getpid()) + ".json";
 
-  auto events_file = fopen(event_file_path.c_str(), "w");
+  FilePtr events_file = FilePtr(fopen(event_file_path.c_str(), "w"), fclose);
   std::ignore = fprintf(
-      events_file, "{\"displayTimeUnit\": \"ns\", \"traceEvents\": [\n");
+      events_file.get(), "{\"displayTimeUnit\": \"ns\", \"traceEvents\": [\n");
 
-  auto metrics_file = fopen(metric_file_path.c_str(), "w");
+  FilePtr metrics_file = FilePtr(fopen(metric_file_path.c_str(), "w"), fclose);
 
-  auto timing_data_file = fopen(timing_data_file_path.c_str(), "w");
-  std::ignore = fprintf(timing_data_file, "{\n");
-  std::ignore = fprintf(timing_data_file, "  \"metadata\": {\n");
-  std::ignore = fprintf(timing_data_file, "    \"pid\": %u\n", getpid());
-  std::ignore = fprintf(timing_data_file, "  },\n");
+  FilePtr timing_data_file =
+      FilePtr(fopen(timing_data_file_path.c_str(), "w"), fclose);
+  std::ignore = fprintf(timing_data_file.get(), "{\n");
+  std::ignore = fprintf(timing_data_file.get(), "  \"metadata\": {\n");
+  std::ignore = fprintf(timing_data_file.get(), "    \"pid\": %u\n", getpid());
+  std::ignore = fprintf(timing_data_file.get(), "  },\n");
   // Find first event, timewise.
   uint64_t tsc_base = std::numeric_limits<uint64_t>::max();
   for (size_t pipeline_stage = 0; pipeline_stage < NUM_OF_PIPELINE_STAGES - 1;
@@ -588,7 +596,7 @@ void ProfilerEngine::flush() {
 
           stage_time_variance[pipeline_stage][event_name] /= (count - 1);
           stage_time_std[pipeline_stage][event_name] =
-              static_cast<uint64_t>(sqrt(
+              static_cast<int64_t>(sqrt(
                   static_cast<double>(
                       stage_time_variance[pipeline_stage][event_name])));
           stage_queue_length_variance[pipeline_stage][event_name] /=
@@ -627,7 +635,7 @@ void ProfilerEngine::flush() {
     }
   }
 
-  std::ignore = fprintf(timing_data_file, "}\n");
+  std::ignore = fprintf(timing_data_file.get(), "}\n");
 
   if (all_stages_empty(stage_counter)) {
     printf(
@@ -644,9 +652,9 @@ void ProfilerEngine::flush() {
         sorted_ops_by_stage;
     for (size_t pipeline_stage = 0; pipeline_stage < NUM_OF_PIPELINE_STAGES - 1;
          pipeline_stage++) {
-      if (current_index[pipeline_stage] == 0)
+      if (current_index[pipeline_stage] == 0) {
         continue;
-
+      }
       for (const auto& [event_name, ops_map] :
            stage_op_aggregate[pipeline_stage]) {
         std::vector<OpGroup> aggregated_ops;
@@ -668,12 +676,14 @@ void ProfilerEngine::flush() {
     }
 
     // Dumping into timing-data file
-    timing_data_file = fopen(timing_data_file_path.c_str(), "a");
+    timing_data_file.reset(fopen(
+        timing_data_file_path.c_str(),
+        "a")); // NOLINT(cppcoreguidelines-owning-memory)
     for (size_t pipeline_stage = 0; pipeline_stage < NUM_OF_PIPELINE_STAGES - 1;
          pipeline_stage++) {
-      if (current_index[pipeline_stage] == 0)
+      if (current_index[pipeline_stage] == 0) {
         continue;
-
+      }
       const char* stage_name;
       if (pipeline_stage ==
           static_cast<int>(LOP::PipelineStageID::PIPELINE_STAGE_MAIN_ID)) {
@@ -689,9 +699,11 @@ void ProfilerEngine::flush() {
       } else {
         stage_name = "execute";
       }
-      std::ignore = fprintf(timing_data_file, "  \"%s\": {\n", stage_name);
+      std::ignore =
+          fprintf(timing_data_file.get(), "  \"%s\": {\n", stage_name);
       // 1. sort_by_avg_time
-      std::ignore = fprintf(timing_data_file, "    \"sort_by_avg_time\": [\n");
+      std::ignore =
+          fprintf(timing_data_file.get(), "    \"sort_by_avg_time\": [\n");
       std::vector<std::pair<std::string, std::pair<uint64_t, uint32_t>>>
           avg_time_ops(
               stage_op_aggregate_pipeline_level[pipeline_stage].begin(),
@@ -706,20 +718,21 @@ void ProfilerEngine::flush() {
       for (size_t i = 0; i < avg_time_ops.size(); ++i) {
         const auto& op = avg_time_ops[i];
         std::ignore = fprintf(
-            timing_data_file,
+            timing_data_file.get(),
             "      {\"op_name\": \"%s\", \"avg_time_ns\": %lu, \"count\": %u, \"total_time\": %lu}",
             op.first.c_str(),
             op.second.first / op.second.second,
             op.second.second,
             op.second.first);
-        if (i != avg_time_ops.size() - 1)
-          std::ignore = fprintf(timing_data_file, ",");
-        std::ignore = fprintf(timing_data_file, "\n");
+        if (i != avg_time_ops.size() - 1) {
+          std::ignore = fprintf(timing_data_file.get(), ",");
+        }
+        std::ignore = fprintf(timing_data_file.get(), "\n");
       }
-      std::ignore = fprintf(timing_data_file, "    ],\n");
+      std::ignore = fprintf(timing_data_file.get(), "    ],\n");
       // 2. sort_by_single_time
       std::ignore =
-          fprintf(timing_data_file, "    \"sort_by_single_time\": [\n");
+          fprintf(timing_data_file.get(), "    \"sort_by_single_time\": [\n");
       auto& single_events = stage_single_events[pipeline_stage];
       size_t report_count =
           std::min<size_t>(NUM_TIMING_DATA_CNTS, single_events.size());
@@ -735,66 +748,72 @@ void ProfilerEngine::flush() {
       for (size_t i = 0; i < report_count; ++i) {
         const auto& event = single_events[i];
         std::ignore = fprintf(
-            timing_data_file,
+            timing_data_file.get(),
             "      {\"op_name\": \"%s\", \"time_ns\": %lu, \"tid\": %u, \"start_ns\": %lu}",
             std::get<0>(event).c_str(),
             std::get<1>(event),
             static_cast<unsigned int>(std::get<3>(event)),
             std::get<2>(event));
-        if (i != report_count - 1)
-          std::ignore = fprintf(timing_data_file, ",");
-        std::ignore = fprintf(timing_data_file, "\n");
+        if (i != report_count - 1) {
+          std::ignore = fprintf(timing_data_file.get(), ",");
+        }
+        std::ignore = fprintf(timing_data_file.get(), "\n");
       }
-      std::ignore = fprintf(timing_data_file, "    ],\n");
+      std::ignore = fprintf(timing_data_file.get(), "    ],\n");
       // 3. sort_by_total_time
       std::ignore =
-          fprintf(timing_data_file, "    \"sort_by_total_time\": [\n");
+          fprintf(timing_data_file.get(), "    \"sort_by_total_time\": [\n");
       for (size_t i = 0; i < avg_time_ops.size(); ++i) {
         const auto& op = avg_time_ops[i];
         std::ignore = fprintf(
-            timing_data_file,
+            timing_data_file.get(),
             "      {\"op_name\": \"%s\", \"total_time_ns\": %lu, \"count\": %u}",
             op.first.c_str(),
             op.second.first,
             op.second.second);
-        if (i != avg_time_ops.size() - 1)
-          std::ignore = fprintf(timing_data_file, ",");
-        std::ignore = fprintf(timing_data_file, "\n");
+        if (i != avg_time_ops.size() - 1) {
+          std::ignore = fprintf(timing_data_file.get(), ",");
+        }
+        std::ignore = fprintf(timing_data_file.get(), "\n");
       }
-      std::ignore = fprintf(timing_data_file, "    ],\n");
+      std::ignore = fprintf(timing_data_file.get(), "    ],\n");
       // 4. all_ops_histogram
-      std::ignore = fprintf(timing_data_file, "    \"all_ops_histogram\": {\n");
+      std::ignore =
+          fprintf(timing_data_file.get(), "    \"all_ops_histogram\": {\n");
       bool first_op = true;
       for (const auto& [op_name, times] : stage_op_histograms[pipeline_stage]) {
-        if (!first_op)
-          std::ignore = fprintf(timing_data_file, ",\n");
+        if (!first_op) {
+          std::ignore = fprintf(timing_data_file.get(), ",\n");
+        }
         first_op = false;
         std::ignore =
-            fprintf(timing_data_file, "      \"%s\": [", op_name.c_str());
+            fprintf(timing_data_file.get(), "      \"%s\": [", op_name.c_str());
         // sampling at most NUM_TIMING_DATA_CNTS, which has a default value of
         // 100.
         size_t sample_count =
             std::min<size_t>(NUM_TIMING_DATA_CNTS, times.size());
         size_t step = times.size() / sample_count;
-        if (step == 0)
+        if (step == 0) {
           step = 1;
-
-        for (size_t i = 0; i < times.size(); i += step) {
-          if (i > 0)
-            std::ignore = fprintf(timing_data_file, ", ");
-          std::ignore = fprintf(timing_data_file, "%lu", times[i]);
-          if (i + step >= times.size())
-            break;
         }
-        std::ignore = fprintf(timing_data_file, "]");
+        for (size_t i = 0; i < times.size(); i += step) {
+          if (i > 0) {
+            std::ignore = fprintf(timing_data_file.get(), ", ");
+          }
+          std::ignore = fprintf(timing_data_file.get(), "%lu", times[i]);
+          if (i + step >= times.size()) {
+            break;
+          }
+        }
+        std::ignore = fprintf(timing_data_file.get(), "]");
       }
-      std::ignore = fprintf(timing_data_file, "\n    }\n");
+      std::ignore = fprintf(timing_data_file.get(), "\n    }\n");
 
       // end current stage
       if (pipeline_stage != NUM_OF_PIPELINE_STAGES - 2) {
-        std::ignore = fprintf(timing_data_file, "  },\n");
+        std::ignore = fprintf(timing_data_file.get(), "  },\n");
       } else {
-        std::ignore = fprintf(timing_data_file, "  }\n");
+        std::ignore = fprintf(timing_data_file.get(), "  }\n");
       }
     }
 
@@ -805,7 +824,9 @@ void ProfilerEngine::flush() {
           this->events_counter[i].load(std::memory_order_acquire);
     }
     std::ignore = fprintf(
-        metrics_file, " Total number of events = %lu \n", total_events_metrics);
+        metrics_file.get(),
+        " Total number of events = %lu \n",
+        total_events_metrics);
     std::string stage_name;
     for (size_t pipeline_stage = 0; pipeline_stage < NUM_OF_PIPELINE_STAGES - 1;
          pipeline_stage++) {
@@ -813,65 +834,65 @@ void ProfilerEngine::flush() {
         if (pipeline_stage ==
             static_cast<int>(LOP::PipelineStageID::PIPELINE_STAGE_MAIN_ID)) {
           stage_name = "Main";
-          std::ignore = fprintf(metrics_file, "\n MAIN STAGE \n");
+          std::ignore = fprintf(metrics_file.get(), "\n MAIN STAGE \n");
         } else if (
             pipeline_stage ==
             static_cast<int>(
                 LOP::PipelineStageID::PIPELINE_STAGE_LOWERING_ID)) {
           stage_name = "Lowering";
-          std::ignore = fprintf(metrics_file, "\n LOWERING STAGE \n");
+          std::ignore = fprintf(metrics_file.get(), "\n LOWERING STAGE \n");
         } else if (
             pipeline_stage ==
             static_cast<int>(LOP::PipelineStageID::PIPELINE_STAGE_COMPILE_ID)) {
           stage_name = "Compile";
-          std::ignore = fprintf(metrics_file, "\n COMPILE STAGE \n");
+          std::ignore = fprintf(metrics_file.get(), "\n COMPILE STAGE \n");
         } else {
           stage_name = "Execute";
-          std::ignore = fprintf(metrics_file, "\n EXECUTE STAGE \n");
+          std::ignore = fprintf(metrics_file.get(), "\n EXECUTE STAGE \n");
         }
-        std::ignore = fprintf(metrics_file, " ============== \n");
+        std::ignore = fprintf(metrics_file.get(), " ============== \n");
         for (const auto& [event_name, count] : stage_counter[pipeline_stage]) {
           if (count > 0) {
             std::ignore =
-                fprintf(metrics_file, "   %s :\n", event_name.c_str());
+                fprintf(metrics_file.get(), "   %s :\n", event_name.c_str());
             std::ignore = fprintf(
-                metrics_file,
+                metrics_file.get(),
                 "     average time(ns) = %lu \n",
                 stage_total_time[pipeline_stage][event_name] / count);
             std::ignore = fprintf(
-                metrics_file,
+                metrics_file.get(),
                 "     max time(ns) = %lu \n",
                 max_time[pipeline_stage][event_name]);
             std::ignore = fprintf(
-                metrics_file,
+                metrics_file.get(),
                 "     min time(ns) = %lu \n",
                 min_time[pipeline_stage][event_name]);
             std::ignore = fprintf(
-                metrics_file,
+                metrics_file.get(),
                 "     standard deviation time(ns) = %lu \n",
                 stage_time_std[pipeline_stage][event_name]);
             if (pipeline_stage !=
                 static_cast<int>(
                     LOP::PipelineStageID::PIPELINE_STAGE_MAIN_ID)) {
               std::ignore = fprintf(
-                  metrics_file,
+                  metrics_file.get(),
                   "     average queue length = %lu \n",
                   mean_queue_length[pipeline_stage][event_name]);
               std::ignore = fprintf(
-                  metrics_file,
+                  metrics_file.get(),
                   "     max queue length = %lu \n",
                   max_queue_len[pipeline_stage][event_name]);
               std::ignore = fprintf(
-                  metrics_file,
+                  metrics_file.get(),
                   "     min queue length = %lu \n",
                   min_queue_len[pipeline_stage][event_name]);
               std::ignore = fprintf(
-                  metrics_file,
+                  metrics_file.get(),
                   "     standard deviation queue length = %ld \n",
                   stage_queue_length_std[pipeline_stage][event_name]);
             }
-            std::ignore =
-                fprintf(metrics_file, "     Top 5 ops with highest time: \n");
+            std::ignore = fprintf(
+                metrics_file.get(), "     Top 5 ops with highest time: \n");
             for (size_t i = 0;
                  i <
                  std::min<size_t>(
@@ -881,7 +902,7 @@ void ProfilerEngine::flush() {
               const auto& op =
                   sorted_ops_by_stage[pipeline_stage][event_name][i];
               std::ignore = fprintf(
-                  metrics_file,
+                  metrics_file.get(),
                   "        Op Name: %s, Avg Time: %.1f, Count: %u\n",
                   op.name.c_str(),
                   op.avg_time,
@@ -891,7 +912,7 @@ void ProfilerEngine::flush() {
                 static_cast<int>(
                     LOP::PipelineStageID::PIPELINE_STAGE_MAIN_ID)) {
               std::ignore = fprintf(
-                  metrics_file,
+                  metrics_file.get(),
                   "     Histogram for %s Stage\n",
                   stage_name.c_str());
               print_histogram(
@@ -899,36 +920,36 @@ void ProfilerEngine::flush() {
                   max_time[pipeline_stage][event_name],
                   this->events_table[pipeline_stage],
                   event_name,
-                  metrics_file);
+                  metrics_file.get());
             }
           }
         }
 
         if (pipeline_stage ==
             static_cast<int>(LOP::PipelineStageID::PIPELINE_STAGE_EXECUTE_ID)) {
-          std::ignore = fprintf(metrics_file, "\n   DEVICE QUEUE \n");
-          std::ignore = fprintf(metrics_file, "   ============ \n");
+          std::ignore = fprintf(metrics_file.get(), "\n   DEVICE QUEUE \n");
+          std::ignore = fprintf(metrics_file.get(), "   ============ \n");
           std::ignore = fprintf(
-              metrics_file,
+              metrics_file.get(),
               "   Min device queue length = %lu \n",
               min_device_queue_len);
           std::ignore = fprintf(
-              metrics_file,
+              metrics_file.get(),
               "   Max device queue length = %lu \n",
               max_device_queue_len);
           std::ignore = fprintf(
-              metrics_file,
+              metrics_file.get(),
               "   Mean device queue length = %lu \n",
               mean_device_queue_length);
           std::ignore = fprintf(
-              metrics_file,
+              metrics_file.get(),
               "   Standard deviation device queue length = %lu \n",
               device_queue_length_std);
           print_device_queue_histogram(
               min_device_queue_len,
               max_device_queue_len,
               this->events_table[pipeline_stage],
-              metrics_file);
+              metrics_file.get());
         }
       }
     }
@@ -949,7 +970,7 @@ void ProfilerEngine::flush() {
               static_cast<double>(tsc_diff) / this->ticks_per_ns_ratio);
 
           std::string name;
-          if (event.name) {
+          if (event.name != nullptr) {
             name = event.name + std::string("_") + event.op_name;
           } else {
             name = "custom event id " +
@@ -959,9 +980,8 @@ void ProfilerEngine::flush() {
 
           if (name.find("_internal_counter_event") != std::string::npos) {
             std::string counter_name = std::to_string(event.thread_id);
-
             std::ignore = fprintf(
-                events_file,
+                events_file.get(),
                 "{"
                 "\"tid\":%s,"
                 "\"pid\":\"counters\","
@@ -980,7 +1000,7 @@ void ProfilerEngine::flush() {
           } else if (event.is_begin) {
             if (i == 0 && pipeline_stage == 1) {
               std::ignore = fprintf(
-                  events_file,
+                  events_file.get(),
                   "{"
                   "\"tid\":%lu,"
                   "\"pid\":%u,"
@@ -1001,7 +1021,7 @@ void ProfilerEngine::flush() {
                   time_base_ns);
             } else {
               std::ignore = fprintf(
-                  events_file,
+                  events_file.get(),
                   "{"
                   "\"tid\":%lu,"
                   "\"pid\":%u,"
@@ -1021,7 +1041,7 @@ void ProfilerEngine::flush() {
             }
           } else {
             std::ignore = fprintf(
-                events_file,
+                events_file.get(),
                 "{"
                 "\"tid\":%lu,"
                 "\"pid\":%u,"
@@ -1041,12 +1061,9 @@ void ProfilerEngine::flush() {
           }
         }
       }
-      std::ignore = fprintf(events_file, "{}]}");
+      std::ignore = fprintf(events_file.get(), "{}]}");
     }
   }
-  std::ignore = fclose(timing_data_file);
-  std::ignore = fclose(metrics_file);
-  std::ignore = fclose(events_file);
   this->flushed = true;
   if (!error_events.empty()) {
     for (const auto& category : error_events) {

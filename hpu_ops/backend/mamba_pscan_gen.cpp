@@ -20,15 +20,16 @@ namespace habana {
 OutputMetaDataVector MambaPscanMeta(const at::Stack& stack) {
   const auto& state = stack.at(0).toTensor();
   const auto& in_x = stack.at(1).toTensor();
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.dtype = state.scalar_type();
   meta.shape = in_x.sizes().vec();
 
-  if (in_x.dim() < 2 || state.dim() < 2)
+  if (in_x.dim() < 2 || state.dim() < 2) {
     TORCH_CHECK_INDEX(false, "in_x and state dim cannot be less than 2.");
-
+  }
   meta.shape[in_x.dim() - 2] = state.sizes().vec()[state.dim() - 2];
 
-  return {meta};
+  return metaVec;
 }
 } // namespace habana

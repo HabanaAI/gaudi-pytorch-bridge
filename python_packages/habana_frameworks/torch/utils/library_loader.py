@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@ import torch
 _mandatory_libs = ["libhabana_pytorch_plugin.so"]
 
 
-def _check_modules_directory(directory, library_list=[]):
+def _check_modules_directory(directory, library_list=None):
     if not os.path.isdir(directory):
         return False
 
@@ -45,11 +45,13 @@ def _check_modules_directory(directory, library_list=[]):
     return True
 
 
-def _get_modules_directory(library_list=[]):
+def _get_modules_directory(library_list=None):
     """
     Returns a directory containing Habana modules, which is:
         - habana_frameworks
     """
+    if library_list is None:
+        library_list = _mandatory_libs
 
     def get_packaged_libs():
         return os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "lib"))
@@ -81,10 +83,7 @@ def is_habana_available():
             print("Enabling Gaudi Simulator As Habana Device !!")
             p = subprocess.Popen(["pgrep", "coral"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)  # noqa S603 # noqa S607
             num_cards = sum(1 for _ in p.stdout)
-            if num_cards >= 1:
-                status = True
-            else:
-                status = False
+            status = num_cards >= 1
     if enable_console is False:
         os.environ["ENABLE_CONSOLE"] = "false"
     return status

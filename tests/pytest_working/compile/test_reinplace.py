@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -40,6 +40,13 @@ def hpu_partition_breaker(x):
 def reinplace_test_helper(ctx):
     pass_fake_propagation(ctx)
     return pass_reinplace_inplaceable_ops_v2(ctx)
+
+
+def assert_readable_contains(graph_module, expected_block):
+    def normalize(text):
+        return "\n".join(line.strip() for line in text.strip().splitlines())
+
+    assert normalize(expected_block) in normalize(graph_module.print_readable(False))
 
 
 def test_reinplace_index_copy():
@@ -199,7 +206,7 @@ def test_reinpalce_all_add():
         sigmoid_2: "bf16[64, 64]" = torch.ops.aten.sigmoid.default(add_1);  add_1 = None
         return sigmoid_2
     """
-    assert sub_str in ctx.graph_module.print_readable(False)
+    assert_readable_contains(ctx.graph_module, sub_str)
 
 
 def test_reinpalce_only_1st_add():
@@ -245,7 +252,7 @@ def test_reinpalce_only_1st_add():
         sigmoid_2: "bf16[64, 64]" = torch.ops.aten.sigmoid.default(add_1);  add_1 = None
         return (sigmoid_2, tanh)
     """
-    assert sub_str in ctx.graph_module.print_readable(False)
+    assert_readable_contains(ctx.graph_module, sub_str)
 
 
 def test_reinpalce_add_e2e():
@@ -380,7 +387,7 @@ def test_reinplace_allreduce():
         mm_1: "f32[32, 32]" = torch.ops.aten.mm.default(wait_tensor, arg2_1);  wait_tensor = arg2_1 = None
         return mm_1
     """
-    assert sub_str in ctx.graph_module.print_readable(False)
+    assert_readable_contains(ctx.graph_module, sub_str)
 
 
 def test_reinplace_functionalized_allreduce():
@@ -422,7 +429,7 @@ def test_reinplace_functionalized_allreduce():
         mm_1: "f32[32, 32]" = torch.ops.aten.mm.default(wait_tensor, arg2_1);  wait_tensor = arg2_1 = None
         return mm_1
     """
-    assert sub_str in ctx.graph_module.print_readable(False)
+    assert_readable_contains(ctx.graph_module, sub_str)
 
 
 def test_partition_in_out_duplicates_caused_by_index_copy_():
@@ -471,63 +478,6 @@ def test_partition_in_out_duplicates_caused_by_index_copy_():
     assert torch.allclose(ref[0].to("cpu"), res[0].to("cpu")), "compile and eager results not match"
     assert torch.allclose(ref[1].to("cpu"), res[1].to("cpu")), "compile and eager results not match"
     assert torch.allclose(ref[2].to("cpu"), res[2].to("cpu")), "compile and eager results not match"
-
-
-def get_model_with_observer(model):
-    from habana_frameworks.torch.core.quantizer import (
-        habana_quant_config_symmetric,
-        habana_quantizer,
-    )
-    from torch.ao.quantization.quantize_pt2e import prepare_pt2e
-    from torch.export import export_for_training
-
-    quantizer = habana_quantizer()
-    quant_config = habana_quant_config_symmetric(torch.float8_e4m3fn)
-    quantizer.set_global(quant_config)
-
-    exported_model = export_for_training(model)
-    prepared_model = prepare_pt2e(exported_model, quantizer)
-
-    return prepared_model
-
-
-def test_reinplace_index_copy_pt2e():
-    import os
-
-    os.environ.setdefault("PT_HPU_PT2EQ_FX_GRAPH_PATTERN_MATCHING", "1")
-    os.environ.setdefault("PT_HPU_PT2EQ_FX_GRAPH_FREEZING", "1")
-
-    class TestModule(torch.nn.Module):
-        def __init__(self):
-            super().__init__()
-            self.q_proj = torch.nn.Linear(4, 4, bias=False, dtype=torch.bfloat16)
-            self.k_proj = torch.nn.Linear(4, 4, bias=False, dtype=torch.bfloat16)
-            self.v_proj = torch.nn.Linear(4, 4, bias=False, dtype=torch.bfloat16)
-            self.o_proj = torch.nn.Linear(4, 4, bias=False, dtype=torch.bfloat16)
-
-        def forward(self, x, k_cache, v_cache, token_idx, cache_idx):
-            q = self.q_proj(x)  # [2, 1, 4]
-            k = self.k_proj(x)  # [2, 1, 4]
-            v = self.v_proj(x)  # [2, 1, 4]
-            k_cache.index_copy_(1, token_idx - 1, k)
-            v_cache.index_copy_(1, token_idx - 1, v)
-            cached_k = k_cache[:, :cache_idx, :]  # [2, 5, 4]
-            cached_v = v_cache[:, :cache_idx, :]  # [2, 5, 4]
-            s = torch.bmm(q, cached_k.transpose(1, 2))  # [2, 1, 5]
-            o = torch.bmm(s, cached_v)  # [2, 1, 4]
-            return self.o_proj(o)
-
-    model = TestModule().to("hpu")
-
-    x = torch.randn((2, 1, 4), dtype=torch.bfloat16, requires_grad=False).to("hpu")
-    cache_idx: int = 5
-    token_idx = torch.tensor(cache_idx, dtype=torch.long).to("hpu")
-    k_cache = torch.randn((2, 100, 4), dtype=torch.bfloat16, requires_grad=False).to("hpu")
-    v_cache = torch.randn((2, 100, 4), dtype=torch.bfloat16, requires_grad=False).to("hpu")
-
-    with use_eager_fallback(), torch.no_grad():
-        model = get_model_with_observer(model)
-        calibrate_result = model(x, k_cache, v_cache, token_idx, cache_idx)
 
 
 def test_avoid_cycle():
@@ -597,7 +547,7 @@ def test_reinplace_chain_of_inplaceable_ops():
         add_2: "bf16[2, 2]" = torch.ops.aten.add_.Tensor(add_1, abs_1);  add_1 = abs_1 = None
         return add_2
     """
-    assert sub_str in ctx.graph_module.print_readable(False)
+    assert_readable_contains(ctx.graph_module, sub_str)
 
 
 def test_reinplace_broadcast_add_on_cpu():

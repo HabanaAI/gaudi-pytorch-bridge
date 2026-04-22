@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@ static void convert_scalar_to_tensor(
 static bool DivCommonCheck(
     const at::Tensor& self,
     const c10::IValue& other,
-    std::optional<std::string_view>&& rounding_mode) {
+    const std::optional<std::string_view>& rounding_mode) {
   auto promote_int_to_float = !rounding_mode;
   auto result_type = GetCommonDtype({self, other}, promote_int_to_float);
 
@@ -56,15 +56,15 @@ static bool DivCommonCheck(
 bool DivTensorModeFallbackCheck(
     const at::Tensor& self,
     const at::Tensor& other,
-    std::optional<std::string_view> rounding_mode) {
-  return DivCommonCheck(self, other, std::move(rounding_mode));
+    const std::optional<std::string_view>& rounding_mode) {
+  return DivCommonCheck(self, other, rounding_mode);
 }
 
 bool DivScalarModeFallbackCheck(
     const at::Tensor& self,
     const at::Scalar& other,
-    std::optional<std::string_view> rounding_mode) {
-  return DivCommonCheck(self, other, std::move(rounding_mode));
+    const std::optional<std::string_view>& rounding_mode) {
+  return DivCommonCheck(self, other, rounding_mode);
 }
 
 template <>

@@ -18,11 +18,12 @@
 namespace habana {
 
 OutputMetaDataVector GluJvpMeta(const at::Stack& stack) {
-  OutputMetaData output;
+  OutputMetaDataVector metaVec(1);
+  auto& output = metaVec.front();
   const auto input_tensor = stack.at(0).toTensor();
   output.shape = input_tensor.sizes().vec();
   output.dtype = input_tensor.scalar_type();
-  return {output};
+  return metaVec;
 }
 
 FillParamsT FillGluJvpParams(const at::Stack& stack) {

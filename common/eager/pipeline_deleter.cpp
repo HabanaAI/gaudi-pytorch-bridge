@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -49,13 +49,14 @@ void PipelineDeleter::uninstall() {
   HPUDeviceAllocator::deleter_hook = nullptr;
 }
 
-void PipelineDeleter::delete_function(void* ptr) {
+void PipelineDeleter::delete_function(void* ptr) const {
   if (get_thread_tid() == m_marked_tid or m_marked_tid == 0) {
     HPUDeviceAllocator::real_deleter(ptr);
     return;
   }
 
   eager::PipelineTaskAllThreads(
+      // NOLINTNEXTLINE(performance-move-const-arg)
       std::move(ptr),
       [](void*&) {},
       [](void*&) {},

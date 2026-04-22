@@ -70,31 +70,8 @@ hcclRedOp_t getHCCLReduceOp(
   }
 }
 
-size_t getHCCLSliceSize(collectiveKind_t kind, bool lazy_collective) {
-  if (habana::HPUDeviceContext::get_device().type() !=
-      synDeviceType::synDeviceGaudi) {
-    return INT64_MAX;
-  }
-
-  size_t slice_size = GET_ENV_FLAG_NEW(PT_HCCL_SLICE_SIZE_MB);
-  if (lazy_collective || (slice_size != DEFAULT_HCCL_SLICE_SIZE_MB)) {
-    // user has set slicing for tuning or its lazy collective.
-    return slice_size * 1024 * 1024;
-  }
-
-  // hccl slicing is static for now and will get updated once SIMB is enabled
-  switch (kind) {
-    case collectiveAllReduce:
-    case collectiveReduceScatter:
-    case collectiveBroadcast:
-      slice_size = 128;
-      break;
-    case collectiveReduce:
-    case collectiveAllGather:
-      slice_size = 16;
-      break;
-  }
-  return slice_size * 1024 * 1024;
+size_t getHCCLSliceSize() {
+  return INT64_MAX;
 }
 
 hcclDataType_t getHCCLDataType(at::ScalarType type) {

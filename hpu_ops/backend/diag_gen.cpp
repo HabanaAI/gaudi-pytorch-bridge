@@ -78,10 +78,12 @@ SharedMetaDataVector DiagSharedMeta(
   const std::string guid =
       rank == 1 ? "matrix_diagonal_fwd" : "matrix_diag_part_fwd";
 
-  SharedMetaData matrixSharedMeta{guid};
+  SharedMetaDataVector meta;
+  meta.reserve(1);
+  auto& matrixSharedMeta = meta.emplace_back(guid);
   matrixSharedMeta.inputs_data.emplace_back(rank, dtype);
   matrixSharedMeta.outputs_data.emplace_back(outputRank, dtype);
-  return {matrixSharedMeta};
+  return meta;
 }
 
 void Diag::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {

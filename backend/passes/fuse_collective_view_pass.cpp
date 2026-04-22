@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -80,7 +80,7 @@ void FuseCollectiveViewPass::RelocateJITStack(
   });
 
   auto remap_func = [&](const at::ArrayRef<Value*>& values) {
-    for (auto value : values) {
+    for (auto* value : values) {
       auto it = unique_to_ivalue.find(value->unique());
       if (it != unique_to_ivalue.end()) {
         if (value_to_ivalue.find(value) == value_to_ivalue.end()) {
@@ -143,13 +143,14 @@ bool FuseCollectiveViewPass::IsGraphInputOutput(
     bool is_node_output) {
   bool ret = false;
 
-  if (value) {
+  if (value != nullptr) {
     auto* graph = value->owningGraph();
     if (graph != nullptr) {
       auto values = is_node_output ? graph->outputs() : graph->inputs();
-      auto it = std::find_if(values.begin(), values.end(), [&](Value* value_) {
-        return value_ != nullptr && value_->unique() == value->unique();
-      });
+      const auto* it =
+          std::find_if(values.begin(), values.end(), [&](Value* value_) {
+            return value_ != nullptr && value_->unique() == value->unique();
+          });
       if (values.end() != it) {
         ret = true;
       }
@@ -173,7 +174,7 @@ bool FuseCollectiveViewPass::CanFuse(
     }
   } else {
     if (strcmp(node->kind().toQualString(), "aten::slice") == 0) {
-      auto input = node->input(0);
+      auto* input = node->input(0);
 
       auto dim = habana_torch::jit::toIValue(node->input(1));
       auto step = habana_torch::jit::toIValue(node->input(4));
@@ -192,8 +193,8 @@ bool FuseCollectiveViewPass::CanFuse(
         strcmp(node->kind().toQualString(), "aten::view") == 0 ||
         strcmp(node->kind().toQualString(), "aten::squeeze") == 0) {
       bool can_fuse = false;
-      auto input = node->input(0);
-      auto output = node->output();
+      auto* input = node->input(0);
+      auto* output = node->output();
       auto tensor_type = output->type()->cast<TensorType>();
       auto sizes = tensor_type->sizes();
       auto ndim = sizes.size();
@@ -261,7 +262,7 @@ void FuseCollectiveViewPass::FuseSliceInsertOps(
     habana_torch::jit::Value* output,
     habana_torch::jit::Node* slice_insert_node,
     std::vector<habana_torch::jit::Node*>& const_node_vec) {
-  auto input = GetInputValue(collective_node, true);
+  auto* input = GetInputValue(collective_node, true);
   HABANA_ASSERT(input != nullptr, "Input value can not be null");
   torch::jit::Stack inputs =
       habana_launch_op_ptr_->getStackForNode(slice_insert_node);
@@ -287,7 +288,7 @@ void FuseCollectiveViewPass::FuseSliceInsertOps(
 
       bool can_fuse = CanFuse(collective_node->input(0), dim, step);
       if (can_fuse) {
-        auto real_output = slice_insert_node->input(0);
+        auto* real_output = slice_insert_node->input(0);
         GetExternalParams(real_output, dim, start, end, params);
         input->replaceAllUsesWith(real_output);
         output->replaceAllUsesWith(input);
@@ -316,8 +317,8 @@ void FuseCollectiveViewPass::FuseSliceOps(habana_torch::jit::Node* slice_node) {
 
   if (dim.has_value() && start.has_value() && end.has_value() &&
       step.has_value()) {
-    auto input = slice_node->input(0);
-    auto output = slice_node->output();
+    auto* input = slice_node->input(0);
+    auto* output = slice_node->output();
     bool can_fuse = CanFuse(input, dim.value().toInt(), step.value().toInt());
 
     if (can_fuse) {
@@ -339,8 +340,8 @@ void FuseCollectiveViewPass::FuseSliceOps(habana_torch::jit::Node* slice_node) {
 }
 
 void FuseCollectiveViewPass::FuseSqueezeViewOps(habana_torch::jit::Node* node) {
-  auto input = node->input(0);
-  auto output = node->output(0);
+  auto* input = node->input(0);
+  auto* output = node->output(0);
 
   auto tensor_type = output->type()->cast<TensorType>();
   auto sizes = tensor_type->sizes();
@@ -474,7 +475,7 @@ void FuseCollectiveViewPass::ProcessInputPTTensorInfo(
     habana_helpers::CollectiveKernelInfos::Info& kernel_info) {
   auto node_inputs = node->inputs();
   for (size_t i = 0; i < node_inputs.size(); i++) {
-    auto input = node_inputs[i];
+    auto* input = node_inputs[i];
     if (valptr_to_params_map.find(input) != valptr_to_params_map.end()) {
       auto params_ptr = valptr_to_params_map[input];
       if (params_ptr != nullptr) {
@@ -500,7 +501,7 @@ void FuseCollectiveViewPass::ProcessOutputPTTensorInfo(
     habana_helpers::CollectiveKernelInfos::Info& kernel_info) {
   auto node_outputs = node->outputs();
   for (size_t i = 0; i < node_outputs.size(); i++) {
-    auto output = node_outputs[i];
+    auto* output = node_outputs[i];
     if (valptr_to_params_map.find(output) != valptr_to_params_map.end()) {
       auto params_ptr = valptr_to_params_map[output];
       if (params_ptr != nullptr) {

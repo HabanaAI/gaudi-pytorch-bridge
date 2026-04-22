@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025 Intel Corporation
+ * Copyright (c) 2025-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@ using namespace synapse_helpers::layouts;
 namespace {
 std::optional<std::array<double, 3>> getScales(const at::Stack& stack) {
   constexpr auto scales_idx = 3;
-  const auto scales = stack.at(scales_idx);
+  const auto& scales = stack.at(scales_idx);
 
   if (not scales.isNone()) {
     if (not scales.isScalar()) {
@@ -113,21 +113,22 @@ REGISTER_CUSTOM_OP_OUTSHAPE_FUN(
 
 OutputMetaDataVector UpsampleTrilinear3DFwdMeta(const at::Stack& stack) {
   const auto self = stack.at(0).toTensor();
-  const auto output_size = stack.at(1);
-  const auto scales = stack.at(3);
+  const auto& output_size = stack.at(1);
+  const auto& scales = stack.at(3);
 
   upsample_3d_common_check(self, output_size, scales);
   check_null_input(output_size, scales);
 
-  OutputMetaData meta{};
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
 
-  meta.shape =
-      (not output_size.isNone()
-           ? upsample_trilinear3d_output_shape_impl(
-                 self.sizes(), at::ArrayRef<int64_t>(output_size.toIntVector()))
-           : upsample_trilinear3d_output_shape_impl(
-                 self.sizes(),
-                 at::ArrayRef<double>(scales.toDoubleVector())))[0];
+  if (not output_size.isNone()) {
+    meta.shape = upsample_trilinear3d_output_shape_impl(
+        self.sizes(), at::ArrayRef<int64_t>(output_size.toIntVector()))[0];
+  } else {
+    meta.shape = upsample_trilinear3d_output_shape_impl(
+        self.sizes(), at::ArrayRef<double>(scales.toDoubleVector()))[0];
+  }
   meta.dtype = self.scalar_type();
 
   check_input_output_depth_height_width(
@@ -138,18 +139,7 @@ OutputMetaDataVector UpsampleTrilinear3DFwdMeta(const at::Stack& stack) {
       self.sizes()[4],
       meta.shape.at(4));
 
-  return {meta};
-}
-
-SharedMetaDataVector UpsampleTrilinear3DFwdSharedMeta(
-    const at::Stack& stack,
-    [[maybe_unused]] habana_helpers::HabanaExecutionMode exec_mode) {
-  const auto align_corners = stack.at(2).toBool();
-  constexpr auto scales_idx = 3;
-  constexpr auto is_forward = true;
-
-  return UpsampleCommmonSharedLayer(
-      stack, align_corners, scales_idx, is_forward);
+  return metaVec;
 }
 
 void UpsampleTrilinear3DFwd::AddNode(
@@ -160,9 +150,9 @@ void UpsampleTrilinear3DFwd::AddNode(
   auto meta = UpsampleTrilinear3DFwdMeta(stack)[0];
 
   const auto self = stack.at(0).toTensor();
-  const auto output_size = stack.at(1);
+  const auto& output_size = stack.at(1);
   const auto align_corners = stack.at(2).toBool();
-  const auto scales = stack.at(3);
+  const auto& scales = stack.at(3);
 
   const auto scales_opt = getScales(stack);
   const auto [scale_d, scale_h, scale_w] =
@@ -186,29 +176,30 @@ void UpsampleTrilinear3DFwd::AddNode(
 
 OutputMetaDataVector UpsampleTrilinear3DBwdMeta(const at::Stack& stack) {
   const auto grad_output = stack.at(0).toTensor();
-  const auto output_size = stack.at(1);
-  const auto scales = stack.at(4);
+  const auto& output_size = stack.at(1);
+  const auto& scales = stack.at(4);
 
   check_null_input(output_size, scales);
   upsample_3d_common_check(grad_output, output_size, scales);
 
-  OutputMetaData meta{};
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
 
   meta.shape = stack.at(2).toIntVector();
   meta.dtype = grad_output.scalar_type();
 
-  return {meta};
+  return metaVec;
 }
 
 SharedMetaDataVector UpsampleTrilinear3DBwdSharedMeta(
     const at::Stack& stack,
-    [[maybe_unused]] habana_helpers::HabanaExecutionMode exec_mode) {
+    habana_helpers::HabanaExecutionMode exec_mode) {
   const auto align_corners = stack.at(3).toBool();
   constexpr auto scales_idx = 4;
   constexpr auto is_forward = false;
 
   return UpsampleCommmonSharedLayer(
-      stack, align_corners, scales_idx, is_forward);
+      stack, align_corners, scales_idx, is_forward, linear, exec_mode);
 }
 
 void UpsampleTrilinear3DBwd::AddNode(
@@ -219,9 +210,9 @@ void UpsampleTrilinear3DBwd::AddNode(
   auto meta = UpsampleTrilinear3DBwdMeta(stack)[0];
 
   const auto grad_output = stack.at(0).toTensor();
-  const auto output_size = stack.at(1);
+  const auto& output_size = stack.at(1);
   const auto align_corners = stack.at(3).toBool();
-  const auto scales = stack.at(4);
+  const auto& scales = stack.at(4);
 
   const auto scale_d = stack.at(4).toOptional<double>().value_or(1.0F);
   const auto scale_h = stack.at(5).toOptional<double>().value_or(1.0F);

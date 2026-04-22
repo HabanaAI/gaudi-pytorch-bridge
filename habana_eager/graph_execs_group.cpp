@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,6 +43,7 @@ std::size_t GraphExecsGroup::generate_key(torch::jit::Stack& stack) {
     torch::Tensor input_tensor{input.toTensor()};
     const auto offset = static_cast<size_t>(input_tensor.storage_offset());
 
+    // NOLINTNEXTLINE(readability-suspicious-call-argument)
     rval = at::hash_combine(rval, offset);
   }
 
@@ -55,7 +56,7 @@ void GraphExecsGroup::RunGraphGroupPasses() {
 
 size_t GraphExecsGroup::generate_graph_index() {
   static const size_t graph_index_prefix = 1'000'000;
-  return graph_index_prefix + m_graph_group_index * 1'000 +
+  return graph_index_prefix + (m_graph_group_index * 1000) +
       m_graph_exec_storage.size();
 }
 

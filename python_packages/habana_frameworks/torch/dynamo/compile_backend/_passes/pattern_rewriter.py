@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -42,10 +42,12 @@ class PatternRewriter:
 
 
 class replace_rewrite_div_tensor_mode:
+    @staticmethod
     def pattern(scalar_input, tensor_input):
         x = torch.ops.aten.div.Tensor_mode(scalar_input, tensor_input, rounding_mode=None)
         return x
 
+    @staticmethod
     def replace(scalar_input, tensor_input):
         x = torch.ops.aten.scalar_tensor(scalar_input)
         x = torch.ops.aten.div.Tensor_mode(x, tensor_input, rounding_mode=None)
@@ -53,10 +55,12 @@ class replace_rewrite_div_tensor_mode:
 
 
 class replace_rewrite_div_tensor_mode_floor:
+    @staticmethod
     def pattern(scalar_input, tensor_input):
         x = torch.ops.aten.div.Tensor_mode(scalar_input, tensor_input, rounding_mode="floor")
         return x
 
+    @staticmethod
     def replace(scalar_input, tensor_input):
         x = torch.ops.aten.scalar_tensor(scalar_input)
         x = torch.ops.aten.div.Tensor_mode(x, tensor_input, rounding_mode="floor")
@@ -64,10 +68,12 @@ class replace_rewrite_div_tensor_mode_floor:
 
 
 class replace_rewrite_div_tensor_mode_trunc:
+    @staticmethod
     def pattern(scalar_input, tensor_input):
         x = torch.ops.aten.div.Tensor_mode(scalar_input, tensor_input, rounding_mode="trunc")
         return x
 
+    @staticmethod
     def replace(scalar_input, tensor_input):
         x = torch.ops.aten.scalar_tensor(scalar_input)
         x = torch.ops.aten.div.Tensor_mode(x, tensor_input, rounding_mode="trunc")
@@ -75,10 +81,12 @@ class replace_rewrite_div_tensor_mode_trunc:
 
 
 class replace_rewrite_floor_divide:
+    @staticmethod
     def pattern(scalar_input, tensor_input):
         x = torch.ops.aten.floor_divide.default(scalar_input, tensor_input)
         return x
 
+    @staticmethod
     def replace(scalar_input, tensor_input):
         x = torch.ops.aten.scalar_tensor(scalar_input)
         x = torch.ops.aten.floor_divide.default(x, tensor_input)
@@ -86,15 +94,18 @@ class replace_rewrite_floor_divide:
 
 
 class replace_rewrite_copy_copy_:
+    @staticmethod
     def pattern(self_tensor, src_tensor):
         x = torch.ops.aten.copy.default(self_tensor, src_tensor)
         y = torch.ops.aten.copy_.default(self_tensor, x)
         return y
 
+    @staticmethod
     def replace(self_tensor, src_tensor):
         x = torch.ops.aten.copy_.default(self_tensor, src_tensor)
         return x
 
+    @staticmethod
     def filter(match, *args, **kwargs):
         return isinstance(match.placeholder_nodes[0], torch.fx.node.Node)
 

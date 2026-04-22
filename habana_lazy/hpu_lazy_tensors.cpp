@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -74,18 +74,18 @@ std::shared_ptr<Snapshot> StaleLazyTensorKeeper::extract_snapshot() {
 
 bool HbLazyTensor::switch_dynamic_mode = false;
 
-HbContextArena* HbContextArena::Get() {
-  static auto* arena = new HbContextArena();
+HbContextArena& HbContextArena::Get() {
+  static HbContextArena arena{};
   return arena;
-};
+}
 
 void HbContextArena::RegisterTensor(std::shared_ptr<Data> data) {
   std::lock_guard<std::recursive_mutex> lock(GetMutex());
-  HbContext* devctx = GetHbContext(data->device);
+  auto devctx = GetHbContext(data->device);
   devctx->tensors_data.emplace(data->unique_id, data);
   // Register to execution context as well, we can merge these two contexts
   // later
-  auto context = habana_lazy::get_device_lazy_execution_context();
+  auto* context = habana_lazy::get_device_lazy_execution_context();
   context->RegisterTensor(data);
   if (synapse_helpers::memory_reporter_enable()) {
     auto& device = habana::HPUDeviceContext::get_device();
@@ -96,16 +96,16 @@ void HbContextArena::RegisterTensor(std::shared_ptr<Data> data) {
 }
 
 std::weak_ptr<Data>& HbContextArena::GetTensorDataPtrFromHbContext(Data* data) {
-  HbContext* devctx = GetHbContext(data->device);
+  auto devctx = GetHbContext(data->device);
   std::lock_guard<std::recursive_mutex> lock(GetMutex());
   return devctx->tensors_data[data->unique_id];
 }
 
 void HbContextArena::UnregisterTensor(Data* data) {
-  HbContext* devctx = GetHbContext(data->device);
+  auto devctx = GetHbContext(data->device);
   // UnRegister from execution context as well, we can merge these two contexts
   // later
-  auto context = habana_lazy::get_device_lazy_execution_context();
+  auto* context = habana_lazy::get_device_lazy_execution_context();
 
   context->UnregisterTensor(data);
   // The weak ptr in tensors_data is reset before acquiring the m_mtx,
@@ -136,9 +136,9 @@ std::vector<HbLazyTensor> HbContextArena::GetLiveTensors(
     std::set<int64_t> bucket_recent_id) {
   PT_LAZY_TRACE;
   std::vector<HbLazyTensor> tensors;
-  auto context = get_device_lazy_execution_context();
+  auto* context = get_device_lazy_execution_context();
 
-  HbContext* devctx = habana_lazy::HbContextArena::Get()->GetHbContext(*device);
+  auto devctx = habana_lazy::HbContextArena::Get().GetHbContext(*device);
 
   HbLazyTensorViews::HandleViewsLiveTensors(
       devctx, is_allreduce, bucket_recent_id);
@@ -151,13 +151,13 @@ std::vector<HbLazyTensor> HbContextArena::GetLiveTensors(
 
       auto is_view = hl_t.getDataPtr()->stride_params.has_value();
 
-      if (bucket_recent_id.count(id)) {
+      if (bucket_recent_id.count(id) != 0U) {
         context->viewContext.updated_bucket_list.emplace_back(hl_t);
       }
       auto is_view_out = context->viewContext.view_outputs.count(id);
 
-      if (is_view_out ||
-          ((bucket_recent_id.count(id) == 0) && (!is_view) &&
+      if ((is_view_out != 0U) ||
+          ((bucket_recent_id.count(id) == 0U) && (!is_view) &&
            (hl_t.getDataPtr()->recent_base == std::nullopt))) {
         tensors.emplace_back(hl_t);
       }
@@ -169,12 +169,12 @@ std::vector<HbLazyTensor> HbContextArena::GetLiveTensors(
 
 void HbContextArena::MarkStep(const c10::Device& device) {
   PT_LAZY_TRACE;
-  HbContext* devctx = GetHbContext(device);
+  auto devctx = GetHbContext(device);
   devctx->seed_ir_value = ir::Value();
 }
 
-std::vector<HbContext*> HbContextArena::GetAllHbContexts() {
-  std::vector<HbContext*> all_device_contexts;
+std::vector<std::shared_ptr<HbContext>> HbContextArena::GetAllHbContexts() {
+  std::vector<std::shared_ptr<HbContext>> all_device_contexts;
   all_device_contexts.reserve(mp_device_contexts.size());
   for (auto& device_contexts : mp_device_contexts) {
     all_device_contexts.push_back(device_contexts.second);
@@ -183,10 +183,10 @@ std::vector<HbContext*> HbContextArena::GetAllHbContexts() {
 }
 
 void HbContextArena::ForAllHbContexts(
-    const std::function<void(HbContext*)>& fn,
+    const std::function<void(std::shared_ptr<HbContext>)>& fn,
     const c10::Device* device) {
   if (device == nullptr) {
-    for (auto devctx : GetAllHbContexts()) {
+    for (const auto& devctx : GetAllHbContexts()) {
       fn(devctx);
     }
   } else {
@@ -194,22 +194,21 @@ void HbContextArena::ForAllHbContexts(
   }
 }
 
-HbContext* HbContextArena::GetHbContext(const c10::Device& device) {
-  auto it = mp_device_contexts.find(device);
-  if (it == mp_device_contexts.end()) {
-    it = mp_device_contexts.emplace(device, new HbContext()).first;
-  }
+std::shared_ptr<HbContext> HbContextArena::GetHbContext(
+    const c10::Device& device) {
+  auto it =
+      mp_device_contexts.try_emplace(device, std::make_shared<HbContext>())
+          .first;
   return it->second;
 }
 
-HbContext* HbContextArena::GetHbContext() {
+std::shared_ptr<HbContext> HbContextArena::GetHbContext() {
   HABANA_ASSERT(mp_device_contexts.size() == 1);
   return mp_device_contexts.begin()->second;
 }
 
 Data::~Data() {
-  auto context = HbContextArena::Get();
-  context->UnregisterTensor(this);
+  HbContextArena::Get().UnregisterTensor(this);
   data_ptr = nullptr;
 }
 
@@ -255,7 +254,7 @@ HbLazyTensor HbLazyTensor::Create(
   auto tensor_const_id = habana::get_tensor_const_id(tensor);
   HbLazyTensor habana_tensor(tensor, device);
   habana_tensor.SetIsConstTensor(is_tensor_const, tensor_const_id);
-  HbContextArena::Get()->RegisterTensor(habana_tensor.getDataPtr());
+  HbContextArena::Get().RegisterTensor(habana_tensor.getDataPtr());
   return habana_tensor;
 }
 
@@ -269,7 +268,7 @@ HbLazyTensor HbLazyTensor::Create(
     const at::Device& device,
     std::optional<at::ScalarType> logical_element_type) {
   HbLazyTensor hb_tensor(std::move(ir_value), device, logical_element_type);
-  HbContextArena::Get()->RegisterTensor(hb_tensor.getDataPtr());
+  HbContextArena::Get().RegisterTensor(hb_tensor.getDataPtr());
   return hb_tensor;
 }
 at::Tensor CopyTensor(const at::Tensor& ref) {
@@ -278,7 +277,7 @@ at::Tensor CopyTensor(const at::Tensor& ref) {
 
 at::Tensor HbLazyTensor::ToTensor(bool detached) {
   at::Tensor tensor;
-  auto context = habana_lazy::get_device_lazy_execution_context();
+  auto* context = habana_lazy::get_device_lazy_execution_context();
   context->JoinPendingLaunchThread();
 
   std::optional<at::Tensor> tensor_data = CurrentTensorData();
@@ -330,11 +329,11 @@ void HbLazyTensor::ResetExecutionInProgress() const {
 }
 
 bool HbLazyTensor::IsOpAccumulationInProgress() const {
-  return data()->is_op_acc;
+  return data()->is_op_acc != 0U;
 }
 
 void HbLazyTensor::SetOpAccumulationInProgress() const {
-  auto context = get_device_lazy_execution_context();
+  auto* context = get_device_lazy_execution_context();
   std::lock_guard<std::mutex> lock(context->GetOpAccTidsMutex());
   // note: we need to increment only once per op accmulation pphase
   if (context->op_acc_tids.find(data()->unique_id) ==
@@ -366,18 +365,14 @@ ir::Value& HbLazyTensor::IrSetNode(ir::NodePtr node, size_t index) const {
 }
 
 void HbLazyTensor::MarkStep(const c10::Device& device) {
-  HbContextArena::Get()->MarkStep(device);
+  HbContextArena::Get().MarkStep(device);
 }
 
 bool HbLazyTensor::isStorageAttached() {
   if (data()->tensor_data) {
-    if (data()->tensor_data.value().unsafeGetTensorImpl())
-      return true;
-    else
-      return false;
-  } else {
-    return false;
+    return (data()->tensor_data.value().unsafeGetTensorImpl() != nullptr);
   }
+  return false;
 }
 void HbLazyTensor::SetTensorDataNullOpt() {
   data()->tensor_data = std::nullopt;
@@ -487,7 +482,7 @@ c10::TensorImpl* HbLazyTensor::getAttachedTensorImpl() const {
   }
 }
 std::optional<at::Tensor> HbLazyTensor::CurrentTensorData() const {
-  auto context = habana_lazy::get_device_lazy_execution_context();
+  auto* context = habana_lazy::get_device_lazy_execution_context();
   if (context != nullptr) {
     auto status = context->getTensorExecutionStatus(getDataPtr());
     if (status == kEXECUTION_COMPLETE || status == kINPUT) {
@@ -552,8 +547,9 @@ void HbLazyTensor::IrReconnectAsInputNode() const {
 }
 
 void HbLazyTensor::setPtrDataIrToData() {
-  if (mp_data.get())
+  if (mp_data != nullptr) {
     mp_data->ir_value.m_data_ptr = mp_data;
+  }
 }
 
 // cannot add constant support here as tensor not present
@@ -595,7 +591,7 @@ std::vector<size_t> HbLazyTensor::CollectSyncTensors(
     auto ir_value = tensors[i].CurrentIrValue();
     // Skip the tensors which don't have any node to evaluate and points
     // to hpu::input node.
-    if (ir_value && ir_value.mp_node->is_input() == false) {
+    if (ir_value && !ir_value.mp_node->is_input()) {
       indices.push_back(i);
     }
   }
@@ -663,7 +659,7 @@ at::Tensor HbLazyTensor::EvaluateTensorData(bool sync_acc_thread) {
   PT_LAZY_TRACE;
   // Generate the tensor data if its not been generated yet
   // Forced for finishing the pending execution here
-  auto context = habana_lazy::get_device_lazy_execution_context();
+  auto* context = habana_lazy::get_device_lazy_execution_context();
 
   // Check if in-flight execution thread has data, then wait for its completion.
   if (IsExecutionInProgress()) {
@@ -683,7 +679,7 @@ at::Tensor HbLazyTensor::EvaluateTensorData(bool sync_acc_thread) {
       HbLazyTensor::StepMarker({});
     } else {
       std::lock_guard<std::recursive_mutex> lock(
-          HbContextArena::Get()->GetMutex());
+          HbContextArena::Get().GetMutex());
       applyPendingGraph();
     }
   }
@@ -715,7 +711,7 @@ std::optional<at::Tensor> HbLazyTensor::GetHbLazyTensorDataForMedia() {
   habana_lazy::AccThread::Get().SyncAccThreadPool();
 
   auto currentIrValue = CurrentIrValue();
-  auto context = habana_lazy::get_device_lazy_execution_context();
+  auto* context = habana_lazy::get_device_lazy_execution_context();
 
   if (CurrentIrValue() && !CurrentTensorData()) {
     context->JoinPendingLaunchThread();
@@ -723,7 +719,7 @@ std::optional<at::Tensor> HbLazyTensor::GetHbLazyTensorDataForMedia() {
 
   if (currentIrValue && !CurrentTensorData()) {
     // Return tensor_data if it is graph input
-    if (currentIrValue.mp_node->is_input() == true) {
+    if (currentIrValue.mp_node->is_input()) {
       return data()->tensor_data;
     } else if (GET_ENV_FLAG_NEW(PT_USE_MARKSTEP)) {
       PT_IRGRAPH_DEBUG(
@@ -731,7 +727,7 @@ std::optional<at::Tensor> HbLazyTensor::GetHbLazyTensorDataForMedia() {
       HbLazyTensor::StepMarker({});
     } else {
       std::lock_guard<std::recursive_mutex> lock(
-          HbContextArena::Get()->GetMutex());
+          HbContextArena::Get().GetMutex());
       applyPendingGraph();
     }
   }
@@ -745,8 +741,8 @@ void HbLazyTensor::applyPendingGraph() {
   // before sync points in execution
   if (!CurrentTensorData()) {
     std::vector<HbLazyTensor> tensors;
-    auto node = data()->ir_value.mp_node.get();
-    auto live_tensors = HbContextArena::Get()->GetLiveTensors(&GetDevice());
+    auto* node = data()->ir_value.mp_node.get();
+    auto live_tensors = HbContextArena::Get().GetLiveTensors(&GetDevice());
     for (auto& tensor : live_tensors) {
       if (tensor.data()->ir_value.mp_node.get() == node) {
         tensors.emplace_back(tensor);
@@ -773,23 +769,23 @@ void HbLazyTensor::SyncTensorsGraph(
     bool async,
     bool collect_sync_tensors) {
   habana_lazy::NoAccThread no_acc_thread;
-  HbContext* devctx =
-      habana_lazy::HbContextArena::Get()->GetHbContext(GetDeviceOrCurrent(""));
+  auto devctx =
+      habana_lazy::HbContextArena::Get().GetHbContext(GetDeviceOrCurrent(""));
   // If we reach here with anything in tensors_data_opt, it means its a direct
   // call to SyncTensorsGraph and partial execution may happen => clear data
   // for tensors that will be evaluated as part of current execution. For all
   // other cases tensors_data_opt is already completely cleared in
   // GetLiveTensors.
-  if (devctx->tensors_data_size()) {
+  if (devctx->tensors_data_size() != 0U) {
     for (auto& t : *tensors) {
       devctx->erase(t.getTensorUniqueId());
-      if (devctx->tensors_data_size() == 0) {
+      if (devctx->tensors_data_size() == 0U) {
         break;
       }
     }
   }
 
-  auto context = habana_lazy::get_device_lazy_execution_context();
+  auto* context = habana_lazy::get_device_lazy_execution_context();
   context->executing_tids.clear();
   context->executing_tids.reserve(tensors->size());
   // Add all the tensor ids to list to update the execution
@@ -820,7 +816,7 @@ void HbLazyTensor::SyncLiveTensorsGraph(
   }
   StageSubmission::getInstance().resetCurrentAccumulatedOps();
   // for normal eager and Lazy, prepare tensors from live tensors
-  std::vector<HbLazyTensor> tensors = HbContextArena::Get()->GetLiveTensors(
+  std::vector<HbLazyTensor> tensors = HbContextArena::Get().GetLiveTensors(
       device, is_allreduce, bucket_recent_id);
 
   if (!tensors.empty()) {
@@ -829,7 +825,7 @@ void HbLazyTensor::SyncLiveTensorsGraph(
   }
 
   {
-    auto context = habana_lazy::get_device_lazy_execution_context();
+    auto* context = habana_lazy::get_device_lazy_execution_context();
 
     if (!context->viewContext.view_outputs.empty()) {
       // delete the origtensor map entry only when view outputs are present
@@ -892,7 +888,7 @@ void ValidateSyncInputTensors(
 void SetLaunchContextFlags(
     habana_lazy::ir::ValueList& inputs,
     std::vector<int64_t>& executing_tids) {
-  auto context = get_device_lazy_execution_context();
+  auto* context = get_device_lazy_execution_context();
   for (const auto& in : inputs) {
     std::shared_ptr<Data> d = in.m_data_ptr.lock();
     context->MarkTensorExecuting(d);
@@ -908,7 +904,7 @@ torch::jit::Stack PrepareInputStack(
     bool is_OptimizedLazyEager [[maybe_unused]],
     habana_lazy::ir::NodePtrList* ptr_post_order = nullptr,
     bool copy_scalar_to_hpu = true) {
-  auto context = get_device_lazy_execution_context();
+  auto* context = get_device_lazy_execution_context();
   torch::jit::Stack stack;
   // stack is used for both inputs to synapse lowering and outputs from
   // synapse lowering, therefore allocate memory which is max of input
@@ -979,7 +975,7 @@ void PostLaunch(
     bool is_exception,
     [[maybe_unused]] bool is_OptimizedLazyEager = false) {
   auto device = (*tensors)[0].GetDevice();
-  auto context = get_device_lazy_execution_context();
+  auto* context = get_device_lazy_execution_context();
 
   HABANA_ASSERT(is_exception || (stack.size() == indices.size()));
 
@@ -1041,7 +1037,7 @@ struct LaunchEagerInfo {
 };
 
 struct LaunchStreamInfo {
-  const c10::hpu::HPUStream stream;
+  c10::hpu::HPUStream stream;
 };
 
 void LaunchSyncTensorsGraph(
@@ -1064,7 +1060,7 @@ void LaunchSyncTensorsGraph(
   habana_lazy::NoAccThread no_acc_thread(
       false); // disable acc thread during launch, but do not sync the acc
               // thread
-  auto context = get_device_lazy_execution_context();
+  auto* context = get_device_lazy_execution_context();
   context->HandleException();
   context->m_launch_thread_context = true;
   std::vector<HbLazyTensor>* tensors = &launch_info.tensors_ptr;
@@ -1093,7 +1089,7 @@ void LaunchSyncTensorsGraph(
 
     try {
       habanaLoweringOp.run(launch_info.stack);
-      if (optimized_path_jit_ir_and_mdata->get_syn_graph_empty_flag() == true) {
+      if (optimized_path_jit_ir_and_mdata->get_syn_graph_empty_flag()) {
         // The graph was not compiled. Remove the JIT graph from the cache
         // To Do - To incorporate the Graph index change
         PT_LAZY_DEBUG(
@@ -1134,7 +1130,7 @@ void LaunchSyncTensorsGraph(
       launch_info.hlexec.Launch(
           launch_info.stack, stream_info.stream, launch_info.dry_run);
       if (launch_info.hlexec.GetJITGraphMetaDataPtr()
-              ->get_syn_graph_empty_flag() == true) {
+              ->get_syn_graph_empty_flag()) {
         // The graph was not compiled. Remove the JIT graph from the cache
         PT_LAZY_DEBUG(
             "Removing JIT IR Graph with :: key ",
@@ -1307,13 +1303,13 @@ void HbLazyTensor::SyncTensorsGraphInternal(
     bool async,
     bool collect_sync_tensors) {
   PT_LAZY_TRACE;
-  if ((*tensors).empty())
+  if ((*tensors).empty()) {
     return;
-
+  }
   LaunchStreamInfo stream_info = {c10::hpu::getCurrentHPUStream()};
 
   auto device = (*tensors)[0].GetDevice();
-  auto context = get_device_lazy_execution_context();
+  auto* context = get_device_lazy_execution_context();
   bool isOptimizedLazyEager = false;
   size_t optimized_lazy_eager_key = 0;
   if (lazyFrontEndInfo) {
@@ -1433,7 +1429,14 @@ void HbLazyTensor::SyncTensorsGraphInternal(
     const char* rank = std::getenv("RANK");
     const char* ompi_rank = std::getenv("OMPI_COMM_WORLD_RANK");
     // Determine process rank, default to "0" if both are unset
-    std::string process_rank = (rank) ? rank : (ompi_rank) ? ompi_rank : "0";
+    std::string process_rank;
+    if (rank != nullptr) {
+      process_rank = rank;
+    } else if (ompi_rank != nullptr) {
+      process_rank = ompi_rank;
+    } else {
+      process_rank = "0";
+    }
     // Print warning only for the main process to avoid flooding of warnings
     if (process_rank == "0") {
       WarnIfOpsIncompatibleWithHPUGraphs(po_data.post_order);
@@ -1475,11 +1478,13 @@ void HbLazyTensor::SyncTensorsGraphInternal(
             LaunchSyncTensorsGraph,
             std::move(launch_info),
             std::move(lazy_eager_info),
+            // NOLINTNEXTLINE(performance-move-const-arg)
             std::move(stream_info));
   } else {
     LaunchSyncTensorsGraph(
         std::move(launch_info),
         std::move(lazy_eager_info),
+        // NOLINTNEXTLINE(performance-move-const-arg)
         std::move(stream_info));
   }
   PT_LAZY_EXEC_THREAD(
@@ -1543,7 +1548,7 @@ void HbLazyTensor::ExecuteCachedGraph(
     stack.emplace_back(d->tensor_data);
   }
 
-  auto context = get_device_lazy_execution_context();
+  auto* context = get_device_lazy_execution_context();
   if (!context->copy_scalar_to_hpu_tensor_list.empty()) {
     habana_helpers::copy_scalars_to_device(
         context->copy_scalar_to_hpu_tensor_list);
@@ -1669,7 +1674,7 @@ void HbLazyTensor::StepMarkerBind(const std::string& device_str, bool sync) {
 
 void HbLazyTensor::StepMarkerFinish(bool wait_only) {
   PT_LAZY_TRACE;
-  auto context = get_device_lazy_execution_context();
+  auto* context = get_device_lazy_execution_context();
   context->m_launch_thread_context = false;
   context->JoinPendingLaunchThread(wait_only);
 }
@@ -1699,7 +1704,7 @@ void HbLazyTensor::StepMarker(
     return;
   }
 
-  auto context = get_device_lazy_execution_context();
+  auto* context = get_device_lazy_execution_context();
   if (context->m_async_d2h_context) {
     PT_LAZY_DEBUG("StepMarker called in D2H async context, skipping");
     HABANA_ASSERT(0, "StepMarker called in D2H async context, skipping");
@@ -1743,7 +1748,7 @@ void HbLazyTensor::StepMarker(
 
 void HbLazyTensor::SetDynamicMode() {
   bool dynamic_env = habana_helpers::GetRefineDynamicShapeStatus();
-  switch_dynamic_mode = dynamic_env ? false : true;
+  switch_dynamic_mode = !dynamic_env;
   if (switch_dynamic_mode) {
     habana_helpers::EnableRefineDynamicShape();
   }
@@ -1757,7 +1762,7 @@ void habana_lazy::MaybeSyncLaunchBeforeShallowCopy(
     const HbLazyTensor* dest,
     const HbLazyTensor* src) {
   if (src->IsExecutionInProgress() || dest->IsExecutionInProgress()) {
-    auto context = get_device_lazy_execution_context();
+    auto* context = get_device_lazy_execution_context();
     context->JoinPendingLaunchThread();
   }
 }

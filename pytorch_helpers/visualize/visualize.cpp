@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -132,7 +132,7 @@ void DumpEagerOrCompileGraph(
   std::string folder = synapse_helpers::check_and_prepare_graph_dump_dir();
   ss << folder;
 
-  if (auto rank_str = std::getenv("RANK")) {
+  if (auto* rank_str = std::getenv("RANK")) {
     int rank = 0;
     (void)std::from_chars(rank_str, rank_str + std::strlen(rank_str), rank);
 

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -124,14 +124,14 @@ static int64_t ComputeOutputSize(
     const int64_t output_padding,
     const bool transposed) {
   if (!transposed) {
-    return (input_dim + 2 * padding - dilation * (kernel_size - 1) - 1) /
-        stride +
+    return ((input_dim + 2 * padding - dilation * (kernel_size - 1) - 1) /
+            stride) +
         1;
   } else {
     // conv2d fwd output shape computation done as per formula provided below
     // https://pytorch.org/docs/stable/generated/torch.nn.ConvTranspose2d.html#torch.nn.ConvTranspose2d
-    return (input_dim - 1) * stride - 2 * padding +
-        dilation * (kernel_size - 1) + output_padding + 1;
+    return ((input_dim - 1) * stride) - (2 * padding) +
+        (dilation * (kernel_size - 1)) + output_padding + 1;
   }
 }
 
@@ -159,10 +159,11 @@ OutputMetaDataVector ConvolutionOverrideableMeta(const at::Stack& stack) {
         transposed));
   }
 
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.dtype = self.scalar_type();
   meta.shape = outputShape;
-  return {meta};
+  return metaVec;
 }
 
 static std::pair<SynapseLayouts, SynapseLayouts> MakeLayouts(
@@ -200,53 +201,51 @@ SharedMetaDataVector ConvolutionSharedMeta(
   const auto weightDtype = weight.scalar_type();
 
   SharedMetaDataVector convolutionSharedMeta;
+  convolutionSharedMeta.reserve(6);
 
   const bool is_conv_1d = inputRank == 3;
   if (is_conv_1d) {
-    SharedMetaData expandInputDimsMeta("expand_dims");
+    auto& expandInputDimsMeta =
+        convolutionSharedMeta.emplace_back("expand_dims");
     expandInputDimsMeta.inputs_data.emplace_back(inputRank, inputDtype);
     expandInputDimsMeta.outputs_data.emplace_back(++inputRank, inputDtype);
-    convolutionSharedMeta.push_back(expandInputDimsMeta);
 
-    SharedMetaData expandWeightDimsMeta("expand_dims");
+    auto& expandWeightDimsMeta =
+        convolutionSharedMeta.emplace_back("expand_dims");
     expandWeightDimsMeta.inputs_data.emplace_back(weightRank, weightDtype);
     expandWeightDimsMeta.outputs_data.emplace_back(++weightRank, weightDtype);
-    convolutionSharedMeta.push_back(expandWeightDimsMeta);
   }
 
   const bool is_conv_3d = inputRank == 5;
   std::string guid = transposed ? "dedx" : "spatial_convolution";
-  if (is_conv_3d)
+  if (is_conv_3d) {
     guid += "3d";
+  }
 
-  SharedMetaData convMeta(guid);
+  auto& convMeta = convolutionSharedMeta.emplace_back(guid);
   convMeta.inputs_data.emplace_back(inputRank, inputDtype);
   convMeta.inputs_data.emplace_back(weightRank, weightDtype);
   if (biasDefined && !transposed) {
     convMeta.inputs_data.emplace_back(1, bias.scalar_type());
   }
   convMeta.outputs_data.emplace_back(inputRank, inputDtype);
-  convolutionSharedMeta.push_back(convMeta);
 
   if (biasDefined && transposed) {
-    SharedMetaData expandMeta("expand_multi_dims");
+    auto& expandMeta = convolutionSharedMeta.emplace_back("expand_multi_dims");
     expandMeta.inputs_data.emplace_back(1, bias.scalar_type());
     expandMeta.outputs_data.emplace_back(
         is_conv_3d ? 5 : 4, bias.scalar_type());
-    convolutionSharedMeta.push_back(expandMeta);
 
-    SharedMetaData addMeta("add_fwd");
+    auto& addMeta = convolutionSharedMeta.emplace_back("add_fwd");
     addMeta.inputs_data.push_back(convMeta.outputs_data[0]);
     addMeta.inputs_data.push_back(expandMeta.outputs_data[0]);
     addMeta.outputs_data.emplace_back(inputRank, inputDtype);
-    convolutionSharedMeta.push_back(addMeta);
   }
 
   if (is_conv_1d) {
-    SharedMetaData squeezeMeta("squeeze");
+    auto& squeezeMeta = convolutionSharedMeta.emplace_back("squeeze");
     squeezeMeta.inputs_data.emplace_back(inputRank, inputDtype);
     squeezeMeta.outputs_data.emplace_back(--inputRank, inputDtype);
-    convolutionSharedMeta.push_back(squeezeMeta);
   }
 
   return convolutionSharedMeta;
@@ -276,26 +275,30 @@ void ConvolutionOverrideable::AddNode(
   SetSynapseLayouts(in_layouts, out_layouts);
 
   std::string guid = transposed ? "dedx" : "spatial_convolution";
-  if (is_conv_3d)
+  if (is_conv_3d) {
     guid += "3d";
+  }
 
   std::vector<synTensor> inputs = {input_expanded, weight_expanded};
 
   auto meta = ConvolutionOverrideableMeta(stack)[0];
 
-  if (is_conv_1d)
+  if (is_conv_1d) {
     meta.shape.push_back(1);
+  }
 
-  if (transposed)
+  if (transposed) {
     CreateShapeTensorInput(graph, meta.dtype, meta.shape, inputs);
-  else if (bias.defined())
+  } else if (bias.defined()) {
     inputs.emplace_back(syn_in(2));
+  }
 
   const auto& params = FillConvolutionOverrideableParams(stack);
 
   NodeAttr::NodeOutputAttr node_output_attr = {meta.shape, meta.dtype, 0};
-  if ((transposed && bias.defined()) || is_conv_1d)
+  if ((transposed && bias.defined()) || is_conv_1d) {
     node_output_attr.final_result_index = std::nullopt;
+  }
 
   auto convOp = BuildOp(
       graph,
@@ -309,10 +312,11 @@ void ConvolutionOverrideable::AddNode(
 
   if (transposed && bias.defined()) {
     // Expand bias to match to NCHW output format
-    int64_t data[5] = {1, bias.sizes().vec()[0], 1, 1, 1};
-    c10::IntArrayRef shape(data, is_conv_3d ? 5 : 4);
+    std::array data = {1L, bias.sizes().vec()[0], 1L, 1L, 1L};
+    c10::IntArrayRef shape(data.data(), is_conv_3d ? 5 : 4);
 
     ns_ExpandMultiDimsKernel::Params expandParams;
+    // NOLINTNEXTLINE(readability-magic-numbers)
     expandParams.expand_axes_mask = is_conv_3d ? 0b10111 : 0b1011;
 
     synapse_helpers::tensor biasExpanded = std::move(BuildOp(

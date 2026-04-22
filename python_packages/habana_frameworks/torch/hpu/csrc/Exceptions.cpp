@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -98,7 +98,7 @@ void processErrorMsgInplace(std::string& str) {
       }};
 
   // Avoid doing any work if no types need translated
-  if (str.find("Type") == str.npos) {
+  if (str.find("Type") == std::string::npos) {
     return;
   }
   for (const auto& it : changes) {
@@ -112,6 +112,7 @@ void PyWarningHandler::InternalHandler::process(const c10::Warning& warning) {
 
 PyWarningHandler::PyWarningHandler() noexcept(true)
     : prev_handler_(c10::WarningUtils::get_warning_handler()),
+      // NOLINTNEXTLINE(cppcoreguidelines-use-default-member-init,modernize-use-default-member-init)
       in_exception_(false) {
   c10::WarningUtils::set_warning_handler(&internal_handler_);
 }

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -180,11 +180,11 @@ struct InstanceNormBackward
       torch::autograd::AutogradContext* ctx,
       const torch::autograd::variable_list& grad_in) {
     const auto saved = ctx->get_saved_variables();
-    auto input = saved[0]; // Input always as [N, C, X1, ... ,Xn]
-    auto weight = saved[1];
-    auto gO = saved[2];
-    auto save_mean = saved[3];
-    auto save_invstd = saved[4];
+    const auto& input = saved[0]; // Input always as [N, C, X1, ... ,Xn]
+    const auto& weight = saved[1];
+    const auto& gO = saved[2];
+    const auto& save_mean = saved[3];
+    const auto& save_invstd = saved[4];
 
     const double eps = ctx->saved_data["eps"].toDouble();
     const bool weight_opt = ctx->saved_data["weight_opt"].toBool();

@@ -14,12 +14,15 @@
  */
 
 #include "generated/backend/linalg_cross.h"
+#include "pytorch_helpers/habana_helpers/conversion.h"
+#include "pytorch_helpers/habana_helpers/logging.h"
 
 namespace habana {
+using namespace std::string_view_literals;
 
 static sizes_vec SplitOutputShape(
-    bool /*unused*/,
-    int64_t dim,
+    bool /* unused */,
+    size_t dim,
     std::vector<int64_t> outshape) {
   HABANA_ASSERT(
       outshape[dim] == 3,
@@ -44,7 +47,7 @@ static sizes_vec TransposeOutputShape(
   auto syn_dim2 = get_dim_in_tpc_order(trans_dim2, self.dim());
   int tmp;
 
-  tmp = output_size.at(syn_dim1);
+  tmp = safe_convert<int>(output_size.at(syn_dim1));
   output_size.at(syn_dim1) = output_size[syn_dim2];
   output_size.at(syn_dim2) = tmp;
   return {output_size};
@@ -60,7 +63,7 @@ static std::vector<synapse_helpers::tensor> Transpose(
     bool is_persistent) {
   // Transpose Params
   synTransposeParams trans_params{};
-  trans_params.tensorDim = dim;
+  trans_params.tensorDim = safe_convert<unsigned int>(dim);
   for (int i = 0; i < dim; ++i) {
     trans_params.permutation[i] = static_cast<TransposePermutationDim>(i);
   }
@@ -86,7 +89,7 @@ static std::vector<synapse_helpers::tensor> Split(
     std::vector<synTensor> input,
     const at::IntArrayRef outshape) {
   synAxisParams split_params{};
-  split_params.axis = split_axis;
+  split_params.axis = safe_convert<unsigned int>(split_axis);
 
   return OpBackend::BuildNode(
       op,
@@ -121,7 +124,7 @@ static std::vector<synapse_helpers::tensor> Concat(
     std::vector<synTensor> inputs,
     const at::IntArrayRef outshape) {
   synConcatenateParams concat_params{};
-  concat_params.axis = concat_axis;
+  concat_params.axis = safe_convert<unsigned int>(concat_axis);
 
   return OpBackend::BuildNode(
       op,
@@ -144,25 +147,21 @@ SharedMetaDataVector LinAlgCrossSharedMeta(
   SharedMetaDataVector metaVec;
   metaVec.reserve(4);
 
-  SharedMetaData splitSharedMeta{"split"};
+  auto& splitSharedMeta = metaVec.emplace_back("split");
   splitSharedMeta.inputs_data = {commonTensor};
   splitSharedMeta.outputs_data = {commonTensor, commonTensor, commonTensor};
-  metaVec.push_back(splitSharedMeta);
 
-  SharedMetaData multSharedMeta{"mult_fwd"};
+  auto& multSharedMeta = metaVec.emplace_back("mult_fwd");
   multSharedMeta.inputs_data = {commonTensor, commonTensor};
   multSharedMeta.outputs_data = {commonTensor};
-  metaVec.push_back(multSharedMeta);
 
-  SharedMetaData concatSharedMeta{"concat"};
+  auto& concatSharedMeta = metaVec.emplace_back("concat");
   concatSharedMeta.inputs_data = {commonTensor, commonTensor, commonTensor};
   concatSharedMeta.outputs_data = {commonTensor};
-  metaVec.push_back(concatSharedMeta);
 
-  SharedMetaData subSharedMeta{"sub"};
+  auto& subSharedMeta = metaVec.emplace_back("sub");
   subSharedMeta.inputs_data = {commonTensor, commonTensor};
   subSharedMeta.outputs_data = {commonTensor};
-  metaVec.push_back(subSharedMeta);
 
   return metaVec;
 }
@@ -195,7 +194,7 @@ void LinAlgCross::AddNode(
   // presents
   if (stack.at(2).isNone()) {
     for (int64_t i = 0; i < self.dim(); i++) {
-      if (outshape[i] == 3) {
+      if (outshape[safe_convert<size_t>(i)] == 3) {
         dim_axis = i;
         break;
       }
@@ -208,11 +207,12 @@ void LinAlgCross::AddNode(
         dim_axis >= 0 ? dim_axis : stack.at(0).toTensor().dim() + dim_axis;
   }
 
-  int64_t dim =
-      (dim_axis >= 0) ? dim_axis : stack.at(0).toTensor().dim() + dim_axis;
+  const auto dim = static_cast<size_t>(
+      (dim_axis >= 0) ? dim_axis : stack.at(0).toTensor().dim() + dim_axis);
 
-  auto syn_dim =
-      get_dim_in_tpc_order(dim, self.dim()); // Converting dim to synapse order
+  auto syn_dim = get_dim_in_tpc_order(
+      static_cast<unsigned>(dim),
+      self.dim()); // Converting dim to synapse order
   bool is_scd =
       (syn_dim ==
        self.dim() - 1); // Checking whether syndim is SCD (last dimension)
@@ -254,7 +254,8 @@ void LinAlgCross::AddNode(
 
   // Finding index where 3 is present
   auto index = std::find(transpose_shape.begin(), transpose_shape.end(), 3);
-  int index_position = index - transpose_shape.begin();
+  const auto index_position =
+      safe_convert<size_t>(index - transpose_shape.begin());
 
   auto split_shape = SplitOutputShape(
       true,
@@ -262,7 +263,8 @@ void LinAlgCross::AddNode(
       is_scd ? outshape : transpose_shape)[0];
 
   // converting index position to synapse order
-  auto axis = get_dim_in_tpc_order(index_position, self.dim());
+  auto axis =
+      get_dim_in_tpc_order(static_cast<unsigned>(index_position), self.dim());
 
   // Split Params
   int64_t split_axis;

@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2025 Intel Corporation
+# Copyright (c) 2025-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -61,8 +61,8 @@ def test_reorder_custom_ops():
             return out
 
     def mymodel(t):
-        out = CustomFun().apply(t, 10, 5)
-        out = CustomFun().apply(out, 20, 10)
+        out = CustomFun.apply(t, 10, 5)
+        out = CustomFun.apply(out, 20, 10)
         return out
 
     t = torch.tensor([-1.0, 2.0, -4.0], dtype=torch.float, device="hpu", requires_grad=True)

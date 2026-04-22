@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,7 +29,8 @@ OutputMetaDataVector ReductionMeta(const at::Stack& stack) {
   auto dims = get_dims(stack, convert_index(dim_index));
   bool keepdim = get_keepdim(stack, convert_index(keepdim_index));
 
-  OutputMetaData meta{};
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.shape = ReductionOutputShape(self, dims, keepdim)[0];
 
   auto dtype = get_dtype(stack, convert_index(dtype_index));
@@ -46,7 +47,7 @@ OutputMetaDataVector ReductionMeta(const at::Stack& stack) {
   if (stack.back().isTensor())
     meta.dtype = stack.back().toTensor().scalar_type();
 
-  return {meta};
+  return metaVec;
 }
 
 inline bool reduction_support_f32(const std::string& guid) {

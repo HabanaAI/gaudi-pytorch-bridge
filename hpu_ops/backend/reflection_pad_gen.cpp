@@ -43,7 +43,7 @@ sizes_vec ReflectionPadOutputShape(
     outputShape.rbegin()[static_cast<int64_t>(dim)] =
         outputShape.rbegin()[static_cast<int64_t>(dim)] +
         pad[static_cast<size_t>(dim * PADS_PER_DIM)] +
-        pad[dim * PADS_PER_DIM + 1];
+        pad[(dim * PADS_PER_DIM) + 1];
   }
   return {outputShape};
 }
@@ -52,13 +52,14 @@ OutputMetaDataVector ReflectionPadDMeta(
     const at::Stack& stack,
     uint dimsVariant) {
   auto self = stack.at(0).toTensor();
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
 
   meta.shape = ReflectionPadOutputShape(
       stack, SELF_INDEX_FWD, PAD_INDEX_FWD, dimsVariant)[0];
   meta.dtype = self.scalar_type();
 
-  return {meta};
+  return metaVec;
 }
 
 OutputMetaDataVector ReflectionPad1DMeta(const at::Stack& stack) {
@@ -112,10 +113,11 @@ FillParamsT FillReflectionPadBackwardParams(const at::Stack& stack) {
 
 OutputMetaDataVector ReflectionPadBackwardMeta(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, SELF_INDEX_BWD);
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.shape = self.sizes().vec();
   meta.dtype = self.scalar_type();
-  return {meta};
+  return metaVec;
 }
 
 void ReflectionPadBwd::AddNode(

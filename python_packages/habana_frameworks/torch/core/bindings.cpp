@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,28 +29,29 @@ int GetCurrentThreadDevice() {
 class SharedTensorExtraMeta {
  public:
   auto set_is_const_tensor(bool is_const_tensor) {
-    tmeta_.set_is_const_tensor(is_const_tensor);
+    tmeta_->set_is_const_tensor(is_const_tensor);
   }
-  auto get_is_const_tensor() const {
-    return get().is_const_tensor();
+  [[nodiscard]] auto get_is_const_tensor() const {
+    return get()->is_const_tensor();
   }
   auto set_const_id(int id) {
-    tmeta_.set_const_id(id);
+    tmeta_->set_const_id(id);
   }
-  auto get_const_id() const {
-    return get().get_const_id();
+  [[nodiscard]] auto get_const_id() const {
+    return get()->get_const_id();
   }
   // set functions can not call const get() to modify
-  const habana::TensorExtraMeta& get() const {
+  [[nodiscard]] const habana::TensorExtraMeta* get() const {
     return tmeta_;
   }
   static std::optional<SharedTensorExtraMeta> create(const at::Tensor& tensor) {
-    auto impl{tensor.unsafeGetTensorImpl()};
+    auto* impl{tensor.unsafeGetTensorImpl()};
     c10::intrusive_ptr<habana::BaseTensorExtraMeta> meta(
         impl->get_backend_meta_intrusive_ptr());
-    if (!meta)
+    if (!meta) {
       return {};
-    auto tmeta_ptr{dynamic_cast<habana::TensorExtraMeta*>(meta.get())};
+    }
+    auto* tmeta_ptr{dynamic_cast<habana::TensorExtraMeta*>(meta.get())};
     PT_EAGER_DEBUG(
         "Producing SharedTensorExtraMeta for impl : ",
         impl,
@@ -64,10 +65,10 @@ class SharedTensorExtraMeta {
         "Got BackendMeta ",
         meta.get(),
         " but it is not habana::TensorExtraMeta");
-    return {SharedTensorExtraMeta(meta, *tmeta_ptr)};
+    return {SharedTensorExtraMeta(meta, tmeta_ptr)};
   }
   static std::optional<SharedTensorExtraMeta> create_new(at::Tensor& tensor) {
-    auto impl{tensor.unsafeGetTensorImpl()};
+    auto* impl{tensor.unsafeGetTensorImpl()};
     HABANA_ASSERT(
         impl != nullptr,
         "Cannot obtain the TensorImpl from the tensor provided");
@@ -81,7 +82,7 @@ class SharedTensorExtraMeta {
     impl->set_backend_meta(new_tmeta);
     meta = impl->get_backend_meta_intrusive_ptr();
     HABANA_ASSERT(meta == new_tmeta, "Attached meta not the same as created");
-    auto tmeta_ptr{dynamic_cast<habana::TensorExtraMeta*>(meta.get())};
+    auto* tmeta_ptr{dynamic_cast<habana::TensorExtraMeta*>(meta.get())};
     HABANA_ASSERT(
         tmeta_ptr != nullptr,
         "Got BackendMeta ",
@@ -95,16 +96,17 @@ class SharedTensorExtraMeta {
         " storage address : ",
         tensor.data_ptr());
 
-    return {SharedTensorExtraMeta(meta, *tmeta_ptr)};
+    return {SharedTensorExtraMeta(meta, tmeta_ptr)};
   }
 
  private:
+  // NOLINTNEXTLINE (cppcoreguidelines-avoid-const-or-ref-data-members)
   c10::intrusive_ptr<habana::BaseTensorExtraMeta> tmeta_ref_holder_;
-  habana::TensorExtraMeta& tmeta_;
+  habana::TensorExtraMeta* tmeta_;
 
   SharedTensorExtraMeta(
       c10::intrusive_ptr<habana::BaseTensorExtraMeta> tmeta_ref_holder,
-      habana::TensorExtraMeta& tmeta)
+      habana::TensorExtraMeta* tmeta)
       : tmeta_ref_holder_{tmeta_ref_holder}, tmeta_{tmeta} {}
 };
 

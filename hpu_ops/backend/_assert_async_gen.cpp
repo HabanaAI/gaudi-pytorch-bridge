@@ -21,11 +21,14 @@ SharedMetaDataVector AssertAsyncSharedMeta(
     habana_helpers::HabanaExecutionMode /*unused*/) {
   auto self = stack_tensor(stack, 0);
 
-  SharedMetaData assertAsyncSharedMeta{"assert_async"};
+  SharedMetaDataVector assertAsyncSharedMetaVec;
+  assertAsyncSharedMetaVec.reserve(1);
+  auto& assertAsyncSharedMeta =
+      assertAsyncSharedMetaVec.emplace_back("assert_async");
   assertAsyncSharedMeta.inputs_data.emplace_back(
       self.dim(), self.scalar_type());
   assertAsyncSharedMeta.outputs_data.emplace_back(1, c10::ScalarType::UInt32);
-  return {assertAsyncSharedMeta};
+  return assertAsyncSharedMetaVec;
 }
 
 void AssertAsync::AddNode(

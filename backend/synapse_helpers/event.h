@@ -100,7 +100,7 @@ class event {
    *  \param tensor_info External tensor information
    */
   void map_event_to_tensor(
-      const synRecipeHandle recipe_handle,
+      synRecipeHandle recipe_handle,
       synLaunchTensorInfo* tensor_info);
 
   /*! \return true if synEventHandle already happened, false otherwise

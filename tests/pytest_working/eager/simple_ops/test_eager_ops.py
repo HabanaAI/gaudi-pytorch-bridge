@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -622,10 +622,7 @@ def test_index_single_elem_index():
 @pytest.mark.parametrize("shape_in", [(), (2,), (4, 4), (2, 3, 4, 4, 4)])
 @pytest.mark.parametrize("zero_input", [True, False])
 def test_nonzero(shape_in, zero_input):
-    if zero_input:
-        self = torch.zeros(shape_in)
-    else:
-        self = torch.randint(10, shape_in) > 5
+    self = torch.zeros(shape_in) if zero_input else torch.randint(10, shape_in) > 5
     nonzero_cpu = torch.nonzero(self)
     nonzero_hpu = torch.nonzero(self.to("hpu")).to("cpu")
     assert torch.equal(nonzero_hpu, nonzero_cpu)
@@ -1374,6 +1371,11 @@ def test_sag_conv_bwd_view():
 
         r_cpu = result[0].cpu()
         assert r_cpu.dim() == 4
+
+        r_cpu = result[1].cpu()
+        assert r_cpu.dim() == 4
+
+        assert result[2] is None
 
 
 @pytest.mark.parametrize(

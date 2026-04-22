@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,8 +14,7 @@
 ###############################################################################
 
 
-from collections import namedtuple
-from typing import Any
+from typing import Any, NamedTuple
 
 from habana_frameworks.torch._torch_jit_C import jit
 from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
@@ -200,15 +199,13 @@ class FxToJitLowering(torch.fx.Interpreter):
         return self.jit_ir.insertNode(tuple_node).output()
 
     def _get_jit_val_from_iterable(self, iterable_arg, parameter) -> jit.Value:
-        collected_vals = []
-        for elem in iterable_arg:
-            collected_vals.append(self._get_jit_val(elem))
+        collected_vals = [self._get_jit_val(elem) for elem in iterable_arg]
 
         if isinstance(iterable_arg, list):
             return self._insert_list_from_jit_vals(collected_vals, parameter)
         elif isinstance(iterable_arg, tuple):
             return self._insert_tuple_from_jit_vals(collected_vals)
-        elif isinstance(iterable_arg, namedtuple):
+        elif isinstance(iterable_arg, NamedTuple):
             return self._insert_namedtuple_from_jit_vals(iterable_arg, collected_vals)
 
     def _get_jit_val(self, arg: Any, parameter=None) -> jit.Value:
@@ -247,7 +244,7 @@ class FxToJitLowering(torch.fx.Interpreter):
         # UP038 Use `X | Y` in `isinstance` call instead of `(X, Y)`
         # however, arg maybe a UnionType which cannot follow the rule UP038. You'll get
         # TypeError: unsupported operand type(s) for |: 'types.UnionType' and 'function
-        if isinstance(arg, list) or isinstance(arg, tuple) or isinstance(arg, namedtuple):  # noqa SIM101
+        if isinstance(arg, list) or isinstance(arg, tuple) or isinstance(arg, NamedTuple):  # noqa SIM101
             return self._get_jit_val_from_iterable(arg, parameter)
 
         raise NotImplementedError(f"The argument {arg} contains unsupported type: {type(arg)}. Please report a bug.")

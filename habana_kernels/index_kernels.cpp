@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@
 #include "backend/backend_meta.h"
 #include "backend/create_pt_tensor.h"
 #include "backend/habana_device/hpu_cached_devices.h"
+#include "backend/habana_operator.h"
 #include "backend/helpers/create_tensor.h"
 #include "backend/helpers/dynamic_bucket_info.h"
 #include "backend/helpers/graph.h"
@@ -395,11 +396,11 @@ void ScatterAddOperator::AllocateAndAddSynapseNode(
       return;
     }
     auto precision_type = self.scalar_type();
-    if (at::isFloatingType(precision_type))
+    if (at::isFloatingType(precision_type)) {
       precision_type = at::ScalarType::Float;
-    else if (precision_type == at::ScalarType::Long)
+    } else if (precision_type == at::ScalarType::Long) {
       precision_type = at::ScalarType::Int;
-
+    }
     const std::string guid =
         get_guid_with_precision("unsorted_scatter_add_fwd"sv, precision_type);
     SetGuid(guid);
@@ -523,21 +524,21 @@ SharedMetaDataVector IndexAddLazySharedMeta(
   const auto alphaCastedDtype = valueDtype;
 
   SharedMetaDataVector indexAddSharedMeta;
+  indexAddSharedMeta.reserve(8);
 
   // Shared meta for IndexAddV2Operator.
-  SharedMetaData multSharedMetaV2("mult");
+  auto& multSharedMetaV2 = indexAddSharedMeta.emplace_back("mult");
   multSharedMetaV2.inputs_data.emplace_back(valueDim, valueDtype);
   multSharedMetaV2.inputs_data.emplace_back(
       alphaDimBroadcasted, alphaCastedDtype);
   multSharedMetaV2.outputs_data.emplace_back(valueDim, valueDtype);
-  indexAddSharedMeta.push_back(multSharedMetaV2);
 
   const bool self_is_int32 = selfDtype == c10::ScalarType::Int;
   const bool useUnsortedScatter =
       GET_ENV_FLAG_NEW(PT_HPU_USE_UNSORTED_SCATTER_ADD) &&
       at::globalContext().deterministicAlgorithms() == false;
 
-  SharedMetaData scatterAddFwdSharedMetaV2(
+  auto& scatterAddFwdSharedMetaV2 = indexAddSharedMeta.emplace_back(
       useUnsortedScatter ? "unsorted_scatter_add_fwd" : "scatter_add_fwd");
 
   c10::ScalarType castedSelfDtype =
@@ -548,53 +549,46 @@ SharedMetaDataVector IndexAddLazySharedMeta(
   scatterAddFwdSharedMetaV2.inputs_data.emplace_back(
       multSharedMetaV2.outputs_data[0].first, castedSelfDtype);
   scatterAddFwdSharedMetaV2.outputs_data.emplace_back(selfDim, castedSelfDtype);
-  indexAddSharedMeta.push_back(scatterAddFwdSharedMetaV2);
 
   std::pair<int, c10::ScalarType> scatterOutputV2 = {
       scatterAddFwdSharedMetaV2.outputs_data[0].first, selfDtype};
 
-  SharedMetaData memcpySharedMetaV2("memcpy");
+  auto& memcpySharedMetaV2 = indexAddSharedMeta.emplace_back("memcpy");
   memcpySharedMetaV2.inputs_data.push_back(scatterOutputV2);
   memcpySharedMetaV2.outputs_data.push_back(scatterOutputV2);
-  indexAddSharedMeta.push_back(memcpySharedMetaV2);
 
   // Shared meta for IndexAddOperator.
-  SharedMetaData gatherFwdSharedMeta("gather_fwd");
+  auto& gatherFwdSharedMeta = indexAddSharedMeta.emplace_back("gather_fwd");
   gatherFwdSharedMeta.inputs_data.emplace_back(selfDim, selfDtype);
   gatherFwdSharedMeta.inputs_data.emplace_back(indicesDim, indicesDtype);
   gatherFwdSharedMeta.outputs_data.emplace_back(selfDim, selfDtype);
-  indexAddSharedMeta.push_back(gatherFwdSharedMeta);
 
-  SharedMetaData multSharedMeta("mult");
+  auto& multSharedMeta = indexAddSharedMeta.emplace_back("mult");
   multSharedMeta.inputs_data.emplace_back(valueDim, valueDtype);
   multSharedMeta.inputs_data.emplace_back(
       alphaDimBroadcasted, alphaCastedDtype);
   multSharedMeta.outputs_data.emplace_back(valueDim, valueDtype);
-  indexAddSharedMeta.push_back(multSharedMeta);
 
-  SharedMetaData addFwdSharedMeta("add_fwd");
+  auto& addFwdSharedMeta = indexAddSharedMeta.emplace_back("add_fwd");
   addFwdSharedMeta.inputs_data.push_back(gatherFwdSharedMeta.outputs_data[0]);
   addFwdSharedMeta.inputs_data.push_back(multSharedMeta.outputs_data[0]);
   addFwdSharedMeta.outputs_data.push_back(gatherFwdSharedMeta.outputs_data[0]);
-  indexAddSharedMeta.push_back(addFwdSharedMeta);
 
   const auto indicesExpandedDim = valueDim;
 
-  SharedMetaData scatterFwdSharedMeta("scatter_fwd");
+  auto& scatterFwdSharedMeta = indexAddSharedMeta.emplace_back("scatter_fwd");
   scatterFwdSharedMeta.inputs_data.emplace_back(selfDim, selfDtype);
   scatterFwdSharedMeta.inputs_data.emplace_back(
       indicesExpandedDim, indicesDtype);
   scatterFwdSharedMeta.inputs_data.push_back(addFwdSharedMeta.outputs_data[0]);
   scatterFwdSharedMeta.outputs_data.emplace_back(selfDim, selfDtype);
-  indexAddSharedMeta.push_back(scatterFwdSharedMeta);
 
   std::pair<int, c10::ScalarType> scatterOutput =
       scatterFwdSharedMeta.outputs_data[0];
 
-  SharedMetaData memcpySharedMeta("memcpy");
+  auto& memcpySharedMeta = indexAddSharedMeta.emplace_back("memcpy");
   memcpySharedMeta.inputs_data.push_back(scatterOutput);
   memcpySharedMeta.outputs_data.push_back(scatterOutput);
-  indexAddSharedMeta.push_back(memcpySharedMeta);
 
   return indexAddSharedMeta;
 }
@@ -608,23 +602,24 @@ SharedMetaDataVector IndexAddSharedMeta(
   const auto selfDim = self.dim();
   const auto selfDtype = self.scalar_type();
 
-  SharedMetaDataVector indexAddSharedMeta;
-
   // for Bool and Byte input autocast (into Int) is applied
   auto castedDtype =
       (selfDtype == c10::ScalarType::Bool || selfDtype == c10::ScalarType::Byte)
       ? c10::ScalarType::Int
       : selfDtype;
 
-  SharedMetaData indexAddFwdSharedMeta{"index_add_fwd"};
-  indexAddFwdSharedMeta.inputs_data = {
+  SharedMetaDataVector indexAddSharedMetaVec;
+  indexAddSharedMetaVec.reserve(1);
+  auto& indexAddSharedMeta =
+      indexAddSharedMetaVec.emplace_back("index_add_fwd");
+  indexAddSharedMeta.inputs_data = {
       {selfDim, castedDtype},
       getSharedMetaFromTensor(stack_tensor(stack, 2)),
       {value.dim(), castedDtype}};
 
-  indexAddFwdSharedMeta.outputs_data.emplace_back(selfDim, castedDtype);
+  indexAddSharedMeta.outputs_data.emplace_back(selfDim, castedDtype);
 
-  return {indexAddFwdSharedMeta};
+  return indexAddSharedMetaVec;
 }
 
 } // namespace habana
@@ -787,16 +782,19 @@ void IndexPutOperator::AllocateAndAddSynapseNodeBoolIndices(
     if (indices[0].dim() != self.dim() &&
         values.dim() != (1 + (self.dim() - indices[0].dim()))) {
       value_upd_dim.push_back(non_zero_op->GetOutputs()[0].sizes().vec()[0]);
-      for (auto i = rank_idx; i < rank_inp; i++)
+      for (auto i = rank_idx; i < rank_inp; i++) {
         value_upd_dim.push_back(self.sizes().vec()[i]);
+      }
     } else {
-      for (size_t i = 0; i < static_cast<size_t>(values.dim()); i++)
+      for (size_t i = 0; i < static_cast<size_t>(values.dim()); i++) {
         value_upd_dim.push_back(values.sizes().vec()[i]);
+      }
     }
   } else { // We are assuming uses passes value shapes correctly for scatter
     value_upd_dim.push_back(non_zero_op->GetOutputs()[0].sizes().vec()[0]);
-    for (auto i = rank_idx; i < rank_inp; i++)
+    for (auto i = rank_idx; i < rank_inp; i++) {
       value_upd_dim.push_back(self.sizes().vec()[i]);
+    }
   }
 
   auto values_scalar_type = values.scalar_type();
@@ -1010,9 +1008,11 @@ void IndexPutOperator::AllocateAndAddSynapseNodeNonBoolIndices(
     // based on corresponding dim size of self tensor
     auto self_shape = self.sizes().vec();
     std::vector<int> const_factor_v;
-    for (size_t i = 0; i < indices.size(); i++)
+    const size_t num_index_dims = indices.size();
+    const_factor_v.reserve(num_index_dims);
+    for (size_t i = 0; i < num_index_dims; i++) {
       const_factor_v.push_back(static_cast<int>(self_shape[i]));
-
+    }
     std::vector<Tensor> cat_input_neg_ind;
     auto neg_to_pos_const_constructor_op =
         make_operator<CatOperator>(device_id, indices_scalar_type);
@@ -1081,8 +1081,9 @@ void IndexPutOperator::AllocateAndAddSynapseNodeNonBoolIndices(
     value_upd_dim = values.sizes().vec();
   }
 
-  for (auto i = rank_idx; i < rank_inp; i++)
+  for (auto i = rank_idx; i < rank_inp; i++) {
     value_upd_dim.push_back(self.sizes().vec()[i]);
+  }
   auto values_scalar_type = values.scalar_type();
   // value_upd_dim is the final shape we want for values tensor to match
   // scatter_nd_onnx requirements. Either broadcast of reshape input values
@@ -1133,23 +1134,22 @@ void IndexPutOperator::AllocateAndAddSynapseNodeNonBoolIndices(
       auto indicesFcd = static_cast<size_t>(indicesShape[indicesRank - 1]);
       int64_t totalIndices = 1;
       int64_t totalScatters = 1;
-
-      for (size_t i = 0; i < indicesRank - 1; i++)
+      for (size_t i = 0; i < indicesRank - 1; i++) {
         totalIndices *= std::max(indicesShape[i], 1L);
-
-      for (size_t i = 0; i < indicesFcd; i++)
+      }
+      for (size_t i = 0; i < indicesFcd; i++) {
         totalScatters *= std::max(selfShape[i], 1L);
-
+      }
       return totalIndices > totalScatters;
     }();
 
-    if (isScaterNdUpdateRequired)
+    if (isScaterNdUpdateRequired) {
       scatter_op =
           make_operator<ScatterNdUpdateOperator>(device_id, self_scalar_type);
-    else
+    } else {
       scatter_op =
           make_operator<ScatterNdONNXOperator>(device_id, self_scalar_type);
-
+    }
     stack = {
         IValue(self),
         IValue(concatenated_indices),
@@ -1170,15 +1170,15 @@ void IndexPutOperator::AllocateAndAddSynapseNodeNonBoolIndices(
     std::vector<int64_t> indices_shape;
     for (size_t i = 0;
          i < static_cast<size_t>(concatenated_indices.sizes().vec()[1]);
-         i++)
+         i++) {
       indices_shape.push_back(static_cast<int64_t>(self.sizes().vec()[i]));
-
+    }
     // Compute multiplication factor for each dimension
     std::vector<int> mul_factor_v{1};
-    for (size_t i = 0; i < indices_shape.size() - 1; i++)
+    for (size_t i = 0; i < indices_shape.size() - 1; i++) {
       mul_factor_v.push_back(
           static_cast<int>(mul_factor_v[i] * indices_shape[i]));
-
+    }
     // auto mul_factor = torch::from_blob(
     //     mul_factor_v.data(), {1, int64_t(mul_factor_v.size())}, torch::kInt);
     // auto multiplied_indices = at::mul(concatenated_indices, mul_factor);
@@ -1525,11 +1525,7 @@ bool ScatterNdONNXOperator::isInputValid(Stack& inputs) {
     totalScatters *= std::max(static_cast<int64_t>(inpSize[i]), 1L);
   }
 
-  if (totalIndices > totalScatters) {
-    return false;
-  }
-
-  return true;
+  return (totalIndices <= totalScatters);
 }
 
 habana::InferOutputMetaRetType ScatterNdONNXOperator::InferOutputMeta(
@@ -1929,7 +1925,7 @@ void SliceOperator::ValidateSliceInputs(
       start);
   for (unsigned i = 0; i < inp_shape.size(); i++) {
     // exclude ZST from shape validation check
-    if (inp_shape[i]) {
+    if (inp_shape[i] != 0) {
       HABANA_ASSERT(
           (start[i] <= inp_shape[i]),
           "Slice invalid starts param, which is greater or equal to the dimension");
@@ -1940,7 +1936,7 @@ void SliceOperator::ValidateSliceInputs(
 
     // inverse to find end
     // end_val = sizes[dim]*step + 1 - step + start_val
-    auto end_val = out_shape[i] * step[i] + 1 - step[i] + start[i];
+    auto end_val = (out_shape[i] * step[i]) + 1 - step[i] + start[i];
 
     HABANA_ASSERT(
         (end_val <= inp_shape[i]),
@@ -2001,7 +1997,7 @@ std::vector<int64_t> SliceOperator::GetH2DTensorData(
     const at::Tensor& host_tensor,
     bool is_dry_run,
     bool is_min_shape_inference) {
-  auto tmeta{get_tensor_extra_meta(host_tensor)};
+  auto* tmeta{get_tensor_extra_meta(host_tensor)};
 
   void* host_ptr = nullptr;
   if (is_dry_run) {
@@ -2018,6 +2014,7 @@ std::vector<int64_t> SliceOperator::GetH2DTensorData(
 
   std::vector<int64_t> params;
   auto* h2d_data = static_cast<uint64_t*>(host_ptr);
+  params.reserve(h2d_data_size);
   for (size_t i = 0; i < h2d_data_size; i++) {
     params.push_back(static_cast<int64_t>(*h2d_data++));
   }
@@ -2201,7 +2198,7 @@ void SliceOperator::AllocateAndAddSynapseNode(
       std::vector<uint64_t> new_params_vec(
           params_vec.begin(), params_vec.end());
       std::copy(start.rbegin(), start.rend(), new_params_vec.begin() + 6);
-      auto tmeta{get_tensor_extra_meta(host_tensor)};
+      auto* tmeta{get_tensor_extra_meta(host_tensor)};
       tmeta->set_max<uint64_t>(new_params_vec);
       shape = out_shape;
       PT_DYNAMIC_SHAPE_DEBUG(
@@ -2307,9 +2304,9 @@ void ArangeOperator::AllocateAndAddSynapseNode(
   // save to be used as input to cast operator if required
   synapse_helpers::tensor& range_syn_input = std::move(get_syn_input_at(0));
   bool cast_required =
-      !(result.scalar_type() == ScalarType::Int ||
-        result.scalar_type() == ScalarType::Float ||
-        result.scalar_type() == ScalarType::BFloat16);
+      (result.scalar_type() != ScalarType::Int &&
+       result.scalar_type() != ScalarType::Float &&
+       result.scalar_type() != ScalarType::BFloat16);
   if (!cast_required) {
     p_context_->syn_outputs_.emplace_back(
         habana_helpers::duplicate_tensor_in_memory_section(
@@ -2400,7 +2397,9 @@ std::vector<T> get_start_step_end(const IntArrayRef& shape) {
   HABANA_ASSERT(shape.size() == 1);
   std::vector<int32_t> data = {0, static_cast<int32_t>(shape[0]), 1};
   std::vector<T> d;
-  for (size_t i = 0; i < 3; ++i) {
+  constexpr size_t num_data = 3;
+  d.reserve(num_data);
+  for (size_t i = 0; i < num_data; ++i) {
     d.emplace_back(static_cast<T>(data[i]));
   }
   return d;
@@ -2414,7 +2413,7 @@ InferOutputMetaRetType ArangeOperatorHT::InferOutputMeta(
     auto result = inputs[1].toTensor();
     at::Tensor host_tensor = inputs[0].toTensor();
 
-    auto tmeta{get_tensor_extra_meta(host_tensor)};
+    auto* tmeta{get_tensor_extra_meta(host_tensor)};
     if (tmeta->get_host_dt_type() == habana::HostDataType::INT32_T) {
       out.AddOutputTensor(TensorMetaData(
           output_shape_tensor.sizes().vec(),
@@ -2437,8 +2436,8 @@ InferOutputMetaRetType ArangeOperatorHT::InferOutputMeta(
     auto end = inputs[1].toScalar();
     auto step = inputs[2].toScalar();
 
-    if (!(result.scalar_type() == ScalarType::Float ||
-          result.scalar_type() == ScalarType::BFloat16)) {
+    if (result.scalar_type() != ScalarType::Float &&
+        result.scalar_type() != ScalarType::BFloat16) {
       std::vector<int64_t> sizes_vec{step.toInt(), end.toInt(), start.toInt()};
       IntArrayRef idst_sizes(sizes_vec.data(), sizes_vec.size());
 
@@ -2454,9 +2453,9 @@ InferOutputMetaRetType ArangeOperatorHT::InferOutputMeta(
     // For datatypes Char, Bool one additional cast node is
     // required. Arange kernel return i32 output node Cast kernel will convert
     // i32 -> (i8)
-    if (!(result.scalar_type() == ScalarType::Int ||
-          result.scalar_type() == ScalarType::Float ||
-          result.scalar_type() == ScalarType::BFloat16)) {
+    if (result.scalar_type() != ScalarType::Int &&
+        result.scalar_type() != ScalarType::Float &&
+        result.scalar_type() != ScalarType::BFloat16) {
       auto output_range = habana::createPTTensor(
           result,
           result.sizes(),
@@ -2514,7 +2513,7 @@ void ArangeOperatorHT::AllocateAndAddSynapseNode(
     }
 
     at::Tensor host_tensor = inputs[0].toTensor();
-    auto tmeta{get_tensor_extra_meta(host_tensor)};
+    auto* tmeta{get_tensor_extra_meta(host_tensor)};
 
     if (tmeta->get_host_dt_type() == habana::HostDataType::INT32_T) {
       if (habana::ShapeInference::GetCurrentPass() ==
@@ -2661,7 +2660,7 @@ void Unique_Operator::AllocateAndAddSynapseNode(
   HABANA_ASSERT(inputs[2].isBool() && "Input 2 is expected to be bool");
 
   bool sorted = inputs[1].toBool();
-  if (sorted == true) {
+  if (sorted) {
     PT_KERNEL_WARN(
         "Recieved sorted=True, ignoring as TPC kernel does not support it");
   }
@@ -2727,7 +2726,9 @@ SharedMetaDataVector UniqueDimSharedMeta(
 
   const int DimVector1 = 1;
 
-  SharedMetaData uniqueSharedMeta("unique_fwd");
+  SharedMetaDataVector uniqueSharedMetaVec;
+  uniqueSharedMetaVec.reserve(1);
+  auto& uniqueSharedMeta = uniqueSharedMetaVec.emplace_back("unique_fwd");
   uniqueSharedMeta.inputs_data.emplace_back(selfDim, selfDtype);
   uniqueSharedMeta.outputs_data.emplace_back(selfDim, selfDtype);
   uniqueSharedMeta.outputs_data.emplace_back(
@@ -2735,7 +2736,7 @@ SharedMetaDataVector UniqueDimSharedMeta(
   uniqueSharedMeta.outputs_data.emplace_back(DimVector1, c10::ScalarType::Int);
   uniqueSharedMeta.outputs_data.emplace_back(DimVector1, c10::ScalarType::Int);
 
-  return {uniqueSharedMeta};
+  return uniqueSharedMetaVec;
 }
 } // namespace habana
 
@@ -2752,7 +2753,7 @@ void UniqueDimOperator::AllocateAndAddSynapseNode(
   HABANA_ASSERT(inputs[4].isBool() && "Input 4 is expected to be bool");
 
   bool sorted = inputs[2].toBool();
-  if (sorted == true) {
+  if (sorted) {
     PT_KERNEL_WARN(
         "Recieved sorted=True, ignoring as TPC kernel does not support it");
   }
@@ -2930,8 +2931,10 @@ void UniqueOperator::AllocateAndAddSynapseNode(
   params.returnInverse = 1;
   params.returnCounts = 1;
   params.sorted = 0;
-  if (self.dim() <= 4) // TPC can support only upto 4D(1D to 4D)
-    params.sorted = sorted;
+  if (self.dim() <= 4) {
+    // TPC can support only upto 4D(1D to 4D)
+    params.sorted = static_cast<int>(sorted);
+  }
   // dim = -5 returns flattened result(unique elements over all dimesions)
   params.dim = -5;
 

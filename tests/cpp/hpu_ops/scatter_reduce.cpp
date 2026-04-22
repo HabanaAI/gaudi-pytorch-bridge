@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -86,7 +86,7 @@ TEST_P(ScatterReduceOpTest, scatter_reduce) {
   auto dtype = std::get<2>(testParams);
   auto includeSelf = std::get<3>(testParams);
 
-  if (reduce == "mean" & shapeInfo.deterministic == true) {
+  if (reduce == "mean" && shapeInfo.deterministic == true) {
     GTEST_SKIP() << "Test sporadically failing - SW-171740";
   }
 

@@ -27,7 +27,7 @@ DOCKER_IMAGE_NDA ?= artifactory-kfs.habana-labs.com/devops-docker-local/habana-t
 
 SW_ARTIFACT_ROOT_URL ?= https://artifactory-kfs.habana-labs.com/artifactory/$(SW_META_REPO)/$(RELEASE_VERSION)/$(RELEASE_BUILD_ID)/$(subst .,,$(BUILD_OS))/binary
 
-PT_VERSION ?= $(shell cat $(SRC_DIR)/pytorch-fork/version.txt)
+PT_VERSION ?= $(shell cat $(SRC_DIR)/pytorch-fork/version.txt | egrep -o "[0-9]+\.[0-9]+\.[0-9]+")
 PYTHON_SUFFIX ?=
 
 ifeq ($(PYTHON_SUFFIX),)
@@ -164,8 +164,8 @@ install-fork: validate init ## install the PT fork whl
 	$(DOCKER_IMAGE) \
 	'pip3 install -U $${PYTORCH_FORK_RELEASE_BUILD}/pkgs/*torch*.whl'
 
-compare-pt-versions: pytorch_fork_version=$(shell cat $(SRC_DIR)/pytorch-fork/version.txt)
-compare-pt-versions: pytorch_next_version=$(shell cat $(SRC_DIR)/pytorch-next/version.txt)
+compare-pt-versions: pytorch_fork_version=$(shell cat $(SRC_DIR)/pytorch-fork/version.txt | egrep -o "[0-9]+\.[0-9]+\.[0-9]+")
+compare-pt-versions: pytorch_next_version=$(shell cat $(SRC_DIR)/pytorch-next/version.txt | egrep -o "[0-9]+\.[0-9]+\.[0-9]+")
 
 compare-pt-versions: validate
 	@echo Comparing versions.txt between pytorch-fork and pytorch-next...
@@ -180,21 +180,18 @@ compare-pt-versions: validate
 
 collect-pt-versions: validate ## extract versions from build_profiles.json and save them in .env file
 	@echo Collect versions from build_profiles.json into .env file
-	echo "TORCH_VERSION=$(shell cat $(SRC_DIR)/pytorch-fork/version.txt)" >> $(SRC_DIR)/pytorch-integration/.devops/cd/scripts/.env
-	echo "TORCHVISION_VERSION=$(shell jq -rj '.pt_versions.current.extras.torchvision' $(SRC_DIR)/pytorch-integration/.devops/build_profiles/profiles.json | cut -d- -f1)" >> $(SRC_DIR)/pytorch-integration/.devops/cd/scripts/.env
-	echo "TORCHDATA_VERSION=$(shell jq -rj '.pt_versions.current.extras.torchdata' $(SRC_DIR)/pytorch-integration/.devops/build_profiles/profiles.json | cut -d- -f1)" >> $(SRC_DIR)/pytorch-integration/.devops/cd/scripts/.env
+	echo "TORCH_VERSION=$(shell cat $(SRC_DIR)/pytorch-fork/version.txt | egrep -o "[0-9]+\.[0-9]+\.[0-9]+")" >> $(SRC_DIR)/pytorch-integration/.devops/cd/scripts/.env
+	echo "TORCHVISION_VERSION=$(shell jq -rj '.pt_versions.current.torchvision' $(SRC_DIR)/pytorch-integration/.devops/build_profiles/profiles.json | cut -d- -f1)" >> $(SRC_DIR)/pytorch-integration/.devops/cd/scripts/.env
 
 collect-pt-current-versions: validate ## extract versions from build_profiles.json and save them in .env file
 	@echo Collect versions from build_profiles.json into .env file
-	echo "TORCH_VERSION=$(shell cat $(SRC_DIR)/pytorch-fork/version.txt)" >> $(SRC_DIR)/pytorch-integration/.devops/cd/scripts/.env
-	echo "TORCHVISION_VERSION=$(shell jq -rj '.pt_versions.current.extras.torchvision' $(SRC_DIR)/pytorch-integration/.devops/build_profiles/profiles.json | cut -d- -f1)" >> $(SRC_DIR)/pytorch-integration/.devops/cd/scripts/.env
-	echo "TORCHDATA_VERSION=$(shell jq -rj '.pt_versions.current.extras.torchdata' $(SRC_DIR)/pytorch-integration/.devops/build_profiles/profiles.json | cut -d- -f1)" >> $(SRC_DIR)/pytorch-integration/.devops/cd/scripts/.env
+	echo "TORCH_VERSION=$(shell cat $(SRC_DIR)/pytorch-fork/version.txt | egrep -o "[0-9]+\.[0-9]+\.[0-9]+")" >> $(SRC_DIR)/pytorch-integration/.devops/cd/scripts/.env
+	echo "TORCHVISION_VERSION=$(shell jq -rj '.pt_versions.current.torchvision' $(SRC_DIR)/pytorch-integration/.devops/build_profiles/profiles.json | cut -d- -f1)" >> $(SRC_DIR)/pytorch-integration/.devops/cd/scripts/.env
 
 collect-pt-next-versions: validate ## extract versions from build_profiles.json and save them in .env file
 	@echo Collect versions from build_profiles.json into .env file
-	echo "TORCH_VERSION=$(shell cat $(SRC_DIR)/pytorch-next/version.txt)" >> $(SRC_DIR)/pytorch-integration/.devops/cd/scripts/.env
-	echo "TORCHVISION_VERSION=$(shell jq -rj '.pt_versions.next.extras.torchvision' $(SRC_DIR)/pytorch-integration/.devops/build_profiles/profiles.json | cut -d- -f1)" >> $(SRC_DIR)/pytorch-integration/.devops/cd/scripts/.env
-	echo "TORCHDATA_VERSION=$(shell jq -rj '.pt_versions.next.extras.torchdata' $(SRC_DIR)/pytorch-integration/.devops/build_profiles/profiles.json | cut -d- -f1)" >> $(SRC_DIR)/pytorch-integration/.devops/cd/scripts/.env
+	echo "TORCH_VERSION=$(shell cat $(SRC_DIR)/pytorch-next/version.txt | egrep -o "[0-9]+\.[0-9]+\.[0-9]+")" >> $(SRC_DIR)/pytorch-integration/.devops/cd/scripts/.env
+	echo "TORCHVISION_VERSION=$(shell jq -rj '.pt_versions.next.torchvision' $(SRC_DIR)/pytorch-integration/.devops/build_profiles/profiles.json | cut -d- -f1)" >> $(SRC_DIR)/pytorch-integration/.devops/cd/scripts/.env
 
 build-%: validate init
 	@echo building $* for $(BUILD_OS)
@@ -221,7 +218,7 @@ build-%: validate init
 	'source /npu-stack/cd_release/scripts/build/compile.sh $*'
 
 archive-next: CSV_FILE_SUFFIX = next
-archive-next: PT_VERSION = $(shell cat $(SRC_DIR)/pytorch-next/version.txt)
+archive-next: PT_VERSION = $(shell cat $(SRC_DIR)/pytorch-next/version.txt | egrep -o "[0-9]+\.[0-9]+\.[0-9]+")
 archive-next: archive
 
 archive: validate init ## archive all whls to tgz package

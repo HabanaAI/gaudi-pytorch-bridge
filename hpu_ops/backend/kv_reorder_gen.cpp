@@ -37,15 +37,19 @@ SharedMetaDataVector KvReorderSharedMeta(
   const auto& start = stack.at(1).toTensor();
   const auto& end = stack.at(2).toTensor();
   const auto& beam_idx = stack.at(3).toTensor();
-  SharedMetaData selective_gather_shared_meta{"selective_gather_fwd"};
+  SharedMetaDataVector meta;
+  meta.reserve(1);
+  auto& selective_gather_shared_meta =
+      meta.emplace_back("selective_gather_fwd");
   selective_gather_shared_meta.inputs_data = {
       getSharedMetaFromTensor(self),
       getSharedMetaFromTensor(start),
       getSharedMetaFromTensor(end),
-      getSharedMetaFromTensor(beam_idx)};
+      getSharedMetaFromTensor(beam_idx),
+  };
   selective_gather_shared_meta.outputs_data = {getSharedMetaFromTensor(self)};
 
-  return {selective_gather_shared_meta};
+  return meta;
 }
 
 void KvReorderCommon::AddNode(

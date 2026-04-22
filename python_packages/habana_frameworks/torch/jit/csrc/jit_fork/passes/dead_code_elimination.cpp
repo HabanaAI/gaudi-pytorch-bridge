@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -111,12 +111,12 @@ class DeadCodeEliminator {
   //
   // Returns true iff this marked something we haven't marked before.
   bool markReturnNode(Node* node) {
-    if (marked_.count(node)) {
+    if (marked_.count(node) != 0U) {
       return false;
     }
 
     AT_ASSERT(node->owningBlock()->return_node() == node);
-    auto outerNode = node->owningBlock()->owningNode();
+    auto* outerNode = node->owningBlock()->owningNode();
     if (outerNode == nullptr || outerNode->kind() == prim::Reverse) {
       // If there's no outer node, we're looking at the graph's top-level
       // return block. We consider all graph outputs to be "used", so just mark
@@ -137,10 +137,10 @@ class DeadCodeEliminator {
           liveValues_.insert(loop.bodyCarriedOutputs().at(i));
           continue;
         }
-        auto innerInput = loop.bodyCarriedInputs().at(i);
-        auto innerOutput = loop.bodyCarriedOutputs().at(i);
-        auto outerOutput = loop.carriedOutputs().at(i);
-        if (liveValues_.count(outerOutput) || innerInput->hasUses()) {
+        auto* innerInput = loop.bodyCarriedInputs().at(i);
+        auto* innerOutput = loop.bodyCarriedOutputs().at(i);
+        auto* outerOutput = loop.carriedOutputs().at(i);
+        if (liveValues_.count(outerOutput) != 0U || innerInput->hasUses()) {
           liveValues_.insert(innerOutput);
         }
       }
@@ -151,9 +151,9 @@ class DeadCodeEliminator {
     } else {
       AT_ASSERT(outerNode->outputs().size() == node->inputs().size());
       for (const auto i : c10::irange(outerNode->outputs().size())) {
-        auto innerOutput = node->inputs()[i];
-        auto outerOutput = outerNode->outputs()[i];
-        if (liveValues_.count(outerOutput)) {
+        auto* innerOutput = node->inputs()[i];
+        auto* outerOutput = outerNode->outputs()[i];
+        if (liveValues_.count(outerOutput) != 0U) {
           liveValues_.insert(innerOutput);
         }
       }
@@ -198,7 +198,7 @@ class DeadCodeEliminator {
   bool mark(Block* block) {
     bool anyMarked = false;
     // Mark all nodes with side effects.
-    for (auto node : block->nodes()) {
+    for (auto* node : block->nodes()) {
       if (sideEffectPolicy_ ==
               DCESideEffectPolicy::DONT_DELETE_NODES_WITH_SIDE_EFFECTS &&
           hasSideEffects(node)) {
@@ -210,13 +210,13 @@ class DeadCodeEliminator {
     anyMarked |= markReturnNode(block->return_node());
 
     for (auto it = block->nodes().rbegin(); it != block->nodes().rend(); ++it) {
-      auto node = *it;
+      auto* node = *it;
       if (node->kind() == prim::Loop) {
         // Special casing for loops, see comment in markLoop.
         anyMarked |= markLoop(node);
       } else {
         // Other nodes with sub-blocks get marked normally.
-        for (auto subBlock : node->blocks()) {
+        for (auto* subBlock : node->blocks()) {
           anyMarked |= mark(subBlock);
         }
       }
@@ -228,8 +228,8 @@ class DeadCodeEliminator {
   // If we output or write to a live memory location, mark this node
   // Returns true iff this marked something we haven't marked before.
   bool markIfLive(Node* node) {
-    for (const auto output : node->outputs()) {
-      if (liveValues_.count(output)) {
+    for (auto* const output : node->outputs()) {
+      if (liveValues_.count(output) != 0U) {
         return mark(node);
       }
     }
@@ -247,7 +247,7 @@ class DeadCodeEliminator {
   // value sets.
   // Returns true iff this marked something we haven't marked before.
   bool mark(Node* node) {
-    if (marked_.count(node)) {
+    if (marked_.count(node) != 0U) {
       return false;
     }
 
@@ -255,9 +255,9 @@ class DeadCodeEliminator {
 
     // Mark all nodes in this node's blockchain (since owning nodes are
     // considered live if they contain a live node)
-    auto curNode = node;
-    while (curNode) {
-      if (!curNode->owningBlock()) {
+    auto* curNode = node;
+    while (curNode != nullptr) {
+      if (curNode->owningBlock() == nullptr) {
         break;
       }
 
@@ -265,8 +265,8 @@ class DeadCodeEliminator {
       curNode = curNode->owningBlock()->owningNode();
     }
 
-    for (const auto input : node->inputs()) {
-      if (liveValues_.count(input)) {
+    for (auto* const input : node->inputs()) {
+      if (liveValues_.count(input) != 0U) {
         continue;
       }
       liveValues_.insert(input);
@@ -278,7 +278,7 @@ class DeadCodeEliminator {
   void sweep(Block* block, bool recurse) {
     auto nodes = block->nodes().reverse();
     for (auto it = nodes.begin(); it != nodes.end(); it++) {
-      auto node = *it;
+      auto* node = *it;
       // note these occur before the recursion because we want to uncover
       // dead code in the blocks used to calculate the output
       removeDeadBlockOutputs(node);
@@ -292,7 +292,7 @@ class DeadCodeEliminator {
       // valid, as a node in grad_desc.f might be used in reverse_block.
       // Reverse_block is inlined in grad_desc.f before it's separated
       // to grad_desc.df.
-      if (!(marked_.count(node) || node->hasUses())) {
+      if (marked_.count(node) == 0U && !node->hasUses()) {
         PT_BRIDGE_DEBUG(
             "Node ",
             it->kind().toQualString(),
@@ -319,8 +319,8 @@ class DeadCodeEliminator {
       // onnx export calls EliminateDeadCode but sometimes passes invalid
       // aten operators. So we call maybeSchema so we handle the cases when
       // there is no valid schema for a node
-      auto schema = node->maybeSchema();
-      return schema && schema->is_mutable();
+      const auto* schema = node->maybeSchema();
+      return schema != nullptr && schema->is_mutable();
     } else {
       return getOrCreateAliasDb()->writesToWildcard(node);
     }
@@ -328,8 +328,9 @@ class DeadCodeEliminator {
 
   bool hasSideEffects(Node* node) {
     auto it = memo_.find(node);
-    if (it != memo_.end())
+    if (it != memo_.end()) {
       return it->second;
+    }
     bool has_side_effects = node->hasSideEffects() ||
         std::any_of(node->blocks().begin(),
                     node->blocks().end(),
@@ -374,9 +375,10 @@ class DeadCodeEliminator {
   }
 
   void removeDeadLoopOutputs(Node* node) {
-    if (node->kind() != prim::Loop)
+    if (node->kind() != prim::Loop) {
       return;
-    auto loop_body = node->blocks().at(0);
+    }
+    auto* loop_body = node->blocks().at(0);
     auto loop_input_offset = 2; // offset of loop carried deps in input list
     auto loop_body_offset =
         1; // offset to the loop carried dependencies in block inputs/outputs
@@ -399,7 +401,7 @@ class DeadCodeEliminator {
       size_t i,
       size_t loop_input_offset,
       size_t loop_body_offset) {
-    auto loop_body = node->blocks().at(0);
+    auto* loop_body = node->blocks().at(0);
     PT_BRIDGE_DEBUG(
         "Dead ",
         loop_input_offset + i,

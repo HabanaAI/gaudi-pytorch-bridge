@@ -14,6 +14,16 @@
  */
 
 #include "cache_file_handler.h"
+
+#include <cstddef>
+#include <cstdint>
+#include <cstdio>
+#include <cstdlib>
+#include <filesystem>
+#include <mutex>
+#include <stdexcept>
+#include <string>
+
 #include <fcntl.h>
 #include <sys/file.h>
 #include <unistd.h>
@@ -40,7 +50,7 @@ std::string metadata_file_path(
 }
 
 std::string insert_temp_prefix_filename(std::string const& path) {
-  fs::path file_path{path};
+  std::filesystem::path file_path{path};
   file_path.replace_filename(
       file_path.filename().string().insert(0, TEMP_FILE_PREFIX));
   return file_path.string();
@@ -55,7 +65,7 @@ CacheFileHandler::CacheFileHandler(const RecipeCacheConfig& recipe_cache_config)
   maxFolderSize = maxFolderSize * 1024 * 1024;
 
   const char* s_local_rank = std::getenv("LOCAL_RANK");
-  if (s_local_rank) {
+  if (s_local_rank != nullptr) {
     try {
       local_rank = std::stoi(s_local_rank);
     } catch (const std::invalid_argument& e) {
@@ -66,7 +76,7 @@ CacheFileHandler::CacheFileHandler(const RecipeCacheConfig& recipe_cache_config)
   }
 
   const char* s_rank = std::getenv("RANK");
-  if (s_rank) {
+  if (s_rank != nullptr) {
     try {
       rank = std::stoi(s_rank);
     } catch (const std::invalid_argument& e) {
@@ -77,23 +87,24 @@ CacheFileHandler::CacheFileHandler(const RecipeCacheConfig& recipe_cache_config)
   }
 
   cache_path = recipe_cache_config.path();
-  fs::path dir_path{cache_path};
-  HABANA_ASSERT(fs::exists(dir_path), "Recipe cache path is expected");
+  std::filesystem::path dir_path{cache_path};
+  HABANA_ASSERT(
+      std::filesystem::exists(dir_path), "Recipe cache path is expected");
   if (recipe_cache_config.delete_on_init()) {
     if (local_rank == 0) {
       try {
-        auto de = fs::directory_iterator{dir_path};
-        while (de != fs::end(de)) {
+        auto de = std::filesystem::directory_iterator{dir_path};
+        while (de != std::filesystem::end(de)) {
           PT_HABHELPER_DEBUG(
               CACHEFILE_LOG,
               "Cleaning: ",
               Logger::_str_wrapper(de->path()),
               ", Rank: ",
               getRank());
-          fs::remove(de->path());
+          std::filesystem::remove(de->path());
           de++;
         }
-      } catch (fs::filesystem_error& err) {
+      } catch (std::filesystem::filesystem_error& err) {
         PT_HABHELPER_DEBUG(
             CACHEFILE_LOG,
             "Exception in cache removal on init, Please delete manually: ",
@@ -122,17 +133,13 @@ bool CacheFileHandler::fileLock(int fd, bool block) {
   auto flags = LOCK_EX | (block ? 0 : LOCK_NB);
 
   auto retVal = flock(fd, flags);
-  if (retVal == -1) {
-    return false;
-  }
-
-  return true;
+  return retVal != -1;
 }
 
 bool CacheFileHandler::fileLock(int fd, bool block, size_t& size) {
-  if (!fileLock(fd, block))
+  if (!fileLock(fd, block)) {
     return false;
-
+  }
   size = static_cast<size_t>(lseek(fd, 0, SEEK_END));
   lseek(fd, 0, SEEK_SET);
 
@@ -143,16 +150,14 @@ void CacheFileHandler::addFileInfo(
     const std::string& recipe_file_path,
     const std::string& metadata_file_path) {
   // Get filename, extract real size, and add
-  HABANA_ASSERT(fs::exists(recipe_file_path) && fs::exists(metadata_file_path));
+  HABANA_ASSERT(
+      std::filesystem::exists(recipe_file_path) &&
+      std::filesystem::exists(metadata_file_path));
 
-#if !defined __GNUC__ || __GNUC__ >= 8
-  fs::directory_entry de1{recipe_file_path};
-  fs::directory_entry de2{metadata_file_path};
+  std::filesystem::directory_entry de1{recipe_file_path};
+  std::filesystem::directory_entry de2{metadata_file_path};
   uint64_t size = de1.file_size() + de2.file_size();
-#else
-  uint64_t size =
-      fs::file_size(recipe_file_path) + fs::file_size(metadata_file_path);
-#endif
+
   PT_HABHELPER_DEBUG(
       CACHEFILE_LOG,
       "Adding: ",
@@ -174,9 +179,9 @@ int CacheFileHandler::openAndLockFile(
     bool block,
     size_t& size) {
   int fd = CacheFileHandler::fileOpen(fname, flags);
-  if (fd < 0)
+  if (fd < 0) {
     return fd;
-
+  }
   if (!CacheFileHandler::fileLock(fd, block, size)) {
     CacheFileHandler::fileClose(fd);
     return -1;

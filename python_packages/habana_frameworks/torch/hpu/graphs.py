@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -74,7 +74,7 @@ class HPUGraph:
         """
         _hpu_C.replay(self.hpu_graph, [], asynchronous)
 
-    def replay_with_inputs(self, tlistI: list[torch.Tensor] = [], asynchronous=False):
+    def replay_with_inputs(self, tlistI: list[torch.Tensor] | None = None, asynchronous=False):
         r"""
         Replays the HPU work captured by this graph.
 
@@ -84,6 +84,8 @@ class HPUGraph:
             asynchronous (bool): If True, replay will be done asynchronously, main thread returns immediately after queing replay.
             Defaults to False.
         """
+        if tlistI is None:
+            tlistI = []
         _hpu_C.replay(self.hpu_graph, tlistI, asynchronous)
 
     def replayV2(
@@ -549,7 +551,7 @@ def input_hash(obj):
         # torch.Size is specialization of tuple, so we don't want extra recursion.
         return hash((tuple(input_hash(el) for el in obj), torch.hpu.is_autocast_hpu_enabled()))
     elif torch.is_tensor(obj):
-        return hash((obj.shape, _hpu_C.get_view_hash(obj), torch.hpu.is_autocast_hpu_enabled()))
+        return hash((obj.dtype, obj.shape, _hpu_C.get_view_hash(obj), torch.hpu.is_autocast_hpu_enabled()))
     elif isinstance(obj, collections.UserDict):
         return hash(tuple((k, tuple(input_hash(v_el) for v_el in v)) for k, v in obj.items()))
     elif is_dataclass(obj):
@@ -721,11 +723,10 @@ def wrapped_hpugraph_forward(
                 tinfo_list = [get_tensor_info(t) for t in tlist]
                 tlist = cached_tlist + tlist
                 graph.mark_user_outputs(tlist, free_inplace)
-                saved_inputs = []
-                for i in range(len(input_tensor_list)):
-                    if i not in matched_input_index:
-                        saved_inputs.append(input_tensor_list[i])
-                graph_inputs = tuple(saved_inputs)
+
+                graph_inputs = tuple(
+                    input_tensor_list[i] for i in range(len(input_tensor_list)) if i not in matched_input_index
+                )
                 if dry_run:
                     graph.replayV3(get_user_input_tensor_list(inputs, ()), asynchronous)
 
@@ -756,11 +757,9 @@ def wrapped_hpugraph_forward(
             cached.graph.replay(asynchronous)
     else:
         matched_input_index = cached.graph.get_user_input_match_indices()
-        saved_inputs = []
-        for i in range(len(input_tensor_list)):
-            if i not in matched_input_index:
-                saved_inputs.append(input_tensor_list[i])
-        graph_inputs = tuple(saved_inputs)
+        graph_inputs = tuple(
+            input_tensor_list[i] for i in range(len(input_tensor_list)) if i not in matched_input_index
+        )
         copy_to(cached.graph_inputs, graph_inputs)
         cached.graph.replayV3(input_tensor_list, cached.asynchronous)
     out = cached.graph_outputs
@@ -910,7 +909,7 @@ def wrap_in_hpu_graph(
         cache.clear()
 
     def clear_inputs():
-        for _, cached in cache.items():
+        for cached in cache.values():
             cached.graph.clear_inputs()
 
     def log_statistics():

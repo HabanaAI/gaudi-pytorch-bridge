@@ -18,6 +18,7 @@ import contextlib
 import os
 import threading
 import warnings
+from types import TracebackType
 from typing import Any
 
 from habana_frameworks.torch import _hpu_C
@@ -49,7 +50,6 @@ from .random import *
 from .sdp_kernel_flag import *
 from .streams import *
 
-_device_t = torch.device | str | int | None
 _initialized = False
 _tls = threading.local()
 _initialization_lock = threading.Lock()
@@ -122,7 +122,7 @@ def is_available() -> bool:
     return device_count() > 0
 
 
-def get_device_name(device: _device_t | None = None) -> str:
+def get_device_name(device: Device = None) -> str:
     r"""Gets the name of a device.
 
     Args:
@@ -281,13 +281,10 @@ def is_matmul3d_2d_reshape_enabled():
 
 def is_bf16_supported():
     r"""Check if bf16 is supported."""
-    if is_available():
-        return True
-    else:
-        return False
+    return is_available()
 
 
-def get_device_capability(device: _device_t | None = None) -> str:
+def get_device_capability(device: Device = None) -> str:
     if not is_available():
         warnings.warn("Device not available")
         return ""
@@ -299,7 +296,7 @@ def get_device_capability(device: _device_t | None = None) -> str:
     return _hpu_C.get_device_capability()
 
 
-def get_device_properties(device: _device_t | None = None) -> str:
+def get_device_properties(device: Device = None) -> str:
     if not is_available():
         warnings.warn("Device not available")
         return ""
@@ -311,7 +308,7 @@ def get_device_properties(device: _device_t | None = None) -> str:
     return _hpu_C.get_device_properties(device)
 
 
-def can_device_access_peer(device: _device_t, peer_device: _device_t) -> bool:
+def can_device_access_peer(device: Device, peer_device: Device) -> bool:
     if not is_available():
         warnings.warn("Device not available")
         return ""
@@ -325,10 +322,7 @@ def can_device_access_peer(device: _device_t, peer_device: _device_t) -> bool:
         raise AssertionError(f"Invalid device id : {peer_device}")
     if device == peer_device:
         raise AssertionError("Both the ids are same.")
-    if device <= count and peer_device <= count:
-        return True
-    else:
-        return False
+    return device <= count and peer_device <= count
 
 
 def get_gencode_flags() -> str:
@@ -345,7 +339,7 @@ def get_arch_list() -> list[str]:
     return arch_list
 
 
-def set_device(device: _device_t) -> None:
+def set_device(device: Device) -> None:
     r"""Sets the current device"""
     device_idx = _get_device_index(device, optional=True)
     # hack to match torch.cuda API
@@ -412,7 +406,7 @@ class device:
         if self.idx != self.prev_idx:
             set_device(self.idx)
 
-    def __exit__(self, type: Any, value: Any, traceback: Any):
+    def __exit__(self, type: type[BaseException] | None, value: BaseException | None, traceback: TracebackType | None):
         if self.prev_idx not in (self.idx, -1):
             set_device(self.idx)
         return False
@@ -456,7 +450,7 @@ def utilization(device: Device | int | None = None) -> int:
     try:
         import pyhlml  # type: ignore[import]
     except ModuleNotFoundError:
-        raise ModuleNotFoundError("pyhlml module not found, please install pyhlml")
+        raise ModuleNotFoundError("pyhlml module not found, please install pyhlml") from None
     pyhlml.hlmlInit()
     pyhlml_device = pyhlml.hlmlDeviceGetHandleByIndex(device_idx)
     usage = pyhlml.hlmlDeviceGetUtilizationRates(pyhlml_device)

@@ -82,8 +82,9 @@ bool ivaluesEqual(const IValue& a1, const IValue& a2);
 bool attributesEqual(
     const std::vector<at::Tensor>& lhs,
     const std::vector<at::Tensor>& rhs) {
-  if (lhs.size() != rhs.size())
+  if (lhs.size() != rhs.size()) {
     return false;
+  }
   return std::equal(lhs.begin(), lhs.end(), rhs.begin(), tensorEqual);
 }
 
@@ -184,22 +185,25 @@ bool attributesEqualCSE(const Node* lhs, const Node* rhs) {
   HABANA_ASSERT(lhs != nullptr);
   HABANA_ASSERT(rhs != nullptr);
   // One has attributes, the other does not.
-  if (lhs->hasAttributes() != rhs->hasAttributes())
+  if (lhs->hasAttributes() != rhs->hasAttributes()) {
     return false;
+  }
   // Neither has attributes.
-  if (!lhs->hasAttributes() && !rhs->hasAttributes())
+  if (!lhs->hasAttributes() && !rhs->hasAttributes()) {
     return true;
+  }
 
   auto lnames = lhs->attributeNames();
   auto rnames = rhs->attributeNames();
   std::sort(lnames.begin(), lnames.end());
   std::sort(rnames.begin(), rnames.end());
-  if (lnames != rnames)
+  if (lnames != rnames) {
     return false;
-
+  }
   for (auto name : lnames) {
-    if (lhs->kindOf(name) != rhs->kindOf(name))
+    if (lhs->kindOf(name) != rhs->kindOf(name)) {
       return false;
+    }
 
 #define COMPARE_ATTRIBUTEVALUE(selector)                            \
   case AttributeKind::selector: {                                   \
@@ -276,37 +280,41 @@ size_t HashNode::operator()(const Node* k) const {
 // Checks that two nodes have the same inputs, output types
 // and node attributes.
 bool EqualNode::operator()(const Node* lhs, const Node* rhs) const {
-  if (lhs == nullptr && rhs == nullptr)
+  if (lhs == nullptr && rhs == nullptr) {
     return true;
-  if (lhs == nullptr || rhs == nullptr)
+  }
+  if (lhs == nullptr || rhs == nullptr) {
     return false;
-
-  if (lhs->kind() != rhs->kind())
+  }
+  if (lhs->kind() != rhs->kind()) {
     return false;
-
+  }
   // Check whether the output types are the same.
   auto lhs_outputs = lhs->outputs();
   auto rhs_outputs = rhs->outputs();
-  if (lhs_outputs.size() != rhs_outputs.size())
+  if (lhs_outputs.size() != rhs_outputs.size()) {
     return false;
+  }
   for (const auto i : c10::irange(lhs_outputs.size())) {
     const auto& lt = lhs_outputs[i]->type();
     const auto& rt = rhs_outputs[i]->type();
-    if (!(lt == rt || *lt == *rt))
+    if (!(lt == rt || *lt == *rt)) {
       return false;
+    }
   }
 
   // Check whether the inputs are the same.
   auto lhs_inputs = lhs->inputs();
   auto rhs_inputs = rhs->inputs();
-  if (lhs_inputs.size() != rhs_inputs.size())
+  if (lhs_inputs.size() != rhs_inputs.size()) {
     return false;
-  if (!std::equal(lhs_inputs.begin(), lhs_inputs.end(), rhs_inputs.begin()))
+  }
+  if (!std::equal(lhs_inputs.begin(), lhs_inputs.end(), rhs_inputs.begin())) {
     return false;
-
-  if (!attributesEqualCSE(lhs, rhs))
+  }
+  if (!attributesEqualCSE(lhs, rhs)) {
     return false;
-
+  }
   // Check if the blocks contained in a op are the same
   if (lhs->blocks().size() != rhs->blocks().size()) {
     return false;

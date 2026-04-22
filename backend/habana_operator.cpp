@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@
 #include "backend/synapse_helpers/device.h"
 #include "backend/synapse_helpers/layout_utils.h"
 #include "habana_helpers/logging.h"
+#include "habana_helpers/misc_utils.h"
 #include "hpu_ops/hpu_op_helper.h"
 #include "hpu_ops/op_logger.h"
 
@@ -228,9 +229,9 @@ static void compile_and_run(
   }
 }
 void habana::HabanaOperator::Compile(synapse_helpers::graph& graph) {
-  if (lazy_to_backend::is_lazy_inference_call_context())
+  if (lazy_to_backend::is_lazy_inference_call_context()) {
     return;
-
+  }
   // compile the graph
   compile_and_run(
       std::move(graph),
@@ -296,7 +297,7 @@ void habana::HabanaOperator::Execute(
 
 void habana::HabanaOperator::SetPTInputs(
     const std::vector<at::Tensor>& inputs) {
-  for (auto& input : inputs) {
+  for (const auto& input : inputs) {
     p_context_->pt_inputs_.emplace_back(input);
   }
 }
@@ -319,7 +320,7 @@ void habana::HabanaOperator::SetPTOutputs(
     const std::vector<at::Tensor>& outputs) {
   HABANA_ASSERT(!outputs.empty(), "Outputs cannot be null");
 
-  for (auto& output : outputs) {
+  for (const auto& output : outputs) {
     p_context_->pt_outputs_.emplace_back(output);
   }
 }
@@ -344,8 +345,9 @@ synapse_helpers::tensor& habana::HabanaOperator::AllocateSynapseInput(
   PT_BRIDGE_TRACE;
   if (input.scalar_type() == c10::ScalarType::Long &&
       !common::IsInt64Supported()) {
-    auto tmeta{habana::get_tensor_extra_meta(input)};
-    if (tmeta && tmeta->is_view_tensor() && input.storage_offset() &&
+    auto* tmeta{habana::get_tensor_extra_meta(input)};
+    if (tmeta != nullptr && tmeta->is_view_tensor() &&
+        input.storage_offset() != 0 &&
         guid_.find("gather_elements_fwd") != std::string::npos) {
       auto* impl = input.unsafeGetTensorImpl();
       impl->set_storage_and_dtype(
@@ -356,6 +358,15 @@ synapse_helpers::tensor& habana::HabanaOperator::AllocateSynapseInput(
     if (p_context_->is_duplicate_input_) {
       size_t syn_offset =
           static_cast<size_t>(input.storage_offset()) * input.itemsize();
+      // ZSTs shouldn't have offsets, as this could result in a memory section
+      // filled only with ZSTs having non-zero offsets, which Synapse does not
+      // support
+      if (habana::is_ZST(input)) {
+        syn_offset = 0;
+        PT_BRIDGE_DEBUG(
+            "ZST input detected for duplicate input, reset offset in section");
+      }
+
       auto sizes = input.sizes().vec();
       auto strides = input.strides().vec();
       synapse_helpers::layouts::MemoryPermutation permutation;
@@ -390,7 +401,7 @@ void habana::HabanaOperator::AllocateSynapseInputs(
     synapse_helpers::graph& graph,
     const std::vector<at::Tensor>& inputs,
     bool is_persistent) {
-  for (auto& input : inputs) {
+  for (const auto& input : inputs) {
     AllocateSynapseInput(graph, input, is_persistent);
   }
 }
@@ -443,7 +454,16 @@ void habana::HabanaOperator::AllocateSynapseOutput(
     const at::Tensor& output,
     const OutputMetaData& output_metadata,
     bool is_shape_tensor) {
-  if (is_shape_tensor == false) {
+  if (is_shape_tensor) {
+    p_context_->syn_outputs_.emplace_back(
+        habana_helpers::create_shape_tensor_backend(
+            output,
+            graph,
+            output_metadata.persistent,
+            DEVICE_SHAPE_TENSOR,
+            is_op_dynamic,
+            output_metadata.name));
+  } else {
     if (guid_.find("cast_packed_nf4_from") != std::string::npos &&
         output.scalar_type() == c10::ScalarType::Byte) {
       p_context_->syn_outputs_.emplace_back(
@@ -468,15 +488,6 @@ void habana::HabanaOperator::AllocateSynapseOutput(
               output_metadata.module_name + '.' +
                   std::to_string(p_context_->syn_outputs_.size())));
     }
-  } else {
-    p_context_->syn_outputs_.emplace_back(
-        habana_helpers::create_shape_tensor_backend(
-            output,
-            graph,
-            output_metadata.persistent,
-            DEVICE_SHAPE_TENSOR,
-            is_op_dynamic,
-            output_metadata.name));
   }
   p_context_->pt_outputs_.emplace_back(output);
 }
@@ -489,7 +500,16 @@ void habana::HabanaOperator::AllocateSynapseOutput(
     bool is_shape_tensor) {
   std::vector<int64_t> min_shape;
   std::vector<int64_t> max_shape;
-  if (is_shape_tensor == false) {
+  if (is_shape_tensor) {
+    p_context_->syn_outputs_.emplace_back(
+        habana_helpers::create_shape_tensor_backend(
+            output,
+            graph,
+            output_metadata.persistent,
+            DEVICE_SHAPE_TENSOR,
+            is_op_dynamic,
+            output_metadata.name));
+  } else {
     p_context_->syn_outputs_.emplace_back(
         habana_helpers::create_tensor(
             output,
@@ -499,15 +519,6 @@ void habana::HabanaOperator::AllocateSynapseOutput(
             synType,
             output_metadata.name,
             output_metadata.module_name));
-  } else {
-    p_context_->syn_outputs_.emplace_back(
-        habana_helpers::create_shape_tensor_backend(
-            output,
-            graph,
-            output_metadata.persistent,
-            DEVICE_SHAPE_TENSOR,
-            is_op_dynamic,
-            output_metadata.name));
   }
   p_context_->pt_outputs_.emplace_back(output);
 }
@@ -544,7 +555,7 @@ void habana::HabanaOperator::AllocateSynapseOutputs(
       outputs.size() == output_metadata.size(),
       "#output should match #output_metadata");
   for (unsigned int i = 0; i < outputs.size(); ++i) {
-    auto& output = outputs.at(i);
+    const auto& output = outputs.at(i);
     AllocateSynapseOutput(graph, output, output_metadata.at(i), false);
   }
 }
@@ -625,7 +636,7 @@ void habana::HabanaOperator::AddNodeToSynapseGraph(
   if (!kernel_meta_data_.tpc_input_order.empty()) {
     auto no_inputs = kernel_meta_data_.tpc_input_order.size() == 1 &&
         NO_INPUTS == kernel_meta_data_.tpc_input_order[0];
-    if (no_inputs == false) {
+    if (!no_inputs) {
       for (auto index : kernel_meta_data_.tpc_input_order) {
         HABANA_ASSERT(index < p_context_->syn_inputs_.size());
         auto& tensor = SynInput(index).ref();
@@ -794,8 +805,8 @@ synapse_helpers::tensor& habana::HabanaOperator::AllocateSeed(
 }
 
 habana::RegisterKernel& habana::KernelRegistry() {
-  static auto* Registry = new habana::RegisterKernel();
-  return *Registry;
+  static auto registry{habana::RegisterKernel()};
+  return registry;
 }
 
 habana::HabanaOperator::~HabanaOperator() = default;
@@ -956,8 +967,9 @@ OutputMetaDataVector SelectVectorIndices(
   OutputMetaDataVector result;
   result.reserve(indices.size());
   for (auto index : indices) {
-    if (index < src.size())
+    if (index < src.size()) {
       result.push_back(src.at(index));
+    }
   }
   HABANA_ASSERT(result.size() == indices.size());
   return result;

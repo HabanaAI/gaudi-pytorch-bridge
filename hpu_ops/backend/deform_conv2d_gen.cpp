@@ -43,8 +43,8 @@ OutputMetaDataVector DeformConv2dOutputMeta(const at::Stack& stack) {
   const int64_t weight_h = weight.size(2);
   const int64_t weight_w = weight.size(3);
 
-  int64_t ker_h = dilation_h * (weight_h - 1) + 1;
-  int64_t ker_w = dilation_w * (weight_w - 1) + 1;
+  int64_t ker_h = (dilation_h * (weight_h - 1)) + 1;
+  int64_t ker_w = (dilation_w * (weight_w - 1)) + 1;
   int64_t out_h = ((in_h + 2 * pad_h - ker_h) / stride_h) + 1;
   int64_t out_w = ((in_w + 2 * pad_w - ker_w) / stride_w) + 1;
 

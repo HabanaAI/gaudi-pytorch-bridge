@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,16 +22,13 @@ from statistics import mean
 import habana_frameworks.torch.internal.bridge_config as bc
 from habana_frameworks.torch.utils.event_dispatcher import EventDispatcher, EventId
 
-from .exceptions import MetricNotFound
+from .exceptions import MetricNotFoundError
 from .saver import MetricDumpFormat, MetricDumpTrigger, MetricSaver
 
 
 def bool_helper(value):
     value = value.lower()
-    if value in ("y", "yes", "t", "true", "on", "1"):
-        return True
-    else:
-        return False
+    return value in ("y", "yes", "t", "true", "on", "1")
 
 
 class MetricManager:
@@ -85,7 +82,7 @@ class MetricManager:
         if name in self._metrics_types:
             return self._metrics_types[name]()
         else:
-            raise MetricNotFound(f"Metric with given name ({name}) doesn't exist.")
+            raise MetricNotFoundError(f"Metric with given name ({name}) doesn't exist.")
 
     def _at_exit_callback(self):
         def dev_acquired_event_callback_fn(event_params):

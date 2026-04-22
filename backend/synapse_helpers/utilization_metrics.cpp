@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025 Intel Corporation
+ * Copyright (c) 2025-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -51,14 +51,14 @@ LibLoader::~LibLoader() {
 void LibLoader::loadLibrary() {
   std::lock_guard<std::mutex> guard(libMutex);
   handle = dlopen(libPath_.c_str(), RTLD_LOCAL | RTLD_NOW);
-  if (!handle) {
+  if (handle == nullptr) {
     PT_SYNHELPER_FATAL("synDeviceGetInfo failed '", libPath_, "': ", dlerror());
   }
 }
 
 void LibLoader::unloadLibrary() {
   std::lock_guard<std::mutex> guard(libMutex);
-  if (handle) {
+  if (handle != nullptr) {
     dlclose(handle);
     handle = nullptr;
   }
@@ -293,8 +293,9 @@ void StreamUtilizationMetric::resume() {
 
 double StreamUtilizationMetric::getUtilization() const {
   std::lock_guard<std::mutex> lock(mutex_);
-  if (totalTime_ == 0)
+  if (totalTime_ == 0) {
     return 0.0;
+  }
   return static_cast<double>(totalTime_ - idleTime_) /
       static_cast<double>(totalTime_) * 100.0;
 }

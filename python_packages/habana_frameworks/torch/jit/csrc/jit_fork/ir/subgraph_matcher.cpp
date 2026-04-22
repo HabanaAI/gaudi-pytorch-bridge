@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,7 +38,7 @@ namespace {
  */
 class SubgraphMatcher {
  public:
-  explicit SubgraphMatcher(const Graph& pattern) : pattern_(pattern) {}
+  explicit SubgraphMatcher(const Graph* pattern) : pattern_(pattern) {}
 
   /**
    * \brief Compare matchGraph with the part of the graph denoted by a node \p
@@ -72,7 +72,7 @@ class SubgraphMatcher {
   std::unordered_map<const Node*, Node*> nodes_map_;
   std::unordered_map<const Value*, Value*> values_map_;
 
-  const Graph& pattern_;
+  const Graph* pattern_;
   const Node* anchor_ = nullptr;
 };
 
@@ -111,7 +111,7 @@ bool SubgraphMatcher::isOutput(const Value* v) {
  */
 bool SubgraphMatcher::matchValues(const Value* v1, Value* v2) {
   // Check if we've already visited these values.
-  if (values_map_.count(v1)) {
+  if (values_map_.count(v1) != 0U) {
     if (values_map_.at(v1) != v2) {
       PT_BRIDGE_DEBUG(
           "Values %",
@@ -282,7 +282,7 @@ bool endsWith(const std::string& str, const std::string& suffix) {
  */
 bool SubgraphMatcher::matchNodes(const Node* n1, Node* n2) {
   // Check if we've already visited these nodes.
-  if (nodes_map_.count(n1)) {
+  if (nodes_map_.count(n1) != 0U) {
     return nodes_map_.at(n1) == n2;
   }
 
@@ -372,14 +372,14 @@ bool SubgraphMatcher::matchesSubgraphFromAnchorNode(Node* anchor) {
   values_map_.clear();
   anchor_ = anchor;
 
-  const Node* bottom_node = *(pattern_.nodes().end());
+  const Node* bottom_node = *(pattern_->nodes().end());
   bottom_node = bottom_node->input(0)->node();
 
   if (!matchNodes(bottom_node, anchor)) {
     return false;
   }
 
-  for (const Value* output : pattern_.outputs()) {
+  for (const Value* output : pattern_->outputs()) {
     HABANA_ASSERT(values_map_.count(output));
   }
   PT_BRIDGE_DEBUG("Pattern matched!\n");
@@ -395,7 +395,7 @@ std::vector<Match> findPatternMatches(const Graph& pattern, Graph& graph) {
   PT_BRIDGE_DEBUG("Pattern graph: ", &pattern);
   PT_BRIDGE_DEBUG("Target graph: ", &graph);
 
-  SubgraphMatcher m(pattern);
+  SubgraphMatcher m(&pattern);
   std::vector<Match> matches;
   std::stack<Block*> blocks_to_visit;
 

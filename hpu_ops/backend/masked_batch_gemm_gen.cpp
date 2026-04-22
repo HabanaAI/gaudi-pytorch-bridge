@@ -73,10 +73,11 @@ OutputMetaDataVector MaskedBatchGemmMeta(const at::Stack& stack) {
       mask_b.dim(),
       "D");
 
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.shape = out_shapes[0];
   meta.dtype = a.scalar_type();
-  return {meta};
+  return metaVec;
 }
 
 FillParamsT FillMaskedBatchGemmParams(const at::Stack& stack) {

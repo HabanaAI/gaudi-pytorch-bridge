@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ static std::vector<int> get_params_vector(
   std::vector<int> result;
   int first = at::native::safe_downcast<int, int64_t>(params[0]);
   int dims = is_3d ? 3 : 2;
+  result.reserve(dims);
   for (int i = 0; i < dims; i++) {
     result.push_back(
         params.size() == 1

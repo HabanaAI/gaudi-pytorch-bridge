@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,7 +36,7 @@ synapse_error_v<std::shared_ptr<session>> session::get_or_create() {
     auto status = synInitialize();
     SYNAPSE_SUCCESS_CHECK("Session initialization failed.", status);
     // std::make_shared cannot access private ctor
-    session_ptr.reset(new session());
+    session_ptr.reset(new session()); // NOLINT(cppcoreguidelines-owning-memory)
     opened_session = session_ptr;
   }
 

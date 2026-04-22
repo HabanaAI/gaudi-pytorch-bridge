@@ -51,7 +51,7 @@ bool IShape::isTensor() {
   return type == IShapeType::TENSOR_SHAPE;
 }
 
-bool IShape::IsUpdated() {
+bool IShape::IsUpdated() const {
   return updated;
 }
 

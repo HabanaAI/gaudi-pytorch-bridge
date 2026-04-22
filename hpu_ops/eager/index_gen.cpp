@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -61,7 +61,7 @@ HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(eager::EagerOp, IndexOutFE, at::Tensor&) {
     indices_in = indices_in_orig;
   }
 
-  at::Tensor self_permuted = self;
+  const at::Tensor& self_permuted = self;
   std::vector<int64_t> self_permute_dims;
   if (advanced_indexing) {
     // If indices for the given dim are not initialized or their values
@@ -95,19 +95,21 @@ HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(eager::EagerOp, IndexOutFE, at::Tensor&) {
         dims_permuted, num_index_tensors_int, self_permute_dims, indices_vec) =
         generate_advanced_indexing_indices_list(inputs_vec);
     num_index_tensors = safe_convert<size_t>(num_index_tensors_int);
-    if (dims_permuted)
-      for (const auto i : c10::irange(num_index_tensors))
+    if (dims_permuted) {
+      for (const auto i : c10::irange(num_index_tensors)) {
         advanced_indexing_present.emplace_back(
             safe_convert<int>(i) >= num_explicit_indices);
-    else if (num_explicit_indices > 0)
-      for (const auto i : c10::irange(num_index_tensors))
+      }
+    } else if (num_explicit_indices > 0) {
+      for (const auto i : c10::irange(num_index_tensors)) {
         advanced_indexing_present.emplace_back(
             (safe_convert<int>(i) < index_tensor_group_start) ||
             (safe_convert<int>(i) > index_tensor_group_end));
-
-    for (size_t i = num_index_tensors; i < indices_in.size(); i++)
+      }
+    }
+    for (size_t i = num_index_tensors; i < indices_in.size(); i++) {
       advanced_indexing_present.emplace_back(true);
-
+    }
   } else { // advanced indexing end
     for (auto input : indices_in) {
       auto o1 = input.toOptional<at::Tensor>();

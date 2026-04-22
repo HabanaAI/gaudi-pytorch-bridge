@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,10 +21,11 @@ OutputMetaDataVector AddReluTensorMeta(const at::Stack& stack) {
   auto self = stack_tensor(stack, 0);
   auto other = stack_tensor(stack, 1);
 
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.dtype = self.scalar_type();
   meta.shape = at::infer_size(self.sizes(), other.sizes());
-  return {meta};
+  return metaVec;
 }
 
 } // namespace habana

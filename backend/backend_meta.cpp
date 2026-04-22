@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,21 +20,22 @@
 #include "backend/jit_graph_cache.h"
 #include "backend_meta.h"
 #include "common/utils.h"
+#include "habana_helpers/misc_utils.h"
 #include "habana_kernels/kernel_utils.h"
 #include "pytorch_helpers/habana_helpers/python_utils.h"
 
 namespace habana {
 
 TensorExtraMeta::~TensorExtraMeta() {
-  if (!HPUDeviceContext::is_device_acquired())
+  if (!HPUDeviceContext::is_device_acquired()) {
     return;
-
+  }
   auto& device = HPUDeviceContext::get_device();
-  if (get_alloc_ptr()) {
+  if (get_alloc_ptr() != nullptr) {
     if (get_alloc_ptr() == get_host_ptr()) {
       device.get_host_memory().uncached_free(get_alloc_ptr());
     }
-  } else if (get_host_ptr()) {
+  } else if (get_host_ptr() != nullptr) {
     device.get_host_memory().free(get_host_ptr());
     device.get_host_memory().free(get_compile_host_ptr());
   }
@@ -100,10 +101,10 @@ void TensorExtraMeta::prepare_const_tensor(
     const at::Tensor& tensor,
     bool is_const_tensor,
     bool relax) {
-  auto tmeta{get_tensor_extra_meta(tensor, relax)};
-  if (tmeta == nullptr)
+  auto* tmeta{get_tensor_extra_meta(tensor, relax)};
+  if (tmeta == nullptr) {
     return;
-
+  }
   tmeta->set_is_const_tensor(is_const_tensor);
   PT_LAZY_DEBUG(
       "constant section host_ptr : ",
@@ -166,7 +167,7 @@ bool TensorExtraMeta::is_h2d_not_reciprocal() const {
 TensorExtraMeta* allocate_tensor_extra_meta(at::TensorImpl& impl) {
   HABANA_ASSERT(
       impl.get_backend_meta() == nullptr, "Meta is already assigned.");
-  auto new_meta{new habana::TensorExtraMeta()};
+  auto* new_meta{new habana::TensorExtraMeta()};
   auto meta =
       c10::intrusive_ptr<BaseTensorExtraMeta>::unsafe_steal_from_new(new_meta);
   impl.set_backend_meta(meta);
@@ -196,7 +197,7 @@ habana::HPUAllocationContext* get_hpu_alloc_context(
     return nullptr;
   }
 
-  auto alloc_ctx = reinterpret_cast<habana::HPUAllocationContext*>(
+  auto* alloc_ctx = reinterpret_cast<habana::HPUAllocationContext*>(
       tensor_impl->storage().data_ptr().get_context());
   return alloc_ctx;
 }
@@ -205,8 +206,8 @@ StorageExtraMeta* get_storage_extra_meta(
     const c10::TensorImpl* tensor_impl,
     at::optional<size_t> nbytes,
     bool is_contiguous) {
-  auto alloc_ctx = get_hpu_alloc_context(tensor_impl);
-  if (!alloc_ctx) {
+  auto* alloc_ctx = get_hpu_alloc_context(tensor_impl);
+  if (alloc_ctx == nullptr) {
     // i.e. when allocation is 0 bytes, we do not create HPUAllocationContext
     PT_BRIDGE_DEBUG(
         "Trying to get StorageExtraMeta from TensorImpl ",
@@ -214,7 +215,7 @@ StorageExtraMeta* get_storage_extra_meta(
         " without an Allocation Context. Returning nullptr..");
     return nullptr;
   }
-  auto tmeta = get_ctensor_extra_meta(*tensor_impl);
+  const auto* tmeta = get_ctensor_extra_meta(*tensor_impl);
   if (tmeta->has_nbytes_inference_valid()) {
     nbytes = tmeta->get_nbytes_inference();
   }
@@ -304,9 +305,9 @@ StorageExtraMeta* get_storage_extra_meta(const at::Tensor& tensor) {
 }
 
 StorageExtraMeta* get_storage_base_meta(const at::Tensor& tensor) {
-  auto tensor_impl = tensor.unsafeGetTensorImpl();
-  auto alloc_ctx = get_hpu_alloc_context(tensor_impl);
-  if (!alloc_ctx) {
+  auto* tensor_impl = tensor.unsafeGetTensorImpl();
+  auto* alloc_ctx = get_hpu_alloc_context(tensor_impl);
+  if (alloc_ctx == nullptr) {
     // i.e. when allocation is 0 bytes, we do not create HPUAllocationContext
     PT_BRIDGE_DEBUG(
         "Trying to get StorageBaseMeta from TensorImpl ",
@@ -319,21 +320,30 @@ StorageExtraMeta* get_storage_base_meta(const at::Tensor& tensor) {
 }
 
 bool is_view_lowering(const at::Tensor& tensor) {
-  auto tmeta{habana::get_tensor_extra_meta(tensor)};
-  if (tmeta == nullptr)
+  auto* tmeta{habana::get_tensor_extra_meta(tensor)};
+  if (tmeta == nullptr) {
     return false;
-  if (!tmeta->is_view_tensor())
+  }
+  if (!tmeta->is_view_tensor()) {
     return false;
-  if (tmeta->is_maybe_grad_view())
+  }
+  if (tmeta->is_maybe_grad_view()) {
     return false;
-  if (tensor.sizes() == 0)
+  }
+  if (habana::is_ZST(tensor)) {
+    return false;
+  }
+  if (tensor.sizes() == 0) {
     return true;
-  auto base_smeta{habana::get_storage_base_meta(tensor)};
-  if (base_smeta == nullptr)
+  }
+  auto* base_smeta{habana::get_storage_base_meta(tensor)};
+  if (base_smeta == nullptr) {
     return false;
-  auto smeta{habana::get_storage_extra_meta(tensor)};
-  if (smeta == nullptr)
+  }
+  auto* smeta{habana::get_storage_extra_meta(tensor)};
+  if (smeta == nullptr) {
     return false;
+  }
   return (
       !base_smeta->get_memory_permutation().empty() ||
       !smeta->get_memory_permutation().empty());
@@ -341,15 +351,15 @@ bool is_view_lowering(const at::Tensor& tensor) {
 
 std::vector<int64_t> get_base_tensor_size(const at::Tensor& tensor) {
   // check if it is a view output
-  auto smeta{habana::get_storage_extra_meta(tensor)};
-  if (smeta && !smeta->get_base_tensor_size().empty()) {
+  auto* smeta{habana::get_storage_extra_meta(tensor)};
+  if (smeta != nullptr && !smeta->get_base_tensor_size().empty()) {
     return smeta->get_base_tensor_size();
   }
 
   // check base meta
-  auto basemeta{habana::get_storage_base_meta(tensor)};
+  auto* basemeta{habana::get_storage_base_meta(tensor)};
 
-  if (basemeta && !basemeta->get_base_tensor_size().empty()) {
+  if (basemeta != nullptr && !basemeta->get_base_tensor_size().empty()) {
     return basemeta->get_base_tensor_size();
   }
 

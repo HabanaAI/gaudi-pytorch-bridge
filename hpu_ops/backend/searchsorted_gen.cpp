@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,10 +39,11 @@ OutputMetaDataVector SearchSortedMeta(const at::Stack& stack) {
       "and input value tensor ",
       outshape);
   bool out_int32 = stack.at(2).toBool();
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.shape = outshape;
   meta.dtype = out_int32 ? torch::kInt32 : torch::kLong;
-  return {meta};
+  return metaVec;
 }
 
 FillParamsT FillSearchSortedParams(const at::Stack& stack) {
@@ -52,7 +53,7 @@ FillParamsT FillSearchSortedParams(const at::Stack& stack) {
     right = stack.at(4).toStringView() == "right";
   }
 
-  params->right = right;
+  params->right = static_cast<int>(right);
   return paramsT;
 }
 

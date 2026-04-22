@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ struct RemoveDummyOutputPass {
   bool run() {
     auto outputs = m_graph->outputs();
     if (outputs.size() == 1) {
-      auto output_node = outputs[0]->node();
+      auto* output_node = outputs[0]->node();
       if (output_node->kind() == habana_torch::jit::prim::Constant) {
         HABANA_ASSERT(
             outputs[0]->uses().size() == 1,

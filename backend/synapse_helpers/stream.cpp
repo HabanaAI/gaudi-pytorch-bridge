@@ -43,9 +43,10 @@ stream::stream(class device& device, bool is_compute_stream)
   gc_worker_ = std::thread(&stream::gc_thread_proc, this);
   auto status =
       synStreamCreateGeneric(&handle_, device_.id(), STREAM_EMPTY_FLAGS);
-  if (synStatus::synSuccess != status)
+  if (synStatus::synSuccess != status) {
     PT_SYNHELPER_FATAL(
         Logger::formatStatusMsg(status), "Stream creation failed.");
+  }
   PT_SYNHELPER_DEBUG("Stream creation with handle: ", handle_);
 }
 
@@ -110,16 +111,18 @@ void stream::gc_thread_proc() {
 
 void stream::synchronize() {
   synStatus status = synStreamSynchronize(handle_);
-  if (synStatus::synSuccess != status)
+  if (synStatus::synSuccess != status) {
     PT_SYNHELPER_FATAL(
         Logger::formatStatusMsg(status), "synStreamSynchronize failed.");
+  }
 }
 
 synStatus stream::query() {
   synStatus status = synStreamQuery(handle_);
-  if (synStatus::synSuccess != status)
+  if (synStatus::synSuccess != status) {
     PT_SYNHELPER_DEBUG(
         Logger::formatStatusMsg(status), "synStreamSynchronize failed.");
+  }
   return status;
 }
 

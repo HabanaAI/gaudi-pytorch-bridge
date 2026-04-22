@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
  */
 
 #include "hpu_ops/roi_align.h"
+#include "backend/habana_operator.h"
 #include "hpu_ops/hpu_op_helper.h"
 
 namespace habana {
@@ -100,13 +101,14 @@ void RoiAlign::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 }
 
 OutputMetaDataVector ComputeRoiAlignBackwardMetadata(const at::Stack& stack) {
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.shape.reserve(4);
   for (size_t i = 5; i < 9; ++i) {
     meta.shape.push_back(stack[i].toInt());
   }
   meta.dtype = stack[0].toTensor().scalar_type();
-  return {meta};
+  return metaVec;
 }
 
 RoiAlignBackward::RoiAlignBackward(int device_id, c10::ScalarType scalar_type)
@@ -151,7 +153,7 @@ void RoiAlignBackward::AddNode(
       "Sampling ratio exceeds maximum value for int.");
   roi_params.sampling_ratio = static_cast<int>(sampling_ratio);
   roi_params.spatial_scale = static_cast<float>(spatial_scale);
-  roi_params.aligned = aligned;
+  roi_params.aligned = static_cast<int>(aligned);
   roi_params.isValidCount = false;
 
   SetSynapseLayouts(

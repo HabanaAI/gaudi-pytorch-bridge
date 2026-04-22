@@ -20,14 +20,15 @@ namespace sh = synapse_helpers;
 namespace habana {
 
 OutputMetaDataVector ScaledMmMeta(const at::Stack& stack) {
-  OutputMetaData output_meta;
+  OutputMetaDataVector metaVec(1);
+  auto& output_meta = metaVec.front();
   const auto& mat1 = stack[0].toTensor();
   const auto mat2_shape = stack[1].toTensor().sizes();
   output_meta.shape = {mat1.sizes()[0], mat2_shape[1]};
   output_meta.dtype =
       stack[6].toOptional<c10::ScalarType>().value_or(mat1.scalar_type());
 
-  return {output_meta};
+  return metaVec;
 }
 
 SharedMetaDataVector ScaledMmSharedMeta(
@@ -49,7 +50,9 @@ SharedMetaDataVector ScaledMmSharedMeta(
       ? SharedMetaTensor(scale_result.dim(), scale_result.scalar_type())
       : optional_meta;
 
-  SharedMetaData meta_gemm{"fp8_gemm"};
+  SharedMetaDataVector meta;
+  meta.reserve(1);
+  auto& meta_gemm = meta.emplace_back("fp8_gemm");
   meta_gemm.inputs_data = {
       {2, mat1_dtype},
       {2, mat2_dtype},
@@ -59,7 +62,7 @@ SharedMetaDataVector ScaledMmSharedMeta(
       scale_result_meta};
   meta_gemm.outputs_data = {{2, out_dtype}};
 
-  return {meta_gemm};
+  return meta;
 }
 
 void ScaledMm::AddNode(sh::graph& graph, const at::Stack& stack) {

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,16 +42,11 @@ TEST_F(TensorUsage, Clone) {
   torch::Tensor A_clone = A.clone().detach();
 
   PT_TEST_DEBUG("PTI_DBG :: data addr : ", V.data());
-  PRINT_TENSOR_WITH_DATA(A);
-  PRINT_TENSOR_WITH_DATA(A_clone);
   EXPECT_EQ(allclose(A, A_clone, 0.01, 0.01), true);
 
   for (size_t i{0}; i < V.size(); i++) {
     V[i] *= 1111;
   }
-
-  PRINT_TENSOR_WITH_DATA(A);
-  PRINT_TENSOR_WITH_DATA(A_clone);
 
   EXPECT_NE(allclose(A, A_clone, 0.01, 0.01), true);
 }

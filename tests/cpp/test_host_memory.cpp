@@ -131,6 +131,7 @@ class HostMemoryTest : public ::testing::Test {
     allocated_blocks.clear();
   }
 
+ private:
   std::shared_ptr<MockDeviceInterface> device;
 };
 

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ namespace {
 /**
  * Distinguishes between various cases for control edges.
  */
-enum class ControlEdgeType {
+enum class ControlEdgeType : std::uint8_t {
   /**
    * Is not a control edge.
    */
@@ -90,9 +90,9 @@ bool IsValidBlockingOrBlockedNode(
   // exclude control edges
   auto node_str = std::string_view{blocking_node->kind().toQualString()};
   auto c_edge = NodeRequiresControlEdge(blocking_node);
-  return not(
-      (c_edge == ControlEdgeType::Default) || (node_str == "prim::Param"sv) ||
-      (node_str == "prim::Return"sv));
+  return (
+      (c_edge != ControlEdgeType::Default) && (node_str != "prim::Param"sv) &&
+      (node_str != "prim::Return"sv));
 }
 
 /**
@@ -137,7 +137,7 @@ bool IsCustomOptimizer(const std::string_view node_str) {
           "hpu::optimizer_adamw"sv,
           "hpu::optimizer_lamb_phase1"sv,
           "hpu::optimizer_lamb_phase2"sv};
-  auto it = std::find(
+  const auto* it = std::find(
       custom_optimizer_nodestr_vec.begin(),
       custom_optimizer_nodestr_vec.end(),
       node_str);
@@ -265,7 +265,7 @@ GraphAffinityAnalyzer::GraphAffinityAnalyzer(
 bool GraphAffinityAnalyzer::IsControlEdgeCycle(
     const habana_torch::jit::Node* const blocked_node,
     const std::vector<habana_torch::jit::Node*>& blocking_nodes_vec) const {
-  for (auto& blocking_node : blocking_nodes_vec) {
+  for (const auto& blocking_node : blocking_nodes_vec) {
     // check if blocked node is an ancestor of blocking node
     HABANA_ASSERT(
         dfs_time_map_.find(blocking_node) != dfs_time_map_.end(),
@@ -291,6 +291,7 @@ bool GraphAffinityAnalyzer::IsControlEdgeCycle(
 bool GraphAffinityAnalyzer::IsAncestorOrDescendant(
     const habana_torch::jit::Node* const node1,
     const habana_torch::jit::Node* const node2) const {
+  // NOLINTNEXTLINE(readability-suspicious-call-argument)
   return (IsAncestor(node1, node2) || IsAncestor(node2, node1));
 }
 
@@ -298,12 +299,12 @@ void GraphAffinityAnalyzer::PreprocessControlEdges(
     const habana_torch::jit::Graph& graph) {
   PT_LAZY_TRACE;
 
-  for (auto input_val : graph.inputs()) {
+  for (const auto* input_val : graph.inputs()) {
     // initialize the first and second values for prim::param input nodes
     dfs_time_map_.insert(
         {input_val->node(), {0, std::numeric_limits<size_t>::max()}});
-    for (auto& u : input_val->uses()) {
-      auto node = u.user;
+    for (const auto& u : input_val->uses()) {
+      auto* node = u.user;
 
       if (dfs_time_map_.find(node) == dfs_time_map_.end()) {
         Dfs(node);
@@ -312,7 +313,7 @@ void GraphAffinityAnalyzer::PreprocessControlEdges(
   }
 
   // handle ops like full and arange that dont take input tensors
-  for (auto node : graph.nodes()) {
+  for (const auto* node : graph.nodes()) {
     if (dfs_time_map_.find(node) == dfs_time_map_.end()) {
       Dfs(node);
     }
@@ -322,9 +323,9 @@ void GraphAffinityAnalyzer::PreprocessControlEdges(
 void GraphAffinityAnalyzer::Dfs(const habana_torch::jit::Node* node) {
   dfs_time_map_[node].in = dfs_cnt_++;
 
-  for (auto& out : node->outputs()) {
-    for (auto& u : out->uses()) {
-      auto child_node = u.user;
+  for (const auto& out : node->outputs()) {
+    for (const auto& u : out->uses()) {
+      auto* child_node = u.user;
       if (dfs_time_map_.find(child_node) == dfs_time_map_.end()) {
         Dfs(child_node);
       }
@@ -491,7 +492,7 @@ void ControlEdgesProcessor::PrepareBlockingNodeList(
   for (int i = first_input; i < behind_last_input; i++) {
     const auto* const src_val = node->input(i);
     const auto& src_node_uses = src_val->uses();
-    for (auto& u : src_node_uses) {
+    for (const auto& u : src_node_uses) {
       auto* blocking_node = u.user;
       // Exclude current use in control_edge as well as parent node.
       if (IsValidBlockingOrBlockedNode(blocking_node)) {
@@ -529,7 +530,7 @@ void ControlEdgesProcessor::PrepareBlockingNodeList(
   */
   if (!IsControlEdgeTypeInplace(control_type)) {
     // Add the parent node as well.
-    auto parent_node = node->input(0)->node();
+    auto* parent_node = node->input(0)->node();
 
     // Ff the parent node is a list node, traverse one level up.
     if (jitgraph_utils::isListNode(parent_node)) {
@@ -555,20 +556,20 @@ void ControlEdgesProcessor::PrepareBlockingNodeList(
 void ControlEdgesProcessor::ProcessCustomOptControlEdges(
     habana_torch::jit::graph_node_list& graph_nodes) {
   // Find the custom optimizer node.
-  for (auto node : graph_nodes) {
-    auto node_str = node->kind().toQualString();
+  for (auto* node : graph_nodes) {
+    const auto* node_str = node->kind().toQualString();
     if (IsCustomOptimizer(node_str)) {
       auto blocked_syn_nodes_set = jit_to_synapse_node_idx_map_[node];
 
       using namespace std::literals;
       // Loop over all tensor list inputs.
-      for (auto in_val : node->inputs()) {
+      for (auto* in_val : node->inputs()) {
         if (std::string_view{in_val->node()->kind().toQualString()} ==
             "prim::ListConstruct"sv) {
           // Check if inputs of ListConstruct is a  control edge.
           auto list_idx = 0;
-          for (auto list_input_val : in_val->node()->inputs()) {
-            auto list_input_node = list_input_val->node();
+          for (auto* list_input_val : in_val->node()->inputs()) {
+            auto* list_input_node = list_input_val->node();
             auto c_edge = NodeRequiresControlEdge(list_input_node);
             if (c_edge != ControlEdgeType::None) {
               control_edge_has_been_added_ = true;
@@ -627,7 +628,7 @@ bool ControlEdgesProcessor::ProcessControlEdges() {
           auto dst_node_uses = node->output(0)->uses();
 
           for (auto& u : dst_node_uses) {
-            auto blocked_node = u.user;
+            auto* blocked_node = u.user;
 
             auto blocked_node_str =
                 std::string_view{blocked_node->kind().toQualString()};
@@ -696,9 +697,9 @@ void ControlEdgesProcessor::ProcessControlEdgesForMemoryReuse(
     const habana::control_edges::GraphAffinityAnalyzer& affinity_analysis,
     std::vector<habana_torch::jit::Node*>& blocking_nodes_vec) {
   for (const auto& p : memory_reuse_pairs_) {
-    auto blocked_node = p.second;
-    for (auto& u : p.first->uses()) {
-      auto blocking_node = u.user;
+    auto* blocked_node = p.second;
+    for (const auto& u : p.first->uses()) {
+      auto* blocking_node = u.user;
       if (IsValidBlockingOrBlockedNode(blocking_node) &&
           (!affinity_analysis.IsAncestorOrDescendant(
                blocking_node, blocked_node) &&
@@ -783,7 +784,7 @@ void ProcessStridedInsertAtOutput(
     is_reuse_input = true;
   }
 
-  if (is_reuse_input == false) {
+  if (!is_reuse_input) {
     OutputMetaDataVector md(1, outputs_metadata.at(0));
     md.at(0).persistent = true;
     habana_kernel->AllocateAndAddSynapseNode(syn_graph, input_stack, md);

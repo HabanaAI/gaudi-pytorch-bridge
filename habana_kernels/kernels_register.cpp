@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@
 #include "backend/helpers/habana_types.h"
 #include "common/dump_args.h"
 #include "generated/lazy/wrap_kernels_declarations.h"
-#include "habana_helpers/pt_version_check.h"
 #include "habana_kernels/basic_kernels.h"
 #include "habana_kernels/instance_norm_utils.h"
 #include "habana_kernels/lazy_kernels.h"
@@ -329,9 +328,7 @@ at::Tensor& hpu_wrap::_index_put_impl_(
       (self.scalar_type() != c10::ScalarType::BFloat16) &&
       (self.scalar_type() != c10::ScalarType::Float8_e5m2) &&
       (self.scalar_type() != c10::ScalarType::Float8_e4m3fn) &&
-      !(self.scalar_type() == c10::ScalarType::Half &&
-        HPUDeviceContext::get_device().type() !=
-            synDeviceType::synDeviceGaudi)) {
+      (self.scalar_type() != c10::ScalarType::Half)) {
     return dispatch_fallback<ATEN_OP(_index_put_impl_)>::call(
         OpSupportLevel::Value::unsupported_dtype,
         PARAMS2(self, indices, values, accumulate, unsafe));
@@ -351,9 +348,8 @@ at::Tensor hpu_wrap::nonzero(const at::Tensor& self) {
       (self.scalar_type() != c10::ScalarType::Char) &&
       (self.scalar_type() != c10::ScalarType::BFloat16) &&
       (self.scalar_type() != c10::ScalarType::Bool) &&
+      (self.scalar_type() != c10::ScalarType::Half) &&
       !(self.scalar_type() == c10::ScalarType::Half &&
-        habana::HPUDeviceContext::get_device().type() !=
-            synDeviceType::synDeviceGaudi &&
         self.dim() >
             4)) { // self.dim()<=4 goes through cguid that doesn't support fp16
     return dispatch_fallback<ATEN_OP(nonzero)>::call(
@@ -779,11 +775,9 @@ Tensor hpu_wrap::softmax(
 
   if (computeDtype != at::ScalarType::Float &&
       computeDtype != at::ScalarType::BFloat16 &&
-      !((computeDtype == at::ScalarType::Half ||
-         computeDtype == at::ScalarType::Float8_e5m2 ||
-         computeDtype == at::ScalarType::Float8_e4m3fn) &&
-        habana::HPUDeviceContext::get_device().type() !=
-            synDeviceType::synDeviceGaudi)) {
+      computeDtype != at::ScalarType::Half &&
+      computeDtype != at::ScalarType::Float8_e5m2 &&
+      computeDtype != at::ScalarType::Float8_e4m3fn) {
     return dispatch_fallback<ATEN_OP2(softmax, int)>::call(
         OpSupportLevel::Value::unsupported_dtype, PARAMS2(self, dim, dtype));
   }
@@ -955,12 +949,12 @@ std::vector<at::Tensor> hpu_wrap::split(
     num_splits = std::max<int64_t>((dim_size + split_size - 1) / split_size, 1);
   }
 
-  std::vector<c10::SymInt> splits(num_splits);
+  std::vector<c10::SymInt> splits(static_cast<size_t>(num_splits));
   int64_t last_split_size = split_size - (split_size * num_splits - dim_size);
 
   for (int64_t i = 0; i < num_splits; ++i) {
     auto length = i < num_splits - 1 ? split_size : last_split_size;
-    splits[i] = c10::SymInt(length);
+    splits[static_cast<size_t>(i)] = c10::SymInt(length);
   }
 
   c10::SymIntArrayRef split_sizes(splits);
@@ -1169,7 +1163,14 @@ void optimizer_sgd_hpu_wrap(
     bool nesterov) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
-  optimizer_sgd_hpu_lazy(gradients, weights, lr, wd, mom, damp, nesterov);
+  optimizer_sgd_hpu_lazy(
+      gradients,
+      weights,
+      lr,
+      static_cast<float>(wd),
+      static_cast<float>(mom),
+      static_cast<float>(damp),
+      nesterov);
 }
 
 void optimizer_sgd_momentum_hpu_wrap(
@@ -1185,7 +1186,15 @@ void optimizer_sgd_momentum_hpu_wrap(
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   optimizer_sgd_momentum_hpu_lazy(
-      gradients, weights, momentum, epoch_num, lr, mom, wd, damp, nesterov);
+      gradients,
+      weights,
+      momentum,
+      epoch_num,
+      lr,
+      mom,
+      static_cast<float>(wd),
+      static_cast<float>(damp),
+      nesterov);
 }
 
 void optimizer_lars_hpu_wrap(
@@ -1255,7 +1264,7 @@ Tensor torchvision_nms_hpu_wrap(
       " iou_threshold=",
       to_string(iou_threshold));
 
-  return habana_nms_hpu_lazy(boxes, scores, iou_threshold);
+  return habana_nms_hpu_lazy(boxes, scores, static_cast<float>(iou_threshold));
 }
 
 Tensor batched_nms_hpu_wrap(
@@ -1658,7 +1667,8 @@ struct DropoutFunction : public Function<DropoutFunction> {
       return input * 0.0;
     }
     std::optional<at::Generator> gen = std::nullopt;
-    at::Tensor result1, result2;
+    at::Tensor result1;
+    at::Tensor result2;
     std::tie(result1, result2) = _fused_dropout(input, p, gen);
     ctx->save_for_backward({result2});
     return result1;
@@ -2061,8 +2071,6 @@ TORCH_LIBRARY(hpu, m) {
       {at::Tag::nondeterministic_seeded});
   m.def(
       "hpu::habana_random(Tensor seed, Tensor self, int low, int? high) -> Tensor");
-  m.def(
-      "hpu::block_softmax_adjustment(Tensor block_maxes, Tensor block_sums, Tensor block_groups, int batch_size, int[]? out_shape=None) -> Tensor");
 }
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {
@@ -2086,7 +2094,6 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::fp8_sdpa_recomp_fwd.scalar", fp8_sdpa_recomp_fwd_scalar_lazy);
   m.impl("hpu::fp8_sdpa_fwd", fp8_sdpa_fwd_wrap);
   m.impl("hpu::fp8_sdpa_recomp_bwd", fp8_sdpa_recomp_bwd_lazy);
-  m.impl("hpu::block_softmax_adjustment", block_softmax_adjustment_lazy);
   m.impl(
       "hpu::mixture_of_experts_fwd.fp8_fused",
       mixture_of_experts_fwd_fp8_fused_weights_lazy);

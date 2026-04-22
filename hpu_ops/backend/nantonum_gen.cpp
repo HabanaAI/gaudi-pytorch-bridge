@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 
+#include <iterator>
 #include "generated/backend/nan_to_num.h"
 #include "hpu_ops/shared_meta_common.h"
 
@@ -25,41 +26,45 @@ SharedMetaDataVector NanToNumSharedMeta(
   const auto dtype = self.scalar_type();
   const auto isIntegralType = c10::isIntegralType(dtype, true);
   const SharedMetaTensor commonTensor = {rank, dtype};
-  if (isIntegralType) {
-    SharedMetaData memcpySharedMeta{"memcpy"};
-    memcpySharedMeta.inputs_data = {commonTensor};
-    memcpySharedMeta.outputs_data = {commonTensor};
-    return {memcpySharedMeta};
-  }
-
   SharedMetaDataVector metaVec;
   metaVec.reserve(4);
+
+  if (isIntegralType) {
+    auto& memcpySharedMeta = metaVec.emplace_back("memcpy");
+    memcpySharedMeta.inputs_data = {commonTensor};
+    memcpySharedMeta.outputs_data = {commonTensor};
+    return metaVec;
+  }
+
   // Don't create a shared meta for a constant node, as it would disable SAG
   // flow. In fact, this node is always created with a shape {1}, which is
   // supported by SAG.
+  auto& isNanMeta = [&metaVec, &stack]() -> SharedMetaData& {
+    auto isNanMetaVec = IsFiniteInfNanSharedMeta(stack, "isnan_fwd");
+    return *metaVec.insert(
+        std::end(metaVec),
+        std::make_move_iterator(std::begin(isNanMetaVec)),
+        std::make_move_iterator(std::end(isNanMetaVec)));
+  }();
 
-  auto isNanMetaVec = IsFiniteInfNanSharedMeta(stack, "isnan_fwd");
-  metaVec.insert(
-      std::end(metaVec), std::begin(isNanMetaVec), std::end(isNanMetaVec));
-
-  auto isInfPosNegMetaVec = IsFiniteInfNanSharedMeta(stack, "isinf_fwd");
-  metaVec.insert(
-      std::end(metaVec),
-      std::begin(isInfPosNegMetaVec),
-      std::end(isInfPosNegMetaVec));
+  auto& isInfPosNegMeta = [&metaVec, &stack]() -> SharedMetaData& {
+    auto isInfPosNegMetaVec = IsFiniteInfNanSharedMeta(stack, "isinf_fwd");
+    return *metaVec.insert(
+        std::end(metaVec),
+        std::make_move_iterator(std::begin(isInfPosNegMetaVec)),
+        std::make_move_iterator(std::end(isInfPosNegMetaVec)));
+  }();
 
   SharedMetaTensor whereOutputTensor = {rank, c10::ScalarType::Bool};
-  SharedMetaData whereNanSharedMeta{"where_fwd"};
+  auto& whereNanSharedMeta = metaVec.emplace_back("where_fwd");
   whereNanSharedMeta.inputs_data = {
-      isNanMetaVec[0].outputs_data[0], commonTensor, commonTensor};
+      isNanMeta.outputs_data[0], commonTensor, commonTensor};
   whereNanSharedMeta.outputs_data = {whereOutputTensor};
-  metaVec.push_back(whereNanSharedMeta);
 
-  SharedMetaData wherePosNegSharedMeta{"where_fwd"};
+  auto& wherePosNegSharedMeta = metaVec.emplace_back("where_fwd");
   wherePosNegSharedMeta.inputs_data = {
-      isInfPosNegMetaVec[0].outputs_data[0], commonTensor, whereOutputTensor};
+      isInfPosNegMeta.outputs_data[0], commonTensor, whereOutputTensor};
   wherePosNegSharedMeta.outputs_data = {whereOutputTensor};
-  metaVec.push_back(wherePosNegSharedMeta);
 
   return metaVec;
 }

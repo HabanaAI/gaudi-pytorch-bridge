@@ -26,10 +26,11 @@ OutputMetaDataVector SumFp8Meta(const at::Stack& stack) {
   at::DimVector shape =
       at::meta::get_reduction_shape(stack_tensor(stack, 0), dims, keepdims);
 
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.dtype = out_dtype;
   meta.shape = std::vector<int64_t>(shape.begin(), shape.end());
-  return {meta};
+  return metaVec;
 }
 
 FillParamsT FillSumFp8Params(const at::Stack& stack) {

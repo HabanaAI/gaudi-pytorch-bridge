@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,12 +36,13 @@ static const std::unordered_map<std::string, std::string> inPlaceToOutOfPlace =
 };
 
 bool isInplaceOp(const torch::jit::Node* node) {
-  return node ? inPlaceToOutOfPlace.count(node->kind().toQualString()) != 0
-              : false;
+  return (node != nullptr)
+      ? inPlaceToOutOfPlace.count(node->kind().toQualString()) != 0
+      : false;
 }
 
 bool isControlNode(const torch::jit::Node* node) {
-  return node
+  return (node != nullptr)
       ? (node->kind().toQualString() == std::string("hpu::control_edge_"))
       : false;
 }
@@ -64,9 +65,9 @@ bool isGraphInput(
     return true;
   }
 
-  auto n = v->node();
-  if (n && !n->inputs().empty()) {
-    auto in = n->input(0);
+  const auto* n = v->node();
+  if ((n != nullptr) && !n->inputs().empty()) {
+    auto* in = n->input(0);
     if (checkOps(n) && isGraphInput(graph, in)) {
       return true;
     }
@@ -83,10 +84,10 @@ bool isGraphOutput(
     return true;
   }
 
-  for (auto& u : v->uses()) {
-    auto n = u.user;
-    if (n && checkOps(n) && !n->outputs().empty()) {
-      auto o = n->output(0);
+  for (const auto& u : v->uses()) {
+    auto* n = u.user;
+    if ((n != nullptr) && checkOps(n) && !n->outputs().empty()) {
+      auto* o = n->output(0);
       if (isGraphOutput(graph, o)) {
         return true;
       }
@@ -116,26 +117,23 @@ bool canReplaceOp(
     return false;
   }
 
-  auto in = node->input(0);
-  if (isInplaceOp(node) && !isGraphInput(graph, in)) {
-    return true;
-  }
-  return false;
+  auto* in = node->input(0);
+  return (isInplaceOp(node) && !isGraphInput(graph, in));
 }
 
 void replace_inplace_ops(
     std::shared_ptr<torch::jit::Graph>& graph,
     const std::vector<torch::jit::Node*>& nodes) {
-  for (auto& node : nodes) {
+  for (const auto& node : nodes) {
     if (nullptr == node) {
       continue;
     }
     torch::jit::WithInsertPoint insert_point(node);
 
     std::string kind = node->kind().toQualString();
-    std::string new_kind = inPlaceToOutOfPlace.at(kind);
+    const std::string& new_kind = inPlaceToOutOfPlace.at(kind);
 
-    auto new_node = graph->create(c10::Symbol::fromQualString(new_kind));
+    auto* new_node = graph->create(c10::Symbol::fromQualString(new_kind));
     new_node->addInput(node->input(0));
     for (size_t i = 1; i < node->inputs().size(); ++i) {
       new_node->addInput(node->input(i));
@@ -152,7 +150,7 @@ void replace_inplace_ops(
 void replace_inplace_ops(std::shared_ptr<torch::jit::Graph>& graph) {
   std::vector<torch::jit::Node*> inplace_ops;
 
-  for (auto node : graph->nodes()) {
+  for (auto* node : graph->nodes()) {
     if (canReplaceOp(graph, node)) {
       inplace_ops.emplace_back(node);
     }

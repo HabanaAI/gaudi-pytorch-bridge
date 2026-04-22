@@ -43,7 +43,6 @@ TEST_F(VarStd, var_out_keepdim) {
 
 TEST_F(VarStd, var_kfal5d) {
   GenerateInputs(1, {{5, 3, 3, 2, 2}});
-  torch::ScalarType dtype = torch::kFloat;
   std::vector<int64_t> dim = {0, 3};
 
   auto expected = torch::var(GetCpuInput(0), dim, at::Scalar(1), false);
@@ -54,7 +53,6 @@ TEST_F(VarStd, var_kfal5d) {
 
 TEST_F(VarStd, var_kfal3d) {
   GenerateInputs(1, {{3, 3, 2}});
-  torch::ScalarType dtype = torch::kFloat;
   std::vector<int64_t> dim = {0, 2};
 
   auto expected = torch::var(GetCpuInput(0), dim, at::Scalar(2), false);
@@ -65,7 +63,6 @@ TEST_F(VarStd, var_kfal3d) {
 
 TEST_F(VarStd, var_empty_dim) {
   GenerateInputs(1, {{5, 3, 3, 2, 2}});
-  torch::ScalarType dtype = torch::kFloat;
 
   auto expected = torch::var(
       GetCpuInput(0), std::optional<at::IntArrayRef>{}, at::Scalar(2));

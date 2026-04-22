@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,10 +40,11 @@ FillParamsT FillIndexFillParams(const at::Stack& stack) {
 OutputMetaDataVector IndexFillMeta(const at::Stack& stack) {
   const auto& input = stack.at(0).toTensor();
 
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.dtype = input.scalar_type();
   meta.shape = input.sizes().vec();
-  return {meta};
+  return metaVec;
 }
 
 SharedMetaDataVector IndexFillSharedMeta(
@@ -57,8 +58,10 @@ SharedMetaDataVector IndexFillSharedMeta(
   const auto indexDtype = index.scalar_type();
   const auto& value = stack.at(3);
 
-  SharedMetaData indexFillSharedMeta{"index_fill"};
-  indexFillSharedMeta.options.allowLongType = true;
+  SharedMetaDataVector meta;
+  meta.reserve(1);
+  auto& indexFillSharedMeta = meta.emplace_back("index_fill");
+  indexFillSharedMeta.options.allow_long_type = true;
 
   computeDtype = computeDtype == c10::ScalarType::Long ? c10::ScalarType::Int
                                                        : computeDtype;
@@ -67,7 +70,7 @@ SharedMetaDataVector IndexFillSharedMeta(
       {selfRank, computeDtype}, {indexRank, indexDtype}};
 
   if (value.isTensor()) {
-    const auto valueTensor = value.toTensor();
+    const auto& valueTensor = value.toTensor();
     const auto valueRank = valueTensor.dim();
     auto valueDtype = valueTensor.scalar_type();
 
@@ -82,7 +85,7 @@ SharedMetaDataVector IndexFillSharedMeta(
 
   indexFillSharedMeta.outputs_data.emplace_back(selfRank, computeDtype);
 
-  return {indexFillSharedMeta};
+  return meta;
 }
 
 void IndexFill::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
@@ -98,8 +101,9 @@ void IndexFill::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   }
 
   std::vector<synTensor> inputs = {syn_in(0), syn_in(1)};
-  if (!is_value_scalar)
+  if (!is_value_scalar) {
     inputs.push_back(syn_in(2));
+  }
 
   const auto params = FillIndexFillParams(stack);
 

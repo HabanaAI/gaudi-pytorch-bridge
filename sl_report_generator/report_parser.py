@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2024-2025 Intel Corporation
+# Copyright (c) 2024-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -75,7 +75,7 @@ def gen_doc(args):
                 "int4": True,
             }
             for item in items:
-                for type in supported_types.keys():
+                for type in supported_types:
                     if type not in ("float4", "int4"):
                         supported_types[type] &= item.second[type]
                 supported_types["float4"] &= item.second.fp4_support
@@ -127,7 +127,8 @@ def gen_doc(args):
 
     if not Path(args.path).parent.exists():
         Path(args.path).parent.mkdir(parents=True)
-    print(documentation, file=open(args.path + "/Pytorch_Operators.rst", "w"))
+    with open(args.path + "/Pytorch_Operators.rst", "w") as f:
+        print(documentation, file=f)
     if args.gen_custom_doc:
         custom_operators_documentation = doc_templates.CUSTOM_DOC_FILE.format(
             optimizer_operators=str.join("", doc_rows_by_namespace["torch.hpu.optimizer"]),
@@ -136,10 +137,11 @@ def gen_doc(args):
         custom_operators_documentation = "\n".join(
             line.rstrip() for line in custom_operators_documentation.splitlines()
         )
-        print(
-            custom_operators_documentation,
-            file=open(args.path + "/Pytorch_Custom_Operators.rst", "w"),
-        )
+        with open(args.path + "/Pytorch_Custom_Operators.rst", "w") as f:
+            print(
+                custom_operators_documentation,
+                file=f,
+            )
 
 
 if __name__ == "__main__":

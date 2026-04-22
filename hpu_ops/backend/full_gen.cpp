@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,14 +29,16 @@ OutputMetaDataVector FullMeta(const at::Stack& stack) {
   if (optionalDtype.has_value()) {
     dtype = optionalDtype.value();
   } else {
-    auto fillValue = stack.at(FILL_VALUE_INDEX);
-    if (fillValue.isBool())
+    const auto& fillValue = stack.at(FILL_VALUE_INDEX);
+    if (fillValue.isBool()) {
       dtype = torch::kBool;
-    else
+    } else {
       dtype = stack.at(FILL_VALUE_INDEX).isInt() ? torch::kLong : torch::kFloat;
+    }
   }
 
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.dtype = dtype;
   // convert tensor to shape vector
   if (stack.at(SIZE_INDEX).isTensor()) {
@@ -44,7 +46,7 @@ OutputMetaDataVector FullMeta(const at::Stack& stack) {
   } else {
     meta.shape = stack.at(SIZE_INDEX).toIntVector();
   }
-  return {meta};
+  return metaVec;
 }
 
 void FullBE::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {

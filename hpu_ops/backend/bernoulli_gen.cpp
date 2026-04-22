@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@ SharedMetaDataVector BernoulliSharedMeta(
   auto seedRank = 1;
   auto seedDtype = c10::ScalarType::Int;
   if (seed.isTensor()) {
-    auto seedTensor = seed.toTensor();
+    const auto& seedTensor = seed.toTensor();
     seedRank = safe_convert<int>(seedTensor.dim());
     seedDtype = seedTensor.scalar_type();
   }
@@ -42,12 +42,14 @@ SharedMetaDataVector BernoulliSharedMeta(
   auto pRank = p.dim();
   auto pDtype = p.scalar_type();
 
-  SharedMetaData bernoulliSharedMeta{"pt_bernoulli"};
+  SharedMetaDataVector meta;
+  meta.reserve(1);
+  auto& bernoulliSharedMeta = meta.emplace_back("pt_bernoulli");
   bernoulliSharedMeta.inputs_data = {
       {pRank, pDtype}, {seedRank, seedDtype}, {1, c10::ScalarType::Int}};
   bernoulliSharedMeta.outputs_data.emplace_back(pRank, pDtype);
 
-  return {bernoulliSharedMeta};
+  return meta;
 }
 
 SharedMetaDataVector BernoulliWithPSharedMeta(
@@ -56,7 +58,7 @@ SharedMetaDataVector BernoulliWithPSharedMeta(
   auto self = stack_tensor(stack, 0);
   auto selfRank = self.dim();
   auto selfDtype = self.scalar_type();
-  auto p = stack.at(1);
+  const auto& p = stack.at(1);
   auto seed = stack.at(2);
   std::optional<at::Tensor> seedOptionalTensor = std::nullopt;
   auto isSeedTensor = seed.isTensor();
@@ -78,12 +80,14 @@ SharedMetaDataVector BernoulliWithPSharedMeta(
   // it is not passed, due to the specificty of SharedLayer the first input must
   // be provided so that the precision type match. "P" tensor will be
   // casted self's dtype
-  SharedMetaData bernoulliSharedMeta{"pt_bernoulli"};
-  if (p.isScalar())
+  SharedMetaDataVector meta;
+  meta.reserve(1);
+  auto& bernoulliSharedMeta = meta.emplace_back("pt_bernoulli");
+  if (p.isScalar()) {
     bernoulliSharedMeta.inputs_data.emplace_back(selfRank, selfDtype);
-  else
+  } else {
     bernoulliSharedMeta.inputs_data.emplace_back(p.toTensor().dim(), selfDtype);
-
+  }
   if (seedHasValue) {
     auto seedRank = 1;
     auto seedDtype = c10::ScalarType::Int;
@@ -100,7 +104,7 @@ SharedMetaDataVector BernoulliWithPSharedMeta(
   bernoulliSharedMeta.inputs_data.emplace_back(1, c10::ScalarType::Int);
   bernoulliSharedMeta.outputs_data.emplace_back(selfRank, selfDtype);
 
-  return {bernoulliSharedMeta};
+  return meta;
 }
 
 using namespace std::literals;
@@ -136,8 +140,8 @@ static auto bernoulli_impl(
 
 void Bernoulli::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto outshape = stack_tensor(stack, 0).sizes();
-  auto p = syn_in(0); // self is p
-  auto seed = stack[1].isTensor() ? syn_in(1) : syn_seed();
+  auto* p = syn_in(0); // self is p
+  auto* seed = stack[1].isTensor() ? syn_in(1) : syn_seed();
   syn_out(0) = std::move(
       bernoulli_impl(this, graph, p, seed, outshape, ScalarType())[0]);
 }
@@ -146,8 +150,8 @@ void BernoulliOut::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   auto outshape = stack_tensor(stack, 0).sizes();
-  auto p = syn_in(0); // self is p
-  auto seed = syn_in(1);
+  auto* p = syn_in(0); // self is p
+  auto* seed = syn_in(1);
   syn_out(0) = std::move(
       bernoulli_impl(this, graph, p, seed, outshape, ScalarType())[0]);
 }
@@ -173,8 +177,8 @@ void BernoulliWithP::AddNode(
         params.size());
     syn_out(0) = std::move(bernoulli[0]);
   } else {
-    auto p = syn_in(1); // ignore self when p is present
-    auto seed = syn_in(2);
+    auto* p = syn_in(1); // ignore self when p is present
+    auto* seed = syn_in(2);
     syn_out(0) =
         std::move(bernoulli_impl(this, graph, p, seed, outshape, dtype)[0]);
   }

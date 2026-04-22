@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -153,9 +153,9 @@ std::tuple<std::vector<int64_t>, std::vector<int64_t>> ShapeInference::
     GetMinMaxShape(const uint64_t tensor_id) {
   std::vector<int64_t> min;
   std::vector<int64_t> max;
-  if (ShapeInference::m_shape_info) {
-    if (ShapeInference::m_shape_info->m_min_shapes.count(tensor_id) &&
-        ShapeInference::m_shape_info->m_max_shapes.count(tensor_id)) {
+  if (ShapeInference::m_shape_info != nullptr) {
+    if (ShapeInference::m_shape_info->m_min_shapes.count(tensor_id) != 0U &&
+        ShapeInference::m_shape_info->m_max_shapes.count(tensor_id) != 0U) {
       min = ShapeInference::m_shape_info->m_min_shapes.at(tensor_id).get_dims();
       max = ShapeInference::m_shape_info->m_max_shapes.at(tensor_id).get_dims();
     }

@@ -104,26 +104,28 @@ OutputMetaDataVector Avgpool2dMeta(const at::Stack& stack) {
   auto pad =
       stack.at(3).toListRef().empty() ? padding : stack.at(3).toIntVector();
   const bool ceil_mode = stack.at(4).toBool();
-  auto outshape = compute_pool_kernel_output_shape(
-      self, kernel_size, stride, pad, dilation, ceil_mode, false);
-  if (rank == 3)
-    outshape.erase(begin(outshape));
 
-  OutputMetaData meta;
-  meta.shape = outshape;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
+  meta.shape = compute_pool_kernel_output_shape(
+      self, kernel_size, stride, pad, dilation, ceil_mode, false);
+  if (rank == 3) {
+    meta.shape.erase(begin(meta.shape));
+  }
   meta.dtype = self.scalar_type();
 
-  return {meta};
+  return metaVec;
 }
 
 OutputMetaDataVector Avgpool2dBwdMeta(const at::Stack& stack) {
   auto self = stack.at(1).toTensor();
 
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.shape = self.sizes().vec();
   meta.dtype = self.scalar_type();
 
-  return {meta};
+  return metaVec;
 }
 
 SharedMetaDataVector AvgPool2dBwdSharedMeta(

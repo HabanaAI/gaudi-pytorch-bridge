@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2025 Intel Corporation
+# Copyright (c) 2025-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -31,5 +31,6 @@ def test_logger_dir_refresh():
 
     assert os.path.isdir(test_logs_dir), "New logs dir was not created."
     assert os.path.isfile(test_logs_dir + "pytorch_log.txt"), "Log file was not created."
-    assert test_string in open(test_logs_dir + "pytorch_log.txt").read(), "Log missing in log file."
+    with open(test_logs_dir + "pytorch_log.txt") as f:
+        assert test_string in f.read(), "Log missing in log file."
     shutil.rmtree(test_logs_dir)

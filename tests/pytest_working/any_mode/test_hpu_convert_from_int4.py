@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -315,10 +315,7 @@ def unpack_weight_cuda(qweight, bits, wf, group_size, cuda):
             wf.unsqueeze(-1),
         ).to(torch.int16 if bits == 8 else torch.int8)
         weight = torch.bitwise_and(weight, (2**bits) - 1)
-        if cuda:
-            weight = weight.reshape(-1, group_size, weight.shape[2])
-        else:
-            weight = weight.reshape(-1, weight.shape[2])
+        weight = weight.reshape(-1, group_size, weight.shape[2]) if cuda else weight.reshape(-1, weight.shape[2])
     else:
         raise NotImplementedError("Only 2,4,8 bits are supported.")
     return weight
@@ -485,10 +482,7 @@ def prepare_data(
     else:
         input_unpacked = torch.full(input.shape, 7, dtype=input.dtype)
     override_weight = input_unpacked is not None
-    if override_weight:
-        input_to_cuda = input_unpacked
-    else:
-        input_to_cuda = input
+    input_to_cuda = input_unpacked if override_weight else input
 
     return input_to_cuda, scale, zeros
 

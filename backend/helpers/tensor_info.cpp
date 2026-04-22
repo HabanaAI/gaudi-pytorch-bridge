@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,13 +28,15 @@
 void DMAInputGenerators::populateSeedTensor(
     const PtTensorInfo& ti,
     at::Tensor& dma_tensor) {
-  auto gen = torch::get_generator_or_default<torch::CPUGeneratorImpl>(
+  auto* gen = torch::get_generator_or_default<torch::CPUGeneratorImpl>(
       std::nullopt, habana::detail::getDefaultHPUGenerator());
 
   // Acquire lock when using random generators
   std::vector<int> seed_vec;
   std::lock_guard<std::mutex> lock(gen->mutex_);
-  for (size_t i = 0; i < ti.get_numel(); i++) {
+  const auto ti_numel = ti.get_numel();
+  seed_vec.reserve(ti_numel);
+  for (size_t i = 0; i < ti_numel; i++) {
     seed_vec.push_back((int)gen->random());
   }
 
@@ -75,7 +77,7 @@ void PtTensorInfo::populate_tinfo(
   mf_ = pt_tensor.suggest_memory_format();
   topts_ = pt_tensor.options();
 
-  auto tmeta{habana::get_tensor_extra_meta(pt_tensor)};
+  auto* tmeta{habana::get_tensor_extra_meta(pt_tensor)};
   std::tie(hb_internal_perm_, hb_dont_allow_permute_) =
       habana_helpers::get_tensor_memory_permutation(pt_tensor);
   hb_internal_lf_ = tmeta->get_tensor_layout();
@@ -120,7 +122,7 @@ PtTensorInfo::PtTensorInfo(
     const std::string& sn,
     const std::string& irn,
     const uint64_t tensor_id,
-    const synTensor handle,
+    synTensor handle,
     const synTensorType stt,
     DMAInputGeneratorType dma_gen_id)
     : orig_syn_handle_(handle) {
@@ -132,7 +134,7 @@ PtTensorInfo::PtTensorInfo(
     const std::string& sn,
     const ValPtr& vp,
     const uint64_t tensor_id,
-    const synTensor handle,
+    synTensor handle,
     const synTensorType stt,
     DMAInputGeneratorType dma_gen_id)
     : orig_syn_handle_(handle) {
@@ -145,7 +147,7 @@ PtTensorInfo::PtTensorInfo(
 PtTensorInfo::PtTensorInfo(
     const std::string& sn,
     const uint64_t tensor_id,
-    const synTensor handle,
+    synTensor handle,
     const synTensorType stt,
     const std::vector<int64_t> shape)
     : syn_name_(sn),

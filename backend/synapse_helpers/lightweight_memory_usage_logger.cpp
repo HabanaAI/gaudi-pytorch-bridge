@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -66,8 +66,9 @@ class MemMonitor : public MemMonitorBase {
   }
 
   ~MemMonitor() override {
-    if (!thread_.joinable())
+    if (!thread_.joinable()) {
       return;
+    }
     stop_thread_ = true;
     cv_.notify_one();
     thread_.join();
@@ -78,6 +79,7 @@ class MemMonitor : public MemMonitorBase {
     std::time_t current_time = std::time(nullptr);
     std::tm current_time_tm{};
     std::ignore = localtime_r(&current_time, &current_time_tm);
+    // NOLINTNEXTLINE(readability-magic-numbers,-warnings-as-errors)
     std::array<char, 25> strbuf;
     std::ignore = strftime(
         strbuf.data(), strbuf.size(), "%Y-%m-%dT%H_%M_%S", &current_time_tm);
@@ -97,7 +99,7 @@ class MemMonitor : public MemMonitorBase {
   }
 
  private:
-  const string output_file_name_ =
+  string output_file_name_ =
       output_file_name + GetTimeStamp() + output_file_ext;
   static const std::chrono::duration<int64_t> write_period_;
   static const uint64_t flush_interval_ = 60;
@@ -119,8 +121,9 @@ void MemMonitor<DataSource...>::thread_writer() {
   std::unique_lock<std::mutex> lock(mtx_);
   while (!stop_thread_) {
     cv_.wait_for(lock, write_period_, [this] { return stop_thread_.load(); });
-    if (stop_thread_)
+    if (stop_thread_) {
       return;
+    }
     print_data(data_sources_);
     if (--next_flush == 0) {
       ofs_.flush();
@@ -171,8 +174,9 @@ class RamStatistics {
     return std::atol(num.c_str());
   }
   void GetHeader(std::ostream& os) const {
-    for (auto& el : record_list_name_)
+    for (const auto& el : record_list_name_) {
       os << el << delimiter;
+    }
   }
   void GetData(std::ostream& os) {
     ifs.clear();
@@ -181,12 +185,14 @@ class RamStatistics {
     string mem_data;
     while (getline(ifs, mem_data)) {
       for (size_t i = 0; i < record_list_.size(); ++i) {
-        if (mem_data.rfind(record_list_[i]) != std::string::npos)
+        if (mem_data.rfind(record_list_[i]) != std::string::npos) {
           data_[i] = extract_num(mem_data);
+        }
       }
     }
-    for (auto el : data_)
+    for (auto el : data_) {
       os << el << delimiter;
+    }
   }
 
  private:
@@ -242,8 +248,9 @@ class InitMemMonitor {
   void setDevice(
       const synapse_helpers::pool_allocator::CoalescedStringentPooling*
           allocator_ptr) {
-    if (devstats_)
+    if (devstats_) {
       devstats_->setDevice(allocator_ptr);
+    }
   }
 
  private:
@@ -261,12 +268,14 @@ namespace synapse_helpers::LightweightMemoryMonitor {
 void setDevice(
     const synapse_helpers::pool_allocator::CoalescedStringentPooling*
         allocator_ptr) {
-  if (GET_ENV_FLAG_NEW(PT_ENABLE_LIGHTWEIGHT_MEMORY_USAGE_LOGGING))
+  if (GET_ENV_FLAG_NEW(PT_ENABLE_LIGHTWEIGHT_MEMORY_USAGE_LOGGING)) {
     get_mem_monitor().setDevice(allocator_ptr);
+  }
 }
 void resetDevice() {
-  if (GET_ENV_FLAG_NEW(PT_ENABLE_LIGHTWEIGHT_MEMORY_USAGE_LOGGING))
+  if (GET_ENV_FLAG_NEW(PT_ENABLE_LIGHTWEIGHT_MEMORY_USAGE_LOGGING)) {
     get_mem_monitor().setDevice(nullptr);
+  }
 }
 } // namespace synapse_helpers::LightweightMemoryMonitor
 

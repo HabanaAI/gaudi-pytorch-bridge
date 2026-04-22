@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@ sizes_vec SplitHpuOutputShape(const at::Stack& stack) {
   dim = at::maybe_wrap_dim(dim, self.dim(), /*wrap_scalar=*/true);
   auto orig_shape = self.sizes().vec();
   auto split_count = orig_shape[dim] / split_size;
-  auto split_remainder = orig_shape[dim] - split_size * split_count;
+  auto split_remainder = orig_shape[dim] - (split_size * split_count);
   auto split_shape = orig_shape;
   split_shape[dim] = split_size;
   sizes_vec out_shapes(split_count, split_shape);

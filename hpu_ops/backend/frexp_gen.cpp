@@ -21,14 +21,15 @@ OutputMetaDataVector FrexpMeta(const at::Stack& stack) {
   const auto& self = stack_tensor(stack, 0);
   const auto shape = self.sizes().vec();
 
-  OutputMetaData mantissaMeta;
-  OutputMetaData exponentMeta;
+  OutputMetaDataVector metaVec(2);
+  auto& mantissaMeta = metaVec[0];
+  auto& exponentMeta = metaVec[1];
   mantissaMeta.shape = exponentMeta.shape = shape;
 
   mantissaMeta.dtype = self.scalar_type();
   exponentMeta.dtype = c10::ScalarType::Int;
 
-  return {mantissaMeta, exponentMeta};
+  return metaVec;
 }
 
 c10::ScalarType GetKernelExponentType(const c10::ScalarType dtype) {
@@ -49,15 +50,18 @@ SharedMetaDataVector FrexpSharedMeta(
   auto outputType = inputType;
   const auto rank = input.dim();
 
-  if (c10::isIntegralType(inputType, true))
+  if (c10::isIntegralType(inputType, true)) {
     outputType = c10::ScalarType::Float;
+  }
 
   const auto exponentType = GetKernelExponentType(outputType);
 
-  SharedMetaData frexpSharedMeta{"frexp"};
+  SharedMetaDataVector frexpSharedMetaVec;
+  frexpSharedMetaVec.reserve(1);
+  auto& frexpSharedMeta = frexpSharedMetaVec.emplace_back("frexp");
   frexpSharedMeta.inputs_data.emplace_back(rank, inputType);
   frexpSharedMeta.outputs_data = {{rank, exponentType}, {rank, outputType}};
-  return {frexpSharedMeta};
+  return frexpSharedMetaVec;
 }
 
 void Frexp::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {

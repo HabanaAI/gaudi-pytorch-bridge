@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -48,7 +48,7 @@ std::string GetDynamicTensorName(
 template <typename T>
 std::vector<T> GetH2DTensorHostData(at::Tensor& tensor) {
   std::vector<T> host_data;
-  auto tmeta = get_tensor_extra_meta(tensor);
+  auto* tmeta = get_tensor_extra_meta(tensor);
   size_t data_size = tensor.sizes()[0];
   if (tmeta->get_tensor_type() == HOST_TO_DEVICE_TENSOR) {
     PT_EAGER_DEBUG("Read H2D data of size :", data_size);

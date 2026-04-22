@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,27 +29,28 @@ OutputMetaDataVector CtcLossMeta(const at::Stack& stack) {
   int64_t max_target_length =
       targets_sizes.size() > 1 ? targets_sizes.at(1) : targets_sizes.at(0);
 
-  OutputMetaData meta_n;
+  OutputMetaDataVector metaVec;
+  metaVec.reserve(2);
+  auto& meta_n = metaVec.emplace_back();
   meta_n.dtype = log_probs.scalar_type();
   meta_n.shape = std::vector<int64_t>{batch_size}; // N
 
   // Support for one output loss with reduction input for ctc_loss.Tensor
   if (stack.size() > 6) {
     auto reduction = stack.at(5).toInt();
-    if (reduction != 0)
+    if (reduction != 0) {
       meta_n.shape = std::vector<int64_t>{1};
-
-    return {meta_n};
+    }
   } else {
-    OutputMetaData meta_tns;
+    auto& meta_tns = metaVec.emplace_back();
     meta_tns.dtype = log_probs.scalar_type();
     meta_tns.shape = std::vector<int64_t>{
         input_sequence_length,
         batch_size,
-        2 * max_target_length + 1}; // (T, N, 2*S+1)
-
-    return {meta_n, meta_tns};
+        (2 * max_target_length) + 1}; // (T, N, 2*S+1)
   }
+
+  return metaVec;
 }
 
 SharedMetaDataVector CtcLossSharedMeta(
@@ -59,7 +60,9 @@ SharedMetaDataVector CtcLossSharedMeta(
   const auto& targets = stack_tensor(stack, 1);
   const auto dtype = logProbs.scalar_type();
 
-  SharedMetaData ctcLossSharedMeta{"ctc_loss_fwd"};
+  SharedMetaDataVector ctcLossSharedMetaVec;
+  ctcLossSharedMetaVec.reserve(1);
+  auto& ctcLossSharedMeta = ctcLossSharedMetaVec.emplace_back("ctc_loss_fwd");
   ctcLossSharedMeta.inputs_data = {
       {logProbs.dim(), dtype}, {targets.dim(), targets.scalar_type()}};
   if (stack.at(2).isTensor()) {
@@ -75,10 +78,10 @@ SharedMetaDataVector CtcLossSharedMeta(
   }
 
   ctcLossSharedMeta.outputs_data.emplace_back(1, c10::ScalarType::Float);
-  if (stack.size() < 7)
+  if (stack.size() < 7) {
     ctcLossSharedMeta.outputs_data.emplace_back(3, dtype);
-
-  return {ctcLossSharedMeta};
+  }
+  return ctcLossSharedMetaVec;
 }
 
 void CtcLoss::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
@@ -96,10 +99,11 @@ void CtcLoss::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
     zero_infinity = stack.at(6).toBool();
 
     auto reduction = stack.at(5).toInt();
-    if (reduction == 1)
+    if (reduction == 1) {
       reduction_mode = LossMode_t::LOSS_REDUCTION_MODE_MEAN;
-    else if (reduction == 2)
+    } else if (reduction == 2) {
       reduction_mode = LossMode_t::LOSS_REDUCTION_MODE_SUM;
+    }
   } else {
     zero_infinity = stack.at(5).toBool();
   }
@@ -111,7 +115,7 @@ void CtcLoss::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
       "Blank index must be in the range of int.");
   params.blankIndex = static_cast<int>(blank_index);
   params.reductionMode = reduction_mode;
-  params.zeroInfinity = zero_infinity;
+  params.zeroInfinity = static_cast<int>(zero_infinity);
 
   update_guid_dtype(guid_, log_probs.scalar_type());
 

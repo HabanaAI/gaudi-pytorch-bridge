@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,7 +42,7 @@ at::Tensor empty(
   TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
       layout_or_default(layout_opt) == at::Layout::Strided);
 
-  auto allocator = habana::getHABANADeviceAllocator();
+  auto* allocator = habana::getHABANADeviceAllocator();
   constexpr c10::DispatchKeySet hpu_ks(c10::DispatchKey::HPU);
   auto dtype = dtype_or_default(dtype_opt);
   HABANA_ASSERT(habana_helpers::is_supported_type(dtype));
@@ -79,7 +79,7 @@ at::Tensor empty_strided(
   TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
       layout_or_default(layout_opt) == at::Layout::Strided);
 
-  auto allocator = habana::getHABANADeviceAllocator();
+  auto* allocator = habana::getHABANADeviceAllocator();
   constexpr c10::DispatchKeySet hpu_ks(c10::DispatchKey::HPU);
   auto dtype = dtype_or_default(dtype_opt);
   HABANA_ASSERT(habana_helpers::is_supported_type(dtype));

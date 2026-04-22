@@ -49,11 +49,13 @@ SharedMetaDataVector HardShrinkFwdSharedMeta(
   auto rank = self.dim();
   float lambda = stack.at(1).toScalar().to<float>();
 
-  SharedMetaData hardShrinkFwdMeta{"memcpy"};
+  SharedMetaDataVector meta;
+  meta.reserve(1);
+  auto& hardShrinkFwdMeta = meta.emplace_back("memcpy");
   hardShrinkFwdMeta.guid = lambda < 0.0 ? "memcpy" : "shrink_fwd";
   hardShrinkFwdMeta.inputs_data.emplace_back(rank, dtype);
   hardShrinkFwdMeta.outputs_data = hardShrinkFwdMeta.inputs_data;
-  return {hardShrinkFwdMeta};
+  return meta;
 }
 
 SharedMetaDataVector HardShrinkBwdSharedMeta(
@@ -67,12 +69,14 @@ SharedMetaDataVector HardShrinkBwdSharedMeta(
   auto gradRank = grad.dim();
   float lambda = stack.at(2).toScalar().to<float>();
 
-  SharedMetaData hardShrinkBwdMeta{"memcpy"};
+  SharedMetaDataVector meta;
+  meta.reserve(1);
+  auto& hardShrinkBwdMeta = meta.emplace_back("memcpy");
   hardShrinkBwdMeta.guid = lambda < 0.0 ? "memcpy" : "shrink_bwd";
   hardShrinkBwdMeta.inputs_data = {
       {gradRank, gradDType}, {selfRank, selfDtype}};
   hardShrinkBwdMeta.outputs_data = {hardShrinkBwdMeta.inputs_data[1]};
-  return {hardShrinkBwdMeta};
+  return meta;
 }
 
 void HardShrinkFwd::AddNode(

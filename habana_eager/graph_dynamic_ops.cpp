@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,8 +30,9 @@ void GetValueAndScalarIndexFromInput(
     int64_t& value,
     int64_t& index,
     const bool setIndexWhenNegativeConstant) {
-  if (input == nullptr)
+  if (input == nullptr) {
     return;
+  }
   static const auto constant_symbol{
       c10::Symbol::fromQualString("prim::Constant")};
   static const auto value_attr{habana_torch::jit::Symbol::attr("value")};
@@ -39,12 +40,13 @@ void GetValueAndScalarIndexFromInput(
   if (input->node()->kind() == constant_symbol) {
     try {
       value = input->node()->i(value_attr);
-      if (value < 0 && setIndexWhenNegativeConstant)
+      if (value < 0 && setIndexWhenNegativeConstant) {
         index = value;
+      }
     } catch (std::exception& e) {
       value = 0;
     }
-  } else if (org_stack_index_map.count(in_name)) {
+  } else if (org_stack_index_map.count(in_name) != 0U) {
     index = org_stack_index_map[in_name];
     value = in_stack[static_cast<size_t>(index)].toScalar().toLong();
   } else {
@@ -77,7 +79,7 @@ void GetValuesAndScalarIndexesFromListConst(
       " node: ",
       *node);
 
-  auto value = node->output(0);
+  auto* value = node->output(0);
   auto opt_const_ivalue = habana_torch::jit::toIValue(value);
 
   if (opt_const_ivalue.has_value() && opt_const_ivalue.value().isIntList()) {
@@ -97,8 +99,9 @@ std::string GetRangeInfoExprFromInput(
     GraphInputIndexMap& org_stack_index_map,
     std::vector<habana_helpers::RangeInfo>* range_infos) {
   std::string value = "0";
-  if (input == nullptr)
+  if (input == nullptr) {
     return value;
+  }
   static const auto constant_symbol{
       c10::Symbol::fromQualString("prim::Constant")};
   static const auto value_attr{habana_torch::jit::Symbol::attr("value")};
@@ -118,7 +121,7 @@ std::string GetRangeInfoExprFromInput(
           " does not have value_attr set, treating the value as 0");
       value = "0";
     }
-  } else if (org_stack_index_map.count(in_name)) {
+  } else if (org_stack_index_map.count(in_name) != 0U) {
     auto index = org_stack_index_map[in_name];
     value = range_infos->at(static_cast<size_t>(index)).expr;
   } else {
@@ -144,7 +147,7 @@ std::vector<std::string> GetRangeInfoExprFromListConstruct(
       "input is not a ListConstruct, it is: ",
       node->kind().toQualString());
   std::vector<std::string> expr_values;
-  for (auto input : node->inputs()) {
+  for (auto* input : node->inputs()) {
     auto expr_value =
         GetRangeInfoExprFromInput(input, org_stack_index_map, range_infos);
     expr_values.push_back(expr_value);
@@ -168,7 +171,7 @@ std::vector<std::string> GetRangeInfoExprFromListConst(
       " node: ",
       *node);
 
-  auto value = node->output(0);
+  auto* value = node->output(0);
   std::vector<std::string> expr_values;
   auto opt_const_ivalue = habana_torch::jit::toIValue(value);
   if (opt_const_ivalue.has_value() && opt_const_ivalue.value().isIntList()) {
@@ -207,7 +210,7 @@ void GetValuesAndScalarIndexesFromListConstruct(
       "input is not a ListConstruct, it is: ",
       node->kind().toQualString());
 
-  for (auto input : node->inputs()) {
+  for (auto* input : node->inputs()) {
     int64_t input_idx = LONG_MAX;
     int64_t act_value = 0;
     GetValueAndScalarIndexFromInput(
@@ -224,9 +227,9 @@ habana_torch::jit::Node* CreateAndInsertDynamicNodeToGraph(
     c10::ArrayRef<habana_torch::jit::Value*> inputs,
     ValueIvalueMap& value_ivalue_map) {
   habana_torch::jit::WithInsertPoint insert_guard{aten_node};
-  auto hpu_node{graph->insertNode(graph->create(hpu_symbol, inputs, 0))};
+  auto* hpu_node{graph->insertNode(graph->create(hpu_symbol, inputs, 0))};
   size_t output_count = 0;
-  for (auto output : aten_node->outputs()) {
+  for (auto* output : aten_node->outputs()) {
     hpu_node->addOutput()->copyMetadata(output);
     output->replaceAllUsesAfterNodeWith(
         hpu_node, hpu_node->output(output_count));
@@ -239,7 +242,7 @@ habana_torch::jit::Node* CreateAndInsertDynamicNodeToGraph(
     if (aten_node->hasAttribute(symbol_outputshape)) {
       hpu_node->s_(symbol_outputshape, aten_node->s(symbol_outputshape));
     } else {
-      auto node_qual_str = aten_node->kind().toQualString();
+      const auto* node_qual_str = aten_node->kind().toQualString();
       PT_EAGER_DEBUG("Output Shape is missing for node = ", node_qual_str)
       hpu_node->s_(symbol_outputshape, "[[]]");
     }
@@ -376,11 +379,11 @@ bool RepeatOperatorDS::ReplaceWithDynamicHPUOp(
     ValueIvalueMap& value_ivalue_map,
     std::shared_ptr<DynamicGraphMetaData> m_dmeta) {
   HABANA_ASSERT(2 == aten_repeat_node->inputs().size());
-  auto v_repeat_shape = aten_repeat_node->inputs().at(1);
+  auto* v_repeat_shape = aten_repeat_node->inputs().at(1);
   static const auto hpu_repeat_symbol{
       c10::Symbol::fromQualString("hpu::repeat_ht")};
-  auto graph{aten_repeat_node->owningGraph()};
-  auto list_construct_node{v_repeat_shape->node()};
+  auto* graph{aten_repeat_node->owningGraph()};
+  auto* list_construct_node{v_repeat_shape->node()};
 
   // Step 1: Collect shape and scalar pos used in ListConstruct input node
   std::vector<int64_t> values;
@@ -402,7 +405,7 @@ bool RepeatOperatorDS::ReplaceWithDynamicHPUOp(
       habana_helpers::RangeInfo(
           {}, {}, GetExprFromString(expr_values), "INVALID", -2));
 
-  auto v_h2d_tensor = graph->addInput(repeat_h2d_name);
+  auto* v_h2d_tensor = graph->addInput(repeat_h2d_name);
 
   // Step3: Register patching function and tensor lists
   std::vector<int64_t> dtensor_indexes{stack_index};
@@ -465,8 +468,8 @@ bool TopkOperatorDS::ReplaceWithDynamicHPUOp(
     std::shared_ptr<DynamicGraphMetaData> m_dmeta) {
   HABANA_ASSERT(5 == aten_topk_node->inputs().size());
   static const auto hpu_topk_symbol{c10::Symbol::fromQualString("hpu::topk")};
-  auto v_k = aten_topk_node->inputs().at(1);
-  auto graph{aten_topk_node->owningGraph()};
+  auto* v_k = aten_topk_node->inputs().at(1);
+  auto* graph{aten_topk_node->owningGraph()};
 
   // Step 1: Collect shape and scalar pos K node
   int64_t scalar_idx = LONG_MAX;
@@ -479,7 +482,7 @@ bool TopkOperatorDS::ReplaceWithDynamicHPUOp(
   auto k_st_name = GetDynamicTensorName(v_k->debugName(), SHAPE_TENSOR);
   int64_t stack_index =
       CreateSTAndInsertToDSStack({act_value}, {scalar_idx}, {}, {}, m_dmeta);
-  auto v_st_tensor = graph->addInput(k_st_name);
+  auto* v_st_tensor = graph->addInput(k_st_name);
   auto expr =
       GetRangeInfoExprFromInput(v_k, org_stack_index_map, m_range_infos);
   m_range_infos->emplace_back(
@@ -523,9 +526,9 @@ bool SelectScatterOperatorDS::ReplaceWithDynamicHPUOp(
       c10::Symbol::fromQualString("hpu::select_scatter")};
 
   // 2 scalars: dim and index
-  auto dim = aten_select_scatter_node->inputs().at(2);
-  auto index = aten_select_scatter_node->inputs().at(3);
-  auto graph{aten_select_scatter_node->owningGraph()};
+  auto* dim = aten_select_scatter_node->inputs().at(2);
+  auto* index = aten_select_scatter_node->inputs().at(3);
+  auto* graph{aten_select_scatter_node->owningGraph()};
 
   // Step 1: Collect shape and scalar for index and dim node
   int64_t index_idx = LONG_MAX;
@@ -544,7 +547,7 @@ bool SelectScatterOperatorDS::ReplaceWithDynamicHPUOp(
   auto index_st_name = GetDynamicTensorName(index->debugName(), SHAPE_TENSOR);
   int64_t stack_index =
       CreateSTAndInsertToDSStack({index_value}, {index_idx}, {}, {}, m_dmeta);
-  auto index_st_tensor = graph->addInput(index_st_name);
+  auto* index_st_tensor = graph->addInput(index_st_name);
   auto expr =
       GetRangeInfoExprFromInput(index, org_stack_index_map, m_range_infos);
   m_range_infos->emplace_back(
@@ -554,7 +557,7 @@ bool SelectScatterOperatorDS::ReplaceWithDynamicHPUOp(
   auto dim_st_name = GetDynamicTensorName(dim->debugName(), SHAPE_TENSOR);
   int64_t dim_index =
       CreateSTAndInsertToDSStack({dim_value}, {dim_idx}, {}, {}, m_dmeta);
-  auto dim_st_tensor = graph->addInput(dim_st_name);
+  auto* dim_st_tensor = graph->addInput(dim_st_name);
   expr = GetRangeInfoExprFromInput(dim, org_stack_index_map, m_range_infos);
   m_range_infos->emplace_back(
       habana_helpers::RangeInfo(
@@ -586,18 +589,18 @@ bool SliceOperatorDS::ReplaceWithDynamicHPUOp(
     ValueIvalueMap& value_ivalue_map,
     std::shared_ptr<DynamicGraphMetaData> m_dmeta) {
   HABANA_ASSERT(6 == slice_node->inputs().size());
-  auto graph{slice_node->owningGraph()};
+  auto* graph{slice_node->owningGraph()};
   auto in_tensors = getInputTensors(slice_node, value_ivalue_map);
 
   // Step 1: Collect shape and scalar pos used in ListConstruct input node
   static const auto list_construct_symbol{
       c10::Symbol::fromQualString("prim::ListConstruct")};
-  auto v_slice_shape = slice_node->inputs().at(5);
+  auto* v_slice_shape = slice_node->inputs().at(5);
   HABANA_ASSERT(
       v_slice_shape->node()->kind() == list_construct_symbol,
       "Slice input is not a ListConstruct, it is: ",
       v_slice_shape->node()->kind().toQualString());
-  auto list_construct_node{v_slice_shape->node()};
+  auto* list_construct_node{v_slice_shape->node()};
 
   std::vector<int64_t> self_size;
   std::vector<int64_t> scalar_indexes;
@@ -613,9 +616,11 @@ bool SliceOperatorDS::ReplaceWithDynamicHPUOp(
   }
   std::vector<std::pair<int64_t, int64_t>> mixed_indexes;
   std::vector<std::pair<int64_t, int64_t>> mixed_scalar_indexes;
-  for (size_t i = 0; i < self_size.size(); i++)
+  const auto num_dims = self_size.size();
+  mixed_scalar_indexes.reserve(num_dims);
+  for (size_t i = 0; i < num_dims; i++) {
     mixed_scalar_indexes.emplace_back(scalar_indexes[i], self_size[i]);
-
+  }
   // get Dim
   int64_t dim_idx = LONG_MAX;
   int64_t start_idx = LONG_MAX;
@@ -668,9 +673,9 @@ bool SliceOperatorDS::ReplaceWithDynamicHPUOp(
       slice_node->output()->debugName() + "0", SHAPE_TENSOR);
   std::vector<int64_t> tensor_indexes;
   {
-    auto slice_input_0_val = slice_node->inputs().at(0);
+    auto* slice_input_0_val = slice_node->inputs().at(0);
     auto in_0_name = slice_input_0_val->debugName();
-    if (org_stack_index_map.count(in_0_name)) {
+    if (org_stack_index_map.count(in_0_name) != 0U) {
       auto input_0_idx = static_cast<int64_t>(org_stack_index_map[in_0_name]);
       tensor_indexes.push_back(input_0_idx);
     }
@@ -679,7 +684,7 @@ bool SliceOperatorDS::ReplaceWithDynamicHPUOp(
       shape.at(0), scalar_indexes, tensor_indexes, mixed_indexes, m_dmeta);
   auto symbol_outputshape = c10::Symbol::attr("output_shapes");
   if (slice_node->hasAttribute(symbol_outputshape)) {
-    std::string original = slice_node->s(symbol_outputshape);
+    const std::string& original = slice_node->s(symbol_outputshape);
     std::string modified = original.substr(1, original.length() - 2);
     m_range_infos->emplace_back(
         habana_helpers::RangeInfo({}, {}, modified, "INVALID", -1));
@@ -688,7 +693,7 @@ bool SliceOperatorDS::ReplaceWithDynamicHPUOp(
     PT_DYNAMIC_SHAPE_WARN(
         "ERROR: Not adding ST ranges output_shapes attribute null");
   }
-  auto gip_slice_st_tensor = graph->addInput(slice_st_name);
+  auto* gip_slice_st_tensor = graph->addInput(slice_st_name);
   std::vector<int64_t> dtensor_indexes{st_stack_index};
 
   // H2D tensor
@@ -725,7 +730,7 @@ bool SliceOperatorDS::ReplaceWithDynamicHPUOp(
     auto slice_h2d_tensor = habana_torch::jit::IValue(h2d_tensor);
     int64_t h2d_stack_index = UpdateDynamicTensorDSStack(
         slice_h2d_tensor, {}, {}, mixed_scalar_indexes, m_dmeta);
-    auto gip_slice_h2d_tensor = graph->addInput(slice_h2d_name);
+    auto* gip_slice_h2d_tensor = graph->addInput(slice_h2d_name);
     dtensor_indexes.push_back(h2d_stack_index);
     // Create hpu::slice_ht node and insert to the graph
     static const auto hpu_slice_ht_symbol{
@@ -750,7 +755,7 @@ bool SliceOperatorDS::ReplaceWithDynamicHPUOp(
     m_range_infos->emplace_back(
         habana_helpers::RangeInfo(
             {}, {}, GetExprFromString({step_expr_vec}), "INVALID", -1));
-    auto gip_slice_st_tensor_1 = graph->addInput(slice_st_name_1);
+    auto* gip_slice_st_tensor_1 = graph->addInput(slice_st_name_1);
     dtensor_indexes.push_back(st_stack_index_1);
     std::vector<int64_t> start_vec(dims, 0);
     std::vector<std::string> start_expr_vec(dims, "0");
@@ -764,7 +769,7 @@ bool SliceOperatorDS::ReplaceWithDynamicHPUOp(
     m_range_infos->emplace_back(
         habana_helpers::RangeInfo(
             {}, {}, GetExprFromString({start_expr_vec}), "INVALID", -1));
-    auto gip_slice_st_tensor_2 = graph->addInput(slice_st_name_2);
+    auto* gip_slice_st_tensor_2 = graph->addInput(slice_st_name_2);
     dtensor_indexes.push_back(st_stack_index_2);
     // Create hpu::slice_ht node and insert to the graph
     static const auto hpu_slice_ht_symbol{
@@ -799,11 +804,12 @@ void SliceOperatorDS::UpdateDynamicInputs(
   std::vector<int64_t> self_size;
   launch_shapes.ds_tensors.push_back(dtensorST);
   for (size_t i = 0; i < mixed_list[1].size(); i++) {
-    if (mixed_list[1].at(i).first == LONG_MAX)
+    if (mixed_list[1].at(i).first == LONG_MAX) {
       self_size.push_back(mixed_list[1].at(i).second);
-    else
+    } else {
       self_size.push_back(GetSymintValue(
           orig_stack, static_cast<size_t>(mixed_list[1].at(i).first)));
+    }
   }
 
   // tensor sizes
@@ -888,16 +894,18 @@ bool ExpandOperatorDS::ReplaceWithDynamicHPUOp(
   at::IntArrayRef self_sizes =
       value_ivalue_map[node->input(0)]->toTensor().sizes();
 
-  for (size_t i{}; i < values.size(); ++i)
-    if (values[i] == -1)
+  for (size_t i{}; i < values.size(); ++i) {
+    if (values[i] == -1) {
       values[i] = self_sizes[i];
+    }
+  }
 
   std::vector<int64_t> dtensor_indexes{CreateSTAndInsertToDSStack(
       values, scalar_ids, {}, {}, dmeta, {values.begin(), values.end()})};
 
   auto symbol_outputshape = c10::Symbol::attr("output_shapes");
   if (node->hasAttribute(symbol_outputshape)) {
-    std::string original = node->s(symbol_outputshape);
+    const std::string& original = node->s(symbol_outputshape);
     std::string modified = original.substr(1, original.length() - 2);
     m_range_infos->emplace_back(
         habana_helpers::RangeInfo({}, {}, modified, "INVALID", -1));
@@ -974,10 +982,10 @@ bool SliceScatterOperatorDS::ReplaceWithDynamicHPUOp(
       value_ivalue_map[aten_slice_scatter_node->input(0)]->toTensor().sizes();
 
   // 4 scalars: dim, start, end, step
-  auto dim = aten_slice_scatter_node->inputs().at(2);
-  auto start = aten_slice_scatter_node->inputs().at(3);
-  auto step = aten_slice_scatter_node->inputs().at(5);
-  auto graph{aten_slice_scatter_node->owningGraph()};
+  auto* dim = aten_slice_scatter_node->inputs().at(2);
+  auto* start = aten_slice_scatter_node->inputs().at(3);
+  auto* step = aten_slice_scatter_node->inputs().at(5);
+  auto* graph{aten_slice_scatter_node->owningGraph()};
 
   // Step 1: Collect shape and scalar for step, end, start and dim node
   int64_t step_idx = LONG_MAX;
@@ -1048,7 +1056,7 @@ bool SliceScatterOperatorDS::ReplaceWithDynamicHPUOp(
   auto step_st_name = GetDynamicTensorName(step->debugName(), SHAPE_TENSOR);
   int64_t step_index = CreateSTAndInsertToDSStack(
       step_value_final, step_idx_final, {}, {}, m_dmeta);
-  auto step_st_tensor = graph->addInput(step_st_name);
+  auto* step_st_tensor = graph->addInput(step_st_name);
   m_range_infos->emplace_back(
       habana_helpers::RangeInfo(
           {}, {}, GetExprFromString({step_expr}), "INVALID", -1));
@@ -1056,7 +1064,7 @@ bool SliceScatterOperatorDS::ReplaceWithDynamicHPUOp(
   auto start_st_name = GetDynamicTensorName(start->debugName(), SHAPE_TENSOR);
   int64_t start_index = CreateSTAndInsertToDSStack(
       start_value_final, start_idx_final, {}, {}, m_dmeta);
-  auto start_st_tensor = graph->addInput(start_st_name);
+  auto* start_st_tensor = graph->addInput(start_st_name);
   m_range_infos->emplace_back(
       habana_helpers::RangeInfo(
           {}, {}, GetExprFromString({start_expr}), "INVALID", -1));
@@ -1081,8 +1089,8 @@ bool SliceScatterOperatorDS::ReplaceWithDynamicHPUOp(
 }
 
 habana::graph::RegisterDSOps& DSOpsRegistry() {
-  static auto* Registry = new habana::graph::RegisterDSOps();
-  return *Registry;
+  static auto Registry = habana::graph::RegisterDSOps();
+  return Registry;
 }
 
 #define DSOP_MID_BACKEND(op, className) \

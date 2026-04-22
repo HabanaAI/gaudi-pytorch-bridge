@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@ class HpuOpTest : public HpuOpTestUtil {};
 
 TEST_F(HpuOpTest, logaddexp2) {
   GenerateInputs(2);
-  torch::ScalarType dtype = torch::kFloat;
 
   auto expected = torch::logaddexp2(GetCpuInput(0), GetCpuInput(1));
   auto result = torch::logaddexp2(GetHpuInput(0), GetHpuInput(1));

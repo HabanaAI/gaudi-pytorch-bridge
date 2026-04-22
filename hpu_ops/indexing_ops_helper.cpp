@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -63,8 +63,9 @@ std::vector<int64_t> ComputeOutputShapeWithAdvIndexing(
       elem_count = input_shape[i];
     }
     if (!adv_index_dims[i] && elem_count > max_elem_count) {
-      if (i < indexing_tensor_shapes.size())
+      if (i < indexing_tensor_shapes.size()) {
         largest_specified_index_t_size = indexing_tensor_shapes[i];
+      }
       max_elem_count = elem_count;
     }
   }
@@ -104,8 +105,9 @@ bool hasContiguousSubspace(c10::ArrayRef<c10::IValue> indices_ival) {
         index_tensor_groups++;
       }
     } else {
-      if (explicit_indices_together)
+      if (explicit_indices_together) {
         explicit_indices_together = false;
+      }
     }
   }
 
@@ -131,10 +133,11 @@ int hasContiguousSubspace(std::vector<int64_t> implicit_indices_pos_vec) {
     }
     dim++;
   }
-  if (index_tensor_groups <= 1)
+  if (index_tensor_groups <= 1) {
     return index_tensor_group_start;
-  else
+  } else {
     return 0;
+  }
 }
 
 // Transposes the tensor and indices together so that all the non-null indices
@@ -156,7 +159,7 @@ std::tuple<std::vector<int64_t>, std::vector<at::Tensor>> transposeToFront(
       indices.emplace_back(std::nullopt);
     } else if (o1.has_value() && o1.value().defined()) {
       const auto& index = o1.value();
-      indices.emplace_back(std::move(index));
+      indices.emplace_back(index);
     }
   }
   dims.reserve(static_cast<size_t>(self.dim()));
@@ -275,7 +278,7 @@ std::vector<std::vector<int64_t>> calc_indexing_tensors_shapes(
   std::vector<bool> adv_ind_dim = stack[2].toBoolList().vec();
   const bool adv_indexing_present =
       std::any_of(adv_ind_dim.cbegin(), adv_ind_dim.cend(), [](const auto& i) {
-        return i == true;
+        return static_cast<bool>(i);
       });
   if (adv_indexing_present) {
     const auto self_permute_dims = stack[3].toIntList();
@@ -351,8 +354,9 @@ generate_advanced_indexing_indices_list(const at::Stack& stack) {
   }
 
   auto broadcast_to_this_size = broadcast_size(indices);
-  for (auto& tensor : indices)
+  for (auto& tensor : indices) {
     tensor = at::broadcast_to(tensor, broadcast_to_this_size);
+  }
 
   //"self" is not yet permuted for advanced indexing, but it has to be
   // considered permuted while using self's sizes in computations
@@ -369,8 +373,9 @@ std::vector<int64_t> ComputeIndexOperatorOutputShape(
   auto input_shape = input.sizes();
   auto indices_shape = indices_size(indices);
 
-  if (input.dim() == 0 && input.numel() == 1)
+  if (input.dim() == 0 && input.numel() == 1) {
     return {input.sizes().vec()};
+  }
 
   auto output_rank = static_cast<int64_t>(
       static_cast<int64_t>(indices_shape.size()) + input.ndimension() -

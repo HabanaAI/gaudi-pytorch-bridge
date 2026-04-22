@@ -24,12 +24,13 @@ FillParamsT FillHuberLossParams(const at::Stack& stack, const int offset) {
   params->delta = delta;
 
   auto mode = stack.at(offset + 2).toInt();
-  if (mode == at::Reduction::Reduction::Mean)
+  if (mode == at::Reduction::Reduction::Mean) {
     params->mode = LossMode_t::LOSS_REDUCTION_MODE_MEAN;
-  else if (mode == at::Reduction::Reduction::Sum)
+  } else if (mode == at::Reduction::Reduction::Sum) {
     params->mode = LossMode_t::LOSS_REDUCTION_MODE_SUM;
-  else
+  } else {
     params->mode = LossMode_t::LOSS_REDUCTION_MODE_NONE;
+  }
   return paramsT;
 }
 
@@ -48,21 +49,23 @@ OutputMetaDataVector HuberLossMeta(const at::Stack& stack) {
   HABANA_ASSERT(
       delta >= 0, "huber_loss does not support negative values for delta.")
 
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.dtype = self.scalar_type();
   meta.shape = {};
-  if (reduction == at::Reduction::Reduction::None)
+  if (reduction == at::Reduction::Reduction::None) {
     meta.shape = self.sizes().vec();
-
-  return {meta};
+  }
+  return metaVec;
 }
 
 OutputMetaDataVector HuberLossBackwardMeta(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 1);
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.shape = self.sizes().vec();
   meta.dtype = self.scalar_type();
-  return {meta};
+  return metaVec;
 }
 
 } // namespace habana

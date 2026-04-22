@@ -41,13 +41,14 @@ FillParamsT FillOneHotParams(const at::Stack& stack) {
 
 OutputMetaDataVector OneHotMeta(const at::Stack& stack) {
   auto input = stack_tensor(stack, 0);
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   const auto num_classes = calculateNumberOfClasses(stack);
   meta.shape = input.sizes().vec();
   meta.shape.push_back(num_classes);
   meta.dtype = input.scalar_type();
 
-  return {meta};
+  return metaVec;
 }
 
 struct OneHot : OpBackend {

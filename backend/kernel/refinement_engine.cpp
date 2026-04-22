@@ -54,7 +54,7 @@ void habana::RefinementEngine::Refine() {
 
     // Check whether shutdown is received
     auto last_qentry{m_readyQueue.back()};
-    if (false == last_qentry.has_value()) {
+    if (!last_qentry.has_value()) {
       mutex_lock.unlock();
       break;
     }

@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -86,7 +86,7 @@ def test_mnist():
     try:
         from habana_frameworks.torch.hpex.normalization import FusedClipNorm
     except ImportError:
-        raise ImportError("Please install habana_torch.")
+        raise ImportError("Please install habana_torch.") from None
 
     for i in range(count):
         i_hpu, t_hpu = i_clone_list[i].to(habana), t_clone_list[i].to(habana)

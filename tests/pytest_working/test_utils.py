@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -52,7 +52,7 @@ def is_gaudi3():
 
 
 def is_lazy():
-    return int(os.environ.get("PT_HPU_LAZY_MODE", 0)) == 1
+    return int(os.environ.get("PT_HPU_LAZY_MODE", "0")) == 1
 
 
 def evaluate_fwd_kernel(
@@ -243,7 +243,7 @@ def env_var_in_scope(vars=None):
 
     orig_vars = {}
     vars = vars if vars else {}
-    for key in vars.keys():
+    for key in vars:
         orig_vars[key] = os.environ.get(key, None)
         set_flag_in_env(key, vars[key])
     try:
@@ -313,7 +313,7 @@ def run_kernel_on_device(device, kernel, tensor_list=None, kernel_params=None, c
             elif isinstance(v, list) and (len(v) > 0) and isinstance(v[0], torch.Tensor):
                 kernel_params_local[k] = [i.to(device) for i in v]
             else:
-                kernel_params_local[k] = kernel_params[k]
+                kernel_params_local[k] = v
 
     elif tensor_list:
         tensor_list = [tensor.to(device) if tensor is not None else tensor for tensor in tensor_list]
@@ -508,7 +508,14 @@ def compile_function_if_compile_mode(
         return function
 
 
-def check_ops_executed_in_jit_ir(op_names, verbose=False, allowed_fallbacks=set(), forbidden_ops=set()):
+def check_ops_executed_in_jit_ir(
+    op_names, verbose=False, allowed_fallbacks: None | set = None, forbidden_ops: None | set = None
+):
+    if allowed_fallbacks is None:
+        allowed_fallbacks = set()
+    if forbidden_ops is None:
+        forbidden_ops = set()
+
     import re
 
     from habana_frameworks.torch.dynamo.compile_backend.passes import (
@@ -702,7 +709,9 @@ def place_on_hpu(cpu_tensors):
     return hpu_tensors
 
 
-def find_in_hier_list(v, hlist, index=[]):
+def find_in_hier_list(v, hlist, index=None):
+    if index is None:
+        index = []
     try:
         return index + [hlist.index(v)]
     except ValueError:
@@ -718,7 +727,9 @@ def is_dtype_floating_point(dtype):
     return torch.is_floating_point(torch.tensor((), dtype=dtype))
 
 
-def print_tensors_internal(tensors, atol, rtol, index=[]):
+def print_tensors_internal(tensors, atol, rtol, index=None):
+    if index is None:
+        index = []
     if isinstance(tensors[0], Iterable):
         for i, (tensors_sub) in enumerate(zip(*tensors, strict=False)):
             print_tensors_internal(tensors_sub, atol, rtol, index + [i])

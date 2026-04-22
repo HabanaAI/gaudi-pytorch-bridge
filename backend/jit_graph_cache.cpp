@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,12 +33,12 @@ size_t GetWeightHash(
   HABANA_ASSERT(input_refs.size() == irgraph->inputs().size());
 
   for (size_t i = 0; i < input_refs.size(); ++i) {
-    if (graph_weights.count(i)) {
+    if (graph_weights.count(i) != 0U) {
       hash_code = at::hash_combine(
           hash_code,
           static_cast<size_t>(habana::mod_exp(static_cast<int64_t>(i))));
       HABANA_ASSERT(input_refs[i].isTensor());
-      auto& tensor = input_refs[i].toTensor();
+      const auto& tensor = input_refs[i].toTensor();
       for (auto shape : tensor.sizes()) {
         hash_code = at::hash_combine(hash_code, static_cast<size_t>(shape));
       }
@@ -76,10 +76,10 @@ void ComputeGraphHashCode(
       std::string s(node->kind().toQualString());
       s.append("(");
       bool is_start{true};
-      for (auto value_in : node->inputs()) {
-        auto in_node = value_in->node();
+      for (auto* value_in : node->inputs()) {
+        auto* in_node = value_in->node();
         std::size_t output_index = 0;
-        if (in_node) {
+        if (in_node != nullptr) {
           for (output_index = 0; output_index < in_node->outputs().size();
                ++output_index) {
             if (in_node->output(output_index) == value_in) {
@@ -103,8 +103,9 @@ void ComputeGraphHashCode(
       oss << *node;
       std::string cstr = oss.str();
       size_t pos = cstr.find(':');
-      if (pos != std::string::npos && pos < cstr.size() - 1)
+      if (pos != std::string::npos && pos < cstr.size() - 1) {
         cstr = cstr.substr(pos + 1);
+      }
 
       // Remove # <eval_with_key> ... comments
       size_t pos_comment = cstr.find('#');
@@ -126,11 +127,11 @@ void ComputeGraphHashCode(
   // Adding input hash
   size_t num_irgraph_inputs = irgraph->inputs().size();
   for (size_t i = 0; i < num_irgraph_inputs; ++i) {
-    auto value_in = irgraph->inputs().at(i);
+    auto* value_in = irgraph->inputs().at(i);
     size_t input_connection_hash = i;
 
-    for (auto& use : value_in->uses()) {
-      auto node = use.user;
+    for (const auto& use : value_in->uses()) {
+      auto* node = use.user;
       HABANA_ASSERT(node);
       input_connection_hash =
           at::hash_combine(input_connection_hash, node_idx_map[node]);
@@ -140,9 +141,9 @@ void ComputeGraphHashCode(
   //  Adding output hash
   size_t num_irgraph_outputs = irgraph->outputs().size();
   for (size_t i = 0; i < num_irgraph_outputs; ++i) {
-    auto value_out = irgraph->outputs().at(i);
+    auto* value_out = irgraph->outputs().at(i);
     size_t output_connection_hash = i;
-    auto node = value_out->node();
+    auto* node = value_out->node();
     HABANA_ASSERT(node);
     output_connection_hash =
         at::hash_combine(output_connection_hash, node_idx_map[node]);
@@ -153,11 +154,11 @@ void ComputeGraphHashCode(
 
   // Adding node connection hash
   size_t node_connection_hash{0};
-  for (auto node : irgraph->nodes()) {
+  for (auto* node : irgraph->nodes()) {
     if (node->kind() != habana_torch::jit::prim::Constant) {
-      for (auto value_in : node->inputs()) {
-        auto in_node = value_in->node();
-        if (in_node) {
+      for (auto* value_in : node->inputs()) {
+        auto* in_node = value_in->node();
+        if (in_node != nullptr) {
           if (in_node->kind() != habana_torch::jit::prim::Constant) {
             node_connection_hash =
                 at::hash_combine(node_connection_hash, node_idx_map[in_node]);
@@ -180,7 +181,7 @@ void ComputeGraphHashCode(
   bool is_eager_graph =
       frontend_type == habana_helpers::HabanaFrontendTypes::EAGER;
 
-  for (auto& input : input_refs) {
+  for (const auto& input : input_refs) {
     if (input.isTensor()) {
       const auto& pt_tensor = input.toTensor();
       dims_hash = at::hash_combine(
@@ -196,7 +197,7 @@ void ComputeGraphHashCode(
         // layer
         auto const_id = habana::get_tensor_const_id(pt_tensor);
         if (pt_tensor.numel() == 1 && !is_eager_graph) {
-          auto tmeta{habana::get_tensor_extra_meta(pt_tensor)};
+          auto* tmeta{habana::get_tensor_extra_meta(pt_tensor)};
           auto const_value = pt_tensor.item<float>();
           PT_BRIDGE_DEBUG(
               "JIT graph_key hash const_value:",
@@ -216,7 +217,7 @@ void ComputeGraphHashCode(
   }
   // Handle the dims for strided base tensor
   size_t basedims_hash{0};
-  for (auto& input : m_input_new_base_sizes) {
+  for (const auto& input : m_input_new_base_sizes) {
     auto dim = static_cast<int64_t>(input.second.size());
     basedims_hash = at::hash_combine(
         basedims_hash, static_cast<uint64_t>(habana::mod_exp(dim)));
@@ -260,7 +261,7 @@ size_t ComputeNodeSymOutputHashCode(
   bool all_nodes_have_attr = true;
   bool is_any_node_symbolic = false;
 
-  for (auto node : jit_graph->nodes()) {
+  for (auto* node : jit_graph->nodes()) {
     if ((habana_torch::jit::prim::Constant != node->kind()) &&
         (habana_torch::jit::prim::ListConstruct != node->kind())) {
       auto outputshapes_attr = c10::Symbol::attr("output_shapes");
@@ -290,7 +291,7 @@ size_t ComputePermutationHashCode(
     at::ArrayRef<habana_torch::jit::IValue> input_refs) {
   size_t perm_hash_code = 0;
   uint32_t cnt = 0;
-  for (auto& input : input_refs) {
+  for (const auto& input : input_refs) {
     if (input.isTensor()) {
       const auto& tensor = input.toTensor();
       if (!habana::get_tensor_extra_meta(tensor)->is_shape_tensor()) {
@@ -298,7 +299,7 @@ size_t ComputePermutationHashCode(
         std::tie(permutation, std::ignore) =
             habana_helpers::get_tensor_memory_permutation(tensor);
         size_t perm_combined = permutation.size();
-        if (perm_combined) {
+        if (perm_combined != 0U) {
           perm_hash_code = at::hash_combine(perm_hash_code, cnt);
           HABANA_ASSERT(perm_combined < 8);
           auto shift_perm = 0;
@@ -320,11 +321,11 @@ size_t ComputeSymSizeHashCode(
   size_t running_sym_hash_code = 0;
   uint32_t cnt = 0;
   std::unordered_set<void*> buff_to_syn_tensor_set_;
-  for (auto& input : input_refs) {
+  for (const auto& input : input_refs) {
     if (C10_LIKELY(input.isTensor())) {
       const auto& pt_tensor = input.toTensor();
-      auto tmeta = get_tensor_extra_meta(pt_tensor, true);
-      if (!(tmeta && tmeta->is_shape_tensor())) {
+      auto* tmeta = get_tensor_extra_meta(pt_tensor, true);
+      if ((tmeta == nullptr || !tmeta->is_shape_tensor())) {
         void* pt_tensor_buffer_start = pt_tensor.storage().data_ptr().get();
         if (pt_tensor_buffer_start == nullptr) {
           cnt++;
@@ -335,7 +336,8 @@ size_t ComputeSymSizeHashCode(
         if (is_duplicate_syn_tensor) {
           running_sym_hash_code = at::hash_combine(running_sym_hash_code, cnt);
           running_sym_hash_code = at::hash_combine(
-              running_sym_hash_code, true /* duplicate mem section */);
+              running_sym_hash_code,
+              static_cast<size_t>(true) /* duplicate mem section */);
         } else {
           buff_to_syn_tensor_set_.insert(pt_tensor_buffer_start);
         }
@@ -350,7 +352,8 @@ size_t ComputeSymSizeHashCode(
         symsize_hash = at::hash_combine(symsize_hash, valhash(value));
       } else if (input.isBool()) {
         auto value = input.toScalar().toBool();
-        symsize_hash = at::hash_combine(symsize_hash, value);
+        symsize_hash =
+            at::hash_combine(symsize_hash, static_cast<size_t>(value));
       } else if (input.isDouble()) {
         auto value = input.toScalar().toDouble();
         std::hash<double> valhash;
@@ -427,8 +430,9 @@ std::string OptimizedJITGraphAndMetaData::GetOpOrGraphName() {
   // name up to the "_jit" suffix, its only for event capturing.
   std::string op_or_graph_name = op_name;
   size_t jitPos = op_name.find("_jit");
-  if (jitPos != std::string::npos)
+  if (jitPos != std::string::npos) {
     op_or_graph_name = op_name.substr(0, jitPos + 4);
+  }
   return op_or_graph_name;
 }
 
@@ -436,7 +440,7 @@ void OptimizedJITGraphAndMetaData::SetOpName(std::string name) {
   op_name = name;
 }
 
-size_t OptimizedJITGraphAndMetaData::GetGraphIndex() {
+size_t OptimizedJITGraphAndMetaData::GetGraphIndex() const {
   return graph_index;
 }
 
@@ -452,8 +456,8 @@ void OptimizedJITGraphAndMetaData::SetUserMarkDynamic(bool flag) {
   user_mark_dynamic = flag;
 }
 
-bool OptimizedJITGraphAndMetaData::IsUserMarkDynamic() {
-  return (user_mark_dynamic == true);
+bool OptimizedJITGraphAndMetaData::IsUserMarkDynamic() const {
+  return user_mark_dynamic;
 }
 
 void OptimizedJITGraphAndMetaData::SetUserRangesDynamic(
@@ -583,10 +587,7 @@ void OptimizedJitGraphCache::RemoveGraph(size_t key) {
 bool OptimizedJitGraphCache::IsCached(size_t key) {
   std::shared_lock<std::shared_mutex> lck(m_mutex);
   auto iter = m_cache_map.find(key);
-  if (!m_cache_map.empty() && iter != m_cache_map.end()) {
-    return true;
-  }
-  return false;
+  return (!m_cache_map.empty() && iter != m_cache_map.end());
 }
 
 size_t OptimizedJitGraphCache::CacheSize() {

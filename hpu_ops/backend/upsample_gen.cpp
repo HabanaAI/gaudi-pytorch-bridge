@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,11 +39,12 @@ using namespace upsample_utils;
 // Forward Meta Function - Linear1D
 OutputMetaDataVector UpsampleLinear1DFwdMeta(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
-  auto out_size = stack.at(1);
-  auto scale = stack.at(3);
+  const auto& out_size = stack.at(1);
+  const auto& scale = stack.at(3);
   upsample_1d_common_check(self, out_size, scale);
   check_null_input(out_size, scale);
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.dtype = self.scalar_type();
   if (!out_size.isNone()) {
     meta.shape = {
@@ -57,25 +58,27 @@ OutputMetaDataVector UpsampleLinear1DFwdMeta(const at::Stack& stack) {
         static_cast<int64_t>(width * scale_factor)};
   }
   check_input_output_width(self.sizes()[2], meta.shape.at(2));
-  return {meta};
+  return metaVec;
 }
 // Backward Meta Function - Linear1D
 OutputMetaDataVector UpsampleLinear1DBwdMeta(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
-  auto out_size = stack.at(1);
-  auto scale = stack.at(4);
+  const auto& out_size = stack.at(1);
+  const auto& scale = stack.at(4);
   upsample_1d_common_check(self, out_size, scale);
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.shape = stack.at(2).toIntVector();
   meta.dtype = self.scalar_type();
-  return {meta};
+  return metaVec;
 }
 // Forward Meta Function - Nearest1D
 OutputMetaDataVector UpsampleNearest1DFwdMeta(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
-  auto out_size = stack.at(1);
-  auto scale = stack.at(2);
-  OutputMetaData meta;
+  const auto& out_size = stack.at(1);
+  const auto& scale = stack.at(2);
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.dtype = self.scalar_type();
   upsample_1d_common_check(self, out_size, scale);
   check_null_input(out_size, scale);
@@ -91,25 +94,26 @@ OutputMetaDataVector UpsampleNearest1DFwdMeta(const at::Stack& stack) {
         static_cast<int64_t>(width * scale_factor)};
   }
   check_input_output_width(self.sizes()[2], meta.shape.at(2));
-  return {meta};
+  return metaVec;
 }
 // Backward Meta Function - Nearest1D
 OutputMetaDataVector UpsampleNearest1DBwdMeta(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
-  auto out_size = stack.at(1);
-  auto scale = stack.at(3);
+  const auto& out_size = stack.at(1);
+  const auto& scale = stack.at(3);
   upsample_1d_common_check(self, out_size, scale);
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.shape = stack.at(2).toIntVector();
   meta.dtype = self.scalar_type();
-  return {meta};
+  return metaVec;
 }
 // Forward Output Shape - Bilinear2D
 std::vector<int64_t> UpsampleBilinear2DFwdOutputShapeSynapseLayout(
     const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
-  auto out_size = stack.at(1);
-  auto scale = stack.at(3);
+  const auto& out_size = stack.at(1);
+  const auto& scale = stack.at(3);
   std::vector<int64_t> out_shape;
   if (!out_size.isNone()) {
     out_shape = {
@@ -133,37 +137,62 @@ std::vector<int64_t> UpsampleBilinear2DFwdOutputShapeSynapseLayout(
 // Forward Meta Function - Bilinear2D
 OutputMetaDataVector UpsampleBilinear2DFwdMeta(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
-  auto out_size = stack.at(1);
-  auto scale = stack.at(3);
+  const auto& out_size = stack.at(1);
+  const auto& scale = stack.at(3);
   std::vector<int64_t> out_shape;
   upsample_2d_common_check(self, out_size, scale);
   check_null_input(out_size, scale);
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.dtype = self.scalar_type();
   meta.shape = UpsampleBilinear2DFwdOutputShapeSynapseLayout(stack);
 
   check_input_output_height_width(
       self.sizes()[2], meta.shape.at(2), self.sizes()[3], meta.shape.at(3));
-  return {meta};
+  return metaVec;
 }
 // Backward Meta Function - Bilinear2D
 OutputMetaDataVector UpsampleBilinear2DBwdMeta(const at::Stack& stack) {
   auto grad_in = stack.at(0).toTensor();
-  auto out_size = stack.at(1);
-  auto scale = stack.at(4);
+  const auto& out_size = stack.at(1);
+  const auto& scale = stack.at(4);
   check_null_input(out_size, scale);
   upsample_2d_common_check(grad_in, out_size, scale);
 
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.shape = stack.at(2).toIntVector();
   meta.dtype = grad_in.scalar_type();
-  return {meta};
+  return metaVec;
 }
+
+SharedMetaDataVector UpsampleBiTrilinear2D3DFwdSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode exec_mode) {
+  const auto align_corners = stack.at(2).toBool();
+  constexpr auto scales_idx = 3;
+  constexpr auto is_forward = true;
+
+  return UpsampleCommmonSharedLayer(
+      stack, align_corners, scales_idx, is_forward, linear, exec_mode);
+}
+
+SharedMetaDataVector UpsampleBicubic2DFwdSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode exec_mode) {
+  const auto align_corners = stack.at(2).toBool();
+  constexpr auto scales_idx = 3;
+  constexpr auto is_forward = true;
+
+  return UpsampleCommmonSharedLayer(
+      stack, align_corners, scales_idx, is_forward, bicubic, exec_mode);
+}
+
 std::vector<int64_t> UpsampleNearest2DFwdOutputShapeSynapseLayout(
     const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
-  auto out_size = stack.at(1);
-  auto scale = stack.at(2);
+  const auto& out_size = stack.at(1);
+  const auto& scale = stack.at(2);
   std::vector<int64_t> out_shape;
   if (!out_size.isNone()) {
     // NCHW
@@ -242,72 +271,77 @@ std::vector<int64_t> UpsampleNearestExact3DFwdOutputShapeSynapseLayout(
 // Forward Meta Function - Nearest2D
 OutputMetaDataVector UpsampleNearest2DFwdMeta(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
-  auto out_size = stack.at(1);
-  auto scale = stack.at(2);
+  const auto& out_size = stack.at(1);
+  const auto& scale = stack.at(2);
   std::vector<int64_t> out_shape;
   upsample_2d_common_check(self, out_size, scale);
   check_null_input(out_size, scale);
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.dtype = self.scalar_type();
   meta.shape = UpsampleNearest2DFwdOutputShapeSynapseLayout(stack);
 
   check_input_output_height_width(
       self.sizes()[2], meta.shape.at(2), self.sizes()[3], meta.shape.at(3));
-  return {meta};
+  return metaVec;
 }
 // Backward Meta Function - Nearest2D
 OutputMetaDataVector UpsampleNearest2DBwdMeta(const at::Stack& stack) {
   auto grad_in = stack.at(0).toTensor();
-  auto out_size = stack.at(1);
-  auto scale = stack.at(3);
-  OutputMetaData meta;
+  const auto& out_size = stack.at(1);
+  const auto& scale = stack.at(3);
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.dtype = grad_in.scalar_type();
   meta.shape = stack.at(2).isTensor() ? stack_tensor(stack, 2).sizes().vec()
                                       : stack.at(2).toIntVector();
   check_null_input(out_size, scale);
   upsample_2d_common_check(grad_in, out_size, scale);
-  return {meta};
+  return metaVec;
 }
 // Forward Meta Function - NearestExact2D
 OutputMetaDataVector UpsampleNearestExact2DFwdMeta(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
-  auto out_size = stack.at(1);
+  const auto& out_size = stack.at(1);
   auto scales_h = stack.at(2).toOptional<double>();
   auto scales_w = stack.at(3).toOptional<double>();
   upsample_exact_2d_check(self, out_size);
   check_null_inputs_2d(out_size, scales_h, scales_w);
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.dtype = self.scalar_type();
   meta.shape = UpsampleNearestExact2DFwdOutputShapeSynapseLayout(stack);
 
   check_input_output_height_width(
       self.sizes()[2], meta.shape.at(2), self.sizes()[3], meta.shape.at(3));
-  return {meta};
+  return metaVec;
 }
 // Backward Meta Function - NearestExact2D
 OutputMetaDataVector UpsampleNearestExact2DBwdMeta(const at::Stack& stack) {
   auto grad_out = stack.at(0).toTensor();
-  auto out_size = stack.at(1);
-  auto in_size = stack.at(2);
+  const auto& out_size = stack.at(1);
+  const auto& in_size = stack.at(2);
   auto scales_h = stack.at(3).toOptional<double>();
   auto scales_w = stack.at(4).toOptional<double>();
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.dtype = grad_out.scalar_type();
   meta.shape = in_size.toIntVector();
   check_null_inputs_2d(out_size, scales_h, scales_w);
   upsample_exact_2d_check(grad_out, out_size);
-  return {meta};
+  return metaVec;
 }
 // Forward Meta Function - NearestExact3D
 OutputMetaDataVector UpsampleNearestExact3DFwdMeta(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
-  auto out_size = stack.at(1);
+  const auto& out_size = stack.at(1);
   auto scales_d = stack.at(2).toOptional<double>();
   auto scales_h = stack.at(3).toOptional<double>();
   auto scales_w = stack.at(4).toOptional<double>();
   upsample_exact_3d_check(self, out_size);
   check_null_inputs_3d(out_size, scales_d, scales_h, scales_w);
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.dtype = self.scalar_type();
   meta.shape = UpsampleNearestExact3DFwdOutputShapeSynapseLayout(stack);
 
@@ -318,13 +352,13 @@ OutputMetaDataVector UpsampleNearestExact3DFwdMeta(const at::Stack& stack) {
       meta.shape.at(3),
       self.sizes()[4],
       meta.shape.at(4));
-  return {meta};
+  return metaVec;
 }
 
 std::vector<int64_t> UpsampleBicubic2DFwdOutputShapeSynapseLayoutAA(
     const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
-  auto out_size = stack.at(1);
+  const auto& out_size = stack.at(1);
   auto scale_h = stack.at(3).toOptional<double>().value_or(1.0);
   auto scale_w = stack.at(4).toOptional<double>().value_or(1.0);
   std::vector<int64_t> out_shape;
@@ -349,44 +383,47 @@ std::vector<int64_t> UpsampleBicubic2DFwdOutputShapeSynapseLayoutAA(
 // Forward Meta Function - Bicubic2D AA
 OutputMetaDataVector UpsampleBicubic2DFwdMetaAA(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
-  auto out_size = stack.at(1);
+  const auto& out_size = stack.at(1);
   auto scale_h = stack.at(3).toOptional<double>();
   auto scale_w = stack.at(4).toOptional<double>();
   upsample_exact_2d_check(self, out_size);
   check_null_inputs_2d(out_size, scale_h, scale_w);
 
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.shape = UpsampleBicubic2DFwdOutputShapeSynapseLayoutAA(stack);
   meta.dtype = self.scalar_type();
 
   check_input_output_height_width(
       self.sizes()[2], meta.shape.at(2), self.sizes()[3], meta.shape.at(3));
 
-  return {meta};
+  return metaVec;
 }
 // Backward Meta Function - Bicubic2D AA
 OutputMetaDataVector UpsampleBicubic2DBwdMetaAA(const at::Stack& stack) {
   auto grad_in = stack.at(0).toTensor();
-  auto out_size = stack.at(1);
+  const auto& out_size = stack.at(1);
   auto scale_h = stack.at(4).toOptional<double>();
   auto scale_w = stack.at(5).toOptional<double>();
   upsample_exact_2d_check(grad_in, out_size);
   check_null_inputs_2d(out_size, scale_h, scale_w);
 
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.shape = stack.at(2).toIntVector();
   meta.dtype = grad_in.scalar_type();
-  return {meta};
+  return metaVec;
 }
 
 // Forward Meta Function - Nearest3D
 OutputMetaDataVector UpsampleNearest3DFwdMeta(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
-  auto out_size = stack.at(1);
-  auto scale = stack.at(2);
+  const auto& out_size = stack.at(1);
+  const auto& scale = stack.at(2);
   upsample_3d_common_check(self, out_size, scale);
   check_null_input(out_size, scale);
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.dtype = self.scalar_type();
   if (!out_size.isNone()) {
     meta.shape = {
@@ -413,79 +450,87 @@ OutputMetaDataVector UpsampleNearest3DFwdMeta(const at::Stack& stack) {
       meta.shape.at(3),
       self.sizes()[4],
       meta.shape.at(4));
-  return {meta};
+  return metaVec;
 }
 // Backward Output Shape - Nearest3D
 OutputMetaDataVector UpsampleNearest3DBwdMeta(const at::Stack& stack) {
   auto grad_in = stack.at(0).toTensor();
-  auto out_size = stack.at(1);
-  auto scale = stack.at(3);
+  const auto& out_size = stack.at(1);
+  const auto& scale = stack.at(3);
   check_null_input(out_size, scale);
   upsample_3d_common_check(grad_in, out_size, scale);
 
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.shape = stack.at(2).toIntVector();
   meta.dtype = grad_in.scalar_type();
-  return {meta};
+  return metaVec;
 }
 // Backward Output Shape - NearestExact3D
 OutputMetaDataVector UpsampleNearestExact3DBwdMeta(const at::Stack& stack) {
   auto grad_in = stack.at(0).toTensor();
-  auto out_size = stack.at(1);
+  const auto& out_size = stack.at(1);
   auto scale_d = stack.at(3).toOptional<double>();
   auto scale_h = stack.at(4).toOptional<double>();
   auto scale_w = stack.at(5).toOptional<double>();
   check_null_inputs_3d(out_size, scale_d, scale_h, scale_w);
   upsample_exact_3d_check(grad_in, out_size);
 
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.shape = stack.at(2).toIntVector();
   meta.dtype = grad_in.scalar_type();
-  return {meta};
+  return metaVec;
 }
 
 SharedMetaDataVector UpsampleLinear1DFwdSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode /*unused*/) {
-  return UpsampleCommmonSharedLayer(stack, stack.at(2).toBool(), 3, true);
+    habana_helpers::HabanaExecutionMode execution_mode) {
+  return UpsampleCommmonSharedLayer(
+      stack, stack.at(2).toBool(), 3, true, linear, execution_mode);
 }
 
 SharedMetaDataVector UpsampleLinear1DBwdSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode /*unused*/) {
-  return UpsampleCommmonSharedLayer(stack, stack.at(3).toBool(), 4, false);
+    habana_helpers::HabanaExecutionMode execution_mode) {
+  return UpsampleCommmonSharedLayer(
+      stack, stack.at(3).toBool(), 4, false, linear, execution_mode);
 }
 
 SharedMetaDataVector UpsampleNearest1D3DFwdSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode /*unused*/) {
-  return UpsampleCommmonSharedLayer(stack, false, 2, true);
+    habana_helpers::HabanaExecutionMode execution_mode) {
+  return UpsampleCommmonSharedLayer(
+      stack, false, 2, true, nearest, execution_mode);
 }
 
 SharedMetaDataVector UpsampleNearest1D3DBwdSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode /*unused*/) {
-  return UpsampleCommmonSharedLayer(stack, false, 3, false);
+    habana_helpers::HabanaExecutionMode execution_mode) {
+  return UpsampleCommmonSharedLayer(
+      stack, false, 3, false, nearest, execution_mode);
 }
 
 SharedMetaDataVector UpsampleNearest2DFwdSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode /*unused*/) {
-  return UpsampleCommmonSharedLayer(stack, true, 2, true);
+    habana_helpers::HabanaExecutionMode execution_mode) {
+  return UpsampleCommmonSharedLayer(
+      stack, true, 2, true, nearest, execution_mode);
 }
 
 SharedMetaDataVector UpsampleNearest2DBwdSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode /*unused*/) {
-  return UpsampleCommmonSharedLayer(stack, true, 3, false);
+    habana_helpers::HabanaExecutionMode execution_mode) {
+  return UpsampleCommmonSharedLayer(
+      stack, true, 3, false, nearest, execution_mode);
 }
 
 FillParamsT FillBicubicFwdParamsAA(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
-  auto out_size = stack.at(1);
+  const auto& out_size = stack.at(1);
   auto align_corners = stack.at(2).toBool();
   // scales
-  auto scales = stack.at(3);
+  const auto& scales = stack.at(3);
   double scale_h = stack.at(3).toOptional<double>().value_or(1.0);
   double scale_w = stack.at(4).toOptional<double>().value_or(1.0);
   double scale_d = 1.0;
@@ -504,10 +549,10 @@ FillParamsT FillBicubicFwdParamsAA(const at::Stack& stack) {
 
 FillParamsT FillBicubicBwdParamsAA(const at::Stack& stack) {
   auto grad_in = stack.at(0).toTensor();
-  auto out_size = stack.at(1);
+  const auto& out_size = stack.at(1);
   auto align_corners = stack.at(3).toBool();
   // scales
-  auto scales = stack.at(4);
+  const auto& scales = stack.at(4);
   double scale_h = stack.at(4).toOptional<double>().value_or(1.0);
   double scale_w = stack.at(5).toOptional<double>().value_or(1.0);
   double scale_d = 1.0;
@@ -526,10 +571,10 @@ FillParamsT FillBicubicBwdParamsAA(const at::Stack& stack) {
 
 FillParamsT FillBilinearFwdParams(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
-  auto out_size = stack.at(1);
+  const auto& out_size = stack.at(1);
   auto align_corners = stack.at(2).toBool();
   // scales
-  auto scales = stack.at(3);
+  const auto& scales = stack.at(3);
   double scale_w = 1.0;
   double scale_h = 1.0;
   double scale_d = 1.0;
@@ -592,19 +637,19 @@ FillParamsT FillBilinearParamsAAHelper(
 
 FillParamsT FillBilinearFwdParamsAA(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
-  auto out_size = stack.at(1);
+  const auto& out_size = stack.at(1);
   auto align_corners = stack.at(2).toBool();
-  auto scales = stack.at(3);
+  const auto& scales = stack.at(3);
   return FillBilinearParamsAAHelper(
       self, stack, out_size, scales, align_corners, 3, 4);
 }
 
 FillParamsT FillBilinearBwdParams(const at::Stack& stack) {
   auto grad_in = stack.at(0).toTensor();
-  auto out_size = stack.at(1);
+  const auto& out_size = stack.at(1);
   auto align_corners = stack.at(3).toBool();
   // scales
-  auto scales = stack.at(4);
+  const auto& scales = stack.at(4);
   double scale_w = 1.0;
   double scale_h = 1.0;
   double scale_d = 1.0;
@@ -628,18 +673,18 @@ FillParamsT FillBilinearBwdParams(const at::Stack& stack) {
 
 FillParamsT FillBilinearBwdParamsAA(const at::Stack& stack) {
   auto grad_in = stack.at(0).toTensor();
-  auto out_size = stack.at(1);
+  const auto& out_size = stack.at(1);
   auto align_corners = stack.at(3).toBool();
-  auto scales = stack.at(4);
+  const auto& scales = stack.at(4);
   return FillBilinearParamsAAHelper(
       grad_in, stack, out_size, scales, align_corners, 4, 5);
 }
 
 FillParamsT FillNearestFwdParams(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
-  auto out_size = stack.at(1);
+  const auto& out_size = stack.at(1);
   // scales
-  auto scales = stack.at(2);
+  const auto& scales = stack.at(2);
   double scale_w = 1.0;
   double scale_h = 1.0;
   double scale_d = 1.0;
@@ -663,7 +708,7 @@ FillParamsT FillNearestFwdParams(const at::Stack& stack) {
 
 FillParamsT FillNearestExact2DFwdParams(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
-  auto out_size = stack.at(1);
+  const auto& out_size = stack.at(1);
   // scales
   auto scales_h = stack.at(2);
   auto scales_w = stack.at(3);
@@ -687,7 +732,7 @@ FillParamsT FillNearestExact2DFwdParams(const at::Stack& stack) {
 
 FillParamsT FillNearestExact2DBwdParams(const at::Stack& stack) {
   auto grad_out = stack.at(0).toTensor();
-  auto out_size = stack.at(1);
+  const auto& out_size = stack.at(1);
   auto scales_h = stack.at(3);
   auto scales_w = stack.at(4);
   bool align_corners = false;
@@ -709,11 +754,11 @@ FillParamsT FillNearestExact2DBwdParams(const at::Stack& stack) {
 
 FillParamsT FillNearestExact3DFwdParams(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
-  auto out_size = stack.at(1);
+  const auto& out_size = stack.at(1);
   double scale_d = stack.at(2).toOptional<double>().value_or(1.0);
   double scale_h = stack.at(3).toOptional<double>().value_or(1.0);
   double scale_w = stack.at(4).toOptional<double>().value_or(1.0);
-  c10::IValue scales = stack.at(2);
+  const c10::IValue& scales = stack.at(2);
   bool align_corners = false;
   bool antialias = false;
   return FillResizeParams(
@@ -730,9 +775,9 @@ FillParamsT FillNearestExact3DFwdParams(const at::Stack& stack) {
 
 FillParamsT FillNearestBwdParams(const at::Stack& stack) {
   auto grad_in = stack.at(0).toTensor();
-  auto out_size = stack.at(1);
+  const auto& out_size = stack.at(1);
   // scales
-  auto scales = stack.at(3);
+  const auto& scales = stack.at(3);
   double scale_w = 1.0;
   double scale_h = 1.0;
   double scale_d = 1.0;
@@ -756,7 +801,7 @@ FillParamsT FillNearestBwdParams(const at::Stack& stack) {
 
 FillParamsT FillNearestExact3DBwdParams(const at::Stack& stack) {
   auto grad_in = stack.at(0).toTensor();
-  auto out_size = stack.at(1);
+  const auto& out_size = stack.at(1);
   bool align_corners = false;
   bool antialias = false;
   double scale_d = stack.at(3).toOptional<double>().value_or(1.0);
@@ -781,9 +826,9 @@ void UpsampleLinear1DFwdOperator::AddNode(
     const at::Stack& stack) {
   auto meta = UpsampleLinear1DFwdMeta(stack)[0];
   auto self_tensor = stack.at(0).toTensor();
-  auto out_size = stack.at(1);
+  const auto& out_size = stack.at(1);
   bool align_corners = stack.at(2).toBool();
-  auto scales = stack.at(3);
+  const auto& scales = stack.at(3);
   double scale_w = 1.0;
   if (!scales.isNone()) {
     scale_w =
@@ -808,9 +853,9 @@ void UpsampleLinear1DBwdOperator::AddNode(
     const at::Stack& stack) {
   auto meta = UpsampleLinear1DBwdMeta(stack)[0];
   auto self_tensor = stack.at(0).toTensor();
-  auto out_size = stack.at(1);
+  const auto& out_size = stack.at(1);
   bool align_corners = stack.at(3).toBool();
-  auto scales = stack.at(4);
+  const auto& scales = stack.at(4);
   double scale_w = 1.0;
   if (!scales.isNone()) {
     scale_w =
@@ -835,9 +880,9 @@ void UpsampleNearest1DFwdOperator::AddNode(
     const at::Stack& stack) {
   auto meta = UpsampleNearest1DFwdMeta(stack)[0];
   auto self_tensor = stack.at(0).toTensor();
-  auto out_size = stack.at(1);
+  const auto& out_size = stack.at(1);
   bool align_corners = false;
-  auto scales = stack.at(2);
+  const auto& scales = stack.at(2);
   double scale_w = 1.0;
   if (!scales.isNone()) {
     scale_w =
@@ -862,9 +907,9 @@ void UpsampleNearest1DBwdOperator::AddNode(
     const at::Stack& stack) {
   auto meta = UpsampleNearest1DBwdMeta(stack)[0];
   auto self_tensor = stack.at(0).toTensor();
-  auto out_size = stack.at(1);
+  const auto& out_size = stack.at(1);
   bool align_corners = false;
-  auto scales = stack.at(3);
+  const auto& scales = stack.at(3);
   double scale_w = 1.0;
   if (!scales.isNone()) {
     scale_w =
@@ -889,9 +934,9 @@ void UpsampleNearestExact1DFwdOperator::AddNode(
     const at::Stack& stack) {
   auto meta = UpsampleNearest1DFwdMeta(stack)[0];
   auto self_tensor = stack.at(0).toTensor();
-  auto out_size = stack.at(1);
+  const auto& out_size = stack.at(1);
   bool align_corners = false;
-  auto scales = stack.at(2);
+  const auto& scales = stack.at(2);
   double scale_w = 1.0;
   if (!scales.isNone()) {
     scale_w =
@@ -916,9 +961,9 @@ void UpsampleNearestExact1DBwdOperator::AddNode(
     const at::Stack& stack) {
   auto meta = UpsampleNearest1DBwdMeta(stack)[0];
   auto self_tensor = stack.at(0).toTensor();
-  auto out_size = stack.at(1);
+  const auto& out_size = stack.at(1);
   bool align_corners = false;
-  auto scales = stack.at(3);
+  const auto& scales = stack.at(3);
   double scale_w = 1.0;
   if (!scales.isNone()) {
     scale_w =
@@ -1004,9 +1049,9 @@ synapse_helpers::tensor UpsampleNearestExactFwdCommon(
 
   auto resize = Resize(
       op, graph, input, meta.shape, intermediateDtype, params, final_index);
-  if (meta.dtype != c10::ScalarType::Byte)
+  if (meta.dtype != c10::ScalarType::Byte) {
     return std::move(resize[0]);
-
+  }
   // f32 to u8
   return OpBackend::BuildCast(
       op, graph, resize[0].get(), meta.shape, intermediateDtype, meta.dtype, 0);
@@ -1048,9 +1093,9 @@ void UpSampleNearest3DFwdOperator::AddNode(
     const at::Stack& stack) {
   auto meta = UpsampleNearest3DFwdMeta(stack)[0];
   auto self_tensor = stack.at(0).toTensor();
-  auto out_size = stack.at(1);
+  const auto& out_size = stack.at(1);
   // scales
-  auto scales = stack.at(2);
+  const auto& scales = stack.at(2);
   double scale_d = 1.0;
   double scale_w = 1.0;
   double scale_h = 1.0;
@@ -1082,9 +1127,9 @@ void UpSampleNearest3DBwdOperator::AddNode(
   // outshape
   auto meta = UpsampleNearest3DBwdMeta(stack)[0];
   auto self_tensor = stack.at(0).toTensor();
-  auto out_size = stack.at(1);
+  const auto& out_size = stack.at(1);
   // scales
-  auto scales = stack.at(3);
+  const auto& scales = stack.at(3);
   double scale_d = 1.0;
   double scale_w = 1.0;
   double scale_h = 1.0;
@@ -1116,7 +1161,7 @@ void UpsampleNearestExact3DBwdOperator::AddNode(
   // outshape
   auto meta = UpsampleNearestExact3DBwdMeta(stack)[0];
   auto self_tensor = stack.at(0).toTensor();
-  auto out_size = stack.at(1);
+  const auto& out_size = stack.at(1);
   // scales
   auto scales_d = stack.at(3);
   double scale_d = scales_d.toOptional<double>().value_or(1.0);

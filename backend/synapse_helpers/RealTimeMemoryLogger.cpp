@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,22 +26,26 @@ namespace synapse_helpers::realtime_logger {
 
 PipeClient::PipeClient(const std::string& file_out) {
   wfd_ = open(file_out.c_str(), O_WRONLY);
-  if (wfd_ < 0)
+  if (wfd_ < 0) {
     PT_BRIDGE_WARN("RealTimer Logger: open() error for read end");
+  }
 }
 PipeClient::~PipeClient() {
   close(wfd_);
 }
 
-void PipeClient::communicate(const std::vector<uint64_t>& msg) {
-  if (wfd_ < 0)
+void PipeClient::communicate(const std::vector<uint64_t>& msg) const {
+  if (wfd_ < 0) {
     return;
+  }
   size_t size = msg.size();
 
-  if (write(wfd_, &size, sizeof(size)) == -1)
+  if (write(wfd_, &size, sizeof(size)) == -1) {
     PT_BRIDGE_WARN("RealTimer Logger: write() error");
-  if (write(wfd_, msg.data(), msg.size() * sizeof(uint64_t)) == -1)
+  }
+  if (write(wfd_, msg.data(), msg.size() * sizeof(uint64_t)) == -1) {
     PT_BRIDGE_WARN("RealTimer Logger: write() error");
+  }
 }
 
 void RealTimeMeoryLogger::thread_loop() {

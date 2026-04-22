@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@
 
 import functools
 import os
-from collections import namedtuple
 from collections.abc import Callable
 from contextlib import contextmanager
 from unittest import skipUnless
@@ -30,6 +29,7 @@ import torch.utils.checkpoint
 from torch._inductor.test_case import TestCase as InductorTestCase
 from torch.nn.attention.experimental._paged_attention import PagedAttention
 from torch.nn.attention.flex_attention import (
+    AuxRequest,
     BlockMask,
     _identity,
     _score_mod_signature,
@@ -48,7 +48,6 @@ running_on_a100_only = skipUnless(
     "Requires A100 and Triton",
 )
 
-Tolerances = namedtuple("Tolerances", ["atol", "rtol"])
 if torch.version.hip:
     torch.set_float32_matmul_precision("highest")
 else:
@@ -82,12 +81,13 @@ def rmse(ref, res):
 
 
 def create_attention(score_mod, block_mask, enable_gqa=False, return_lse=False):
+    return_aux = AuxRequest(lse=True) if return_lse else None
     return functools.partial(
         flex_attention,
         score_mod=score_mod,
         block_mask=block_mask,
         enable_gqa=enable_gqa,
-        return_lse=return_lse,
+        return_aux=return_aux,
     )
 
 
@@ -454,10 +454,7 @@ class TestFlexAttention(InductorTestCase):
         with torch.no_grad():
             # Note, it seems like we really are less accurate than the float32
             # computation, likely due to the online softmax
-            if dtype == torch.float32:
-                fudge_factor = 10.0
-            else:
-                fudge_factor = 1.1
+            fudge_factor = 10.0 if dtype == torch.float32 else 1.1
 
             # Check gradients
             q_fudge_factor = 1.0 * fudge_factor
@@ -483,10 +480,7 @@ class TestFlexAttention(InductorTestCase):
         with torch.no_grad():
             # Note, it seems like we really are less accurate than the float32
             # computation, likely due to the online softmax
-            if dtype == torch.float32:
-                fudge_factor = 10.0
-            else:
-                fudge_factor = 1.1
+            fudge_factor = 10.0 if dtype == torch.float32 else 1.1
 
             # Check gradients
             q_fudge_factor = 1.0 * fudge_factor
@@ -512,10 +506,7 @@ class TestFlexAttention(InductorTestCase):
         with torch.no_grad():
             # Note, it seems like we really are less accurate than the float32
             # computation, likely due to the online softmax
-            if dtype == torch.float32:
-                fudge_factor = 10.0
-            else:
-                fudge_factor = 1.1
+            fudge_factor = 10.0 if dtype == torch.float32 else 1.1
 
             # Check gradients
             q_fudge_factor = 1.0 * fudge_factor
@@ -601,8 +592,17 @@ class TestFlexAttention(InductorTestCase):
         q_gold, k_gold, v_gold = query_key_value_clones(q, k, v, torch.float64)
         sdpa_partial_ref = create_attention(score_mod, block_mask, enable_gqa=(Q_H != KV_H), return_lse=return_lse)
 
-        golden_out = sdpa_partial_ref(q_gold, k_gold, v_gold)
-        ref_out = sdpa_partial_ref(q_ref, k_ref, v_ref)
+        golden_result = sdpa_partial_ref(q_gold, k_gold, v_gold)
+        ref_result = sdpa_partial_ref(q_ref, k_ref, v_ref)
+        # Unpack results if return_lse is True
+        if return_lse:
+            golden_out, golden_aux = golden_result
+            golden_lse = golden_aux.lse
+            ref_out, ref_aux = ref_result
+            ref_lse = ref_aux.lse
+        else:
+            golden_out = golden_result
+            ref_out = ref_result
 
         block_mask = block_mask.to(device=self.device)
         sdpa_partial = create_attention(score_mod, block_mask, enable_gqa=(Q_H != KV_H), return_lse=return_lse)
@@ -620,21 +620,21 @@ class TestFlexAttention(InductorTestCase):
                     is_paged_attention=False,
                 )
             else:
-                compiled_out = compiled_sdpa(q, k, v)
-                lse_out = compiled_out[1].to("cpu")
-                compiled_out = compiled_out[0].to("cpu")
+                compiled_out, compiled_aux = compiled_sdpa(q, k, v)
+                compiled_lse = compiled_aux.lse.to("cpu")
+                compiled_out = compiled_out.to("cpu")
                 self._check_out(
-                    golden_out[0],
-                    ref_out[0],
+                    golden_out,
+                    ref_out,
                     compiled_out,
                     compiled_out.dtype,
                     score_mod,
                     is_paged_attention=False,
                 )
                 self._check_out(
-                    golden_out[1],
-                    ref_out[1],
-                    lse_out,
+                    golden_lse,
+                    ref_lse,
+                    compiled_lse,
                     compiled_out.dtype,
                     score_mod,
                     is_paged_attention=False,
@@ -761,10 +761,7 @@ class TestFlexAttention(InductorTestCase):
             k.shape[1],
             k.shape[2],
         )
-        if self.device == "cpu":
-            test_inference_only = True
-        else:
-            test_inference_only = False
+        test_inference_only = self.device == "cpu"
         if block_mask is None:
             block_mask = create_block_mask(noop_mask, B, 1, Q_S, KV_S, device=self.device)
 
@@ -786,30 +783,29 @@ class TestFlexAttention(InductorTestCase):
         compiled_sdpa = torch.compile(flex_attention)
 
         # compute
-        return_lse = True
         if test_inference_only:
-            return_lse = False
             compiled_lse = None
             compiled_out = compiled_sdpa(
                 q,
                 k_cache,
                 v_cache,
-                return_lse=return_lse,
+                return_aux=None,
                 block_mask=converted_block_mask,
                 score_mod=converted_score_mod,
                 enable_gqa=(Q_H != KV_H),
             )
 
         else:
-            compiled_out, compiled_lse = compiled_sdpa(
+            compiled_out, compiled_aux = compiled_sdpa(
                 q,
                 k_cache,
                 v_cache,
-                return_lse=return_lse,
+                return_aux=AuxRequest(lse=True),
                 block_mask=converted_block_mask,
                 score_mod=converted_score_mod,
                 enable_gqa=(Q_H != KV_H),
             )
+            compiled_lse = compiled_aux.lse
         return compiled_out, compiled_lse
 
     def run_test_with_paged_attention(
@@ -827,10 +823,7 @@ class TestFlexAttention(InductorTestCase):
         block_mask: BlockMask | None = None,
     ):
         assert Q_H % KV_H == 0
-        if self.device == "cpu":
-            test_inference_only = True
-        else:
-            test_inference_only = False
+        test_inference_only = self.device == "cpu"
         q = torch.randn((Q_B, Q_H, Q_S, QK_D), dtype=dtype, device=self.device, requires_grad=False)
         k = torch.randn(
             (KV_B, KV_H, KV_S, QK_D),
@@ -851,8 +844,10 @@ class TestFlexAttention(InductorTestCase):
             block_mask = create_block_mask(noop_mask, Q_B, 1, Q_S, KV_S, device=self.device)
 
         sdpa_partial = create_attention(score_mod, block_mask, enable_gqa=(Q_H != KV_H))
-        golden_out, golden_lse = sdpa_partial(q_gold, k_gold, v_gold, return_lse=True)
-        ref_out, ref_lse = sdpa_partial(q_ref, k_ref, v_ref, return_lse=True)
+        golden_out, golden_aux = sdpa_partial(q_gold, k_gold, v_gold, return_aux=AuxRequest(lse=True))
+        golden_lse = golden_aux.lse
+        ref_out, ref_aux = sdpa_partial(q_ref, k_ref, v_ref, return_aux=AuxRequest(lse=True))
+        ref_lse = ref_aux.lse
 
         compiled_out, compiled_lse = self.run_paged_attention(score_mod, q, k, v, dtype, block_mask)
         self._check_out(
@@ -885,10 +880,7 @@ class TestFlexAttention(InductorTestCase):
         KV_S: int = S,
         V_D: int = D,
     ):
-        if self.device == "cpu":
-            test_inference_only = True
-        else:
-            test_inference_only = False
+        test_inference_only = self.device == "cpu"
         q = torch.randn(
             (Q_B, Q_H, Q_S, Q_D),
             dtype=dtype,
@@ -1085,10 +1077,7 @@ class TestFlexAttention(InductorTestCase):
         S: int = S,
         D: int = D,
     ):
-        if self.device == "cpu":
-            test_inference_only = True
-        else:
-            test_inference_only = False
+        test_inference_only = self.device == "cpu"
         MAX_S = S
         block_mask1 = create_block_mask(noop_mask, 1, 1, S, S, device=self.device)
         sdpa_partial1 = create_attention(score_mod, block_mask=block_mask1)
@@ -1175,10 +1164,7 @@ class TestFlexAttention(InductorTestCase):
 
         # Note, it seems like we really are less accurate than the float32
         # computation, likely due to the online softmax
-        if dtype == torch.float32:
-            fudge_factor = 10.0
-        else:
-            fudge_factor = 1.1
+        fudge_factor = 10.0 if dtype == torch.float32 else 1.1
 
         # The first batch.
         compiled_out1 = torch.compile(sdpa_partial1)(q1, k1, v1)

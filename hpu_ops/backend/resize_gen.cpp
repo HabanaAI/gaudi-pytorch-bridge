@@ -31,7 +31,7 @@ void resizeTensor(
   if (op->isOutputInfMode()) {
     op->GetOutputInfMeta().AddOutputTensor(TensorMetaData(
         meta.shape,
-        op->CalculateStrides(meta.shape, memory_format),
+        OpBackend::CalculateStrides(meta.shape, memory_format),
         tensor.scalar_type(),
         memory_format));
   } else {
@@ -49,11 +49,12 @@ void resizeTensor(
 } // namespace
 
 OutputMetaDataVector ResizeOutputMeta(const at::Stack& stack) {
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.dtype = stack.at(0).toTensor().scalar_type();
   meta.shape = stack.at(1).toIntVector();
   meta.persistent = true;
-  return {meta};
+  return metaVec;
 }
 
 SharedMetaDataVector ResizeSharedMeta(
@@ -63,10 +64,12 @@ SharedMetaDataVector ResizeSharedMeta(
   auto dtype = self.scalar_type();
   auto rank = stack.at(1).toIntVector().size();
 
-  SharedMetaData memcpySharedMeta{"memcpy"};
+  SharedMetaDataVector meta;
+  meta.reserve(1);
+  auto& memcpySharedMeta = meta.emplace_back("memcpy");
   memcpySharedMeta.inputs_data.emplace_back(self.dim(), dtype);
   memcpySharedMeta.outputs_data.emplace_back(rank, dtype);
-  return {memcpySharedMeta};
+  return meta;
 }
 
 void ResizeOpBackend::AddNode(

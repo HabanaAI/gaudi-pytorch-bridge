@@ -41,7 +41,7 @@ class PipelineDeleter {
  private:
   PipelineDeleter() {}
 
-  void delete_function(void*);
+  void delete_function(void*) const;
 
   long m_marked_tid = 0;
 };

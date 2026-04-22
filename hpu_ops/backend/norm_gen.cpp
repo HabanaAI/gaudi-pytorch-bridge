@@ -27,12 +27,13 @@ namespace habana {
 namespace sh = synapse_helpers;
 
 OutputMetaDataVector NormMeta(const at::Stack& stack) {
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.shape = {};
   meta.dtype = stack.size() == 3 ? stack.at(2).toScalarType()
                                  : stack_tensor(stack, 0).scalar_type();
 
-  return {meta};
+  return metaVec;
 }
 
 static sizes_vec NormOpOutputShape(const at::Stack& stack) {
@@ -48,34 +49,38 @@ static sizes_vec NormOpOutputShape(const at::Stack& stack) {
 OutputMetaDataVector NormOpMeta(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 0);
 
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.dtype = (stack.size() >= 5 && !stack.at(4).isTensor())
       ? stack.at(4).toScalarType()
       : self.scalar_type();
   meta.shape = NormOpOutputShape(stack)[0];
 
-  return {meta};
+  return metaVec;
 }
 
 OutputMetaDataVector VecNormMeta(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 0);
 
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.dtype =
       stack.at(4).toOptional<at::ScalarType>().value_or(self.scalar_type());
   meta.shape = NormOpOutputShape(stack)[0];
 
-  return {meta};
+  return metaVec;
 }
 
 SharedMetaDataVector NormCommonSharedMeta(
     const int64_t& inputRank,
     const int64_t& outputRank,
     const at::ScalarType& dtype) {
-  SharedMetaData normCommonSharedMeta{"reduce_Lp_multi_dim_fwd"};
+  SharedMetaDataVector meta;
+  meta.reserve(1);
+  auto& normCommonSharedMeta = meta.emplace_back("reduce_Lp_multi_dim_fwd");
   normCommonSharedMeta.inputs_data.emplace_back(inputRank, dtype);
   normCommonSharedMeta.outputs_data.emplace_back(outputRank, dtype);
-  return {normCommonSharedMeta};
+  return meta;
 }
 
 SharedMetaDataVector NormOpWithDtypeSharedMeta(
@@ -96,10 +101,11 @@ SharedMetaDataVector NormOpWithDtypeSharedMeta(
   }
 
   c10::ScalarType dtype;
-  if (stack.size() >= 5 && !stack.at(4).isTensor() && !stack.at(4).isNone())
+  if (stack.size() >= 5 && !stack.at(4).isTensor() && !stack.at(4).isNone()) {
     dtype = stack.at(4).toScalarType();
-  else
+  } else {
     dtype = self.scalar_type();
+  }
 
   return NormCommonSharedMeta(inputRank, outputRank, dtype);
 }
@@ -193,10 +199,11 @@ sh::tensor NormCommon(
       (ord.isFloatingPoint()) ? ord.toFloat() : static_cast<float>(ord.toInt());
   auto self_shape = self.sizes().vec();
 
-  if (is_vec_norm)
+  if (is_vec_norm) {
     VecNormCheck(self, dtype, ord, dim);
-  else
+  } else {
     NormCheck(dtype);
+  }
 
   if (self.numel() == 0) {
     at::Scalar s = (p < 0) && is_vec_norm ? INF : 0;

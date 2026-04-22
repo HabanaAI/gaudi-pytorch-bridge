@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -67,7 +67,7 @@ hcclResult_t device_context::get_hpu_stream(
       stream_handle,
       ")");
 
-  if (hpustream_handle_map_.count(stream_handle)) {
+  if (hpustream_handle_map_.count(stream_handle) != 0U) {
     *hpu_stream_ptr = hpustream_handle_map_[stream_handle];
     return hcclSuccess;
   }
@@ -150,7 +150,7 @@ hcclResult_t device_context::lock_address(
 
   synapse_helpers::device_ptr_lock locked{device_->lock_addresses(
       reinterpret_cast<synapse_helpers::device_ptr>(address))};
-  auto locked_address = reinterpret_cast<void*>(locked.at(0));
+  auto* locked_address = reinterpret_cast<void*>(locked.at(0));
   *device_address = locked_address;
   return hcclSuccess;
 }
@@ -169,10 +169,10 @@ hcclResult_t device_context::lock_address(
 
   std::vector<synapse_helpers::device_ptr> dev_addresses;
   dev_addresses.reserve(addresses.size());
-  for (auto& address : addresses)
+  for (auto& address : addresses) {
     dev_addresses.push_back(
         reinterpret_cast<synapse_helpers::device_ptr>(address));
-
+  }
   locked = std::make_unique<synapse_helpers::device_ptr_lock>(
       device_->lock_addresses(
           absl::Span<const synapse_helpers::device_ptr>(dev_addresses)));
@@ -206,7 +206,7 @@ hcclResult_t device_context::lock_address(
   locked = std::make_unique<synapse_helpers::device_ptr_lock>(
       device_->lock_addresses(
           reinterpret_cast<synapse_helpers::device_ptr>(address)));
-  auto locked_address = reinterpret_cast<void*>(locked->at(0));
+  auto* locked_address = reinterpret_cast<void*>(locked->at(0));
   *device_address = locked_address;
   return hcclSuccess;
 }

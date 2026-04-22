@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,6 @@
  */
 
 #include "generated/backend/exponential.h"
-#include "habana_kernels/random_gen_kernels.h"
 #include "hpu_ops/habana_random_ops.h"
 
 namespace habana {
@@ -25,10 +24,11 @@ OutputMetaDataVector ExponentialMetaCommon(
     const at::Stack& stack,
     size_t self_idx) {
   const auto& self = stack.at(self_idx).toTensor();
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.shape = self.sizes().vec();
   meta.dtype = self.scalar_type();
-  return {meta};
+  return metaVec;
 }
 
 FillParamsT FillExponentialParamsCommon(
@@ -56,13 +56,16 @@ SharedMetaDataVector ExponentialSharedMeta(
   auto input = stack_tensor(stack, 0);
   auto dtype = input.scalar_type();
   auto rank = input.dim();
-  auto seed = stack.at(2);
+  const auto& seed = stack.at(2);
 
-  SharedMetaData randomSharedMeta("random_exponential_fwd");
+  SharedMetaDataVector randomSharedMetaVec;
+  randomSharedMetaVec.reserve(1);
+  auto& randomSharedMeta =
+      randomSharedMetaVec.emplace_back("random_exponential_fwd");
   randomSharedMeta.inputs_data.emplace_back(
       1, seed.isTensor() ? seed.toTensor().scalar_type() : at::ScalarType::Int);
   randomSharedMeta.outputs_data.emplace_back(rank, dtype);
-  return {randomSharedMeta};
+  return randomSharedMetaVec;
 }
 
 FillParamsT FillExponentialParams(const at::Stack& stack) {
@@ -76,10 +79,11 @@ void ExponentialSeedTensorInput::AddNode(
   auto params = FillExponentialParams(stack);
   std::vector<synTensor> inputs;
 
-  if (stack.at(2).isTensor())
+  if (stack.at(2).isTensor()) {
     inputs.push_back(syn_in(1));
-  else
+  } else {
     inputs.push_back(syn_seed());
+  }
 
   CreateShapeTensorInput(graph, meta.dtype, meta.shape, inputs);
   using namespace std::literals;

@@ -179,23 +179,6 @@ TEST_F(LazyLinearKernelTest, MatmulBwdTest) {
     return ret;
   };
 
-  auto should_skip_case_on_gaudi = [](int N, int M, int gen1, int gen2) {
-    if (N == 3 && M == 5 && gen1 == 1 && (gen2 == 1 || gen2 == 2 || gen2 == 3))
-      return true;
-    if (N == 4 && M == 5 && (gen1 == 1 || gen1 == 2 || gen1 == 3) && gen2 == 1)
-      return true;
-    if (N == 4 && M == 5 && gen1 == 3 && (gen2 == 3 || gen2 == 5))
-      return true;
-    if (N == 5 && M == 3 && (gen1 == 1 || gen1 == 2 || gen1 == 3) && gen2 == 1)
-      return true;
-    if (N == 5 && M == 4 && gen1 == 1 && (gen2 == 1 || gen2 == 2 || gen2 == 3))
-      return true;
-    if (N == 5 && M == 4 && (gen1 == 3 || gen1 == 5) && gen2 == 3)
-      return true;
-
-    return false;
-  };
-
   // iterate over all combinations of N-D x M-D; N,M in range [1..5]
   for (int N = 1; N <= 5; N++) {
     for (int M = 1; M <= 5; M++) {

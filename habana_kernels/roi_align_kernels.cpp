@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@
 #include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/helpers/tensor_utils.h"
 #include "backend/kernel/hpu_shape_inference.h"
+#include "habana_helpers/conversion.h"
 #include "habana_helpers/logging.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/roi_align_kernels.h"
@@ -82,9 +83,9 @@ void RoiAlignFwdOperator::AllocateAndAddSynapseNode(
   auto aligned = inputs[8].toBool();
 
   ns_RoiAlignKernel::ParamsAlignment roi_params{};
-  roi_params.mode =
-      mode ? RoiAlignMode_t::ROI_ALIGN_MAX : RoiAlignMode_t::ROI_ALIGN_AVG;
-  roi_params.sampling_ratio = sampling_ratio;
+  roi_params.mode = (mode != 0) ? RoiAlignMode_t::ROI_ALIGN_MAX
+                                : RoiAlignMode_t::ROI_ALIGN_AVG;
+  roi_params.sampling_ratio = safe_convert<int>(sampling_ratio);
   roi_params.spatial_scale = spatial_scale;
   roi_params.aligned = aligned;
   std::vector<int64_t> out_shape;
@@ -118,12 +119,6 @@ InferOutputMetaRetType RoiAlignBwdOperator::InferOutputMeta(
     out.call_InferOutputMeta(cast_op, castOp_stack);
   }
 
-  if (habana::HPUDeviceContext::get_device().type() == synDeviceGaudi) {
-    auto quad_tree_op = make_operator<habana::QuadTreeFwdImplOperator>(
-        this->p_context_->device_id_, c10::ScalarType::Float);
-    out.call_InferOutputMeta(quad_tree_op, inputs);
-  }
-
   auto roi_bwd_impl_op = make_operator<habana::RoiAlignBwdImplOperator>(
       this->p_context_->device_id_, inputs[0].toTensor().scalar_type());
   auto& roi_bwd_impl_op_out = out.call_InferOutputMeta(roi_bwd_impl_op, inputs);
@@ -138,42 +133,15 @@ void RoiAlignBwdOperator::AllocateAndAddSynapseNode(
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
   auto rois = inputs[1].toTensor();
-  const bool isGaudi1 =
-      habana::HPUDeviceContext::get_device().type() == synDeviceGaudi;
   // quad_tree supports f32 only, therefore rois need to be casted to
   // f32 before feeding into quad_tree
   std::shared_ptr<HabanaOperator> cast_op;
-  if (rois.scalar_type() == c10::ScalarType::BFloat16 && isGaudi1) {
-    cast_op =
-        make_operator<CastOperator>(rois.device().index(), "cast_bf16_to_f32");
-    cast_op->SetSynapseInput(p_context_->syn_inputs_[1]);
-    std::vector<c10::IValue> stack = {rois, c10::ScalarType::Float};
-    auto md = OutputMetaDataVector(1);
-    md[0].dtype = stack[1].toScalarType();
-    cast_op->AllocateAndAddSynapseNode(graph, stack, md);
-  }
 
   auto roi_bwd_op = make_operator<habana::RoiAlignBwdImplOperator>(
       this->p_context_->device_id_, inputs[0].toTensor().scalar_type());
   roi_bwd_op->SetSynapseInput(p_context_->syn_inputs_[0]);
-  roi_bwd_op->SetSynapseInput(
-      (rois.scalar_type() == c10::ScalarType::BFloat16 && isGaudi1)
-          ? cast_op->GetSynOutputs()[0]
-          : p_context_->syn_inputs_[1]);
+  roi_bwd_op->SetSynapseInput(p_context_->syn_inputs_[1]);
   roi_bwd_op->SetSynapseInput(p_context_->syn_inputs_[2]);
-  if (isGaudi1) {
-    auto quad_tree_op = make_operator<habana::QuadTreeFwdImplOperator>(
-        this->p_context_->device_id_, c10::ScalarType::Float);
-    quad_tree_op->SetSynapseInput(
-        (rois.scalar_type() == c10::ScalarType::BFloat16)
-            ? cast_op->GetSynOutputs()[0]
-            : p_context_->syn_inputs_[1]);
-    quad_tree_op->SetSynapseInput(p_context_->syn_inputs_[2]);
-    quad_tree_op->SetSynapseInput(p_context_->syn_inputs_[3]);
-    quad_tree_op->AllocateAndAddSynapseNode(
-        graph, inputs, OutputMetaDataVector(1));
-    roi_bwd_op->SetSynapseInput(quad_tree_op->GetSynOutputs()[0]);
-  }
   roi_bwd_op->AllocateAndAddSynapseNode(graph, inputs, output_metadata);
 
   p_context_->syn_outputs_.emplace_back(
@@ -220,9 +188,9 @@ void RoiAlignBwdImplOperator::AllocateAndAddSynapseNode(
 
   ns_RoiAlignBwdKernel::ParamsIsValidCount roi_params{};
   roi_params.mode = RoiAlignMode_t::ROI_ALIGN_AVG;
-  roi_params.sampling_ratio = sampling_ratio;
+  roi_params.sampling_ratio = safe_convert<int>(sampling_ratio);
   roi_params.spatial_scale = spatial_scale;
-  roi_params.aligned = aligned;
+  roi_params.aligned = static_cast<int>(aligned);
   roi_params.isValidCount = false;
 
   auto output = habana::createPTTensor(
@@ -239,8 +207,9 @@ void RoiAlignBwdImplOperator::AllocateAndAddSynapseNode(
   constexpr float segPerAxis = 16;
   constexpr float maxVlmCount = 320;
   HABANA_ASSERT(
-      (std::ceil(input_shape.sizes()[2] / segPerAxis) *
-       std::ceil(input_shape.sizes()[3] / segPerAxis)) <= maxVlmCount,
+      (std::ceil(static_cast<float>(input_shape.sizes()[2]) / segPerAxis) *
+       std::ceil(static_cast<float>(input_shape.sizes()[3]) / segPerAxis)) <=
+          maxVlmCount,
       "VLM count exceeded in Roi_align_bwd, input image size too large to handle")
 
   // Allocate Shape Tensor
@@ -306,7 +275,7 @@ void QuadTreeFwdImplOperator::AllocateAndAddSynapseNode(
   quad_tree_params.isValidCount = false;
   quad_tree_params.enableAbsoluteCoords = true;
   quad_tree_params.levelScalarFactor = spatial_scale;
-  quad_tree_params.enableTorchVersion = true;
+  quad_tree_params.enableTorchVersion = static_cast<int>(true);
 
   // Allocate Shape Tensor
   if (graph.is_dynamic_graph()) {

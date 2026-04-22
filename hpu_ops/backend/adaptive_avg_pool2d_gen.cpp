@@ -15,23 +15,24 @@
 #include "generated/backend/_adaptive_avg_pool2d.h"
 #include "generated/backend/_adaptive_avg_pool2d_backward.h"
 #include "generated/backend/adaptive_avg_pool2d.h"
+#include "habana_helpers/conversion.h"
 #include "hpu_ops/shared_meta_common.h"
 
 namespace habana {
 
 FillParamsT FillAdaptiveAvgPool2dParamsFwd(const at::Stack& stack) {
-  const auto output_size = stack[1].toIntList().vec();
+  const auto output_size = stack[1].toIntList();
   PARAMS_STUB(ns_AdaptiveAvgPool::Params);
-  params->outputHeight = output_size[0];
-  params->outputWidth = output_size[1];
+  params->outputHeight = safe_convert<int>(output_size[0]);
+  params->outputWidth = safe_convert<int>(output_size[1]);
   return paramsT;
 }
 
 FillParamsT FillAdaptiveAvgPool2dParamsBwd(const at::Stack& stack) {
   const auto input = stack_tensor(stack, 1);
   PARAMS_STUB(ns_AdaptiveAvgPool::Params);
-  params->outputHeight = input.size(-2);
-  params->outputWidth = input.size(-1);
+  params->outputHeight = safe_convert<int>(input.size(-2));
+  params->outputWidth = safe_convert<int>(input.size(-1));
   return paramsT;
 }
 
@@ -47,19 +48,21 @@ OutputMetaDataVector AdaptiveAvgPool2dMeta(const at::Stack& stack) {
   const int64_t output_H = output_size[0];
   const int64_t output_W = output_size.size() == 1 ? output_H : output_size[1];
 
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.dtype = self.scalar_type();
   meta.shape = (self.dim() == 4)
       ? std::vector<int64_t>{self.size(0), self.size(1), output_H, output_W}
       : std::vector<int64_t>{self.size(0), output_H, output_W};
-  return {meta};
+  return metaVec;
 }
 
 OutputMetaDataVector AdaptiveAvgPool2dBwdMeta(const at::Stack& stack) {
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.dtype = stack_tensor(stack, 0).scalar_type();
   meta.shape = stack_tensor(stack, 1).sizes().vec();
-  return {meta};
+  return metaVec;
 }
 
 SharedMetaDataVector AdaptiveAvgPool2dFwdSharedMeta(
@@ -102,17 +105,17 @@ void AdaptiveAvgPool2dBwd::AddNode(
     const at::Stack& stack) {
   auto meta = AdaptiveAvgPool2dBwdMeta(stack)[0];
 
-  if (stack_tensor(stack, 0).dim() == 4)
+  if (stack_tensor(stack, 0).dim() == 4) {
     SetSynapseLayouts(
         {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
          synapse_helpers::layouts::SynapseLayoutFormat::WHCN},
         {synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
-  else
+  } else {
     SetSynapseLayouts(
         {synapse_helpers::layouts::SynapseLayoutFormat::WHN,
          synapse_helpers::layouts::SynapseLayoutFormat::WHN},
         {synapse_helpers::layouts::SynapseLayoutFormat::WHN});
-
+  }
   auto adaptive_avg_pool = BuildOp(
       graph, GetGuid(), {syn_in(0), syn_in(1)}, {{meta.shape, meta.dtype, 0}});
 

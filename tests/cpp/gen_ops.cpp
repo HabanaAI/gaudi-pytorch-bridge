@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ class GenOps : public HpuOpTestUtil {
   void TestOut(
       const std::function<torch::Tensor(torch::Tensor, torch::Tensor&)>& fn,
       torch::ScalarType dtype = torch::kFloat,
-      torch::ScalarType out_dtype = torch::kFloat) {
+      [[maybe_unused]] torch::ScalarType out_dtype = torch::kFloat) {
     GenerateInputs(1, dtype);
 
     auto out = torch::empty({0}, dtype);
@@ -85,7 +85,7 @@ class GenOps : public HpuOpTestUtil {
       const std::function<
           torch::Tensor(torch::Scalar, torch::Tensor, torch::Tensor&)>& fn,
       torch::ScalarType dtype,
-      torch::ScalarType out_dtype) {
+      [[maybe_unused]] torch::ScalarType out_dtype) {
     GenerateInputs(1, dtype);
 
     auto out = torch::empty_like(GetCpuInput(0));

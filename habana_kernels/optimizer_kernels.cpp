@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -114,7 +114,7 @@ void OptimizerSparseAdagradOperator::AllocateAndAddSynapseNode(
   // Even for dense, it applies decay param to the current grad whereas TPC
   // applies to the accumulated grad
   params.decay = 1.0;
-  params.eps = 1e-10F;
+  params.eps = 1e-10F; // NOLINT(readability-magic-numbers)
 
   // execute in-place for weights & moments
   p_context_->syn_outputs_.emplace_back(
@@ -186,9 +186,9 @@ void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
     if (is_wd_modified.toBool()) {
       // Weight tensor index == weight tensor list index + curr location i in
       // tensor list
-      mul_wt_wd->SetSynapseInput(p_context_->syn_inputs_[1 * num_params + i]);
+      mul_wt_wd->SetSynapseInput(p_context_->syn_inputs_[(1 * num_params) + i]);
       // Weight decay tensor index == after 4 tensor lists + 1 tensors
-      mul_wt_wd->SetSynapseInput(p_context_->syn_inputs_[4 * num_params + 1]);
+      mul_wt_wd->SetSynapseInput(p_context_->syn_inputs_[(4 * num_params) + 1]);
 
       stack.emplace_back(weights.get(i));
       stack.emplace_back(modified_wd_t);
@@ -200,7 +200,7 @@ void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
     // exp_avg.mul_(beta1).add_(grad, alpha=1.0 - beta1)
     auto mul_exp_avg =
         make_operator<habana::MulInplaceOperator>(device_id, scalar_type);
-    mul_exp_avg->SetSynapseInput(p_context_->syn_inputs_[2 * num_params + i]);
+    mul_exp_avg->SetSynapseInput(p_context_->syn_inputs_[(2 * num_params) + i]);
     stack.emplace_back(exp_avg.get(i));
     stack.emplace_back(beta1);
     mul_exp_avg->AllocateAndAddSynapseNode(
@@ -223,7 +223,7 @@ void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
     auto mul_exp_avg_sq =
         make_operator<habana::MulInplaceOperator>(device_id, scalar_type);
     mul_exp_avg_sq->SetSynapseInput(
-        p_context_->syn_inputs_[3 * num_params + i]);
+        p_context_->syn_inputs_[(3 * num_params) + i]);
     stack.emplace_back(exp_avg_sq.get(i));
     stack.emplace_back(beta2);
     mul_exp_avg_sq->AllocateAndAddSynapseNode(
@@ -298,7 +298,7 @@ void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
 
     if (!is_wd_modified.toBool()) {
       // in this case weight directly comes as input to the fused kernel
-      add_wt->SetSynapseInput(p_context_->syn_inputs_[1 * num_params + i]);
+      add_wt->SetSynapseInput(p_context_->syn_inputs_[(1 * num_params) + i]);
       add_wt->SetSynapseInput(mul_wt->GetSynOutputs()[0]);
 
       stack.emplace_back(weights.get(i));
@@ -426,10 +426,10 @@ void OptimizerFusedAdagradOperator::AllocateAndAddSynapseNode(
     auto op = make_operator<OptimizerAdagradOperator>(device_id, scalar_type);
     op->SetSynapseInput(p_context_->syn_inputs_[i]);
     op->SetSynapseInput(p_context_->syn_inputs_[num_params + i]);
-    op->SetSynapseInput(p_context_->syn_inputs_[2 * num_params + i]);
+    op->SetSynapseInput(p_context_->syn_inputs_[(2 * num_params) + i]);
     op->SetSynapseInput(
         p_context_->syn_inputs_[3 * static_cast<size_t>(num_params)]);
-    op->SetSynapseInput(p_context_->syn_inputs_[3 * num_params + 1]);
+    op->SetSynapseInput(p_context_->syn_inputs_[(3 * num_params) + 1]);
 
     stack.emplace_back(gradients.get(i));
     stack.emplace_back(weights.get(i));
@@ -441,7 +441,9 @@ void OptimizerFusedAdagradOperator::AllocateAndAddSynapseNode(
     stack.emplace_back(inputs[7]);
 
     op->AllocateAndAddSynapseNode(
-        graph, stack, SelectVectorIndices(output_metadata, {i * 2, i * 2 + 1}));
+        graph,
+        stack,
+        SelectVectorIndices(output_metadata, {i * 2, (i * 2) + 1}));
 
     stack.clear();
 
@@ -661,7 +663,7 @@ void OptimizerSGDMomentumOperator::AllocateAndAddSynapseNode(
   HABANA_ASSERT(inputs[8].isBool(), "Input arg9 type expected to be bool");
 
   auto gradients = inputs[0].toTensor();
-  if (habana_lazy::GetHbInternalTensorImpl(gradients)) {
+  if (habana_lazy::GetHbInternalTensorImpl(gradients) != nullptr) {
     PT_BRIDGE_DEBUG(
         "OptimizerSGDMomentumOperator lowering gradient HbInternal address: ",
         habana_lazy::GetHbInternalTensorImpl(gradients),
@@ -674,7 +676,7 @@ void OptimizerSGDMomentumOperator::AllocateAndAddSynapseNode(
         "OptimizerSGDMomentumOperator lowering - gradients HbInternal address is null!")
   }
   auto weights = inputs[1].toTensor();
-  if (habana_lazy::GetHbInternalTensorImpl(weights)) {
+  if (habana_lazy::GetHbInternalTensorImpl(weights) != nullptr) {
     PT_BRIDGE_DEBUG(
         "OptimizerSGDMomentumOperator lowering weight HbInternal address: ",
         habana_lazy::GetHbInternalTensorImpl(weights),
@@ -687,7 +689,7 @@ void OptimizerSGDMomentumOperator::AllocateAndAddSynapseNode(
         "OptimizerSGDMomentumOperator lowering - weights HbInternal address is null!")
   }
   auto momentum = inputs[2].toTensor();
-  if (habana_lazy::GetHbInternalTensorImpl(momentum)) {
+  if (habana_lazy::GetHbInternalTensorImpl(momentum) != nullptr) {
     PT_BRIDGE_DEBUG(
         "OptimizerSGDMomentumOperator lowering momentum HbInternal address: ",
         habana_lazy::GetHbInternalTensorImpl(momentum),
@@ -707,7 +709,7 @@ void OptimizerSGDMomentumOperator::AllocateAndAddSynapseNode(
   params.wd = static_cast<float>(inputs[6].toDouble());
   // we use mom tensor instead. setting to some non zero as a hack. Need fix
   // from tpc glue
-  params.mom = (float)0.1;
+  params.mom = 0.1F; // NOLINT(readability-magic-numbers)
   params.damp = static_cast<float>(inputs[7].toDouble());
   params.nesterov = inputs[8].toBool();
 
@@ -768,12 +770,12 @@ void OptimizerFusedSGDMomentumOperator::AllocateAndAddSynapseNode(
         device_id, at::ScalarType::Float);
     op->SetSynapseInput(p_context_->syn_inputs_[i]);
     op->SetSynapseInput(p_context_->syn_inputs_[num_params + i]);
-    op->SetSynapseInput(p_context_->syn_inputs_[2 * num_params + i]);
+    op->SetSynapseInput(p_context_->syn_inputs_[(2 * num_params) + i]);
     op->SetSynapseInput(
         p_context_->syn_inputs_[3 * static_cast<size_t>(num_params)]);
-    op->SetSynapseInput(p_context_->syn_inputs_[3 * num_params + 1]);
+    op->SetSynapseInput(p_context_->syn_inputs_[(3 * num_params) + 1]);
     op->SetSynapseInput(
-        p_context_->syn_inputs_[3 * num_params + 2]); // mom tensor
+        p_context_->syn_inputs_[(3 * num_params) + 2]); // mom tensor
 
     stack.emplace_back(gradients.get(i));
     stack.emplace_back(weights.get(i));
@@ -786,7 +788,9 @@ void OptimizerFusedSGDMomentumOperator::AllocateAndAddSynapseNode(
     stack.emplace_back(inputs[8]);
 
     op->AllocateAndAddSynapseNode(
-        graph, stack, SelectVectorIndices(output_metadata, {i * 2, i * 2 + 1}));
+        graph,
+        stack,
+        SelectVectorIndices(output_metadata, {i * 2, (i * 2) + 1}));
 
     stack.clear();
 
@@ -856,11 +860,10 @@ void OptimizerFusedLarsOperatorLazy::AddNode(
   // syn_in[] is arranged as [[grads],[params], lr]
   // where grads and params are vectors of size tlSize
   // and lr is a single tensor corr. to the float lr value.
-  auto syn_lr = syn_in(2 * tlSize);
+  auto* syn_lr = syn_in(2 * tlSize);
 
   for (size_t i = 0; i < tlSize; ++i) {
-    auto grad = grads.get(i);
-    auto param = params.get(i);
+    const auto& grad = grads.get(i);
     auto outshape = grad.sizes();
     auto zero_constant = ConstantHelper(graph, 0.0F, dtype, outshape);
     auto one_constant = ConstantHelper(graph, 1.0F, dtype, outshape);
@@ -869,9 +872,9 @@ void OptimizerFusedLarsOperatorLazy::AddNode(
         ConstantHelper(graph, weightDecay, dtype, outshape);
     auto epsTensor = ConstantHelper(graph, eps, dtype, outshape);
 
-    auto syn_grad = syn_in(i);
+    auto* syn_grad = syn_in(i);
 
-    if (!skipMasks[i]) {
+    if (skipMasks[i] == 0) {
       auto mul0 = BuildOp(
           graph,
           get_guid_with_precision("mult"sv, dtype),
@@ -880,7 +883,7 @@ void OptimizerFusedLarsOperatorLazy::AddNode(
       syn_out(i) = std::move(mul0[0]);
       continue;
     }
-    auto syn_param = syn_in(i + tlSize);
+    auto* syn_param = syn_in(i + tlSize);
     auto n_dims = grad.dim();
 
     auto mul1 = BuildOp(

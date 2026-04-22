@@ -69,7 +69,7 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeTest) {
   int H = 16;
 
   std::vector<int> in_sizes{16, 32, 64};
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     PT_TEST_DEBUG("PTI_DBG: Iteration Start -- ", i, " ----\n");
     int W = in_sizes[i];
     // weight_tensor = bias1 + bias2
@@ -167,7 +167,7 @@ void LazyDynamicShapesTest::DynamicShapeTest2(bool with_mark_step) {
   int H = 16;
 
   std::vector<int> in_sizes{16, 64};
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     PT_TEST_DEBUG("PTI_DBG: Iteration Start -- ", i, " ----\n");
     int W = in_sizes[i];
     // weight_tensor = bias1 + bias2
@@ -255,7 +255,7 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeTest3) {
   int H = 16;
   at::Scalar inScalar = 2.0;
   std::vector<int> in_sizes{16, 64};
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     PT_TEST_DEBUG("PTI_DBG: Iteration Start -- ", i, " ----\n");
     int W = in_sizes[i];
     // weight_tensor = bias1 + bias2
@@ -339,9 +339,8 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeDebugSimple) {
   int A = 4;
   const int C = 3;
   std::vector<int> in_sizes{6, 8, 10};
-  int num;
 
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     int B = in_sizes[i];
     PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
     torch::Tensor c0 = torch::randn({C, B, A}, torch::requires_grad(false));
@@ -383,9 +382,8 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeClearCachedRecipes) {
   int A = 4;
   const int C = 3;
   std::vector<int> in_sizes{6, 8, 10};
-  int num;
 
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     int B = in_sizes[i];
     PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
     torch::Tensor c0 = torch::randn({C, B, A}, torch::requires_grad(false));
@@ -435,7 +433,7 @@ TEST_F(LazyDynamicShapesTest, RefineSlice) {
   int H = 24;
   std::vector<int> W_values{16, 36};
   std::vector<int> rounds{1, 6};
-  for (int i = 0; i < W_values.size(); i++) {
+  for (size_t i = 0; i < W_values.size(); i++) {
     for (int j = 1; j <= rounds[i]; j++) {
       PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i + 1, ", round ", j, "  START");
       int W = W_values[i];
@@ -458,12 +456,11 @@ TEST_F(LazyDynamicShapesTest, SingleOpRelu) {
   int A = 4;
   const int C = 3;
   std::vector<int> in_sizes{6, 8, 10, 12, 14, 16};
-  int num;
 
   int rounds{10};
   while (rounds--) {
     PT_TEST_DEBUG("\nPTI_DBG :: round ", rounds, "  --------\n");
-    for (int i = 0; i < in_sizes.size(); i++) {
+    for (size_t i = 0; i < in_sizes.size(); i++) {
       int B = in_sizes[i];
       PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------");
       torch::Tensor c0 = torch::randn({C, B, A}, torch::requires_grad(false));
@@ -567,8 +564,8 @@ TEST_F(LazyDynamicShapesTest, UniqueGraph_Broadcast) {
   SET_ENV_FLAG_NEW(PT_HPU_ENABLE_BROADCAST_BUCKET_HANDLING, false, 1);
   std::pair<int, int> tensor0_sizes = {3, 3};
   std::vector<std::pair<int, int>> addSizes = {{3, 3}, {3, 1}, {1, 3}, {1, 1}};
-  for (int i = 0; i < 3; i++) {
-    for (int j = 0; j < addSizes.size(); j++) {
+  for (size_t i = 0; i < 3; i++) {
+    for (size_t j = 0; j < addSizes.size(); j++) {
       // HbLazyTensor::IterStepMarker();
       int H1 = addSizes[j].first;
       int W1 = addSizes[j].second;
@@ -581,7 +578,8 @@ TEST_F(LazyDynamicShapesTest, UniqueGraph_Broadcast) {
       auto in1 = torch::randn(
           {H1, W1}, torch::dtype(torch::kFloat).requires_grad(false));
       auto in2 = torch::randn(
-          {tensor0_sizes.first + i, tensor0_sizes.second + i},
+          {static_cast<int>(tensor0_sizes.first + i),
+           static_cast<int>(tensor0_sizes.second + i)},
           torch::dtype(torch::kFloat).requires_grad(false));
       torch::Tensor h_in1 = in1.to(torch::kHPU);
       torch::Tensor h_in2 = in2.to(torch::kHPU);
@@ -700,7 +698,7 @@ TEST_F(LazyDynamicShapesTest, SetDynamicModeTest3) {
 TEST_F(LazyDynamicShapesTest, ProdTest) {
   int H = 4;
   std::vector<int> in_sizes{6, 8, 10};
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     int W = in_sizes[i];
     PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
     torch::Tensor A = torch::randn({H, W}, torch::requires_grad(false));
@@ -761,7 +759,7 @@ TEST_F(LazyDynamicShapesTest, SliceTest) {
   std::vector<int> in_start{0, 2, 3, 28};
   std::vector<int> in_end{8, 10, 12, 36};
   std::vector<int> in_step{1, 1, 1, 1};
-  for (int i = 0; i < W_values.size(); i++) {
+  for (size_t i = 0; i < W_values.size(); i++) {
     int W = W_values[i];
     PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
     torch::Tensor A = torch::randn({N, C, H, W}, torch::requires_grad(false));
@@ -781,7 +779,7 @@ TEST_F(LazyDynamicShapesTest, SliceTestUpdateBucket) {
   std::vector<int> in_start{0, 2, 3};
   std::vector<int> in_end{8, 10, 12};
   std::vector<int> in_step{1, 1, 1};
-  for (int i = 0; i < W_values.size(); i++) {
+  for (size_t i = 0; i < W_values.size(); i++) {
     int W = W_values[i];
     PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
     torch::Tensor A = torch::randn({H, W}, torch::requires_grad(false));
@@ -800,7 +798,7 @@ TEST_F(LazyDynamicShapesTest, SliceTestUpdateBucketWithNodes) {
   std::vector<int> in_start{0, 2, 3};
   std::vector<int> in_end{8, 10, 12};
   std::vector<int> in_step{1, 1, 1};
-  for (int i = 0; i < W_values.size(); i++) {
+  for (size_t i = 0; i < W_values.size(); i++) {
     int W = W_values[i];
     PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
     torch::Tensor A = torch::randn({W}, torch::requires_grad(false));
@@ -827,7 +825,7 @@ TEST_F(LazyDynamicShapesTest, DISABLED_SliceTest6dim) {
   std::vector<int> in_start{0, 2, 3};
   std::vector<int> in_end{8, 10, 12};
   std::vector<int> in_step{1, 1, 1};
-  for (int i = 0; i < W_values.size(); i++) {
+  for (size_t i = 0; i < W_values.size(); i++) {
     int W = W_values[i];
     PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
     torch::Tensor A =
@@ -845,7 +843,7 @@ TEST_F(LazyDynamicShapesTest, DISABLED_SliceTest6dim) {
 TEST_F(LazyDynamicShapesTest, SliceTest2) {
   int H = 4;
   std::vector<int> in_sizes{16, 18, 20};
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     int W = in_sizes[i];
     PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
     torch::Tensor A = torch::randn({H, W}, torch::requires_grad(false));
@@ -874,7 +872,7 @@ TEST_F(LazyDynamicShapesTest, SliceTest3) {
   std::vector<int> in_step{1, 1, 1, 1, 1};
   std::vector<int> in_end{8, 8, 12, 8, 8};
 
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     int W = in_sizes[i];
     PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
     torch::Tensor A = torch::randn({N, C, H, W}, torch::requires_grad(false));
@@ -895,7 +893,7 @@ TEST_F(LazyDynamicShapesTest, SliceTest3) {
 TEST_F(LazyDynamicShapesTest, RepeatTest) {
   int H = 4;
   std::vector<int> in_sizes{10, 231, 520};
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     int W = in_sizes[i];
     PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
     torch::Tensor A = torch::randn({H, W}, torch::requires_grad(false));
@@ -915,7 +913,7 @@ TEST_F(LazyDynamicShapesTest, RepeatTest2) {
   std::vector<int> in_sizes{10, 231, 520, 600};
   std::vector<std::vector<int64_t>> repeat_sizes{
       {5, 1, 3}, {20, 1, 3}, {10, 1, 3}, {15, 1, 3}};
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     int W = in_sizes[i];
     auto repeatIndices = c10::IntArrayRef(repeat_sizes[i]);
     PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
@@ -933,7 +931,7 @@ TEST_F(LazyDynamicShapesTest, RepeatTest2) {
 
 void runWeightNormTest() {
   std::vector<int> in_sizes{64, 32};
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     at::Tensor v_in = at::randn({512, 32, in_sizes[i]});
     at::Tensor g_in = at::randn({1, 1, in_sizes[i]});
     int64_t dim(2);
@@ -964,9 +962,8 @@ TEST_F(LazyDynamicShapesTest, WeightNormTest) {
 TEST_F(LazyDynamicShapesTest, DynamicShapeInplaceTest) {
   int A = 2;
   std::vector<int> in_sizes{2, 3, 4};
-  int num;
 
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     int B = in_sizes[i];
     PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
     torch::Tensor c0 = torch::randn({A, B});
@@ -991,9 +988,8 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeInplaceTest) {
 TEST_F(LazyDynamicShapesTest, DISABLED_DynamicShapeInplaceTest2) {
   int A = 2;
   std::vector<int> in_sizes{2, 3, 4};
-  int num;
 
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     int B = in_sizes[i];
     PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
     torch::Tensor c0 = torch::randn({A, B});
@@ -1021,9 +1017,8 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeInplaceReluTest) {
   int A = 1;
   const int C = 1;
   std::vector<int> in_sizes{2, 4, 8};
-  int num;
 
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     int B = in_sizes[i];
     PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
     torch::Tensor c0 = torch::randn({C, B, A}, torch::requires_grad(false));
@@ -1047,7 +1042,7 @@ TEST_F(LazyDynamicShapesTest, AddConstantTest) {
   at::Scalar B = 2.0;
   at::Scalar alpha = 1.0;
   std::vector<int> in_sizes{16, 18, 20};
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     int W = in_sizes[i];
     PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
     torch::Tensor A = torch::randn({N, C, H, W}, torch::requires_grad(false));
@@ -1066,7 +1061,7 @@ TEST_F(LazyDynamicShapesTest, AddViewTest) {
   at::Scalar alpha = 1.0;
   at::Scalar Y = 2.0;
   std::vector<int> in_sizes{16, 18, 20};
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     int W = in_sizes[i];
     PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
     torch::Tensor A = torch::randn({N, C, H, W}, torch::requires_grad(false));
@@ -1094,7 +1089,7 @@ TEST_F(LazyDynamicShapesTest, CastTest) {
   EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out, 0.001, 0.001), true);
   int H = 512;
   std::vector<int> in_sizes{2048, 4096};
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     int W = in_sizes[i];
     PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i + 1, "  --------\n");
     torch::Tensor A = torch::randn({W, H}, torch::dtype(torch::kBFloat16));
@@ -1111,14 +1106,13 @@ TEST_F(LazyDynamicShapesTest, UniqueOp) {
   c10::ScalarType dtype{torch::kInt32};
 
   std::vector<int> in_sizes{4, 6, 8};
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     int H = 4;
     int W = in_sizes[i];
     torch::Tensor input_cpu = torch::randint(1, 9, {H, W}, dtype);
     torch::Tensor input_hpu = input_cpu.to(torch::kHPU);
     auto out_hpu = std::get<0>(torch::_unique2(input_hpu, false, false, false));
     auto out_cpu = std::get<0>(torch::_unique2(input_cpu, false, false, false));
-    PRINT_TENSOR_WITH_DATA(out_cpu);
     auto h_cout = out_hpu.to(torch::kCPU);
     EXPECT_EQ(
         allclose(
@@ -1137,9 +1131,8 @@ TEST_F(LazyDynamicShapesTest, SingleOpNonzero) {
   const int RMIN = 0;
   const int RMAX = 10;
   std::vector<int> in_sizes{6, 8, 10};
-  int num;
 
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     int B = in_sizes[i];
     PT_TEST_DEBUG("TEST ", i, "  --------");
     torch::Tensor c0 =
@@ -1147,15 +1140,9 @@ TEST_F(LazyDynamicShapesTest, SingleOpNonzero) {
 
     torch::Tensor out_cpu = torch::nonzero(c0);
 
-    PRINT_TENSOR_WITH_DATA(c0);
-    PRINT_TENSOR_WITH_DATA(out_cpu);
-
     torch::Tensor h0 = c0.to(torch::kHPU);
     torch::Tensor out_hpu = torch::nonzero(h0);
     torch::Tensor out_hpu_c = out_hpu.to(torch::kCPU);
-
-    PRINT_TENSOR_WITH_DATA(h0);
-    PRINT_TENSOR_WITH_DATA(out_hpu_c);
 
     EXPECT_EQ(allclose(out_cpu, out_hpu_c, 0.01, 0.01), true);
     PT_TEST_DEBUG("TEST ", i, "  ========");
@@ -1174,7 +1161,7 @@ void compute_iou(
   HABANA_ASSERT(
       boxes.sizes()[1] == 4, "Expecting the FCD=4, got ", boxes.sizes()[1]);
 
-  auto num_boxes = boxes.sizes()[0];
+  auto num_boxes = static_cast<size_t>(boxes.sizes()[0]);
   auto fcd = boxes.sizes()[1];
 
   PT_TEST_DEBUG(
@@ -1285,12 +1272,6 @@ TEST_F(LazyDynamicShapesTest, NmsSmallRef) {
     auto tlist = boxes.split(2, 1);
     tlist[1] = tlist[1] + tlist[0];
     auto valid_boxes = torch::cat({tlist[0], tlist[1]}, 1);
-    // PRINT_TENSOR_WITH_DATA(valid_boxes);
-
-    // Compute the iou scores
-    // std::vector<std::vector<float>> iou_vec_2d;
-    // iou_vec_2d.reserve(num_boxes-1);
-    // compute_iou(valid_boxes, iou_vec_2d);
 
     torch::Tensor hboxes = valid_boxes.to(torch::kHPU);
 
@@ -1314,16 +1295,14 @@ TEST_F(LazyDynamicShapesTest, NmsSmallRef) {
 TEST_F(LazyDynamicShapesTest, NmsSmall) {
   torch::manual_seed(0);
 
-  auto num_boxes_cur = 8;
+  size_t num_boxes_cur = 8;
   auto num_boxes_var = 2;
-  torch::Tensor scores_cur = torch::rand({num_boxes_cur});
-  torch::Tensor boxes_cur = torch::rand({num_boxes_cur, 4}) * 256;
+  torch::Tensor scores_cur = torch::rand({static_cast<int>(num_boxes_cur)});
+  torch::Tensor boxes_cur =
+      torch::rand({static_cast<int>(num_boxes_cur), 4}) * 256;
 
   while (num_boxes_cur < 13) {
-    PRINT_TENSOR_WITH_DATA(boxes_cur);
-    PRINT_TENSOR_WITH_DATA(scores_cur);
-
-    auto num_expected_boxes{num_boxes_cur};
+    auto num_expected_boxes = static_cast<int>(num_boxes_cur);
 
     if (num_expected_boxes) {
       torch::Tensor hscores = scores_cur.to(torch::kHPU);
@@ -1332,12 +1311,6 @@ TEST_F(LazyDynamicShapesTest, NmsSmall) {
       auto tlist = boxes_cur.split(2, 1);
       tlist[1] = tlist[1] + tlist[0];
       auto valid_boxes = torch::cat({tlist[0], tlist[1]}, 1);
-      // PRINT_TENSOR_WITH_DATA(valid_boxes);
-
-      // Compute the iou scores
-      // std::vector<std::vector<float>> iou_vec_2d;
-      // iou_vec_2d.reserve(num_boxes_cur-1);
-      // compute_iou(valid_boxes, iou_vec_2d);
 
       torch::Tensor hboxes = valid_boxes.to(torch::kHPU);
 
@@ -1348,8 +1321,6 @@ TEST_F(LazyDynamicShapesTest, NmsSmall) {
           "Expecting a 1D tensor, got ",
           boxes_cur.dim(),
           "D tensor");
-      // PRINT_TENSOR_WITH_DATA(scores_cur);
-      // PRINT_TENSOR_WITH_DATA(nms_boxid_c);
       PT_TEST_DEBUG(
           "num_expected_boxes=",
           num_expected_boxes,
@@ -1375,19 +1346,16 @@ TEST_F(LazyDynamicShapesTest, BatchedNmsSmall) {
   torch::manual_seed(0);
   float score_th = 0.2;
 
-  auto num_boxes_cur = 10;
+  size_t num_boxes_cur = 10;
   auto num_boxes_var = 2;
-  torch::Tensor scores_cur = torch::rand({num_boxes_cur});
-  torch::Tensor boxes_cur = torch::rand({num_boxes_cur, 4}) * 256;
+  torch::Tensor scores_cur = torch::rand({static_cast<int>(num_boxes_cur)});
+  torch::Tensor boxes_cur =
+      torch::rand({static_cast<int>(num_boxes_cur), 4}) * 256;
   torch::Tensor classes_cur =
-      torch::randint(0, 1, {num_boxes_cur}, torch::kInt32);
+      torch::randint(0, 1, {static_cast<int>(num_boxes_cur)}, torch::kInt32);
   auto ref = torch::tensor({7, 1, 5, 0, 6, 8, 4}).to(torch::kLong);
 
   while (num_boxes_cur < 15) {
-    PRINT_TENSOR_WITH_DATA(boxes_cur);
-    PRINT_TENSOR_WITH_DATA(scores_cur);
-    PRINT_TENSOR_WITH_DATA(classes_cur);
-
     auto num_expected_boxes{0};
     for (size_t i = 0; i < num_boxes_cur; i++) {
       auto score = scores_cur[i].item<float>();
@@ -1403,12 +1371,6 @@ TEST_F(LazyDynamicShapesTest, BatchedNmsSmall) {
       auto tlist = boxes_cur.split(2, 1);
       tlist[1] = tlist[1] + tlist[0];
       auto valid_boxes = torch::cat({tlist[0], tlist[1]}, 1);
-      // PRINT_TENSOR_WITH_DATA(valid_boxes);
-
-      // Compute the iou scores
-      // std::vector<std::vector<float>> iou_vec_2d;
-      // iou_vec_2d.reserve(num_boxes_cur-1);
-      // compute_iou(valid_boxes, iou_vec_2d);
 
       torch::Tensor hboxes = valid_boxes.to(torch::kHPU);
 
@@ -1422,8 +1384,6 @@ TEST_F(LazyDynamicShapesTest, BatchedNmsSmall) {
           "Expecting a 1D tensor, got ",
           boxes_cur.dim(),
           "D tensor");
-      // PRINT_TENSOR_WITH_DATA(scores_cur);
-      // PRINT_TENSOR_WITH_DATA(nms_boxid_c);
       PT_TEST_DEBUG(
           "With score threshold=",
           score_th,
@@ -1461,7 +1421,7 @@ TEST_F(LazyDynamicShapesTest, ArgmaxTest) {
   int C = 4;
   int H = 4;
   std::vector<int> in_sizes{6, 12, 20, 10};
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     int W = in_sizes[i];
     torch::Tensor A = torch::randn({N, C, H, W}, torch::requires_grad(false));
     torch::Tensor hA = A.to(torch::kHPU);
@@ -1476,12 +1436,11 @@ TEST_F(LazyDynamicShapesTest, MaskRcnnGatherNdMxNetTest) {
   if (isGaudi3()) {
     GTEST_SKIP() << "Test skipped on Gaudi3.";
   }
-  int64_t dim = 0;
   int H = 4;
   std::vector<int> in_sizes{8000, 9000, 10000};
   std::vector<int> end_sizes{1000, 2000, 2000};
   std::vector<int> step_sizes{1, 2, 2};
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     int W = in_sizes[i];
     int index_size = W;
     torch::Tensor A = torch::randn({W, H});
@@ -1561,9 +1520,8 @@ void runTopkDynamicTest(
   int C = 2;
   int H = 2;
   int W = 20;
-  c10::ScalarType dtype{torch::kInt32};
   std::vector<int64_t> dimensions = {N, C, H, W};
-  for (int i = 0; i < K_values.size(); i++) {
+  for (size_t i = 0; i < K_values.size(); i++) {
     int change_dim_value = changing_dim_values[i];
     int k = K_values[i];
     dimensions[dim] = change_dim_value;
@@ -1571,7 +1529,6 @@ void runTopkDynamicTest(
 
     torch::Tensor input_cpu =
         torch::randn(dimensions, torch::requires_grad(false));
-    // PRINT_TENSOR_WITH_DATA(input_cpu);
 
     torch::Tensor input_hpu = input_cpu.to(torch::kHPU);
 
@@ -1616,16 +1573,14 @@ void runSortDynamicTest(std::vector<int> changing_dim_values, int dim) {
   int C = 2;
   int H = 2;
   int W = 20;
-  c10::ScalarType dtype{torch::kInt32};
   std::vector<int64_t> dimensions = {N, C, H, W};
-  for (int i = 0; i < changing_dim_values.size(); i++) {
+  for (size_t i = 0; i < changing_dim_values.size(); i++) {
     int change_dim_value = changing_dim_values[i];
     dimensions[dim] = change_dim_value;
     PT_TEST_DEBUG("\nPTI_DBG :: SortTest TEST ", i, "  --------\n");
 
     torch::Tensor input_cpu =
         torch::randn(dimensions, torch::requires_grad(false));
-    // PRINT_TENSOR_WITH_DATA(input_cpu);
 
     torch::Tensor input_hpu = input_cpu.to(torch::kHPU);
 
@@ -1666,7 +1621,7 @@ void runTopkOutDynamicTest(
     std::vector<int> changing_dim_values,
     int dim) {
   std::vector<int64_t> dimensions = {1, 2, 2, 20};
-  for (int i = 0; i < K_values.size(); i++) {
+  for (size_t i = 0; i < K_values.size(); i++) {
     int change_dim_value = changing_dim_values[i];
     int k = K_values[i];
     dimensions[dim] = change_dim_value;
@@ -1715,7 +1670,7 @@ TEST_F(LazyDynamicShapesTest, TopKOutTest) {
 
 void runSortOutDynamicTest(std::vector<int> changing_dim_values, int dim) {
   std::vector<int64_t> dimensions = {1, 2, 2, 20};
-  for (int i = 0; i < changing_dim_values.size(); i++) {
+  for (size_t i = 0; i < changing_dim_values.size(); i++) {
     int change_dim_value = changing_dim_values[i];
     dimensions[dim] = change_dim_value;
     PT_TEST_DEBUG("\nPTI_DBG :: TopKOutTest TEST ", i, "  --------\n");
@@ -1753,7 +1708,6 @@ void runSortOutDynamicTest(std::vector<int> changing_dim_values, int dim) {
 }
 
 void runConstantPadDynamicTest() {
-  c10::ScalarType dtype{torch::kInt32};
   for (int i = 0; i < 4; i++) {
     torch::Tensor input_cpu =
         torch::randn({1 + i, 6}, torch::requires_grad(false));
@@ -1806,7 +1760,7 @@ TEST_F(LazyDynamicShapesTest, ConvSliceReluChLastTest) {
   int H = 16;
 
   std::vector<int> in_sizes{16, 32, 64};
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     PT_TEST_DEBUG("PTI_DBG: Iteration Start -- ", i, " ----\n");
     int W = in_sizes[i];
     torch::Tensor weight_tensor =
@@ -1840,7 +1794,7 @@ TEST_F(LazyDynamicShapesTest, ConvSliceReluChLastTest) {
 
 TEST_F(LazyDynamicShapesTest, RandpermOutTest) {
   std::vector<int> in_sizes{8, 10, 15};
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     int n = in_sizes[i];
     std::optional<at::ScalarType> dtype = c10::ScalarType::Int;
     std::optional<at::Device> hb_device = at::DeviceType::HPU;
@@ -2192,7 +2146,7 @@ TEST_F(LazyDynamicShapesTest, EvictRecipeSingleOpRelu) {
       GET_ENV_FLAG_NEW(PT_HPU_HOST_MEMORY_THRESHOLD_PERCENT);
   habana::RecipeCacheLRU::SetHostMemoryThreshold(100);
   while (rounds--) {
-    for (int i = 0; i < in_sizes.size(); i++) {
+    for (size_t i = 0; i < in_sizes.size(); i++) {
       int B = in_sizes[i];
       torch::Tensor input_cpu =
           torch::randn({3, B, 4}, torch::requires_grad(false));
@@ -2210,7 +2164,7 @@ TEST_F(LazyDynamicShapesTest, EvictRecipeSingleOpRelu) {
   habana::RecipeCacheLRU::SetHostMemoryThreshold(1);
   rounds = 2;
   while (rounds--) {
-    for (int i = 0; i < in_sizes.size(); i++) {
+    for (size_t i = 0; i < in_sizes.size(); i++) {
       int B = in_sizes[i];
       torch::Tensor input_cpu =
           torch::randn({3, B, 4}, torch::requires_grad(false));
@@ -2234,14 +2188,12 @@ TEST_F(LazyDynamicShapesTest, EvictRecipeSingleOpRelu) {
 }
 
 TEST_F(LazyDynamicShapesTest, BatchNormFwdBwdDS) {
-  int kH = 3;
-  int kW = 3;
   const int C = 16;
   const int N = 16;
   int H = 16;
   at::Scalar inScalar = 2.0;
   std::vector<int> in_sizes{16, 64};
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     PT_TEST_DEBUG("PTI_DBG: Iteration Start -- ", i, " ----\n");
     int W = in_sizes[i];
     torch::Tensor in_tensor =
@@ -2400,7 +2352,7 @@ TEST_F(LazyDynamicShapesTest, ExponentialDynTest) {
   std::mt19937 m_mt_;
   double lambd = dist(m_mt_);
   std::vector<int> sizes = {3, 9, 12, 20, 60, 80};
-  for (int i = 0; i < sizes.size(); i++) {
+  for (size_t i = 0; i < sizes.size(); i++) {
     torch::Tensor t0 =
         torch::randint(-127, 128, {3, sizes[i]}).to(torch::kFloat);
     torch::Tensor t0_h = t0.to("hpu");
@@ -2426,7 +2378,7 @@ TEST_F(LazyDynamicShapesTest, AsStridedH2DTest) {
       {3072, 1024, 32, 1}, {12288, 4096, 64, 1}, {49152, 16384, 128, 1}};
   std::vector<int64_t> offsets{1024, 4096, 16384};
 
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     auto in_s = in_sizes[i];
     c10::IntArrayRef out_s(out_sizes[i].data(), out_sizes[i].size());
     auto stride = strides[i];
@@ -2462,7 +2414,7 @@ TEST_F(LazyDynamicShapesTest, AsStridedStrideRatioH2DTest) {
       {3072, 1024, 32, 1}, {12288, 4096, 64, 1}, {49152, 16384, 128, 1}};
   std::vector<int64_t> offsets{1024, 4096, 16384};
 
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     c10::IntArrayRef in_s(in_sizes[i].data(), in_sizes[i].size());
     c10::IntArrayRef out_s(out_sizes[i].data(), out_sizes[i].size());
     auto stride = strides[i];
@@ -2504,7 +2456,7 @@ TEST_F(LazyDynamicShapesTest, AsStridedStrideRatioH2DTest_5D) {
       {98304, 32768, 1024, 32, 1}, {6291456, 2097152, 16384, 128, 1}};
   std::vector<int64_t> offsets{0, 0};
 
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     c10::IntArrayRef in_s(in_sizes[i].data(), in_sizes[i].size());
     c10::IntArrayRef out_s(out_sizes[i].data(), out_sizes[i].size());
     auto stride = strides[i];
@@ -2618,7 +2570,7 @@ TEST_F(LazyDynamicShapesTest, H2D_API_test) {
       {3072, 1024, 32, 1}, {12288, 4096, 64, 1}, {49152, 16384, 128, 1}};
   std::vector<int64_t> offsets{1024, 4096, 16384};
 
-  for (int i = 0; i < in_sizes.size(); i++) {
+  for (size_t i = 0; i < in_sizes.size(); i++) {
     auto in_s = in_sizes[i];
     c10::IntArrayRef out_s(out_sizes[i].data(), out_sizes[i].size());
     auto stride = strides[i];

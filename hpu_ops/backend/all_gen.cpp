@@ -24,26 +24,26 @@ SharedMetaDataVector AllSharedMeta(
   auto dtype = self.scalar_type();
   auto isIntegralInput = c10::isIntegralType(dtype, true);
 
-  SharedMetaTensor metaTensor{self.dim(), c10::ScalarType::Float};
-
   int outDim = stack.size() > 1 and stack.at(1).isInt() ? (int)self.dim() : 1;
-  SharedMetaData reduceMeta{"reduce_prod_fwd"};
-  reduceMeta.inputs_data = {metaTensor};
+  SharedMetaDataVector meta;
+  meta.reserve(3);
+
+  if (not isIntegralInput) {
+    SharedMetaTensor metaTensor{self.dim(), dtype};
+    auto& absMeta = meta.emplace_back("abs_fwd");
+    absMeta.inputs_data = {metaTensor};
+    absMeta.outputs_data = {metaTensor};
+
+    auto& ceilMeta = meta.emplace_back("ceil_fwd");
+    ceilMeta.inputs_data = {metaTensor};
+    ceilMeta.outputs_data = {metaTensor};
+  }
+
+  auto& reduceMeta = meta.emplace_back("reduce_prod_fwd");
+  reduceMeta.inputs_data = {{self.dim(), c10::ScalarType::Float}};
   reduceMeta.outputs_data = {{outDim, c10::ScalarType::Float}};
 
-  if (isIntegralInput) {
-    return {reduceMeta};
-  }
-  metaTensor.second = dtype;
-  SharedMetaData absMeta{"abs_fwd"};
-  absMeta.inputs_data = {metaTensor};
-  absMeta.outputs_data = {metaTensor};
-
-  SharedMetaData ceilMeta{"ceil_fwd"};
-  ceilMeta.inputs_data = {metaTensor};
-  ceilMeta.outputs_data = {metaTensor};
-
-  return {absMeta, ceilMeta, reduceMeta};
+  return meta;
 }
 
 static auto AllCommon(
@@ -62,7 +62,7 @@ static auto AllCommon(
   auto reductionParams = FillReductionParams(rank, dim, keepdim);
   using namespace std::literals;
   auto reduce_prod_node = [&](const std::vector<synTensor>& input_reduce) {
-    return op->BuildNode(
+    return OpBackend::BuildNode(
         op,
         graph,
         {get_guid_with_precision("reduce_prod_multi_dim_fwd"sv, dtype),

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,11 +27,6 @@
 
 namespace habana {
 
-enum MaxpoolVariant {
-  MAXPOOL2D = 2,
-  MAXPOOL3D = 3,
-};
-
 static int64_t OutputShapeComputation(
     int64_t input_shape,
     int64_t kernel,
@@ -39,9 +34,9 @@ static int64_t OutputShapeComputation(
     int64_t padding,
     int64_t dilation,
     bool ceilMode) {
-  auto output =
-      std::div(input_shape + 2 * padding - dilation * (kernel - 1) - 1, stride);
-  return ceilMode && output.rem ? output.quot + 2 : output.quot + 1;
+  auto output = std::div(
+      input_shape + (2 * padding) - (dilation * (kernel - 1)) - 1, stride);
+  return ceilMode && output.rem != 0 ? output.quot + 2 : output.quot + 1;
 }
 
 OutputMetaDataVector MaxPool2DMeta(const at::Stack& stack) {
@@ -99,8 +94,9 @@ OutputMetaDataVector MaxPool2DMeta(const at::Stack& stack) {
     for (size_t i = 0; i < n; i++) {
       const auto i_d = static_cast<int64_t>(i);
       if ((output_shape.rbegin()[i_d] - 1) * stride[n - i - 1] >=
-          input_shape.rbegin()[i_d] + padding[n - i - 1])
+          input_shape.rbegin()[i_d] + padding[n - i - 1]) {
         --output_shape.rbegin()[i_d];
+      }
     }
   }
 
@@ -132,11 +128,12 @@ OutputMetaDataVector MaxPoolMetaBwd(const at::Stack& stack) {
   HABANA_ASSERT(
       (grad.sizes() == indices), "Grad and Indices sizes don't match");
 
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.shape = self.sizes().vec();
   meta.dtype = self.scalar_type();
 
-  return {meta};
+  return metaVec;
 }
 
 sizes_vec MaxPool3DIndicesOutputShape(const at::Stack& stack) {
@@ -196,8 +193,9 @@ sizes_vec MaxPool3DIndicesOutputShape(const at::Stack& stack) {
     auto index_ceil_mode = output_shape.size() - n;
     for (size_t i = 0; i < n; i++) {
       if ((output_shape.at(index_ceil_mode) - 1) * stride[i] >=
-          input_shape.at(index_ceil_mode) + padding[i])
+          input_shape.at(index_ceil_mode) + padding[i]) {
         --output_shape.at(index_ceil_mode);
+      }
       index_ceil_mode++;
     }
   }
@@ -207,8 +205,7 @@ sizes_vec MaxPool3DIndicesOutputShape(const at::Stack& stack) {
 OutputMetaDataVector Maxpool3dWithIndicesMeta(const at::Stack& stack) {
   const auto& self = stack.at(0).toTensor();
   const auto& output_shape = MaxPool3DIndicesOutputShape(stack);
-  OutputMetaDataVector meta;
-  meta.resize(output_shape.size());
+  OutputMetaDataVector meta(output_shape.size());
 
   meta[0].shape = output_shape[0];
   meta[0].dtype = self.scalar_type();
@@ -269,11 +266,12 @@ static FillParamsT FillSpatialReduction3DParams(
   params->dilation_w = static_cast<int>(dilation[2]);
   params->dilation_h = static_cast<int>(dilation[1]);
   params->dilation_d = static_cast<int>(dilation[0]);
-  if (ceil_mode)
+  if (ceil_mode) {
     params->pooling_convention =
         EPoolingConvention::POOLING_CONVENTION_FULL_PYTORCH;
-  else
+  } else {
     params->pooling_convention = EPoolingConvention::POOLING_CONVENTION_VALID;
+  }
   return paramsT;
 }
 
@@ -330,11 +328,12 @@ static FillParamsT FillSpatialReduction2DParams(
   check_range<int>(0, 1, dilation);
   params->dilation_w = static_cast<int>(dilation[1]);
   params->dilation_h = static_cast<int>(dilation[0]);
-  if (ceil_mode)
+  if (ceil_mode) {
     params->pooling_convention =
         EPoolingConvention::POOLING_CONVENTION_FULL_PYTORCH;
-  else
+  } else {
     params->pooling_convention = EPoolingConvention::POOLING_CONVENTION_VALID;
+  }
   return paramsT;
 }
 

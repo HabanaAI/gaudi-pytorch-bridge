@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,6 +42,8 @@
 #include "habana_kernels/fallback_helper.h"
 #include "pytorch_helpers/habana_helpers/logging.h"
 #include "pytorch_helpers/habana_helpers/python_utils.h"
+
+using FilePtr = std::unique_ptr<FILE, int (*)(FILE*)>;
 
 #define PRINT_ENV_FLAG_DEFAULT(name) \
   std::clog << " " << #name << " = " << GET_ENV_FLAG_NEW(name) << "\n";
@@ -97,8 +99,7 @@ void active_recipe_counter::decrease_and_notify() {
 
 bool active_recipe_counter::is_zero() {
   std::unique_lock<std::mutex> cond_lock(counter_mutex_);
-  bool zflag = (0 == counter_state_ ? true : false);
-  return zflag;
+  return 0 == counter_state_;
 }
 
 uint64_t active_recipe_counter::wait_for_next_decrease_call() {
@@ -163,21 +164,19 @@ void CheckDynamicMinMaxPolicyOrder() {
 }
 
 uint64_t GetSystemRamInKB() {
-  FILE* meminfo = fopen("/proc/meminfo", "r");
+  FilePtr meminfo = FilePtr(fopen("/proc/meminfo", "r"), fclose);
   if (meminfo != nullptr) {
-    char line[256];
-    while (fgets(line, sizeof(line), meminfo)) {
+    std::array<char, 256> line;
+    while (fgets(line.data(), line.size(), meminfo.get()) != nullptr) {
       uint64_t ram;
       if (sscanf(
-              line,
+              line.data(),
               "MemTotal: "
               "%" SCNu64 "kB",
               &ram) == 1) {
-        std::ignore = fclose(meminfo);
         return ram;
       }
     }
-    std::ignore = fclose(meminfo);
   }
   return 0;
 }
@@ -187,7 +186,14 @@ void dumpEnvSettings() {
   const char* ompi_rank = std::getenv("OMPI_COMM_WORLD_RANK");
 
   // Determine process rank, default to "0" if both are unset
-  std::string process_rank = (rank) ? rank : (ompi_rank) ? ompi_rank : "0";
+  std::string process_rank;
+  if (rank != nullptr) {
+    process_rank = rank;
+  } else if (ompi_rank != nullptr) {
+    process_rank = ompi_rank;
+  } else {
+    process_rank = "0";
+  }
 
   // Print only for the main process or if PT_HPU_PRINT_DEVICE_CONFIG is set
   if (process_rank == "0" || GET_ENV_FLAG_NEW(PT_HPU_PRINT_DEVICE_CONFIG)) {
@@ -223,8 +229,8 @@ void dumpEnvSettings() {
           "Wrong PT plugin library loaded in the system. Expected LAZY, got EAGER.");
     }
 
-    auto keep_input_mutations = std::getenv("PT_HPU_KEEP_INPUT_MUTATIONS");
-    if (keep_input_mutations) {
+    auto* keep_input_mutations = std::getenv("PT_HPU_KEEP_INPUT_MUTATIONS");
+    if (keep_input_mutations != nullptr) {
       std::clog << " PT_HPU_KEEP_INPUT_MUTATIONS = " << keep_input_mutations
                 << "\n";
     }
@@ -262,9 +268,6 @@ device::device(
     HABANA_ASSERT(
         GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAZY_COLLECTIVES),
         "PT_HPU_ENABLE_LAZY_COLLECTIVES==true required when PT_HPU_ENABLE_SFG==true");
-    HABANA_ASSERT(
-        type_ != synDeviceGaudi,
-        "PT_HPU_ENABLE_SFG==true cannot be used on Gaudi1");
   }
   is_hcl_same_addr_enabled_ =
       GET_ENV_FLAG_NEW(PT_ENABLE_HCL_SAME_ADDRESS_RESOLUTION) &&
@@ -330,7 +333,7 @@ synapse_error_v<device_handle> device::get_or_create(
   std::lock_guard<std::mutex> lock(device_mtx);
   device_handle handle = device_in_use.lock();
   if (handle != nullptr) {
-    if (!allowed_device_types.count(handle->type())) {
+    if (allowed_device_types.count(handle->type()) == 0U) {
       return synapse_error{
           "Process already acquired device of different type.",
           synDeviceTypeMismatch};
@@ -378,18 +381,18 @@ synapse_error_v<device_handle> device::create(
       synapse_helpers::get_value(std::move(synapse_session_create_result));
 
   synDeviceType acquired_device_type = synDeviceGaudi;
-  auto s_wsize = std::getenv("WORLD_SIZE")
+  auto* s_wsize = (std::getenv("WORLD_SIZE") != nullptr)
       ? std::getenv("WORLD_SIZE")
       : std::getenv("OMPI_COMM_WORLD_SIZE");
-  auto world_size = (s_wsize) ? std::stoul(s_wsize) : 1;
+  auto world_size = (s_wsize != nullptr) ? std::stoul(s_wsize) : 1;
   uint32_t total_device_count = 0;
   auto status_ret = synDeviceGetCount(&total_device_count);
   if (status_ret != synSuccess) {
     return synapse_error{"Device get count failed.", status_ret};
   }
-  auto hls_mod_id_env_var = std::getenv("HLS_MODULE_ID");
+  auto* hls_mod_id_env_var = std::getenv("HLS_MODULE_ID");
   bool device_detected = false;
-  auto habana_visible_modules = std::getenv("HABANA_VISIBLE_MODULES");
+  auto* habana_visible_modules = std::getenv("HABANA_VISIBLE_MODULES");
 
   // Fallback mechanism for synDeviceAcquireByModuleId failure.
 
@@ -492,23 +495,22 @@ synapse_error_v<device_handle> device::create(
         habana_helpers::EventDispatcher::Topic::DEVICE_ACQUIRED);
   }
 
-  uint64_t alignmentInfo[] = {0};
-  const synDeviceAttribute attributes[] = {
+  uint64_t alignmentInfo = 0UL;
+  const synDeviceAttribute attributes = {
       DEVICE_ATTRIBUTE_ADDRESS_ALIGNMENT_SIZE};
-  status = synDeviceGetAttribute(alignmentInfo, attributes, 1, new_device_id);
+  status = synDeviceGetAttribute(&alignmentInfo, &attributes, 1, new_device_id);
   if (synStatus::synSuccess != status) {
     PT_SYNHELPER_FATAL(
         Logger::formatStatusMsg(status),
         "Cannot obtain device memory alignment info.");
   }
-  PT_SYNHELPER_DEBUG("Device memory alignment::", alignmentInfo[0]);
+  PT_SYNHELPER_DEBUG("Device memory alignment::", alignmentInfo);
   // ensure alignment is of power of 2
-  if ((alignmentInfo[0] > 0) &&
-      ((alignmentInfo[0] & (alignmentInfo[0] - 1)) != 0)) {
+  if ((alignmentInfo > 0) && ((alignmentInfo & (alignmentInfo - 1)) != 0)) {
     PT_SYNHELPER_FATAL("Incorrect device memory alignment.");
   }
   std::shared_ptr<device> device_ptr{new device(
-      synapse_session, new_device_id, acquired_device_type, alignmentInfo[0])};
+      synapse_session, new_device_id, acquired_device_type, alignmentInfo)};
 
   uint64_t free_mem;
   uint64_t total_mem;
@@ -647,12 +649,12 @@ device::~device() {
 // only used when generic stream is not used
 uint64_t device::get_compute_stream_count() {
   if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM)) {
-    if (type_ == synDeviceGaudi)
-      return 2;
-    if (type_ == synDeviceGaudi2)
+    if (type_ == synDeviceGaudi2) {
       return 4;
-    if (type_ == synDeviceGaudi3)
+    }
+    if (type_ == synDeviceGaudi3) {
       return 4;
+    }
     return 1;
   }
   PT_SYNHELPER_FATAL("get_compute_stream_count not supported");
@@ -758,8 +760,9 @@ void device::record_event(
   } else {
     auto& stream = get_stream(record_stream);
     for (size_t i = 0; i < user_event_map_[id].size(); ++i) {
-      if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM) && i > 0)
+      if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM) && i > 0) {
         break;
+      }
       auto status = synEventRecord(event_array[i], stream);
       if (synStatus::synSuccess != status) {
         PT_DEVICE_FATAL(
@@ -804,8 +807,9 @@ void device::wait_event(
   } else {
     auto& stream = get_stream(block_stream);
     for (size_t i = 0; i < user_event_map_[id].size(); ++i) {
-      if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM) && i > 0)
+      if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM) && i > 0) {
         break;
+      }
       auto status = synStreamWaitEvent(stream, event_array[i], 0);
       if (synStatus::synSuccess != status) {
         PT_DEVICE_FATAL(
@@ -827,8 +831,9 @@ void device::synchronize_event(synapse_helpers::hpuEvent_t id) {
 
   std::array<synEventHandle, END_TYPE_> event_array = it->second;
   for (size_t i = 0; i < user_event_map_[id].size(); ++i) {
-    if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM) && i > 0)
+    if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM) && i > 0) {
       break;
+    }
     auto status = synEventSynchronize(event_array[i]);
     if (synStatus::synSuccess != status) {
       PT_DEVICE_FATAL(
@@ -848,8 +853,9 @@ bool device::query_event(synapse_helpers::hpuEvent_t id) {
 
   std::array<synEventHandle, END_TYPE_> event_array = it->second;
   for (size_t i = 0; i < user_event_map_[id].size(); ++i) {
-    if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM) && i > 0)
+    if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM) && i > 0) {
       break;
+    }
     auto status = synEventQuery(event_array[i]);
     if (synStatus::synSuccess == status) {
       result = true;
@@ -878,8 +884,9 @@ uint64_t device::elapsed_time(
 
   std::array<synEventHandle, END_TYPE_> event_array2 = it->second;
   for (size_t i = 0; i < user_event_map_[id1].size(); ++i) {
-    if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM) && i > 0)
+    if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM) && i > 0) {
       break;
+    }
     uint64_t time_ms = 0;
     auto status =
         synEventElapsedTime(&time_ms, event_array1[i], event_array2[i]);
@@ -898,8 +905,9 @@ void device::delete_event(synapse_helpers::hpuEvent_t id, bool flags) {
 
   std::array<synEventHandle, END_TYPE_> event_array = it->second;
   for (size_t i = 0; i < user_event_map_[id].size(); ++i) {
-    if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM) && i > 0)
+    if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM) && i > 0) {
       break;
+    }
     if (flags) {
       get_time_event_handle_cache().release_handle(event_array[i]);
     } else {
@@ -1006,10 +1014,11 @@ stream& device::get_stream(hpuStream_t id, default_stream_type stream_type) {
       auto index = id;
       if (id >= generic_stream_limit) {
         index = (id % generic_stream_limit);
-        if (index == 0)
+        if (index == 0) {
           index = 1; // start round robin from the 1 as 0 is default.
-        else if (index < generic_stream_limit)
+        } else if (index < generic_stream_limit) {
           index += 1;
+        }
       }
       auto it = streams_.find(index);
       HABANA_ASSERT(it != streams_.end());
@@ -1125,8 +1134,9 @@ void device::flush_stream_events() {
   }
   auto start = std::chrono::steady_clock::now();
   while (true) {
-    if (sem_.is_flushed())
+    if (sem_.is_flushed()) {
       break;
+    }
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }
   PT_SYNHELPER_DEBUG(
@@ -1139,9 +1149,6 @@ void device::flush_stream_events() {
 std::ostream& operator<<(std::ostream& stream, const device& syn_device) {
   stream << "synDevice at " << &syn_device;
   switch (syn_device.type()) {
-    case synDeviceGaudi:
-      stream << " Gaudi ";
-      break;
     case synDeviceGaudi2:
       stream << " Gaudi2 ";
       break;
@@ -1184,8 +1191,9 @@ void device::wait_for_host_event(uint64_t addr) {
       "wait for host event addr::", reinterpret_cast<void*>(addr));
   std::unique_lock<std::mutex> lock(host_event_mutex_);
   auto it = addr_host_event_map_.find(addr);
-  if (it == addr_host_event_map_.end())
+  if (it == addr_host_event_map_.end()) {
     return;
+  }
   auto& event = *addr_host_event_map_[addr];
   lock.unlock();
   event.wait_for_event_complete();
@@ -1218,7 +1226,7 @@ inline bool device::copy_data_to_device_(
   uint8_t* dst_ptr = nullptr;
 
   if (!is_pinned) {
-    if (host_cpu_data) {
+    if (host_cpu_data != nullptr) {
       // host memory already allocated in the main thread
       dst_ptr = reinterpret_cast<uint8_t*>(host_cpu_data);
     } else {
@@ -1351,7 +1359,7 @@ synapse_error device::copy_data_to_device(
    * Else
    *  - Continue copy data function in the same main thread
    */
-  if (true == non_blocking && false == is_pinned && nullptr == host_cpu_data &&
+  if (non_blocking && !is_pinned && nullptr == host_cpu_data &&
       GET_ENV_FLAG_NEW(PT_HPU_ENABLE_H2D_COPY_ASYNC_THREAD) &&
       total_bytes >= GET_ENV_FLAG_NEW(PT_HPU_H2D_COPY_MIN_TENSOR_SIZE)) {
     std::shared_future<bool> copy_future = std::async(
@@ -1759,8 +1767,9 @@ size_t device::get_least_workspace_size(
 
 void device::cleanup_workspace_buffer() {
   std::unique_lock<std::mutex> lock(ws_mutex_);
-  if (workspace_size_ == 0)
+  if (workspace_size_ == 0) {
     return;
+  }
   auto& recipe_counter = get_active_recipe_counter();
   while (recipe_counter.get_count() > 1) {
     recipe_counter.wait_for_next_decrease_call();
@@ -1855,7 +1864,7 @@ void device::wait_for_event(shared_event& event) {
 
 shared_event device::map_event_to_tensor(
     stream& stream,
-    const synRecipeHandle recipe_handle,
+    synRecipeHandle recipe_handle,
     synLaunchTensorInfo* tensor_info,
     event_done_callback done_cb) {
   return sem_.map_event_to_tensor(
@@ -1877,10 +1886,7 @@ void device::record_and_wait_for_event(
 }
 
 std::set<synDeviceType> device::get_supported_devices() {
-  return {
-      synDeviceType::synDeviceGaudi,
-      synDeviceType::synDeviceGaudi2,
-      synDeviceType::synDeviceGaudi3};
+  return {synDeviceType::synDeviceGaudi2, synDeviceType::synDeviceGaudi3};
 }
 
 void device::synchronize() {
@@ -1905,13 +1911,14 @@ void device::release() {
 }
 
 std::string device::get_device_capability() {
-  char pDriverVersion[256];
-  auto status = synDriverGetVersion(pDriverVersion, 256);
+  std::array<char, 256> pDriverVersion;
+  auto status =
+      synDriverGetVersion(pDriverVersion.data(), pDriverVersion.size());
   if (status != synSuccess) {
     PT_SYNHELPER_FATAL(
         Logger::formatStatusMsg(status), "synDriverGetVersion failed.");
   }
-  return {pDriverVersion};
+  return {pDriverVersion.data()};
 }
 
 std::string device::get_device_properties(unsigned id) {
@@ -1949,8 +1956,16 @@ uint32_t device::get_scale_attribute_hash_id() const {
   return scale_attribute_hash_id_;
 }
 
+void device::set_is_dynamic_quantization(bool is_dynamic_quantization) {
+  is_dynamic_quantization_ = is_dynamic_quantization;
+}
+
+bool device::get_is_dynamic_quantization() const {
+  return is_dynamic_quantization_;
+}
+
 void owned_device_ptr::device_ptr_deleter::operator()(device_ptr* ptr) {
-  if (ptr) {
+  if (ptr != nullptr) {
     PT_SYNHELPER_DEBUG(
         "Free buffer ptr ",
         reinterpret_cast<void*>(reinterpret_cast<device_ptr>(ptr)));

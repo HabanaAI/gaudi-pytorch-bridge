@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -48,7 +48,7 @@ TEST_F(LazyDynamicShapesSerializtionTest, SerializeDeserializeDBITest) {
   SET_ENV_FLAG_NEW(PT_RECIPE_TRACE_PATH, "recipe_trace.csv", 1);
   SET_ENV_FLAG_NEW(PT_HPU_ENABLE_DISK_CACHE_FOR_DSD, true, 1);
 
-  for (int i = 0; i < channel_sizes.size(); i++) {
+  for (size_t i = 0; i < channel_sizes.size(); i++) {
     AddNonzeroOpsTest({4, channel_sizes[i], 3});
   }
 
@@ -56,14 +56,14 @@ TEST_F(LazyDynamicShapesSerializtionTest, SerializeDeserializeDBITest) {
   habana_helpers::UniqueTokenGenerator::get_gen().reset();
   SET_ENV_FLAG_NEW(PT_RECIPE_TRACE_PATH, "recipe_trace_rerun.csv", 1);
 
-  for (int i = 0; i < channel_sizes.size() - 2; i++) {
+  for (size_t i = 0; i < channel_sizes.size() - 2; i++) {
     AddNonzeroOpsTest({4, channel_sizes[i], 3});
   }
   habana_lazy::exec::HlExec::SaveDSCheckpoint("ds_checkpoint.pt");
   habana::ClearDynamicBucketRecipeInfo();
   habana_lazy::exec::HlExec::LoadDSCheckpoint("ds_checkpoint.pt");
 
-  for (int i = 2; i < channel_sizes.size(); i++) {
+  for (size_t i = 2; i < channel_sizes.size(); i++) {
     AddNonzeroOpsTest({4, channel_sizes[i], 3});
   }
   UNSET_ENV_FLAG_NEW(PT_RECIPE_TRACE_PATH);

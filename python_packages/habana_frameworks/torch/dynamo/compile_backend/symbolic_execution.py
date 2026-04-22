@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -353,8 +353,10 @@ class SymExprNodeManager:
 
             def symexpr_python(
                 *arguments,
-                sym_expr=copy.deepcopy(symbolic_expr),
+                sym_expr=None,
             ):
+                if sym_expr is None:
+                    sym_expr = copy.deepcopy(symbolic_expr)
                 sym_value_dict = dict(zip(symbolic_expr_symbols, arguments, strict=False))
                 sym_value_set = frozenset(sym_value_dict.items())
                 expr_hist = all_expr_hist.setdefault(sym_expr, {})
@@ -380,8 +382,10 @@ class SymExprNodeManager:
 
             def symexpr_python(
                 *arguments,
-                sym_expr=copy.deepcopy(symbolic_expr),
+                sym_expr=None,
             ):
+                if sym_expr is None:
+                    sym_expr = copy.deepcopy(symbolic_expr)
                 sym_value_pairs = list(zip(symbolic_expr_symbols, arguments, strict=False))
                 sym_value_set = frozenset(sym_value_pairs)
                 expr_hist = all_expr_hist.setdefault(sym_expr, {})
@@ -443,9 +447,7 @@ class SymExprNodeManager:
                 symbolic_expr_symbols = sympy_expr.free_symbols
                 is_symengine_expr = False
 
-            node_args = []
-            for sym in symbolic_expr_symbols:
-                node_args.append(self._sym_placeholder_dict[pexpr(sym)])
+            node_args = [self._sym_placeholder_dict[pexpr(sym)] for sym in symbolic_expr_symbols]
 
             logger.debug("Python callable creating for final expr: ", symbolic_expr)
             logger.debug("symbols: ", symbolic_expr_symbols)

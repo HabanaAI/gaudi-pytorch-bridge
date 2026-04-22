@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,12 +33,14 @@ FillParamsT FillDivModeParams(const at::Stack& stack) {
     // div_rounding mode operator, for 'trunc' case.
     params->isPyCompatible = !(params->isTruncRoundingMode);
     return paramsT;
-  } else
+  } else {
     return {};
+  }
 }
 
 OutputMetaDataVector DivModeMeta(const at::Stack& stack) {
-  OutputMetaData meta{};
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   const auto& self = stack_tensor(stack, 0);
   if (stack[1].isScalar()) {
     meta.shape = self.sizes().vec();
@@ -47,26 +49,28 @@ OutputMetaDataVector DivModeMeta(const at::Stack& stack) {
   }
   meta.dtype = GetResultDtype(stack, stack[2].isNone());
 
-  return {meta};
+  return metaVec;
 }
 
 SharedMetaDataVector DivModeSharedMeta(
     const at::Stack& stack,
     habana_helpers::HabanaExecutionMode /*unused*/) {
-  auto self = stack.at(0);
-  auto selfTensor = self.toTensor();
+  const auto& self = stack.at(0);
+  const auto& selfTensor = self.toTensor();
   auto selfRank = selfTensor.dim();
-  auto other = stack.at(1);
+  const auto& other = stack.at(1);
   int64_t otherRank = other.isTensor() ? other.toTensor().dim() : 1;
   auto outputRank = std::max(selfRank, otherRank);
   auto isRoundingModeNone = stack.at(2).isNone();
   auto commonType = GetCommonDtype(stack, isRoundingModeNone);
   auto resultType = GetResultDtype(stack, isRoundingModeNone);
 
-  SharedMetaData divMeta{"round_divide_fwd"};
+  SharedMetaDataVector meta;
+  meta.reserve(1);
+  auto& divMeta = meta.emplace_back("round_divide_fwd");
   divMeta.inputs_data = {{selfRank, commonType}, {otherRank, commonType}};
   divMeta.outputs_data = {{outputRank, resultType}};
-  return {divMeta};
+  return meta;
 }
 
 void RoundDivide::AddNode(

@@ -202,7 +202,7 @@ class HpuActivityProfilerSession : public libkineto::IActivityProfilerSession {
 
  private:
   void hideEventIfNeeded(
-      std::unique_ptr<libkineto::GenericTraceActivity>& activity);
+      std::unique_ptr<libkineto::GenericTraceActivity>& activity) const;
   bool isMemoryProfileEnabled();
   std::deque<std::unique_ptr<libkineto::GenericTraceActivity>> activities_;
   std::unique_ptr<GenericTraceActivitySink> sink_;

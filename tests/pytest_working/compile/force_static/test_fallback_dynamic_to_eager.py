@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2025 Intel Corporation
+# Copyright (c) 2025-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -81,9 +81,9 @@ def test_fallback_dynamic_to_eager():
                     with open(file_) as f:
                         stats = json.loads(f.read() + "]")
                         for stat in stats:
-                            for _, val in stat.items():
-                                if "compilations" in val:
-                                    compile_types.append(val["compilations"][0]["scope"])
+                            compile_types.extend(
+                                val["compilations"][0]["scope"] for val in stat.values() if "compilations" in val
+                            )
             except:
                 pass
             if self.fallback_dynamic_to_eager:

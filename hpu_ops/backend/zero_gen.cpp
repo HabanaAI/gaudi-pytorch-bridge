@@ -24,9 +24,11 @@ SharedMetaDataVector ZeroSharedMeta(
   const auto rank = self.dim();
   if (rank > 1) {
     const auto dtype = self.scalar_type();
-    SharedMetaData constantSharedMeta{"constant"};
+    SharedMetaDataVector meta;
+    meta.reserve(1);
+    auto& constantSharedMeta = meta.emplace_back("constant");
     constantSharedMeta.outputs_data.emplace_back(rank, dtype);
-    return {constantSharedMeta};
+    return meta;
   }
   return {};
 }

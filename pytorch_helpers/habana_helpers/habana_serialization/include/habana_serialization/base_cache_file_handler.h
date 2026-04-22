@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,14 +20,6 @@
 #include <optional>
 #include <vector>
 
-#if !defined __GNUC__ || __GNUC__ >= 8
-#include <filesystem>
-namespace fs = std::filesystem;
-#else
-#include <experimental/filesystem>
-namespace fs = std::experimental::filesystem;
-#endif
-
 #include "cache_file_handler.h"
 
 namespace serialization {
@@ -45,7 +37,7 @@ class BaseCacheFileHandler : public CacheFileHandler {
     std::string recipe_id;
     uint64_t recipe_size;
     uint64_t metadata_size;
-    fs::file_time_type created;
+    std::filesystem::file_time_type created;
   };
 
   bool acquire_access_for_eviction(bool block = false);

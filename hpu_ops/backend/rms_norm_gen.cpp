@@ -31,13 +31,14 @@ OutputMetaDataVector RMSNormMeta(const at::Stack& stack) {
       ? c10::ScalarType::Float
       : data_in.scalar_type();
 
-  OutputMetaData first_output;
+  OutputMetaDataVector metaVec(2);
+  auto& first_output = metaVec[0];
   first_output.shape = data_in.sizes().vec();
   first_output.dtype = data_in_dtype;
-  OutputMetaData second_output;
+  auto& second_output = metaVec[1];
   second_output.shape = inverse_root_mean_square_sizes;
   second_output.dtype = c10::ScalarType::Float;
-  return {first_output, second_output};
+  return metaVec;
 }
 
 FillParamsT RMSNormParams(const at::Stack& stack) {
@@ -82,12 +83,13 @@ OutputMetaDataVector RMSNormBwdMeta(const at::Stack& stack) {
     }
   }
 
-  OutputMetaData first_output;
+  OutputMetaDataVector metaVec(2);
+  auto& first_output = metaVec[0];
   first_output.shape = data_in.sizes().vec();
   first_output.dtype = types_match ? type : c10::ScalarType::Float;
-  OutputMetaData second_output;
+  auto& second_output = metaVec[1];
   second_output.shape = gamma.sizes().vec();
   second_output.dtype = types_match ? type : c10::ScalarType::Float;
-  return {first_output, second_output};
+  return metaVec;
 }
 } // namespace habana

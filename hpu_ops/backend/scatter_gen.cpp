@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,22 +28,25 @@ SharedMetaDataVector ScatterSharedMeta(
   auto dtype = self.scalar_type();
   auto rank = self.dim();
 
+  SharedMetaDataVector meta;
+  meta.reserve(1);
+
   if (stack.at(3).isTensor()) {
     const auto& updates = stack_tensor(stack, 3);
-    SharedMetaData scatterSharedMeta{"scatter_fwd"};
+    auto& scatterSharedMeta = meta.emplace_back("scatter_fwd");
     scatterSharedMeta.inputs_data = {
         {rank, dtype},
         {index.dim(), index.scalar_type()},
         {updates.dim(), dtype}};
     scatterSharedMeta.outputs_data.emplace_back(rank, dtype);
-    return {scatterSharedMeta};
   } else {
-    SharedMetaData scatterValueSharedMeta{"scatter_value_fwd"};
+    auto& scatterValueSharedMeta = meta.emplace_back("scatter_value_fwd");
     scatterValueSharedMeta.inputs_data = {
         {rank, dtype}, {index.dim(), index.scalar_type()}};
     scatterValueSharedMeta.outputs_data.emplace_back(rank, dtype);
-    return {scatterValueSharedMeta};
   }
+
+  return meta;
 }
 
 SharedMetaDataVector ScatterReduceSharedMeta(
@@ -54,17 +57,18 @@ SharedMetaDataVector ScatterReduceSharedMeta(
   const auto dtype = self.scalar_type();
   const auto rank = self.dim();
 
-  SharedMetaData scatterReduceSharedMeta{"scatter_reduce_fwd"};
+  SharedMetaDataVector meta;
+  meta.reserve(2);
+  auto& scatterReduceSharedMeta = meta.emplace_back("scatter_reduce_fwd");
   scatterReduceSharedMeta.inputs_data = {
       {rank, dtype}, {index.dim(), index.scalar_type()}, {rank, dtype}};
   scatterReduceSharedMeta.outputs_data.emplace_back(rank, dtype);
 
   if (rank > 1) {
-    SharedMetaData constantSharedMeta{"constant"};
+    auto& constantSharedMeta = meta.emplace_back("constant");
     constantSharedMeta.outputs_data.emplace_back(rank, dtype);
-    return {scatterReduceSharedMeta, constantSharedMeta};
   }
-  return {scatterReduceSharedMeta};
+  return meta;
 }
 
 using namespace std::literals;
@@ -99,7 +103,7 @@ void ScatterOperator::AddNode(
 
   } else {
     at::Scalar val;
-    at::IValue ival = stack.at(3);
+    const at::IValue& ival = stack.at(3);
     // Why do we need to do this?
     // We are converting the val to a real Bool (0 or 1) for src=Bool case.
     // If we don't do this, the kernel will execute, but the result from

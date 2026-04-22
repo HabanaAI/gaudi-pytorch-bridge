@@ -115,9 +115,8 @@ class ProcessGroupHCCLRegistry {
           it = std::reverse_iterator(new_fwd_iter);
         }
       }
+      groups_.clear();
     }
-
-    groups_.clear();
   }
 
   void insert(intrptr_t& new_pg) {

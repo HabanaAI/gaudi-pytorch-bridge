@@ -76,7 +76,9 @@ SharedMetaDataVector UpsampleCommmonSharedLayer(
     const at::Stack& stack,
     const bool alignCorners,
     const int64_t scalesIndex,
-    const bool isForward);
+    const bool isForward,
+    const modes upsample_mode,
+    const habana_helpers::HabanaExecutionMode execution_mode);
 
 synapse_helpers::tensor UpsampleCommonFunc(
     OpBackend* op,

@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -402,7 +402,7 @@ def test_reuse_backward_graph_input_in_simple_model():
     """
 
     class SimpleMLP(nn.Module):
-        def __init__(self, input_size=1024, hidden_sizes=[1024, 1024, 1024], output_size=1024):
+        def __init__(self, input_size=1024, hidden_sizes=(1024, 1024, 1024), output_size=1024):
             super().__init__()
             self.fc1 = nn.Linear(input_size, hidden_sizes[0])
             self.fc2 = nn.Linear(hidden_sizes[0], hidden_sizes[1])
@@ -441,7 +441,7 @@ def test_reuse_backward_graph_input_in_simple_model_with_graph_break():
     """
 
     class SimpleMLP_with_graph_break(nn.Module):
-        def __init__(self, input_size=1024, hidden_sizes=[1024, 1024, 1024, 1024, 1024], output_size=1024):
+        def __init__(self, input_size=1024, hidden_sizes=(1024, 1024, 1024, 1024, 1024), output_size=1024):
             super().__init__()
             self.fc1 = nn.Linear(input_size, hidden_sizes[0])
             self.fc2 = nn.Linear(hidden_sizes[0], hidden_sizes[1])
@@ -485,7 +485,7 @@ def test_reuse_backward_graph_input_in_simple_model_with_view_operations_inside(
     """
 
     class SimpleMLP_with_view_operation_inside(nn.Module):
-        def __init__(self, input_size=512, hidden_sizes=[512, 512, 512], output_size=512, batch_size=2):
+        def __init__(self, input_size=512, hidden_sizes=(512, 512, 512), output_size=512, batch_size=2):
             super().__init__()
             self.fc1 = nn.Linear(input_size, hidden_sizes[0])  # [512] → [512]
             self.fc2 = nn.Linear(hidden_sizes[0], hidden_sizes[1])  # [512] → [512]
@@ -525,7 +525,7 @@ def test_reuse_backward_graph_input_in_simple_model_with_view_chain():
     """
 
     class SimpleMLP_with_view_chain(nn.Module):
-        def __init__(self, input_size=1024, hidden_sizes=[1024, 1024, 1024], output_size=1024, batch_size=10240):
+        def __init__(self, input_size=1024, hidden_sizes=(1024, 1024, 1024), output_size=1024, batch_size=10240):
             super().__init__()
             self.fc1 = nn.Linear(input_size, hidden_sizes[0])  # [1024] → [1024]
             self.fc2 = nn.Linear(hidden_sizes[0], hidden_sizes[1])  # [1024] → [1024]
@@ -569,7 +569,7 @@ def test_reuse_backward_graph_input_in_simple_model_partition_input_reuse():
     """
 
     class SimpleMLP_with_multi_submod(nn.Module):
-        def __init__(self, input_size=1024, hidden_sizes=[1024, 1024, 1024, 1024, 1024], output_size=1024):
+        def __init__(self, input_size=1024, hidden_sizes=(1024, 1024, 1024, 1024, 1024), output_size=1024):
             super().__init__()
             self.fc1 = nn.Linear(input_size, hidden_sizes[0])
             self.fc2 = nn.Linear(hidden_sizes[0], hidden_sizes[1])

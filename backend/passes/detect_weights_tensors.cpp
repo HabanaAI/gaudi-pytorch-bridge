@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,7 +39,7 @@ struct DetectWeightTensorsPass {
   void processInputs(at::ArrayRef<habana_torch::jit::Value*> inputs) {
     for (size_t input_idx = 0; input_idx < inputs.size(); input_idx++) {
       habana_torch::jit::Value* input{inputs.at(input_idx)};
-      for (auto& use : input->uses()) {
+      for (const auto& use : input->uses()) {
         bool is_weight_input{processInputUse(input, use)};
         if (is_weight_input) {
           m_weight_input_indices.insert(input_idx);
@@ -89,11 +89,12 @@ struct DetectWeightTensorsPass {
         habana_torch::jit::Value* cast_output{node->output(0)};
         // Node looks like valid cast so we need to look for nodes that using
         // it's output
-        if (cast_input == input)
-          for (auto& use : cast_output->uses()) {
+        if (cast_input == input) {
+          for (const auto& use : cast_output->uses()) {
             habana_torch::jit::Node* user_node{use.user};
             nodes_to_visit.emplace(cast_output, user_node);
           }
+        }
       }
       nodes_to_visit.pop();
     }

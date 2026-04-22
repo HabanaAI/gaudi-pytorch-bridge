@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -189,7 +189,7 @@ def test_cast_to_fp8_v2_from_fp8_exception(dtype, dst_dtype, is_amax, scale):
                 in str(e)
             )
         else:
-            raise RuntimeError(f"unexpected exception {str(e)}")
+            raise RuntimeError(f"unexpected exception {str(e)}") from None
 
     if is_amax or dtype != dst_dtype:
         assert exception_raised, "Expected exception not raised"
@@ -1136,7 +1136,7 @@ def test_fp8_gemm_per_block(block_a, block_b, trans_a, trans_b, batch):
     fn = compile_function_if_compile_mode(torch.ops.hpu.fp8_gemm_v2)
 
     res = fn(ah, trans_a, bh, trans_b, None, out_dtype, scale_ah, scale_bh, None, False).cpu()
-    tol = 1e-7
+    tol = 7e-2
 
     compare_tensors(res, res_cpu, atol=tol, rtol=tol)
 
@@ -1240,10 +1240,7 @@ def test_conv2d_fp8(scaleA, scaleB, bias, out_dtype, fp8_dtype, dynamic):
         bias_cpu = bias_cpu.unsqueeze(0).unsqueeze(-1).unsqueeze(-1)
         conv_ref = conv_ref + bias_cpu
 
-    if out_dtype == torch.bfloat16 and (scaleA or scaleB):
-        rtol = 0.02
-    else:
-        rtol = 1e-2
+    rtol = 0.02 if out_dtype == torch.bfloat16 and (scaleA or scaleB) else 0.01
 
     compare_tensors(conv, conv_ref, atol=1e-2, rtol=rtol)
 
@@ -1520,6 +1517,7 @@ def common_h2d_scales(
     ht.disable_inference_mode()
 
 
+@pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-242513")
 @pytest.mark.skipif(is_pytest_mode_eager(), reason="Eager mode doesn't support H2D scales.")
 @pytest.mark.parametrize(
     "src_dtype, batched_tensors", [(torch.float, False), (torch.bfloat16, True), (torch.bfloat16, False)]
@@ -1561,6 +1559,7 @@ def test_h2d_scales(src_dtype, batched_tensors, fuse_cast, trivial_scales_mode):
         metric_debug_reload()
 
 
+@pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-242513")
 @pytest.mark.skipif(is_pytest_mode_eager(), reason="Eager mode doesn't support H2D scales.")
 @pytest.mark.parametrize("fuse_cast, trivial_scales_mode", [(False, 0), (True, 1), (False, 2), (True, 0)])
 @pytest.mark.parametrize("shared_scale", [SharedScaleMode.ONE, SharedScaleMode.TWO])

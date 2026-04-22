@@ -238,7 +238,7 @@ void NonZeroOperator::AllocateAndAddSynapseNode(
         shape_tensor,
         synType,
         output_metadata.at(1),
-        graph.is_dynamic_graph() ? true : false);
+        graph.is_dynamic_graph());
     AddNodeToSynapseGraph(graph, nullptr, 0);
   } else {
     SetGuid(get_guid_with_precision("non_zero_v2_fwd"sv, self.scalar_type()));

@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -84,9 +84,6 @@ def convertExpBiasToScale(exp_bias_list, dtype=torch.float8_e4m3fn):
 
 def maxFp8Val(dtype, is_gaudi2):
     assert dtype in fp8_dtypes, f"maxFp8Val is applicable to fp8 dtypes, got {dtype}"
-    if dtype == torch.float8_e4m3fn and is_gaudi2:
-        max_val = 240.0
-    else:
-        max_val = torch.finfo(dtype).max
+    max_val = 240.0 if dtype == torch.float8_e4m3fn and is_gaudi2 else torch.finfo(dtype).max
 
     return max_val

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,10 +36,11 @@ void WrapScalarAsTensor(
       "quantize_per_tensor expects only double or int parameters");
   if (scalar.isDouble()) {
     scalar_tensors.emplace_back(
-        op->BuildConstantTensor(op, graph, scalar.toDouble(), force_type));
+        OpBackend::BuildConstantTensor(
+            op, graph, scalar.toDouble(), force_type));
   } else {
     scalar_tensors.emplace_back(
-        op->BuildConstantTensor(op, graph, scalar.toInt(), force_type));
+        OpBackend::BuildConstantTensor(op, graph, scalar.toInt(), force_type));
   }
   syn_inputs.push_back(scalar_tensors.back().get());
 }
@@ -59,43 +60,47 @@ FillParamsT FillDequantizePerChannelParams(const at::Stack& stack) {
 }
 
 OutputMetaDataVector QuantizePerTensorMeta(const at::Stack& stack) {
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.shape = stack_tensor(stack, 0).sizes().vec();
   meta.dtype = stack[5].toScalarType();
-  return {meta};
+  return metaVec;
 }
 
 OutputMetaDataVector DequantizePerTensorMeta(const at::Stack& stack) {
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.shape = stack_tensor(stack, 0).sizes().vec();
   meta.dtype =
       stack[6].toOptional<at::ScalarType>().value_or(at::ScalarType::Float);
-  return {meta};
+  return metaVec;
 }
 
 OutputMetaDataVector QuantizePerChannelMeta(const at::Stack& stack) {
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.shape = stack_tensor(stack, 0).sizes().vec();
   meta.dtype = stack[6].toScalarType();
-  return {meta};
+  return metaVec;
 }
 
 OutputMetaDataVector DequantizePerChannelMeta(const at::Stack& stack) {
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.shape = stack_tensor(stack, 0).sizes().vec();
   meta.dtype =
       stack[7].toOptional<at::ScalarType>().value_or(at::ScalarType::Float);
-  return {meta};
+  return metaVec;
 }
 
 using namespace std::literals;
 
 void QuantizePerTensor::AddNode(sh::graph& graph, const at::Stack& stack) {
   auto self = stack_tensor(stack, 0);
-  auto scale = stack.at(1);
-  auto zero_point = stack.at(2);
-  auto quant_min = stack.at(3);
-  auto quant_max = stack.at(4);
+  const auto& scale = stack.at(1);
+  const auto& zero_point = stack.at(2);
+  const auto& quant_min = stack.at(3);
+  const auto& quant_max = stack.at(4);
 
   auto force_type = self.scalar_type();
   std::vector<synTensor> syn_inputs{syn_in(0)};
@@ -138,8 +143,8 @@ void QuantizePerTensor::AddNode(sh::graph& graph, const at::Stack& stack) {
 
 void DequantizePerTensor::AddNode(sh::graph& graph, const at::Stack& stack) {
   auto self = stack_tensor(stack, 0);
-  auto scale = stack.at(1);
-  auto zero_point = stack.at(2);
+  const auto& scale = stack.at(1);
+  const auto& zero_point = stack.at(2);
   auto out_dtype =
       stack.at(6).toOptional<at::ScalarType>().value_or(at::ScalarType::Float);
 

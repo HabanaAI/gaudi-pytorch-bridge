@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@ std::vector<int64_t> pad_output_shape(
 
   for (size_t i = 0; i < lpad; i++) {
     auto pad_start = pad[2 * i];
-    auto pad_end = pad[2 * i + 1];
+    auto pad_end = pad[(2 * i) + 1];
     shape[ndim - i - 1] += (pad_start + pad_end);
     HABANA_ASSERT(
         shape[ndim - i - 1] > 0,
@@ -63,7 +63,8 @@ std::vector<int64_t> pad_output_shape(
 
 OutputMetaDataVector ConstantPadMeta(const at::Stack& stack) {
   const auto& self = stack.at(0).toTensor();
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   if ((stack.size() == 4) && (!stack.at(1).isTensor())) {
     auto pad = stack.at(1).toIntVector();
     auto ndim = static_cast<size_t>(self.dim());
@@ -72,7 +73,7 @@ OutputMetaDataVector ConstantPadMeta(const at::Stack& stack) {
 
     for (size_t i = 0; i < lpad; i++) {
       auto pad_start = pad[2 * i];
-      auto pad_end = pad[2 * i + 1];
+      auto pad_end = pad[(2 * i) + 1];
       shape[ndim - i - 1] += (pad_start + pad_end);
     }
     meta.shape = shape;
@@ -84,7 +85,7 @@ OutputMetaDataVector ConstantPadMeta(const at::Stack& stack) {
   }
   meta.mem_format = self.suggest_memory_format();
   meta.dtype = self.scalar_type();
-  return {meta};
+  return metaVec;
 }
 
 SharedMetaDataVector ConstantPadSharedMeta(
@@ -93,18 +94,20 @@ SharedMetaDataVector ConstantPadSharedMeta(
   const auto& self = stack.at(0).toTensor();
   const auto selfRank = self.dim();
   auto dtype = self.scalar_type();
-
-  SharedMetaData padMeta{"pad_fwd"};
-  if (dtype == c10::ScalarType::Long && common::IsInt64Supported())
+  if (dtype == c10::ScalarType::Long && common::IsInt64Supported()) {
     dtype = c10::ScalarType::Int;
+  }
 
+  SharedMetaDataVector meta;
+  meta.reserve(1);
+  auto& padMeta = meta.emplace_back("pad_fwd");
   padMeta.inputs_data.emplace_back(selfRank, dtype);
   if (stack.size() != 3 && (stack.size() != 4 || stack.at(1).isTensor())) {
     padMeta.inputs_data.emplace_back(1, c10::ScalarType::UInt32);
   }
   padMeta.outputs_data.emplace_back(selfRank, dtype);
 
-  return {padMeta};
+  return meta;
 }
 
 static void FillPadParamsValue(
@@ -143,7 +146,7 @@ FillParamsT FillConstantPadParams(const at::Stack& stack) {
       params->pads[i] =
           static_cast<unsigned int>(safe_convert<int>(pad[2 * i]));
       params->pads[i + ndim] =
-          static_cast<unsigned int>(safe_convert<int>(pad[2 * i + 1]));
+          static_cast<unsigned int>(safe_convert<int>(pad[(2 * i) + 1]));
     }
 
     return paramsT;
@@ -172,7 +175,7 @@ void ConstantPad::AddNode(
         c10::ScalarType::Int);
   }
 
-  auto input = castedInput.has_value() ? castedInput.value().get() : syn_in(0);
+  auto* input = castedInput.has_value() ? castedInput.value().get() : syn_in(0);
 
   if ((stack.size() == 3) ||
       ((stack.size() == 4) && (!stack.at(1).isTensor()))) {
@@ -200,7 +203,7 @@ void ConstantPad::AddNode(
     }
   } else {
     at::Tensor host_tensor = stack[1].toTensor();
-    auto tmeta{get_tensor_extra_meta(host_tensor)};
+    auto* tmeta{get_tensor_extra_meta(host_tensor)};
     auto output_shape = stack[2].toTensor().sizes().vec();
     auto input_shape = stack[0].toTensor().sizes().vec();
     if (habana::ShapeInference::GetCurrentPass() ==
@@ -289,7 +292,7 @@ void ConstantPadDS::AddNode(
         c10::ScalarType::Int);
   }
 
-  auto input = castedInput.has_value() ? castedInput.value().get() : syn_in(0);
+  auto* input = castedInput.has_value() ? castedInput.value().get() : syn_in(0);
 
   if ((stack.size() == 3) ||
       ((stack.size() == 4) && (!stack.at(1).isTensor()))) {
@@ -298,7 +301,7 @@ void ConstantPadDS::AddNode(
         guid_,
         {input},
         {{meta.shape,
-          meta.dtype,
+          is_cast_required ? c10::ScalarType::Int : meta.dtype,
           is_cast_required ? std::nullopt : std::optional<int>(0)}},
         param.ptr(),
         param.size());
@@ -318,7 +321,7 @@ void ConstantPadDS::AddNode(
   } else {
     at::Tensor host_tensor = stack[1].toTensor();
 
-    auto tmeta{get_tensor_extra_meta(host_tensor)};
+    auto* tmeta{get_tensor_extra_meta(host_tensor)};
     auto output_shape = stack[2].toTensor().sizes().vec();
     auto input_shape = stack[0].toTensor().sizes().vec();
     if (habana::ShapeInference::GetCurrentPass() ==
@@ -353,7 +356,7 @@ void ConstantPadDS::AddNode(
         guid_,
         {input, syn_in(1)},
         {{meta.shape,
-          meta.dtype,
+          is_cast_required ? c10::ScalarType::Int : meta.dtype,
           is_cast_required ? std::nullopt : std::optional<int>(0)}},
         param.ptr(),
         param.size());

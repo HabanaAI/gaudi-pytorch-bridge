@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -70,7 +70,7 @@ struct MarkParamsAsConstPass {
     for (int64_t index : const_indexes) {
       if (example_inputs[index].isTensor()) {
         auto tensor = example_inputs[index].toTensor();
-        auto tmeta{get_tensor_extra_meta(tensor)};
+        auto* tmeta{get_tensor_extra_meta(tensor)};
         PT_BRIDGE_DEBUG(
             "Constant input index:",
             index,

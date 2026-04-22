@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -213,13 +213,10 @@ def get_all_comm_blocks(gm: torch.fx.Graph, comm_ops: tuple[str, ...] | str) -> 
 def _expedite_comm_ops(gm: torch.fx.Graph, comm_blocks: list[CommBlock]) -> None:
     node_indices = {node: i for i, node in enumerate(gm.graph.nodes)}
     for comm_block in comm_blocks:
-        last_input = comm_block.comm_node
         last_input_idx = -1
         for input_node in comm_block.inputs:
             input_idx = node_indices[input_node]
-            if input_idx > last_input_idx:
-                last_input = input_node
-                last_input_idx = input_idx
+            last_input_idx = max(last_input_idx, input_idx)
         input_node.append(comm_block.comm_node)
 
 
@@ -306,14 +303,9 @@ def _call_function(
 ) -> torch.fx.Node:
     node = gm.graph.call_function(function, args, kwargs)
 
-    from torch._dynamo.utils import detect_fake_mode
-
-    fake_tensor_mode = detect_fake_mode(meta_val)
-
     if meta_val is None:
         flat_args, spec = tree_flatten((args, kwargs))
         new_flat_args = []
-        memory_format = None
         for arg in flat_args:
             if not isinstance(arg, torch.fx.Node):
                 new_flat_args.append(arg)

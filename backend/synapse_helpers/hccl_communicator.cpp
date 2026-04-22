@@ -79,7 +79,7 @@ std::shared_ptr<HcclCommunicator> HcclCommunicator::Create(
         std::lock_guard<std::mutex> lock(
             HcclCommunicator::communicator_map_mutext_);
         communicator_map_.erase(p->GetId());
-        delete p;
+        delete p; // NOLINT(cppcoreguidelines-owning-memory)
       });
   std::lock_guard<std::mutex> lock(HcclCommunicator::communicator_map_mutext_);
   communicator_map_[comm->GetId()] = std::weak_ptr<HcclCommunicator>(comm);

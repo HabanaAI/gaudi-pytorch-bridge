@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,14 +15,19 @@
 
 #include "generated/backend/mv.h"
 
+#include <ATen/core/stack.h>
+
+#include "backend/backend_meta.h"
+
 namespace habana {
 
 OutputMetaDataVector MvOpsMeta(const at::Stack& stack) {
   auto mat = stack.at(0).toTensor();
 
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.shape = {mat.sizes()[0]};
   meta.dtype = mat.scalar_type();
-  return {meta};
+  return metaVec;
 }
 } // namespace habana

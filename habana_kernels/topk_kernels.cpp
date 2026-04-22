@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,15 +43,15 @@ inline void _allocate_or_resize_output_with_indices(
     HABANA_ASSERT(
         self.options().type_equal(values.options()),
         "output values must be of same type as input");
-    auto tht_values = values.unsafeGetTensorImpl();
+    auto* tht_values = values.unsafeGetTensorImpl();
     HABANA_ASSERT(self.dim() >= 0, "dim must be non-negative");
-    if (values.numel() || values_persistent)
+    if ((values.numel() != 0) || values_persistent) {
       THHTensor_resizeNd(
           tht_values,
           static_cast<size_t>(self.dim()),
           result_sizes.data(),
           nullptr);
-    else {
+    } else {
       THHTensor_resizeNd_nonpersistent(
           tht_values,
           static_cast<size_t>(self.dim()),
@@ -68,14 +68,14 @@ inline void _allocate_or_resize_output_with_indices(
     HABANA_ASSERT(
         indices.device() == self.device(),
         "output indices must be on same device as input");
-    auto tht_indices = indices.unsafeGetTensorImpl();
-    if (indices.numel() || indices_persistent)
+    auto* tht_indices = indices.unsafeGetTensorImpl();
+    if ((indices.numel() != 0) || indices_persistent) {
       THHTensor_resizeNd(
           tht_indices,
           static_cast<size_t>(self.dim()),
           result_sizes.data(),
           nullptr);
-    else {
+    } else {
       THHTensor_resizeNd_nonpersistent(
           tht_indices,
           static_cast<size_t>(self.dim()),

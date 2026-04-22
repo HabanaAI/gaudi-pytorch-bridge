@@ -13,8 +13,12 @@
  * limitations under the License.
  */
 #include "export.h"
-#include <torch/csrc/jit/serialization/export.h>
+
+#include <cstdint>
 #include <string>
+
+#include <torch/csrc/jit/serialization/export.h>
+#include <torch/csrc/onnx/onnx.h>
 
 namespace serialize {
 

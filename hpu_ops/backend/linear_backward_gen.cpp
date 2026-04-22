@@ -29,9 +29,10 @@ OutputMetaDataVector LinearBackwardMeta(const at::Stack& stack) {
   } else {
     bias_grad_shape.push_back(1);
   }
-  OutputMetaData input_meta;
-  OutputMetaData weight_meta;
-  OutputMetaData bias_meta;
+  OutputMetaDataVector metaVec(3);
+  auto& input_meta = metaVec[0];
+  auto& weight_meta = metaVec[1];
+  auto& bias_meta = metaVec[2];
 
   input_meta.shape = input.sizes().vec();
   input_meta.dtype = input.scalar_type();
@@ -42,7 +43,7 @@ OutputMetaDataVector LinearBackwardMeta(const at::Stack& stack) {
   std::swap(bias_meta.shape, bias_grad_shape);
   bias_meta.dtype = weight.scalar_type();
 
-  return {input_meta, weight_meta, bias_meta};
+  return metaVec;
 }
 
 FillParamsT FillLinearBwdParams(const at::Stack& stack) {

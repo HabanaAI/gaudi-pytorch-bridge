@@ -124,7 +124,7 @@ class GraphHashBuilder {
       const std::vector<uint64_t>& input_map,
       std::vector<ir::Value>& inputs);
 
-  uint64_t getFwdRunningHash();
+  uint64_t getFwdRunningHash() const;
 
   const std::vector<OpArrayEntry>& getOpEntries() const {
     return nodes_array;

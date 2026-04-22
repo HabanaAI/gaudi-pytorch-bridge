@@ -102,7 +102,13 @@ std::unordered_map<std::string, std::vector<at::ScalarType>>
         {"replication_pad2d", {at::ScalarType::Bool}},
         {"replication_pad3d", {at::ScalarType::Bool}},
         {"argmin", {at::ScalarType::Bool}},
-        {"argmax", {at::ScalarType::Bool}}};
+        {"argmax", {at::ScalarType::Bool}},
+        {"addcdiv", // Integers not supported
+         {at::ScalarType::Long,
+          at::ScalarType::Int,
+          at::ScalarType::Short,
+          at::ScalarType::Char,
+          at::ScalarType::Bool}}};
 
 std::unordered_map<std::string, std::vector<at::ScalarType>>
     whitelisted_precision_types_op_map = {};
@@ -110,9 +116,9 @@ std::unordered_map<std::string, std::vector<at::ScalarType>>
 
 std::vector<at::Stack> StackGenerator::getStacks(
     at::ScalarType precision_type) {
-  if (isBlacklistedPrecisionType(precision_type))
+  if (isBlacklistedPrecisionType(precision_type)) {
     return {};
-
+  }
   generateAllStacks();
   return generated_stacks[precision_type];
 }
@@ -138,9 +144,9 @@ bool StackGenerator::isWhitelistedPrecisionType(
 };
 
 void StackGenerator::generateAllStacks() {
-  if (stacks_generated)
+  if (stacks_generated) {
     return;
-
+  }
   for (const auto& report_precision_type : report_precision_types) {
     auto& stacks_for_precision_type = generated_stacks[report_precision_type];
     for (const auto& rank : ranks) {
@@ -258,15 +264,16 @@ namespace {
 void validate_input_for_pt_scalar(
     const InputDescriptor& input,
     std::string op_and_overload_name) {
-  if (not input.values.has_value())
+  if (not input.values.has_value()) {
     throw std::invalid_argument(
         "StackGenerator::generateIValues<InputType::PT_SCALAR> cannot process InputDescriptor for op '" +
         op_and_overload_name + "': the 'values' parameter must be specified");
-
-  if (input.values.value().empty())
+  }
+  if (input.values.value().empty()) {
     throw std::invalid_argument(
         "StackGenerator::generateIValues<InputType::PT_SCALAR> cannot process InputDescriptor for op '" +
         op_and_overload_name + "': the 'values' parameter cannot be empty");
+  }
 }
 
 c10::Scalar get_scalar_from_any(
@@ -305,10 +312,10 @@ std::vector<c10::IValue> StackGenerator::generateIValues<InputType::PT_SCALAR>(
   validate_input_for_pt_scalar(input_descriptor, op_and_overload_name);
 
   std::vector<c10::IValue> values;
-  for (const auto& value : input_descriptor.values.value())
+  for (const auto& value : input_descriptor.values.value()) {
     values.emplace_back(get_scalar_from_any(
         value, op_and_overload_name, input_descriptor.name));
-
+  }
   return values;
 }
 
@@ -316,13 +323,13 @@ namespace {
 void validate_input_for_dtype(
     const InputDescriptor& input,
     std::string op_and_overload_name) {
-  if (not input.values.has_value() || input.values.value().empty())
+  if (not input.values.has_value() || input.values.value().empty()) {
     throw std::invalid_argument(
         "StackGenerator::generateIValues<InputType::DTYPE> cannot process InputDescriptor for op '" +
         op_and_overload_name +
         "': for input with 'match_precision_type'=false, the 'values' parameter cannot be empty (param '" +
         input.name + "')");
-
+  }
   const auto& values = input.values.value();
   const auto not_all_scalars =
       std::any_of(std::begin(values), std::end(values), [](std::any value) {
@@ -409,17 +416,16 @@ auto is_only_none(const InputDescriptor& input) noexcept {
 }
 
 std::vector<c10::IValue> handle_optional_input(const InputDescriptor& input) {
-  if (not input.is_optional)
+  if (not input.is_optional) {
     return {};
-
+  }
   if (not input.allow_none.has_value()) {
     throw std::invalid_argument(
         "StackGenerator cannot process InputDescriptor: for optional inputs at least one of the parameters 'allow_none' must be specified or 'allow_only_none' must be TRUE");
   }
-
-  if (input.allow_none.value())
+  if (input.allow_none.value()) {
     return {c10::IValue()};
-
+  }
   return {};
 }
 } // namespace
@@ -428,9 +434,9 @@ std::vector<c10::IValue> StackGenerator::getInputVariants(
     const InputDescriptor& input_descriptor,
     const at::ScalarType precision_type,
     const int64_t rank) const {
-  if (is_only_none(input_descriptor))
+  if (is_only_none(input_descriptor)) {
     return {c10::IValue()};
-  else {
+  } else {
     auto variants = handle_optional_input(input_descriptor);
     const auto values = handle_inputs(input_descriptor, precision_type, rank);
 
@@ -580,8 +586,9 @@ SchemaStackGenerator::SchemaStackGenerator(
 
 namespace {
 std::vector<std::string> getInputsFromSchema(const std::string& input_schema) {
-  if (input_schema.empty())
+  if (input_schema.empty()) {
     return {};
+  }
 
   std::vector<std::string> params;
 
@@ -620,11 +627,10 @@ bool isGeneratorParam(const std::string& param) {
 
 std::string eraseOptionalCharacters(const std::string& param) {
   auto result = param;
-
   size_t startPos = result.find("?");
-  if (startPos != std::string::npos)
+  if (startPos != std::string::npos) {
     result.erase(startPos, 1);
-
+  }
   return result;
 }
 
@@ -644,13 +650,13 @@ std::string eraseArrayCharacters(const std::string& param) {
   auto result = param;
   size_t startPos = result.find(
       "?["); // An array with optional values will always have specific value
-  if (startPos == std::string::npos)
+  if (startPos == std::string::npos) {
     startPos = result.find("[");
-
+  }
   size_t endPos = result.find("]");
-  if (startPos != std::string::npos && endPos != std::string::npos)
+  if (startPos != std::string::npos && endPos != std::string::npos) {
     result.erase(startPos, endPos - startPos + 1);
-
+  }
   return result;
 }
 
@@ -909,16 +915,18 @@ std::vector<InputDescriptor> SchemaStackGenerator::generateInputs(
 std::vector<at::ScalarType> SchemaStackGenerator::getBlacklistedPrecisionTypes()
     const {
   auto it = blacklisted_precision_types_op_map.find(op_name);
-  if (it != std::end(blacklisted_precision_types_op_map))
+  if (it != std::end(blacklisted_precision_types_op_map)) {
     return it->second;
+  }
   return {};
 }
 
 std::vector<at::ScalarType> SchemaStackGenerator::getWhitelistedPrecisionTypes()
     const {
   auto it = whitelisted_precision_types_op_map.find(op_name);
-  if (it != std::end(whitelisted_precision_types_op_map))
+  if (it != std::end(whitelisted_precision_types_op_map)) {
     return it->second;
+  }
   return {};
 }
 

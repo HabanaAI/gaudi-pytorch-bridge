@@ -35,8 +35,9 @@ template class Stats<globalStatPtsEnum>;
 
 const std::string StatsBase::m_grep = "zzz~";
 StatsBase::~StatsBase() {
-  if (!m_enabled)
+  if (!m_enabled) {
     return;
+  }
   // For table format, print only if at least one member is not 0
   if (m_isTbl) {
     bool allZero = true;
@@ -47,8 +48,9 @@ StatsBase::~StatsBase() {
         break;
       }
     }
-    if (allZero)
+    if (allZero) {
       return;
+    }
   }
 
   printToLog("During exit", true);
@@ -62,13 +64,16 @@ void StatsBase::init(
   m_statName = statName;
   m_maxEnum = names.size();
   m_dumpFreq = dumpFreq;
-  if (!disable)
+  if (!disable) {
     updateEnable(); // sets m_enabled
+  }
   m_headerPrinted = false;
 
-  m_pPointData.reset(new sumCollectData[m_maxEnum]{});
-  m_pointMsg.reset(new std::string[m_maxEnum]{});
-  m_pointAttributes.reset(new PointAttrMap[m_maxEnum]{});
+  // NOLINTBEGIN(*-avoid-c-arrays)
+  m_pPointData = std::make_unique<sumCollectData[]>(m_maxEnum);
+  m_pointMsg = std::make_unique<std::string[]>(m_maxEnum);
+  m_pointAttributes = std::make_unique<PointAttrMap[]>(m_maxEnum);
+  // NOLINTEND(*-avoid-c-arrays)
 
   for (size_t i = 0; i < m_maxEnum; i++) {
     m_pointMsg[i] = names[i];
@@ -81,9 +86,11 @@ StatsBase::StatsBase(const StatsBase& other) {
   m_dumpFreq = other.m_dumpFreq;
   m_enabled = other.m_enabled;
 
-  m_pPointData.reset(new sumCollectData[m_maxEnum]{});
-  m_pointMsg.reset(new std::string[m_maxEnum]{});
-  m_pointAttributes.reset(new PointAttrMap[m_maxEnum]{});
+  // NOLINTBEGIN(*-avoid-c-arrays)
+  m_pPointData = std::make_unique<sumCollectData[]>(m_maxEnum);
+  m_pointMsg = std::make_unique<std::string[]>(m_maxEnum);
+  m_pointAttributes = std::make_unique<PointAttrMap[]>(m_maxEnum);
+  // NOLINTEND(*-avoid-c-arrays)
   for (size_t i = 0; i < m_maxEnum; i++) {
     m_pointMsg[i] = other.m_pointMsg[i];
     m_pointAttributes[i] = other.m_pointAttributes[i];
@@ -109,9 +116,9 @@ void StatsBase::printToLog(std::string msg, bool dumpAll, bool clear) {
     uint64_t sum = m_pPointData[i].sum.load();
     uint64_t last_meas = m_pPointData[i].last_measurement.load();
 
-    if ((count == 0) && !dumpAll)
+    if ((count == 0) && !dumpAll) {
       continue;
-
+    }
     PointAttrMap attributes;
     {
       // Map is not thread-safe and calling add_attribute from another thread

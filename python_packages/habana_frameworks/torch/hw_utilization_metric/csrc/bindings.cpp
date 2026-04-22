@@ -13,10 +13,8 @@
  * limitations under the License.
  */
 
+#include <pybind11/pybind11.h>
 #include "backend/synapse_helpers/utilization_metrics.h"
-
-#include <torch/extension.h>
-#include "pybind11/stl.h"
 
 /**
  * UtilizationMetrics provides a comprehensive API for monitoring hardware
@@ -61,7 +59,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       []() {
         auto counters =
             synapse_helpers::UtilizationMetrics::getInstance().getUtilization();
-        py::dict result;
+        pybind11::dict result;
         result["hl_smi"] = counters.first;
         result["esync"] = counters.second;
         return result;

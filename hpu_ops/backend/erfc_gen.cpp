@@ -59,21 +59,18 @@ SharedMetaDataVector UnaryForeachErfcSharedMeta(
     auto outputType = inputType;
 
     SharedMetaTensor outputTensor{rank, outputType};
-    SharedMetaData erfMeta{"erf_fwd"};
+    auto& erfMeta = metaVec.emplace_back("erf_fwd");
     erfMeta.inputs_data = {{rank, inputType}};
     erfMeta.outputs_data = {outputTensor};
-    metaVec.push_back(erfMeta);
 
     if (rank > 1) {
-      SharedMetaData constantSharedMeta{"constant"};
+      auto& constantSharedMeta = metaVec.emplace_back("constant");
       constantSharedMeta.outputs_data.emplace_back(rank, inputType);
-      metaVec.push_back(erfMeta);
     }
 
-    SharedMetaData subMeta{"sub_fwd"};
+    auto& subMeta = metaVec.emplace_back("sub_fwd");
     subMeta.inputs_data = {outputTensor, outputTensor};
     subMeta.outputs_data = {outputTensor};
-    metaVec.push_back(subMeta);
   }
   return metaVec;
 }

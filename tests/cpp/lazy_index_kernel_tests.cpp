@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,6 +27,48 @@
 
 using namespace habana_lazy;
 using namespace at;
+
+// RAII guard for managing deterministic algorithm settings
+class DeterministicGuard {
+ private:
+  bool oldValue;
+  bool active;
+
+ public:
+  explicit DeterministicGuard(bool deterministic)
+      : oldValue(at::globalContext().deterministicAlgorithms()), active(true) {
+    at::globalContext().setDeterministicAlgorithms(deterministic, false);
+  }
+
+  ~DeterministicGuard() {
+    if (active) {
+      at::globalContext().setDeterministicAlgorithms(oldValue, false);
+    }
+  }
+
+  // Delete copy operations to prevent accidental misuse
+  DeterministicGuard(const DeterministicGuard&) = delete;
+  DeterministicGuard& operator=(const DeterministicGuard&) = delete;
+
+  // Enable move operations with ownership transfer semantics
+  DeterministicGuard(DeterministicGuard&& other) noexcept
+      : oldValue(other.oldValue), active(other.active) {
+    other.active = false;
+  }
+
+  DeterministicGuard& operator=(DeterministicGuard&& other) noexcept {
+    if (this != &other) {
+      if (active) {
+        // Restore our own state before taking ownership from other
+        at::globalContext().setDeterministicAlgorithms(oldValue, false);
+      }
+      oldValue = other.oldValue;
+      active = other.active;
+      other.active = false;
+    }
+    return *this;
+  }
+};
 
 class LazyIndexKernelTest : public habana_lazy_test::LazyTest {};
 class UniqueParameterizedTestFixture
@@ -434,6 +476,10 @@ TEST_F(LazyIndexKernelTest, ScatterValueInplaceTest) {
 }
 
 TEST_F(LazyIndexKernelTest, ScatterTest) {
+  // Use DeterministicGuard to ensure deterministic mode is restored
+  // even if the test fails or throws an exception
+  DeterministicGuard deterministicGuard(true);
+
   torch::Tensor a = torch::randn({5, 7}, torch::requires_grad(false));
   torch::Tensor h_a = a.to(torch::kHPU);
   int64_t dim = 0;

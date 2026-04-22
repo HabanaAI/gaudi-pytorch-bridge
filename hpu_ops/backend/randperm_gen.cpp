@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -109,7 +109,8 @@ synapse_helpers::tensor RandPermCommon(
 }
 
 OutputMetaDataVector RandPermMeta(const at::Stack& stack) {
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.shape = {stack.at(0).toInt()};
   if (stack.size() > 3) {
     unsigned dtype_index;
@@ -133,7 +134,7 @@ OutputMetaDataVector RandPermMeta(const at::Stack& stack) {
                                     : c10::ScalarType::Int);
     meta.dtype = randperm_dtype;
   }
-  return {meta};
+  return metaVec;
 }
 
 SharedMetaDataVector RandPermSharedMeta(
@@ -141,16 +142,18 @@ SharedMetaDataVector RandPermSharedMeta(
     habana_helpers::HabanaExecutionMode /*unused*/) {
   auto dtype = c10::ScalarType::Int;
 
-  SharedMetaData range{"range"};
+  SharedMetaDataVector meta;
+  meta.reserve(2);
+  auto& range = meta.emplace_back("range");
   range.outputs_data.emplace_back(1, dtype);
 
   auto seedRank = stack.at(1).isTensor() ? stack_tensor(stack, 1).dim() : 1;
-  SharedMetaData randomShuffle{"random_shuffle_fwd"};
+  auto& randomShuffle = meta.emplace_back("random_shuffle_fwd");
   randomShuffle.inputs_data.push_back(range.outputs_data[0]);
   randomShuffle.inputs_data.emplace_back(seedRank, dtype);
   randomShuffle.outputs_data.emplace_back(1, dtype);
 
-  return {range, randomShuffle};
+  return meta;
 }
 
 void RandPermOp::AddNode(
@@ -186,7 +189,8 @@ void RandPermOp::AddNode(
 // This is the implementation of custom RandPerm op in `torch.compile`
 //===----------------------------------------------------------------------===//
 OutputMetaDataVector HabanaRandPermMeta(const at::Stack& stack) {
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
 
   meta.shape = {stack.at(1).toInt()};
 
@@ -194,7 +198,7 @@ OutputMetaDataVector HabanaRandPermMeta(const at::Stack& stack) {
   meta.dtype = stack.at(dtype_index)
                    .toOptional<at::ScalarType>()
                    .value_or(c10::ScalarType::Long);
-  return {meta};
+  return metaVec;
 }
 
 void HabanaRandPerm::AddNode(
@@ -241,7 +245,7 @@ template <typename T>
 std::vector<T> GetArangeH2DParams(at::Tensor& params_t, bool dry_run) {
   std::vector<T> params_data;
   auto data_size = safe_convert<size_t>(params_t.sizes()[0]);
-  auto tmeta{get_tensor_extra_meta(params_t)};
+  auto* tmeta{get_tensor_extra_meta(params_t)};
   void* host_ptr = nullptr;
   if (dry_run) {
     host_ptr = tmeta->get_compile_host_ptr();
@@ -252,6 +256,7 @@ std::vector<T> GetArangeH2DParams(at::Tensor& params_t, bool dry_run) {
   T* h2d_data = static_cast<T*>(host_ptr);
   size_t sif_offset = GetMInMaxSifOffsetRP(dry_run, data_size);
   h2d_data = h2d_data + sif_offset;
+  params_data.reserve(data_size);
   for (size_t i = 0; i < data_size; i++) {
     params_data.push_back(*h2d_data++);
   }
@@ -259,7 +264,8 @@ std::vector<T> GetArangeH2DParams(at::Tensor& params_t, bool dry_run) {
 }
 
 OutputMetaDataVector HabanaRandPermMetaDS(const at::Stack& stack) {
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   // DS Compile Flow
   std::vector<int32_t> params_data;
   at::Tensor params_t = stack[1].toTensor();
@@ -276,7 +282,7 @@ OutputMetaDataVector HabanaRandPermMetaDS(const at::Stack& stack) {
   meta.dtype = stack.at(dtype_index)
                    .toOptional<at::ScalarType>()
                    .value_or(c10::ScalarType::Long);
-  return {meta};
+  return metaVec;
 }
 
 void HabanaRandPermDS::AddNode(

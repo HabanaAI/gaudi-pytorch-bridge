@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -73,7 +73,7 @@ ArangeFE<at::Tensor&>::ArangeFE(
 
     auto opt_value = hl_params_shape.CurrentTensorAttached();
     if (opt_value.has_value()) {
-      auto tmeta{get_tensor_extra_meta(opt_value.value())};
+      auto* tmeta{get_tensor_extra_meta(opt_value.value())};
       tmeta->set_host_data(
           params_vec.data(),
           params_vec.size(),
@@ -99,9 +99,9 @@ ArangeFE<at::Tensor&>::ArangeFE(
       auto hl_result_shape_internal =
           hl_result_shape.CurrentTensorAttached().value();
 
-      auto stImpl =
+      auto* stImpl =
           habana_lazy::GetHbInternalTensorImpl(hl_result_shape_internal);
-      if (stImpl) {
+      if (stImpl != nullptr) {
         stImpl->setH2DFrontEndShapeTensor();
       }
     }
@@ -146,7 +146,7 @@ LazyArange<at::Tensor>::LazyArange(
 
     auto current_tensor_attached = hl_params_shape.CurrentTensorAttached();
     if (current_tensor_attached.has_value()) {
-      auto tmeta{get_tensor_extra_meta(current_tensor_attached.value())};
+      auto* tmeta{get_tensor_extra_meta(current_tensor_attached.value())};
       tmeta->set_host_data(
           params_vec.data(),
           params_vec.size(),
@@ -169,9 +169,9 @@ LazyArange<at::Tensor>::LazyArange(
             .CurrentTensorAttached();
 
     if (hl_result_shape.has_value()) {
-      auto stImpl =
+      auto* stImpl =
           habana_lazy::GetHbInternalTensorImpl(hl_result_shape.value());
-      if (stImpl) {
+      if (stImpl != nullptr) {
         stImpl->setH2DFrontEndShapeTensor();
       }
     }
@@ -196,7 +196,7 @@ LazyArange<at::Tensor>::LazyArange(
             .CurrentTensorAttached();
 
     if (hl_params_shape.has_value()) {
-      auto tmeta{get_tensor_extra_meta(hl_params_shape.value())};
+      auto* tmeta{get_tensor_extra_meta(hl_params_shape.value())};
       tmeta->set_host_data(
           params_vec.data(),
           params_vec.size(),
@@ -218,9 +218,9 @@ LazyArange<at::Tensor>::LazyArange(
         habana_lazy::GetOrCreateHbLazyTensor(result_shape, c10::kHPU)
             .CurrentTensorAttached();
     if (hl_result_shape.has_value()) {
-      auto stImpl =
+      auto* stImpl =
           habana_lazy::GetHbInternalTensorImpl(hl_result_shape.value());
-      if (stImpl) {
+      if (stImpl != nullptr) {
         stImpl->setH2DFrontEndShapeTensor();
       }
     }

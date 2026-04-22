@@ -269,15 +269,17 @@ class LazyOp {
       isOptimizedLazyEager =
           info_to_lazy_backend->get_is_optimized_lazy_eager();
     }
-    size_t i = 0;
     std::vector<at::Tensor> tensors;
     std::vector<HbLazyTensor> hl_results = {};
     tensors.reserve(std::tuple_size<T>::value);
     auto context = get_device_lazy_execution_context();
 
     std::vector<std::vector<int64_t>> out_shapes;
-    if (m_output_meta_fn) {
-      const auto& meta = m_output_meta_fn(get_inputs());
+    std::optional<habana::OutputMetaDataVector> meta_opt = m_output_meta_fn
+        ? std::make_optional(m_output_meta_fn(get_inputs()))
+        : std::nullopt;
+    if (meta_opt.has_value()) {
+      const auto& meta = meta_opt.value();
       TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
           meta.size() == std::tuple_size<T>::value);
       for (const auto& output_meta : meta) {
@@ -288,19 +290,32 @@ class LazyOp {
       TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
           out_shapes.empty() || out_shapes.size() == std::tuple_size<T>::value);
     }
-
-    habana::for_each_in_tuple(
+    habana::for_each_in_tuple_with_index(
         results,
-        [&i, &hl_results, &tensors, context, out_shapes, this](
-            const auto& result) {
+        [&hl_results, &tensors, context, out_shapes, &meta_opt, this](
+            const auto& result_in, size_t index) {
+          const auto& result = [&meta_opt, &result_in, &index]() {
+            // If an output tensor is undefined, at this point it is
+            // needed to create an empty lazy tensor so habana lazy can build
+            // correct graph
+            if (not result_in.defined() && meta_opt.has_value()) {
+              const auto& meta = meta_opt.value();
+              return empty_hpu_lazy(
+                  meta[index].shape,
+                  meta[index].dtype,
+                  meta[index].mem_format,
+                  false);
+            }
+            return result_in;
+          }();
           auto hl_result = GetHbLazyTensor(result, true, !m_collective_op);
           tensors.push_back(result);
           hl_results.push_back(hl_result);
           if (!out_shapes.empty()) {
-            const auto& out_shape = out_shapes.at(i);
+            const auto& out_shape = out_shapes.at(index);
             if (result.sizes() != out_shape ||
                 (!m_shape_was_changed_in_tuple.empty() &&
-                 m_shape_was_changed_in_tuple[i])) {
+                 m_shape_was_changed_in_tuple[index])) {
               auto impl = hl_result.getAttachedTensorImpl();
               THHTensor_resizeNd(
                   impl, out_shape.size(), out_shape.data(), nullptr);
@@ -309,11 +324,10 @@ class LazyOp {
           }
           context->MarkTensorStatus(
               hl_result.getDataPtr(), LazyTensorExecutionStatus::kREGISTERED);
-          i++;
         });
 
     if (isOptimizedLazyEager == false) {
-      i = 0;
+      size_t i = 0;
       auto node = create_node();
       for (auto hl_result : hl_results) {
         hl_result.IrSetNode(node, i++);
@@ -619,7 +633,7 @@ class LazyOp {
       RUNNING_HASH_COMBINE_TENSOR(out_t);
 
       for (int idx = (int)m_inputs.size() - 1; idx >= 0; idx--) {
-        auto t = m_inputs[idx];
+        const auto& t = m_inputs[idx];
         if (t.isTensor() && t.toTensor().is_same(self)) {
           // accumulation thread cannot release tensors as it can cause a
           // deadlock with GIL
@@ -1022,11 +1036,15 @@ class LazyOp {
 
       habana::for_each_in_tuple(results, [&](auto& result) {
         auto output_meta = meta[i++];
-        result = empty_hpu_lazy(
-            output_meta.shape,
-            output_meta.dtype,
-            output_meta.mem_format,
-            false);
+        if (output_meta.undefined) {
+          result = at::Tensor();
+        } else {
+          result = empty_hpu_lazy(
+              output_meta.shape,
+              output_meta.dtype,
+              output_meta.mem_format,
+              false);
+        }
       });
       return results;
     }

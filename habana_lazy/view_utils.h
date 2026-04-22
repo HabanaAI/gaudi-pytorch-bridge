@@ -122,7 +122,7 @@ class HbLazyTensorViews {
       habana_lazy::ir::NodePtr node,
       int64_t& out_index);
   static void HandleViewsLiveTensors(
-      HbContext* devctx,
+      std::shared_ptr<HbContext> devctx,
       bool is_allreduce,
       std::set<int64_t>& bucket_recent_id);
   static void StepMarkerAllReduce(const std::vector<at::Tensor>& inputs);

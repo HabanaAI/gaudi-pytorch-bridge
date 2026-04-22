@@ -46,7 +46,7 @@ def test_fused_dropout(shape, ratio, dtype):
     assert torch.equal(result_1[0], result_2[0])
     assert torch.equal(result_1[1], result_2[1])
 
-    torch.manual_seed(3)
+    torch.manual_seed(35)
     result_3 = compiled_fn(hpu_input_3)
 
     assert torch.any(torch.ne(result_1[0], result_3[0]))

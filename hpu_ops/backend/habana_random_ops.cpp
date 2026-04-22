@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
  */
 
 #include "hpu_ops/habana_random_ops.h"
+#include "habana_helpers/conversion.h"
 #include "hpu_ops/hpu_op_helper.h"
 
 namespace habana {
@@ -21,7 +22,8 @@ namespace habana {
 namespace {
 
 OutputMetaDataVector HabanaRandOutputMeta(const at::Stack& stack) {
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   if (stack.at(1).isTensor()) {
     meta.shape = stack[1].toTensor().sizes().vec();
   } else {
@@ -30,7 +32,7 @@ OutputMetaDataVector HabanaRandOutputMeta(const at::Stack& stack) {
   meta.dtype =
       stack[2].toOptional<at::ScalarType>().value_or(at::ScalarType::Float);
   meta.layout = stack[3].toOptional<at::Layout>().value_or(at::kStrided);
-  return {meta};
+  return metaVec;
 }
 
 FillParamsT FillHabanaRandParams(const at::Stack& /*unused*/) {
@@ -45,12 +47,13 @@ FillParamsT FillHabanaRandnParams(const at::Stack& /*unused*/) {
   PARAMS_STUB(ns_RandomNormal::ParamsV2);
   params->mean = 0.0;
   params->stddev = 1.0;
-  params->usePhilox = use_philox;
+  params->usePhilox = static_cast<int>(use_philox);
   return paramsT;
 }
 
 OutputMetaDataVector HabanaRandintOutputMeta(const at::Stack& stack) {
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   if (stack.at(3).isTensor()) {
     meta.shape = stack[3].toTensor().sizes().vec();
   } else {
@@ -59,29 +62,43 @@ OutputMetaDataVector HabanaRandintOutputMeta(const at::Stack& stack) {
   meta.dtype =
       stack[4].toOptional<at::ScalarType>().value_or(at::ScalarType::Long);
   meta.layout = stack[5].toOptional<at::Layout>().value_or(at::kStrided);
-  return {meta};
+  return metaVec;
 }
 
+namespace {
+int clamp_cast(const int64_t value) {
+  if (value > static_cast<int64_t>(std::numeric_limits<int>::max())) {
+    PT_BRIDGE_DEBUG("Value ", value, " clamped to int max");
+    return std::numeric_limits<int>::max();
+  } else if (value < static_cast<int64_t>(std::numeric_limits<int>::min())) {
+    PT_BRIDGE_DEBUG("Value ", value, " clamped to int min");
+    return std::numeric_limits<int>::min();
+  }
+  return static_cast<int>(value);
+}
+} // namespace
+
 FillParamsT FillHabanaRandintParams(const at::Stack& stack) {
-  PARAMS_STUB(ns_RandomUniform::ParamsV2);
   const auto dtype =
       stack[4].toOptional<at::ScalarType>().value_or(at::ScalarType::Long);
+  PARAMS_STUB(ns_RandomUniform::ParamsV2);
   if (c10::isFloatingType(dtype)) {
     params->low.f = static_cast<float>(stack[1].toInt());
     params->high.f = static_cast<float>(stack[2].toInt());
   } else {
-    params->low.i = stack[1].toInt();
-    params->high.i = stack[2].toInt();
+    params->low.i = clamp_cast(stack[1].toInt());
+    params->high.i = clamp_cast(stack[2].toInt());
   }
   return paramsT;
 }
 
 OutputMetaDataVector HabanaUniformOutputMeta(const at::Stack& stack) {
-  OutputMetaData meta;
-  auto& input = stack[1].toTensor();
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
+  const auto& input = stack[1].toTensor();
   meta.shape = input.sizes().vec();
   meta.dtype = input.scalar_type();
-  return {meta};
+  return metaVec;
 }
 
 FillParamsT FillHabanaUniformParams(const at::Stack& stack) {
@@ -99,10 +116,11 @@ FillParamsT FillHabanaUniformParams(const at::Stack& stack) {
 }
 
 OutputMetaDataVector HabanaSeedGeneratorOutputMeta(const at::Stack& stack) {
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.shape = {stack[2].toInt()};
   meta.dtype = at::ScalarType::Int;
-  return {meta};
+  return metaVec;
 }
 
 FillParamsT FillHabanaSeedGeneratorParams(const at::Stack& /*unused*/) {

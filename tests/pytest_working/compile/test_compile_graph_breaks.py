@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -59,10 +59,7 @@ def test_no_graph_break_lazy_only():
 @pytest.mark.skip(reason="SW-199713")
 def test_no_graph_break_device_count():
     def mymodel(t):
-        if htorch.hpu.device_count() > 0:
-            out = torch.abs(t)
-        else:
-            out = t
+        out = torch.abs(t) if htorch.hpu.device_count() > 0 else t
         return out
 
     htorch.hpu.device_count()

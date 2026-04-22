@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,11 +43,11 @@ auto empty_meta(
 }
 
 habana::OutputMetaDataVector EmptyMeta(const at::Stack& stack) {
-  auto dtype = stack.at(1);
-  auto layout = stack.at(2);
-  auto device = stack.at(3);
-  auto pin_memory = stack.at(4);
-  auto memory_format = stack.at(5);
+  const auto& dtype = stack.at(1);
+  const auto& layout = stack.at(2);
+  const auto& device = stack.at(3);
+  const auto& pin_memory = stack.at(4);
+  const auto& memory_format = stack.at(5);
   // convert tensor to shape vector
   std::vector<int64_t> size;
   if (stack.at(0).isTensor()) { // shape tensor for DS
@@ -68,10 +68,10 @@ habana::OutputMetaDataVector EmptyMeta(const at::Stack& stack) {
 habana::OutputMetaDataVector EmptyStridedMeta(const at::Stack& stack) {
   auto size = stack.at(0).toIntVector();
   auto strides = stack.at(1).toIntVector();
-  auto dtype = stack.at(2);
-  auto layout = stack.at(3);
-  auto device = stack.at(4);
-  auto pin_memory = stack.at(5);
+  const auto& dtype = stack.at(2);
+  const auto& layout = stack.at(3);
+  const auto& device = stack.at(4);
+  const auto& pin_memory = stack.at(5);
   return {empty_meta(
       std::move(size),
       std::move(strides),
@@ -89,7 +89,7 @@ habana::OutputMetaDataVector EmptyLikeMeta(const at::Stack& stack) {
       stack.at(1).toOptional<at::ScalarType>().value_or(self.scalar_type());
   auto layout = stack[2].toOptional<at::Layout>().value_or(self.layout());
   auto device = stack.at(3).toOptional<at::Device>().value_or(at::kHPU);
-  auto pin_memory = stack.at(4);
+  const auto& pin_memory = stack.at(4);
   auto memory_format = stack[5].toOptional<at::MemoryFormat>().value_or(
       self.suggest_memory_format());
   std::vector<int64_t> strides;

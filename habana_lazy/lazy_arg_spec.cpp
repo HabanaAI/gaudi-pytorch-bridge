@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -116,7 +116,7 @@ void LazyArgumentSpec::GetArgSpecKey(
   uint64_t input_hash{};
 
   torch::jit::ArgumentSpec as(num_inputs, 0);
-  for (auto& input : input_refs) {
+  for (const auto& input : input_refs) {
     as.addTensor(input, with_grad);
   }
   input_hash = as.hashCode();
@@ -135,7 +135,7 @@ void LazyArgumentSpec::GetArgSpecKey(
         auto const_id = habana::get_tensor_const_id(in_tensor);
         if (in_tensor.numel() == 1) {
           auto const_value = in_tensor.item<float>();
-          auto tmeta{habana::get_tensor_extra_meta(in_tensor)};
+          auto* tmeta{habana::get_tensor_extra_meta(in_tensor)};
           PT_BRIDGE_DEBUG(
               "Lazy arg spec hash const_value:",
               const_value,
@@ -152,8 +152,8 @@ void LazyArgumentSpec::GetArgSpecKey(
         }
       }
       if (in_tensor.has_storage()) {
-        auto hb_tensor = GetHbInternalTensorImpl(in_tensor);
-        if (hb_tensor) {
+        auto* hb_tensor = GetHbInternalTensorImpl(in_tensor);
+        if (hb_tensor != nullptr) {
           auto m_lazy = hb_tensor->GetTensorLayout();
           int64_t m_lazy_int =
               static_cast<std::underlying_type_t<habana::LayoutFormat>>(m_lazy);

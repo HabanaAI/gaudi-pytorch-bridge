@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,52 +19,33 @@
 
 namespace habana {
 
+OutputMetaDataVector RreluWithNoiseCguidMeta(const at::Stack& stack) {
+  constexpr unsigned OUTPUTS_NUMBER = 2;
+  auto input = stack_tensor(stack, 0);
+  OutputMetaDataVector metaVec(OUTPUTS_NUMBER);
+
+  for (unsigned i = 0; i < OUTPUTS_NUMBER; ++i) {
+    metaVec[i].shape = input.sizes().vec();
+    metaVec[i].dtype = input.scalar_type();
+  }
+
+  return metaVec;
+}
+
 SharedMetaDataVector RreluWithNoiseSharedMeta(
     const at::Stack& stack,
     habana_helpers::HabanaExecutionMode /*unused*/) {
   const auto& self = stack_tensor(stack, 0);
   const auto rank = self.dim();
   const auto dtype = self.scalar_type();
-  const auto training = stack.at(4).toBool();
-
-  if (!training) {
-    SharedMetaData leakyReluSharedMeta("leakyrelu_fwd");
-    leakyReluSharedMeta.inputs_data.emplace_back(rank, dtype);
-    leakyReluSharedMeta.outputs_data.emplace_back(rank, dtype);
-
-    return {leakyReluSharedMeta};
-  }
 
   SharedMetaDataVector out;
-  SharedMetaData randUniformSharedMeta("random_uniform_fwd");
+  out.reserve(1);
+  auto& randUniformSharedMeta = out.emplace_back("rrelu_with_noise_cguid");
+  randUniformSharedMeta.inputs_data.emplace_back(rank, dtype);
   randUniformSharedMeta.inputs_data.emplace_back(1, at::ScalarType::Int);
   randUniformSharedMeta.outputs_data.emplace_back(rank, dtype);
-  out.push_back(randUniformSharedMeta);
-
-  if (rank > 1) {
-    SharedMetaData constantSharedMeta("constant");
-    constantSharedMeta.outputs_data.emplace_back(rank, dtype);
-    out.push_back(constantSharedMeta);
-  }
-
-  SharedMetaData lessEqSharedMeta("less_equal_fwd");
-  lessEqSharedMeta.inputs_data.emplace_back(rank, dtype);
-  lessEqSharedMeta.inputs_data.emplace_back(rank, dtype);
-  lessEqSharedMeta.outputs_data.emplace_back(rank, at::ScalarType::Bool);
-  out.push_back(lessEqSharedMeta);
-
-  SharedMetaData whereSharedMeta("where_fwd");
-  whereSharedMeta.inputs_data.emplace_back(rank, at::ScalarType::Bool);
-  whereSharedMeta.inputs_data.emplace_back(rank, dtype);
-  whereSharedMeta.inputs_data.emplace_back(rank, dtype);
-  whereSharedMeta.outputs_data.emplace_back(rank, dtype);
-  out.push_back(whereSharedMeta);
-
-  SharedMetaData multSharedMeta("mult");
-  multSharedMeta.inputs_data.emplace_back(rank, dtype);
-  multSharedMeta.inputs_data.emplace_back(rank, dtype);
-  multSharedMeta.outputs_data.emplace_back(rank, dtype);
-  out.push_back(multSharedMeta);
+  randUniformSharedMeta.outputs_data.emplace_back(rank, dtype);
 
   return out;
 }
@@ -75,104 +56,80 @@ bool is_rrelu_functional(const OpBackend& op) {
   return op.GetGuid().find("rrelu_with_noise_functional") != std::string::npos;
 }
 
+FillParamsT FillRreluWithNoiseParams(const at::Stack& stack) {
+  PARAMS_STUB(ns_RreluWithNoiseKernel::Params);
+
+  auto lower = stack.at(2).toScalar().to<float>();
+  auto upper = stack.at(3).toScalar().to<float>();
+  auto training = stack.at(4).toBool();
+
+  params->lower = lower;
+  params->upper = upper;
+  params->training = training;
+
+  return paramsT;
+}
+
+constexpr double eps = 1e-6;
+
 void Rrelu_with_noise::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   StackGetter stackGetter(this, stack, "Rrelu_with_noise::AddNode");
-  [[maybe_unused]] auto input = stackGetter.getNextInput<TensorsPair>();
+  auto input = stackGetter.getNextInput<TensorsPair>();
   auto noiseIn = stackGetter.getNextInput<std::optional<TensorsPair>>();
-  const auto& outshape = stack_tensor(stack, 0).sizes();
-  auto training = stack.at(4).toBool();
-  auto lower = stack.at(2).toScalar().to<float>();
-  auto upper = stack.at(3).toScalar().to<float>();
+
   bool is_functional = is_rrelu_functional(*this);
-  std::optional<int> noise_out_idx{std::nullopt};
-  if (is_functional) {
-    noise_out_idx = 1;
-  }
-  if (training && noiseIn.has_value()) {
-    std::optional<synapse_helpers::tensor> noiseStorageOpt;
-    auto [noise_in_storage_or_idx] = get_or_create_tensor<STORAGE_IDX>(
-        *this,
-        graph,
-        noiseIn,
-        (*noiseIn).pt_t.numel(),
-        ScalarType(),
-        0,
-        noiseStorageOpt);
-    PARAMS_STUB(ns_RandomUniform::Params);
-    params->low = lower;
-    params->high = upper;
 
-    // populate seed
-    std::vector<synTensor> inputs;
-    if (stack.at(5).isTensor())
-      inputs.push_back(syn_in(2));
-    else
-      inputs.push_back(syn_seed());
-    CreateShapeTensorInput(graph, ScalarType(), outshape, inputs);
+  std::optional<int> noise_out_idx =
+      is_functional ? std::optional<int>(1) : std::nullopt;
 
-    // uniform random tensor
-    auto uniform_random = BuildOp(
-        graph,
-        get_guid_with_precision("random_uniform_fwd"sv, ScalarType()),
-        std::move(inputs),
-        {{outshape, ScalarType()}},
-        paramsT.ptr(),
-        paramsT.size());
-    auto ones = ConstantHelper(graph, 1.0F, ScalarType(), outshape);
-    auto zeros = ConstantHelper(graph, 0, ScalarType(), outshape);
-    // cond: condition tensor
-    auto cond = BuildOp(
-        graph,
-        get_guid_with_precision("less_equal_fwd"sv, ScalarType()),
-        {syn_in(0), zeros.get()},
-        {{outshape, c10::ScalarType::Bool}});
-    // noise: noise tensor
-    auto noise = BuildOp(
-        graph,
-        get_guid_with_precision("where_fwd"sv, ScalarType()),
-        {cond[0].get(), uniform_random[0].get(), ones.get()},
-        {NodeAttr::NodeOutputAttr{
-            outshape,
-            ScalarType(),
+  auto meta = RreluWithNoiseCguidMeta(stack);
+  auto params = FillRreluWithNoiseParams(stack);
+
+  std::optional<synapse_helpers::tensor> noiseStorageOpt;
+  auto [noise_in_storage_or_idx] = get_or_create_tensor<STORAGE_IDX>(
+      *this,
+      graph,
+      noiseIn,
+      input.pt_t.numel(),
+      meta[1].dtype,
+      0,
+      noiseStorageOpt);
+
+  std::vector<NodeAttr::NodeOutputAttr> node_output_attr = {
+      {meta[0].shape, meta[0].dtype, 0}};
+  if (noiseIn.has_value()) {
+    node_output_attr.push_back(
+        NodeAttr::NodeOutputAttr{
+            meta[1].shape,
+            meta[1].dtype,
             noise_out_idx,
             DATA_TENSOR,
             syn_type_na,
-            noise_in_storage_or_idx}});
-    // output
-    auto output = BuildOp(
-        graph,
-        get_guid_with_precision("mult"sv, ScalarType()),
-        {syn_in(0), noise[0].get()},
-        {{outshape, ScalarType(), 0}});
-    syn_out(0) = std::move(output[0]);
-    if (is_functional) {
-      syn_out(1) = std::move(noise[0]);
-    } else {
-      GetSynImplicitOutputs().emplace_back(
-          PtInputIdxAndSynHelpTensor{
-              1,
-              std::move(noise[0]),
-              static_cast<size_t>(std::get<int>(noise_in_storage_or_idx))});
-    }
+            noise_in_storage_or_idx});
   } else {
-    PARAMS_STUB(ns_LeakyReluKernel::Params);
-    auto negative_slope = (lower + upper) / 2;
-    params->alpha = negative_slope;
-    auto output = BuildOp(
-        graph,
-        get_guid_with_precision("leakyrelu_fwd"sv, ScalarType()),
-        {syn_in(0)},
-        {{outshape, ScalarType(), 0}},
-        paramsT.ptr(),
-        paramsT.size());
-    syn_out(0) = std::move(output[0]);
-    if (is_functional) { // return an empty tensor for non-training cases
-      auto result = habana::OpBackend::BuildOp(
-          graph, "memset", {}, {{1, ScalarType(), 1}});
-      syn_out(1) = std::move(result[0]);
-    }
+    node_output_attr.push_back({meta[1].shape, meta[1].dtype, 1});
+  }
+
+  auto output = BuildOp(
+      graph,
+      get_guid_with_precision("rrelu_with_noise_cguid"sv, meta[0].dtype),
+      {syn_in(0), stack.at(5).isTensor() ? syn_in(2) : syn_seed()},
+      node_output_attr,
+      params.ptr(),
+      params.size());
+
+  syn_out(0) = std::move(output[0]);
+
+  if (is_functional) {
+    syn_out(1) = std::move(output[1]);
+  } else {
+    GetSynImplicitOutputs().emplace_back(
+        PtInputIdxAndSynHelpTensor{
+            1,
+            std::move(output[1]),
+            static_cast<size_t>(std::get<int>(noise_in_storage_or_idx))});
   }
 }
 
@@ -186,15 +143,17 @@ SharedMetaDataVector RreluWithNoiseBwdSharedMeta(
   auto training = stack.at(5).toBool();
   auto lower = stack.at(3).toScalar().to<float>();
   auto upper = stack.at(4).toScalar().to<float>();
-  auto guid = "leakyrelu_bwd";
-  if (training && (upper - lower) > 1e-6) {
+  const auto* guid = "leakyrelu_bwd";
+  if (training && (upper - lower) > eps) {
     guid = "mult";
   }
-  SharedMetaData rreluBwdSharedMeta(guid);
+  SharedMetaDataVector rreluBwdSharedMetaVec;
+  rreluBwdSharedMetaVec.reserve(1);
+  auto& rreluBwdSharedMeta = rreluBwdSharedMetaVec.emplace_back(guid);
   rreluBwdSharedMeta.inputs_data.emplace_back(rank, resultType);
   rreluBwdSharedMeta.inputs_data.emplace_back(rank, resultType);
   rreluBwdSharedMeta.outputs_data.emplace_back(rank, resultType);
-  return {rreluBwdSharedMeta};
+  return rreluBwdSharedMetaVec;
 }
 
 void Rrelu_with_noise_bwd::AddNode(
@@ -204,7 +163,7 @@ void Rrelu_with_noise_bwd::AddNode(
   auto training = stack.at(5).toBool();
   auto lower = stack.at(3).toScalar().to<float>();
   auto upper = stack.at(4).toScalar().to<float>();
-  if (training && (upper - lower) > 1e-6) {
+  if (training && (upper - lower) > eps) {
     // grad_out * noise
     auto output = BuildOp(
         graph,

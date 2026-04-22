@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,12 +28,13 @@ from torch._dynamo.utils import counters
 # In this test file we only check if the test cases can fuse the attention pattern and map to autograd overwrite sdpa implementation
 # PT_HPU_USE_OVERRIDE_ATEN_SDPA=True and PT_HPU_USE_FUSE_SDPA_PASS=True are required otherwise we will skip the test
 # Also need the
-check_aten_sdpa_fusion_flag = str_to_bool(os.environ.get("PT_HPU_USE_FUSE_SDPA_PASS", False)) and str_to_bool(
-    os.environ.get("PT_HPU_USE_OVERRIDE_ATEN_SDPA", False)
+check_aten_sdpa_fusion_flag = str_to_bool(os.environ.get("PT_HPU_USE_FUSE_SDPA_PASS", "False")) and str_to_bool(
+    os.environ.get("PT_HPU_USE_OVERRIDE_ATEN_SDPA", "False")
 )
 
 
 class TestHpuFusedAttention:
+    @staticmethod
     def compare_outputs(output1, output2, rtol=1e-05, atol=1e-08):
         """
         Compares two outputs, which can be tensors or tuples of tensors,

@@ -18,11 +18,12 @@
 namespace habana {
 
 OutputMetaDataVector MaskedScaleMeta(const at::Stack& stack) {
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   const torch::Tensor& self = stack_tensor(stack, 0);
   meta.dtype = self.scalar_type();
   meta.shape = self.sizes().vec();
-  return {meta};
+  return metaVec;
 }
 
 SharedMetaDataVector MaskedScaleSharedMeta(
@@ -33,11 +34,13 @@ SharedMetaDataVector MaskedScaleSharedMeta(
   const auto rank = self.dim();
   const auto dtype = self.scalar_type();
 
-  SharedMetaData multSharedMeta{"mult_fwd"};
+  SharedMetaDataVector meta;
+  meta.reserve(1);
+  auto& multSharedMeta = meta.emplace_back("mult_fwd");
   multSharedMeta.inputs_data = {{rank, dtype}, {mask.dim(), dtype}};
   multSharedMeta.outputs_data.emplace_back(rank, dtype);
 
-  return {multSharedMeta};
+  return meta;
 }
 
 void MaskedScale::AddNode(

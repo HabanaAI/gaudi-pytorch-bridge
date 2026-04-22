@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,6 +21,12 @@ import json
 import os
 
 
+def load_file(filepath):
+    with open(filepath) as f:
+        # data is loaded as list of dicts
+        return json.load(f)
+
+
 def compileInfo(path):
     recipe_dict = {}
     total_iter_count = 0
@@ -32,9 +38,7 @@ def compileInfo(path):
     print("\nGraph Info:")
     for file_name in os.listdir(path):
         if file_name.endswith(".json"):
-            f = open(path + "/" + file_name)
-            # data is loaded as list of dicts
-            data_list = json.load(f)
+            data_list = load_file(path + "/" + file_name)
             iter_count = 0
             static_comp = 0
             dyn_comp = 0
@@ -95,9 +99,7 @@ def printJit(path, file_name):
     if file_name == "":
         print("\nERROR: Please provide file_name with --name")
         return 0
-    f = open(path + "/" + file_name)
-    # data is loaded as list of dicts
-    data_list = json.load(f)
+    data_list = load_file(path + "/" + file_name)
     print("JIT_IR Begin :")
     Jit_ir = data_list[0]["000000000"]["compilations"][0]["jit ir graph"]
     for line in Jit_ir:
@@ -110,9 +112,7 @@ graph_dict = {}
 
 def statsParser(path, file_name):
     # print(file_name)
-    f = open(path + "/" + file_name)
-    # data is loaded as list of dicts
-    data_list = json.load(f)
+    data_list = load_file(path + "/" + file_name)
     print_freq = 200
     miss_percent = []
     miss_cnt = 0
@@ -222,9 +222,7 @@ def reasonMismatch(range_dict, shapes, bucket, compile):
 
 
 def analyzeBucket(path, file_name, bucket_analyze):
-    f = open(path + "/" + file_name)
-    # data is loaded as list of dicts
-    data_list = json.load(f)
+    data_list = load_file(path + "/" + file_name)
     range_dict = {}
     bucket = 0
     # process each dicts
@@ -260,9 +258,7 @@ def analyzeBucketCall(path, file_name):
     if file_name == "":
         print("\nERROR: Please provide file_name with --name")
         return 0
-    f = open(path + "/" + file_name)
-    # data is loaded as list of dicts
-    data_list = json.load(f)
+    data_list = load_file(path + "/" + file_name)
     recipe_bucket_map = {}
     bucket_hit_count = {}
     # process each dicts
@@ -288,9 +284,7 @@ def dumpShapes(path, file_name):
     if file_name == "":
         print("\nERROR: Please provide file_name with --name")
         return 0
-    f = open(path + "/" + file_name)
-    # data is loaded as list of dicts
-    data_list = json.load(f)
+    data_list = load_file(path + "/" + file_name)
     shape_dict = {}
 
     for data in data_list:
@@ -305,8 +299,7 @@ def dumpShapes(path, file_name):
     header = []
     for k, v in shape_dict.items():
         if not isinstance(v[0], int):
-            for i in range(len(v[0])):  # Taking only first element to see dim
-                header.append(k + "_DIM_" + str(i))
+            header.extend(k + "_DIM_" + str(i) for i in range(len(v[0])))  # Taking only first element to see dim
         else:  # Empty Tensors
             header.append(k + "_DIM_0")
     max_range = max([len(i) for i in shape_dict.values()])
@@ -318,16 +311,14 @@ def dumpShapes(path, file_name):
             temp = []
             for sid, shape_dict_sid in shape_dict.items():
                 if i < len(shape_dict_sid) and not isinstance(shape_dict_sid[i], int):
-                    for item in shape_dict_sid[i]:
-                        temp.append(item)
+                    temp.extend(shape_dict_sid[i])
                 elif i < len(shape_dict_sid) and isinstance(shape_dict_sid[i], int):
                     temp.append("")
                 elif i >= len(shape_dict_sid):
                     if isinstance(shape_dict_sid[0], int):
                         temp.append("")
                     else:
-                        for _ in shape_dict_sid[0]:
-                            temp.append("")
+                        temp.extend([""] * len(shape_dict_sid[0]))
                 else:
                     print("Exception: ", sid)  # DEBUG
             writer.writerow(temp)

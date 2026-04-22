@@ -14,7 +14,9 @@
  */
 
 #include "forked_pybind_utils.h"
-#include <pybind11/pybind11.h>
+
+#include <pybind11/detail/internals.h>
+#include <pybind11/pybind11.h> // NOLINT(misc-include-cleaner)
 
 namespace habana_torch::jit {
 

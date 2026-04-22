@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -102,7 +102,6 @@ class FusedResourceApplyMomentum(Optimizer):
         for group in self.param_groups:
             params_with_grad_momentum = []
             d_p_list = []
-            weight_decay = group["weight_decay"]
             momentum = group["momentum"]
             nesterov = group["nesterov"]
             lr = group["lr"]
@@ -134,9 +133,9 @@ class FusedResourceApplyMomentum(Optimizer):
             # for p, momentum_buffer in zip(params_with_grad, momentum_buffer_list):
             #   state = self.state[p]
             #   state['momentum_buffer'] = momentum_buffer
-            l = int(len(params_with_grad_momentum) / 2)
+            L = int(len(params_with_grad_momentum) / 2)
 
-            for i in range(l):
+            for i in range(L):
                 state = self.state[params_with_grad_momentum[2 * i]]
                 state["momentum_buffer"] = params_with_grad_momentum[2 * i + 1]
         return loss

@@ -23,15 +23,34 @@
 #include "jit_fork/frontend/function_schema_parser.h"
 
 #include <ATen/core/Reduction.h>
+#include <ATen/core/alias_info.h>
+#include <ATen/core/function_schema.h>
+#include <ATen/core/ivalue.h>
+#include <ATen/core/operator_name.h>
 #include <ATen/core/type_factory.h>
 
-#include <functional>
+#include <c10/core/Device.h>
+#include <c10/core/MemoryFormat.h>
+#include <c10/core/ScalarType.h>
+#include <c10/util/FunctionRef.h>
+#include <c10/util/complex.h>
+
+#include <cstddef>
+#include <cstdint>
 #include <memory>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <variant>
 #include <vector>
 
+#include "habana_helpers/logging.h"
+#include "jit_fork/frontend/error_report.h"
 #include "jit_fork/frontend/lexer.h"
 #include "jit_fork/frontend/parse_string_literal.h"
 #include "jit_fork/frontend/schema_type_parser.h"
+#include "jit_fork/frontend/source_range.h"
 
 using at::TypeKind;
 using c10::Argument;
@@ -140,7 +159,7 @@ struct SchemaParser {
     // and so shouldn't be used as an overload name
     // also disallow dunder attribute names to be overload names
     bool is_a_valid_overload_name =
-        !((overload_name == "default") || (overload_name.rfind("__", 0) == 0));
+        (overload_name != "default") && (overload_name.rfind("__", 0) != 0);
     HABANA_ASSERT(
         is_a_valid_overload_name,
         overload_name,
@@ -261,11 +280,11 @@ struct SchemaParser {
       }
       default:
         std::string n;
-        if (L.nextIf('-'))
+        if (L.nextIf('-')) {
           n = "-" + L.expect(TK_NUMBER).text();
-        else
+        } else {
           n = L.expect(TK_NUMBER).text();
-
+        }
         if (kind == TypeKind::ComplexType || n.find('j') != std::string::npos) {
           auto imag = std::stod(n.substr(0, n.size() - 1));
           return c10::complex<double>(0, imag);
@@ -372,15 +391,17 @@ struct SchemaParser {
       int end,
       c10::function_ref<void()> callback) {
     auto r = L.cur().range;
-    if (begin != TK_NOTHING)
+    if (begin != TK_NOTHING) {
       L.expect(begin);
+    }
     if (L.cur().kind != end) {
       do {
         callback();
       } while (L.nextIf(sep));
     }
-    if (end != TK_NOTHING)
+    if (end != TK_NOTHING) {
       L.expect(end);
+    }
   }
   Lexer L;
   SchemaTypeParser type_parser;

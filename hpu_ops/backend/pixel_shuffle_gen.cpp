@@ -26,11 +26,12 @@ OutputMetaDataVector PixelShuffleMeta(const at::Stack& stack) {
   shape[rank - 2] *= upscaleFactor;
   shape[rank - 1] *= upscaleFactor;
 
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.shape = shape;
   meta.dtype = input.scalar_type();
 
-  return {meta};
+  return metaVec;
 }
 
 FillParamsT FillPixelShuffleParams(const at::Stack& stack) {

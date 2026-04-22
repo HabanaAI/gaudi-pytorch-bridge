@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -52,7 +52,7 @@ void habana::HabanaLaunchOpPT::CopyInputStack(torch::jit::Stack& input_st) {
 }
 
 void habana::HabanaLaunchOpPT::ClearMembers(bool is_shape_inference) {
-  if (is_shape_inference == false) {
+  if (!is_shape_inference) {
     pt_stack_ = nullptr;
     pt_stack_sh_.clear();
     num_tensor_inputs_ = 0;
@@ -101,7 +101,7 @@ void habana::HabanaLaunchOpPT::ClearMembers(bool is_shape_inference) {
 }
 
 void habana::HabanaLaunchOpPT::ClearStatics(bool is_shape_inference) {
-  if (is_shape_inference == false) {
+  if (!is_shape_inference) {
     habana::ShapeInference::Reset();
   }
 }
@@ -110,7 +110,7 @@ void habana::HabanaLaunchOpPT::ApplyOutputPermutations(
     const std::vector<
         OptimizedJITGraphAndMetaData::PermutationWithOutputPosition>&
         permutations) {
-  for (auto& perm : permutations) {
+  for (const auto& perm : permutations) {
     auto iterator =
         value_to_ivalue_.find(jit_ir_graph_->outputs().at(perm.output_index));
     HABANA_ASSERT(iterator != value_to_ivalue_.end());
@@ -123,7 +123,8 @@ void habana::HabanaLaunchOpPT::ApplyOutputPermutations(
 
 void habana::HabanaLaunchOpPT::ApplyOutputPermutationsFromCache(
     bool is_dynamic_recipe) {
-  for (auto& el : jit_graph_and_meta_data_->get_permute(is_dynamic_recipe)) {
+  for (const auto& el :
+       jit_graph_and_meta_data_->get_permute(is_dynamic_recipe)) {
     auto oit =
         value_to_ivalue_.find(jit_ir_graph_->outputs().at(el.output_index));
     HABANA_ASSERT(oit != value_to_ivalue_.end());
@@ -334,14 +335,15 @@ static void getTensorSectionId(
     bool& isInput) {
   synStatus status;
   // get tensor name
-  char tensorName[ENQUEUE_TENSOR_NAME_MAX_SIZE];
-  status = synTensorGetName(tensor, ENQUEUE_TENSOR_NAME_MAX_SIZE, tensorName);
+  std::array<char, ENQUEUE_TENSOR_NAME_MAX_SIZE> tensorName;
+  status =
+      synTensorGetName(tensor, ENQUEUE_TENSOR_NAME_MAX_SIZE, tensorName.data());
   HABANA_ASSERT(
       status == synStatus::synSuccess, Logger::synStatusToStr(status));
 
   // search for tensor according to tensor name and set it's sectionId
   for (unsigned tensorIdx = 0; tensorIdx < numOfTensors; tensorIdx++) {
-    if (strcmp(tensorInfos[tensorIdx].tensorName, tensorName) == 0) {
+    if (strcmp(tensorInfos[tensorIdx].tensorName, tensorName.data()) == 0) {
       sectionId = tensorInfos[tensorIdx].tensorSectionId;
       isInput = (tensorInfos[tensorIdx].isInput != 0);
       return;
@@ -360,7 +362,7 @@ void habana::HabanaLaunchOpPT::HandleChecksum(
     char* data_ptr,
     size_t old_size,
     int device_id) {
-  auto tmeta{habana::get_tensor_extra_meta(tensor)};
+  auto* tmeta{habana::get_tensor_extra_meta(tensor)};
   ConstantInformation::id_t const_id{tmeta->get_const_id()};
   auto& constant_information = ConstantInformationValue();
   if (!checksum_found) {
@@ -392,12 +394,12 @@ void habana::HabanaLaunchOpPT::DeserializeConstSection(
   if (!IS_ENV_FLAG_DEFINED_NEW(PT_HPU_RECIPE_CACHE_CONFIG)) {
     return;
   }
-  auto tmeta{habana::get_tensor_extra_meta(tensor)};
+  auto* tmeta{habana::get_tensor_extra_meta(tensor)};
   TensorExtraMeta::prepare_const_tensor(tensor, true);
   auto const_serializer = tmeta->get_const_section_data_serializer();
   auto file_path =
       const_serializer->getSerializedRecipeFullPath(tmeta->get_const_id(), key);
-  std::uintmax_t file_size = fs::file_size(file_path);
+  std::uintmax_t file_size = std::filesystem::file_size(file_path);
   TensorExtraMeta::prepare_const_tensor(tensor, false);
   if (file_size == 0) {
     HandleTensorWithZeroSize(tensor, ConstantInformation::key_t{key});
@@ -436,7 +438,7 @@ void habana::HabanaLaunchOpPT::SerializeConstSection(
   if (!IS_ENV_FLAG_DEFINED_NEW(PT_HPU_RECIPE_CACHE_CONFIG)) {
     return;
   }
-  auto tmeta{habana::get_tensor_extra_meta(tensor)};
+  auto* tmeta{habana::get_tensor_extra_meta(tensor)};
   tmeta->get_const_section_data_serializer()->serializePerRecipe(
       section_data_ptr, section_size, tmeta->get_const_id(), key);
 }
@@ -444,7 +446,7 @@ void habana::HabanaLaunchOpPT::SerializeConstSection(
 void habana::HabanaLaunchOpPT::HandleTensorWithZeroSize(
     at::Tensor& tensor,
     ConstantInformation::key_t key) {
-  auto tmeta{get_tensor_extra_meta(tensor)};
+  auto* tmeta{get_tensor_extra_meta(tensor)};
   auto old_size = tmeta->get_host_size();
   ConstantInformation::id_t const_id{tmeta->get_const_id()};
   auto& constant_information = ConstantInformationValue();
@@ -477,7 +479,7 @@ habana::HabanaLaunchOpPT::permuteInfo habana::HabanaLaunchOpPT::GetPermuteInfo(
     StorageExtraMeta* _smeta) {
   synapse_helpers::layouts::MemoryPermutation permutation = {};
   bool allow = false;
-  if (_smeta) {
+  if (_smeta != nullptr) {
     permutation = _smeta->get_memory_permutation();
     allow = _smeta->get_dont_allow_permutation();
   }
@@ -488,7 +490,7 @@ void habana::HabanaLaunchOpPT::SetPermuteInfo(
     StorageExtraMeta* _new_smeta,
     StorageExtraMeta* _smeta,
     habana::HabanaLaunchOpPT::permuteInfo _info) {
-  if (_smeta) {
+  if (_smeta != nullptr) {
     _new_smeta->set_memory_permutation(_info.first);
     _new_smeta->set_dont_allow_permutation(_info.second);
   }
@@ -502,7 +504,7 @@ void habana::HabanaLaunchOpPT::HandleTensorWithNewChecksum(
     char* section_data_ptr,
     size_t old_size,
     int /*unused*/) {
-  auto tmeta{get_tensor_extra_meta(tensor)};
+  auto* tmeta{get_tensor_extra_meta(tensor)};
   ConstantInformation::id_t const_id{tmeta->get_const_id()};
   // reallocation is required if old_size is not same as section size
   // or if old_size is same as section_size but checksum is new
@@ -512,7 +514,7 @@ void habana::HabanaLaunchOpPT::HandleTensorWithNewChecksum(
 
   if (checksum_if_exists.has_value() or (checksum != host_checksum)) {
     // Reallocation is required
-    auto smeta{habana::get_storage_extra_meta(tensor)};
+    auto* smeta{habana::get_storage_extra_meta(tensor)};
     auto info = GetPermuteInfo(smeta);
     tmeta->set_nbytes_inference(old_size);
     at::DataPtr data = tensor.storage().allocator()->allocate(section_size);
@@ -531,7 +533,7 @@ void habana::HabanaLaunchOpPT::HandleTensorWithNewChecksum(
       constant_information.StorePrevDataPtr(
           const_id, std::move(old_data_ptr), checksum_if_exists.value());
     }
-    auto new_extra_smeta{habana::get_storage_extra_meta(tensor)};
+    auto* new_extra_smeta{habana::get_storage_extra_meta(tensor)};
     SetPermuteInfo(new_extra_smeta, smeta, info);
   }
   constant_information.Insert(const_id, checksum);
@@ -610,7 +612,7 @@ void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
     if (ivpsh.get()->isTensor()) {
       auto& src = ivpsh.get()->toTensor();
       if (src.has_storage()) {
-        auto tmeta{get_tensor_extra_meta(src)};
+        auto* tmeta{get_tensor_extra_meta(src)};
         if (tmeta->is_const_tensor() &&
             (handled_ids_set.count(tmeta->get_const_id()) == 0)) {
           auto syn_tensor_input = pt_to_synapse_tensors_.find(ivpsh);
@@ -655,7 +657,7 @@ void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
                 section_size,
                 " , size (bridge) :: ",
                 tensor.get_host_ptr_size());
-            if (section_size) {
+            if (section_size != 0U) {
               auto device_id = tensor.device_id();
               HABANA_ASSERT(
                   status == synStatus::synSuccess,
@@ -712,7 +714,8 @@ void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
                   section_data_ptr,
                   cur_rargpsh_->hashCode());
               status = synHostUnmap(device_id, section_data_ptr);
-              delete[] section_data_ptr;
+              delete
+                  [] section_data_ptr; // NOLINT(cppcoreguidelines-owning-memory)
               HABANA_ASSERT(
                   status == synStatus::synSuccess,
                   Logger::synStatusToStr(status));
@@ -857,14 +860,14 @@ void habana::HabanaLaunchOpPT::ConstructPatchingTableAndAtenOutputs(
         rv.dtensorinfos.size());
 
     size_t output_idx{0};
-    for (auto output : jit_ir_graph_->outputs()) {
+    for (auto* output : jit_ir_graph_->outputs()) {
       auto oit = value_to_ivalue_.find(output);
       HABANA_ASSERT(
           oit != value_to_ivalue_.end(),
           "value_to_ivalue_ does not have an entry for %",
           output->debugName());
       IValPtrShared ivpsh = oit->second;
-      if (output_tensorinfo_map_.count(ivpsh)) {
+      if (output_tensorinfo_map_.count(ivpsh) != 0U) {
         auto it = output_tensorinfo_map_.find(ivpsh);
         it->second->set_output_index(output_idx);
         output_tensorinfos_.push_back(it->second);
@@ -1172,7 +1175,7 @@ void habana::HabanaLaunchOpPT::OrderOutputTinfos(RecipeValueSpec& rv) {
   std::unordered_map<void*, size_t> buff_to_outputtinfoidx_map;
   // push the actual output tinfos
   size_t output_idx{0};
-  for (auto output : jit_ir_graph_->outputs()) {
+  for (auto* output : jit_ir_graph_->outputs()) {
     auto oit = value_to_ivalue_.find(output);
     HABANA_ASSERT(
         oit != value_to_ivalue_.end(),
@@ -1185,7 +1188,7 @@ void habana::HabanaLaunchOpPT::OrderOutputTinfos(RecipeValueSpec& rv) {
 
     // Checking where we can find the outputs
     {
-      if (output_tensorinfo_map_.count(ivpsh)) {
+      if (output_tensorinfo_map_.count(ivpsh) != 0U) {
         auto it = output_tensorinfo_map_.find(ivpsh);
         it->second->set_output_index(output_idx);
         output_tensorinfos_.push_back(it->second);
@@ -1193,13 +1196,13 @@ void habana::HabanaLaunchOpPT::OrderOutputTinfos(RecipeValueSpec& rv) {
           has_empty_name = true;
         }
         output_tensorinfo_map_.erase(ivpsh);
-      } else if (duplicate_input_to_outtinfo_map_.count(ivpsh)) {
+      } else if (duplicate_input_to_outtinfo_map_.count(ivpsh) != 0U) {
         auto it_dup = duplicate_input_to_outtinfo_map_.find(ivpsh);
         it_dup->second->set_output_index(output_idx);
-      } else if (duplicate_intermediate_to_outtinfo_map_.count(ivpsh)) {
+      } else if (duplicate_intermediate_to_outtinfo_map_.count(ivpsh) != 0U) {
         auto it_dup = duplicate_intermediate_to_outtinfo_map_.find(ivpsh);
         it_dup->second->set_output_index(output_idx);
-      } else if (duplicate_output_to_outtinfo_map_.count(ivpsh)) {
+      } else if (duplicate_output_to_outtinfo_map_.count(ivpsh) != 0U) {
         auto it_dup = duplicate_output_to_outtinfo_map_.find(ivpsh);
         it_dup->second->set_output_index(output_idx);
       } else {
@@ -1237,7 +1240,7 @@ void habana::HabanaLaunchOpPT::OrderOutputTinfos(RecipeValueSpec& rv) {
     for (auto& ti : intermediate_tinfos_) {
       void* buffp = ti->get_buffer_start();
       // Duplicate analysis for the persistent intermediates
-      if (buff_to_interim_tividx_map.count(buffp)) {
+      if (buff_to_interim_tividx_map.count(buffp) != 0U) {
         ti->set_duplicate_flag(true);
         ti->set_parent_index(buff_to_interim_tividx_map[buffp]);
       } else {
@@ -1455,7 +1458,7 @@ void habana::HabanaLaunchOpPT::UpdateOutputs() {
 
   // Update the stack from the JIT IR outputs
   torch::jit::drop(*pt_stack_, num_inputs_);
-  for (auto output : jit_ir_graph_->outputs()) {
+  for (auto* output : jit_ir_graph_->outputs()) {
     auto oit = value_to_ivalue_.find(output);
     HABANA_ASSERT(
         oit != value_to_ivalue_.end(),
@@ -1497,7 +1500,7 @@ void habana::HabanaLaunchOpPT::ProcessInputStack(torch::jit::Stack& input_st) {
 
   // All tensors should be on Habana, we should assert otherwise
   bool is_all_hpu = true;
-  for (auto& input : input_refs_) {
+  for (const auto& input : input_refs_) {
     if (input.isTensor()) {
       is_all_hpu = input.toTensor().device().type() != c10::DeviceType::HPU
           ? false

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,13 +13,33 @@
  * limitations under the License.
  */
 #include "HPUGraph.h"
-#include "backend/habana_device/hpu_cached_devices.h"
+
+#include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <iterator>
+#include <memory>
+#include <mutex>
+#include <optional>
+#include <string_view>
+#include <unordered_map>
+#include <unordered_set>
+#include <utility>
+#include <vector>
+
+#include <ATen/core/Tensor.h>
+
+#include "backend/backend_meta.h"
+#include "backend/habana_device/HPUStream.h"
+#include "backend/helpers/dynamic_shape_info.h"
+#include "backend/synapse_helpers/env_flags.h"
 #include "habana_helpers/h2d_scales.h"
 #include "habana_kernels/h2d_scales_lazy.h"
-#include "habana_kernels/kernel_utils.h"
-#include "habana_kernels/lazy_kernels_declarations.h"
+#include "habana_lazy/hpu_lazy_tensors.h"
+#include "habana_lazy/ir.h"
 #include "habana_lazy/lazy_executor.h"
 #include "habana_lazy/view_utils.h"
+#include "pytorch_helpers/habana_helpers/logging.h"
 
 namespace at::hpu {
 
@@ -66,7 +86,7 @@ void HPUGraph::capture_begin(bool dry_run) {
 
 void HPUGraph::capture_end() {
   std::lock_guard<std::recursive_mutex> lock(mutex_);
-  if (capturing_ == false) {
+  if (!capturing_) {
     // need to start the capture.
     PT_DEVICE_DEBUG("GRAPH:: Use Graph capture to Begin the capture");
     return;
@@ -128,7 +148,7 @@ void HPUGraph::destroy() {
 
 void HPUGraph::mark_step() {
   std::lock_guard<std::recursive_mutex> lock(mutex_);
-  if (capturing_ == false) {
+  if (!capturing_) {
     // need to start the capture.
     PT_DEVICE_DEBUG("GRAPH:: Use Graph capture to Begin the capture");
     return;
@@ -188,7 +208,7 @@ void HPUGraph::clear_inputs() {
 void HPUGraph::replay(std::vector<at::Tensor>& inputs, bool async) {
   PT_LAZY_TRACE;
   std::lock_guard<std::recursive_mutex> lock(mutex_);
-  if (capturing_ == true) {
+  if (capturing_) {
     // if capturing is in progress, replay is not allowed.
     PT_DEVICE_FATAL("GRAPH:: Capture in progress");
     return;
@@ -211,7 +231,7 @@ void HPUGraph::replayV2(
     bool async) {
   PT_LAZY_TRACE;
   std::lock_guard<std::recursive_mutex> lock(mutex_);
-  if (capturing_ == true) {
+  if (capturing_) {
     // if capturing is in progress, replay is not allowed.
     PT_DEVICE_FATAL("GRAPH:: Capture in progress");
     return;
@@ -226,8 +246,9 @@ void HPUGraph::replayV2(
 
   // Use replaytV2 for the first captured graph, as the user input is
   // for the first captured graph
-  if (captured_graphs.empty())
+  if (captured_graphs.empty()) {
     return;
+  }
   captured_graphs[0]->replayV2(static_inputs, inputs, async);
 
   for (size_t i = 1; i < captured_graphs.size(); i++) {
@@ -266,7 +287,7 @@ void HPUGraph::mark_user_outputs(
   PT_LAZY_TRACE;
   std::lock_guard<std::recursive_mutex> lock(mutex_);
   PT_HPUGRAPH_DEBUG("mark_user_outputs with outputs size = ", outputs.size());
-  if (capturing_ == true) {
+  if (capturing_) {
     // if capturing is in progress, replay is not allowed.
     PT_DEVICE_FATAL("GRAPH:: Capture in progress");
     return;
@@ -309,7 +330,7 @@ void HPUGraph::mark_user_outputs(
           auto& out_tensor = single_graph->hblazy_tensors_out_[idx];
           auto tid = out_tensor.getTensorUniqueId();
           if (tid == user_out_hbl_t.getTensorUniqueId() ||
-              base_view_tids.count(tid)) {
+              base_view_tids.count(tid) != 0U) {
             // This is used for replay to match the user out tensor indices
             single_graph->user_out_indices_tlist_.emplace_back(out_pos, idx);
             // This is used later during replay
@@ -327,8 +348,8 @@ void HPUGraph::mark_user_outputs(
         // exclude view tensors &  Inplace tensors
         bool is_view = out_tensor.getDataPtr()->stride_params.has_value() ||
             out_tensor.IsCollective();
-        bool is_input = input_lazyt_id_set.count(tid) &&
-            !user_out_tensors_idx_set.count(outIdx);
+        bool is_input = input_lazyt_id_set.count(tid) != 0U &&
+            user_out_tensors_idx_set.count(outIdx) == 0U;
 
         if (is_input) {
           hblazy_tensors_in_out_.push_back(out_tensor);
@@ -347,7 +368,7 @@ void HPUGraph::mark_user_outputs(
         bool is_interdependent = false;
         // if its not an useroutput or if its not inplace
         if (!is_input && !is_view && !is_inplace &&
-            !user_out_tensors_idx_set.count(outIdx)) {
+            user_out_tensors_idx_set.count(outIdx) == 0U) {
           for (size_t j = graphIdx + 1; j < captured_graphs.size(); j++) {
             auto next_graph = captured_graphs[j];
             // Go over all the inputs in the following SingleHPUGraph
@@ -373,7 +394,7 @@ void HPUGraph::mark_user_outputs(
         // SetHpuGraphOutTensor mark to false so that next replay it can be
         // freed Or if its an all_reduce output
         if (!is_input && !is_view && !is_inplace && !is_interdependent &&
-            !user_out_tensors_idx_set.count(outIdx)) {
+            user_out_tensors_idx_set.count(outIdx) == 0U) {
           out_tensor.SetHpuGraphOutTensor(false);
           out_tensor.SetTensorDataNullOpt();
         }
@@ -390,7 +411,7 @@ void HPUGraph::replayV3(std::vector<at::Tensor>& inputs, bool async) {
   std::lock_guard<std::recursive_mutex> lock(mutex_);
   PT_HPUGRAPH_DEBUG(
       "replayV3 with inputs size = ", inputs.size(), " aysnc = ", async);
-  if (capturing_ == true) {
+  if (capturing_) {
     // if capturing is in progress, replay is not allowed.
     PT_DEVICE_FATAL("GRAPH:: Capture in progress");
     return;
@@ -428,7 +449,7 @@ void HPUGraph::mark_user_inputs(std::vector<at::Tensor>& static_inputs) {
   std::lock_guard<std::recursive_mutex> lock(mutex_);
   PT_HPUGRAPH_DEBUG(
       "mark_user_inputs with static_inputs size = ", static_inputs.size());
-  if (capturing_ == false) {
+  if (!capturing_) {
     // if capturing is not in progress, mark_user_inputs is not allowed.
     PT_DEVICE_FATAL(
         "GRAPH:: mark_user_inputs must be while capturing in progress");
@@ -635,6 +656,7 @@ void SingleHPUGraph::replayV2(
   if (graph_) {
     habana_lazy::ir::ValueList input_val_list;
     std::vector<habana_lazy::HbLazyTensor> static_input_lazy_tensors;
+    static_input_lazy_tensors.reserve(static_inputs.size());
     for (auto& t : static_inputs) {
       static_input_lazy_tensors.emplace_back(habana_lazy::GetHbLazyTensor(t));
     }

@@ -23,13 +23,14 @@
 
 namespace habana {
 OutputMetaDataVector CompareMeta(const at::Stack& stack) {
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   const at::Tensor self = stack_tensor(stack, 0);
   meta.shape = stack[1].isScalar()
       ? self.sizes().vec()
       : at::infer_size(self.sizes(), stack_tensor(stack, 1).sizes());
   meta.dtype = at::kBool;
-  return {meta};
+  return metaVec;
 }
 
 SharedMetaDataVector CompareEqSharedMeta(

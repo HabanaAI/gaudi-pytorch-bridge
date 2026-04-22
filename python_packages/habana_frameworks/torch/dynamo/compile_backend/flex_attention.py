@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -101,7 +101,7 @@ def hpu_flex_attention_bwd_pass(graph_module: torch.fx.GraphModule):
             block_size = 256
         from torch._subclasses.fake_tensor import FakeTensorMode
 
-        with FakeTensorMode() as fake_mode:
+        with FakeTensorMode():
             q_inp = functools.partial(
                 torch.empty_strided, qshape, qstride, dtype=dtype, device="hpu", requires_grad=False
             )

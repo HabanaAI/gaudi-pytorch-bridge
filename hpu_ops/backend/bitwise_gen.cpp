@@ -34,7 +34,8 @@ std::vector<int64_t> BitwiseLogicalShape(const at::Stack& stack) {
 
 OutputMetaDataVector BitwiseLogicalMeta(const at::Stack& stack) {
   auto self = stack_tensor(stack, 0);
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.shape = BitwiseLogicalShape(stack);
   if (stack.at(1).isScalar() && self.scalar_type() == c10::ScalarType::Bool) {
     meta.dtype = self.scalar_type();
@@ -45,7 +46,7 @@ OutputMetaDataVector BitwiseLogicalMeta(const at::Stack& stack) {
         habana_helpers::DTypeHelper::DtypePromoteVariant::kPromoteToCommon,
         false);
   }
-  return {meta};
+  return metaVec;
 }
 
 SharedMetaDataVector BitwiseAndSharedMeta(

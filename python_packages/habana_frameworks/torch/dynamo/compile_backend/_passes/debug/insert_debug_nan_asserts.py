@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -31,10 +31,7 @@ def pass_insert_debug_nan_asserts(ctx: OptimizerContext) -> bool:
     if not hpu_backend_config.enable_compile_debug_nan_checks:
         return False
 
-    if dist.is_available() and dist.is_initialized():
-        rank = dist.get_rank()
-    else:
-        rank = 0
+    rank = dist.get_rank() if dist.is_available() and dist.is_initialized() else 0
 
     nodes_to_insert_asserts = filter(
         lambda n: (

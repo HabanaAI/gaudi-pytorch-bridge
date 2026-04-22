@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,12 +17,14 @@
 import builtins
 import ctypes
 import os
-from typing import Any, Optional
+from types import TracebackType
+from typing import Optional
 
 import habana_frameworks.torch as htorch
 from habana_frameworks.torch import _hpu_C
 
 import torch
+from torch.types import Device
 
 from ._utils import _get_device_index
 
@@ -44,8 +46,8 @@ class _device:
             return False
         return self.type == other.type and self.index == other.index
 
-
-_device_t = torch.device | str | int | None
+    def __hash__(self):
+        return hash((self.type, self.index))
 
 
 class Stream(_hpu_C._HpuStreamBase):
@@ -177,7 +179,7 @@ class StreamContext:
             return
         htorch.hpu.set_stream(cur_stream)
 
-    def __exit__(self, type: Any, value: Any, traceback: Any):
+    def __exit__(self, type: type[BaseException] | None, value: BaseException | None, traceback: TracebackType | None):
         # Local cur_stream variable for type refinement
         cur_stream = self.stream
         # If stream is None or no hpu device available, return
@@ -256,7 +258,7 @@ def set_stream(stream):
     )
 
 
-def current_stream(device: _device_t | None = None) -> Stream:
+def current_stream(device: Device = None) -> Stream:
     r"""Gets the current stream.
     Args:
         device (torch.device or int, optional): selected device. Returns
@@ -284,7 +286,7 @@ def current_stream(device: _device_t | None = None) -> Stream:
     return stream
 
 
-def default_stream(device: _device_t | None = None) -> Stream:
+def default_stream(device: Device = None) -> Stream:
     r"""Gets the default stream on HPU device.This is a wrapper API to get the stream.
     Args:
         device (torch.device or int, optional): selected device. Returns

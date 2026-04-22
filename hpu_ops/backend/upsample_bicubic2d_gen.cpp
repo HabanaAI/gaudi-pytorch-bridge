@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025 Intel Corporation
+ * Copyright (c) 2025-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,9 +27,8 @@ using namespace synapse_helpers::layouts;
 
 FillParamsT FillUpsampleBicubic2DFwdParams(const at::Stack& stack) {
   const auto self = stack.at(0).toTensor();
-  const auto output_size = stack.at(1);
   const auto align_corners = stack.at(2).toBool();
-  const auto scales = stack.at(3);
+  const auto& scales = stack.at(3);
   const bool antialias = false;
 
   auto getScales = [&]() -> std::optional<std::array<double, 3>> {
@@ -107,36 +106,37 @@ REGISTER_CUSTOM_OP_OUTSHAPE_FUN(
 
 OutputMetaDataVector UpsampleBicubic2DFwdMeta(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
-  auto output_size = stack.at(1);
-  auto scales = stack.at(3);
+  const auto& output_size = stack.at(1);
+  const auto& scales = stack.at(3);
 
   upsample_2d_common_check(self, output_size, scales);
   check_null_input(output_size, scales);
 
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
 
-  meta.shape =
-      (not output_size.isNone()
-           ? upsample_bicubic2d_output_shape_impl(
-                 self.sizes(), at::ArrayRef<int64_t>(output_size.toIntVector()))
-           : upsample_bicubic2d_output_shape_impl(
-                 self.sizes(),
-                 at::ArrayRef<double>(scales.toDoubleVector())))[0];
+  if (not output_size.isNone()) {
+    meta.shape = upsample_bicubic2d_output_shape_impl(
+        self.sizes(), at::ArrayRef<int64_t>(output_size.toIntVector()))[0];
+  } else {
+    meta.shape = upsample_bicubic2d_output_shape_impl(
+        self.sizes(), at::ArrayRef<double>(scales.toDoubleVector()))[0];
+  }
   meta.dtype = self.scalar_type();
 
   check_input_output_height_width(
       self.sizes()[2], meta.shape.at(2), self.sizes()[3], meta.shape.at(3));
 
-  return {meta};
+  return metaVec;
 }
 
 // -------> Backward <-------
 
 FillParamsT FillUpsampleBicubic2DBwdParams(const at::Stack& stack) {
   const auto grad_output = stack.at(0).toTensor();
-  const auto output_size = stack.at(1);
+  const auto& output_size = stack.at(1);
   const auto align_corners = stack.at(3).toBool();
-  const auto scales = stack.at(4);
+  const auto& scales = stack.at(4);
   const bool antialias = false;
 
   const auto scale_d = 1.0;
@@ -157,18 +157,19 @@ FillParamsT FillUpsampleBicubic2DBwdParams(const at::Stack& stack) {
 
 OutputMetaDataVector UpsampleBicubic2DBwdMeta(const at::Stack& stack) {
   const auto grad_output = stack.at(0).toTensor();
-  auto output_size = stack.at(1);
-  auto scales = stack.at(4);
+  const auto& output_size = stack.at(1);
+  const auto& scales = stack.at(4);
 
   check_null_input(output_size, scales);
   upsample_2d_common_check(grad_output, output_size, scales);
 
-  OutputMetaData meta{};
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
 
   meta.shape = stack.at(2).toIntVector();
   meta.dtype = grad_output.scalar_type();
 
-  return {meta};
+  return metaVec;
 }
 
 } // namespace habana

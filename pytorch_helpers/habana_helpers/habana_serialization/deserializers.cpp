@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,12 +14,22 @@
  */
 #include "deserializers.h"
 
+#include <c10/core/Device.h>
+#include <c10/core/DeviceType.h>
+#include <c10/core/Layout.h>
+#include <c10/core/MemoryFormat.h>
+#include <c10/core/TensorOptions.h>
+#include <cstddef>
+#include <ios>
+#include <istream>
+#include <string>
+
 namespace serialization {
 
 void deserialize(std::istream& is, char*& input) {
   size_t size = 0;
   is.read(reinterpret_cast<char*>(&size), sizeof(size));
-  input = new char[size];
+  input = new char[size]; // NOLINT(cppcoreguidelines-owning-memory)
   is.read(input, static_cast<std::streamsize>(size));
 }
 
@@ -40,7 +50,7 @@ void deserialize_device(std::istream& is, c10::TensorOptions& input) {
 }
 
 void deserialize_dtype(std::istream& is, c10::TensorOptions& input) {
-  c10::ScalarType scalarType;
+  c10::ScalarType scalarType; // NOLINT(misc-include-cleaner)
   is.read(reinterpret_cast<char*>(&scalarType), sizeof(c10::ScalarType));
   input = input.dtype(scalarType);
 }

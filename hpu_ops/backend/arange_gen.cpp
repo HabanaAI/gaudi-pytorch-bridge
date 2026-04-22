@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -91,7 +91,7 @@ template <typename T>
 std::vector<T> GetArangeH2DParams(at::Tensor& params_t, bool dry_run) {
   std::vector<T> params_data;
   size_t data_size = params_t.sizes()[0];
-  auto tmeta{get_tensor_extra_meta(params_t)};
+  auto* tmeta{get_tensor_extra_meta(params_t)};
   void* host_ptr = nullptr;
   if (dry_run) {
     host_ptr = tmeta->get_compile_host_ptr();
@@ -102,6 +102,7 @@ std::vector<T> GetArangeH2DParams(at::Tensor& params_t, bool dry_run) {
   T* h2d_data = static_cast<T*>(host_ptr);
   size_t sif_offset = GetMInMaxSifOffset(dry_run, data_size);
   h2d_data = h2d_data + sif_offset;
+  params_data.reserve(data_size);
   for (size_t i = 0; i < data_size; i++) {
     params_data.push_back(*h2d_data++);
   }
@@ -165,8 +166,9 @@ synapse_helpers::tensor ArangeCommon(
   auto range_guid = get_guid_with_precision("range"sv, scalar_type);
   NodeAttr::NodeOutputAttr out_attr = {outshape, scalar_type};
 
-  if (is_cast_not_required)
+  if (is_cast_not_required) {
     out_attr.final_result_index = final_result_index;
+  }
 
   std::vector<synapse_helpers::tensor> arange{};
   // For arange.start_out, both syn_in0 and syn_in1 are defined.
@@ -205,7 +207,8 @@ OutputMetaDataVector ArangeDefaultCommonMeta(
     const at::IValue& device_opt,
     const at::IValue& pin_memory_opt,
     const bool setToIntegralDType) {
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
 
   meta.dtype = dtype_opt.toOptional<at::ScalarType>().value_or(
       setToIntegralDType ? at::ScalarType::Long
@@ -219,7 +222,7 @@ OutputMetaDataVector ArangeDefaultCommonMeta(
 
   meta.shape = {depth};
   meta.mem_format = at::MemoryFormat::Contiguous;
-  return {meta};
+  return metaVec;
 }
 
 OutputMetaDataVector ArangeStartOutMeta(const at::Stack& stack) {
@@ -484,8 +487,9 @@ synapse_helpers::tensor ArangeDefaultCommon(
       ? get_guid_with_precision("range"sv, scalar_type)
       : "range_i32";
   NodeAttr::NodeOutputAttr out_attr = {outshape, scalar_type};
-  if (is_cast_not_required)
+  if (is_cast_not_required) {
     out_attr.final_result_index = FINAL_RESULT_INDEX;
+  }
 
   auto arange = OpBackend::BuildNode(
       op,
@@ -519,10 +523,12 @@ static SharedMetaDataVector ArangeDefaultSharedMeta(
   const auto range_type =
       is_cast_not_required ? out_dtype : c10::ScalarType::Int;
 
-  SharedMetaData range{"range"};
+  SharedMetaDataVector meta;
+  meta.reserve(1);
+  auto& range = meta.emplace_back("range");
   range.outputs_data = {{1, range_type}};
 
-  return {range};
+  return meta;
 }
 
 SharedMetaDataVector ArangeDefaultEndSharedMeta(

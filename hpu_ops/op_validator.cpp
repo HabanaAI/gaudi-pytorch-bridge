@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,17 +16,14 @@
 #include <shared_layer_api.hpp>
 #include <syn_sl_api.h>
 #include <unistd.h>
-#include <sstream>
+#include <fstream>
 #include <string>
+#include <string_view>
 #include <tuple>
 #include <type_traits>
 #include "backend/habana_device/HPUGuardImpl.h"
-#include "backend/habana_device/hpu_cached_devices.h"
-#include "habana_kernels/index_kernels.h"
-#include "habana_kernels/lazy_kernels.h"
-#include "habana_kernels/random_gen_kernels.h"
-#include "hpu_ops/hpu_op_helper.h"
-#include "op_backend.h"
+#include "pytorch_helpers/habana_helpers/conversion.h"
+#include "pytorch_helpers/habana_helpers/dtype_helpers.h"
 
 namespace habana {
 
@@ -90,7 +87,7 @@ detail::TensorDescr TryCastTensor(
       targetType == t.scalar_type()) {
     return detail::TensorDescr(&t);
   }
-  return detail::TensorDescr(t.dim(), targetType);
+  return detail::TensorDescr(safe_convert<uint32_t>(t.dim()), targetType);
 }
 
 detail::TensorDescr HandleTensor(
@@ -107,7 +104,7 @@ detail::TensorDescr HandleScalar(
     at::ScalarType promotionType) {
   auto dtype = promotionType == at::ScalarType::Undefined ? scalar.type()
                                                           : promotionType;
-  return detail::TensorDescr(1, dtype);
+  return detail::TensorDescr(1U, dtype);
 }
 
 bool VectorContains(const std::vector<int>& vec, const int value) {
@@ -264,16 +261,19 @@ detail::TensorDescrArray CheckNodeWithSharedLayerValidator::CreateInputList(
   detail::TensorDescrArray inputList;
   size_t limit = m_isOutFn ? values.size() - outs_num : values.size();
 
-  for (std::size_t i = 0; i < limit; ++i) {
+  for (size_t i = 0; i < limit; ++i) {
     const auto& val = values[i];
     if (val.isTensor() and val.toTensor().defined()) {
       inputList.push_back(HandleTensor(
           val.toTensor(),
-          MaybePromotionType(m_typePromotionIds, i, promotionType)));
-    } else if (val.isScalar() and VectorContains(m_scalarIds, i)) {
+          MaybePromotionType(
+              m_typePromotionIds, safe_convert<int>(i), promotionType)));
+    } else if (
+        val.isScalar() and VectorContains(m_scalarIds, safe_convert<int>(i))) {
       inputList.push_back(HandleScalar(
           val.toScalar(),
-          MaybePromotionType(m_typePromotionIds, i, promotionType)));
+          MaybePromotionType(
+              m_typePromotionIds, safe_convert<int>(i), promotionType)));
     }
   }
   return inputList;
@@ -294,7 +294,7 @@ at::ScalarType CheckNodeWithSharedLayerValidator::ComputePromotedType(
 
   at::Stack stack;
   for (const auto id : m_typePromotionIds) {
-    stack.push_back(values[id]);
+    stack.push_back(values[safe_convert<size_t>(id)]);
   }
 
   const auto& dtype_helper =
@@ -307,8 +307,8 @@ at::ScalarType CheckNodeWithSharedLayerValidator::ComputePromotedType(
 std::unordered_set<std::string> load_static_guids(
     const std::string_view list_name,
     const std::unordered_set<std::string>& default_list) {
-  auto static_guids_path = std::getenv(list_name.data());
-  if (static_guids_path) {
+  auto* static_guids_path = std::getenv(list_name.data());
+  if (static_guids_path != nullptr) {
     std::ifstream file(static_guids_path);
     if (!file.is_open()) {
       PT_BRIDGE_WARN(
@@ -333,7 +333,6 @@ std::unordered_set<std::string> load_static_guids(
 }
 
 bool is_guid_support_dynamic_shape(const std::string& guid) {
-  using namespace std::literals;
   // placeholder list containing guids only support static shape in tpc_kernels
   // and CGUID
   static const std::unordered_set<std::string> tpc_static_guids = {};
@@ -341,7 +340,7 @@ bool is_guid_support_dynamic_shape(const std::string& guid) {
   static const std::unordered_set<std::string> static_guids_list =
       load_static_guids("PT_HPU_STATIC_GUIDS", tpc_static_guids);
 
-  return !static_guids_list.count(guid);
+  return static_guids_list.count(guid) == 0U;
 }
 
 bool CheckNodeWithSharedLayerValidator::Validate(
@@ -362,11 +361,11 @@ bool CheckNodeWithSharedLayerValidator::Validate(
     const auto values_size = values.size();
     for (auto id : m_resIds) {
       if (id < 0) {
-        id += values_size;
+        id += safe_convert<int>(values_size);
       }
-      const auto& tensor = values[id].toTensor();
+      const auto& tensor = values[safe_convert<size_t>(id)].toTensor();
       auto dtype = is_promoted ? promoted_type : tensor.scalar_type();
-      outputs.emplace_back(tensor.dim(), dtype);
+      outputs.emplace_back(safe_convert<uint32_t>(tensor.dim()), dtype);
     }
   } else {
     HABANA_ASSERT(
@@ -434,10 +433,12 @@ bool CheckNodeWithSharedLayerValidator::Validate(
       unsigned result_bit_map = 0;
       query_bit_map |= SharedLayer::QUERY_SHAPE_TENSOR_REQ;
       query_bit_map |= SharedLayer::QUERY_H2D_TENSOR_REQ;
-      if (guidValidator.QueryGuid(query_bit_map, &result_bit_map)) {
+      if (guidValidator.QueryGuid(query_bit_map, &result_bit_map) != 0) {
         // bit 1: query failed, don't require shape/h2d.
-        m_require_st = !(result_bit_map & SharedLayer::QUERY_SHAPE_TENSOR_REQ);
-        m_require_h2d = !(result_bit_map & SharedLayer::QUERY_H2D_TENSOR_REQ);
+        m_require_st =
+            (result_bit_map & SharedLayer::QUERY_SHAPE_TENSOR_REQ) == 0U;
+        m_require_h2d =
+            (result_bit_map & SharedLayer::QUERY_H2D_TENSOR_REQ) == 0U;
       }
       PT_OP_INFO(
           "Shared layer op: ",
@@ -493,6 +494,22 @@ bool CheckNodeWithSharedLayerValidator::ValidateCustom(
             " reason=INCOMPATIBLE_DATA_TYPE");
         return false;
       }
+    } else if (meta.options.force_fallback) {
+      PT_OP_INFO(
+          "Shared layer rejected complex op: ",
+          m_opname,
+          ":  guid=",
+          meta.guid,
+          " inputlist=",
+          ToDebugString(inputs),
+          " outputlist=",
+          ToDebugString(outputs),
+          " is_dynamic=",
+          ToDebugString(is_dynamic),
+          " reason=",
+          meta.options.fallback_reason);
+      PT_OP_INFO("Fallback for op: ", m_opname);
+      return false;
     } else {
       auto validation_result = guidValidator.ValidateGuid();
 
@@ -519,13 +536,13 @@ bool CheckNodeWithSharedLayerValidator::ValidateCustom(
         unsigned result_bit_map = 0;
         query_bit_map |= SharedLayer::QUERY_SHAPE_TENSOR_REQ;
         query_bit_map |= SharedLayer::QUERY_H2D_TENSOR_REQ;
-        if (guidValidator.QueryGuid(query_bit_map, &result_bit_map)) {
+        if (guidValidator.QueryGuid(query_bit_map, &result_bit_map) != 0) {
           // bit 1: query failed, don't require shape/h2d.
           // we only need to update if m_require_st/m_require_h2d is false.
           m_require_st = m_require_st ||
-              !(result_bit_map & SharedLayer::QUERY_SHAPE_TENSOR_REQ);
+              (result_bit_map & SharedLayer::QUERY_SHAPE_TENSOR_REQ) == 0U;
           m_require_h2d = m_require_h2d ||
-              !(result_bit_map & SharedLayer::QUERY_H2D_TENSOR_REQ);
+              (result_bit_map & SharedLayer::QUERY_H2D_TENSOR_REQ) == 0U;
         }
         PT_OP_INFO(
             "Shared layer complex op: ",
@@ -543,7 +560,7 @@ bool CheckNodeWithSharedLayerValidator::ValidateCustom(
 
 bool SharedLayerGuidValidator::fillSharedLayerTensorType(
     SharedLayer::Tensor& tensor,
-    const at::ScalarType& t) {
+    const at::ScalarType& t) const {
   switch (t) {
     case at::ScalarType::Byte:
       tensor.geometry.dataType = SharedLayer::TensorDataType::DATA_U8;
@@ -558,7 +575,7 @@ bool SharedLayerGuidValidator::fillSharedLayerTensorType(
       tensor.geometry.dataType = SharedLayer::TensorDataType::DATA_U16;
       return true;
     case at::ScalarType::Long:
-      if (m_options.allowLongType) {
+      if (m_options.allow_long_type) {
         tensor.geometry.dataType = SharedLayer::TensorDataType::DATA_I64;
         return true;
       }
@@ -600,9 +617,9 @@ bool SharedLayerGuidValidator::fillSharedLayerTensorType(
 bool SharedLayerGuidValidator::fillGuidParamInfo(
     SharedLayer::Tensor& tensor,
     const detail::TensorDescr& tensor_descr) {
-  if (not fillSharedLayerTensorType(tensor, tensor_descr.getType()))
+  if (not fillSharedLayerTensorType(tensor, tensor_descr.getType())) {
     return false;
-
+  }
   const auto rank = tensor_descr.getRank();
   const bool isOptionalNotPresent =
       tensor_descr.getType() == at::ScalarType::Undefined;
@@ -625,14 +642,14 @@ bool SharedLayerGuidValidator::fillParam(
   // params.nodeParams.nodeParamsSize - not used in lower layer
 
   const size_t input_count = m_input_values.size();
-  for (auto i = 0U; i < input_count; ++i) {
+  for (size_t i = 0; i < input_count; ++i) {
     if (not fillGuidParamInfo(params.inputTensors[i], m_input_values[i])) {
       return false;
     }
   }
 
   const size_t output_count = m_output_values.size();
-  for (auto i = 0U; i < output_count; ++i) {
+  for (size_t i = 0; i < output_count; ++i) {
     if (not fillGuidParamInfo(params.outputTensors[i], m_output_values[i])) {
       return false;
     }
@@ -654,20 +671,20 @@ bool SharedLayerGuidValidator::fillParam(
 }
 
 // input/output tensors will be freed automatically after request
-#define PREPARE_IN_OUT_TENSORS()                                 \
-  const size_t input_count = m_input_values.size();              \
-  const size_t output_count = m_output_values.size();            \
-  HABANA_ASSERT(                                                 \
-      input_count <= SharedLayer::MAX_TENSOR_NR,                 \
-      "Input count passed to Shared Layer exceeds limit");       \
-  HABANA_ASSERT(                                                 \
-      output_count <= SharedLayer::MAX_TENSOR_NR,                \
-      "Output count passed to Shared Layer exceeds limit");      \
-  std::vector<SharedLayer::Tensor> input_tensors(input_count);   \
-  std::vector<SharedLayer::Tensor> output_tensors(output_count); \
-  params.inputTensorNr = input_count;                            \
-  params.outputTensorNr = output_count;                          \
-  params.inputTensors = input_tensors.data();                    \
+#define PREPARE_IN_OUT_TENSORS()                                    \
+  const size_t input_count = m_input_values.size();                 \
+  const size_t output_count = m_output_values.size();               \
+  HABANA_ASSERT(                                                    \
+      input_count <= SharedLayer::MAX_TENSOR_NR,                    \
+      "Input count passed to Shared Layer exceeds limit");          \
+  HABANA_ASSERT(                                                    \
+      output_count <= SharedLayer::MAX_TENSOR_NR,                   \
+      "Output count passed to Shared Layer exceeds limit");         \
+  std::vector<SharedLayer::Tensor> input_tensors(input_count);      \
+  std::vector<SharedLayer::Tensor> output_tensors(output_count);    \
+  params.inputTensorNr = safe_convert<unsigned int>(input_count);   \
+  params.outputTensorNr = safe_convert<unsigned int>(output_count); \
+  params.inputTensors = input_tensors.data();                       \
   params.outputTensors = output_tensors.data();
 
 /*

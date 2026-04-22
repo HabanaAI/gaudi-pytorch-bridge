@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,5 +22,5 @@ os.environ["PT_HPU_STOCHASTIC_ROUNDING_MODE"] = "0"
 
 
 def setup_teardown_env():
-    if int(os.environ.get("PT_HPU_LAZY_MODE", 0)) == 0:
+    if int(os.environ.get("PT_HPU_LAZY_MODE", "0")) == 0:
         pytest.skip("This test requires PT_HPU_LAZY_MODE=1")

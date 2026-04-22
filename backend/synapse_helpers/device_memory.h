@@ -76,7 +76,7 @@ class device_memory {
   }
   void reset_pool();
   size_t get_total_memory_required(absl::Span<const device_ptr>);
-  size_t block_align(size_t n);
+  size_t block_align(size_t n) const;
   bool is_memory_available(size_t size);
   bool is_memory_available(
       size_t persistent_size,
@@ -97,7 +97,7 @@ class device_memory {
   device& device_;
   pool_allocator::PoolStrategyType pool_strategy_;
   uint64_t pool_size_;
-  pool_allocator::SubAllocator* suballoc_;
+  std::unique_ptr<pool_allocator::SubAllocator> suballoc_;
   bool enable_mem_threshold_check;
 
   std::mutex mutex_;

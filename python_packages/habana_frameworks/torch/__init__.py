@@ -37,18 +37,38 @@ with open(REQUIRED_VERSION_FILE_PATH) as req_ver_file:
     compile_time_ver = Version(req_ver_file.read())
 
 run_time_ver = Version(torch.__version__)
-is_torch_fork = False if not run_time_ver.local else run_time_ver.local.startswith("git") or run_time_ver.local.startswith("hpu")
+is_torch_fork = (
+    run_time_ver.local is not None and run_time_ver.local.startswith("git") or run_time_ver.local.startswith("hpu")
+)
+is_upstream_cpu = run_time_ver.local is not None and "cpu" in run_time_ver.local
+
+if not is_torch_fork and not is_upstream_cpu:
+    raise AssertionError(f"Current PyTorch version {run_time_ver} is detected as neither HPU fork nor CPU upstream.")
 
 if not (run_time_ver.major == compile_time_ver.major and run_time_ver.minor == compile_time_ver.minor):
     raise AssertionError(
-        f"Error: Compile-time major/minor PyTorch version {compile_time_ver} differs from run-time {run_time_ver}."
+        f"Compile-time major/minor PyTorch version {compile_time_ver} differs from run-time {run_time_ver}."
     )
 
-if is_lazy() and not is_torch_fork:
-    raise AssertionError(f"Stock PyTorch version {run_time_ver} is not supported in Lazy mode.")
+if is_lazy() and is_upstream_cpu:
+    raise AssertionError(f"Upstream PyTorch version {run_time_ver} is not supported in Lazy mode.")
 
 lib_to_load = "libhabana_pytorch{}_plugin{}.so".format("" if is_lazy() else "2", "" if is_torch_fork else ".upstream")
-ctypes.CDLL(os.path.join(os.path.dirname(__file__), "lib", lib_to_load), ctypes.RTLD_GLOBAL)
+libdir = os.path.join(os.path.dirname(__file__), "lib")
+libpath = os.path.join(libdir, lib_to_load)
+if not os.path.exists(libpath):
+    if is_torch_fork and os.path.exists(os.path.join(libdir, "libhabana_pytorch2_plugin.upstream.so")):
+        raise AssertionError(
+            f"{libpath} not found. This version of habana-torch-plugin only supports PyTorch upstream but {run_time_ver} is installed."
+        )
+    elif is_upstream_cpu and os.path.exists(os.path.join(libdir, "libhabana_pytorch2_plugin.so")):
+        raise AssertionError(
+            f"{libpath} not found. This version of habana-torch-plugin only supports PyTorch fork but {run_time_ver} is installed."
+        )
+    else:
+        raise AssertionError(f"{libpath} not found.")
+
+ctypes.CDLL(libpath, ctypes.RTLD_GLOBAL)
 
 import habana_frameworks.torch.activity_profiler
 import habana_frameworks.torch.core

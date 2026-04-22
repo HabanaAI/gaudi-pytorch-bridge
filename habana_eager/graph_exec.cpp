@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -62,7 +62,7 @@ void PatchDynamicTensors(LaunchDynamicShapes& launch_shapes) {
   size_t h2d_memory_required = 0;
   for (size_t i = 0; i < num_tensors; i++) {
     auto tensor = launch_shapes.ds_tensors[i];
-    auto tmeta{habana::get_tensor_extra_meta(tensor)};
+    auto* tmeta{habana::get_tensor_extra_meta(tensor)};
     if (tmeta->get_tensor_type() == HOST_TO_DEVICE_TENSOR) {
       h2d_memory_required += 2 * tmeta->get_host_total_elem();
     }
@@ -80,7 +80,7 @@ void PatchDynamicTensors(LaunchDynamicShapes& launch_shapes) {
   for (size_t i = 0; i < num_tensors; i++) {
     auto tensor = launch_shapes.ds_tensors[i];
     std::vector<int64_t> patch_data = launch_shapes.patch_values[i];
-    auto tmeta{habana::get_tensor_extra_meta(tensor)};
+    auto* tmeta{habana::get_tensor_extra_meta(tensor)};
     if (tmeta->get_tensor_type() == HOST_TO_DEVICE_TENSOR) {
       // Set the host and compile pointer from allocated chunk and
       // increment the h2d_pointer to point to end of current H2D
@@ -110,7 +110,7 @@ void PatchDynamicTensors(LaunchDynamicShapes& launch_shapes) {
       // follows H2D), get the H2D tensor and fill the strides value from it.
       if (tmeta->get_shape_struct().has_shape_tensor_data()) {
         auto tensor_H2D = launch_shapes.ds_tensors[i - 1];
-        auto tmeta_H2D{habana::get_tensor_extra_meta(tensor_H2D)};
+        auto* tmeta_H2D{habana::get_tensor_extra_meta(tensor_H2D)};
         HABANA_ASSERT(
             tmeta_H2D->get_tensor_type() == HOST_TO_DEVICE_TENSOR,
             "Invalid tensor used for updating actual stride value");
@@ -213,8 +213,9 @@ void GraphExec::LaunchRecipeTask(
   // OptimizeGraph modifies backend_inputs
   // Any operations that require original stack
   // need to be executed before.
-  if (!gexec->HasOptimizedGraph())
+  if (!gexec->HasOptimizedGraph()) {
     gexec->OptimizeGraph(inputs);
+  }
   gexec->m_graph_and_meta->set_is_pipeline_supported(true);
   gexec->PrepareOptimizedGraphForLaunch(inputs);
 
@@ -249,7 +250,7 @@ void GraphExec::OptimizeGraph(torch::jit::Stack& backend_inputs) {
     size_t jit_graph_inputs_size = m_graph->inputs().size();
     HABANA_ASSERT(jit_graph_inputs_size == m_is_reusable.size());
     for (size_t i = 0; i < jit_graph_inputs_size; ++i) {
-      auto input = m_graph->inputs().at(i);
+      auto* input = m_graph->inputs().at(i);
       bool reusable = m_is_reusable[i];
       input_reusable_pairs.emplace(input, reusable);
       m_is_reusable.clear();
@@ -314,8 +315,8 @@ void GraphExec::OptimizeGraph(torch::jit::Stack& backend_inputs) {
   // reusable info
   if (!input_reusable_pairs.empty()) {
     for (size_t i = 0; i < m_graph->inputs().size(); ++i) {
-      auto input = m_graph->inputs().at(i);
-      bool reusable = input_reusable_pairs.count(input)
+      auto* input = m_graph->inputs().at(i);
+      bool reusable = input_reusable_pairs.count(input) != 0U
           ? input_reusable_pairs.at(input)
           : false;
       m_is_reusable.emplace_back(reusable);
@@ -375,14 +376,14 @@ GraphExec::GraphExec(
       m_has_dynamic_marked_tensors(has_dynamic_marked_tensors) {
   PT_EAGER_TRACE;
 
-  if (m_graph_name.find("_fx") != std::string::npos)
+  if (m_graph_name.find("_fx") != std::string::npos) {
     m_graph_name = m_graph_name.replace(m_graph_name.find("fx"), 2, "jit") +
         "_" + std::to_string(recipe_id);
-
+  }
   m_is_pipeline_supported = GET_ENV_FLAG_NEW(PT_HPU_EAGER_PIPELINE_ENABLE);
 };
 
-bool GraphExec::IsDynamicGraph() {
+bool GraphExec::IsDynamicGraph() const {
   return m_dynamic;
 }
 
@@ -417,9 +418,10 @@ std::vector<at::IValue> GraphExec::ProcessDynamicStack(
   HABANA_ASSERT(
       m_graph->inputs().size() == new_stack.size(),
       "Graph inputs size not patching with stack size!!");
-  if (!m_dgraph_meta->negative_size_nodes.empty())
+  if (!m_dgraph_meta->negative_size_nodes.empty()) {
     pass::ResolveNegativeSTSizes(
         m_graph, new_stack, m_dgraph_meta, launch_shapes);
+  }
   m_ds_patch_data.launch_shapes.push(launch_shapes);
   return new_stack;
 }
@@ -444,7 +446,7 @@ bool isOptimizedOrConvertedScaleTensor(const c10::IValue& scale) {
 }
 
 float GetH2dScaleValue(const at::Tensor& scale_tensor) {
-  auto tmeta{habana::get_tensor_extra_meta(scale_tensor)};
+  auto* tmeta{habana::get_tensor_extra_meta(scale_tensor)};
   if (scale_tensor.dtype() == at::ScalarType::Float) {
     return *reinterpret_cast<float*>(tmeta->get_host_ptr());
   } else {
@@ -599,8 +601,8 @@ void GraphExec::PatchScaleH2dTensors(torch::jit::Stack& orig_stack) {
 
   for (const auto non_hw_idx : non_hw_scales_indices) {
     const auto& cpu_scale = orig_stack[non_hw_idx].toTensor();
-    orig_stack[non_hw_idx] =
-        habana_torch::jit::IValue(h2d_scales_cache.CreateH2dTensorScale(
+    orig_stack[non_hw_idx] = habana_torch::jit::IValue(
+        habana::backend::H2dScalesCache::CreateH2dTensorScale(
             cpu_scale.data_ptr(),
             cpu_scale.scalar_type(),
             &alloc_pointer,
@@ -657,10 +659,11 @@ void GraphExec::RunPass(
   auto duration =
       std::chrono::duration_cast<std::chrono::microseconds>(end - start);
   towl::emitTimeDurationJit(pass_name, static_cast<float>(duration.count()));
-  if (graph_changed && dump_graphs)
+  if (graph_changed && dump_graphs) {
     visualize::DumpEagerOrCompileGraph(
         m_graph,
         m_graph_name + "-" + std::to_string(pass_ordinal++) + "-" + pass_name);
+  }
 }
 
 void GraphExec::RunGraphPasses(torch::jit::Stack& example_inputs) {
@@ -671,10 +674,11 @@ void GraphExec::RunGraphPasses(torch::jit::Stack& example_inputs) {
       std::string(GET_ENV_FLAG_NEW(PT_HPU_GRAPH_DUMP_MODE)) == "compile";
   int pass_ordinal = 0; // Makes sure that dumped graph files alphabetical order
                         // corresponds to execution order
-  if (dump_graphs)
+  if (dump_graphs) {
     visualize::DumpEagerOrCompileGraph(
         m_graph,
         m_graph_name + "-" + std::to_string(pass_ordinal++) + "-before_passes");
+  }
   RunPass(
       [this, &example_inputs]() {
         return pass::MarkParamsAsConst(
@@ -767,8 +771,9 @@ void GraphExec::PrepareOptimizedGraphForLaunch(
 
     // Has been already processed during OptimizeGraph stage
     // Can't say for now why it has to be also processed over there
-    if (!m_is_first_launch)
+    if (!m_is_first_launch) {
       stack = ProcessDynamicStack(stack, m_is_first_launch);
+    }
     // Might be better to set it before the actual launch
     // But it's the place where it's used so let's keep it over here for now
     m_is_first_launch = false;
@@ -795,15 +800,14 @@ torch::jit::Stack GraphExec::launch(
   backend_outputs.reserve(outputs.size());
   for (auto& tensor : outputs) {
     backend_outputs.push_back(
-        habana::eager::HbEagerTensorPool::getInstance().get_backend_tensor(
-            tensor));
+        habana::eager::HbEagerTensorPool::get_backend_tensor(tensor));
   }
 
   // Requires original stack
   InputSymbolMap in_symbol_value_map;
-  if (GET_ENV_FLAG_NEW(PT_HPU_OPTIM_DYNAMIC_OUTPUT_SIF) && IsDynamicGraph())
+  if (GET_ENV_FLAG_NEW(PT_HPU_OPTIM_DYNAMIC_OUTPUT_SIF) && IsDynamicGraph()) {
     PopulateSymbolValueMap(stack, in_symbol_value_map);
-
+  }
   // UpdateSeedTensors has to run before passes
   UpdateSeedTensors(backend_inputs);
 
@@ -823,8 +827,9 @@ torch::jit::Stack GraphExec::launch(
   // have finished execution
   habana::eager::JoinPendingPipelineThreads();
 
-  if (!this->HasOptimizedGraph())
+  if (!this->HasOptimizedGraph()) {
     this->OptimizeGraph(backend_inputs);
+  }
   m_graph_and_meta->set_is_pipeline_supported(m_is_pipeline_supported);
   PrepareOptimizedGraphForLaunch(backend_inputs);
 
@@ -923,9 +928,9 @@ torch::jit::Stack GraphExec::LaunchRecipe(
   if (enable_optim_output_sif) {
     m_graph_and_meta->set_maybe_static_recipe(true);
 
-    if (m_initial_graph_key_with_perm == SIZE_MAX)
+    if (m_initial_graph_key_with_perm == SIZE_MAX) {
       m_initial_graph_key_with_perm = graph_key_with_perm;
-
+    }
     m_curr_symval_hash =
         habana_helpers::CalculateSymbolValuesHash(in_symbol_value_map);
     m_graph_and_meta->set_curr_symval_hash(m_curr_symval_hash);
@@ -988,9 +993,9 @@ torch::jit::Stack GraphExec::LaunchRecipe(
 void GraphExec::UpdateSeedTensors(torch::jit::Stack& stack) {
   PT_EAGER_TRACE;
 
-  if (!m_has_randoms)
+  if (!m_has_randoms) {
     return;
-
+  }
   if (m_reset_seed) {
     m_seed_tensors.seed =
         torch::randint(std::numeric_limits<int32_t>::max(), {}, torch::kInt)
@@ -1015,7 +1020,7 @@ bool GraphExec::HasInvalidDynamicSymbols() {
 
   for (auto it = m_in_symbol_idx_map.begin(); it != m_in_symbol_idx_map.end();
        ++it) {
-    if (std::isdigit(it->first[0])) {
+    if (std::isdigit(it->first[0]) != 0) {
       size_t pos = 0;
       std::stod(it->first, &pos);
       // invalid symbol if it's completely numeric

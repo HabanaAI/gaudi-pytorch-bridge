@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -624,9 +624,9 @@ def rand_generator(size, **kwargs):
 @register_custom_decomposition(aten.empty_permuted.default, hpu_backend_decompositions_common)
 def empty_permuted(size, physical_layout, **kwargs):
     perm = [0] * len(size)
-    for p, l in enumerate(physical_layout):
-        perm[l] = p
-    return torch.empty([size[l] for l in physical_layout], **kwargs).permute(perm)
+    for p, dim in enumerate(physical_layout):
+        perm[dim] = p
+    return torch.empty([size[dim] for dim in physical_layout], **kwargs).permute(perm)
 
 
 @register_custom_decomposition(torch.ops.hpu.sdpa_recomp_fwd.default, hpu_backend_decompositions_common)
@@ -819,7 +819,13 @@ def randint_low_generator(*args, **kwargs):
 
 
 # pytorch decomposes aten.cdist op to at::_euclidean_dist in some cases
-# For hpu we prefer to call _cdist_forward in all cases
+# For HPU we always want to use the dedicated kernel, so force both entry
+# points to redirect to _cdist_forward.
+@register_custom_decomposition(aten.cdist, hpu_backend_decompositions_common)
+def cdist(x1, x2, p=2.0, compute_mode=None):
+    return torch.ops.aten._cdist_forward(x1, x2, p, compute_mode)
+
+
 @register_custom_decomposition(aten._euclidean_dist, hpu_backend_decompositions_common)
 def euclidean_dist(x1, x2):
     return torch.ops.aten._cdist_forward(x1, x2, 2.0, 1)

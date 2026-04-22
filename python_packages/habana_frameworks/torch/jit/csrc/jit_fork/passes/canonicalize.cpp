@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,8 +41,9 @@ std::shared_ptr<Graph> Canonicalize(
   for (auto* input : graph->inputs()) {
     auto* r_input = r->addInput();
     r_input->copyMetadata(input);
-    if (!keep_unique_names)
+    if (!keep_unique_names) {
       r_input->setDebugName("");
+    }
     rn_env[input] = r_input;
   }
   for (auto* node : graph->nodes()) {
@@ -73,7 +74,7 @@ std::shared_ptr<Graph> Canonicalize(
 
 // Which index in b's owning Node is b
 static size_t blockIndex(const Block* b) {
-  auto n = b->owningNode();
+  const auto* n = b->owningNode();
   AT_ASSERT(n);
   for (size_t i = 0; i < n->blocks().size(); ++i) {
     if (n->blocks()[i] == b) {
@@ -125,8 +126,8 @@ static bool isBefore(Node* n1, Node* n2) {
       return n1->isBefore(n2);
     }
 
-    auto new_n1 = n1->owningBlock()->owningNode();
-    auto new_n2 = n2->owningBlock()->owningNode();
+    auto* new_n1 = n1->owningBlock()->owningNode();
+    auto* new_n2 = n2->owningBlock()->owningNode();
 
     AT_ASSERT(new_n1 != nullptr);
     AT_ASSERT(new_n2 != nullptr);
@@ -236,6 +237,9 @@ static void CanonicalizeOutputs(Block* block) {
       case prim::If: {
         CanonicalizeIfOutputs(n);
       } break;
+      default:
+        // Other node types don't require output canonicalization
+        break;
     }
     // Since an a control flow node's outputs are after
     // the values outputted within its blocks, first canonicalize

@@ -34,8 +34,9 @@ PinnedMemoryAllocator::PinnedMemoryAllocator() = default;
 PinnedMemoryAllocator::~PinnedMemoryAllocator() = default;
 
 void PinnedMemoryAllocator::deleter(void* ptr) {
-  if (!HPUDeviceContext::is_device_acquired())
+  if (!HPUDeviceContext::is_device_acquired()) {
     return;
+  }
   auto& device = HPUDeviceContext::get_device();
   device.get_host_memory().free(ptr);
 }

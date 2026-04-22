@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,13 +19,13 @@ namespace habana {
 
 OutputMetaDataVector CtcLossBackwardMeta(const at::Stack& stack) {
   const auto log_probs = stack_tensor(stack, 1);
-  std::vector<int64_t> log_probs_shape = log_probs.sizes().vec();
 
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.dtype = log_probs.scalar_type();
-  meta.shape = log_probs_shape;
+  meta.shape = log_probs.sizes().vec();
 
-  return {meta};
+  return metaVec;
 }
 
 SharedMetaDataVector CtcLossBackwardSharedMeta(
@@ -37,7 +37,10 @@ SharedMetaDataVector CtcLossBackwardSharedMeta(
   const auto& negLogLikelihood = stack_tensor(stack, 5);
   const auto& logAlpha = stack_tensor(stack, 6);
 
-  SharedMetaData ctcLossBackwardSharedMeta{"ctc_loss_bwd"};
+  SharedMetaDataVector ctcLossBackwardSharedMetaVec;
+  ctcLossBackwardSharedMetaVec.reserve(1);
+  auto& ctcLossBackwardSharedMeta =
+      ctcLossBackwardSharedMetaVec.emplace_back("ctc_loss_bwd");
   ctcLossBackwardSharedMeta.inputs_data = {
       {grad.dim(), grad.scalar_type()},
       {logProbs.dim(), logProbs.scalar_type()},
@@ -60,7 +63,7 @@ SharedMetaDataVector CtcLossBackwardSharedMeta(
   ctcLossBackwardSharedMeta.outputs_data.emplace_back(
       logProbs.dim(), logProbs.scalar_type());
 
-  return {ctcLossBackwardSharedMeta};
+  return ctcLossBackwardSharedMetaVec;
 }
 
 void CtcLossBackward::AddNode(
@@ -81,7 +84,7 @@ void CtcLossBackward::AddNode(
       "Blank index must be in the range of int.");
   params.blankIndex = static_cast<int>(blank_index);
   params.reductionMode = LossMode_t::LOSS_REDUCTION_MODE_NONE;
-  params.zeroInfinity = zero_infinity;
+  params.zeroInfinity = static_cast<int>(zero_infinity);
 
   update_guid_dtype(guid_, log_probs.scalar_type());
 
@@ -89,8 +92,9 @@ void CtcLossBackward::AddNode(
   std::vector<synapse_helpers::tensor> inputs_tensor;
 
   if (stack[3].isTensor()) {
-    for (size_t i = 3; i <= 6; ++i)
+    for (size_t i = 3; i <= 6; ++i) {
       inputs.push_back(syn_in(i));
+    }
   } else if (!isOutputInfMode()) {
     auto input_lengths = stack.at(3).toIntList().vec();
     auto target_lengths = stack.at(4).toIntList().vec();

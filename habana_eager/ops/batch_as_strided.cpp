@@ -35,21 +35,21 @@ std::vector<at::Tensor> batch_as_strided(
   HABANA_ASSERT(
       strides.size() == inputs_count,
       "Length of strides array doesn't match the number of provided input tensors");
-  if (storage_offsets.has_value())
+  if (storage_offsets.has_value()) {
     HABANA_ASSERT(
         storage_offsets.value().size() == inputs_count,
         "Length of storage_offsets array doesn't match the number of provided input tensors");
-
+  }
   std::vector<at::Tensor> outputs;
   outputs.reserve(inputs_count);
-  for (size_t i = 0; i < inputs_count; i++)
+  for (size_t i = 0; i < inputs_count; i++) {
     outputs.push_back(
         at::as_strided(
             inputs[i],
             sizes[i],
             strides[i],
             storage_offsets.has_value() ? storage_offsets.value()[i] : 0));
-
+  }
   return outputs;
 }
 

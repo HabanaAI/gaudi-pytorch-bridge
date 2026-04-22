@@ -33,27 +33,23 @@ SharedMetaDataVector MishBackwardSharedMeta(
                         // tensor will be always casted to it
 
   for (const auto& op : {"sigmoid_fwd", "softplus_fwd"}) {
-    SharedMetaData sharedMeta{op};
+    auto& sharedMeta = metaVec.emplace_back(op);
     sharedMeta.inputs_data = {selfTensor};
     sharedMeta.outputs_data = {commonTensor};
-    metaVec.push_back(sharedMeta);
   }
 
-  SharedMetaData tanhSharedMeta{"tanh_fwd"};
+  auto& tanhSharedMeta = metaVec.emplace_back("tanh_fwd");
   tanhSharedMeta.inputs_data = {commonTensor};
   tanhSharedMeta.outputs_data = {commonTensor};
-  metaVec.push_back(tanhSharedMeta);
 
-  SharedMetaData multSelfSharedMeta{"mult"};
+  auto& multSelfSharedMeta = metaVec.emplace_back("mult");
   multSelfSharedMeta.inputs_data = {selfTensor, commonTensor};
   multSelfSharedMeta.outputs_data = {commonTensor};
-  metaVec.push_back(multSelfSharedMeta);
 
   for (const auto& op : {"mult", "sub", "add"}) {
-    SharedMetaData sharedMeta{op};
+    auto& sharedMeta = metaVec.emplace_back(op);
     sharedMeta.inputs_data = {commonTensor, commonTensor};
     sharedMeta.outputs_data = {commonTensor};
-    metaVec.push_back(sharedMeta);
   }
 
   return metaVec;

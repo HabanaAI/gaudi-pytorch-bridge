@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -80,15 +80,19 @@ std::vector<int64_t> NormOperator::compute_output_shape(
     const Tensor& self,
     at::IntArrayRef dim,
     bool keepdim) {
-  if (dim.empty())
+  if (dim.empty()) {
     return {};
+  }
   auto sizes = self.sizes().vec();
   std::vector<uint64_t> wrapped_dims;
-  for (unsigned i = 0; i < dim.size(); i++)
+  const auto dim_size = dim.size();
+  wrapped_dims.reserve(dim_size);
+  for (unsigned i = 0; i < dim_size; i++) {
     wrapped_dims.emplace_back(
         static_cast<uint64_t>(at::maybe_wrap_dim(dim[i], self.dim())));
+  }
   unsigned removed_count = 0;
-  for (unsigned i = 0; i < wrapped_dims.size(); i++) {
+  for (unsigned i = 0; i < dim_size; i++) {
     if (keepdim) {
       sizes[wrapped_dims[i]] = 1;
     } else {
@@ -133,8 +137,9 @@ void NormOperator::AddL0NormNode(
   std::vector<int64_t> dims;
   bool keepdim;
   if (inputs.size() == 2) { // reduce along all dims
-    for (unsigned i = 0; i < inputs[0].toTensor().sizes().size(); i++)
+    for (unsigned i = 0; i < inputs[0].toTensor().sizes().size(); i++) {
       dims.emplace_back(i);
+    }
     keepdim = false;
   } else { // reduce along given dims
     dims = inputs[2].toIntList().vec();
@@ -185,8 +190,9 @@ void NormOperator::AddLInfNormNode(
   std::vector<int64_t> dims;
   bool keepdim;
   if (inputs.size() == 2) { // reduce along all dims
-    for (unsigned i = 0; i < inputs[0].toTensor().sizes().size(); i++)
+    for (unsigned i = 0; i < inputs[0].toTensor().sizes().size(); i++) {
       dims.emplace_back(i);
+    }
     keepdim = false;
   } else { // reduce along given dims
     dims = inputs[2].toIntList().vec();
@@ -249,6 +255,7 @@ void NormOperator::AllocateAndAddSynapseNode(
     AddLInfNormNode(graph, inputs, output_metadata.at(0));
     return;
   }
+  // NOLINTNEXTLINE(readability-magic-numbers)
   if ((p.toFloat() == 2.0) && (inputs.size() < 3)) {
     if (self.dim() <= 1 || self.sizes()[0] == 1) {
       auto device_id = self.device().index();
@@ -402,6 +409,7 @@ void LpNormOperator::AllocateAndAddSynapseNode(
       self.dim() - dim - 1 <= std::numeric_limits<int>::max(),
       "Dim outside of int range");
   params.dim = static_cast<int>(self.dim() - dim - 1);
+  // NOLINTNEXTLINE(readability-magic-numbers)
   params.eps = 1e-5F; // arbitrarily small value
   std::vector<at::Tensor> outputs{lpnorm_output, retain};
   AllocateSynapseOutputs(graph, outputs, OutputMetaDataVector(2));
@@ -470,13 +478,14 @@ std::shared_ptr<SliceOperator> FusedNormOperator::compute_clip_coeff(
   auto gradients = inputs[0].toTensorList();
   auto max_grad_norm = inputs[1].toTensor();
   auto norm_type = inputs[2].toScalar();
-  float eps = 1e-6F;
+  const float eps = 1e-6F;
   auto device_id = gradients.get(0).device().index();
   auto scalar_type = gradients.get(0).scalar_type();
   auto num_params = static_cast<unsigned int>(gradients.size());
 
   auto slice_op = make_operator<SliceOperator>(device_id, scalar_type);
 
+  // NOLINTNEXTLINE(readability-magic-numbers)
   if (norm_type.toFloat() == 2.0) {
     torch::jit::Stack stack;
     std::vector<Tensor> cat_input;
@@ -487,7 +496,7 @@ std::shared_ptr<SliceOperator> FusedNormOperator::compute_clip_coeff(
       auto norm_lp = make_operator<NormOperator>(device_id, scalar_type);
       norm_lp->SetSynapseInput(p_context_->syn_inputs_[i]);
       stack.emplace_back(gradients.get(i));
-      stack.emplace_back(2.0);
+      stack.emplace_back(2.0); // NOLINT(readability-magic-numbers)
       norm_lp->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
       stack.clear();
       // each grad_norm connected to cat node
@@ -508,7 +517,7 @@ std::shared_ptr<SliceOperator> FusedNormOperator::compute_clip_coeff(
     auto norm_final = make_operator<NormOperator>(device_id, scalar_type);
     norm_final->SetSynapseInput(cat_grad_norms->GetSynOutputs()[0]);
     stack.emplace_back(cat_grad_norms->GetOutputs()[0]);
-    stack.emplace_back(2.0);
+    stack.emplace_back(2.0); // NOLINT(readability-magic-numbers)
     norm_final->AllocateAndAddSynapseNode(graph, stack, output_metadata);
     stack.clear();
     p_context_->syn_outputs_.emplace_back(
@@ -800,7 +809,7 @@ void BatchNormForwardOperator::preProcessInputs(
       (uint)4);
 
   pre_inputs = {
-      std::move(input),
+      input,
       std::move(wt_hpu),
       std::move(bias_hpu),
       std::move(running_mean_hpu),
@@ -966,7 +975,7 @@ void BatchNormBackwardOperator::AllocateAndAddSynapseNode(
   HABANA_ASSERT(
       output_metadata.size() == 3,
       "BatchNormBackwardOperator: #output_metadata should be 3");
-  if (CheckProprocessingDone() == false) {
+  if (!CheckProprocessingDone()) {
     Stack preprocess_in = {};
     for (auto& input : inputs) {
       if (input.isTensor()) {

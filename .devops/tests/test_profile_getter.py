@@ -32,18 +32,8 @@ def get_profile_getter_output(args):
 
 
 def test_get_pt_requirement():
-    assert get_profile_getter_output(["--get-pt-requirement", "current"] + fake_profile_args) == "pytorch==1.2"
+    assert get_profile_getter_output(["--get-pt-requirement", "current"] + fake_profile_args) == "torch==1.2"
 
 
 def test_get_strict_pt_requirement():
-    assert get_profile_getter_output(["--get-strict-pt-requirement", "current"] + fake_profile_args) == "pytorch==1.2.3"
-
-
-def test_get_cmakelists_supported_vers():
-    # The output should be two supported versions strings separated by a semicolon
-    output = get_profile_getter_output(["--get-cmakelists-supported-vers"] + fake_profile_args)
-    supported_vers = output.split(";")
-    assert len(supported_vers) == 3
-    assert r"1\.0\..*" in supported_vers
-    assert r"1\.2\..*" in supported_vers
-    assert r"1\.4\..*" in supported_vers
+    assert get_profile_getter_output(["--get-strict-pt-requirement", "current"] + fake_profile_args) == "torch==1.2.3"

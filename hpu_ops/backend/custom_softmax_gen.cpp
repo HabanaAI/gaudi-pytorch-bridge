@@ -55,11 +55,14 @@ SharedMetaDataVector CustomSoftmaxSharedMeta(
   const at::Tensor& input = stack_tensor(stack, 0);
   const auto flavor = stack.at(1).toInt();
 
-  SharedMetaData sharedMeta(flavor == 0 ? "softmax_fwd" : "custom_softmax_fwd");
+  SharedMetaDataVector meta;
+  meta.reserve(1);
+  auto& sharedMeta =
+      meta.emplace_back(flavor == 0 ? "softmax_fwd" : "custom_softmax_fwd");
   sharedMeta.inputs_data = {getSharedMetaFromTensor(input)};
   sharedMeta.outputs_data = {getSharedMetaFromTensor(input)};
 
-  return {sharedMeta};
+  return meta;
 }
 
 } // namespace habana

@@ -42,13 +42,15 @@ struct HandleTupleOnOutputPass {
 
   bool processBlock(habana_torch::jit::Block* block) {
     auto* return_node = block->return_node();
-    if (return_node == nullptr || return_node->inputs().size() != 1)
+    if (return_node == nullptr || return_node->inputs().size() != 1) {
       return false;
+    }
 
     auto* node = return_node->inputs()[0]->node();
     if (node == nullptr ||
-        node->kind() != habana_torch::jit::prim::TupleConstruct)
+        node->kind() != habana_torch::jit::prim::TupleConstruct) {
       return false;
+    }
 
     block->removeAllOutputs();
 

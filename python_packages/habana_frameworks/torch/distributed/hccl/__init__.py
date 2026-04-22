@@ -27,20 +27,20 @@ _lazy_mode = int(os.environ.get("PT_HPU_LAZY_MODE", "0"))
 _lazy_collectives_enabled = os.environ.get("PT_HPU_ENABLE_LAZY_COLLECTIVES", "False").lower() in ["true", "1"]
 if _lazy_mode == 0:
     # PT 2.0 eager mode
-    from habana_frameworks.torch.distributed._hccl_eager_C import *
+    from habana_frameworks.torch.distributed._hccl_eager_C import ProcessGroupHCCL
 elif _lazy_collectives_enabled:
     # Lazy mode with lazy collectives
-    from habana_frameworks.torch.distributed._hccl_lazy_C import *
+    from habana_frameworks.torch.distributed._hccl_lazy_C import ProcessGroupHCCL
 else:
     # Lazy mode without lazy collectives
-    from habana_frameworks.torch.distributed._hccl_C import *
+    from habana_frameworks.torch.distributed._hccl_C import ProcessGroupHCCL
 
 
 distributed_emulation_apply_if_enabled()
 
 
 def _setup_module_id(local_rank=-1, world_size=1):
-    if HLS_MODULE_ID_VAR in os.environ.keys():
+    if HLS_MODULE_ID_VAR in os.environ:
         # Module id already set, exiting.
         return
 
@@ -51,7 +51,7 @@ def _setup_module_id(local_rank=-1, world_size=1):
         # no benefit for using specific card.
         return
 
-    if HABANA_VISIBLE_MODULES_VAR in os.environ.keys():
+    if HABANA_VISIBLE_MODULES_VAR in os.environ:
         visible_modules = os.environ[HABANA_VISIBLE_MODULES_VAR].split(",")
         if not local_rank < len(visible_modules):
             raise AssertionError(
@@ -79,11 +79,11 @@ def _setup_environment_from_mpi():
         "OMPI_COMM_WORLD_RANK": "RANK",
     }
 
-    if all(key in os.environ.keys() for key in OMPI_VARIABLES_MAPPING.values()):
+    if all(key in os.environ for key in OMPI_VARIABLES_MAPPING.values()):
         # All environment variables are already set. We will not override it.
         return
 
-    if all(key in os.environ.keys() for key in OMPI_VARIABLES_MAPPING.keys()):
+    if all(key in os.environ for key in OMPI_VARIABLES_MAPPING):
         for mpi_env_var_name, env_var_name in OMPI_VARIABLES_MAPPING.items():
             os.environ[env_var_name] = os.environ[mpi_env_var_name]
 
@@ -96,9 +96,9 @@ def _setup_environment_from_mpi():
 
 
 def _read_values_from_env():
-    world_size = int(os.getenv("WORLD_SIZE", 1))
-    rank = int(os.getenv("RANK", -1))
-    local_rank = int(os.environ.get("LOCAL_RANK", -1))
+    world_size = int(os.getenv("WORLD_SIZE", "1"))
+    rank = int(os.getenv("RANK", "-1"))
+    local_rank = int(os.environ.get("LOCAL_RANK", "-1"))
     return world_size, rank, local_rank
 
 

@@ -54,10 +54,11 @@ OutputMetaDataVector GatherMeta(const at::Stack& stack) {
       shape[static_cast<size_t>(dim)] = index.numel();
     }
   }
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.shape = shape;
   meta.dtype = self.scalar_type();
-  return {meta};
+  return metaVec;
 }
 
 SharedMetaDataVector GatherSharedMeta(
@@ -67,11 +68,13 @@ SharedMetaDataVector GatherSharedMeta(
   auto selfDtype = self.scalar_type();
   auto index = stack_tensor(stack, 2);
   auto rank = self.dim();
-  SharedMetaData gatherElementsMeta{"gather_elements_fwd"};
+  SharedMetaDataVector meta;
+  meta.reserve(1);
+  auto& gatherElementsMeta = meta.emplace_back("gather_elements_fwd");
   gatherElementsMeta.inputs_data = {
       {rank, selfDtype}, {rank, index.scalar_type()}};
   gatherElementsMeta.outputs_data = {{rank, selfDtype}};
-  return {gatherElementsMeta};
+  return meta;
 }
 
 FillParamsT FillGatherParams(const at::Stack& stack) {

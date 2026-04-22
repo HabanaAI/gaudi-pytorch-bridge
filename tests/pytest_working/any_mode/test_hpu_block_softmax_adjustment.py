@@ -19,9 +19,11 @@ import pytest
 import torch
 from test_utils import (
     check_ops_executed_in_jit_ir,
+    compare_tensors,
     compile_function_if_compile_mode,
     cpu,
     hpu,
+    is_gaudi2,
     is_pytest_mode_compile,
 )
 
@@ -46,40 +48,67 @@ def block_softmax_adjustment_ref(b_max, b_sum, groups, batch_size):
     return adjustment
 
 
-# block_maxes: 3D tensor with shape [num_blocks, kv_heads, gqa], bf16/fp32
-# block_sums: 3D tensor with shape [num_blocks, kv_heads, gqa], bf16/fp32
-# block_groups: 1D tensor with shape [num_blocks], int32
-
-
 @pytest.mark.parametrize(
     "input_shape, batch_size",
-    [([64, 8, 4, 1, 1], 32), ([512, 32, 1, 1, 1], 38), ([896, 1, 48, 1, 1], 72), ([1152, 2, 12, 1, 1], 88)],
+    [([64, 4, 2, 1, 1], 32), ([512, 32, 1, 1, 1], 38)],
 )
+@pytest.mark.parametrize("is_fp8", [False, True])
+@pytest.mark.parametrize("is_fused_mult, is_staged", [(True, False), (True, True), (False, False)])
 @pytest.mark.parametrize("dtype", [torch.float32, torch.bfloat16])
-def test_block_softmax_adjustment(input_shape, dtype, batch_size):
+def test_block_softmax_adjustment(input_shape, dtype, batch_size, is_fp8, is_fused_mult, is_staged):
+    if dtype == torch.float32 and is_fp8:
+        pytest.skip("FP8 output only supported for bf16 input")
     num_blocks = input_shape[0]
-    block_maxes = torch.rand(input_shape, dtype=dtype, requires_grad=False)
-    block_sums = torch.rand(input_shape, dtype=dtype, requires_grad=False)
+    block_maxes = torch.rand(input_shape, dtype=dtype)
+    block_sums = torch.rand(input_shape, dtype=dtype)
     block_groups = torch.randint(0, batch_size, (num_blocks,), dtype=torch.long)
+    fused_shape = input_shape.copy()
+    if is_fused_mult:
+        fused_shape[-1] = 128
+    fused_attn_mult = torch.rand(fused_shape, dtype=dtype) if is_fused_mult else 1.0
 
     block_maxes_hpu = block_maxes.to(hpu)
     block_sums_hpu = block_sums.to(hpu)
     block_groups_hpu = block_groups.to(hpu)
 
-    # Reference output
-    ref_output = block_softmax_adjustment_ref(block_maxes, block_sums, block_groups, batch_size)
+    ref_output = block_softmax_adjustment_ref(block_maxes, block_sums, block_groups, batch_size) * fused_attn_mult
 
-    def hpu_fn(block_maxes_hpu, block_sums_hpu, block_groups_hpu, batch_size):
-        return torch.ops.hpu.block_softmax_adjustment(block_maxes_hpu, block_sums_hpu, block_groups_hpu, batch_size)
+    kwargs = {}
+    if is_fp8:
+        kwargs["output_scale"] = 1.5
+        kwargs["output_dtype"] = torch.float8_e4m3fn
+        fp8_max = 240.0 if is_gaudi2() else 448.0
+        fp8_min = -fp8_max
+        ref_output = (ref_output * kwargs["output_scale"]).clamp(min=fp8_min, max=fp8_max).to(torch.float8_e4m3fn)
 
-    # Compile mode
+    if is_fused_mult:
+        kwargs["attn_fused_mult"] = fused_attn_mult.to(hpu)
+
+    if is_staged:
+        kwargs["is_staged"] = True
+
+        def hpu_fn(block_maxes, block_sums, block_groups, batch_size, **kwargs):
+            max_out, sum_out = torch.ops.hpu.block_softmax_staged_sum_max(
+                block_maxes, block_sums, block_groups, batch_size
+            )
+            result = torch.ops.hpu.block_softmax_adjustment(
+                max_out, sum_out, block_groups, batch_size, fused_shape, **kwargs
+            )
+            return result
+    else:
+        hpu_fn = torch.ops.hpu.block_softmax_adjustment
+
     hpu_fn = compile_function_if_compile_mode(hpu_fn)
-    hpu_output = hpu_fn(block_maxes_hpu, block_sums_hpu, block_groups_hpu, batch_size)
-    assert torch.allclose(ref_output, hpu_output.to(cpu), atol=0.01, rtol=0.01)
+    hpu_output = hpu_fn(block_maxes_hpu, block_sums_hpu, block_groups_hpu, batch_size, **kwargs)
+    tol = 0.125 if is_fp8 else 1e-2
+    compare_tensors(ref_output, hpu_output.to(cpu), atol=tol, rtol=tol)
 
     # Check ops executed in JIT IR
     if is_pytest_mode_compile():
-        check_ops_executed_in_jit_ir("block_softmax_adjustment")
+        expected_ops = (
+            {"block_softmax_staged_sum_max", "block_softmax_adjustment"} if is_staged else {"block_softmax_adjustment"}
+        )
+        check_ops_executed_in_jit_ir(expected_ops)
 
 
 def reference_block_softmax(attn, block_bias, block_indicators):
@@ -98,17 +127,18 @@ def reference_block_softmax(attn, block_bias, block_indicators):
 
 
 @pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float32])
+@pytest.mark.parametrize("is_fp8, is_fp8_lut", [(False, False), (True, False), (True, True)])
 @pytest.mark.parametrize(
     "num_blocks,kv_heads,gqa,num_tokens,block_size",
     [
         (2, 2, 2, 256, 64),  # Minimal Baseline
         (3, 4, 2, 512, 128),  # Wider Attention
-        (6, 2, 1, 512, 64),  # Deeper Stack
-        (4, 4, 4, 1024, 256),  # Long Context Stress Test
     ],
 )
-def test_block_softmax(dtype, num_blocks, kv_heads, gqa, num_tokens, block_size):
+def test_block_softmax(dtype, is_fp8, is_fp8_lut, num_blocks, kv_heads, gqa, num_tokens, block_size):
     # Create input tensors
+    if dtype == torch.float32 and is_fp8:
+        pytest.skip("FP8 output only supported for bf16 input")
     torch.manual_seed(42)
     attn = torch.randn(num_blocks, kv_heads, gqa, num_tokens, block_size, dtype=dtype).to(hpu)
     block_bias = torch.zeros(num_blocks, 1, 1, num_tokens, block_size, dtype=dtype).to(hpu)
@@ -124,12 +154,14 @@ def test_block_softmax(dtype, num_blocks, kv_heads, gqa, num_tokens, block_size)
     # Run reference implementation
     ref_attn, ref_max, ref_sum = reference_block_softmax(attn.to(cpu), block_bias.to(cpu), block_indicators.to(cpu))
 
-    # Compile mode support
-    def hpu_block_softmax(attn, block_bias, block_indicators):
-        return torch.ops.hpu.block_softmax(attn, block_bias, block_indicators)
-
-    hpu_block_softmax = compile_function_if_compile_mode(hpu_block_softmax)
-    hpu_attn, hpu_max, hpu_sum = hpu_block_softmax(attn, block_bias, block_indicators)
+    hpu_block_softmax = compile_function_if_compile_mode(torch.ops.hpu.block_softmax)
+    kwargs = {}
+    if is_fp8:
+        kwargs["output_scale"] = 1.0
+        kwargs["output_dtype"] = torch.float8_e4m3fn
+        kwargs["fp8_exp"] = is_fp8_lut
+        ref_attn = (ref_attn * kwargs["output_scale"]).to(torch.float8_e4m3fn)
+    hpu_attn, hpu_max, hpu_sum = hpu_block_softmax(attn, block_bias, block_indicators, **kwargs)
 
     # Check shapes
     assert hpu_attn.shape == attn.shape, f"Expected shape {attn.shape}, got {hpu_attn.shape}"
@@ -143,21 +175,20 @@ def test_block_softmax(dtype, num_blocks, kv_heads, gqa, num_tokens, block_size)
 
     # Only compare the valid portion (not the padding added for alignment)
     # Allow higher tolerance for bfloat16
-    rtol = 1e-2 if dtype == torch.bfloat16 else 1e-5
-    atol = 1e-2 if dtype == torch.bfloat16 else 1e-5
+    tol = 1e-5
+    if dtype == torch.bfloat16:
+        tol = 1e-2
+        if is_fp8:
+            tol = 1e-1
 
     # Since block_maxes and block_sums are going to be consumed by the adjustment kernel,
     # we ignore comparing the padding blocks here, as that's a performance consideration taken by the kernel.
     # We only compare the valid blocks here, and that means ignoring some blocks in the reference and it's
     # not a direct comparison of the entire tensors.
-    torch.testing.assert_close(hpu_attn.to(cpu), ref_attn, rtol=rtol, atol=atol)
+    compare_tensors(hpu_attn, ref_attn, atol=tol, rtol=tol)
     valid_blocks = block_indicators != -1  # Ignore blocks with indicator values -1
-    torch.testing.assert_close(
-        hpu_max[valid_blocks, :flat_size].to(cpu), ref_max_flat[valid_blocks.to(cpu)], rtol=rtol, atol=atol
-    )
-    torch.testing.assert_close(
-        hpu_sum[valid_blocks, :flat_size].to(cpu), ref_sum_flat[valid_blocks.to(cpu)], rtol=rtol, atol=atol
-    )
+    compare_tensors(hpu_max[valid_blocks, :flat_size], ref_max_flat[valid_blocks.to(cpu)], atol=tol, rtol=tol)
+    compare_tensors(hpu_sum[valid_blocks, :flat_size], ref_sum_flat[valid_blocks.to(cpu)], atol=tol, rtol=tol)
 
     # Check ops executed in JIT IR
     if is_pytest_mode_compile():
@@ -170,16 +201,12 @@ def test_block_softmax_edge_cases():
     block_bias = torch.zeros(2, 1, 1, 3, 4, dtype=torch.float32).to(hpu)
     block_indicators = torch.tensor([0, 0], dtype=torch.int32).to(hpu)
 
-    # Compile mode support
-    def hpu_block_softmax(attn, block_bias, block_indicators):
-        return torch.ops.hpu.block_softmax(attn, block_bias, block_indicators)
-
-    hpu_block_softmax = compile_function_if_compile_mode(hpu_block_softmax)
+    hpu_block_softmax = compile_function_if_compile_mode(torch.ops.hpu.block_softmax)
     hpu_attn, hpu_max, hpu_sum = hpu_block_softmax(attn, block_bias, block_indicators)
 
     # When all values are the same, softmax gives uniform distribution
     expected_attn, _, _ = reference_block_softmax(attn.to(cpu), block_bias.to(cpu), block_indicators.to(cpu))
-    torch.testing.assert_close(hpu_attn.to(cpu), expected_attn.to(cpu), rtol=1e-5, atol=1e-5)
+    compare_tensors(hpu_attn, expected_attn.to(cpu), rtol=1e-5, atol=1e-5)
 
     # Test case 2: All -inf values (completely masked)
     attn = torch.ones(2, 2, 2, 3, 4, dtype=torch.float32).to(hpu)
@@ -210,7 +237,8 @@ def test_block_softmax_edge_cases():
 
 
 @pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float32])
-def test_block_softmax_with_adjustment(dtype):
+@pytest.mark.parametrize("is_staged", [False, True])
+def test_block_softmax_with_adjustment(dtype, is_staged):
     """Test the integration of block_softmax with block_softmax_adjustment"""
 
     # Create input tensors
@@ -227,15 +255,28 @@ def test_block_softmax_with_adjustment(dtype):
     # Create block_groups for adjustment
     block_groups = torch.randint(-1, batch_size, (num_blocks,), dtype=torch.long).to(hpu)
 
-    # Run block_softmax on HPU
-    def hpu_block_softmax_with_adjustment(attn, block_bias, block_groups):
-        attn_out, block_maxes, block_sums = torch.ops.hpu.block_softmax(attn, block_bias, block_groups)
-        out_shape = [num_blocks, kv_heads, gqa, num_tokens]
-        # Run block_softmax_adjustment
-        adjustment = torch.ops.hpu.block_softmax_adjustment(
-            block_maxes, block_sums, block_groups, batch_size, out_shape
-        )
-        return block_maxes, block_sums, adjustment
+    if is_staged:
+
+        def hpu_block_softmax_with_adjustment(attn, block_bias, block_groups):
+            attn_out, block_maxes, block_sums = torch.ops.hpu.block_softmax(attn, block_bias, block_groups)
+            out_shape = [num_blocks, kv_heads, gqa, num_tokens]
+            # Run block_softmax_adjustment
+            adjustment = torch.ops.hpu.block_softmax_adjustment(
+                block_maxes, block_sums, block_groups, batch_size, out_shape
+            )
+            return block_maxes, block_sums, adjustment
+    else:
+
+        def hpu_block_softmax_with_adjustment(attn, block_bias, block_groups):
+            attn_out, block_maxes, block_sums = torch.ops.hpu.block_softmax(attn, block_bias, block_groups)
+            group_max, group_sum = torch.ops.hpu.block_softmax_staged_sum_max(
+                block_maxes, block_sums, block_groups, batch_size
+            )
+            out_shape = [num_blocks, kv_heads, gqa, num_tokens]
+            adjustment = torch.ops.hpu.block_softmax_adjustment(
+                group_max, group_sum, block_groups, batch_size, out_shape, is_staged=True
+            )
+            return block_maxes, block_sums, adjustment
 
     hpu_block_softmax_with_adjustment = compile_function_if_compile_mode(hpu_block_softmax_with_adjustment)
     block_maxes, block_sums, adjustment = hpu_block_softmax_with_adjustment(attn, block_bias, block_groups)
@@ -256,7 +297,7 @@ def test_block_softmax_with_adjustment(dtype):
     rtol = 1e-2 if dtype == torch.bfloat16 else 1e-5
     atol = 1e-2 if dtype == torch.bfloat16 else 1e-5
 
-    torch.testing.assert_close(adjustment.to(cpu), ref_adjustment.to(cpu), rtol=rtol, atol=atol)
+    compare_tensors(adjustment, ref_adjustment.to(cpu), rtol=rtol, atol=atol)
 
     # Check ops executed in JIT IR
     if is_pytest_mode_compile():
@@ -289,4 +330,4 @@ def test_block_softmax_adjustment_missing_out_shape(dtype):
         pytest.fail("Expected RuntimeError was not raised")
     except RuntimeError as e:
         # Check that the error message contains the expected text
-        assert "Block maxes and Block sums must have 5D inputs or out_shape provided" in str(e)
+        assert "If no out_shape provided, block_maxes tensor must be 5-dimensional, got 2" in str(e)

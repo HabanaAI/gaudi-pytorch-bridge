@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,8 +25,9 @@ HbEagerTensorPool::HbEagerTensorPool() {
 
 void HbEagerTensorPool::extend_empty_tensor_pool() {
   handle_ = std::async(std::launch::async, [this]() {
-    for (size_t i = 0; i < pool_size_; ++i)
+    for (size_t i = 0; i < pool_size_; ++i) {
       tensor_pool_other_.push_front(at::empty({}, std::nullopt));
+    }
   });
 }
 
@@ -87,9 +88,7 @@ at::Tensor HbEagerTensorPool::get_backend_tensor(
       backend_tensor.is_alias_of(frontend_tensor),
       "HbEagerTensorPool::get_backend_tensor backend and frontend tensor must share same "
       "storage.");
-  HABANA_ASSERT(
-      !backend_tensor.unsafeGetTensorImpl()->pyobj_slot()->owns_pyobj(),
-      "HbEagerTensorPool::get_backend_tensor backend tensor shouldn't own pyobj");
+
   if (take_timestamp) {
     auto t_end = std::chrono::steady_clock::now();
     auto duration =

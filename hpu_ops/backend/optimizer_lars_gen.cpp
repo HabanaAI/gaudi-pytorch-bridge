@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,17 +25,18 @@ SharedMetaDataVector NormalizeInputSharedMeta(
     at::ScalarType precision_type) {
   SharedMetaTensor constant_tensor{1, precision_type};
   SharedMetaDataVector shared_meta_vec;
-  SharedMetaData sum_sq_shared_meta{"reduce_sum_square_multi_dim_fwd"};
+  shared_meta_vec.reserve(3);
+
+  auto& sum_sq_shared_meta =
+      shared_meta_vec.emplace_back("reduce_sum_square_multi_dim_fwd");
   sum_sq_shared_meta.inputs_data.emplace_back(input_rank, precision_type);
   sum_sq_shared_meta.outputs_data.push_back(constant_tensor);
-  shared_meta_vec.push_back(sum_sq_shared_meta);
 
-  SharedMetaData sqrt_sum_sq_shared_meta{"sqrt_fwd"};
+  auto& sqrt_sum_sq_shared_meta = shared_meta_vec.emplace_back("sqrt_fwd");
   sqrt_sum_sq_shared_meta.inputs_data = sum_sq_shared_meta.outputs_data;
   sqrt_sum_sq_shared_meta.outputs_data = sqrt_sum_sq_shared_meta.inputs_data;
-  shared_meta_vec.push_back(sqrt_sum_sq_shared_meta);
 
-  SharedMetaData greater_shared_meta{"greater_fwd"};
+  auto& greater_shared_meta = shared_meta_vec.emplace_back("greater_fwd");
   greater_shared_meta.inputs_data = {
       sqrt_sum_sq_shared_meta.outputs_data[0], constant_tensor};
   greater_shared_meta.outputs_data.emplace_back(1, at::ScalarType::Bool);
@@ -55,85 +56,82 @@ SharedMetaDataVector OptimizerLarsSharedMeta(
   SharedMetaTensor constant_tensor{1, precision_type};
   SharedMetaDataVector shared_meta_vec;
   size_t num_params = params.size();
+  shared_meta_vec.reserve(num_params * 15); // NOLINT(readability-magic-numbers)
   for (size_t i = 0; i < num_params; ++i) {
     const auto& param = params[i];
     const auto param_rank = param.dim();
     const auto& grad = grads[i];
     const auto grad_rank = grad.dim();
     const auto& skip_mask = skip_masks[i];
-    if (!skip_mask) {
-      SharedMetaData mul_shared_meta{"mult_fwd"};
+    if (skip_mask == 0) {
+      auto& mul_shared_meta = shared_meta_vec.emplace_back("mult_fwd");
       mul_shared_meta.inputs_data = {
           {grad_rank, precision_type}, {lr_rank, precision_type}};
       mul_shared_meta.outputs_data.emplace_back(param_rank, precision_type);
-      shared_meta_vec.push_back(mul_shared_meta);
     } else {
       const auto param_norm_shared_meta_vec = NormalizeInputSharedMeta(
           static_cast<int>(param_rank), precision_type);
+      // Adds 3
       shared_meta_vec.insert(
           std::end(shared_meta_vec),
-          std::begin(param_norm_shared_meta_vec),
-          std::end(param_norm_shared_meta_vec));
+          std::make_move_iterator(std::begin(param_norm_shared_meta_vec)),
+          std::make_move_iterator(std::end(param_norm_shared_meta_vec)));
       const auto grad_norm_shared_meta_vec =
           NormalizeInputSharedMeta(static_cast<int>(grad_rank), precision_type);
+      // Adds 3
       shared_meta_vec.insert(
           std::end(shared_meta_vec),
-          std::begin(grad_norm_shared_meta_vec),
-          std::end(grad_norm_shared_meta_vec));
+          std::make_move_iterator(std::begin(grad_norm_shared_meta_vec)),
+          std::make_move_iterator(std::end(grad_norm_shared_meta_vec)));
 
-      SharedMetaData pnorm_times_eeta{"mult_fwd"};
+      auto& pnorm_times_eeta = shared_meta_vec.emplace_back("mult_fwd");
       pnorm_times_eeta.inputs_data = {constant_tensor, constant_tensor};
       pnorm_times_eeta.outputs_data = {constant_tensor};
-      shared_meta_vec.push_back(pnorm_times_eeta);
 
-      SharedMetaData pnorm_times_wd_plus_ep{"add_fwd"};
+      auto& pnorm_times_wd_plus_ep = shared_meta_vec.emplace_back("add_fwd");
       pnorm_times_wd_plus_ep.inputs_data = {
           pnorm_times_eeta.outputs_data[0], constant_tensor};
       pnorm_times_wd_plus_ep.outputs_data = {constant_tensor};
-      shared_meta_vec.push_back(pnorm_times_wd_plus_ep);
 
-      SharedMetaData div_shared_meta{"div_fwd"};
+      auto& div_shared_meta = shared_meta_vec.emplace_back("div_fwd");
       div_shared_meta.inputs_data = {
           pnorm_times_eeta.outputs_data[0], constant_tensor};
       div_shared_meta.outputs_data = {constant_tensor};
-      shared_meta_vec.push_back(div_shared_meta);
 
-      SharedMetaData selected_div_part_shared_meta{"where_fwd"};
+      auto& selected_div_part_shared_meta =
+          shared_meta_vec.emplace_back("where_fwd");
       selected_div_part_shared_meta.inputs_data = {
           {1, at::ScalarType::Bool},
           div_shared_meta.outputs_data[0],
           constant_tensor};
       selected_div_part_shared_meta.outputs_data = {constant_tensor};
-      shared_meta_vec.push_back(selected_div_part_shared_meta);
 
-      SharedMetaData scaled_lr_shared_meta{"mult_fwd"};
+      auto& scaled_lr_shared_meta = shared_meta_vec.emplace_back("mult_fwd");
       scaled_lr_shared_meta.inputs_data = {
           selected_div_part_shared_meta.outputs_data[0],
           {lr_rank, precision_type}};
       scaled_lr_shared_meta.outputs_data = {constant_tensor};
-      shared_meta_vec.push_back(scaled_lr_shared_meta);
 
-      SharedMetaData param_times_wd_shared_meta{"mult_fwd"};
+      auto& param_times_wd_shared_meta =
+          shared_meta_vec.emplace_back("mult_fwd");
       param_times_wd_shared_meta.inputs_data = {
           {param_rank, precision_type}, constant_tensor};
       param_times_wd_shared_meta.outputs_data.emplace_back(
           param_rank, precision_type);
-      shared_meta_vec.push_back(param_times_wd_shared_meta);
 
-      SharedMetaData param_times_wd_plus_grad_shared_meta{"add_fwd"};
+      auto& param_times_wd_plus_grad_shared_meta =
+          shared_meta_vec.emplace_back("add_fwd");
       param_times_wd_plus_grad_shared_meta.inputs_data = {
           {grad_rank, precision_type},
           param_times_wd_shared_meta.outputs_data[0]};
       param_times_wd_plus_grad_shared_meta.outputs_data =
           param_times_wd_shared_meta.outputs_data;
-      shared_meta_vec.push_back(param_times_wd_plus_grad_shared_meta);
 
-      SharedMetaData result_shared_meta{"mult_fwd"};
+      auto& result_shared_meta = shared_meta_vec.emplace_back("mult_fwd");
       result_shared_meta.inputs_data = {
           {grad_rank, precision_type}, scaled_lr_shared_meta.outputs_data[0]};
       result_shared_meta.outputs_data =
           param_times_wd_plus_grad_shared_meta.outputs_data;
-      shared_meta_vec.push_back(result_shared_meta);
     }
   }
   return shared_meta_vec;
@@ -158,7 +156,7 @@ static std::pair<synTensor, synTensor> NormalizeInput(
     OpBackend* op,
     sh::graph& graph,
     const TensorsPair& input,
-    const synTensor zero_t,
+    synTensor zero_t,
     const std::vector<NodeAttr::NodeOutputAttr>& scalar_attr,
     const std::string& reduce_sum_sq_node,
     const std::string& sqrt_node,
@@ -169,7 +167,7 @@ static std::pair<synTensor, synTensor> NormalizeInput(
   ns_Reduction::ParamsV2 reduce_params{};
   reduce_params.reductionDimensionMask = 0;
   reduce_params.keepDim = false;
-  auto sum_sq = op->BuildNode(
+  auto sum_sq = OpBackend::BuildNode(
       op,
       graph,
       {reduce_sum_sq_node,
@@ -178,17 +176,17 @@ static std::pair<synTensor, synTensor> NormalizeInput(
        &reduce_params,
        sizeof(reduce_params)});
 
-  auto sqrt_sum_sq =
-      op->BuildNode(op, graph, {sqrt_node, {sum_sq[0].get()}, scalar_attr});
+  auto sqrt_sum_sq = OpBackend::BuildNode(
+      op, graph, {sqrt_node, {sum_sq[0].get()}, scalar_attr});
 
-  auto greater = op->BuildNode(
+  auto greater = OpBackend::BuildNode(
       op, graph, {greater_node, {sqrt_sum_sq[0].get(), zero_t}, scalar_attr});
 
   storage.emplace_back(std::move(sqrt_sum_sq[0]));
-  auto returned1 = storage.back().get();
+  auto* returned1 = storage.back().get();
 
   storage.emplace_back(std::move(greater[0]));
-  auto returned2 = storage.back().get();
+  auto* returned2 = storage.back().get();
 
   return {returned1, returned2};
 }
@@ -223,8 +221,8 @@ void OptimizerFusedLarsOperator::AddNode(
       get_guid_with_precision("greater_fwd"sv, ScalarType());
   std::string where_node = get_guid_with_precision("where_fwd"sv, ScalarType());
 
-  double constant_values[] = {eeta, weight_decay, eps, 0.0, 1.0};
-  std::array<synTensor, std::size(constant_values)> constant_ts{};
+  const std::array constant_values{eeta, weight_decay, eps, 0.0, 1.0};
+  std::array<synTensor, constant_values.size()> constant_ts{};
   const auto& eeta_t = constant_ts[0];
   const auto& weight_decay_t = constant_ts[1];
   const auto& eps_t = constant_ts[2];
@@ -233,9 +231,10 @@ void OptimizerFusedLarsOperator::AddNode(
 
   int64_t skip_mask_ored = std::accumulate(
       skip_masks.begin(), skip_masks.end(), 0, std::bit_or<int64_t>());
-  size_t num_constants = skip_mask_ored ? constant_ts.size() : 1;
+  size_t num_constants = skip_mask_ored != 0 ? constant_ts.size() : 1;
 
-  int64_t scalar_shape[] = {1};
+  int64_t scalar_shape = 1L;
+  at::IntArrayRef scalar_shape_ref = c10::makeArrayRef(&scalar_shape, 1);
   std::vector<sh::tensor> storage;
   storage.reserve(num_constants);
   for (size_t i = 0; i < num_constants; ++i) {
@@ -243,7 +242,7 @@ void OptimizerFusedLarsOperator::AddNode(
         graph,
         static_cast<float>(constant_values[i]),
         ScalarType(),
-        scalar_shape));
+        scalar_shape_ref));
     constant_ts[i] = storage.back().get();
   }
 
@@ -257,9 +256,10 @@ void OptimizerFusedLarsOperator::AddNode(
     const auto dtype = ScalarType();
 
     std::vector<NodeAttr::NodeOutputAttr> out_attr = {{outshape, dtype}};
-    std::vector<NodeAttr::NodeOutputAttr> scalar_attr = {{scalar_shape, dtype}};
+    std::vector<NodeAttr::NodeOutputAttr> scalar_attr = {
+        {scalar_shape_ref, dtype}};
 
-    if (!skip_mask) {
+    if (skip_mask == 0) {
       auto mul = BuildOp(
           graph, mul_node, {grad.syn_t, lr.syn_t}, {{outshape, dtype, i}});
       syn_out(i) = std::move(mul[0]);

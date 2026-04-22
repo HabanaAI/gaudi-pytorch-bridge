@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -162,10 +162,7 @@ def check_node_and_args(node: torch.fx.node.Node, predicate):
         if arg.__class__ == torch.fx.node.Node and predicate(arg):
             return True
 
-    if predicate(node):
-        return True
-
-    return False
+    return predicate(node)
 
 
 def is_node_dynamic(node: torch.fx.node.Node) -> bool:

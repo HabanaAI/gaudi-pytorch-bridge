@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,6 @@
  */
 
 #include "hpu_ops/optimizer_lamb_gen.h"
-#include "backend/create_pt_tensor.h"
 #include "common/warning_suppress.h"
 #include "habana_helpers/conversion.h"
 #include "hpu_ops/hpu_op_helper.h"
@@ -32,64 +31,58 @@ SharedMetaDataVector OptimizerLambNormSharedMeta(
   SharedMetaTensor constant_tensor{1, precision_type};
   SharedMetaDataVector shared_meta_vec;
   const auto num_gradients = gradients.size();
+  shared_meta_vec.reserve(num_gradients + 9);
+
   for (size_t i = 0; i < num_gradients; ++i) {
-    SharedMetaData reduce_sum_shared_meta{"reduce_sum_square_multi_dim_fwd"};
+    auto& reduce_sum_shared_meta =
+        shared_meta_vec.emplace_back("reduce_sum_square_multi_dim_fwd");
     reduce_sum_shared_meta.inputs_data.emplace_back(
         gradients[0].dim(), precision_type);
     reduce_sum_shared_meta.outputs_data = {constant_tensor};
-    shared_meta_vec.push_back(reduce_sum_shared_meta);
   }
 
-  SharedMetaData concat_shared_meta{"concat"};
-  for (size_t i = 0; i < num_gradients; ++i)
+  auto& concat_shared_meta = shared_meta_vec.emplace_back("concat");
+  for (size_t i = 0; i < num_gradients; ++i) {
     concat_shared_meta.inputs_data.push_back(
         shared_meta_vec[i].outputs_data[0]);
+  }
   concat_shared_meta.outputs_data = {constant_tensor};
-  shared_meta_vec.push_back(concat_shared_meta);
 
-  SharedMetaData sum_final_shared_meta{"reduce_sum_fwd"};
+  auto& sum_final_shared_meta = shared_meta_vec.emplace_back("reduce_sum_fwd");
   sum_final_shared_meta.inputs_data = concat_shared_meta.outputs_data;
   sum_final_shared_meta.outputs_data = sum_final_shared_meta.inputs_data;
-  shared_meta_vec.push_back(concat_shared_meta);
 
-  SharedMetaData sqrt_shared_meta{"sqrt_fwd"};
+  auto& sqrt_shared_meta = shared_meta_vec.emplace_back("sqrt_fwd");
   sqrt_shared_meta.inputs_data = sum_final_shared_meta.outputs_data;
   sqrt_shared_meta.outputs_data = sqrt_shared_meta.inputs_data;
-  shared_meta_vec.push_back(sqrt_shared_meta);
 
-  SharedMetaData div_shared_meta{"div_fwd"};
+  auto& div_shared_meta = shared_meta_vec.emplace_back("div_fwd");
   div_shared_meta.inputs_data = {
       sqrt_shared_meta.outputs_data[0], constant_tensor};
   div_shared_meta.outputs_data = {div_shared_meta.inputs_data[0]};
-  shared_meta_vec.push_back(div_shared_meta);
 
-  SharedMetaData less_shared_meta{"less_equal_fwd"};
+  auto& less_shared_meta = shared_meta_vec.emplace_back("less_equal_fwd");
   less_shared_meta.inputs_data = {
       div_shared_meta.outputs_data[0], constant_tensor};
   less_shared_meta.outputs_data.emplace_back(1, at::ScalarType::Bool);
-  shared_meta_vec.push_back(less_shared_meta);
 
-  SharedMetaData mul_shared_meta{"mult_fwd"};
+  auto& mul_shared_meta = shared_meta_vec.emplace_back("mult_fwd");
   mul_shared_meta.inputs_data = {constant_tensor, constant_tensor};
   mul_shared_meta.outputs_data = {constant_tensor};
-  shared_meta_vec.push_back(mul_shared_meta);
 
-  SharedMetaData eq_final_shared_meta{"not_fwd"};
+  auto& eq_final_shared_meta = shared_meta_vec.emplace_back("not_fwd");
   eq_final_shared_meta.inputs_data = less_shared_meta.outputs_data;
   eq_final_shared_meta.outputs_data.emplace_back(1, at::ScalarType::Bool);
-  shared_meta_vec.push_back(eq_final_shared_meta);
 
-  SharedMetaData mul_eq_shared_meta{"mult_fwd"};
+  auto& mul_eq_shared_meta = shared_meta_vec.emplace_back("mult_fwd");
   mul_eq_shared_meta.inputs_data = {
       constant_tensor, div_shared_meta.outputs_data[0]};
   mul_eq_shared_meta.outputs_data = {constant_tensor};
-  shared_meta_vec.push_back(mul_eq_shared_meta);
 
-  SharedMetaData add_shared_meta{"add_fwd"};
+  auto& add_shared_meta = shared_meta_vec.emplace_back("add_fwd");
   add_shared_meta.inputs_data = {
       mul_shared_meta.outputs_data[0], mul_eq_shared_meta.outputs_data[0]};
   add_shared_meta.outputs_data = {constant_tensor};
-  shared_meta_vec.push_back(add_shared_meta);
 
   return shared_meta_vec;
 }
@@ -98,28 +91,27 @@ SharedMetaDataVector ComputeNormSharedMeta(
     int input_rank,
     at::ScalarType precision_type) {
   SharedMetaDataVector shared_meta_vec;
+  shared_meta_vec.reserve(3);
   if (input_rank <= 1) {
-    SharedMetaData norm_mul_shared_meta{"mult_fwd"};
+    auto& norm_mul_shared_meta = shared_meta_vec.emplace_back("mult_fwd");
     norm_mul_shared_meta.inputs_data = {
         {input_rank, precision_type}, {input_rank, precision_type}};
     norm_mul_shared_meta.outputs_data.emplace_back(input_rank, precision_type);
-    shared_meta_vec.push_back(norm_mul_shared_meta);
 
-    SharedMetaData sum_shared_meta{"reduce_sum_multi_dim_fwd"};
+    auto& sum_shared_meta =
+        shared_meta_vec.emplace_back("reduce_sum_multi_dim_fwd");
     sum_shared_meta.inputs_data = norm_mul_shared_meta.outputs_data;
     sum_shared_meta.outputs_data.emplace_back(1, precision_type);
-    shared_meta_vec.push_back(sum_shared_meta);
 
-    SharedMetaData sqrt_shared_meta{"sqrt_fwd"};
+    auto& sqrt_shared_meta = shared_meta_vec.emplace_back("sqrt_fwd");
     sqrt_shared_meta.inputs_data = sum_shared_meta.outputs_data;
     sqrt_shared_meta.outputs_data = sqrt_shared_meta.inputs_data;
-    shared_meta_vec.push_back(sqrt_shared_meta);
   } else {
-    SharedMetaData frobenius_norm_shared_meta{"frobenius_norm_fwd"};
+    auto& frobenius_norm_shared_meta =
+        shared_meta_vec.emplace_back("frobenius_norm_fwd");
     frobenius_norm_shared_meta.inputs_data.emplace_back(
         input_rank, precision_type);
     frobenius_norm_shared_meta.outputs_data.emplace_back(1, precision_type);
-    shared_meta_vec.push_back(frobenius_norm_shared_meta);
   }
   return shared_meta_vec;
 }
@@ -141,6 +133,8 @@ SharedMetaDataVector OptimizerLambPhase1SharedMeta(
   SharedMetaTensor constant_tensor{1, precision_type};
   SharedMetaDataVector shared_meta_vec;
   const size_t num_weights = weights.size();
+  shared_meta_vec.reserve(
+      21 * num_weights); // NOLINT(readability-magic-numbers)
   for (size_t i = 0; i < num_weights; i++) {
     const auto& gradient = gradients[i];
     const auto gradient_rank = gradient.dim();
@@ -151,127 +145,116 @@ SharedMetaDataVector OptimizerLambPhase1SharedMeta(
     const auto& weight = weights[i];
     const auto weight_rank = weight.dim();
 
-    SharedMetaData div_grad_shared_meta{"div_fwd"};
+    auto& div_grad_shared_meta = shared_meta_vec.emplace_back("div_fwd");
     div_grad_shared_meta.inputs_data = {
         {gradient_rank, precision_type},
         {clip_global_grad_norm.dim(), precision_type}};
     div_grad_shared_meta.outputs_data.emplace_back(
         gradient_rank, precision_type);
-    shared_meta_vec.push_back(div_grad_shared_meta);
 
-    SharedMetaData mul_exp_avg_shared_meta{"mult_fwd"};
+    auto& mul_exp_avg_shared_meta = shared_meta_vec.emplace_back("mult_fwd");
     mul_exp_avg_shared_meta.inputs_data = {
         {exp_avg_rank, precision_type}, constant_tensor};
     mul_exp_avg_shared_meta.outputs_data.emplace_back(
         exp_avg_rank, precision_type);
-    shared_meta_vec.push_back(mul_exp_avg_shared_meta);
 
-    SharedMetaData exp_beta_avg_shared_meta{"mult_fwd"};
+    auto& exp_beta_avg_shared_meta = shared_meta_vec.emplace_back("mult_fwd");
     exp_beta_avg_shared_meta.inputs_data = {
         div_grad_shared_meta.outputs_data[0], constant_tensor};
     exp_beta_avg_shared_meta.outputs_data = div_grad_shared_meta.outputs_data;
-    shared_meta_vec.push_back(exp_beta_avg_shared_meta);
 
-    SharedMetaData add_exp_avg_shared_meta{"add_fwd"};
+    auto& add_exp_avg_shared_meta = shared_meta_vec.emplace_back("add_fwd");
     add_exp_avg_shared_meta.inputs_data = {
         mul_exp_avg_shared_meta.outputs_data[0],
         exp_beta_avg_shared_meta.outputs_data[0]};
     add_exp_avg_shared_meta.outputs_data = mul_exp_avg_shared_meta.outputs_data;
-    shared_meta_vec.push_back(add_exp_avg_shared_meta);
 
-    SharedMetaData mul_exp_avg_sq_shared_meta{"mult_fwd"};
+    auto& mul_exp_avg_sq_shared_meta = shared_meta_vec.emplace_back("mult_fwd");
     mul_exp_avg_sq_shared_meta.inputs_data = {
         {exp_avg_sq_rank, precision_type}, constant_tensor};
     mul_exp_avg_sq_shared_meta.outputs_data.emplace_back(
         exp_avg_sq_rank, precision_type);
-    shared_meta_vec.push_back(mul_exp_avg_sq_shared_meta);
 
-    SharedMetaData addcmul_a_shared_meta{"mult_fwd"};
+    auto& addcmul_a_shared_meta = shared_meta_vec.emplace_back("mult_fwd");
     addcmul_a_shared_meta.inputs_data = {
         div_grad_shared_meta.outputs_data[0],
         div_grad_shared_meta.outputs_data[0]};
     addcmul_a_shared_meta.outputs_data = div_grad_shared_meta.outputs_data;
-    shared_meta_vec.push_back(addcmul_a_shared_meta);
 
-    SharedMetaData addcmul_b_shared_meta{"mult_fwd"};
+    auto& addcmul_b_shared_meta = shared_meta_vec.emplace_back("mult_fwd");
     addcmul_b_shared_meta.inputs_data = {
         addcmul_a_shared_meta.outputs_data[0], constant_tensor};
     addcmul_b_shared_meta.outputs_data = addcmul_a_shared_meta.outputs_data;
-    shared_meta_vec.push_back(addcmul_b_shared_meta);
 
-    SharedMetaData addcmul_exp_avg_sq_shared_meta{"add_fwd"};
+    auto& addcmul_exp_avg_sq_shared_meta =
+        shared_meta_vec.emplace_back("add_fwd");
     addcmul_exp_avg_sq_shared_meta.inputs_data = {
         mul_exp_avg_sq_shared_meta.outputs_data[0],
         addcmul_b_shared_meta.outputs_data[0]};
     addcmul_exp_avg_sq_shared_meta.outputs_data =
         mul_exp_avg_sq_shared_meta.outputs_data;
-    shared_meta_vec.push_back(addcmul_exp_avg_sq_shared_meta);
 
-    SharedMetaData div_exp_avg_shared_meta{"div_fwd"};
+    auto& div_exp_avg_shared_meta = shared_meta_vec.emplace_back("div_fwd");
     div_exp_avg_shared_meta.inputs_data = {
         add_exp_avg_shared_meta.outputs_data[0],
         {bias_correction1.dim(), precision_type}};
     div_exp_avg_shared_meta.outputs_data = add_exp_avg_shared_meta.outputs_data;
-    shared_meta_vec.push_back(div_exp_avg_shared_meta);
 
-    SharedMetaData div_exp_avg_sq_shared_meta{"div_fwd"};
+    auto& div_exp_avg_sq_shared_meta = shared_meta_vec.emplace_back("div_fwd");
     div_exp_avg_sq_shared_meta.inputs_data = {
         addcmul_exp_avg_sq_shared_meta.outputs_data[0],
         {bias_correction2.dim(), precision_type}};
     div_exp_avg_sq_shared_meta.outputs_data =
         addcmul_exp_avg_sq_shared_meta.outputs_data;
-    shared_meta_vec.push_back(div_exp_avg_sq_shared_meta);
 
-    SharedMetaData sqrt_exp_avg_sq_shared_meta{"sqrt_fwd"};
+    auto& sqrt_exp_avg_sq_shared_meta =
+        shared_meta_vec.emplace_back("sqrt_fwd");
     sqrt_exp_avg_sq_shared_meta.inputs_data =
         div_exp_avg_sq_shared_meta.outputs_data;
     sqrt_exp_avg_sq_shared_meta.outputs_data =
         sqrt_exp_avg_sq_shared_meta.inputs_data;
-    shared_meta_vec.push_back(sqrt_exp_avg_sq_shared_meta);
 
-    SharedMetaData add_exp_avg_sq_shared_meta{"add_fwd"};
+    auto& add_exp_avg_sq_shared_meta = shared_meta_vec.emplace_back("add_fwd");
     add_exp_avg_sq_shared_meta.inputs_data = {
         sqrt_exp_avg_sq_shared_meta.outputs_data[0], constant_tensor};
     add_exp_avg_sq_shared_meta.outputs_data =
         sqrt_exp_avg_sq_shared_meta.outputs_data;
-    shared_meta_vec.push_back(add_exp_avg_sq_shared_meta);
 
-    SharedMetaData div_wt_shared_meta{"div_fwd"};
+    auto& div_wt_shared_meta = shared_meta_vec.emplace_back("div_fwd");
     div_wt_shared_meta.inputs_data = {
         div_exp_avg_shared_meta.outputs_data[0],
         add_exp_avg_sq_shared_meta.outputs_data[0]};
     div_wt_shared_meta.outputs_data = div_exp_avg_shared_meta.outputs_data;
-    shared_meta_vec.push_back(div_wt_shared_meta);
 
     if (is_weight_decay) {
-      SharedMetaData add_wt_beta_shared_meta{"mult_fwd"};
+      auto& add_wt_beta_shared_meta = shared_meta_vec.emplace_back("mult_fwd");
       add_wt_beta_shared_meta.inputs_data = {
           {weight_rank, precision_type}, constant_tensor};
       add_wt_beta_shared_meta.outputs_data.emplace_back(
           weight_rank, precision_type);
-      shared_meta_vec.push_back(add_wt_beta_shared_meta);
 
-      SharedMetaData add_wt_shared_meta{"add_fwd"};
+      auto& add_wt_shared_meta = shared_meta_vec.emplace_back("add_fwd");
       add_wt_shared_meta.inputs_data = {
           div_wt_shared_meta.outputs_data[0],
           add_wt_beta_shared_meta.outputs_data[0]};
       add_wt_shared_meta.outputs_data = div_wt_shared_meta.outputs_data;
-      shared_meta_vec.push_back(add_wt_shared_meta);
     };
 
     const auto norm_wt_meta_vec =
         ComputeNormSharedMeta(safe_convert<int>(weight_rank), precision_type);
+    // Adds 3 items
     shared_meta_vec.insert(
         std::end(shared_meta_vec),
-        std::begin(norm_wt_meta_vec),
-        std::end(norm_wt_meta_vec));
+        std::make_move_iterator(std::begin(norm_wt_meta_vec)),
+        std::make_move_iterator(std::end(norm_wt_meta_vec)));
 
     const auto norm_adam_step_meta_vec = ComputeNormSharedMeta(
         div_wt_shared_meta.outputs_data[0].first, precision_type);
+    // Adds 3 items
     shared_meta_vec.insert(
         std::end(shared_meta_vec),
-        std::begin(norm_adam_step_meta_vec),
-        std::end(norm_adam_step_meta_vec));
+        std::make_move_iterator(std::begin(norm_adam_step_meta_vec)),
+        std::make_move_iterator(std::end(norm_adam_step_meta_vec)));
   }
   return shared_meta_vec;
 }
@@ -293,17 +276,17 @@ SharedMetaDataVector OptimizerLambPhase2SharedMeta(
   SharedMetaTensor constant_tensor{1, precision_type};
   SharedMetaDataVector shared_meta_vec;
   size_t num_weights = weights.size();
+  shared_meta_vec.reserve(num_weights * 7);
   for (size_t i = 0; i < num_weights; ++i) {
     const auto& weight = weights[i];
     const auto weight_rank = weight.dim();
     const auto& adam_step = adam_steps[i];
     const auto adam_step_rank = adam_step.dim();
 
-    SharedMetaData mul_shared_meta{"mult_fwd"};
+    auto& mul_shared_meta = shared_meta_vec.emplace_back("mult_fwd");
     mul_shared_meta.inputs_data = {
         {adam_step_rank, precision_type}, {neg_step_rank, precision_type}};
     mul_shared_meta.outputs_data.emplace_back(adam_step_rank, precision_type);
-    shared_meta_vec.push_back(mul_shared_meta);
 
     if (calc_trust_ratio) {
       const auto& adam_norm = adam_norms[i];
@@ -311,58 +294,53 @@ SharedMetaDataVector OptimizerLambPhase2SharedMeta(
       const auto& weight_norm = weight_norms[i];
       const auto weight_norm_rank = weight_norm.dim();
 
-      SharedMetaData div_shared_meta{"div_fwd"};
+      auto& div_shared_meta = shared_meta_vec.emplace_back("div_fwd");
       div_shared_meta.inputs_data = {
           {weight_norm_rank, precision_type}, {adam_norm_rank, precision_type}};
       div_shared_meta.outputs_data.push_back(constant_tensor);
-      shared_meta_vec.push_back(div_shared_meta);
 
-      SharedMetaData adam_mask_shared_meta{"greater_fwd"};
+      auto& adam_mask_shared_meta = shared_meta_vec.emplace_back("greater_fwd");
       adam_mask_shared_meta.inputs_data = {
           {adam_norm_rank, precision_type}, constant_tensor};
       adam_mask_shared_meta.outputs_data.emplace_back(1, at::ScalarType::Bool);
-      shared_meta_vec.push_back(adam_mask_shared_meta);
 
-      SharedMetaData where_shared_meta{"where_fwd"};
+      auto& where_shared_meta = shared_meta_vec.emplace_back("where_fwd");
       where_shared_meta.inputs_data = {
           adam_mask_shared_meta.outputs_data[0],
           div_shared_meta.outputs_data[0],
           constant_tensor};
       where_shared_meta.outputs_data.push_back(constant_tensor);
-      shared_meta_vec.push_back(where_shared_meta);
 
-      SharedMetaData update_shared_meta{"mult_fwd"};
+      auto& update_shared_meta = shared_meta_vec.emplace_back("mult_fwd");
       update_shared_meta.inputs_data = {
           mul_shared_meta.outputs_data[0], where_shared_meta.outputs_data[0]};
       update_shared_meta.outputs_data.emplace_back(
           adam_step_rank, precision_type);
-      shared_meta_vec.push_back(update_shared_meta);
 
-      SharedMetaData update_weight_shared_meta{"add_fwd"};
+      auto& update_weight_shared_meta = shared_meta_vec.emplace_back("add_fwd");
       update_weight_shared_meta.inputs_data = {
           {weight_rank, precision_type}, update_shared_meta.outputs_data[0]};
       update_weight_shared_meta.outputs_data.emplace_back(
           weight_rank, precision_type);
-      shared_meta_vec.push_back(update_weight_shared_meta);
     } else {
-      SharedMetaData update_weight_shared_meta{"add_fwd"};
+      auto& update_weight_shared_meta = shared_meta_vec.emplace_back("add_fwd");
       update_weight_shared_meta.inputs_data = {
           {weight_rank, precision_type}, mul_shared_meta.outputs_data[0]};
       update_weight_shared_meta.outputs_data.emplace_back(
           weight_rank, precision_type);
-      shared_meta_vec.push_back(update_weight_shared_meta);
     }
   }
   return shared_meta_vec;
 }
 
 OutputMetaDataVector ComputeLambOutputMetadata(const at::Stack& stack) {
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   auto tensors = stack[0].toTensorList();
   SUPPRESS_WDANGLING_REFERENCE(const at::Tensor& tensor = tensors[0];)
   meta.shape = {1};
   meta.dtype = tensor.scalar_type();
-  return {meta};
+  return metaVec;
 }
 
 OptimizerLambNorm::OptimizerLambNorm(int device_id, c10::ScalarType scalar_type)
@@ -577,7 +555,7 @@ void OptimizerLambPhase1::AddNode(
   auto weight_decay = stackGetter.getNextInput<double>();
 
   float beta3 = 1.0;
-  if (grad_averaging) {
+  if (grad_averaging != 0) {
     beta3 = 1 - static_cast<float>(beta1);
   }
 
@@ -697,7 +675,7 @@ void OptimizerLambPhase1::AddNode(
 
     std::optional<int> div_wt_result_index = is_weight_decay
         ? std::nullopt
-        : c10::make_optional<int>(i + 4 * num_params);
+        : c10::make_optional<int>(i + (4 * num_params));
 
     std::vector<synapse_helpers::tensor> norm_input;
     auto div_wt = OpBackend::BuildNode(
@@ -721,7 +699,7 @@ void OptimizerLambPhase1::AddNode(
           graph,
           {get_guid_with_precision("add_fwd"sv, dtype),
            {norm_input.back().get(), add_wt_beta[0].get()},
-           {{mul_exp_avg_shape, dtype, i + 4 * num_params}}});
+           {{mul_exp_avg_shape, dtype, i + (4 * num_params)}}});
       norm_input.emplace_back(std::move(add_wt[0]));
     }
 
@@ -731,8 +709,8 @@ void OptimizerLambPhase1::AddNode(
         weights[i].syn_t,
         mul_exp_avg_shape,
         dtype,
-        i + 2 * num_params);
-    syn_out(i + 2 * num_params) = std::move(norm_wt[0]);
+        i + (2 * num_params));
+    syn_out(i + (2 * num_params)) = std::move(norm_wt[0]);
 
     auto norm_adam_step = ComputeNorm(
         this,
@@ -740,9 +718,9 @@ void OptimizerLambPhase1::AddNode(
         norm_input.back().get(),
         mul_exp_avg_shape,
         dtype,
-        i + 3 * num_params);
-    syn_out(i + 3 * num_params) = std::move(norm_adam_step[0]);
-    syn_out(i + 4 * num_params) = std::move(norm_input.back());
+        i + (3 * num_params));
+    syn_out(i + (3 * num_params)) = std::move(norm_adam_step[0]);
+    syn_out(i + (4 * num_params)) = std::move(norm_input.back());
   }
 }
 

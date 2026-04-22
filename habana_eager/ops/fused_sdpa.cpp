@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025 Intel Corporation
+ * Copyright (c) 2025-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -49,7 +49,7 @@ int64_t fused_sdp_choice_hpu(
       sdp::SDPBackend::overrideable,
   };
 
-  for (auto& backend : priority_order) {
+  for (const auto& backend : priority_order) {
     switch (backend) {
       case sdp::SDPBackend::overrideable:
         if (ctx.userEnabledOverrideableSDP()) {
@@ -243,13 +243,14 @@ class FusedSDPAAutogradHPU
       ::std::optional<double> scale,
       bool enable_gqa) {
     PT_EAGER_TRACE;
-    auto softmax_mode = "None";
-    auto seq_padding_type = "left";
+    const auto* softmax_mode = "None";
+    const auto* seq_padding_type = "left";
     double scale_;
-    if (scale.has_value())
+    if (scale.has_value()) {
       scale_ = scale.value();
-    else
+    } else {
       scale_ = !query.sizes().empty() ? (1. / sqrt(query.sizes().back())) : 1.;
+    }
     auto valid_seq_len = std::optional<at::Tensor>();
     ctx->saved_data["dropout_p"] = dropout_p;
     ctx->saved_data["scale"] = scale_;
@@ -315,11 +316,11 @@ class FusedSDPAAutogradHPU
     torch::autograd::variable_list saved_vars = ctx->get_saved_variables();
     auto grad_out = grad_output[0];
     auto query = saved_vars[0];
-    auto key = saved_vars[1];
+    const auto& key = saved_vars[1];
     auto value = saved_vars[2];
     auto attn_mask = saved_vars[3];
-    auto m = saved_vars[4];
-    auto linv = saved_vars[5];
+    const auto& m = saved_vars[4];
+    const auto& linv = saved_vars[5];
     auto seed = saved_vars[6];
     auto fwd_out = saved_vars[7];
     auto enable_gqa = ctx->saved_data["enable_gqa"].toBool();
@@ -415,8 +416,8 @@ class FusedSDPAOverrideableAutogradHPU
     ctx->saved_data["bias_requires_grad"] = bias_requires_grad;
 
     // Use only dispatch_sdpa_recomp_fwd_wrap for forward computation
-    auto softmax_mode = "None";
-    auto seq_padding_type = "left";
+    const auto* softmax_mode = "None";
+    const auto* seq_padding_type = "left";
     auto valid_seq_len = std::optional<at::Tensor>();
 
     // Call recompute forward to get output, m, linv, seed
@@ -480,14 +481,14 @@ class FusedSDPAOverrideableAutogradHPU
     PT_EAGER_TRACE;
 
     torch::autograd::variable_list saved_vars = ctx->get_saved_variables();
-    auto grad_out = grad_output[0]; // Only the main output has gradients
-    auto query = saved_vars[0];
-    auto key = saved_vars[1];
-    auto value = saved_vars[2];
+    const auto& grad_out = grad_output[0]; // Only the main output has gradients
+    const auto& query = saved_vars[0];
+    const auto& key = saved_vars[1];
+    const auto& value = saved_vars[2];
     auto attn_bias = saved_vars[3];
-    auto out = saved_vars[4];
-    auto m = saved_vars[5]; // m tensor from recompute
-    auto linv = saved_vars[6]; // linv tensor from recompute
+    const auto& out = saved_vars[4];
+    const auto& m = saved_vars[5]; // m tensor from recompute
+    const auto& linv = saved_vars[6]; // linv tensor from recompute
     auto seed = saved_vars[7]; // seed tensor from recompute
 
     auto bias_requires_grad = ctx->saved_data["bias_requires_grad"].toBool();

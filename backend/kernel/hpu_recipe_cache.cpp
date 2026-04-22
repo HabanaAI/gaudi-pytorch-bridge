@@ -40,12 +40,15 @@ size_t RecipeArgumentSpecHash::operator()(
 bool RecipeArgumentSpecEqual::operator()(
     const std::shared_ptr<RecipeArgumentSpec>& v1,
     const std::shared_ptr<RecipeArgumentSpec>& v2) const {
-  if (nullptr == v1 && nullptr == v2)
+  if (nullptr == v1 && nullptr == v2) {
     return true;
-  if (nullptr == v1)
+  }
+  if (nullptr == v1) {
     return false;
-  if (nullptr == v2)
+  }
+  if (nullptr == v2) {
     return false;
+  }
 
   return (*v1) == (*v2);
 }
@@ -297,10 +300,10 @@ DiskCache::DiskCache(
     cache_id_suffix_ = "";
   } else {
     constexpr int bufferSize = 256;
-    char versionStr[bufferSize];
-    synDriverGetVersion(versionStr, bufferSize);
-    cache_id_suffix_ =
-        absl::StrCat("_", CacheVersion::libs_env_hash(), "_syn", versionStr);
+    std::array<char, bufferSize> versionStr;
+    synDriverGetVersion(versionStr.data(), bufferSize);
+    cache_id_suffix_ = absl::StrCat(
+        "_", CacheVersion::libs_env_hash(), "_syn", versionStr.data());
   }
 }
 
@@ -357,8 +360,9 @@ std::shared_ptr<RecipeValueSpec> TemporaryRecipeStore::GetRVS(
     std::shared_ptr<RecipeArgumentSpec>& key) {
   std::unique_lock lg(mtx_);
   auto it = map_.find(key);
-  if (it == map_.end())
+  if (it == map_.end()) {
     return {};
+  }
   auto rvs = it->second.second;
   return rvs;
 }
@@ -377,8 +381,9 @@ void TemporaryRecipeStore::Add(
 void TemporaryRecipeStore::Wait(std::shared_ptr<RecipeArgumentSpec>& key) {
   std::unique_lock lg(mtx_);
   auto it = map_.find(key);
-  if (it == map_.end())
+  if (it == map_.end()) {
     return;
+  }
   auto wait_for_recipe = std::move(it->second.first);
   map_.erase(it);
 

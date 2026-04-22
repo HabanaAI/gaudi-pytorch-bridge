@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,8 +41,6 @@ TEST_F(HpuOpTest, glu_out) {
 
 TEST_F(HpuOpTest, glu_bwd) {
   GenerateInputs(2, {{4, 8, 16, 32}, {2, 8, 16, 32}});
-
-  torch::ScalarType dtype = torch::kFloat;
 
   auto expected =
       torch::glu_backward(GetCpuInput(1), GetCpuInput(0), /*dim*/ 0);

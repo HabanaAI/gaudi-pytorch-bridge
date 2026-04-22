@@ -44,11 +44,13 @@ event::event(
 
 void event::synchronize() const {
   PT_SYNHELPER_DEBUG("synchronizing event ", handle_);
-  if (done_)
+  if (done_) {
     PT_SYNHELPER_FATAL("Event ", this, " already done");
+  }
   auto status{synStatus::synSuccess};
-  if (!is_partial())
+  if (!is_partial()) {
     status = synEventSynchronize(handle_);
+  }
   if (synStatus::synSuccess != status) {
     PT_SYNHELPER_FATAL(
         Logger::formatStatusMsg(status), "Event synchronization failed");
@@ -59,12 +61,14 @@ void event::complete() {
   habana_helpers::AutoNoGIL gil_release;
   {
     std::unique_lock<std::mutex> lock(mutex_);
-    if (done_)
+    if (done_) {
       PT_SYNHELPER_FATAL("Event ", this, " already done");
+    }
     done_ = true;
-    if (done_cb_)
+    if (done_cb_) {
       done_cb_();
-    if (handle_) {
+    }
+    if (handle_ != nullptr) {
       event_handle_cache_.release_handle(handle_);
       handle_ = nullptr;
     }
@@ -96,7 +100,7 @@ void event::wait() {
 }
 
 void event::map_event_to_tensor(
-    const synRecipeHandle recipe_handle,
+    synRecipeHandle recipe_handle,
     synLaunchTensorInfo* tensor_info) {
   auto status = synEventMapTensor(&handle_, 1, tensor_info, recipe_handle);
   if (synStatus::synSuccess != status) {
@@ -116,7 +120,7 @@ event::~event() {
           "Destroying event ", this, " that is not synchronized yet");
     }
   }
-  if (handle_) {
+  if (handle_ != nullptr) {
     event_handle_cache_.release_handle(handle_);
   }
 }

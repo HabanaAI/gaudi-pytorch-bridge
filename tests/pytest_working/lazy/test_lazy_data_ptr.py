@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ import torch
 try:
     import habana_frameworks.torch.utils.experimental as exp
 except ImportError:
-    raise AssertionError("Could Not import habana_frameworks.torch.core")
+    raise AssertionError("Could Not import habana_frameworks.torch.core") from None
 
 
 @pytest.mark.parametrize("input_tensor", [(5, 5)])
@@ -69,3 +69,11 @@ def test_hpu_lazy_data_ptr(input_tensor):
     # storage
     # assert(t3_h_data_ptr == t3_view_data_ptr)
     assert np.allclose(out_cpu_to_compare, out_h_cpu_to_compare, atol=0, rtol=0), "Data mismatch"
+
+
+def test_hpu_lazy_data_ptr_view():
+    tensor_3d = torch.rand(32, 3, 4).to("hpu")
+    ptr_3d = exp._data_ptr(tensor_3d)
+    tensor_4d = tensor_3d.view(2, 16, 3, 4)
+    ptr_4d = exp._data_ptr(tensor_4d)
+    assert ptr_3d == ptr_4d, "Data pointer should be same for view tensor"

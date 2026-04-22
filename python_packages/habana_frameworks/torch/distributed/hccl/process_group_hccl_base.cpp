@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -83,7 +83,7 @@ void adjustElementcount_int64(
 
 bool resizeOddTensor(
     std::vector<at::Tensor>& tensors,
-    std::unique_ptr<bool[]>& changed,
+    std::unique_ptr<bool[]>& changed, // NOLINT(*-avoid-c-arrays)
     std::vector<std::vector<int64_t>>& sizeList,
     std::vector<std::vector<int64_t>>& strideList) {
   bool change = false;
@@ -106,7 +106,7 @@ bool resizeOddTensor(
 
 bool resizeTensor(
     std::vector<at::Tensor>& tensors,
-    std::unique_ptr<bool[]>& changed,
+    std::unique_ptr<bool[]>& changed, // NOLINT(*-avoid-c-arrays)
     std::vector<std::vector<int64_t>>& sizeList,
     std::vector<std::vector<int64_t>>& strideList,
     int extra_num_elems) {
@@ -134,13 +134,13 @@ bool resizeTensor(
 
 void restoreOddTensorsize(
     std::vector<at::Tensor>& tensors,
-    std::unique_ptr<bool[]>& changed,
+    std::unique_ptr<bool[]>& changed, // NOLINT(*-avoid-c-arrays)
     std::vector<std::vector<int64_t>>& sizeList,
     std::vector<std::vector<int64_t>>& strideList,
     c10::intrusive_ptr<Work>& work) {
   for (size_t i = 0; i < tensors.size(); i++) {
     auto btensor_type = tensors[i].scalar_type();
-    if (changed[i] == true) {
+    if (changed && changed[i]) {
       if (at::kChar == btensor_type || at::kByte == btensor_type ||
           at::kBool == btensor_type || at::kFloat8_e5m2 == btensor_type ||
           at::kFloat8_e4m3fn == btensor_type) {
@@ -156,7 +156,7 @@ void restoreOddTensorsize(
 
 void restoreTensorsize(
     std::vector<at::Tensor>& tensors,
-    std::unique_ptr<bool[]>& changed,
+    std::unique_ptr<bool[]>& changed, // NOLINT(*-avoid-c-arrays)
     std::vector<std::vector<int64_t>>& sizeList,
     std::vector<std::vector<int64_t>>& strideList,
     c10::intrusive_ptr<Work>& work,
@@ -170,7 +170,7 @@ void restoreTensorsize(
   // Below for the case: extra_num_elems > 1
   for (size_t i = 0; i < tensors.size(); i++) {
     auto btensor_type = tensors[i].scalar_type();
-    if (changed[i] == true) {
+    if (changed && changed[i]) {
       if (at::kChar == btensor_type || at::kByte == btensor_type ||
           at::kBool == btensor_type || at::kFloat8_e5m2 == btensor_type ||
           at::kFloat8_e4m3fn == btensor_type) {
@@ -230,11 +230,9 @@ void restoreTensorsize(
 }
 
 bool is_valid_hccl_dtype(hcclDataType_t data_type) {
-  if (data_type == hcclBfloat16 || data_type == hcclFloat ||
-      data_type == hcclFloat16) {
-    return true;
-  }
-  return false;
+  return (
+      data_type == hcclBfloat16 || data_type == hcclFloat ||
+      data_type == hcclFloat16);
 }
 
 } // namespace
@@ -324,6 +322,7 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::broadcast(
   PT_DISTRIBUTED_BEGIN;
   habana_lazy::NoAccThread no_acc_thread;
   size_t tensor_size = tensors.size();
+  // NOLINTNEXTLINE(*-avoid-c-arrays)
   std::unique_ptr<bool[]> changed(new bool[tensor_size]);
   std::vector<std::vector<int64_t>> sizeList(tensor_size);
   std::vector<std::vector<int64_t>> strideList(tensor_size);
@@ -346,15 +345,14 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::broadcast(
 
         habana_helpers::getCountDatatype(
             scalar_type,
-            input.element_size(),
+            static_cast<size_t>(input.element_size()),
             hccl_numel,
             hccl_data_type,
             always_support_int64_);
 
         size_t element_size = habana_helpers::getHCCLDataSize(hccl_data_type);
         size_t chunk_size_in_elems =
-            getHCCLSliceSize(habana_helpers::collectiveBroadcast) /
-            element_size;
+            habana_helpers::getHCCLSliceSize() / element_size;
 
         size_t data_offset = 0;
         hcclResult_t hccl_result{hcclSuccess};
@@ -380,14 +378,14 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::broadcast(
           size_t num_elements_in_current_chunk =
               (static_cast<size_t>(hccl_numel) > chunk_size_in_elems)
               ? chunk_size_in_elems
-              : hccl_numel;
+              : static_cast<size_t>(hccl_numel);
           if (!this->emulate_distributed_) {
             hccl_result = hcclBroadcast(
                 static_cast<const uint8_t*>(send_buffer) + data_offset,
                 static_cast<uint8_t*>(recv_buffer) + data_offset,
                 num_elements_in_current_chunk,
                 hccl_data_type,
-                rootRank,
+                static_cast<int>(rootRank),
                 hccl_comm,
                 stream);
           }
@@ -401,7 +399,7 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::broadcast(
         return hccl_result;
       });
   restoreOddTensorsize(tensors, changed, sizeList, strideList, work);
-  if (coalescing_state_) {
+  if (coalescing_state_ != 0) {
     coalesed_works_->append(work);
   }
 
@@ -442,12 +440,10 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::allreduce(
         HOST_SYNC()
         NW_STREAM_SYNC()
         hcclResult_t hccl_result{hcclSuccess};
-        size_t num_elements = input.numel();
+        auto num_elements = static_cast<size_t>(input.numel());
         size_t element_size = c10::elementSize(
             habana_helpers::getInternalDtype(input.scalar_type()));
-        size_t chunk_size =
-            getHCCLSliceSize(habana_helpers::collectiveAllReduce) /
-            element_size;
+        size_t chunk_size = habana_helpers::getHCCLSliceSize() / element_size;
         size_t data_offset = 0;
         while (num_elements > 0) {
           size_t num_elements_in_current_chunk =
@@ -503,7 +499,7 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::allreduce(
       tensors[i].copy_(allreduce_tensors[i].to(tensors[i].scalar_type()));
     }
   }
-  if (coalescing_state_) {
+  if (coalescing_state_ != 0) {
     coalesed_works_->append(work);
   }
 
@@ -536,12 +532,15 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::reduce(
   if (opts.reduceOp == c10d::ReduceOp::AVG) {
     reduce_op = c10d::ReduceOp::SUM;
   }
-  int root_rank = (opts.rootRank * reduction_tensors.size() + opts.rootTensor);
+  const auto root_rank = static_cast<int>(
+      (static_cast<size_t>(opts.rootRank) * reduction_tensors.size()) +
+      static_cast<size_t>(opts.rootTensor));
 
   auto work = collective(
       reduction_tensors,
       reduction_tensors,
-      [root = opts.rootRank * reduction_tensors.size() + opts.rootTensor,
+      [root = (static_cast<size_t>(opts.rootRank) * reduction_tensors.size()) +
+           static_cast<size_t>(opts.rootTensor),
        reduceOp = reduce_op,
        this](
           at::Tensor& input,
@@ -564,11 +563,10 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::reduce(
             " group_name :: ",
             group_name_);
         hcclResult_t hccl_result{hcclSuccess};
-        size_t num_elements = input.numel();
+        auto num_elements = static_cast<size_t>(input.numel());
         size_t element_size = c10::elementSize(
             habana_helpers::getInternalDtype(input.scalar_type()));
-        size_t chunk_size =
-            getHCCLSliceSize(habana_helpers::collectiveReduce) / element_size;
+        size_t chunk_size = habana_helpers::getHCCLSliceSize() / element_size;
         size_t data_offset = 0;
         while (num_elements > 0) {
           size_t num_elements_in_current_chunk =
@@ -576,13 +574,15 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::reduce(
           if (!this->emulate_distributed_) {
             hccl_result = hcclReduce(
                 reinterpret_cast<const void*>(
+                    // NOLINTNEXTLINE(readability-math-missing-parentheses)
                     reinterpret_cast<const char*>(send_buffer) + data_offset),
                 reinterpret_cast<void*>(
+                    // NOLINTNEXTLINE(readability-math-missing-parentheses)
                     reinterpret_cast<char*>(recv_buffer) + data_offset),
                 num_elements_in_current_chunk,
                 habana_helpers::getHCCLDataType(input.scalar_type()),
                 habana_helpers::getHCCLReduceOp(reduceOp, input.scalar_type()),
-                root,
+                static_cast<int>(root),
                 hccl_comm,
                 stream);
           }
@@ -610,7 +610,7 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::reduce(
       tensors[i].copy_(reduction_tensors[i].to(tensors[i].scalar_type()));
     }
   }
-  if (coalescing_state_) {
+  if (coalescing_state_ != 0) {
     coalesed_works_->append(work);
   }
 
@@ -626,8 +626,8 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::alltoall(
   habana_lazy::NoAccThread no_acc_thread;
   auto flattenedIn = newLikeFlat(inputTensors);
   auto flattenedOut = newLikeFlat(outputTensors);
-  for (const auto i : c10::irange(inputTensors.size())) {
-    flattenedIn[i].copy_(inputTensors.at(i));
+  for (size_t i = 0; i < inputTensors.size(); ++i) {
+    flattenedIn[static_cast<int64_t>(i)].copy_(inputTensors.at(i));
   }
   std::vector<at::Tensor> inputTensorsFlat;
   std::vector<at::Tensor> outputTensorsFlat;
@@ -650,7 +650,10 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::alltoall(
         const auto scalar_type = input.scalar_type();
 
         habana_helpers::getCountDatatype(
-            scalar_type, input.element_size(), hccl_numel, hccl_data_type);
+            scalar_type,
+            static_cast<size_t>(input.element_size()),
+            hccl_numel,
+            hccl_data_type);
 
         PT_DISTRIBUTED_DEBUG(
             "[PYT-DIST] alltoall with input_address :: ",
@@ -667,7 +670,7 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::alltoall(
         hccl_result = hcclAlltoAll(
             send_buffer,
             recv_buffer,
-            hccl_numel,
+            static_cast<size_t>(hccl_numel),
             hccl_data_type,
             hccl_comm,
             stream);
@@ -675,11 +678,12 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::alltoall(
       });
 
   work->wait();
-  for (const auto i : c10::irange(outputTensors.size())) {
+  for (size_t i = 0; i < outputTensors.size(); ++i) {
     outputTensors.at(i).copy_(
-        flattenedOut[i].to(inputTensors.at(i).scalar_type()));
+        flattenedOut[static_cast<int64_t>(i)].to(
+            inputTensors.at(i).scalar_type()));
   }
-  if (coalescing_state_) {
+  if (coalescing_state_ != 0) {
     coalesed_works_->append(work);
   }
 
@@ -735,7 +739,10 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::alltoall_base(
 
           const auto scalar_type = input.scalar_type();
           habana_helpers::getCountDatatype(
-              scalar_type, input.element_size(), hccl_numel, hccl_data_type);
+              scalar_type,
+              static_cast<size_t>(input.element_size()),
+              hccl_numel,
+              hccl_data_type);
 
           PT_DISTRIBUTED_DEBUG(
               "[PYT-DIST] alltoall with input_address :: ",
@@ -753,7 +760,7 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::alltoall_base(
             hccl_result = hcclAlltoAll(
                 send_buffer,
                 recv_buffer,
-                hccl_numel,
+                static_cast<size_t>(hccl_numel),
                 hccl_data_type,
                 hccl_comm,
                 stream);
@@ -774,10 +781,10 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::alltoall_base(
             void* recv_buffer,
             hcclComm_t& hccl_comm,
             synStreamHandle stream) {
-          std::vector<size_t> send_lengths(size_);
-          std::vector<size_t> recv_lengths(size_);
-          std::vector<size_t> send_offsets(size_);
-          std::vector<size_t> recv_offsets(size_);
+          std::vector<size_t> send_lengths(static_cast<size_t>(size_));
+          std::vector<size_t> recv_lengths(static_cast<size_t>(size_));
+          std::vector<size_t> send_offsets(static_cast<size_t>(size_));
+          std::vector<size_t> recv_offsets(static_cast<size_t>(size_));
           const auto scalar_type = input.scalar_type();
 
           c10d::computeLengthsAndOffsets(
@@ -800,38 +807,43 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::alltoall_base(
               hccl_data_type,
               " group_name :: ",
               group_name_);
-          size_t ele_size = input.element_size();
+          auto ele_size = static_cast<size_t>(input.element_size());
           habana_helpers::getCountDatatype(
-              scalar_type, input.element_size(), hccl_numel, hccl_data_type);
+              scalar_type,
+              static_cast<size_t>(input.element_size()),
+              hccl_numel,
+              hccl_data_type);
           adjustElementcount_int64(
               scalar_type, send_lengths, recv_lengths, ele_size);
           hcclGroupStart();
           hcclResult_t hccl_result{hcclSuccess};
-          for (const auto r : c10::irange(numRanks)) {
+          for (size_t r = 0; r < static_cast<size_t>(numRanks); ++r) {
             if (send_lengths[r] != 0) {
               hccl_result = hcclSend(
                   reinterpret_cast<const unsigned char*>(send_buffer) +
-                      send_offsets[r] * ele_size,
+                      (send_offsets[r] * ele_size),
                   send_lengths[r],
                   hccl_data_type,
-                  r,
+                  static_cast<int>(r),
                   hccl_comm,
                   stream);
-              if (hccl_result != hcclSuccess)
+              if (hccl_result != hcclSuccess) {
                 return hccl_result;
+              }
             }
 
             if (recv_lengths[r] != 0) {
               hccl_result = hcclRecv(
                   reinterpret_cast<unsigned char*>(recv_buffer) +
-                      recv_offsets[r] * ele_size,
+                      (recv_offsets[r] * ele_size),
                   recv_lengths[r],
                   hccl_data_type,
-                  r,
+                  static_cast<int>(r),
                   hccl_comm,
                   stream);
-              if (hccl_result != hcclSuccess)
+              if (hccl_result != hcclSuccess) {
                 return hccl_result;
+              }
             }
           }
           hcclGroupEnd();
@@ -844,7 +856,7 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::alltoall_base(
     work->wait();
     outputTensor.copy_(alltoall_out_tensors.to(outputTensor.scalar_type()));
   }
-  if (coalescing_state_) {
+  if (coalescing_state_ != 0) {
     coalesed_works_->append(work);
   }
 
@@ -884,15 +896,14 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::_broadcast_oop(
 
         habana_helpers::getCountDatatype(
             scalar_type,
-            input.element_size(),
+            static_cast<size_t>(input.element_size()),
             hccl_numel,
             hccl_data_type,
             always_support_int64_);
 
         size_t element_size = habana_helpers::getHCCLDataSize(hccl_data_type);
         size_t chunk_size_in_elems =
-            getHCCLSliceSize(habana_helpers::collectiveBroadcast) /
-            element_size;
+            habana_helpers::getHCCLSliceSize() / element_size;
 
         size_t data_offset = 0;
         hcclResult_t hccl_result{hcclSuccess};
@@ -918,14 +929,14 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::_broadcast_oop(
           size_t num_elements_in_current_chunk =
               (static_cast<size_t>(hccl_numel) > chunk_size_in_elems)
               ? chunk_size_in_elems
-              : hccl_numel;
+              : static_cast<size_t>(hccl_numel);
           if (!this->emulate_distributed_) {
             hccl_result = hcclBroadcast(
                 static_cast<const uint8_t*>(send_buffer) + data_offset,
                 static_cast<uint8_t*>(recv_buffer) + data_offset,
                 num_elements_in_current_chunk,
                 hccl_data_type,
-                rootRank,
+                static_cast<int>(rootRank),
                 hccl_comm,
                 stream);
           }
@@ -938,7 +949,7 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::_broadcast_oop(
         }
         return hccl_result;
       });
-  if (coalescing_state_) {
+  if (coalescing_state_ != 0) {
     coalesed_works_->append(work);
   }
 
@@ -956,23 +967,27 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::allgather(
   if (same_size) {
     bool change = false;
     size_t tensor_size = outputTensors[0].size();
+    // NOLINTBEGIN(*-avoid-c-arrays)
     std::unique_ptr<std::unique_ptr<bool[]>[]> changed(
         new std::unique_ptr<bool[]>[tensor_size]());
+    // NOLINTEND(*-avoid-c-arrays)
     std::vector<std::vector<std::vector<int64_t>>> sizeList(tensor_size);
     std::vector<std::vector<std::vector<int64_t>>> strideList(tensor_size);
     for (size_t i = 0; i < outputTensors.size(); i++) {
+      // NOLINTNEXTLINE(*-avoid-c-arrays)
       changed[i] = std::make_unique<bool[]>(outputTensors[i].size());
       sizeList[i].resize(outputTensors[i].size());
       strideList[i].resize(outputTensors[i].size());
       resizeOddTensor(outputTensors[i], changed[i], sizeList[i], strideList[i]);
     }
+    // NOLINTNEXTLINE(*-avoid-c-arrays)
     std::unique_ptr<bool[]> in_changed(new bool[tensor_size]);
     std::vector<std::vector<int64_t>> in_sizeList(tensor_size);
     std::vector<std::vector<int64_t>> in_strideList(tensor_size);
     change =
         resizeOddTensor(inputTensors, in_changed, in_sizeList, in_strideList);
     auto outputFlattened = habana_helpers::flatten_for_scatter_gather(
-        outputTensors, inputTensors, size_);
+        outputTensors, inputTensors, static_cast<size_t>(size_));
 
     auto work = collective(
         inputTensors,
@@ -990,7 +1005,7 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::allgather(
           auto hccl_numel = input.numel();
           habana_helpers::getCountDatatype(
               scalar_type,
-              input.element_size(),
+              static_cast<size_t>(input.element_size()),
               hccl_numel,
               hccl_data_type,
               always_support_int64_);
@@ -1016,7 +1031,7 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::allgather(
             hccl_result = hcclAllGather(
                 send_buffer,
                 recv_buffer,
-                hccl_numel,
+                static_cast<size_t>(hccl_numel),
                 hccl_data_type,
                 hccl_comm,
                 stream);
@@ -1027,7 +1042,8 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::allgather(
     for (size_t i = 0; i < outputTensors.size(); ++i) {
       for (size_t j = 0; j < outputTensors[0].size(); ++j) {
         if (!this->emulate_distributed_) {
-          outputTensors[i][j].copy_(outputFlattened[i][j], true);
+          outputTensors[i][j].copy_(
+              outputFlattened[i][static_cast<int64_t>(j)], true);
         } else {
           outputTensors[i][j].copy_(inputTensors[i], true);
         }
@@ -1054,9 +1070,9 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::allgather(
     for (const auto i : c10::irange(num_reduces)) {
       std::vector<at::Tensor> inputs_multi_dev(num_devices);
       std::vector<at::Tensor> outputs_multi_dev(num_devices);
-      for (const auto j : c10::irange(num_devices)) {
+      for (size_t j = 0; j < static_cast<size_t>(num_devices); ++j) {
         outputs_multi_dev[j] = outputTensors[j][i];
-        inputs_multi_dev[j] = i == (rank * num_devices + j)
+        inputs_multi_dev[j] = i == (static_cast<size_t>(rank) * num_devices + j)
             ? inputTensors[j]
             : outputs_multi_dev[j];
       }
@@ -1066,7 +1082,7 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::allgather(
           opts.timeout};
       work = _broadcast_oop(outputs_multi_dev, inputs_multi_dev, broadcastOpts);
     }
-    if (coalescing_state_) {
+    if (coalescing_state_ != 0) {
       coalesed_works_->append(work);
     }
 
@@ -1101,13 +1117,23 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::_allgather_base(
   // size compatible with resize method api and with singularity of allgather
   // base
   auto tensor_size{1};
-  std::unique_ptr<bool[]> in_changed(new bool[tensor_size]);
-  std::vector<std::vector<int64_t>> in_sizeList(tensor_size);
-  std::vector<std::vector<int64_t>> in_strideList(tensor_size);
+  // NOLINTBEGIN(*-avoid-c-arrays)
+  std::unique_ptr<bool[]> in_changed(
+      new bool[static_cast<size_t>(tensor_size)]);
+  // NOLINTEND(*-avoid-c-arrays)
+  std::vector<std::vector<int64_t>> in_sizeList(
+      static_cast<size_t>(tensor_size));
+  std::vector<std::vector<int64_t>> in_strideList(
+      static_cast<size_t>(tensor_size));
 
-  std::unique_ptr<bool[]> out_changed(new bool[tensor_size]);
-  std::vector<std::vector<int64_t>> out_sizeList(tensor_size);
-  std::vector<std::vector<int64_t>> out_strideList(tensor_size);
+  // NOLINTBEGIN(*-avoid-c-arrays)
+  std::unique_ptr<bool[]> out_changed(
+      new bool[static_cast<size_t>(tensor_size)]);
+  // NOLINTEND(*-avoid-c-arrays)
+  std::vector<std::vector<int64_t>> out_sizeList(
+      static_cast<size_t>(tensor_size));
+  std::vector<std::vector<int64_t>> out_strideList(
+      static_cast<size_t>(tensor_size));
 
   // Case 1 with even world size:
   //    rank 0: input [63] -> resize to [64]
@@ -1162,13 +1188,16 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::_allgather_base(
         auto hccl_data_type = habana_helpers::getHCCLDataType(scalar_type);
         auto hccl_numel = input.numel();
         habana_helpers::getCountDatatype(
-            scalar_type, input.element_size(), hccl_numel, hccl_data_type);
+            scalar_type,
+            static_cast<size_t>(input.element_size()),
+            hccl_numel,
+            hccl_data_type);
         hcclResult_t hccl_result{hcclSuccess};
         if (!this->emulate_distributed_) {
           hccl_result = hcclAllGather(
               send_buffer,
               recv_buffer,
-              hccl_numel,
+              static_cast<size_t>(hccl_numel),
               hccl_data_type,
               hccl_comm,
               stream);
@@ -1190,8 +1219,8 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::_allgather_base(
       out_strideList,
       work,
       out_resize_extra_num_elems,
-      ori_input_size);
-  if (coalescing_state_) {
+      static_cast<int>(ori_input_size));
+  if (coalescing_state_ != 0) {
     coalesed_works_->append(work);
   }
 
@@ -1239,13 +1268,23 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::allgather_into_tensor_coalesced(
   // size compatible with resize method api and with singularity of allgather
   // base
   auto tensor_size{1};
-  std::unique_ptr<bool[]> in_changed(new bool[tensor_size]);
-  std::vector<std::vector<int64_t>> in_sizeList(tensor_size);
-  std::vector<std::vector<int64_t>> in_strideList(tensor_size);
+  // NOLINTBEGIN(*-avoid-c-arrays)
+  std::unique_ptr<bool[]> in_changed(
+      new bool[static_cast<size_t>(tensor_size)]);
+  // NOLINTEND(*-avoid-c-arrays)
+  std::vector<std::vector<int64_t>> in_sizeList(
+      static_cast<size_t>(tensor_size));
+  std::vector<std::vector<int64_t>> in_strideList(
+      static_cast<size_t>(tensor_size));
 
-  std::unique_ptr<bool[]> out_changed(new bool[tensor_size]);
-  std::vector<std::vector<int64_t>> out_sizeList(tensor_size);
-  std::vector<std::vector<int64_t>> out_strideList(tensor_size);
+  // NOLINTBEGIN(*-avoid-c-arrays)
+  std::unique_ptr<bool[]> out_changed(
+      new bool[static_cast<size_t>(tensor_size)]);
+  // NOLINTEND(*-avoid-c-arrays)
+  std::vector<std::vector<int64_t>> out_sizeList(
+      static_cast<size_t>(tensor_size));
+  std::vector<std::vector<int64_t>> out_strideList(
+      static_cast<size_t>(tensor_size));
 
   // Case 1 with even world size:
   //    rank 0: input [63] -> resize to [64]
@@ -1298,13 +1337,16 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::allgather_into_tensor_coalesced(
         auto hccl_data_type = habana_helpers::getHCCLDataType(scalar_type);
         auto hccl_numel = input.numel();
         habana_helpers::getCountDatatype(
-            scalar_type, input.element_size(), hccl_numel, hccl_data_type);
+            scalar_type,
+            static_cast<size_t>(input.element_size()),
+            hccl_numel,
+            hccl_data_type);
         hcclResult_t hccl_result{hcclSuccess};
         if (!this->emulate_distributed_) {
           hccl_result = hcclAllGather(
               send_buffer,
               recv_buffer,
-              hccl_numel,
+              static_cast<size_t>(hccl_numel),
               hccl_data_type,
               hccl_comm,
               stream);
@@ -1326,9 +1368,9 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::allgather_into_tensor_coalesced(
       out_strideList,
       work,
       out_resize_extra_num_elems,
-      ori_input_size);
+      static_cast<int>(ori_input_size));
 
-  if (coalescing_state_) {
+  if (coalescing_state_ != 0) {
     coalesed_works_->append(work);
   }
 
@@ -1361,20 +1403,20 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::gather(
     int numRanks = getSize();
     for (int r = 0; r < numRanks; r++) {
       if (r == getRank()) {
-        outputs[r].copy_(inputTensors[0]);
+        outputs[static_cast<size_t>(r)].copy_(inputTensors[0]);
         std::vector<at::Tensor> outs;
         work = initWork(outs);
       } else {
         std::vector<at::Tensor> recvTensor;
-        recvTensor.push_back(outputs[r]);
+        recvTensor.push_back(outputs[static_cast<size_t>(r)]);
         work = recv(recvTensor, r, 0 /*tag*/);
       }
     }
   } else {
     HABANA_ASSERT(outputTensors.empty(), "Requires empty output on non-root");
-    work = send(inputTensors, opts.rootRank, 0 /*tag*/);
+    work = send(inputTensors, static_cast<int>(opts.rootRank), 0 /*tag*/);
   }
-  if (coalescing_state_) {
+  if (coalescing_state_ != 0) {
     coalesed_works_->append(work);
   }
 
@@ -1407,20 +1449,20 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::scatter(
     int numRanks = getSize();
     for (int r = 0; r < numRanks; r++) {
       if (r == opts.rootRank) {
-        outputTensors[0].copy_(inputs[r]);
+        outputTensors[0].copy_(inputs[static_cast<size_t>(r)]);
         std::vector<at::Tensor> outs;
         work = initWork(outs);
       } else {
         std::vector<at::Tensor> sendTensor;
-        sendTensor.push_back(inputs[r]);
+        sendTensor.push_back(inputs[static_cast<size_t>(r)]);
         work = send(sendTensor, r, 0 /*tag*/);
       }
     }
   } else {
     HABANA_ASSERT(inputTensors.empty(), "Requires empty input on non-root");
-    work = recv(outputTensors, opts.rootRank, 0 /*tag*/);
+    work = recv(outputTensors, static_cast<int>(opts.rootRank), 0 /*tag*/);
   }
-  if (coalescing_state_) {
+  if (coalescing_state_ != 0) {
     coalesed_works_->append(work);
   }
 
@@ -1435,10 +1477,11 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::reduce_scatter(
   PT_DISTRIBUTED_BEGIN;
   habana_lazy::NoAccThread no_acc_thread;
   auto inputFlattened = habana_helpers::flatten_for_scatter_gather(
-      inputTensors, outputTensors, size_);
+      inputTensors, outputTensors, static_cast<size_t>(size_));
   for (size_t i = 0; i < inputTensors.size(); ++i) {
     for (size_t j = 0; j < inputTensors[0].size(); ++j) {
-      inputFlattened[i][j].copy_(inputTensors[i][j], true);
+      inputFlattened[i][static_cast<int64_t>(j)].copy_(
+          inputTensors[i][j], true);
     }
   }
   c10d::ReduceOp reduce_op = opts.reduceOp;
@@ -1474,7 +1517,7 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::reduce_scatter(
           hccl_result = hcclReduceScatter(
               send_buffer,
               recv_buffer,
-              output.numel(),
+              static_cast<size_t>(output.numel()),
               habana_helpers::getHCCLDataType(input.scalar_type()),
               habana_helpers::getHCCLReduceOp(reduceOp, input.scalar_type()),
               hccl_comm,
@@ -1490,7 +1533,7 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::reduce_scatter(
       outputTensors[i].div_(worldSize);
     }
   }
-  if (coalescing_state_) {
+  if (coalescing_state_ != 0) {
     coalesed_works_->append(work);
   }
 
@@ -1567,7 +1610,7 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::_reduce_scatter_base(
           hccl_result = hcclReduceScatter(
               send_buffer,
               recv_buffer,
-              output.numel(),
+              static_cast<size_t>(output.numel()),
               habana_helpers::getHCCLDataType(input.scalar_type()),
               habana_helpers::getHCCLReduceOp(reduceOp, input.scalar_type()),
               hccl_comm,
@@ -1587,7 +1630,7 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::_reduce_scatter_base(
     output_tensor.copy_(reduce_out_tensors.to(output_tensor.scalar_type()));
   }
 
-  if (coalescing_state_) {
+  if (coalescing_state_ != 0) {
     coalesed_works_->append(work);
   }
 
@@ -1675,7 +1718,7 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::reduce_scatter_tensor_coalesced(
           hccl_result = hcclReduceScatter(
               send_buffer,
               recv_buffer,
-              output.numel(),
+              static_cast<size_t>(output.numel()),
               habana_helpers::getHCCLDataType(input.scalar_type()),
               habana_helpers::getHCCLReduceOp(reduceOp, input.scalar_type()),
               hccl_comm,
@@ -1705,7 +1748,7 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::reduce_scatter_tensor_coalesced(
       outputs_in[i].copy_(output_tensor.to(output_tensor.scalar_type()));
     }
   }
-  if (coalescing_state_) {
+  if (coalescing_state_ != 0) {
     coalesed_works_->append(work);
   }
 
@@ -1720,6 +1763,7 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::send(
   PT_DISTRIBUTED_BEGIN;
   habana_lazy::NoAccThread no_acc_thread;
   size_t tensor_size = tensors.size();
+  // NOLINTNEXTLINE(*-avoid-c-arrays)
   std::unique_ptr<bool[]> changed(new bool[tensor_size]);
   std::vector<std::vector<int64_t>> sizeList(tensor_size);
   std::vector<std::vector<int64_t>> strideList(tensor_size);
@@ -1749,7 +1793,10 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::send(
         auto hccl_data_type = habana_helpers::getHCCLDataType(scalar_type);
         auto hccl_numel = input.numel();
         habana_helpers::getCountDatatype(
-            scalar_type, input.element_size(), hccl_numel, hccl_data_type);
+            scalar_type,
+            static_cast<size_t>(input.element_size()),
+            hccl_numel,
+            hccl_data_type);
         hcclResult_t hccl_result{hcclSuccess};
         if (send_buff == nullptr && hccl_numel == 0) {
           PT_DISTRIBUTED_WARN(
@@ -1757,7 +1804,7 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::send(
         } else if (!this->emulate_distributed_) {
           hccl_result = hcclSend(
               send_buff,
-              hccl_numel,
+              static_cast<size_t>(hccl_numel),
               hccl_data_type,
               peerRank,
               hccl_comm,
@@ -1768,7 +1815,7 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::send(
       dstRank);
   habana::TryRestoreToOrgSendTensors(tensors, org_tensors);
   restoreOddTensorsize(tensors, changed, sizeList, strideList, work);
-  if (coalescing_state_) {
+  if (coalescing_state_ != 0) {
     coalesed_works_->append(work);
   }
 
@@ -1783,6 +1830,7 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::recv(
   PT_DISTRIBUTED_BEGIN;
   habana_lazy::NoAccThread no_acc_thread;
   size_t tensor_size = tensors.size();
+  // NOLINTNEXTLINE(*-avoid-c-arrays)
   std::unique_ptr<bool[]> changed(new bool[tensor_size]);
   std::vector<std::vector<int64_t>> sizeList(tensor_size);
   std::vector<std::vector<int64_t>> strideList(tensor_size);
@@ -1810,7 +1858,10 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::recv(
         auto hccl_data_type = habana_helpers::getHCCLDataType(scalar_type);
         auto hccl_numel = tensor.numel();
         habana_helpers::getCountDatatype(
-            scalar_type, tensor.element_size(), hccl_numel, hccl_data_type);
+            scalar_type,
+            static_cast<size_t>(tensor.element_size()),
+            hccl_numel,
+            hccl_data_type);
         hcclResult_t hccl_result{hcclSuccess};
         if (recv_buff == nullptr && hccl_numel == 0) {
           PT_DISTRIBUTED_WARN(
@@ -1818,7 +1869,7 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::recv(
         } else if (!this->emulate_distributed_) {
           hccl_result = hcclRecv(
               recv_buff,
-              hccl_numel,
+              static_cast<size_t>(hccl_numel),
               hccl_data_type,
               peerRank,
               hccl_comm,
@@ -1828,7 +1879,7 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::recv(
       },
       srcRank);
   restoreOddTensorsize(tensors, changed, sizeList, strideList, work);
-  if (coalescing_state_) {
+  if (coalescing_state_ != 0) {
     coalesed_works_->append(work);
   }
 

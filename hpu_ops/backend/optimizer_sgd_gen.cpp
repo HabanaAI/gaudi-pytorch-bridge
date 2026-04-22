@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,15 +27,18 @@ SharedMetaDataVector OptimizerSgdSharedMeta(
   const auto& weights = stack.at(1).toTensorVector();
   const auto& lr = stack.at(2).toTensor();
   auto precision_type = gradients[0].scalar_type();
-  if (at::isFloatingType(precision_type))
+  if (at::isFloatingType(precision_type)) {
     precision_type = at::ScalarType::Float;
+  }
 
   SharedMetaDataVector shared_meta_vec;
   size_t weights_size = weights.size();
+  shared_meta_vec.reserve(weights_size);
   for (size_t i = 0; i < weights_size; ++i) {
     const auto& gradient = gradients[i];
     const auto& weight = weights[i];
-    SharedMetaData optimizer_shared_meta{"optimizer_sgd_bwd"};
+    auto& optimizer_shared_meta =
+        shared_meta_vec.emplace_back("optimizer_sgd_bwd");
     optimizer_shared_meta.inputs_data = {
         {gradient.dim(), precision_type},
         getSharedMetaFromTensor(weight),
@@ -44,7 +47,6 @@ SharedMetaDataVector OptimizerSgdSharedMeta(
         getSharedMetaFromTensor(lr)};
     optimizer_shared_meta.outputs_data.emplace_back(
         getSharedMetaFromTensor(weight));
-    shared_meta_vec.push_back(optimizer_shared_meta);
   }
 
   return shared_meta_vec;
@@ -60,16 +62,19 @@ SharedMetaDataVector OptimizerSgdMomentumSharedMeta(
   const auto& lr = stack.at(4).toTensor();
   const auto& mom = stack.at(5).toTensor();
   auto precision_type = gradients[0].scalar_type();
-  if (at::isFloatingType(precision_type))
+  if (at::isFloatingType(precision_type)) {
     precision_type = at::ScalarType::Float;
+  }
 
   SharedMetaDataVector shared_meta_vec;
   size_t weights_size = weights.size();
+  shared_meta_vec.reserve(weights_size);
   for (size_t i = 0; i < weights_size; ++i) {
     const auto& gradient = gradients[i];
     const auto& weight = weights[i];
     const auto& momentum = momentums[i];
-    SharedMetaData optimizer_shared_meta{"optimizer_sgd_bwd"};
+    auto& optimizer_shared_meta =
+        shared_meta_vec.emplace_back("optimizer_sgd_bwd");
     optimizer_shared_meta.inputs_data = {
         {gradient.dim(), precision_type},
         getSharedMetaFromTensor(weight),
@@ -81,7 +86,6 @@ SharedMetaDataVector OptimizerSgdMomentumSharedMeta(
         getSharedMetaFromTensor(weight),
         createOptionalNotPresentSharedMetaTensor(),
         getSharedMetaFromTensor(momentum)};
-    shared_meta_vec.push_back(optimizer_shared_meta);
   }
 
   return shared_meta_vec;
@@ -139,9 +143,9 @@ void OptimizerFusedSGDOperator::AddNode(
   }
 
   ns_OptimizerSGD::Params sgd_params;
-  sgd_params.wd = wd;
-  sgd_params.damp = damp;
-  sgd_params.mom = mom;
+  sgd_params.wd = static_cast<float>(wd);
+  sgd_params.damp = static_cast<float>(damp);
+  sgd_params.mom = static_cast<float>(mom);
   sgd_params.nesterov = nesterov;
   SetScalarType(gradients[0].pt_t.scalar_type());
   std::string sgd_guid =
@@ -188,9 +192,9 @@ void OptimizerFusedSGDMomentumOperator::AddNode(
   }
 
   ns_OptimizerSGD::Params sgd_params;
-  sgd_params.wd = wd;
-  sgd_params.damp = damp;
-  sgd_params.mom = (float)0.1;
+  sgd_params.wd = static_cast<float>(wd);
+  sgd_params.damp = static_cast<float>(damp);
+  sgd_params.mom = 0.1F; // NOLINT(readability-magic-numbers)
   sgd_params.nesterov = nesterov;
   SetScalarType(gradients[0].pt_t.scalar_type());
   std::string sgd_guid =

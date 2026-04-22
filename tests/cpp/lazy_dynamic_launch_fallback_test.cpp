@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -49,7 +49,7 @@ TEST_F(LazyDynamicDualFallbackTest, ExpandTest) {
   constexpr int Wmax{482}, Hmax{200};
   std::vector<int> W_in_sizes{1, Wmax, 1, Wmax, 1, Wmax};
   std::vector<int> H_in_sizes{Hmax, 1, Hmax, 1, 1, Hmax};
-  for (int i = 0; i < W_in_sizes.size(); i++) {
+  for (size_t i = 0; i < W_in_sizes.size(); i++) {
     PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
     int W = W_in_sizes[i];
     int H = H_in_sizes[i];
@@ -75,7 +75,7 @@ TEST_F(LazyDynamicDualFallbackTest, ExpandTest2) {
   std::vector<int> W_in_sizes{754, 350, 664, 1};
   std::vector<int> H_in_sizes{2, 2, 2, 2};
   std::vector<int> W_expand_sizes{754, 350, 664, 500};
-  for (int i = 0; i < W_in_sizes.size(); i++) {
+  for (size_t i = 0; i < W_in_sizes.size(); i++) {
     int W = W_in_sizes[i];
     int H = H_in_sizes[i];
     int W_expand = W_expand_sizes[i];
@@ -99,7 +99,7 @@ TEST_F(LazyDynamicDualFallbackTest, DynamicBatchedNms) {
   std::vector<int> num_boxes{10, 12};
   std::vector<std::vector<int>> refs{
       {7, 1, 5, 0, 6, 8, 4}, {11, 5, 4, 3, 2, 8, 1, 0, 7, 10}};
-  for (int i = 0; i < num_boxes.size(); i++) {
+  for (size_t i = 0; i < num_boxes.size(); i++) {
     torch::Tensor scores = torch::rand({num_boxes[i]});
     torch::Tensor hscores = scores.to(torch::kHPU);
 

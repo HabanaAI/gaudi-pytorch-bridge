@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,8 +36,9 @@ static PyObject* THP_HPU_Event_pynew(
 
   // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays,modernize-avoid-c-arrays)
   constexpr const char* kwlist[] = {"enable_timing", nullptr};
-  if (!PyArg_ParseTupleAndKeywords(
-          args, kwargs, "|b", const_cast<char**>(kwlist), &enable_timing)) {
+  if (PyArg_ParseTupleAndKeywords(
+          args, kwargs, "|b", const_cast<char**>(kwlist), &enable_timing) ==
+      0) {
     return nullptr;
   }
 
@@ -47,7 +48,7 @@ static PyObject* THP_HPU_Event_pynew(
   }
 
   auto* self = (THP_HPU_Event*)ptr.get();
-  unsigned int flags = (enable_timing ? 1 : 0);
+  unsigned int flags = (enable_timing != 0U ? 1 : 0);
 
   new (&self->hpu_event) at::hpu::HPUEvent(flags);
 
@@ -82,8 +83,8 @@ static PyObject* THP_HPU_Event_get_device(
 
 static PyObject* THP_HPU_Event_record(PyObject* _self, PyObject* _stream) {
   HANDLE_TH_ERRORS
-  auto self = (THP_HPU_Event*)_self;
-  auto stream = (THP_HPU_Stream*)_stream;
+  auto* self = (THP_HPU_Event*)_self;
+  auto* stream = (THP_HPU_Stream*)_stream;
   self->hpu_event.record(stream->hpu_stream);
   Py_RETURN_NONE;
   END_HANDLE_TH_ERRORS
@@ -91,8 +92,8 @@ static PyObject* THP_HPU_Event_record(PyObject* _self, PyObject* _stream) {
 
 static PyObject* THP_HPU_Event_wait(PyObject* _self, PyObject* _stream) {
   HANDLE_TH_ERRORS {
-    auto self = (THP_HPU_Event*)_self;
-    auto stream = (THP_HPU_Stream*)_stream;
+    auto* self = (THP_HPU_Event*)_self;
+    auto* stream = (THP_HPU_Stream*)_stream;
     pybind11::gil_scoped_release no_gil{};
     self->hpu_event.block(stream->hpu_stream);
   }
@@ -104,15 +105,15 @@ static PyObject* THP_HPU_Event_query(
     PyObject* _self,
     [[maybe_unused]] PyObject* noargs) {
   HANDLE_TH_ERRORS
-  auto self = (THP_HPU_Event*)_self;
-  return PyBool_FromLong(self->hpu_event.query());
+  auto* self = (THP_HPU_Event*)_self;
+  return PyBool_FromLong(static_cast<long>(self->hpu_event.query()));
   END_HANDLE_TH_ERRORS
 }
 
 static PyObject* THP_HPU_Event_elapsed_time(PyObject* _self, PyObject* _other) {
   HANDLE_TH_ERRORS
-  auto self = (THP_HPU_Event*)_self;
-  auto other = (THP_HPU_Event*)_other;
+  auto* self = (THP_HPU_Event*)_self;
+  auto* other = (THP_HPU_Event*)_other;
   return PyFloat_FromDouble(self->hpu_event.elapsed_time(other->hpu_event));
   END_HANDLE_TH_ERRORS
 }
@@ -121,7 +122,7 @@ static PyObject* THP_HPU_Event_synchronize(
     PyObject* _self,
     [[maybe_unused]] PyObject* noargs) {
   HANDLE_TH_ERRORS {
-    auto self = (THP_HPU_Event*)_self;
+    auto* self = (THP_HPU_Event*)_self;
     pybind11::gil_scoped_release no_gil{};
     self->hpu_event.synchronize();
   }
@@ -129,8 +130,8 @@ static PyObject* THP_HPU_Event_synchronize(
   END_HANDLE_TH_ERRORS
 }
 
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays,
-// cppcoreguidelines-avoid-non-const-global-variables, modernize-avoid-c-arrays)
+// NOLINTBEGIN(*-avoid-c-arrays,
+// cppcoreguidelines-avoid-non-const-global-variables)
 static struct PyGetSetDef THP_HPU_Event_properties[] = {
     {"device", (getter)THP_HPU_Event_get_device, nullptr, nullptr, nullptr},
     {"hpu_event",
@@ -140,8 +141,6 @@ static struct PyGetSetDef THP_HPU_Event_properties[] = {
      nullptr},
     {nullptr, nullptr, nullptr, nullptr, nullptr}};
 
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays,
-// cppcoreguidelines-avoid-non-const-global-variables, modernize-avoid-c-arrays)
 static PyMethodDef THP_HPU_Event_methods[] = {
     {(char*)"record", THP_HPU_Event_record, METH_O, nullptr},
     {(char*)"wait", THP_HPU_Event_wait, METH_O, nullptr},
@@ -149,6 +148,8 @@ static PyMethodDef THP_HPU_Event_methods[] = {
     {(char*)"elapsed_time", THP_HPU_Event_elapsed_time, METH_O, nullptr},
     {(char*)"synchronize", THP_HPU_Event_synchronize, METH_NOARGS, nullptr},
     {nullptr, nullptr, 0, nullptr}};
+// NOLINTEND(*-avoid-c-arrays,
+// cppcoreguidelines-avoid-non-const-global-variables)
 
 PyTypeObject THP_HPU_EventType = {
 #if PY_VERSION_HEX >= 0x03000000

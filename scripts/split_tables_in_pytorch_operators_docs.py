@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -34,9 +34,7 @@ def get_line_idx(lines, regex):
 
 def remove_consecutive_entries(list):
     out_list = []
-    for i in range(len(list) - 1):
-        if list[i] != list[i + 1] - 1:
-            out_list.append(list[i])
+    out_list = [list[i] for i in range(len(list) - 1) if list[i] != list[i + 1] - 1]
     out_list.append(list[-1])
     return out_list
 

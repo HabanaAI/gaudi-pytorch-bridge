@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -56,10 +56,7 @@ class ConvRelu(nn.Module):
 class InnerNet(nn.Module):
     def __init__(self, dyn_ops, reuse_relu, sz):
         super().__init__()
-        if reuse_relu:
-            relu = Relu()
-        else:
-            relu = None
+        relu = Relu() if reuse_relu else None
         self.conv1 = ConvRelu(1, 32, relu)
         self.conv2 = ConvRelu(32, 16, relu)
         self.conv3 = nn.Conv2d(16, 8, 3, 3)
@@ -116,10 +113,7 @@ def train(start_bs, dyn_inp, dyn_ops, reuse_relu=False, wrap_inner=False):
     optimizer = torch.optim.Adam(net.parameters(), lr=0.005)
     loss_func = torch.nn.MSELoss()
     # Batch sizes is changed to make the model dynamic and force recompilation
-    if dyn_inp:
-        bs_list = [start_bs] * 3 + [start_bs + 10] * 2
-    else:
-        bs_list = [start_bs] * 5
+    bs_list = [start_bs] * 3 + [start_bs + 10] * 2 if dyn_inp else [start_bs] * 5
 
     for bs in bs_list:
         inp_size = 50

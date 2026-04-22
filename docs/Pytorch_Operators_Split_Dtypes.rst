@@ -1173,7 +1173,7 @@ acosh                                     Yes      Yes       Yes       Yes      
 acosh\_                                   Yes      Yes       Yes       Yes      Yes    torch
 add                                       Yes      Yes       Yes       Yes      Yes    torch
 addbmm                                    No       No        No        No       No     torch
-addcdiv                                   Yes      Yes       Yes       Yes      Yes    torch
+addcdiv                                   No       No        No        No       No     torch
 addcmul                                   Yes      Yes       Yes       Yes      Yes    torch
 addmm                                     No       No        No        No       No     torch
 addmv                                     No       No        No        No       No     torch
@@ -1199,8 +1199,8 @@ arctan2                                   Yes      Yes       Yes       Yes      
 arctan\_                                  Yes      Yes       Yes       Yes      Yes    torch
 arctanh                                   No       No        No        No       No     torch
 arctanh\_                                 No       No        No        No       No     torch
-argmax                                    Yes      Yes       No        Yes      Yes    torch
-argmin                                    Yes      Yes       No        Yes      Yes    torch
+argmax                                    Yes      Yes       No        Yes      No     torch
+argmin                                    Yes      Yes       No        Yes      No     torch
 argsort                                   Yes      Yes       Yes       No       No     torch
 as_strided                                Yes      Yes       Yes       Yes      Yes    torch
 as_strided\_                              Yes      Yes       Yes       Yes      Yes    torch
@@ -1579,7 +1579,7 @@ add                                       Yes      Yes       Yes       Yes      
 add\_                                     Yes      Yes       Yes       Yes      Yes    torch.Tensor
 addbmm                                    No       No        No        No       No     torch.Tensor
 addbmm\_                                  No       No        No        No       No     torch.Tensor
-addcdiv                                   Yes      Yes       Yes       Yes      Yes    torch.Tensor
+addcdiv                                   No       No        No        No       No     torch.Tensor
 addcdiv\_                                 Yes      Yes       Yes       Yes      Yes    torch.Tensor
 addcmul                                   Yes      Yes       Yes       Yes      Yes    torch.Tensor
 addcmul\_                                 Yes      Yes       Yes       Yes      Yes    torch.Tensor
@@ -1608,8 +1608,8 @@ arctan2\_                                 Yes      Yes       Yes       Yes      
 arctan\_                                  Yes      Yes       Yes       Yes      Yes    torch.Tensor
 arctanh                                   No       No        No        No       No     torch.Tensor
 arctanh\_                                 No       No        No        No       No     torch.Tensor
-argmax                                    Yes      Yes       No        Yes      Yes    torch.Tensor
-argmin                                    Yes      Yes       No        Yes      Yes    torch.Tensor
+argmax                                    Yes      Yes       No        Yes      No     torch.Tensor
+argmin                                    Yes      Yes       No        Yes      No     torch.Tensor
 argsort                                   Yes      Yes       Yes       No       No     torch.Tensor
 as_strided                                Yes      Yes       Yes       Yes      Yes    torch.Tensor
 as_strided\_                              Yes      Yes       Yes       Yes      Yes    torch.Tensor

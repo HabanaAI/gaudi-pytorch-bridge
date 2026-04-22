@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,17 +21,18 @@ OutputMetaDataVector BmmMeta(const at::Stack& stack) {
   const at::Tensor mat2 = stack_tensor(stack, 1);
   auto self_sizes = self.sizes();
   auto mat2_sizes = mat2.sizes();
-  auto self_end_iter = self_sizes.end();
-  auto mat2_end_iter = mat2_sizes.end();
+  const auto* self_end_iter = self_sizes.end();
+  const auto* mat2_end_iter = mat2_sizes.end();
 
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.dtype = self.scalar_type();
 
   if ((self.dim() == 4 && mat2.dim() == 4) ||
       (self.dim() == 5 && mat2.dim() == 5)) {
     meta.shape = self_sizes.vec();
     meta.shape.back() = mat2_sizes.back();
-    return {meta};
+    return metaVec;
   }
 
   HABANA_ASSERT(
@@ -57,7 +58,7 @@ OutputMetaDataVector BmmMeta(const at::Stack& stack) {
       "]")
 
   meta.shape = {self_sizes[0], self_sizes[1], *(mat2_end_iter - 1)};
-  return {meta};
+  return metaVec;
 }
 
 } // namespace habana

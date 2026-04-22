@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -87,8 +87,9 @@ auto linear_test = [](std::vector<int64_t> in_shape /* shape upto n-1*/,
 
     EXPECT_EQ(allclose(grad_wt, hgrad_wt_cpu, 0.01, 0.01), true);
     EXPECT_EQ(allclose(grad_in, hgrad_in_cpu, 0.01, 0.01), true);
-    if (bias_required)
+    if (bias_required) {
       EXPECT_EQ(allclose(grad_bias, hgrad_bias_cpu, 0.01, 0.01), true);
+    }
     in_shape.pop_back();
   }
 };
@@ -150,8 +151,9 @@ auto linear_backward_test =
 
         EXPECT_EQ(allclose(grad_wt, hgrad_wt_cpu, 0.01, 0.01), true);
         EXPECT_EQ(allclose(grad_in, hgrad_in_cpu, 0.01, 0.01), true);
-        if (bias_required)
+        if (bias_required) {
           EXPECT_EQ(allclose(grad_bias, hgrad_bias_cpu, 0.01, 0.01), true);
+        }
 
         in_shape.pop_back();
       }

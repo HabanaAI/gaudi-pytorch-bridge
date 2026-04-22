@@ -15,6 +15,10 @@
 
 #include "generated/backend/gather_csr.h"
 
+#include <ATen/core/stack.h>
+
+#include "backend/backend_meta.h"
+
 namespace habana {
 
 OutputMetaDataVector GatherCsrMeta(const at::Stack& stack) {

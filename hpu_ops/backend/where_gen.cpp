@@ -27,7 +27,8 @@ OutputMetaDataVector WhereMeta(const at::Stack& stack) {
   const auto& selfSizes = self.sizes();
   const auto& otherSizes = other.sizes();
 
-  OutputMetaData meta{};
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
 
   meta.dtype = at::result_type(self, other);
   meta.shape = at::infer_size(at::infer_size(condSizes, selfSizes), otherSizes);
@@ -42,7 +43,9 @@ SharedMetaDataVector WhereSharedMeta(
   auto self = stack_tensor(stack, 1);
   auto other = stack_tensor(stack, 2);
 
-  SharedMetaData whereMeta{"where_fwd"};
+  SharedMetaDataVector meta;
+  meta.reserve(1);
+  auto& whereMeta = meta.emplace_back("where_fwd");
   whereMeta.inputs_data.emplace_back(cond.dim(), cond.scalar_type());
   whereMeta.inputs_data.emplace_back(self.dim(), self.scalar_type());
   whereMeta.inputs_data.emplace_back(other.dim(), other.scalar_type());
@@ -54,7 +57,7 @@ SharedMetaDataVector WhereSharedMeta(
       false);
   whereMeta.outputs_data.emplace_back(self.dim(), result_type);
 
-  return {whereMeta};
+  return meta;
 }
 
 void WhereBackend::AddNode(

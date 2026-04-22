@@ -22,7 +22,7 @@ void PipelineDeleter::install() {}
 
 void PipelineDeleter::uninstall() {}
 
-void PipelineDeleter::delete_function(void*) {
+void PipelineDeleter::delete_function(void*) const {
   // clang ignore [[maybe_unused]] attribute in the class header
   std::ignore = m_marked_tid;
 }

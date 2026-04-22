@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -117,8 +117,8 @@ at::Tensor habana_lazy::empty_hpu_lazy(
 
     // set metadata that its a shape tensor
     if (shape_tensor) {
-      auto tmeta{habana::get_tensor_extra_meta(at_internal_tensor, true)};
-      if (tmeta) {
+      auto* tmeta{habana::get_tensor_extra_meta(at_internal_tensor, true)};
+      if (tmeta != nullptr) {
         tmeta->set_tensor_type(tensor_type);
       }
     }
@@ -142,7 +142,7 @@ at::Tensor habana_lazy::empty_hpu_lazy(
       hb_tensor.SetTensorData(at_internal_tensor);
 
       // Keep a pointer to the storageless tensor from the internal tensor
-      auto at_internal_impl = GetHbInternalTensorImpl(at_internal_tensor);
+      auto* at_internal_impl = GetHbInternalTensorImpl(at_internal_tensor);
       HABANA_ASSERT(at_internal_impl != nullptr);
 
       // Any lazy tensor created with storage should be marked as executed
@@ -172,7 +172,7 @@ at::Tensor habana_lazy::empty_hpu_lazy(
     // If we are not from lowering context, return the storageless one.
     if (!is_in_lowering_mode) {
       // Note: storage() api call also sets the front end storage()
-      if (create_storage && at_tensor.numel()) {
+      if (create_storage && (at_tensor.numel() != 0)) {
         if (!is_strided) {
           HABANA_ASSERT(
               (at_tensor.storage().data_ptr() &&

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,7 +40,7 @@ bool FunctionalToInplaceRewriter::CanBeInplace(Node* node) {
 
   Symbol inplace_op =
       Symbol::fromQualString(std::string(node->kind().toQualString()) + "_");
-  if (!inplace_op) {
+  if (inplace_op == 0U) {
     return false;
   }
 

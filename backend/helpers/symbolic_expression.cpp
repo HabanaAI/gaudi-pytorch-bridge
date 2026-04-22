@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -147,7 +147,7 @@ void SymExpression::dump_symbol_table() {
   std::vector<std::string> variable_list;
   m_symbol_table.get_variable_list(variable_list);
   for (const auto& variable_name : variable_list) {
-    auto variable_ptr = m_symbol_table.get_variable(variable_name);
+    auto* variable_ptr = m_symbol_table.get_variable(variable_name);
     PT_BRIDGE_DEBUG(
         "SymExpression Variable:", variable_name, " = ", variable_ptr->ref());
   }

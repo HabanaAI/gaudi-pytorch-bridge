@@ -49,10 +49,11 @@ SharedMetaDataVector IsNanSharedMeta(
 
 OutputMetaDataVector IsFiniteInfNanMeta(const at::Stack& stack) {
   const at::Tensor& self = stack_tensor(stack, 0);
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.shape = self.sizes().vec();
   meta.dtype = at::kBool;
-  return {meta};
+  return metaVec;
 }
 
 void _IsFiniteInfNan::AddNode(

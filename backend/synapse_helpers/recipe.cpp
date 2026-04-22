@@ -52,6 +52,7 @@ void recipe::set_inputs_outputs_names(
 void recipe::populate_syn_tensor_ids() {
   if (!tensor_ids) {
     auto num_tensors = input_names_.size() + output_names_.size();
+    // NOLINTNEXTLINE(*-avoid-c-arrays)
     tensor_ids = std::make_unique<uint64_t[]>(num_tensors);
     tensor_names.reserve(num_tensors);
 

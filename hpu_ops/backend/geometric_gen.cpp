@@ -14,7 +14,6 @@
  */
 
 #include "generated/backend/geometric.h"
-#include "habana_kernels/random_gen_kernels.h"
 
 namespace habana {
 FillParamsT FillRandomNegativeBinomialParams(const at::Stack& stack) {
@@ -36,10 +35,12 @@ SharedMetaDataVector GeometricSharedMeta(
   auto rank = self.dim();
   auto dtype = self.scalar_type();
 
-  SharedMetaData geometricSharedMeta{"random_negative_binomial_fwd"};
+  SharedMetaDataVector meta;
+  meta.reserve(1);
+  auto& geometricSharedMeta = meta.emplace_back("random_negative_binomial_fwd");
   geometricSharedMeta.inputs_data.emplace_back(1, c10::ScalarType::Int);
   geometricSharedMeta.outputs_data.emplace_back(rank, dtype);
-  return {geometricSharedMeta};
+  return meta;
 }
 
 void Geometric::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {

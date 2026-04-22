@@ -105,7 +105,9 @@ SharedMetaDataVector ScaledTriangularSoftmaxSharedMeta(
     habana_helpers::HabanaExecutionMode /*unused*/) {
   const at::Tensor& input = stack_tensor(stack, 0);
 
-  SharedMetaData sharedMeta("scaled_masked_triangular_softmax_fwd");
+  SharedMetaDataVector meta;
+  meta.reserve(1);
+  auto& sharedMeta = meta.emplace_back("scaled_masked_triangular_softmax_fwd");
 
   sharedMeta.inputs_data = {
       getSharedMetaFromTensor(input),
@@ -117,7 +119,7 @@ SharedMetaDataVector ScaledTriangularSoftmaxSharedMeta(
 
   sharedMeta.outputs_data = {getSharedMetaFromTensor(input)};
 
-  return {sharedMeta};
+  return meta;
 }
 
 } // namespace habana

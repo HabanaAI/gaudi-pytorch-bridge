@@ -14,11 +14,12 @@
 ###############################################################################
 
 from copy import deepcopy
+from itertools import product
 
 import numpy as np
 import pytest
 import torch
-from test_utils import cpu, hpu, is_lazy
+from test_utils import compile_function_if_compile_mode, cpu, format_tc, hpu, is_lazy
 from torch import nn
 
 Verbose = False
@@ -95,13 +96,7 @@ conv_chlast_test_case_list = (
     + resnet50_test_case_list
 )
 
-
-conv_bwd_with_output_mask_test_case_list = [
-    # N, H, W, C, output_mask
-    (16, 8, 6, 6, [True, True, True]),
-    (16, 8, 6, 6, [True, False, False]),
-    (16, 8, 6, 6, [False, False, False]),
-]
+conv_bwd_with_output_mask_test_case_list = [(16, 8, 6, 6, x) for x in list(product([True, False], repeat=3))]
 
 
 @pytest.mark.parametrize("N, H, W, C, R, S, K, stride, padding, bias", conv_chlast_test_case_list)
@@ -142,24 +137,26 @@ def test_hpu_chain_loop_conv_chlast_fwd_bwd(N, H, W, C, R, S, K, stride, padding
         )
 
 
-@pytest.mark.parametrize("N, H, W, C, output_mask", conv_bwd_with_output_mask_test_case_list)
-def test_hpu_conv_with_output_mask(N, H, W, C, output_mask):
-    if False in output_mask:
-        pytest.xfail("SW-177687")
-
+@pytest.mark.parametrize("N, C, H, W, output_mask", conv_bwd_with_output_mask_test_case_list, ids=format_tc)
+def test_hpu_conv_with_output_mask(N, C, H, W, output_mask):
     def check_grad(is_mask_enabled, grad, output_var_name):
         if is_mask_enabled:
             assert grad is not None, f"For a mask value equals to True, {output_var_name} cannot be equal to None"
         else:
             assert grad is None, f"For a mask value equals to False, {output_var_name} must be None"
 
-    grad_output = torch.empty(size=[N, H, W, C], dtype=torch.float32).uniform_(-1, 1).to(hpu)
-    input = torch.empty(size=[N, H, W, C], dtype=torch.float32).uniform_(-1, 1).to(hpu)
-    weight = torch.empty(size=[H, H, W // 2, C // 2], dtype=torch.float32).uniform_(-1, 1).to(hpu)
+    grad_output = torch.empty(size=[N, C, H, W], dtype=torch.float32).uniform_(-1, 1).to(hpu)
+    input = torch.empty(size=[N, C, H, W], dtype=torch.float32).uniform_(-1, 1).to(hpu)
+    weight = torch.empty(size=[C, C, H // 2, W // 2], dtype=torch.float32).uniform_(-1, 1).to(hpu)
 
-    grad_input, grad_weight, grad_bias = torch.ops.aten.convolution_backward(
-        grad_output, input, weight, [0], [1, 1], [1, 1], [1, 1], False, [0, 0], 1, output_mask
-    )
+    def conv_bwd(grad_output, input, weight, output_mask):
+        # size of the bias (fourth input) must be correctly given, because PyTorch doesn't handle the size on its own what may lead to the errors on the backend level, more info: https://github.com/pytorch/pytorch/issues/119407
+        return torch.ops.aten.convolution_backward(
+            grad_output, input, weight, [C], [1, 1], [1, 1], [1, 1], False, [0, 0], 1, output_mask
+        )
+
+    maybe_compiled_conv_bwd = compile_function_if_compile_mode(conv_bwd)
+    grad_input, grad_weight, grad_bias = maybe_compiled_conv_bwd(grad_output, input, weight, output_mask)
 
     check_grad(output_mask[0], grad_input, "grad_input")
     check_grad(output_mask[1], grad_weight, "grad_weight")

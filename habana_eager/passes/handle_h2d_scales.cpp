@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025 Intel Corporation
+ * Copyright (c) 2025-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -60,8 +60,8 @@ std::vector<size_t> get_scales_indices(std::string_view node_name) {
 struct HandleH2dScalesPass {
   explicit HandleH2dScalesPass(
       std::shared_ptr<habana_torch::jit::Graph> graph,
-      H2dScalesIndicesNames& h2d_scales_idx_names,
-      AdjacentCastFp8Indices& adjacent_cast_fp8_indices)
+      H2dScalesIndicesNames* h2d_scales_idx_names,
+      AdjacentCastFp8Indices* adjacent_cast_fp8_indices)
       : m_graph(std::move(graph)),
         m_h2d_scales_idx_names(h2d_scales_idx_names),
         m_adjacent_cast_fp8_indices(adjacent_cast_fp8_indices) {}
@@ -84,8 +84,8 @@ struct HandleH2dScalesPass {
     }
     const auto scale_name = input->debugName();
     const auto scale_idx = org_stack_index_map.at(scale_name);
-    const auto scale_ivalue = org_stack[scale_idx];
-    const auto scale_tensor = scale_ivalue.toTensor();
+    const auto& scale_ivalue = org_stack[scale_idx];
+    const auto& scale_tensor = scale_ivalue.toTensor();
 
     if (scale_tensor.is_cpu()) {
       // Store CPU scales indices for later patching.
@@ -107,30 +107,30 @@ struct HandleH2dScalesPass {
       return;
     }
     const auto& inputs = node->inputs();
-    const auto input = inputs[0];
+    const auto* const input = inputs[0];
     // Logical ops are allowed to be placed between cast_to_fp8 and
     // cast_from_fp8 nodes.
-    auto parent_node = input->node();
+    const auto* parent_node = input->node();
     while (logical_ops.count(parent_node->kind()) == 1) {
       parent_node = parent_node->inputs()[0]->node();
     }
     const auto parent_symbol = parent_node->kind();
     const bool node_is_cast_to = cast_to_fp8_symbol == node_symbol;
-    if (not((node_is_cast_to and cast_from_fp8_symbol == parent_symbol) or
-            (not node_is_cast_to and cast_to_fp8_symbol == parent_symbol))) {
+    if ((!node_is_cast_to || cast_from_fp8_symbol != parent_symbol) &&
+        (node_is_cast_to || cast_to_fp8_symbol != parent_symbol)) {
       return;
     }
-    const auto node_scale = inputs[1];
+    const auto* const node_scale = inputs[1];
     if (node_scale->type()->cast<at::TensorType>() == nullptr) {
       return;
     }
 
-    const auto parent_scale = parent_node->inputs()[1];
+    const auto* const parent_scale = parent_node->inputs()[1];
     if (parent_scale->type()->cast<at::TensorType>() == nullptr) {
       return;
     }
 
-    m_adjacent_cast_fp8_indices.emplace_back(
+    m_adjacent_cast_fp8_indices->emplace_back(
         org_stack_index_map.at(parent_scale->debugName()),
         org_stack_index_map.at(node_scale->debugName()));
   }
@@ -144,8 +144,8 @@ struct HandleH2dScalesPass {
     GraphInputIndexMap org_stack_index_map;
     habana_helpers::createGraphInputStackIndexMap(m_graph, org_stack_index_map);
 
-    for (const auto node : block->nodes()) {
-      const auto maybe_schema = node->maybeSchema();
+    for (const auto* const node : block->nodes()) {
+      const auto* const maybe_schema = node->maybeSchema();
       if (maybe_schema == nullptr) {
         continue;
       }
@@ -167,7 +167,7 @@ struct HandleH2dScalesPass {
       op_scale_indices.reserve(scale_indices.size());
 
       for (const size_t idx : scale_indices) {
-        const auto scale = node->inputs().at(idx);
+        const auto* const scale = node->inputs().at(idx);
         if (scale->node()->kind() == habana_torch::jit::prim::ListConstruct) {
           for (const auto& input : scale->node()->inputs()) {
             collectScaleIndices(
@@ -187,7 +187,7 @@ struct HandleH2dScalesPass {
         }
       }
       if (not op_scale_indices.empty()) {
-        m_h2d_scales_idx_names.emplace_back(
+        m_h2d_scales_idx_names->emplace_back(
             std::move(op_scale_indices), std::move(node_name));
       }
       if (GET_ENV_FLAG_NEW(PT_HPU_MARK_NON_RECIPROCAL_CASTS)) {
@@ -196,7 +196,7 @@ struct HandleH2dScalesPass {
     }
     PT_BRIDGE_DEBUG(
         "Found ",
-        m_adjacent_cast_fp8_indices.size(),
+        m_adjacent_cast_fp8_indices->size(),
         " pairs of adjacent cast_to/from_fp8 nodes in the graph");
   }
 
@@ -204,14 +204,14 @@ struct HandleH2dScalesPass {
       const at::ArrayRef<habana_torch::jit::Block*> blocks,
       const torch::jit::Stack& org_stack) {
     PT_EAGER_TRACE;
-    for (auto block : blocks) {
+    for (auto* block : blocks) {
       processBlock(block, org_stack);
     }
   }
 
   std::shared_ptr<habana_torch::jit::Graph> m_graph;
-  H2dScalesIndicesNames& m_h2d_scales_idx_names;
-  AdjacentCastFp8Indices& m_adjacent_cast_fp8_indices;
+  H2dScalesIndicesNames* m_h2d_scales_idx_names;
+  AdjacentCastFp8Indices* m_adjacent_cast_fp8_indices;
 };
 
 void HandleH2dScales(
@@ -221,7 +221,7 @@ void HandleH2dScales(
     AdjacentCastFp8Indices& adjacent_cast_fp8_indices) {
   PT_EAGER_TRACE;
   HandleH2dScalesPass pass{
-      graph, h2d_scales_idx_names, adjacent_cast_fp8_indices};
+      graph, &h2d_scales_idx_names, &adjacent_cast_fp8_indices};
   pass.run(stack);
 }
 

@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +15,6 @@
 
 import math
 
-import habana_frameworks.torch.utils.experimental as htexp
 from habana_frameworks.torch import _hpu_C
 from habana_frameworks.torch.hpu import get_device_name
 
@@ -559,10 +558,7 @@ def meta_habana_normal_tt(seed, mean, std, *args, **kwargs):
             layout = kwarg_layout
 
         kwarg_dtype = kwargs.get("dtype")
-        if kwarg_dtype is None:
-            dtype = torch.get_default_dtype()
-        else:
-            dtype = kwarg_dtype
+        dtype = kwarg_dtype if kwarg_dtype else torch.get_default_dtype()
 
     return seed.new_empty(shape, dtype=dtype, layout=layout)
 
@@ -594,9 +590,7 @@ def meta_sdpa_recomp_fwd_helper(q, k, v, requires_backward, softmax_mode):
         m_dtype = torch.float32
     out_types = [q.dtype, m_dtype, linv_dtype, seed_dtype]  # dtypes of [fwd_out, m, Linv, seed]
 
-    out_tensors = []
-    for i in range(len(out_shapes)):
-        out_tensors.append(q.new_empty(out_shapes[i], dtype=out_types[i]))
+    out_tensors = [q.new_empty(out_shapes[i], dtype=out_types[i]) for i in range(len(out_shapes))]
 
     return out_tensors
 
@@ -1309,11 +1303,12 @@ def common_mixture_of_experts_bwd_meta(
     grad_tokens_in, router_weights_size, weights_lists, *, amax_outputs=0, weights_dtype=None, num_experts=None
 ):
     outputs = [torch.empty_like(grad_tokens_in), grad_tokens_in.new_empty(size=router_weights_size)]
-    for _ in range(amax_outputs):
-        outputs.append(torch.empty(len(weights_lists[0][:num_experts]), dtype=torch.float32, device="meta"))
+    outputs.extend(
+        torch.empty(len(weights_lists[0][:num_experts]), dtype=torch.float32, device="meta")
+        for _ in range(amax_outputs)
+    )
     for weight_list in weights_lists:
-        for w in weight_list[:num_experts]:
-            outputs.append(torch.empty_like(w, dtype=weights_dtype))
+        outputs.extend(torch.empty_like(w, dtype=weights_dtype) for w in weight_list[:num_experts])
     return outputs
 
 
@@ -1620,10 +1615,7 @@ def linear(input, weight, bias=None):
 def linear_backward(self, grad_output, weight, output_mask):
     input_grad = self.new_empty(self.shape, dtype=self.dtype)
     weight_grad = weight.new_empty(weight.shape, dtype=weight.dtype)
-    if output_mask[2] is True:
-        bias_grad = weight.new_empty((weight.shape[0]), dtype=weight.dtype)
-    else:
-        bias_grad = None
+    bias_grad = weight.new_empty(weight.shape[0], dtype=weight.dtype) if output_mask[2] is True else None
     return input_grad, weight_grad, bias_grad
 
 
@@ -1664,51 +1656,63 @@ def meta_quantize_nf4(input, blocksize):
     )
 
 
+def round_up(num, dtype):
+    """
+    Rounds 'num' up to the nearest multiple of 'roundup'.
+    'roundup' should ideally be a power of two for this bitwise logic to work as intended.
+    """
+    roundup = 64 if dtype == torch.float32 else 128
+    return (num + (roundup - 1)) & ~(roundup - 1)
+
+
 @register_meta([torch.ops.hpu.block_softmax.default])
-def meta_block_softmax(attn, block_bias, block_ind):
-    # Get shape information
-    num_blocks = attn.size(0)
-    kv_heads = attn.size(1)
-    gqa = attn.size(2)
-    num_tokens = attn.size(3)
+def meta_block_softmax(attn, block_bias, block_ind, *, output_scale=1.0, output_dtype=None, fp8_exp=False):
+    attn_shape, maxes_shape, sums_shape = _hpu_C.custom_op_calc_out_shape_params_int("block_softmax", [attn], [])
 
-    # Output 1: Same shape as input
-    attn_out = attn.new_empty(attn.shape)
-
-    is_gaudi2 = htexp._get_device_type() == htexp.synDeviceType.synDeviceGaudi2
-
-    # Output 2 & 3: Reshape and align to vector size
-    if attn.dtype == torch.float32:
-        vec_size = 64
-    else:  # bfloat16
-        vec_size = 128
-
-    def round_up(num, roundup):
-        """
-        Rounds 'num' up to the nearest multiple of 'roundup'.
-        'roundup' should ideally be a power of two for this bitwise logic to work as intended.
-        """
-        return (num + (roundup - 1)) & ~(roundup - 1)
-
-    flat_size = kv_heads * gqa * num_tokens
-    aligned_flat_size = round_up(flat_size, vec_size)
-
-    reduce_shape = ()
-
-    if is_gaudi2:  # no padding required for gaudi2
-        reduced_shape = (num_blocks, flat_size)
-    else:
-        reduced_shape = (num_blocks, aligned_flat_size)
-
-    b_maxes = attn.new_empty(reduced_shape)
-    b_sums = attn.new_empty(reduced_shape)
+    attn_out = attn.new_empty(attn_shape, dtype=(output_dtype if output_dtype else attn.dtype))
+    b_maxes = attn.new_empty(maxes_shape)
+    b_sums = attn.new_empty(sums_shape)
 
     return (attn_out, b_maxes, b_sums)
 
 
 @register_meta([torch.ops.hpu.block_softmax_adjustment.default])
-def meta_block_softmax_adjustment(block_maxes, block_sums, block_groups, batch_size, out_shape=None):
-    return block_maxes.new_empty(out_shape if out_shape is not None else block_maxes.shape)
+def meta_block_softmax_adjustment(
+    block_maxes,
+    block_sums,
+    block_groups,
+    batch_size,
+    out_shape=None,
+    *,
+    attn_fused_mult=None,
+    output_scale=1.0,
+    output_dtype=None,
+    is_staged=False,
+):
+    if attn_fused_mult is not None:
+        output_shape = attn_fused_mult.shape
+    elif out_shape is not None:
+        output_shape = out_shape
+    else:
+        output_shape = block_maxes.shape
+    return block_maxes.new_empty(output_shape, dtype=(output_dtype if output_dtype else block_maxes.dtype))
+
+
+@register_meta([torch.ops.hpu.block_softmax_staged_sum_max.default])
+def meta_block_softmax_staged_sum_max(
+    block_maxes,
+    block_sums,
+    block_groups,
+    batch_size,
+):
+    maxes_shape, sums_shape = _hpu_C.custom_op_calc_out_shape_params_int(
+        "block_softmax_staged_sum_max", [block_maxes], [batch_size]
+    )
+
+    b_maxes = block_maxes.new_empty(maxes_shape)
+    b_sums = block_sums.new_empty(sums_shape)
+
+    return b_maxes, b_sums
 
 
 @register_meta([torch.ops.hpu.upsample_bicubic2d_custom.vec])
@@ -1743,6 +1747,18 @@ def meta_block_softmax_const_max(
     attn, block_bias, block_groups, batch_size, global_block_max, *, output_scale=1.0, output_dtype=None
 ):
     return attn.new_empty(attn.shape, dtype=output_dtype if output_dtype else attn.dtype)
+
+
+@register_meta([torch.ops.hpu.softmax_fa2.default])
+def meta_softmax_fa2(input, **kwargs):
+    inputM = kwargs.get("inputM")
+    inputL = kwargs.get("inputL")
+    return (
+        input.new_empty(input.shape),
+        inputM.new_empty(inputM.shape),
+        inputL.new_empty(inputL.shape),
+        inputL.new_empty(inputL.shape),
+    )
 
 
 def activate_hpu_custom_op_meta():

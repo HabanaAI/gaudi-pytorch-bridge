@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,7 +26,6 @@ class HpuOpComputeShapeTest : public HpuOpTestUtil {
 TEST_F(HpuOpComputeShapeTest, bce_usual_3D_sum_cmptopshp) {
   const std::vector<int64_t> size = {8, 3, 2};
   GenerateInputs(3, {size, size, {8, 3, 1}});
-  torch::ScalarType dtype = torch::kFloat;
 
   auto expected = torch::binary_cross_entropy(
       torch::sigmoid(GetCpuInput(0)),
@@ -45,7 +44,6 @@ TEST_F(HpuOpComputeShapeTest, bce_usual_3D_sum_cmptopshp) {
 TEST_F(HpuOpComputeShapeTest, bce_usual_3D_sum_out_cmptopshp) {
   const std::vector<int64_t> size = {8, 3, 2};
   GenerateInputs(3, {size, size, {8, 3, 1}});
-  torch::ScalarType dtype = torch::kFloat;
 
   auto expected = torch::empty_like(GetCpuInput(0));
   auto result = torch::empty_like(GetHpuInput(0));

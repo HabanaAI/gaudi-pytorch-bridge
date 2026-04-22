@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -202,12 +202,12 @@ void MemoryDAG::setWildcards(
   // If an element is set as a wildcard, that means that all its memory
   // locations must point to the wildcard element.
   for (const Value* v : wildcards) {
-    auto wildcardElement = getWildcardElement(v);
+    auto* wildcardElement = getWildcardElement(v);
     HABANA_ASSERT(wildcardElement);
 
     const MemoryLocations& pointeeSet = getMemoryLocations(elementMap.at(v));
     for (const auto& pointee : pointeeSet) {
-      auto from = this->fromIndex(pointee);
+      auto* from = this->fromIndex(pointee);
       // avoid cycles where the wildcard points to itself
       if (from != wildcardElement) {
         makePointerToImpl(from, wildcardElement);
@@ -231,8 +231,8 @@ void MemoryDAG::setWildcards(
       continue;
     }
 
-    auto wildcardElement = getWildcardElement(*(e->values.begin()));
-    if (!wildcardElement) {
+    auto* wildcardElement = getWildcardElement(*(e->values.begin()));
+    if (wildcardElement == nullptr) {
       // This value is not a wildcard.
       continue;
     }

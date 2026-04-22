@@ -89,7 +89,7 @@ class HbExecutionContext {
   void RegisterTensor(std::shared_ptr<Data> data);
   void UnregisterTensor(Data* data);
   void MarkTensorsExecuted() {
-    HbContext* devctx = habana_lazy::HbContextArena::Get()->GetHbContext();
+    auto devctx = habana_lazy::HbContextArena::Get().GetHbContext();
     // ensure that Data is destroyed outside of HbContextArena mutex
     // to avoid deadlock with StridedViewContext mutex that can be
     // acquired during Data d'tors
@@ -97,7 +97,7 @@ class HbExecutionContext {
     data_tensors.reserve(devctx->tensors_data.size());
     {
       std::lock_guard<std::recursive_mutex> lock(
-          habana_lazy::HbContextArena::Get()->GetMutex());
+          habana_lazy::HbContextArena::Get().GetMutex());
       std::for_each(
           devctx->tensors_data.begin(),
           devctx->tensors_data.end(),
@@ -122,9 +122,8 @@ class HbExecutionContext {
     data_tensors.reserve(indices.size());
     {
       std::lock_guard<std::recursive_mutex> lock(
-          habana_lazy::HbContextArena::Get()->GetMutex());
-      HbContext* devctx =
-          habana_lazy::HbContextArena::Get()->GetHbContext(device);
+          habana_lazy::HbContextArena::Get().GetMutex());
+      auto devctx = habana_lazy::HbContextArena::Get().GetHbContext(device);
       for (const auto& k : indices) {
         if (devctx->tensors_data.find(k) != devctx->tensors_data.end()) {
           std::shared_ptr<Data> data = devctx->tensors_data.at(k).lock();
@@ -148,9 +147,8 @@ class HbExecutionContext {
     data_tensors.reserve(acc_indices.size());
     {
       std::lock_guard<std::recursive_mutex> lock(
-          habana_lazy::HbContextArena::Get()->GetMutex());
-      HbContext* devctx =
-          habana_lazy::HbContextArena::Get()->GetHbContext(device);
+          habana_lazy::HbContextArena::Get().GetMutex());
+      auto devctx = habana_lazy::HbContextArena::Get().GetHbContext(device);
 
       for (const auto& k : acc_indices) {
         if (devctx->tensors_data.find(k) != devctx->tensors_data.end()) {
@@ -167,8 +165,7 @@ class HbExecutionContext {
   }
 
   void MarkAllTensorsExecuted(const c10::Device& device) {
-    HbContext* devctx =
-        habana_lazy::HbContextArena::Get()->GetHbContext(device);
+    auto devctx = habana_lazy::HbContextArena::Get().GetHbContext(device);
     // ensure that Data is destroyed outside of HbContextArena mutex
     // to avoid deadlock with StridedViewContext mutex that can be
     // acquired during Data d'tors
@@ -176,7 +173,7 @@ class HbExecutionContext {
     data_tensors.reserve(devctx->tensors_data.size());
     {
       std::lock_guard<std::recursive_mutex> lock(
-          habana_lazy::HbContextArena::Get()->GetMutex());
+          habana_lazy::HbContextArena::Get().GetMutex());
       std::for_each(
           devctx->tensors_data.begin(),
           devctx->tensors_data.end(),

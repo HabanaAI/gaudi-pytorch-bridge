@@ -42,11 +42,12 @@ OutputMetaDataVector AddMVMeta(const at::Stack& stack) {
       ",",
       vec.size(0));
 
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.dtype = mat.scalar_type();
   meta.shape = {mat.sizes()[0]}; // (n, m)@(m, 1) -> (n, 1)
 
-  return {meta};
+  return metaVec;
 }
 
 SharedMetaDataVector AddMVSharedMeta(

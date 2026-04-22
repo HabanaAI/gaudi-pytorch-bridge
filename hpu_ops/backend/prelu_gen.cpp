@@ -19,11 +19,12 @@ namespace habana {
 OutputMetaDataVector PreluFwdMeta(const at::Stack& stack) {
   const auto& input = stack_tensor(stack, 0);
 
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.shape = input.sizes().vec();
   meta.dtype = input.scalar_type();
 
-  return {meta};
+  return metaVec;
 }
 
 OutputMetaDataVector PreluBwdMeta(const at::Stack& stack) {

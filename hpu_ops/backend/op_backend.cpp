@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -65,8 +65,9 @@ static at::ScalarType GetScalarType(const at::Stack& stack, int index) {
       ival.isTensor() ? ival.toTensor().scalar_type() : ival.toScalar().type();
 
   // return Bool instead of Char for handling copy from/to Bool in Cast Node
-  if (type == at::kBool)
+  if (type == at::kBool) {
     return type;
+  }
 
   return habana_helpers::getInternalDtype(type);
 }
@@ -152,8 +153,10 @@ OutputMetaDataVector OpBackend::OutputMeta(const at::Stack& stack) const {
   if (m_output_meta_fn) {
     return m_output_meta_fn(stack);
   } else if (m_partial_output_meta_fn) {
+    auto partial_output_vector = m_partial_output_meta_fn(stack);
     OutputMetaDataVector meta;
-    for (const auto& m : m_partial_output_meta_fn(stack)) {
+    meta.reserve(partial_output_vector.size());
+    for (const auto& m : partial_output_vector) {
       meta.emplace_back(m.dtype, m.shape);
     }
     return meta;
@@ -305,10 +308,14 @@ void OpBackend::HandleInplaceFn(sh::graph& graph, const at::Stack& stack) {
        (stack_id < stack.size()) && (inplace_ids_pos < m_inplace_ids.size());
        ++stack_id) {
     const auto& ival = stack[stack_id];
-    const auto& tensors = ival.isTensor()
-        ? static_cast<at::List<at::Tensor>>(ival.toTensor())
-        : ival.isTensorList() ? ival.toTensorList()
-                              : at::List<at::Tensor>{};
+    at::List<at::Tensor> tensors;
+    if (ival.isTensor()) {
+      tensors = static_cast<at::List<at::Tensor>>(ival.toTensor());
+    } else if (ival.isTensorList()) {
+      tensors = ival.toTensorList();
+    } else {
+      tensors = at::List<at::Tensor>{};
+    }
 
     const auto inplace_id = m_inplace_ids[inplace_ids_pos];
     if (inplace_id != (int)stack_id) {
@@ -478,22 +485,12 @@ sh::tensor OpBackend::ConstantHelper(
 synapse_helpers::tensor OpBackend::CopyHelper(
     at::IntArrayRef src_size,
     c10::ScalarType src_type,
-    at::IntArrayRef dest_size,
-    c10::ScalarType dest_type,
     synapse_helpers::graph& graph,
     std::vector<synTensor> inputs,
     const OutputMetaDataVector meta,
     std::optional<int> result_index) {
   return OpBackend::BuildCopy(
-      src_size,
-      src_type,
-      dest_size,
-      dest_type,
-      this,
-      graph,
-      std::move(inputs),
-      meta,
-      result_index);
+      src_size, src_type, this, graph, std::move(inputs), meta, result_index);
 }
 
 sh::tensor OpBackend::BroadcastHelper(
@@ -889,31 +886,35 @@ std::vector<sh::tensor> OpBackend::BuildNode(
       }
 
       const auto& t = GetProxyTensor(attr.dtype, attr.sizes);
-      outputs.emplace_back(
-          habana_helpers::is_shape_tensor(attr.tensor_type)
-              ? habana_helpers::create_shape_tensor_backend(
-                    t,
-                    graph,
-                    is_persistent,
-                    attr.tensor_type,
-                    op->GetOpDynamicity())
-              : attr.syn_data_type == syn_type_na
-              ? habana_helpers::create_tensor(
-                    t,
-                    graph,
-                    is_persistent,
-                    is_external,
-                    attr.dtype,
-                    std::string(),
-                    std::string())
-              : habana_helpers::create_tensor(
-                    t,
-                    graph,
-                    is_persistent,
-                    is_external,
-                    attr.syn_data_type,
-                    std::string(),
-                    std::string()));
+      if (habana_helpers::is_shape_tensor(attr.tensor_type)) {
+        outputs.emplace_back(
+            habana_helpers::create_shape_tensor_backend(
+                t,
+                graph,
+                is_persistent,
+                attr.tensor_type,
+                op->GetOpDynamicity()));
+      } else if (attr.syn_data_type == syn_type_na) {
+        outputs.emplace_back(
+            habana_helpers::create_tensor(
+                t,
+                graph,
+                is_persistent,
+                is_external,
+                attr.dtype,
+                std::string(),
+                std::string()));
+      } else {
+        outputs.emplace_back(
+            habana_helpers::create_tensor(
+                t,
+                graph,
+                is_persistent,
+                is_external,
+                attr.syn_data_type,
+                std::string(),
+                std::string()));
+      }
 
       if (is_persistent) {
         const auto& impl =
@@ -1079,10 +1080,10 @@ sh::tensor OpBackend::BuildCast(
     std::optional<int> final_result_index) {
   PT_BRIDGE_DEBUG("Performing cast from:\t", from, "\t\tto:\t", to);
 
-  if (!(from == at::kBool || to == at::kBool))
+  if (from != at::kBool && to != at::kBool) {
     return OpBackend::BuildRegularCast(
         op, graph, syn_in, sizes, from, to, final_result_index);
-
+  }
   auto boolResult = OpBackend::BuildBoolCast(
       op,
       graph,
@@ -1091,9 +1092,9 @@ sh::tensor OpBackend::BuildCast(
       from,
       to == at::kBool ? final_result_index : std::nullopt);
 
-  if (to == at::kBool || to == at::kChar)
+  if (to == at::kBool || to == at::kChar) {
     return boolResult;
-
+  }
   return OpBackend::BuildRegularCast(
       op, graph, boolResult.get(), sizes, at::kBool, to, final_result_index);
 }
@@ -1162,50 +1163,47 @@ sh::tensor OpBackend::BuildConstant(
 sh::tensor OpBackend::BuildCopy(
     at::IntArrayRef src_size,
     c10::ScalarType src_type,
-    at::IntArrayRef dest_size,
-    c10::ScalarType dest_type,
     OpBackend* op,
     synapse_helpers::graph& graph,
     std::vector<synTensor> inputs,
     OutputMetaDataVector meta,
     std::optional<int> result_index) {
-  auto src_type_cast_type = habana_helpers::DataTypeToCastType(src_type);
-  auto dest_type_cast_type = habana_helpers::DataTypeToCastType(dest_type);
-  auto shape = src_size.vec();
-  if (src_size != dest_size) {
-    shape = at::infer_size(src_size, dest_size);
-    HABANA_ASSERT(
-        shape == dest_size or
-            // broadcast with src [1] to dst [] should be valid
-            (shape.size() == 1 and dest_size.empty()),
-        "Cannot broadcast src ",
-        src_size,
-        " to dst ",
-        dest_size);
+  const auto& dst_type = meta[0].dtype;
+  const auto& dst_size = meta[0].shape;
 
-    ns_Copy::Params params;
-    params.isOutputBool = dest_type == at::ScalarType::Bool;
-    using namespace std::literals;
-    return std::move(
-        OpBackend::BuildNode(
-            op,
-            graph,
-            {get_guid_with_precision("copy_fwd"sv, dest_type),
-             inputs,
-             {{meta[0].shape, meta[0].dtype, result_index}},
-             &params,
-             sizeof(params)})[0]);
-  }
+  const auto& src_type_cast_type = habana_helpers::DataTypeToCastType(src_type);
+  const auto& dest_type_cast_type =
+      habana_helpers::DataTypeToCastType(dst_type);
 
-  if ((src_type_cast_type == dest_type_cast_type) &&
-      !(dest_type == at::ScalarType::Bool &&
-        src_type == at::ScalarType::Char)) {
-    return OpBackend::BuildIdentity(
-        op, graph, inputs[1], shape, src_type, result_index);
-  } else {
+  if (src_size == dst_size &&
+      (src_type_cast_type != dest_type_cast_type ||
+       (dst_type == at::ScalarType::Bool &&
+        src_type == at::ScalarType::Char))) {
     return OpBackend::BuildCast(
-        op, graph, inputs[1], shape, src_type, dest_type, result_index);
+        op, graph, inputs[1], dst_size, src_type, dst_type, result_index);
   }
+  auto infered_shape = at::infer_size(src_size, dst_size);
+  HABANA_ASSERT(
+      infered_shape == dst_size or
+          // broadcast with src [1] to dst [] should be valid
+          (infered_shape.size() == 1 and dst_size.empty()),
+      "Cannot broadcast src ",
+      src_size,
+      " to dst ",
+      dst_size);
+
+  ns_Copy::Params params;
+  params.isOutputBool = dst_type == at::ScalarType::Bool;
+  using namespace std::literals;
+  return std::move(
+      OpBackend::BuildNode(
+          op,
+          graph,
+          {get_guid_with_precision("copy_fwd"sv, dst_type),
+           inputs,
+           {{dst_size, dst_type, result_index}},
+           &params,
+           sizeof(params)})[0]);
 }
 
 sh::tensor OpBackend::BuildConstantTensor(
@@ -1290,9 +1288,7 @@ sh::tensor OpBackend::BuildPermute(
       graph,
       {"transpose",
        inputs,
-       {{std::move(compute_output_shape(sizes, permutation)),
-         dtype,
-         final_result_index}},
+       {{compute_output_shape(sizes, permutation), dtype, final_result_index}},
        &params,
        sizeof(params)});
   return std::move(permute.at(0));

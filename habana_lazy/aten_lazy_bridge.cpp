@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -130,7 +130,7 @@ HbLazyTensor CheckAndUpdateSizeStride(
 
   auto t = AtenFromHbLazyTensor(
       hl_t, std::nullopt, std::nullopt, std::nullopt, std::nullopt);
-  auto impl = GetHbLazyTensorImpl(t);
+  auto* impl = GetHbLazyTensorImpl(t);
 
   if (impl->storage().data_ptr() != nullptr) {
     auto at_tensor_size_zero = true;
@@ -150,7 +150,7 @@ HbLazyTensor CheckAndUpdateSizeStride(
     auto pTensor = hl_t_updated.GetTensorData();
     auto hl_tensor_size_zero = true;
     if (pTensor != std::nullopt) {
-      auto old_tensor_data = pTensor.value();
+      const auto& old_tensor_data = pTensor.value();
       if (!old_tensor_data.sizes().empty()) {
         for (auto i = 0; i < (int)old_tensor_data.sizes().size(); i++) {
           if (old_tensor_data.sizes().at(i) > 0) {
@@ -355,8 +355,7 @@ at::Tensor CreateHbLazyTensor(
   if (tensor.defined() && device) {
     bool is_input_lazy = IsHbLazyTensor(tensor);
     at::Tensor tensor_copy = tensor;
-    HbLazyTensor hblazy_tensor =
-        HbLazyTensor::Create(std::move(tensor_copy), *device);
+    HbLazyTensor hblazy_tensor = HbLazyTensor::Create(tensor_copy, *device);
     if (!is_input_lazy) {
       tensor = AtenFromHbLazyTensor(
           hblazy_tensor,
@@ -380,6 +379,15 @@ ir::Value GetIrValueForListConstruct(
 void* GetLazyTensorDataPtr(const at::Tensor& t) {
   auto lazy_t = GetHbLazyTensor(t);
   auto internal_tensor = lazy_t.GetHbLazyTensorDataForMedia();
+
+  // If internal tensor is not available, try to get it from the base tensor
+  if (!internal_tensor) {
+    const auto& base_tensor =
+        habana_lazy::HbLazyTensorViews::get_base_tensor(t);
+    internal_tensor =
+        GetHbLazyTensor(base_tensor).GetHbLazyTensorDataForMedia();
+  }
+
   HABANA_ASSERT(
       internal_tensor,
       "Internal error: GetLazyTensorDataPtr doesn't have "

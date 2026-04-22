@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -135,7 +135,7 @@ generate_advanced_indexing_indices_list(const at::Stack& stack) {
     auto o1 = index_opt.toOptional<at::Tensor>();
     if (o1.has_value() && o1.value().defined()) {
       const auto& index = o1.value();
-      indices.emplace_back(std::move(index));
+      indices.emplace_back(index);
     } else {
       indices.emplace_back(std::nullopt);
     }
@@ -219,7 +219,7 @@ generate_advanced_indexing_indices_list(const at::Stack& stack) {
     std::vector<std::vector<int64_t>> shapes_handled;
 
     if (!index_all_elems[i]) {
-      auto opt_value = indices[i];
+      const auto& opt_value = indices[i];
       HABANA_ASSERT(opt_value.has_value(), "Optional variable has no value!");
       auto shape_to_find = opt_value.value().sizes().vec();
       auto it = std::find_if(
@@ -239,37 +239,39 @@ generate_advanced_indexing_indices_list(const at::Stack& stack) {
     }
 
     for (int j = 0; j < self.dim(); ++j) {
-      if (i == j)
+      if (i == j) {
         continue;
-
+      }
       if (index_all_elems[j]) {
-        if (repeat_index >= j)
+        if (repeat_index >= j) {
           repeats_needed[i] *= self_sizes[j];
-        else
+        } else {
           repeat_interleaves_needed[i] *= self_sizes[j];
+        }
       } else {
         // if the shape is explicit
-        auto opt_value = indices[j];
+        const auto& opt_value = indices[j];
         HABANA_ASSERT(opt_value.has_value(), "Optional variable has no value!")
         auto it = std::find(
             std::begin(shapes_handled),
             std::end(shapes_handled),
             opt_value.value().sizes().vec());
-        if (it != std::end(shapes_handled))
+        if (it != std::end(shapes_handled)) {
           // and already handled, don't r/ri the i indice
           continue;
-
+        }
         shapes_handled.emplace_back(opt_value.value().sizes().vec());
 
-        if (repeat_index >= j)
+        if (repeat_index >= j) {
           repeats_needed[i] *= index_t_sizes[j];
-        else
+        } else {
           repeat_interleaves_needed[i] *= index_t_sizes[j];
+        }
       }
     }
 
     if (!index_all_elems[i]) {
-      auto opt_value = indices[i];
+      const auto& opt_value = indices[i];
       if (opt_value.has_value()) {
         // save the handled
         explicit_indice_handled.emplace_back(
@@ -306,9 +308,9 @@ generate_advanced_indexing_indices_list(const at::Stack& stack) {
           repeat_interleaves_needed[dim]);
       indices_list.push_back(it_repeat_interleave.repeat(repeats_needed[dim]));
     } else if (indices[dim].has_value()) {
-      auto opt_value = indices[dim];
+      const auto& opt_value = indices[dim];
       HABANA_ASSERT(opt_value.has_value(), "Optional variable has no value!")
-      auto input_temp = opt_value.value();
+      const auto& input_temp = opt_value.value();
       at::Tensor in_t;
       if (input_temp.defined() &&
           (input_temp.device().type() != c10::DeviceType::HPU)) {

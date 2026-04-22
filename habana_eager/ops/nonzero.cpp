@@ -42,24 +42,20 @@ at::Tensor nonzero_eager(const at::Tensor& self) {
 
   std::vector<int64_t> shape_tensor_shape{5};
 
-  auto NonzeroMeta = [](const at::Stack& stack) {
-    const auto& self = stack_tensor(stack, 0);
+  NonZeroParams_t self_params;
+  self_params.dtype = self.scalar_type();
+  self_params.sizes = self.sizes().vec();
+  self_params.numel = self.numel();
+  self_params.force_long = false;
+
+  auto NonzeroMeta = [self_params]([[maybe_unused]] const at::Stack& stack) {
     OutputMetaDataVector meta(2);
-    NonZeroParams_t self_params{
-        .dtype = self.scalar_type(),
-        .sizes = self.sizes().vec(),
-        .numel = self.numel(),
-        .force_long = false};
     meta.at(0).shape = compute_nonzero_output_shape(self_params);
     meta.at(0).dtype = c10::ScalarType::Long;
     meta.at(1).shape = {5};
     meta.at(1).dtype = at::ScalarType::Int;
     return meta;
   };
-  NonZeroParams_t self_params;
-  self_params.dtype = self.scalar_type();
-  self_params.sizes = self.sizes().vec();
-  self_params.numel = self.numel();
   habana::eager::EagerOp<std::tuple<at::Tensor, at::Tensor>> hpu_op{
       "hpu::nonzero_eager",
       {self},
@@ -90,13 +86,6 @@ at::Tensor nonzero_eager(const at::Tensor& self) {
   // in case we have relevant elements
   auto result = at::slice(where_tensor, 0, 0, end, 1);
   return result;
-}
-
-at::Tensor& nonzero_out_eager(
-    [[maybe_unused]] const at::Tensor& self,
-    at::Tensor& out) {
-  // TBD
-  return out;
 }
 
 TORCH_LIBRARY_FRAGMENT(hpu, m) {

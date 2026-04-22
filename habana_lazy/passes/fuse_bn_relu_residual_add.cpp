@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -45,11 +45,11 @@ void fuse_bn_relu(std::shared_ptr<torch::jit::Graph>& graph) {
 
     // determine the relu usage among all the uses
     for (auto u : node->input(1)->uses()) {
-      auto u_node = u.user;
+      auto* u_node = u.user;
 
       if (strcmp(u_node->kind().toQualString(), "aten::relu") == 0) {
         torch::jit::WithInsertPoint insert_point(node);
-        auto new_threshold_backward = graph->create(
+        auto* new_threshold_backward = graph->create(
             op, {node->input(0), u_node->output(0), node->input(2)}, 1);
         new_threshold_backward->output(0)->copyMetadata(node->output(0));
         new_threshold_backward->copyAttributes(*node);

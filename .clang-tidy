@@ -1,6 +1,3 @@
-# We enable group of checks like for example `modernize-*` or `readability-*` and disable only the failing ones.
-# When fixing particular check, just remove it from skiplist.
-# Bottom section is for checks skipped on purpose.
 Checks: '*,
  -abseil-*,
  -altera-*,
@@ -19,46 +16,17 @@ Checks: '*,
  -portability-*,
  -zircon-*,
 
- bugprone-*,
- cert-*,
- clang-analyzer-*,
- cppcoreguidelines-*,
- hicpp-*,
- misc-*,
- modernize-*,
- performance-*,
- readability-*,
 
- -bugprone-assignment-in-if-condition,
- -bugprone-casting-through-void,
  -bugprone-easily-swappable-parameters,
- -bugprone-misplaced-widening-cast,
- -bugprone-multiple-new-in-one-expression,
  -bugprone-narrowing-conversions,
- -bugprone-nondeterministic-pointer-iteration-order,
- -bugprone-optional-value-conversion,
- -bugprone-parent-virtual-call,
- -bugprone-reserved-identifier,
- -bugprone-return-const-ref-from-parameter,
- -bugprone-suspicious-include,
  -bugprone-suspicious-stringview-data-usage,
- -bugprone-switch-missing-default-case,
- -bugprone-unused-raii,
  -cert-err34-c,
  -cert-err58-cpp,
- -clang-analyzer-core.UndefinedBinaryOperatorResult,
  -clang-analyzer-cplusplus.NewDelete,
  -clang-analyzer-optin.cplusplus.VirtualCall,
- -cppcoreguidelines-avoid-c-arrays,
- -cppcoreguidelines-avoid-const-or-ref-data-members,
  -cppcoreguidelines-avoid-do-while,
- -cppcoreguidelines-avoid-magic-numbers,
  -cppcoreguidelines-avoid-non-const-global-variables,
- -cppcoreguidelines-init-variables,
- -cppcoreguidelines-interfaces-global-init,
  -cppcoreguidelines-macro-usage,
- -cppcoreguidelines-narrowing-conversions,
- -cppcoreguidelines-non-private-member-variables-in-classes,
  -cppcoreguidelines-owning-memory,
  -cppcoreguidelines-prefer-member-initializer,
  -cppcoreguidelines-pro-bounds-array-to-pointer-decay,
@@ -68,71 +36,45 @@ Checks: '*,
  -cppcoreguidelines-pro-type-cstyle-cast,
  -cppcoreguidelines-pro-type-member-init,
  -cppcoreguidelines-pro-type-reinterpret-cast,
- -cppcoreguidelines-pro-type-static-cast-downcast,
- -cppcoreguidelines-pro-type-union-access,
  -cppcoreguidelines-pro-type-vararg,
  -cppcoreguidelines-rvalue-reference-param-not-moved,
  -cppcoreguidelines-special-member-functions,
- -cppcoreguidelines-virtual-class-destructor,
- -hicpp-avoid-c-arrays,
- -hicpp-braces-around-statements,
  -hicpp-explicit-conversions,
- -hicpp-function-size,
- -hicpp-invalid-access-moved,
- -hicpp-member-init,
- -hicpp-move-const-arg,
  -hicpp-no-array-decay,
  -hicpp-signed-bitwise,
- -hicpp-special-member-functions,
- -hicpp-vararg,
  -misc-const-correctness,
  -misc-include-cleaner,
- -misc-misplaced-const,
- -misc-no-recursion,
- -misc-non-private-member-variables-in-classes,
  -misc-use-anonymous-namespace,
  -misc-use-internal-linkage,
- -modernize-avoid-c-arrays,
  -modernize-loop-convert,
- -modernize-make-unique,
  -modernize-pass-by-value,
  -modernize-raw-string-literal,
- -modernize-use-nodiscard,
  -modernize-use-transparent-functors,
- -performance-avoid-endl,
- -performance-enum-size,
- -performance-inefficient-string-concatenation,
- -performance-inefficient-vector-operation,
- -performance-move-const-arg,
- -performance-no-automatic-move,
  -performance-no-int-to-ptr,
- -performance-unnecessary-copy-initialization,
  -performance-unnecessary-value-param,
- -readability-avoid-nested-conditional-operator,
- -readability-braces-around-statements,
  -readability-convert-member-functions-to-static,
  -readability-else-after-return,
  -readability-function-cognitive-complexity,
- -readability-function-size,
- -readability-identifier-length,
- -readability-implicit-bool-conversion,
  -readability-inconsistent-declaration-parameter-name,
- -readability-magic-numbers,
- -readability-make-member-function-const,
- -readability-math-missing-parentheses,
- -readability-qualified-auto,
- -readability-simplify-boolean-expr,
- -readability-static-accessed-through-instance,
- -readability-suspicious-call-argument,
 
 
+ -bugprone-nondeterministic-pointer-iteration-order,
  -cert-arr39-c,
  -cert-dcl16-c,
  -cert-fio38-c,
+ -cppcoreguidelines-avoid-magic-numbers,
+ -cppcoreguidelines-init-variables,
+ -cppcoreguidelines-narrowing-conversions,
+ -cppcoreguidelines-non-private-member-variables-in-classes,
+ -hicpp-avoid-c-arrays,
+ -hicpp-function-size,
  -hicpp-ignored-remove-result,
+ -hicpp-member-init,
+ -hicpp-move-const-arg,
  -hicpp-named-parameter,
  -hicpp-no-malloc,
  -hicpp-noexcept-move,
+ -hicpp-special-member-functions,
  -hicpp-uppercase-literal-suffix,
  -hicpp-use-auto,
  -hicpp-use-emplace,
@@ -141,35 +83,69 @@ Checks: '*,
  -hicpp-use-noexcept,
  -hicpp-use-nullptr,
  -hicpp-use-override,
+ -hicpp-vararg,
  -misc-confusable-identifiers,
+ -misc-no-recursion,
+ -modernize-avoid-c-arrays,
  -modernize-deprecated-ios-base-aliases,
  -modernize-replace-auto-ptr,
  -modernize-use-trailing-return-type,
+ -performance-avoid-endl,
  -readability-container-contains,
+ -readability-identifier-length,
  '
 
 # Some checks above suppressed as those does not make sense and significantly slow down analysis
-# -misc-confusable-identifiers,           # unpractical
-# -modernize-deprecated-ios-base-aliases, # unpractical
-# -modernize-use-trailing-return-type,    # unpractical
-# -modernize-replace-auto-ptr,            # C++17 does not allow auto_ptr at all
-# -readability-container-contains,        # C++20+ only
+# -bugprone-nondeterministic-pointer-iteration-order,   # unpractical
+# -cppcoreguidelines-init-variables,                    # unpractical
+# -misc-confusable-identifiers,                         # unpractical
+# -misc-no-recursion,                                   # Recursion is idiomatic in compiler/IR/graph traversal code
+# -modernize-deprecated-ios-base-aliases,               # unpractical
+# -modernize-replace-auto-ptr,                          # C++17 does not allow auto_ptr at all
+# -modernize-use-trailing-return-type,                  # unpractical
+# -performance-avoid-endl,                              # unpractical
+# -readability-container-contains,                      # C++20+ only
+# -readability-identifier-length,                       # unpractical
 
 # Duplicates - fixed, but no need to run them twice
-# -cert-arr39-c                           # same as bugprone-sizeof-expression
-# -cert-dcl16-c                           # same as modernize-uppercase-literal-suffix
-# -cert-fio38-c                           # same as misc-non-copyable-objects
-# -hicpp-ignored-remove-result,           # subset of bugprone-unused-return-value
-# -hicpp-named-parameter,                 # same as readability-named-parameter
-# -hicpp-no-malloc,                       # same as cppcoreguidelines-no-malloc
-# -hicpp-noexcept-move,                   # same as performance-noexcept-move-constructor
-# -hicpp-uppercase-literal-suffix,        # same as modernize-uppercase-literal-suffix
-# -hicpp-use-auto,                        # same as modernize-use-auto
-# -hicpp-use-emplace,                     # same as modernize-use-emplace
-# -hicpp-use-equals-default,              # same as modernize-use-equals-default
-# -hicpp-use-equals-delete,               # same as modernize-use-equals-delete
-# -hicpp-use-noexcept,                    # same as modernize-use-noexcept
-# -hicpp-use-nullptr,                     # same as modernize-use-nullptr
-# -hicpp-use-override,                    # same as modernize-use-override
+# -cert-arr39-c                                               # same as bugprone-sizeof-expression
+# -cert-dcl16-c                                               # same as modernize-uppercase-literal-suffix
+# -cert-fio38-c                                               # same as misc-non-copyable-objects
+# -cppcoreguidelines-avoid-magic-numbers,                     # same as readability-magic-numbers
+# -cppcoreguidelines-narrowing-conversions,                   # same as bugprone-narrowing-conversions
+# -cppcoreguidelines-non-private-member-variables-in-classes  # same as misc-non-private-member-variables-in-classes
+# -hicpp-avoid-c-arrays                                       # same as cppcoreguidelines-avoid-c-arrays
+# -hicpp-function-size,                                       # same as readability-function-size
+# -hicpp-ignored-remove-result,                               # subset of bugprone-unused-return-value
+# -hicpp-member-init,                                         # same as cppcoreguidelines-pro-type-member-init
+# -hicpp-move-const-arg,                                      # same as performance-move-const-arg
+# -hicpp-named-parameter,                                     # same as readability-named-parameter
+# -hicpp-no-malloc,                                           # same as cppcoreguidelines-no-malloc
+# -hicpp-noexcept-move,                                       # same as performance-noexcept-move-constructor
+# -hicpp-special-member-functions,                            # same as cppcoreguidelines-special-member-functions
+# -hicpp-uppercase-literal-suffix,                            # same as modernize-uppercase-literal-suffix
+# -hicpp-use-auto,                                            # same as modernize-use-auto
+# -hicpp-use-emplace,                                         # same as modernize-use-emplace
+# -hicpp-use-equals-default,                                  # same as modernize-use-equals-default
+# -hicpp-use-equals-delete,                                   # same as modernize-use-equals-delete
+# -hicpp-use-noexcept,                                        # same as modernize-use-noexcept
+# -hicpp-use-nullptr,                                         # same as modernize-use-nullptr
+# -hicpp-use-override,                                        # same as modernize-use-override
+# -hicpp-vararg,                                              # same as cppcoreguidelines-pro-type-vararg
+# -modernize-avoid-c-arrays                                   # same as cppcoreguidelines-avoid-c-arrays
 
 WarningsAsErrors: "*,-clang-diagnostic-*"
+CheckOptions:
+  # Allow constexpr char constChar[] = "str"
+  - key: cppcoreguidelines-avoid-c-arrays.AllowStringArrays
+    value: true
+  - key: readability-simplify-boolean-expr.IgnoreMacros
+    value: true
+  - key: misc-non-private-member-variables-in-classes.IgnoreClassesWithAllMemberVariablesBeingPublic
+    value: true
+  - key: readability-magic-numbers.IgnoredIntegerValues
+    value: 1; 2; 3; 4; 5; 6; 7; 8; 9; 10; 11; 12; 13; 14; 100; 1000;
+  - key: readability-magic-numbers.IgnorePowersOf2IntegerValues
+    value: true
+  - key: readability-function-size.StatementThreshold
+    value: 1400

@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -58,6 +58,7 @@ class FusedAdamW(Optimizer):
         self.moments_dtype = moments_dtype
         self.moments_in_fp8 = self.check_moments_in_fp8()
 
+    @staticmethod
     def step_wrap(step_func):
         def wrap_(*args, **kwargs):
             result = step_func(*args, **kwargs)
@@ -192,9 +193,9 @@ class FusedAdamW(Optimizer):
         return loss
 
     def is_bias_correction(self, group):
-        if "bias_correction" in group.keys():
+        if "bias_correction" in group:
             return group["bias_correction"]
-        elif "correct_bias" in group.keys():
+        elif "correct_bias" in group:
             print("FusedAdamW: key 'bias_correction' not found. using 'correct_bias' instead")
             print("This might occur when loading old checkpoints.")
             return group["correct_bias"]

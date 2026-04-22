@@ -14,11 +14,9 @@
  */
 
 #include <dlfcn.h>
+#include <shared_layer_api.hpp>
 #include <syn_sl_api.h>
 #include "synapse_shim/logging.h"
-
-#define SLU_INIT_PTR(func) \
-  CHECK_NULL((func) = (decltype(func))dlsym(lib_handle, #func))
 
 namespace shim_slu {
 decltype(&::synSharedLayerInit) synSharedLayerInit = nullptr;
@@ -29,11 +27,11 @@ decltype(&::synSharedLayerFinit) synSharedLayerFinit = nullptr;
 decltype(&::synSharedLayerQueryParams) synSharedLayerQueryParams = nullptr;
 
 void LoadSymbols(void* lib_handle) {
-  SLU_INIT_PTR(synSharedLayerInit);
-  SLU_INIT_PTR(synSharedLayerValidateGuidV2);
-  SLU_INIT_PTR(synSharedLayerGetGuidNames);
-  SLU_INIT_PTR(synSharedLayerFinit);
-  SLU_INIT_PTR(synSharedLayerQueryParams);
+  INIT_FUNC_PTR(synSharedLayerInit);
+  INIT_FUNC_PTR(synSharedLayerValidateGuidV2);
+  INIT_FUNC_PTR(synSharedLayerGetGuidNames);
+  INIT_FUNC_PTR(synSharedLayerFinit);
+  INIT_FUNC_PTR(synSharedLayerQueryParams);
 }
 
 } // namespace shim_slu

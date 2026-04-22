@@ -29,6 +29,7 @@ SharedMetaDataVector OptimizerResourceApplyMomentumSharedMeta(
 
   SharedMetaTensor momentum_tensor{1, precision_type};
   size_t dp_list_size = dp_list.size();
+  shared_meta_vec.reserve(dp_list_size * 3);
   for (size_t i = 0; i < dp_list_size; i++) {
     const auto i2 = 2 * i;
     const auto i2p1 = i2 + 1;
@@ -37,23 +38,20 @@ SharedMetaDataVector OptimizerResourceApplyMomentumSharedMeta(
     const auto& momentum_buffer = params_momentum_buf_list[i2p1];
     const auto& dp = dp_list[i];
 
-    SharedMetaData mul_shared_meta{"mult_fwd"};
+    auto& mul_shared_meta = shared_meta_vec.emplace_back("mult_fwd");
     mul_shared_meta.inputs_data = {
         {momentum_buffer.dim(), precision_type}, momentum_tensor};
     mul_shared_meta.outputs_data.emplace_back(param_rank, precision_type);
-    shared_meta_vec.push_back(mul_shared_meta);
 
-    SharedMetaData sub_shared_meta{"sub_fwd"};
+    auto& sub_shared_meta = shared_meta_vec.emplace_back("sub_fwd");
     sub_shared_meta.inputs_data = {
         mul_shared_meta.outputs_data[0], {dp.dim(), precision_type}};
     sub_shared_meta.outputs_data = mul_shared_meta.outputs_data;
-    shared_meta_vec.push_back(sub_shared_meta);
 
-    SharedMetaData add_shared_meta{"add_fwd"};
+    auto& add_shared_meta = shared_meta_vec.emplace_back("add_fwd");
     add_shared_meta.inputs_data = {
         {param_rank, precision_type}, sub_shared_meta.outputs_data[0]};
     add_shared_meta.outputs_data = sub_shared_meta.outputs_data;
-    shared_meta_vec.push_back(add_shared_meta);
   }
   return shared_meta_vec;
 }
@@ -98,9 +96,12 @@ void OptimizerFusedResourceApplyMomentumOperator::AddNode(
   std::string sub_node = get_guid_with_precision("sub_fwd"sv, dtype);
   std::string mul_node = get_guid_with_precision("mult_fwd"sv, dtype);
 
-  int64_t scalar_shape[] = {1};
-  auto momentum_t =
-      ConstantHelper(graph, static_cast<double>(momentum), dtype, scalar_shape);
+  int64_t scalar_shape = 1L;
+  auto momentum_t = ConstantHelper(
+      graph,
+      static_cast<double>(momentum),
+      dtype,
+      c10::makeArrayRef(scalar_shape));
 
   size_t vec_size = dp_list.size();
   for (size_t i = 0; i < vec_size; ++i) {

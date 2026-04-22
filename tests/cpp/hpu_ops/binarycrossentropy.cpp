@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,7 +27,6 @@ reduction modes(Mean,Sum and None)
 TEST_F(HpuOpTest, bce_usual_3D_sum) {
   const std::vector<int64_t> size = {8, 3, 2};
   GenerateInputs(3, {size, size, {8, 3, 1}});
-  torch::ScalarType dtype = torch::kFloat;
 
   auto expected = torch::binary_cross_entropy(
       torch::sigmoid(GetCpuInput(0)),
@@ -46,8 +45,6 @@ TEST_F(HpuOpTest, bce_usual_3D_sum) {
 TEST_F(HpuOpTest, bce_usual_4D_none_bf16) {
   const std::vector<int64_t> size = {4, 8, 3, 2};
   GenerateInputs(3, {size, size, {4, 8, 3, 1}});
-  torch::ScalarType dtype = torch::kBFloat16;
-
   auto expected = torch::binary_cross_entropy(
       torch::sigmoid(GetCpuInput(0)),
       /*target*/ torch::sigmoid(GetCpuInput(1)),

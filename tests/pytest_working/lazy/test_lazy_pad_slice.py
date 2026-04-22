@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ from test_utils import compare_tensors
 try:
     import habana_frameworks.torch.core as htcore
 except ImportError:
-    raise AssertionError("Could Not import habana_frameworks.torch.core")
+    raise AssertionError("Could Not import habana_frameworks.torch.core") from None
 
 test_case_list = [
     # True for CL else False,
@@ -36,10 +36,7 @@ dev_cpu = torch.device("cpu")
 
 def _hpu_lazy_pad(dev, t):
     pad = (1, 1, 1, 1)
-    if dev == torch.device("hpu"):
-        t1 = t.to(dev, non_blocking=False)
-    else:
-        t1 = t
+    t1 = t.to(dev, non_blocking=False) if dev == torch.device("hpu") else t
 
     t1 = F.pad(t1, pad, "constant", 1)
     if dev == torch.device("hpu"):

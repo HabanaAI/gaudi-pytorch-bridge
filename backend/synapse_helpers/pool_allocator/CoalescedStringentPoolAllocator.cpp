@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -173,8 +173,8 @@ bool CoalescedStringentPooling::pool_create(synDeviceId deviceID, uint64_t size)
   }
   max_pool_size = size;
 
-  auto p = new simple_coalesced_pool_t();
-  if (!p) {
+  auto* p = new simple_coalesced_pool_t();
+  if (p == nullptr) {
     PT_DEVMEM_DEBUG("CS_POOL:: Cannot obtain pool memory");
     return false;
   }
@@ -227,7 +227,8 @@ bool CoalescedStringentPooling::pool_create(synDeviceId deviceID, uint64_t size)
     HABANA_ASSERT(
         bin_utils->BinForSize(bin_size + 255) == bin_utils->BinFromIndex(b));
     HABANA_ASSERT(
-        bin_utils->BinForSize(bin_size * 2 - 1) == bin_utils->BinFromIndex(b));
+        bin_utils->BinForSize((bin_size * 2) - 1) ==
+        bin_utils->BinFromIndex(b));
     if (b + 1 < kNumBins) {
       HABANA_ASSERT(
           bin_utils->BinForSize(bin_size * 2) != bin_utils->BinFromIndex(b));
@@ -264,7 +265,7 @@ bool CoalescedStringentPooling::pool_create(synDeviceId deviceID, uint64_t size)
   stats.pre_allocate_size += header_bytes;
   constexpr auto mem_block_size = 6 * 1024;
   size_t small_alloc_size = mem_block_size * alignment;
-  const auto chunk_ptr = static_cast<int8_t*>(alloc_chunk(
+  auto* const chunk_ptr = static_cast<int8_t*>(alloc_chunk(
       small_alloc_size, 0 /*default stream*/, false /*use_stream*/));
   const auto free_chunk = [this](int8_t* ptr) { delete_chunk(ptr); };
 
@@ -301,12 +302,12 @@ void CoalescedStringentPooling::pool_destroy() const {
   }
   CoalescedStringentPooling::print_pool_stats();
 
-  if ((s_pool) && (chunk_count != 0)) {
+  if ((s_pool != nullptr) && (chunk_count != 0)) {
     PT_DEVMEM_DEBUG("CS_POOL:: warning -- active chunks !!");
     PT_DEVMEM_DEBUG("CS_POOL:: total active chunks :: ", chunk_count);
   }
 
-  if (s_pool) {
+  if (s_pool != nullptr) {
     if (small_allocs_) {
       small_allocs_->Reset();
       small_allocs_ = nullptr;
@@ -316,7 +317,7 @@ void CoalescedStringentPooling::pool_destroy() const {
       if (nullptr != (void*)s_pool->basememptr) {
         uint64_t ptr_address{s_pool->basememptr};
         auto status{synDeviceFree(pool_id, ptr_address, 0)};
-        if (status) {
+        if (status != 0U) {
           set_device_deallocation(true);
         }
       }
@@ -325,8 +326,9 @@ void CoalescedStringentPooling::pool_destroy() const {
 
     for (uint64_t b = 0; b < kNumBins; b++) {
       Bin* bin = bin_utils->BinFromIndex(b);
-      if (bin)
+      if (bin != nullptr) {
         bin->~Bin();
+      }
     }
 
     s_pool->basememptr = 0;
@@ -450,10 +452,10 @@ void CoalescedStringentPooling::print_pool_stats() const {
     chunks_ordered.insert(m);
   }
   for (auto& m : chunks_ordered) {
-    auto chunk = m.second;
+    auto* chunk = m.second;
     total_chunks++;
     total_size += chunk->size;
-    if (chunk->extra_space) {
+    if (chunk->extra_space != 0U) {
       total_extra_spaced_chunks++;
       total_exta_size += chunk->extra_space;
     }
@@ -469,14 +471,16 @@ void CoalescedStringentPooling::print_pool_stats() const {
       max_cntgs_free_chunks_size =
           std::max(max_cntgs_free_chunks_size, cntgs_free_chunks_size);
 
-      if (chunk->prev && !chunk->prev->used && chunk->prev->size) {
+      if (chunk->prev != nullptr && !chunk->prev->used &&
+          chunk->prev->size != 0U) {
         PT_DEVMEM_DEBUG(
             "CS_POOL:: can be merged :: chunk :: ",
             uint64_to_hex_string(chunk->memptr),
             " with prev :: ",
             uint64_to_hex_string(chunk->prev->memptr));
       }
-      if (chunk->next && !chunk->next->used && chunk->next->size) {
+      if (chunk->next != nullptr && !chunk->next->used &&
+          chunk->next->size != 0U) {
         PT_DEVMEM_DEBUG(
             "CS_POOL:: can be merged :: chunk :: ",
             uint64_to_hex_string(chunk->memptr),
@@ -524,7 +528,7 @@ size_t CoalescedStringentPooling::get_max_cntgs_chunk_size() const {
     chunks_ordered.insert(m);
   }
   for (auto& m : chunks_ordered) {
-    auto chunk = m.second;
+    auto* chunk = m.second;
 
     if (!chunk->used && (chunk->size != 0)) {
       cntgs_free_chunks_size = getContigousChunkSize(chunk);
@@ -538,22 +542,19 @@ size_t CoalescedStringentPooling::get_max_cntgs_chunk_size() const {
 
 bool CoalescedStringentPooling::isChunkContigous(Chunk* chunk1, Chunk* chunk2)
     const {
-  if ((chunk1->memptr + chunk1->size) == chunk2->memptr) {
-    return true;
-  }
-  return false;
+  return (chunk1->memptr + chunk1->size) == chunk2->memptr;
 }
 
 uint64_t CoalescedStringentPooling::getContigousChunkSize(Chunk* chunk) const {
   uint64_t ctgs_chunks_size = 0;
-  auto temp1 = chunk;
-  while (temp1 && temp1->prev && !temp1->prev->used &&
+  auto* temp1 = chunk;
+  while (temp1 != nullptr && temp1->prev != nullptr && !temp1->prev->used &&
          isChunkContigous(temp1->prev, temp1)) {
     ctgs_chunks_size += temp1->prev->size;
     temp1 = temp1->prev;
   };
-  auto temp2 = chunk;
-  while (temp2 && temp2->next && !temp2->next->used &&
+  auto* temp2 = chunk;
+  while (temp2 != nullptr && temp2->next != nullptr && !temp2->next->used &&
          isChunkContigous(temp2, temp2->next)) {
     ctgs_chunks_size += temp2->next->size;
     temp2 = temp2->next;
@@ -620,7 +621,7 @@ void* CoalescedStringentPooling::extend_high_memory_allocation(
   // requested size
   if (high_memory_allocated_) {
     tail_chunk->used = false;
-    auto merged_chunk = try_to_merge(tail_chunk);
+    auto* merged_chunk = try_to_merge(tail_chunk);
     // The merge can fail if there is no free chunk before the tail chunk. In
     // that situation, we don't change the pool status.
     if (merged_chunk != tail_chunk) {
@@ -728,8 +729,8 @@ void* CoalescedStringentPooling::alloc_chunk(
     PT_DEVMEM_FATAL("CS_POOL:: alloc unknown pool !!");
   }
 
-  auto old_chunk = reuse_chunks(size, stream, use_stream);
-  if (old_chunk) {
+  auto* old_chunk = reuse_chunks(size, stream, use_stream);
+  if (old_chunk != nullptr) {
     ++chunk_count;
     // extra space available in blocks after split/coalasce
     old_chunk->extra_space = old_chunk->size - size;
@@ -769,7 +770,7 @@ void CoalescedStringentPooling::try_splitting_chunks(
   new_chunk->prev = chunk;
   new_chunk->next = next;
   chunk->next = new_chunk;
-  if (next) {
+  if (next != nullptr) {
     next->prev = new_chunk;
   }
 
@@ -784,8 +785,9 @@ void CoalescedStringentPooling::try_splitting_chunks(
 }
 
 void CoalescedStringentPooling::merge(Chunk* c1, Chunk* c2) const {
-  if (c2->event_count > 0 || !c2->stream_uses.empty())
+  if (c2->event_count > 0 || !c2->stream_uses.empty()) {
     return;
+  }
 
   if (c1->used || c2->used) {
     PT_DEVMEM_FATAL(" Chunk is in use, cannot merge");
@@ -819,8 +821,9 @@ void CoalescedStringentPooling::merge(Chunk* c1, Chunk* c2) const {
   Chunk* c3 = c2->next;
   c1->next = c3;
 
-  if (c3)
+  if (c3 != nullptr) {
     c3->prev = c1;
+  }
 
   c1->size += c2->size;
   c1->freed_counter = std::max(c1->freed_counter, c2->freed_counter);
@@ -1003,7 +1006,7 @@ void CoalescedStringentPooling::process_events() const {
 void CoalescedStringentPooling::insert_events(Chunk* chunk) const {
   stream_set streams(std::move(chunk->stream_uses));
   AT_ASSERT(chunk->stream_uses.empty());
-  for (auto& stream : streams) {
+  for (const auto& stream : streams) {
     synapse_helpers::stream& s = device_.get_stream(stream);
     synEventHandle event = device_.get_event_handle_cache().get_free_handle();
     auto status = synEventRecord(event, s);
@@ -1075,7 +1078,7 @@ CoalescedStringentPooling::SmallAllocs::SmallAllocs(
   kThreshold_ = 2 * kAlignment_;
   HABANA_ASSERT(kSize_ % kAlignment_ == 0, "kAlignment must divide kSize");
   kUnits_ = kSize_ / kAlignment_;
-  for (size_t i = kUnits_; i--;) {
+  for (size_t i = kUnits_; i-- != 0U;) {
     size_.push_back(0);
     map_.push_back(false);
   }
@@ -1214,9 +1217,10 @@ std::vector<std::pair<uint64_t, uint64_t>> CoalescedStringentPooling::
     chunks_ordered.insert(m);
   }
   for (auto& m : chunks_ordered) {
-    auto chunk = m.second;
-    if (chunk->size == 0)
+    auto* chunk = m.second;
+    if (chunk->size == 0) {
       continue;
+    }
     if (chunk->used) {
       occupied_chunk_map.emplace_back(chunk->memptr, chunk->size);
     }
@@ -1229,11 +1233,11 @@ void CoalescedStringentPooling::get_memory_mask(
     std::vector<uint64_t>& mmask) const {
   std::map<uint64_t, Chunk*> chunks_ordered;
   std::lock_guard<std::mutex> lock(sp_mutex);
-  for (auto& m : chunks)
+  for (auto& m : chunks) {
     chunks_ordered.insert(m);
-
+  }
   for (auto& m : chunks_ordered) {
-    auto chunk = m.second;
+    auto* chunk = m.second;
     mmask.push_back(chunk->used ? 1 : 0);
     mmask.push_back(chunk->size);
   }
@@ -1249,7 +1253,8 @@ void CoalescedStringentPooling::get_stats(MemoryStats* mem_stats) const {
   if (log_fragmentation_info) {
     const std::string occupancy_mask = "[A";
     const std::string free_mask = "[F";
-    int max_chunk_per_line = 15;
+    constexpr int max_chunk_per_line = 15;
+    int chunk_per_line = max_chunk_per_line;
     std::stringstream pool_status;
     pool_status.str("");
     pool_status.clear();
@@ -1271,16 +1276,18 @@ void CoalescedStringentPooling::get_stats(MemoryStats* mem_stats) const {
     uint64_t min_chunk_size = 0;
     uint64_t max_chunk_size = 0;
     for (auto& m : chunks_ordered) {
-      auto chunk = m.second;
-      if (chunk->size == 0)
+      auto* chunk = m.second;
+      if (chunk->size == 0) {
         continue;
+      }
       total_chunks++;
       total_size += chunk->size;
-      if (min_chunk_size == 0)
+      if (min_chunk_size == 0) {
         min_chunk_size = chunk->size;
+      }
       min_chunk_size = std::min(min_chunk_size, chunk->size);
       max_chunk_size = std::max(max_chunk_size, chunk->size);
-      if (chunk->extra_space && chunk->used) {
+      if (chunk->extra_space != 0U && chunk->used) {
         total_extra_spaced_chunks++;
         total_exta_size += chunk->extra_space;
       }
@@ -1301,9 +1308,9 @@ void CoalescedStringentPooling::get_stats(MemoryStats* mem_stats) const {
         pool_status << "-" << chunk->size;
         pool_status << "]";
       }
-      --max_chunk_per_line;
-      if (max_chunk_per_line <= 0) {
-        max_chunk_per_line = 15;
+      --chunk_per_line;
+      if (chunk_per_line <= 0) {
+        chunk_per_line = max_chunk_per_line;
         pool_status << "\n";
       }
     }

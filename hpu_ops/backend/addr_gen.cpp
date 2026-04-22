@@ -39,13 +39,12 @@ OutputMetaDataVector AddRMeta(const at::Stack& stack) {
       "-D");
   HABANA_ASSERT(vec1.dim() == 1, "addr: Expected vec1 to be 1-D");
   HABANA_ASSERT(vec2.dim() == 1, "addr: Expected vec2 to be 1-D");
-  std::vector<int64_t> outshape{
-      vec1.sizes()[0], vec2.sizes()[0]}; // (n, 1)@(1, m) -> (n, m)
 
-  OutputMetaData meta;
+  OutputMetaDataVector metaVec(1);
+  auto& meta = metaVec.front();
   meta.dtype = self.scalar_type();
-  meta.shape = outshape;
-  return {meta};
+  meta.shape = {vec1.sizes()[0], vec2.sizes()[0]}; // (n, 1)@(1, m) -> (n, m)
+  return metaVec;
 }
 
 } // namespace habana

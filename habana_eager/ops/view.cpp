@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,7 +40,7 @@ at::Tensor view_hpu(const at::Tensor& self, c10::SymIntArrayRef size) {
   auto src_backend = habana::eager::HbEagerTensorPool::get_backend_tensor(self);
   auto dst_backend =
       habana::eager::HbEagerTensorPool::get_backend_tensor(result);
-  auto dst_hb_tmeta{habana::get_tensor_extra_meta(dst_backend)};
+  auto* dst_hb_tmeta{habana::get_tensor_extra_meta(dst_backend)};
   dst_hb_tmeta->set_tensor_pipelined();
   habana::eager::PipelineOrExecuteTask(
       [self = std::move(src_backend), result = std::move(dst_backend)]() {
@@ -52,13 +52,14 @@ at::Tensor view_hpu(const at::Tensor& self, c10::SymIntArrayRef size) {
 
 void view_propagate_permutation(at::Tensor base_t, at::Tensor view_t) {
   PT_EAGER_TRACE;
-  auto input_tmeta{habana::get_tensor_extra_meta(base_t)};
-  auto input_smeta{habana::get_storage_extra_meta(base_t)};
-  auto output_tmeta{habana::get_tensor_extra_meta(view_t)};
-  auto output_smeta{habana::get_storage_extra_meta(view_t)};
+  auto* input_tmeta{habana::get_tensor_extra_meta(base_t)};
+  auto* input_smeta{habana::get_storage_extra_meta(base_t)};
+  auto* output_tmeta{habana::get_tensor_extra_meta(view_t)};
+  auto* output_smeta{habana::get_storage_extra_meta(view_t)};
 
-  if (input_smeta == nullptr)
+  if (input_smeta == nullptr) {
     return;
+  }
 
   HABANA_ASSERT(output_smeta);
 
@@ -83,7 +84,7 @@ at::Tensor alias(const at::Tensor& self) {
   auto src_backend = habana::eager::HbEagerTensorPool::get_backend_tensor(self);
   auto dst_backend =
       habana::eager::HbEagerTensorPool::get_backend_tensor(result);
-  auto dst_hb_tmeta{habana::get_tensor_extra_meta(dst_backend)};
+  auto* dst_hb_tmeta{habana::get_tensor_extra_meta(dst_backend)};
   dst_hb_tmeta->set_tensor_pipelined();
   habana::eager::PipelineOrExecuteTask(
       [self = std::move(src_backend), result = std::move(dst_backend)]() {

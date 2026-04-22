@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -167,10 +167,7 @@ def reference_optimizer_lamb_phase1(
     bias_correction,
     weight_decay,
 ):
-    if averaging:
-        beta3 = 1.0 - beta1
-    else:
-        beta3 = 1.0
+    beta3 = 1.0 - beta1 if averaging else 1.0
     for i in range(len(wt_list)):
         grad = grad_list[i].div_(clip_global_grad_norm)
         # Decay the first and second moment running average coefficient

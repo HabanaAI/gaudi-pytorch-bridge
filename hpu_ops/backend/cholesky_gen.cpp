@@ -52,7 +52,9 @@ SharedMetaDataVector CholeskySharedMeta(
   const auto inputRank = self.dim();
   const auto dtype = self.scalar_type();
 
-  SharedMetaData choleskySharedMeta{"cholesky_fwd"};
+  SharedMetaDataVector meta;
+  meta.reserve(1);
+  auto& choleskySharedMeta = meta.emplace_back("cholesky_fwd");
   choleskySharedMeta.inputs_data.emplace_back(inputRank, dtype);
   choleskySharedMeta.outputs_data.emplace_back(inputRank, dtype);
 
@@ -62,7 +64,7 @@ SharedMetaDataVector CholeskySharedMeta(
   // SAG, because the constant node is a direct output node. If it changes in
   // the future, the constant node creation should be moved to the CGUID.
 
-  return {choleskySharedMeta};
+  return meta;
 }
 
 SharedMetaDataVector CholeskyInverseSharedMeta(
@@ -72,11 +74,13 @@ SharedMetaDataVector CholeskyInverseSharedMeta(
   const auto selfRank = self.dim();
   const auto dtype = self.scalar_type();
 
-  SharedMetaData choleskyInverseSharedMeta{"cholesky_inverse_fwd"};
+  SharedMetaDataVector meta;
+  meta.reserve(1);
+  auto& choleskyInverseSharedMeta = meta.emplace_back("cholesky_inverse_fwd");
   choleskyInverseSharedMeta.inputs_data.emplace_back(selfRank, dtype);
   choleskyInverseSharedMeta.outputs_data.emplace_back(selfRank, dtype);
 
-  return {choleskyInverseSharedMeta};
+  return meta;
 }
 
 synapse_helpers::tensor performTranspose(

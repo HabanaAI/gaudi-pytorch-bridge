@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -66,13 +66,9 @@ def test_hpu_foreach_mul(self_value, other_name, other_value):
 @pytest.mark.parametrize("hpu_self", [generate_tensor_list(self_shapes, self_dtypes)])
 @pytest.mark.parametrize("hpu_other", [2, scalar_list, generate_tensor_list(other_shapes, other_dtypes)])
 def test_hpu_foreach_mul_inplace(hpu_self, hpu_other):
-    cpu_self = []
-    for self in hpu_self:
-        cpu_self.append(self.to(cpu))
-    cpu_other = []
+    cpu_self = [self.to(cpu) for self in hpu_self]
     if isinstance(hpu_other, list) and isinstance(hpu_other[0], torch.Tensor):
-        for other in hpu_other:
-            cpu_other.append(other.to(cpu))
+        cpu_other = [other.to(cpu) for other in hpu_other]
     else:
         cpu_other = hpu_other
 
