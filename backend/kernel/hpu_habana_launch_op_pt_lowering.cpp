@@ -941,6 +941,7 @@ void habana::HabanaLaunchOpPT::ConstructPatchingTableAndAtenOutputs(
     rv.st_to_tensor_idx_map = ShapeInference::GetTensorMapping();
     rv.dynamic_nodes_with_backend_STs =
         std::move(dynamic_nodes_with_backend_STs);
+    rv.node_backend_ST_counts = std::move(node_backend_ST_counts);
     rv.ds_sifinfo_map[sym_expr_hash_] = std::move(ds_sif_info_);
   }
   rv.disabled_jit_ir_ops_ = HabanaLaunchOpUtils::disabled_jit_ir_ops();

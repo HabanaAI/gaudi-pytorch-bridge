@@ -190,7 +190,7 @@ def pytest_collection_modifyitems(config, items):
 
     for item in items:
         skip_marker = pytest.mark.skip("Test present in skip_tests_list.txt")
-        if item.nodeid in skip_items:
+        if item.nodeid.removeprefix("tests/") in skip_items:
             item.add_marker(skip_marker)
 
 

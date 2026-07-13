@@ -2568,6 +2568,7 @@ cumprod:
   guid: cumprod_fwd
   output_meta: CumsumMeta
   op_backend: CumsumHabanaOperator
+  st_meta: CumsumDSSTMeta
   out_ids: [0]
   namespaces: [torch, torch.Tensor]
   op_validator: FillCumProdSharedMeta
@@ -2592,6 +2593,7 @@ cumsum:
   guid: cumsum_fwd
   output_meta: CumsumMeta
   op_backend: CumsumHabanaOperator
+  st_meta: CumsumDSSTMeta
   out_ids: [0]
   namespaces: [torch, torch.Tensor]
   op_validator: FillCumSumSharedMeta
@@ -8812,7 +8814,7 @@ softmax_fp8.Scalar:
   skip_slrg: true # Exception - mixed input dtypes
 
 rms_norm:
-  custom_op_schema: "hpu::rms_norm(Tensor data_in, Tensor gamma, float epsilon) -> (Tensor, Tensor)"
+  custom_op_schema: "hpu::rms_norm(Tensor data_in, Tensor gamma, float epsilon, Tensor? residual=None, bool addOneToWeight=False) -> (Tensor, Tensor)"
   guid: rms_norm_ex_fwd
   out_ids: [0, 0]
   output_meta: RMSNormMeta
@@ -9112,6 +9114,36 @@ mixture_of_experts.fp8_fused_weights_blockwise:
   op_validator: MixtureOfExpertsFp8FusedSharedMeta
   namespaces: [torch.hpu]
   skip_slrg: true # Exception - mixed input dtypes
+
+mixture_of_experts.mxfp4:
+  custom_op_schema: "hpu::mixture_of_experts.mxfp4(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, Tensor[] d_scale_w1, Tensor[] d_scale_w2, Tensor[] d_scale_w3, *, int block_size, bool permuted_weights, str activation, int experts_min, int experts_max, bool is_fp4, int chunk_size=0, int total_experts=0) -> Tensor"
+  output_meta: MixtureOfExpertsFp8Meta
+  op_backend: MixtureOfExpertsMxfp4
+  frontend_blocklist: [eager]
+  out_ids: [0]
+  op_validator_exception: true # mxfp4 weights are uint8 (packed), unsupported by shared-layer dtype validation
+  namespaces: [torch.hpu]
+  skip_slrg: true # Exception - fp4
+
+mixture_of_experts.mxfp4_fused_weights:
+  custom_op_schema: "hpu::mixture_of_experts.mxfp4_fused_weights(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, Tensor[] d_scale_w12, Tensor[] d_scale_w3, *, int block_size, bool permuted_weights, str activation, int experts_min, int experts_max, bool is_fp4, int chunk_size=0, int total_experts=0) -> Tensor"
+  output_meta: MixtureOfExpertsFp8Meta
+  op_backend: MixtureOfExpertsMxfp4
+  frontend_blocklist: [eager]
+  out_ids: [0]
+  op_validator_exception: true # mxfp4 weights are uint8 (packed), unsupported by shared-layer dtype validation
+  namespaces: [torch.hpu]
+  skip_slrg: true # Exception - fp4
+
+mixture_of_experts.bias_mxfp4_fused_weights:
+  custom_op_schema: "hpu::mixture_of_experts.bias_mxfp4_fused_weights(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, Tensor[] w12_bias, Tensor[] w3_bias, Tensor[] d_scale_w12, Tensor[] d_scale_w3, *, int block_size, bool permuted_weights, int experts_min, int experts_max, bool is_fp4, int chunk_size=0, int total_experts=0, float alpha=1.702, float limit=7.0) -> Tensor"
+  output_meta: MixtureOfExpertsFp8Meta
+  op_backend: MixtureOfExpertsBiasMxfp4
+  frontend_blocklist: [eager]
+  out_ids: [0]
+  op_validator_exception: true # mxfp4 weights are uint8 (packed), unsupported by shared-layer dtype validation
+  namespaces: [torch.hpu]
+  skip_slrg: true # Exception - fp4
 
 mixture_of_experts_fwd:
   custom_op_schema: "hpu::mixture_of_experts_fwd(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, int chunk_size=0, int total_experts=0) -> Tensor[]"
@@ -9448,3 +9480,30 @@ softmax_fa2:
   output_meta: SoftmaxFa2Meta
   op_validator: SoftmaxFa2SharedMeta
   namespaces: [torch.hpu]
+
+l2_norm:
+  custom_op_schema: "hpu::l2_norm(Tensor input, *, float epsilon) -> Tensor"
+  custom_fill_params: FillL2NormParams
+  guid: l2_norm_fwd
+  out_ids: [0]
+  output_meta: L2NormMeta
+  op_validator: L2NormSharedMeta
+  namespaces: [torch.hpu]
+
+causal_conv1d_fwd:
+  custom_op_schema: "hpu::causal_conv1d_fwd(Tensor x, Tensor conv_state, Tensor weight, Tensor? bias, Tensor has_initial_state, Tensor query_start_loc, Tensor cache_indices, *, bool activation=False, int pad_slot_id=-1) -> (Tensor, Tensor)"
+  custom_fill_params: FillCausalConv1dFwdParams
+  guid: causal_conv1d_fwd
+  op_backend: CausalConv1dFwd
+  out_ids: [0, 0]
+  output_meta: CausalConv1dFwdMeta
+  op_validator_exception: custom_op
+
+causal_conv1d_update:
+  custom_op_schema: "hpu::causal_conv1d_update(Tensor x, Tensor conv_state, Tensor weight, Tensor? bias, *, bool activation=False, int pad_slot_id=-1) -> (Tensor, Tensor)"
+  custom_fill_params: FillCausalConv1dUpdateParams
+  guid: causal_conv1d_update
+  op_backend: CausalConv1dUpdate
+  out_ids: [0, 0]
+  output_meta: CausalConv1dUpdateMeta
+  op_validator_exception: custom_op

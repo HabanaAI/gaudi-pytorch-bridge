@@ -49,6 +49,7 @@ from ._helpers import (
     get_node_args,
     is_module_dynamic,
     is_node_supported,
+    is_opaque_node,
     is_view_node,
     jit_node_annotation_propagation,
     jit_node_shape_propagation,
@@ -442,7 +443,9 @@ def _is_cpu_scalar_copy_required(
         "rsub",
     ]
     copy_required = True
-    if node.op == "call_function":
+    if is_opaque_node(node_arg):
+        copy_required = False
+    elif node.op == "call_function":
         node_target = node.target.__name__.split(".")[0]
         if node.target.__name__.split(".")[-1] == "Scalar":
             copy_required = False
@@ -462,6 +465,8 @@ def _is_cpu_scalar_copy_required(
 
 
 def _is_cpu_scalar_or_symbolic_scalar(node: torch.fx.Node) -> bool:
+    if is_opaque_node(node):
+        return True
     if node.type in [int, float]:
         if not node.meta["output_device"] == torch.device("cpu"):
             raise AssertionError("Device mismatch")

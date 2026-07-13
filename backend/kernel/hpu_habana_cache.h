@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -373,6 +373,7 @@ struct RecipeValueSpec {
   std::unordered_map<uint64_t, PtTensorInfoShared> sif_tidx_to_tinfo_map;
   std::unordered_map<uint64_t, uint64_t> st_to_tensor_idx_map;
   std::unordered_set<uint32_t> dynamic_nodes_with_backend_STs;
+  std::unordered_map<uint32_t, uint64_t> node_backend_ST_counts;
   std::unordered_map<size_t, habana_helpers::DynamicSIFInfo> ds_sifinfo_map;
   std::unordered_set<std::string> disabled_jit_ir_ops_;
 

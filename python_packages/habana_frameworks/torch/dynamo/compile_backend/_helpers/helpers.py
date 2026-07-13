@@ -21,6 +21,8 @@ from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backen
 import torch
 from torch._dispatch.python import enable_python_dispatcher
 from torch._dynamo.utils import detect_fake_mode
+from torch._library.fake_class_registry import FakeScriptObject
+from torch._library.opaque_object import is_opaque_type
 from torch._subclasses.fake_tensor import FakeTensorMode
 
 from ..random_utils import (
@@ -38,6 +40,18 @@ from ..symbolic_execution import (
 )
 
 logger = get_compile_backend_logger()
+
+
+def is_opaque_result(result) -> bool:
+    """Return True if *result* is an opaque object (e.g. DeviceMesh wrapped in
+    FakeScriptObject) that carries no tensor metadata."""
+    return isinstance(result, FakeScriptObject) or is_opaque_type(type(result))
+
+
+def is_opaque_node(node) -> bool:
+    """Return True if *node* was tagged as producing an opaque (non-tensor,
+    non-scalar) value during fake-tensor propagation."""
+    return isinstance(node, torch.fx.Node) and node.meta.get("is_opaque", False)
 
 
 def is_view_node(node):
@@ -182,10 +196,12 @@ def is_symbolic_shape(shape):
     return False
 
 
-def fill_propagated_tensor_metadata_to_node(result: torch.Tensor, node: torch.fx.Node):
+def fill_propagated_tensor_metadata_to_node(result, node: torch.fx.Node):
     """
-    This function takes out basic information from propagated fake tensor, like
-    dtype, layout and device and puts it to the node that created it.
+    Extract metadata (dtype, layout, device, shape, …) from a propagated
+    result and attach it to *node*.  *result* is typically a FakeTensor but
+    may also be a scalar (int/float/bool/SymInt/…), an iterable of tensors,
+    or an opaque object (e.g. FakeScriptObject wrapping DeviceMesh).
     """
     if node.meta.get("val") is None:
         node.meta["val"] = result
@@ -249,6 +265,18 @@ def fill_propagated_tensor_metadata_to_node(result: torch.Tensor, node: torch.fx
         output_strides = [None]
         output_contiguous = [None]
         output_offset = [None]
+    elif is_opaque_result(result):
+        # Opaque objects (e.g. DeviceMesh after make_device_mesh_opaque) carry
+        # no tensor metadata.  Treat them like non-tensor scalars so that the
+        # rest of the pass can proceed without errors.
+        device = torch.device("cpu")
+        dtypes = [None]
+        layouts = [None]
+        output_shapes = [()]
+        output_strides = [()]
+        output_contiguous = [None]
+        output_offset = [()]
+        node.meta["is_opaque"] = True
     else:
         devices = []
         if not isinstance(result, Iterable):
@@ -264,6 +292,9 @@ def fill_propagated_tensor_metadata_to_node(result: torch.Tensor, node: torch.fx
             output_offset=output_offset,
             output_strides=output_strides,
         ):
+            if is_opaque_result(result):
+                return
+
             if hasattr(result, "device"):
                 devices.append(result.device)
             if hasattr(result, "dtype"):

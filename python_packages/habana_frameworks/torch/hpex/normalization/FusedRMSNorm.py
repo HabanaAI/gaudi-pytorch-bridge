@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -44,9 +44,17 @@ class FusedRMSNorm(torch.autograd.Function):
         use_stages=True,
         bwd_mode=0,
         fast_math=False,
+        residual=None,
+        addOneToWeight=False,
     ):
-        op = torch.ops.hpu.rms_norm_fast if fast_math else torch.ops.hpu.rms_norm
-        (root_mean_square_norm, inverse_root_mean_square) = op(data_in, gamma, eps)
+        if fast_math:
+            if residual is not None or addOneToWeight:
+                raise ValueError("residual and addOneToWeight parameters are not supported in fast_math mode")
+            (root_mean_square_norm, inverse_root_mean_square) = torch.ops.hpu.rms_norm_fast(data_in, gamma, eps)
+        else:
+            (root_mean_square_norm, inverse_root_mean_square) = torch.ops.hpu.rms_norm(
+                data_in, gamma, eps, residual, addOneToWeight
+            )
 
         ctx.save_for_backward(inverse_root_mean_square, data_in, gamma)
         ctx.use_stages = use_stages

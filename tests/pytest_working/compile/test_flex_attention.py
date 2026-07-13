@@ -360,7 +360,11 @@ class TestFlexAttention(InductorTestCase):
         if score_mod == alibi_bias8:
             return
 
-        if compiled_error > ref_error * fudge_factor:
+        tolerance = ref_error * fudge_factor
+        if ref_error == 0:
+            tolerance = torch.finfo(golden_out.dtype).resolution * fudge_factor
+
+        if compiled_error > tolerance:
             name = tensor_name if tensor_name is not None else ""
             msg = f"{name} Compiled error {compiled_error} is greater than ref error {ref_error} by more than {fudge_factor}X."
             self.assertTrue(False, msg)
@@ -520,7 +524,7 @@ class TestFlexAttention(InductorTestCase):
         self,
         return_lse,
         block_size,
-        traning,
+        training,
         gqa,
         score_mod: _score_mod_signature,
         dtype: torch.dtype = torch.float16,
@@ -534,8 +538,10 @@ class TestFlexAttention(InductorTestCase):
         V_D: int | None = None,
         block_mask: BlockMask | None = None,
     ):
-        if return_lse and traning:
+        if return_lse and training:
             return
+        if training and self.device == "cpu":
+            self.skipTest("FlexAttention backward is not supported on CPU")
 
         if KV_B is None:
             KV_B = Q_B
@@ -549,7 +555,7 @@ class TestFlexAttention(InductorTestCase):
         if gqa:
             KV_H = Q_H // 2
 
-        test_inference_only = not traning
+        test_inference_only = not training
 
         torch.manual_seed(3874)
         q = torch.randn(
@@ -584,13 +590,27 @@ class TestFlexAttention(InductorTestCase):
                 BLOCK_SIZE=block_size,  # self.device,
             )
 
-        q_ref, k_ref, v_ref = query_key_value_clones(q, k, v)
+        ref_device = "cpu"
+        gold_dtype = torch.float64
+        if training and self.device != "cpu":
+            ref_device = self.device
+            if self.device == "hpu":
+                gold_dtype = torch.float32
+
+        block_mask_ref = block_mask.to(device=ref_device)
+
+        q_ref, k_ref, v_ref = query_key_value_clones(q, k, v, device=ref_device)
         if q_ref.dtype in {torch.float8_e4m3fn, torch.float8_e5m2}:
             q_ref = q_ref.to(torch.bfloat16)
             k_ref = k_ref.to(torch.bfloat16)
             v_ref = v_ref.to(torch.bfloat16)
-        q_gold, k_gold, v_gold = query_key_value_clones(q, k, v, torch.float64)
-        sdpa_partial_ref = create_attention(score_mod, block_mask, enable_gqa=(Q_H != KV_H), return_lse=return_lse)
+        q_gold, k_gold, v_gold = query_key_value_clones(q, k, v, gold_dtype, device=ref_device)
+        sdpa_partial_ref = create_attention(
+            score_mod,
+            block_mask_ref,
+            enable_gqa=(Q_H != KV_H),
+            return_lse=return_lse,
+        )
 
         golden_result = sdpa_partial_ref(q_gold, k_gold, v_gold)
         ref_result = sdpa_partial_ref(q_ref, k_ref, v_ref)
@@ -647,12 +667,24 @@ class TestFlexAttention(InductorTestCase):
 
             if q.dtype in {torch.float8_e4m3fn, torch.float8_e5m2}:
                 return
-            q_hpu = q.to("cpu")
-            q_hpu.grad = q.grad.to("cpu")
-            k_hpu = k.to("cpu")
-            k_hpu.grad = k.grad.to("cpu")
-            v_hpu = v.to("cpu")
-            v_hpu.grad = v.grad.to("cpu")
+
+            def _to_cpu_with_grad(t: torch.Tensor) -> torch.Tensor:
+                t_cpu = t.to("cpu")
+                if t.grad is not None:
+                    t_cpu.grad = t.grad.to("cpu")
+                return t_cpu
+
+            q_hpu = _to_cpu_with_grad(q)
+            k_hpu = _to_cpu_with_grad(k)
+            v_hpu = _to_cpu_with_grad(v)
+            golden_out = golden_out.to("cpu")
+            ref_out = ref_out.to("cpu")
+            q_gold = _to_cpu_with_grad(q_gold)
+            k_gold = _to_cpu_with_grad(k_gold)
+            v_gold = _to_cpu_with_grad(v_gold)
+            q_ref = _to_cpu_with_grad(q_ref)
+            k_ref = _to_cpu_with_grad(k_ref)
+            v_ref = _to_cpu_with_grad(v_ref)
             compiled_out_hpu = compiled_out.to("cpu")
             self._check_out_and_grad(
                 golden_out,
@@ -881,26 +913,31 @@ class TestFlexAttention(InductorTestCase):
         V_D: int = D,
     ):
         test_inference_only = self.device == "cpu"
+        supports_backward = self.device != "cpu"
         q = torch.randn(
             (Q_B, Q_H, Q_S, Q_D),
             dtype=dtype,
             device=self.device,
-            requires_grad=not test_inference_only,
+            requires_grad=supports_backward,
         )
         k = torch.randn(
             (KV_B, KV_H, KV_S, Q_D),
             dtype=dtype,
             device=self.device,
-            requires_grad=not test_inference_only,
+            requires_grad=supports_backward,
         )
         v = torch.randn(
             (KV_B, KV_H, KV_S, V_D),
             dtype=dtype,
             device=self.device,
-            requires_grad=not test_inference_only,
+            requires_grad=supports_backward,
         )
-        q_ref, k_ref, v_ref = query_key_value_clones(q, k, v)
-        q_gold, k_gold, v_gold = query_key_value_clones(q, k, v, torch.float64)
+        ref_device = self.device if supports_backward else "cpu"
+        gold_dtype = torch.float64
+        if supports_backward and self.device == "hpu":
+            gold_dtype = torch.float32
+        q_ref, k_ref, v_ref = query_key_value_clones(q, k, v, device=ref_device)
+        q_gold, k_gold, v_gold = query_key_value_clones(q, k, v, gold_dtype, device=ref_device)
         compiled_sdpa = torch.compile(sdpa_call)
         golden_out = sdpa_call(q_gold, k_gold, v_gold)
         ref_out = sdpa_call(q_ref, k_ref, v_ref)
@@ -916,7 +953,7 @@ class TestFlexAttention(InductorTestCase):
         else:
             backward_grad = torch.randn((Q_B, Q_H, Q_S, V_D), dtype=dtype, device=self.device)
 
-            golden_out.backward(backward_grad.to(torch.float64))
+            golden_out.backward(backward_grad.to(gold_dtype))
             ref_out.backward(backward_grad)
             compiled_out.backward(backward_grad)
 
@@ -1185,7 +1222,7 @@ class TestFlexAttention(InductorTestCase):
     @common_utils.parametrize("score_mod", test_score_mods)
     @common_utils.parametrize("return_lse", [False, True])
     @common_utils.parametrize("block_size", [2, 4])
-    @common_utils.parametrize("traning", [True, False])
+    @common_utils.parametrize("training", [True, False])
     @common_utils.parametrize("gqa", [True, False])
     def test_builtin_score_mods(
         self,
@@ -1193,10 +1230,10 @@ class TestFlexAttention(InductorTestCase):
         score_mod: Callable,
         return_lse,
         block_size,
-        traning,
+        training,
         gqa,
     ):
-        self.run_test(return_lse, block_size, traning, gqa, score_mod, dtype)
+        self.run_test(return_lse, block_size, training, gqa, score_mod, dtype)
         # self.run_test_with_paged_attention(score_mod, dtype)
 
 

@@ -445,10 +445,18 @@ def update_arguments(arguments: str) -> str:
 # for autocast are based on the default lists in autocast_helpers.h file or
 # on the external file provided via env.
 def generate_autocast_ops(op_metas, args):
+    HARDCODED_OPS_TO_SKIP = {
+        "_flash_attention_forward_no_dropout_inplace",
+    }
+    SUFFIX_PATTERNS_TO_SKIP = ("_out", "_")
+    SUBSTRING_PATTERNS_TO_SKIP = ("_.", "cuda", "cudn", "backward")
+
     def op_to_skip(function_name):
-        return function_name.endswith(("_out", "_")) or any(
-            s in function_name for s in ("_.", "cuda", "cudn", "backward")
-        )
+        if function_name in HARDCODED_OPS_TO_SKIP:
+            return True
+        if function_name.endswith(SUFFIX_PATTERNS_TO_SKIP):
+            return True
+        return any(s in function_name for s in SUBSTRING_PATTERNS_TO_SKIP)
 
     def get_registration(op_meta, op_name):
         function_name = op_meta.func

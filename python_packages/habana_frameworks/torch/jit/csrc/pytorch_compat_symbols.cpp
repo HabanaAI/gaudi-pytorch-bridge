@@ -21,8 +21,6 @@
 
 #include "habana_helpers/pt_version_check.h"
 
-#if IS_PYTORCH_AT_LEAST(2, 11)
-
 namespace torch::jit {
 
 std::optional<InferredType> detail::_tryToInferTypeImpl(py::handle input) {
@@ -35,5 +33,3 @@ std::optional<InferredType> detail::_tryToInferTypeImpl(py::handle input) {
 }
 
 } // namespace torch::jit
-
-#endif

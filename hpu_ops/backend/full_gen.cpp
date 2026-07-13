@@ -62,17 +62,15 @@ FullBE::FullBE(int device_id, c10::ScalarType scalar_type)
 }
 
 bool FullDSSTMeta(
-    habana_helpers::IShapeList& inputs,
+    [[maybe_unused]] habana_helpers::IShapeList& inputs,
     habana_helpers::IShapeList& outputs) {
   PT_BRIDGE_DEBUG("FullDSSTMeta called");
-  static_cast<void>(inputs);
-  static_cast<void>(outputs);
-  if (inputs[0].isTensor()) {
-    auto t_size = inputs[0].getTensorShape();
+  if (outputs[0].isTensor()) {
+    auto t_size = outputs[0].getTensorShape();
     PT_BRIDGE_DEBUG("FullDSSTMeta constant shape ", t_size);
     habana_helpers::UpdateSTShapeInfo(t_size);
   } else {
-    PT_BRIDGE_DEBUG("Full DS meta not supported non tensor input !!!");
+    PT_BRIDGE_DEBUG("Full DS meta not supported non tensor output !!!");
     return false;
   }
 

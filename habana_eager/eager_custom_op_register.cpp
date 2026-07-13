@@ -1567,7 +1567,7 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::constant_pad_nd(Tensor input, Tensor pad_tensor, Tensor output_shape_tensor, Scalar value) -> Tensor");
   m.def(
       "hpu::constant_pad_nd_ds(Tensor input, SymInt[] pad, Scalar value, SymInt[]? size=None) -> Tensor");
-  m.def("hpu::weight_permutation(Tensor input) -> Tensor");
+  m.def("hpu::weight_permutation(Tensor(a!) input) -> Tensor(a!)");
   m.def(
       "hpu::custom_bernoulli.Size(SymInt[] size, float p, *, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> Tensor");
   m.def("hpu::one_hot(Tensor self, int num_classes=-1) -> Tensor");

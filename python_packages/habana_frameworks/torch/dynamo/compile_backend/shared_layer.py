@@ -54,6 +54,8 @@ hpu_supported_op_list = {
     "kv_reorder",
     "mamba_pscan",
     "mamba_pscan_update",
+    "causal_conv1d_fwd",
+    "causal_conv1d_update",
     "mixture_of_experts_fp8_measurement",
     "mixture_of_experts_fwd",
     "mixture_of_experts_bwd",
@@ -249,6 +251,18 @@ def check_for_default_op_support(op_name, node, is_dynamic):
         supported = index_put_support_check(node, is_dynamic)
         reason = "Conditional graph support for index_put op" if supported else ""
         return supported, reason
+    # mxfp4 ops use op_validator_exception: true in hpu_op.yaml because the
+    # weights are packed uint8, which would fail the guid dtype check in the
+    # shared-layer validator.  As a result no C++ validator is generated for
+    # these ops, so shared_layer_validation() returns false and the op would
+    # fall back to eager.  Bypass shared-layer validation here instead –
+    # the same treatment applied to mixture_of_experts_fwd/bwd above.
+    if node.target.__name__ in {
+        "mixture_of_experts.mxfp4",
+        "mixture_of_experts.mxfp4_fused_weights",
+        "mixture_of_experts.bias_mxfp4_fused_weights",
+    }:
+        return True, "Graph support for mxfp4 mixture_of_experts op"
     if op_name in hpu_supported_op_list:
         return True, "Graph support based on hpu_supported_op_list"
     if op_name in hpu_supported_ops_restricted:

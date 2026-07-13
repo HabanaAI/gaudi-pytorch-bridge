@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2024 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -37,10 +37,10 @@ with open(REQUIRED_VERSION_FILE_PATH) as req_ver_file:
     compile_time_ver = Version(req_ver_file.read())
 
 run_time_ver = Version(torch.__version__)
-is_torch_fork = (
-    run_time_ver.local is not None and run_time_ver.local.startswith("git") or run_time_ver.local.startswith("hpu")
+is_torch_fork = run_time_ver.local is not None and (
+    run_time_ver.local.startswith("git") or run_time_ver.local.startswith("hpu")
 )
-is_upstream_cpu = run_time_ver.local is not None and "cpu" in run_time_ver.local
+is_upstream_cpu = run_time_ver.local is None or "cpu" in run_time_ver.local
 
 if not is_torch_fork and not is_upstream_cpu:
     raise AssertionError(f"Current PyTorch version {run_time_ver} is detected as neither HPU fork nor CPU upstream.")

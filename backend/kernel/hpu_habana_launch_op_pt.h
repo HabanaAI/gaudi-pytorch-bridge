@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -549,6 +549,7 @@ class HabanaLaunchOpPT {
   size_t curr_symval_hash_ = 0;
   std::string compile_stats_path_;
   std::unordered_set<unsigned> dynamic_nodes_with_backend_STs;
+  std::unordered_map<uint32_t, uint64_t> node_backend_ST_counts;
   std::unordered_map<IValPtrShared, SharedSynTensorOrRefListPtr>
       pt_to_synapse_tensors_;
 

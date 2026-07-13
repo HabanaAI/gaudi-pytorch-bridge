@@ -27,19 +27,19 @@
   },
   "pt_versions": {
     "previous": {
-      "version": "2.9.1",
-      "cpu_index_url": "default",
-      "torchvision": "v0.24.1"
-    },
-    "current": {
       "version": "2.10.0",
       "cpu_index_url": "default",
       "torchvision": "v0.25.0"
     },
-    "next": {
+    "current": {
       "version": "2.11.0",
+      "cpu_index_url": "default",
+      "torchvision": "v0.26.0"
+    },
+    "next": {
+      "version": "2.12.0",
       "cpu_index_url": "https://download.pytorch.org/whl/test/cpu",
-      "torchvision": "v0.25.0"
+      "torchvision": "v0.27.0"
     }
   },
   "wheels": {

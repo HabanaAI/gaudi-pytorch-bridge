@@ -51,6 +51,30 @@ SharedMetaDataVector FillCumProdSharedMeta(
   return FillCumSumProdSharedMeta(stack, "cumprod_fwd");
 }
 
+bool CumsumDSSTMeta(
+    habana_helpers::IShapeList& inputs,
+    [[maybe_unused]] habana_helpers::IShapeList& outputs) {
+  if (!inputs[0].isTensor()) {
+    return false;
+  }
+  auto input_dtype = inputs[0].getScalarType();
+  auto dtype = input_dtype;
+  if (habana_helpers::is_downcast_to_int_needed(dtype) ||
+      dtype == at::ScalarType::Bool || dtype == at::ScalarType::Char ||
+      dtype == at::ScalarType::Byte) {
+    dtype = at::ScalarType::Int;
+  } else if (dtype == at::ScalarType::Double) {
+    dtype = at::ScalarType::Float;
+  }
+  if (dtype != input_dtype &&
+      habana_helpers::GetPrecisionString(input_dtype) !=
+          habana_helpers::GetPrecisionString(dtype)) {
+    std::vector<int64_t> cast_shape = {1};
+    habana_helpers::UpdateSTShapeInfo(cast_shape);
+  }
+  return true;
+}
+
 FillParamsT FillCumsumParams(const at::Stack& stack) {
   PARAMS_STUB(ns_CumSumKernel::Params);
   auto self = stack.at(0).toTensor();

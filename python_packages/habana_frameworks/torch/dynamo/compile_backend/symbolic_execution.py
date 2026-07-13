@@ -132,6 +132,12 @@ class ExprPrinter(Printer):
     def _print_Mod(self, expr):
         return " % ".join(map(self.paren, map(self._print, expr.args)))
 
+    def _print_Min(self, expr):
+        return f"min({', '.join(map(self._print, expr.args))})"
+
+    def _print_Max(self, expr):
+        return f"max({', '.join(map(self._print, expr.args))})"
+
     def _print_CleanDiv(self, expr):
         return self._print_FloorDiv(expr)
 

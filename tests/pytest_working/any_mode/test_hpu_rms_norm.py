@@ -112,3 +112,64 @@ def test_rms_norm_fwd_bwd(size, eps, use_stages, bwd_mode, data_in_dtype, gamma_
 @pytest.mark.parametrize("gamma_dtype", [torch.float16, torch.float32, torch.bfloat16])
 def test_rms_norm_fwd_bwd_fast_math(size, eps, data_in_dtype, gamma_dtype):
     rms_norm_fwd_bwd(size, eps, False, RmsNormBwdMode.DEFAULT, True, data_in_dtype, gamma_dtype)
+
+
+def rms_norm_fwd_ref_with_residual_and_weight(data_in, gamma, eps, residual=None, add_one_to_weight=False):
+    orig_dtype = data_in.dtype
+
+    if residual is not None:
+        data = data_in.float() + residual.float() if orig_dtype == torch.float16 else data_in + residual
+    else:
+        data = data_in
+
+    x = data.float()
+    variance = x.pow(2).mean(dim=-1, keepdim=True)
+    x = x * torch.rsqrt(variance + eps)
+
+    weight = gamma.float()
+    if add_one_to_weight:
+        weight = 1.0 + weight
+    x = x * weight
+
+    return x.to(orig_dtype)
+
+
+@pytest.mark.parametrize("size, eps", [((8, 2, 2, 4), 3e-5), ((1, 2, 4, 17, 20), 3e-5)])
+@pytest.mark.parametrize("data_in_dtype", [torch.float16, torch.float32, torch.bfloat16])
+@pytest.mark.parametrize("add_one_to_weight", [False, True])
+def test_rms_norm_fwd_with_residual_and_add_one_to_weight(size, eps, data_in_dtype, add_one_to_weight):
+    torch.manual_seed(12345)
+
+    data_in_ref = torch.rand(size, dtype=data_in_dtype)
+    gamma_ref = torch.rand((size[-1],), dtype=data_in_dtype)
+    residual_ref = torch.rand(size, dtype=data_in_dtype)
+
+    output_ref = rms_norm_fwd_ref_with_residual_and_weight(
+        data_in_ref,
+        gamma_ref,
+        eps,
+        residual_ref,
+        add_one_to_weight,
+    ).to(torch.float32)
+
+    data_in_hpu = data_in_ref.to(hpu)
+    gamma_hpu = gamma_ref.to(hpu)
+    residual_hpu = residual_ref.to(hpu)
+
+    output_fwd = compile_function_if_compile_mode(FusedRMSNorm.apply)
+    output_hpu = output_fwd(
+        data_in_hpu,
+        gamma_hpu,
+        eps,
+        True,
+        RmsNormBwdMode.DEFAULT.value,
+        False,
+        residual_hpu,
+        add_one_to_weight,
+    )
+
+    tol = 1e-6 if data_in_dtype == torch.float32 else 1e-2
+    torch.testing.assert_close(output_hpu.to(torch.float32).to(cpu), output_ref, rtol=tol, atol=tol)
+
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir({"rms_norm"})

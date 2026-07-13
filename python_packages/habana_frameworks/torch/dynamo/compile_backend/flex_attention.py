@@ -76,9 +76,17 @@ def hpu_flex_attention_bwd_pass(graph_module: torch.fx.GraphModule):
         outshape = hop_node.args[3].meta["val"].shape
         ostride = hop_node.args[3].meta["tensor_meta"].stride
         logsumexpshape = hop_node.args[4].meta["val"].shape
-        grad_outshape = hop_node.args[5].meta["val"].shape
-        gradstride = hop_node.args[5].meta["tensor_meta"].stride
-        grad_logsumexpshape = hop_node.args[6].meta["val"].shape
+        # grad_out (args[5]) and grad_logsumexp (args[6]) can be None
+        # when set_materialize_grads(False) is used (PyTorch PR #173481)
+        grad_out_node = hop_node.args[5]
+        if grad_out_node is not None:
+            grad_outshape = grad_out_node.meta["val"].shape
+            gradstride = grad_out_node.meta["tensor_meta"].stride
+        else:
+            grad_outshape = outshape
+            gradstride = ostride
+        grad_lse_node = hop_node.args[6]
+        grad_logsumexpshape = grad_lse_node.meta["val"].shape if grad_lse_node is not None else logsumexpshape
         is_noop_mask = False
         # dtype of q, k, v is expected to be same
         dtype = hop_node.args[2].meta["val"].dtype
@@ -195,6 +203,24 @@ def hpu_flex_attention_bwd_pass(graph_module: torch.fx.GraphModule):
 
         # decompose flex_attention on HPU
         with graph_module.graph.inserting_before(hop_node):
+            # Materialize zero tensors for None grad args using mul(x, 0)
+            # to avoid eager fallback from zeros_like
+            grad_out_arg = hop_node.args[5]
+            if grad_out_arg is None:
+                grad_out_arg = graph_module.graph.create_node(
+                    "call_function",
+                    torch.ops.aten.mul.Tensor,
+                    args=(hop_node.args[3], 0),  # out * 0
+                    kwargs={},
+                )
+            grad_lse_arg = hop_node.args[6]
+            if grad_lse_arg is None:
+                grad_lse_arg = graph_module.graph.create_node(
+                    "call_function",
+                    torch.ops.aten.mul.Tensor,
+                    args=(hop_node.args[4], 0),  # logsumexp * 0
+                    kwargs={},
+                )
             new_node = graph_module.graph.create_node(
                 "call_function",
                 torch.ops.hpu.flex_attention_bwd,
@@ -204,8 +230,8 @@ def hpu_flex_attention_bwd_pass(graph_module: torch.fx.GraphModule):
                     hop_node.args[2],
                     hop_node.args[3],
                     hop_node.args[4],
-                    hop_node.args[5],
-                    hop_node.args[6],
+                    grad_out_arg,
+                    grad_lse_arg,
                     block_size,
                     is_noop_mask,
                 ),

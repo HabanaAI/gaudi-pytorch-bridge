@@ -786,6 +786,7 @@ struct MixtureOfExpertsConfig {
   bool gpt_swiglu = false;
   float alpha = 1.702;
   float limit = 7.0;
+  bool permuted_weight_scales = false;
 };
 
 FillParamsT FillMixtureOfExpertsParams(
@@ -830,6 +831,9 @@ FillParamsT FillMixtureOfExpertsParams(
   params->flags |=
       (cfg.scaled_swiglu ? MoeFlags_t::MOE_FLAGS_SCALED_SWIGLU : 0);
   params->flags |= (cfg.gpt_swiglu ? MoeFlags_t::MOE_FLAGS_GPT_SWIGLU : 0);
+  params->flags |=
+      (cfg.permuted_weight_scales ? MoeFlags_t::MOE_FLAGS_PERMUTED_WEIGHT_SCALES
+                                  : 0);
 
   params->total_experts = cfg.total_experts;
   params->chunk_size = cfg.chunk_size;
@@ -1340,6 +1344,224 @@ void MixtureOfExpertsFp8BlockwiseQuantization::AddNode(
           stack.at(stack_size - 1).toInt()) /* total_experts */};
 
   auto params = FillMixtureOfExpertsParams(stack, cfg);
+  auto meta = MixtureOfExpertsFp8Meta(stack)[0];
+  auto moe_result = OpBackend::BuildNode(
+      this,
+      graph,
+      {get_guid_with_precision("moe"sv, hidden_states.scalar_type()),
+       std::move(inputs),
+       {{meta.shape, meta.dtype, 0}},
+       params.ptr(),
+       params.size()});
+  syn_out(0) = std::move(moe_result[0]);
+}
+
+// ─── MXFP4 weights support ──────────────────────────────────────────────────
+// Input stack layout (non-fused, size==17):
+//   [0] hidden_states  [1] routing_table  [2] router_weights
+//   [3] w1  [4] w2  [5] w3                                (TensorList, packed
+//   uint8) [6] d_scale_w1  [7] d_scale_w2  [8] d_scale_w3        (TensorList,
+//   E8M0 uint8) [9] block_size  [10] permuted_weights  [11] activation [12]
+//   experts_min  [13] experts_max  [14] is_fp4 [15] chunk_size  [16]
+//   total_experts
+//
+// Fused (size==15): [3] w12  [4] w3  [5] d_scale_w12  [6] d_scale_w3
+//   [7] block_size  [8] permuted_weights  [9] activation
+//   [10] experts_min  [11] experts_max  [12] is_fp4
+//   [13] chunk_size  [14] total_experts
+// ─────────────────────────────────────────────────────────────────────────────
+
+void MixtureOfExpertsMxfp4::AddNode(sh::graph& graph, const at::Stack& stack) {
+  auto hidden_states = stack.at(0).toTensor();
+  auto num_experts = stack.at(3).toTensorList().size();
+  const bool fused_weights = stack.size() == 15;
+  // Each expert contributes: (fused ? 2 : 3) weights + same number of scales
+  const size_t weights_per_expert = fused_weights ? 2 : 3;
+  const auto weights_and_scales_per_expert = weights_per_expert * 2;
+  const size_t permuted_weights_idx = fused_weights ? 8 : 10;
+  const size_t stack_size = stack.size();
+  const auto chunk_size =
+      static_cast<unsigned int>(stack.at(stack_size - 2).toInt());
+
+  const size_t num_inputs = 3 + (num_experts * weights_and_scales_per_expert);
+  std::vector<synTensor> inputs;
+  inputs.reserve(num_inputs);
+
+  // Non-weight inputs: hidden_states, routing_table, router_weights
+  for (size_t i = 0; i < 3; i++) {
+    inputs.push_back(syn_in(i));
+  }
+
+  // Packed weight tensors: reinterpret uint8 -> syn_type_packed_mxfp4 so that
+  // the cguid pass recognises isPacked_MXFP4PrecisionType() and inserts the
+  // required cast_packed_mxfp4_to_bf16 nodes before each GEMM.
+  // The cast_tensors vector keeps the sh::tensor objects alive until after the
+  // final BuildNode("moe") call; otherwise their destructor would call
+  // synTensorDestroy, potentially leaving dangling synTensor handles in inputs.
+  std::vector<sh::tensor> cast_tensors;
+  cast_tensors.reserve(weights_per_expert * num_experts);
+  size_t syn_idx = 3;
+  for (size_t list_idx = 3; list_idx < 3 + weights_per_expert; list_idx++) {
+    const auto& weight_list = stack.at(list_idx).toTensorList();
+    for (size_t expert_idx = 0; expert_idx < num_experts; expert_idx++) {
+      auto sizes = weight_list[expert_idx].sizes().vec();
+      auto cast_result = OpBackend::BuildNode(
+          this,
+          graph,
+          {"reinterpret_cast",
+           {syn_in(syn_idx)},
+           {{sizes,
+             c10::ScalarType::Byte,
+             std::nullopt,
+             DATA_TENSOR,
+             syn_type_packed_mxfp4}}});
+      inputs.push_back(cast_result[0].get());
+      cast_tensors.push_back(std::move(cast_result[0]));
+      syn_idx++;
+    }
+  }
+
+  // Scale tensors (E8M0 uint8): pass as-is
+  for (size_t i = syn_idx; i < num_inputs; i++) {
+    inputs.push_back(syn_in(i));
+  }
+
+  const MixtureOfExpertsConfig cfg = {
+      permuted_weights_idx,
+      fused_weights,
+      false, /* measurement_mode */
+      false, /* dynamic_scale */
+      false, /* blockwise_quantization */
+      false, /* first_gemm_measurement_mode */
+      false, /* hybrid_mode */
+      false, /* scaled_swiglu */
+      chunk_size, /* chunk_size */
+      static_cast<unsigned int>(
+          stack.at(stack_size - 1).toInt()), /* total_experts */
+      false, /* gpt_swiglu */
+      1.702F, /* alpha */
+      7.0F, /* limit */
+      true, /* permuted_weight_scales */
+  };
+
+  auto params = FillMixtureOfExpertsParams(stack, cfg);
+  // block_size must always be set for MXFP4: the cguid-inserted
+  // cast_packed_mxfp4_to_bf16 kernel uses it to index E8M0 scales
+  // regardless of whether expert-parallelism chunking is active.
+  params.paramsPtr<ns_MoeKernel::ParamsV5>()->block_size =
+      static_cast<unsigned int>(stack.at(permuted_weights_idx - 1).toInt());
+  auto meta = MixtureOfExpertsFp8Meta(stack)[0];
+  auto moe_result = OpBackend::BuildNode(
+      this,
+      graph,
+      {get_guid_with_precision("moe"sv, hidden_states.scalar_type()),
+       std::move(inputs),
+       {{meta.shape, meta.dtype, 0}},
+       params.ptr(),
+       params.size()});
+  syn_out(0) = std::move(moe_result[0]);
+}
+
+// ─── MXFP4 weights + GPT-OSS SwiGLU-OAI + per-expert bias ────────────────────
+// Mirrors MixtureOfExpertsMxfp4::AddNode but adds the GPT-OSS swiglu (alpha/
+// limit) path and per-expert bias operands, matching the FP8 bias variant
+// (FillMixtureOfExpertsBiasFp8Params). Fused weights only.
+//
+// Input stack layout (size==18):
+//   [0] hidden_states  [1] routing_table  [2] router_weights
+//   [3] w12  [4] w3                             (TensorList, packed uint8)
+//   [5] w12_bias  [6] w3_bias                   (TensorList, bf16)
+//   [7] d_scale_w12  [8] d_scale_w3             (TensorList, E8M0 uint8)
+//   [9] block_size  [10] permuted_weights
+//   [11] experts_min  [12] experts_max  [13] is_fp4
+//   [14] chunk_size  [15] total_experts  [16] alpha  [17] limit
+//
+// cguid operand contract (Moe.cpp, isGptSwiglu branch):
+//   [tokens, routing, router] + [weights(2E)] + [bias(2E)] + [scales(2E)]
+// ─────────────────────────────────────────────────────────────────────────────
+
+void MixtureOfExpertsBiasMxfp4::AddNode(
+    sh::graph& graph,
+    const at::Stack& stack) {
+  const auto& hidden_states = stack.at(0).toTensor();
+  const size_t num_experts = stack.at(3).toTensorList().size();
+  // Fused weights only: 2 weights + 2 biases + 2 scales per expert.
+  const size_t weights_per_expert = 2;
+  const size_t permuted_weights_idx = 10;
+  const size_t stack_size = stack.size();
+  const auto chunk_size =
+      static_cast<unsigned int>(stack.at(stack_size - 4).toInt());
+
+  // syn_in layout: [0..2] non-weight, then weights(2E), bias(2E), scales(2E).
+  const size_t num_inputs = 3 + (num_experts * weights_per_expert * 3);
+  std::vector<synTensor> inputs;
+  inputs.reserve(num_inputs);
+
+  // Non-weight inputs: hidden_states, routing_table, router_weights
+  for (size_t i = 0; i < 3; i++) {
+    inputs.push_back(syn_in(i));
+  }
+
+  // Packed weight tensors: reinterpret uint8 -> syn_type_packed_mxfp4 so that
+  // the cguid pass recognises isPacked_MXFP4PrecisionType() and inserts the
+  // required cast_packed_mxfp4_to_bf16 nodes before each GEMM.
+  // cast_tensors keeps the sh::tensor objects alive until after the final
+  // BuildNode("moe") call (otherwise their destructor would invalidate the
+  // synTensor handles stored in inputs).
+  std::vector<sh::tensor> cast_tensors;
+  cast_tensors.reserve(weights_per_expert * num_experts);
+  size_t syn_idx = 3;
+  for (size_t list_idx = 3; list_idx < 3 + weights_per_expert; list_idx++) {
+    const auto& weight_list = stack.at(list_idx).toTensorList();
+    for (size_t expert_idx = 0; expert_idx < num_experts; expert_idx++) {
+      auto sizes = weight_list[expert_idx].sizes().vec();
+      auto cast_result = OpBackend::BuildNode(
+          this,
+          graph,
+          {"reinterpret_cast",
+           {syn_in(syn_idx)},
+           {{sizes,
+             c10::ScalarType::Byte,
+             std::nullopt,
+             DATA_TENSOR,
+             syn_type_packed_mxfp4}}});
+      inputs.push_back(cast_result[0].get());
+      cast_tensors.push_back(std::move(cast_result[0]));
+      syn_idx++;
+    }
+  }
+
+  // Bias tensors (bf16) and scale tensors (E8M0 uint8): pass through in order.
+  // Both groups follow the weights in the syn_in sequence, which already
+  // matches the cguid contract [.. weights, bias, scales].
+  for (size_t i = syn_idx; i < num_inputs; i++) {
+    inputs.push_back(syn_in(i));
+  }
+
+  const MixtureOfExpertsConfig cfg = {
+      permuted_weights_idx,
+      true, /* fused_gemm */
+      false, /* measurement_mode */
+      false, /* dynamic_scale */
+      false, /* blockwise_quantization */
+      false, /* first_gemm_measurement_mode */
+      false, /* hybrid_mode */
+      false, /* scaled_swiglu */
+      chunk_size, /* chunk_size */
+      static_cast<unsigned int>(
+          stack.at(stack_size - 3).toInt()), /* total_experts */
+      true, /* gpt_swiglu */
+      static_cast<float>(stack.at(stack_size - 2).toDouble()), /* alpha */
+      static_cast<float>(stack.at(stack_size - 1).toDouble()), /* limit */
+      true, /* permuted_weight_scales */
+  };
+
+  auto params = FillMixtureOfExpertsParams(stack, cfg);
+  // block_size must always be set for MXFP4: the cguid-inserted
+  // cast_packed_mxfp4_to_bf16 kernel uses it to index E8M0 scales regardless of
+  // whether expert-parallelism chunking is active.
+  params.paramsPtr<ns_MoeKernel::ParamsV5>()->block_size =
+      static_cast<unsigned int>(stack.at(permuted_weights_idx - 1).toInt());
   auto meta = MixtureOfExpertsFp8Meta(stack)[0];
   auto moe_result = OpBackend::BuildNode(
       this,

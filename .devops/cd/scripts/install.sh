@@ -55,7 +55,3 @@ else
   python${MIN_PYTHON_VER} -m pip install ./*.whl -r requirements-pytorch.txt ${PIP_PYTHON_OPTIONS} --disable-pip-version-check --no-warn-script-location
   rm -f pip_report extras_req.txt
 fi
-
-python${MIN_PYTHON_VER} -m pip uninstall -y pillow 2>/dev/null || echo "Skip uninstalling pillow. Need SUDO permissions."
-python${MIN_PYTHON_VER} -m pip uninstall -y pillow-simd 2>/dev/null || echo "Skip uninstalling pillow-simd. Need SUDO permissions."
-CC="cc -mavx2" python${MIN_PYTHON_VER} -m pip install -U --force-reinstall git+https://github.com/HabanaAI/pillow-simd-fork.git@simd/9.5.x ${PIP_PYTHON_OPTIONS} --disable-pip-version-check

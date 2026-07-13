@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@ from .helpers import (
     is_decomposed_from_inplace_node,
     is_module_dynamic,
     is_node_supported,
+    is_opaque_node,
     is_view_node,
     jit_node_annotation_propagation,
     jit_node_shape_propagation,
@@ -49,6 +50,7 @@ __all__ = [
     "is_decomposed_from_inplace_node",
     "is_module_dynamic",
     "is_node_supported",
+    "is_opaque_node",
     "is_view_node",
     "jit_node_annotation_propagation",
     "jit_node_shape_propagation",

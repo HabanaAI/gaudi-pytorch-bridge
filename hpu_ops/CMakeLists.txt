@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -184,6 +184,7 @@ add_habana_library(
   backend/isposneginf_gen.cpp
   backend/kthvalue_gen.cpp
   backend/kv_reorder_gen.cpp
+  backend/l2_norm_gen.cpp
   backend/layer_norm_gen.cpp
   backend/lazy_cast.cpp
   backend/leakyrelu_gen.cpp
@@ -311,6 +312,8 @@ add_habana_library(
   backend/zero_gen.cpp
   backend/mamba_pscan_gen.cpp
   backend/mamba_pscan_update_gen.cpp
+  backend/causal_conv1d_fwd_gen.cpp
+  backend/causal_conv1d_update_gen.cpp
   common/batched_matmul_output_shape.cpp
   common/convolution_gen.cpp
   common/fp8_ops.cpp

@@ -2891,6 +2891,10 @@ void HabanaLaunchOpPT::HandleOutputExprMappedJITGraph(
     // Skip for static backend STs and all frontend STs
     if (rv.dynamic_nodes_with_backend_STs.find(node_idx) ==
         rv.dynamic_nodes_with_backend_STs.end()) {
+      auto it = rv.node_backend_ST_counts.find(node_idx);
+      if (it != rv.node_backend_ST_counts.end() && it->second > 0) {
+        habana::ShapeInference::IncrementShapeTensorId(it->second);
+      }
       continue;
     }
 
@@ -3346,11 +3350,14 @@ void HabanaLaunchOpPT::HandleSlicesAndStrides(
         static_cast<uint64_t>(habana::ShapeInference::GetShapeTensorId());
 
     if (enable_optim_output_sif_ &&
-        (map_shape_.m_pass == ShapeInfo::InferencePass::INVALID) &&
-        curr_st_id != changed_st_id) {
-      dynamic_nodes_with_backend_STs.insert(node_idx);
-      PT_DYNAMIC_SHAPE_DEBUG(
-          "Dynamic Node with op", opname, "is creating ST(s) at the backend");
+        (map_shape_.m_pass == ShapeInfo::InferencePass::INVALID)) {
+      auto st_count = changed_st_id - curr_st_id;
+      if (st_count != 0) {
+        dynamic_nodes_with_backend_STs.insert(node_idx);
+        PT_DYNAMIC_SHAPE_DEBUG(
+            "Dynamic Node with op", opname, "is creating ST(s) at the backend");
+      }
+      node_backend_ST_counts[node_idx] = st_count;
     }
 
     HabanaKernel->dump(node, input_stack);

@@ -23,6 +23,7 @@ from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backen
 import torch
 import torch._prims_common as utils
 from torch._decomp import core_aten_decompositions, get_decompositions
+from torch._inductor.inductor_prims import fma as inductor_fma
 from torch._ops import DispatchKey
 
 logger = get_compile_backend_logger()
@@ -858,6 +859,11 @@ def split(self, split_size, dim=0):
         # Slice op is not yet supported for dynamic shape in torch compile
         result[idx - 1] = aten.slice(self, dim, new_split[idx - 1], new_split[idx], 1)
     return tuple(result)
+
+
+@register_custom_decomposition(inductor_fma, hpu_backend_decompositions_common)
+def _fma_decomp(a, b, c):
+    return torch.add(torch.mul(a, b), c)
 
 
 def get_hpu_decompositions():

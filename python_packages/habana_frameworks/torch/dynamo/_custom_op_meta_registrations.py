@@ -1106,6 +1106,9 @@ def meta_mixture_of_experts_common(
         torch.ops.hpu.mixture_of_experts.fp8_scalars_dynamic,
         torch.ops.hpu.mixture_of_experts.bias_fp8_fused_weights,
         torch.ops.hpu.mixture_of_experts.bias_fp8_fused_weights_scalars,
+        torch.ops.hpu.mixture_of_experts.mxfp4,
+        torch.ops.hpu.mixture_of_experts.mxfp4_fused_weights,
+        torch.ops.hpu.mixture_of_experts.bias_mxfp4_fused_weights,
     ]
 )
 def meta_mixture_of_experts_fp8_common(hidden_states, *args, **kwargs):
@@ -1540,8 +1543,22 @@ def meta_rotary_pos_embedding_backward(grad_in, sin, cos, position_ids, offset, 
     return grad_in.new_empty(grad_in.shape)
 
 
-@register_meta([torch.ops.hpu.rms_norm.default, torch.ops.hpu.rms_norm_fast.default])
-def meta_rms_norm(data_in, gamma, epsilon):
+@register_meta([torch.ops.hpu.rms_norm.default])
+def meta_rms_norm(data_in, gamma, epsilon, residual=None, addOneToWeight=False):
+    inverse_root_mean_square_shape = list(data_in.shape)
+    inverse_root_mean_square_shape[-1] = 1
+
+    data_in_dtype = data_in.dtype
+    if data_in_dtype != gamma.dtype:
+        data_in_dtype = torch.float32
+
+    return data_in.new_empty(data_in.shape, dtype=data_in_dtype), data_in.new_empty(
+        inverse_root_mean_square_shape, dtype=torch.float32
+    )
+
+
+@register_meta([torch.ops.hpu.rms_norm_fast.default])
+def meta_rms_norm_fast(data_in, gamma, epsilon):
     inverse_root_mean_square_shape = list(data_in.shape)
     inverse_root_mean_square_shape[-1] = 1
 
@@ -1619,6 +1636,11 @@ def linear_backward(self, grad_output, weight, output_mask):
     return input_grad, weight_grad, bias_grad
 
 
+@register_meta([torch.ops.hpu.l2_norm.default])
+def meta_l2_norm(input, *, epsilon):
+    return input.new_empty(input.shape, dtype=torch.float32)
+
+
 @register_meta([torch.ops.hpu.mamba_pscan.default])
 def mamba_pscan(state, x, dt, A, B):
     out_shape = x.shape
@@ -1631,6 +1653,39 @@ def mamba_pscan(state, x, dt, A, B):
 def mamba_pscan_update(state, x, C, D, z):
     out = x.new_empty(x.shape, dtype=x.dtype)
     return out
+
+
+@register_meta([torch.ops.hpu.causal_conv1d_fwd.default])
+def causal_conv1d_fwd(
+    x,
+    conv_state,
+    weight,
+    bias,
+    has_initial_state,
+    query_start_loc,
+    cache_indices,
+    *,
+    activation=False,
+    pad_slot_id=-1,
+):
+    out = x.new_empty(x.shape, dtype=x.dtype)
+    conv_state_out = conv_state.new_empty(conv_state.shape, dtype=conv_state.dtype)
+    return out, conv_state_out
+
+
+@register_meta([torch.ops.hpu.causal_conv1d_update.default])
+def causal_conv1d_update(
+    x,
+    conv_state,
+    weight,
+    bias,
+    *,
+    activation=False,
+    pad_slot_id=-1,
+):
+    out = x.new_empty(x.shape, dtype=x.dtype)
+    conv_state_out = conv_state.new_empty(conv_state.shape, dtype=conv_state.dtype)
+    return out, conv_state_out
 
 
 @register_meta([torch.ops.hpu.calculate_scale_for_cast.default])

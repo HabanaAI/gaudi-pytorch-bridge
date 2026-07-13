@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,10 +44,12 @@ OutputMetaDataVector RMSNormMeta(const at::Stack& stack) {
 FillParamsT RMSNormParams(const at::Stack& stack) {
   const auto epsilon = stack.at(2).toScalar().toFloat();
 
-  PARAMS_STUB(ns_LayerNormKernel::ParamsRmsNorm);
+  PARAMS_STUB(ns_LayerNormKernel::ParamsRmsNormV3);
   params->epsValid = true;
   params->eps = epsilon;
   params->fastMath = false;
+  params->hasResidual = stack.at(3).toOptional<at::Tensor>().has_value();
+  params->addOneToWeight = stack.at(4).toScalar().toBool();
   return paramsT;
 }
 
