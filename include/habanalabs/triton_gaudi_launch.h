@@ -15,7 +15,7 @@ namespace habana::triton_gaudi {
 
 inline constexpr std::uint32_t kLaunchParamsMagic = 0x31475452U;
 inline constexpr std::uint16_t kLaunchAbiMajor = 1;
-inline constexpr std::uint16_t kLaunchAbiMinor = 8;
+inline constexpr std::uint16_t kLaunchAbiMinor = 9;
 inline constexpr std::uint16_t kBridgeLaunchAbiMajor = 2;
 inline constexpr std::uint16_t kBridgeLaunchAbiMinor = 0;
 inline constexpr std::size_t kArtifactHashChars = 64;
@@ -39,6 +39,7 @@ enum class KernelKind : std::uint32_t {
   GdnQkConvPacked = 5,
   GdnDecodeValueConvPacked = 6,
   DynamicQuant = 7,
+  SiluAndMulDynamicQuant = 8,
 };
 
 struct LaunchParamsV1 {

@@ -718,6 +718,21 @@ std::shared_ptr<Artifact> parse_artifact(
             scalar_dtypes == std::vector<std::string>({"f32"}) &&
             artifact->bound_scalar_position < 0,
         "fused add+RMSNorm artifact has an incompatible tensor or scalar ABI");
+  } else if (kind == "silu_and_mul_dynamic_quant") {
+    artifact->kernel_kind = KernelKind::SiluAndMulDynamicQuant;
+    const auto& parameters = manifest.at("parameters");
+    artifact->logical_size = parameters.at("n_cols").get<std::uint32_t>();
+    require(
+        input_args.get<std::vector<std::size_t>>() ==
+                std::vector<std::size_t>({0}) &&
+            output_args == std::vector<std::size_t>({1, 2}) &&
+            scalar_order.empty() && artifact->bound_scalar_position < 0 &&
+            parameters.at("input_row_stride").get<std::uint32_t>() ==
+                2 * artifact->logical_size &&
+            parameters.at("fp8_max").get<double>() == 240.0 &&
+            std::abs(parameters.at("scale_epsilon").get<double>() - 1.0e-8) <=
+                1.0e-14,
+        "fused SiLU-and-mul dynamic quantization artifact has an incompatible ABI");
   } else if (kind == "dynamic_quant") {
     artifact->kernel_kind = KernelKind::DynamicQuant;
     const auto& parameters = manifest.at("parameters");
@@ -869,7 +884,8 @@ std::shared_ptr<Artifact> parse_artifact(
           artifact->kernel_kind != KernelKind::GdnDecodeConvPacked &&
           artifact->kernel_kind != KernelKind::GdnQkConvPacked &&
           artifact->kernel_kind != KernelKind::GdnDecodeValueConvPacked &&
-          artifact->kernel_kind != KernelKind::DynamicQuant) {
+          artifact->kernel_kind != KernelKind::DynamicQuant &&
+          artifact->kernel_kind != KernelKind::SiluAndMulDynamicQuant) {
         require(
             argument_dtype == tensor_dtype,
             "all generic TPC tensor arguments must use the manifest dtype");
@@ -886,6 +902,20 @@ std::shared_ptr<Artifact> parse_artifact(
             artifact->block_size <= 8192 &&
             (artifact->block_size & (artifact->block_size - 1)) == 0,
         "fused add+RMSNorm requires BF16 and a supported power-of-two block size");
+  } else if (
+      artifact->kernel_kind == KernelKind::SiluAndMulDynamicQuant) {
+    const std::vector<at::ScalarType> expected_dtypes{
+        at::kBFloat16, at::kFloat8_e4m3fn, at::kFloat};
+    require(
+        artifact->dtype == at::kFloat8_e4m3fn &&
+            artifact->tensor_dtypes == expected_dtypes &&
+            artifact->logical_size > 0 && artifact->logical_size <= 4096 &&
+            artifact->logical_size <= artifact->block_size &&
+            (artifact->logical_size == 1 ||
+             artifact->logical_size > artifact->block_size / 2) &&
+            artifact->block_size <= 8192 &&
+            (artifact->block_size & (artifact->block_size - 1)) == 0,
+        "fused SiLU-and-mul dynamic quantization requires BF16 to E4M3/f32 and a supported block size");
   } else if (artifact->kernel_kind == KernelKind::DynamicQuant) {
     const std::vector<at::ScalarType> expected_dtypes{
         at::kBFloat16, at::kFloat8_e4m3fn, at::kFloat};
@@ -1312,6 +1342,17 @@ void launch(
             static_cast<std::uint64_t>(tensors[3].numel()) == matrix_elements &&
             static_cast<std::uint64_t>(tensors[4].numel()) == matrix_elements,
         "fused add+RMSNorm tensor storage does not match grid rows and n_cols");
+  } else if (
+      artifact->kernel_kind == KernelKind::SiluAndMulDynamicQuant) {
+    const auto n_cols = artifact->logical_size;
+    const auto matrix_elements = grid[0] * static_cast<std::uint64_t>(n_cols);
+    require(
+        tensors.size() == 3 &&
+            static_cast<std::uint64_t>(tensors[0].numel()) ==
+                2 * matrix_elements &&
+            static_cast<std::uint64_t>(tensors[1].numel()) == matrix_elements &&
+            static_cast<std::uint64_t>(tensors[2].numel()) == grid[0],
+        "fused SiLU-and-mul dynamic quantization tensor storage does not match grid rows and n_cols");
   } else if (artifact->kernel_kind == KernelKind::DynamicQuant) {
     const auto n_cols = artifact->logical_size;
     const auto matrix_elements = grid[0] * static_cast<std::uint64_t>(n_cols);
