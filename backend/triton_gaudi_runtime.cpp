@@ -541,8 +541,9 @@ std::shared_ptr<Artifact> parse_artifact(
     const auto dtype = argument.at("dtype").get<std::string>();
     if (kind == "tensor") {
       require(
-          dtype == "f32" || dtype == "bf16" || dtype == "i32",
-          "launch ABI supports FP32, BF16, and I32 tensors only");
+          dtype == "f32" || dtype == "bf16" || dtype == "i32" ||
+              dtype == "fp8e4nv",
+          "launch ABI supports FP32, BF16, I32, and Gaudi2 E4M3 tensors only");
       tensor_order.push_back(index);
     } else {
       require(
@@ -717,6 +718,19 @@ std::shared_ptr<Artifact> parse_artifact(
             scalar_dtypes == std::vector<std::string>({"f32"}) &&
             artifact->bound_scalar_position < 0,
         "fused add+RMSNorm artifact has an incompatible tensor or scalar ABI");
+  } else if (kind == "dynamic_quant") {
+    artifact->kernel_kind = KernelKind::DynamicQuant;
+    const auto& parameters = manifest.at("parameters");
+    artifact->logical_size = parameters.at("n_cols").get<std::uint32_t>();
+    require(
+        input_args.get<std::vector<std::size_t>>() ==
+                std::vector<std::size_t>({0}) &&
+            output_args == std::vector<std::size_t>({1, 2}) &&
+            scalar_order.empty() && artifact->bound_scalar_position < 0 &&
+            parameters.at("fp8_max").get<double>() == 240.0 &&
+            std::abs(parameters.at("scale_epsilon").get<double>() - 1.0e-8) <=
+                1.0e-14,
+        "dynamic FP8 quantization artifact has an incompatible tensor or scalar ABI");
   } else if (kind == "silu_and_mul") {
     artifact->kernel_kind = KernelKind::SiluAndMul;
     const auto& parameters = manifest.at("parameters");
@@ -833,9 +847,12 @@ std::shared_ptr<Artifact> parse_artifact(
     require(kind == "elementwise", "manifest has an unsupported TPC kernel kind");
   }
   const auto tensor_dtype = manifest.value("tensor_dtype", "");
-  artifact->dtype = tensor_dtype == "bf16" ? at::kBFloat16 : at::kFloat;
+  artifact->dtype = tensor_dtype == "bf16" ? at::kBFloat16
+      : tensor_dtype == "fp8e4nv"          ? at::kFloat8_e4m3fn
+                                           : at::kFloat;
   require(
-      tensor_dtype == "f32" || tensor_dtype == "bf16",
+      tensor_dtype == "f32" || tensor_dtype == "bf16" ||
+          tensor_dtype == "fp8e4nv",
       "manifest has an unsupported tensor dtype");
   artifact->tensor_dtypes.reserve(tensor_order.size());
   artifact->tensor_dtype_codes.reserve(tensor_order.size());
@@ -844,13 +861,15 @@ std::shared_ptr<Artifact> parse_artifact(
       const auto argument_dtype = argument.at("dtype").get<std::string>();
       artifact->tensor_dtype_codes.push_back(dtype_code(argument_dtype));
       artifact->tensor_dtypes.push_back(
-          argument_dtype == "bf16"
-              ? at::kBFloat16
-              : argument_dtype == "i32" ? at::kInt : at::kFloat);
+          argument_dtype == "bf16"          ? at::kBFloat16
+              : argument_dtype == "i32"     ? at::kInt
+              : argument_dtype == "fp8e4nv" ? at::kFloat8_e4m3fn
+                                            : at::kFloat);
       if (artifact->kernel_kind != KernelKind::GdnDecodePacked &&
           artifact->kernel_kind != KernelKind::GdnDecodeConvPacked &&
           artifact->kernel_kind != KernelKind::GdnQkConvPacked &&
-          artifact->kernel_kind != KernelKind::GdnDecodeValueConvPacked) {
+          artifact->kernel_kind != KernelKind::GdnDecodeValueConvPacked &&
+          artifact->kernel_kind != KernelKind::DynamicQuant) {
         require(
             argument_dtype == tensor_dtype,
             "all generic TPC tensor arguments must use the manifest dtype");
@@ -867,6 +886,19 @@ std::shared_ptr<Artifact> parse_artifact(
             artifact->block_size <= 8192 &&
             (artifact->block_size & (artifact->block_size - 1)) == 0,
         "fused add+RMSNorm requires BF16 and a supported power-of-two block size");
+  } else if (artifact->kernel_kind == KernelKind::DynamicQuant) {
+    const std::vector<at::ScalarType> expected_dtypes{
+        at::kBFloat16, at::kFloat8_e4m3fn, at::kFloat};
+    require(
+        artifact->dtype == at::kFloat8_e4m3fn &&
+            artifact->tensor_dtypes == expected_dtypes &&
+            artifact->logical_size > 0 &&
+            artifact->logical_size <= artifact->block_size &&
+            (artifact->logical_size == 1 ||
+             artifact->logical_size > artifact->block_size / 2) &&
+            artifact->block_size <= 16384 &&
+            (artifact->block_size & (artifact->block_size - 1)) == 0,
+        "dynamic quantization requires BF16 to E4M3/f32 and a supported block size");
   } else if (artifact->kernel_kind == KernelKind::SiluAndMul) {
     require(
         artifact->dtype == at::kBFloat16 &&
@@ -924,8 +956,7 @@ std::shared_ptr<Artifact> parse_artifact(
             (artifact->block_size == 128 || artifact->block_size == 256 ||
              artifact->block_size == 512),
         "packed Q/K convolution requires canonical dtypes and channel tile");
-  } else if (
-      artifact->kernel_kind == KernelKind::GdnDecodeValueConvPacked) {
+  } else if (artifact->kernel_kind == KernelKind::GdnDecodeValueConvPacked) {
     const std::vector<at::ScalarType> expected_dtypes{
         at::kBFloat16,
         at::kFloat,
@@ -1004,6 +1035,8 @@ LaunchParamsV1 make_launch_params(
   params.logical_size = artifact.logical_size;
   params.tensor_dtype = artifact.dtype == at::kBFloat16
       ? 1U << 8 // tpc_lib_api::DATA_BF16
+      : artifact.dtype == at::kFloat8_e4m3fn
+      ? 1U << 5 // tpc_lib_api::DATA_F8_143
       : 1U << 12; // tpc_lib_api::DATA_F32
   params.kernel_kind = artifact.kernel_kind;
   std::copy_n(
@@ -1279,6 +1312,15 @@ void launch(
             static_cast<std::uint64_t>(tensors[3].numel()) == matrix_elements &&
             static_cast<std::uint64_t>(tensors[4].numel()) == matrix_elements,
         "fused add+RMSNorm tensor storage does not match grid rows and n_cols");
+  } else if (artifact->kernel_kind == KernelKind::DynamicQuant) {
+    const auto n_cols = artifact->logical_size;
+    const auto matrix_elements = grid[0] * static_cast<std::uint64_t>(n_cols);
+    require(
+        tensors.size() == 3 &&
+            static_cast<std::uint64_t>(tensors[0].numel()) == matrix_elements &&
+            static_cast<std::uint64_t>(tensors[1].numel()) == matrix_elements &&
+            static_cast<std::uint64_t>(tensors[2].numel()) == grid[0],
+        "dynamic quantization tensor storage does not match grid rows and n_cols");
   } else if (artifact->kernel_kind == KernelKind::SiluAndMul) {
     const auto n_cols = artifact->logical_size;
     const auto rows = grid[1];
@@ -1340,8 +1382,7 @@ void launch(
             tensors[3].sizes() == at::IntArrayRef({4, 10240}) &&
             tensors[4].sizes() == at::IntArrayRef({batch, 4096}),
         "packed Q/K convolution tensor storage does not match Qwen3.5");
-  } else if (
-      artifact->kernel_kind == KernelKind::GdnDecodeValueConvPacked) {
+  } else if (artifact->kernel_kind == KernelKind::GdnDecodeValueConvPacked) {
     const auto batch = static_cast<std::int64_t>(grid[2]);
     const auto conv_slots = static_cast<std::int64_t>(scalar_params.at(0));
     const auto state_slots = static_cast<std::int64_t>(scalar_params.at(1));

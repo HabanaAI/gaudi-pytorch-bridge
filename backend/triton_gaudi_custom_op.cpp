@@ -23,6 +23,7 @@
 namespace {
 
 const std::string kFusedAddRmsNormSchema = "triton_gaudi::fused_add_rms_norm";
+const std::string kDynamicQuantSchema = "triton_gaudi::dynamic_quant";
 const std::string kSiluAndMulSchema = "triton_gaudi::silu_and_mul";
 const std::string kGdnDecodePackedSchema =
     "triton_gaudi::gdn_decode_packed";
@@ -173,6 +174,109 @@ std::tuple<at::Tensor, at::Tensor> fused_add_rms_norm_meta(
 }
 
 const bool kFusedAddRmsNormRegistered = register_fused_add_rms_norm();
+
+void validate_dynamic_quant_input(
+    const at::Tensor& input,
+    std::int64_t block_size,
+    std::int64_t n_cols,
+    std::int64_t rows) {
+  TORCH_CHECK(
+      input.scalar_type() == at::kBFloat16,
+      "Triton Gaudi dynamic quantization requires a BF16 input tensor");
+  TORCH_CHECK(
+      block_size > 0 && block_size <= 16384 &&
+          (block_size & (block_size - 1)) == 0 && n_cols > 0 &&
+          n_cols <= block_size && (n_cols == 1 || n_cols > block_size / 2),
+      "Triton Gaudi dynamic quantization has invalid specialization metadata");
+  TORCH_CHECK(
+      rows > 0 &&
+          rows <= static_cast<std::int64_t>(
+                      std::numeric_limits<std::uint32_t>::max()) &&
+          rows <= std::numeric_limits<std::int64_t>::max() / n_cols &&
+          input.is_contiguous() && input.dim() == 1 && input.numel() > 0 &&
+          input.numel() == n_cols * rows,
+      "Triton Gaudi dynamic quantization received incompatible tensor storage");
+}
+
+habana::PartialOutputMetaDataVector dynamic_quant_output_meta(
+    const at::Stack& inputs) {
+  const auto& input = inputs.at(0).toTensor();
+  const auto n_cols = inputs.at(3).toInt();
+  const auto rows = inputs.at(4).toInt();
+  validate_dynamic_quant_input(input, inputs.at(2).toInt(), n_cols, rows);
+  habana::PartialOutputMetaData quantized{
+      at::kFloat8_e4m3fn, input.sizes().vec()};
+  habana::PartialOutputMetaData scale{at::kFloat, {rows}};
+  return {quantized, scale};
+}
+
+std::shared_ptr<void> fill_dynamic_quant_params(
+    const at::Stack& inputs,
+    std::size_t& size) {
+  const auto& input = inputs.at(0).toTensor();
+  const std::string artifact_hash = inputs.at(1).toStringRef();
+  const auto block_size = inputs.at(2).toInt();
+  const auto n_cols = inputs.at(3).toInt();
+  const auto rows = inputs.at(4).toInt();
+  validate_dynamic_quant_input(input, block_size, n_cols, rows);
+  TORCH_CHECK(
+      is_lower_hex_hash(artifact_hash),
+      "Triton Gaudi dynamic quantization received an invalid artifact hash");
+
+  HPU_PARAMS_STUB(habana::triton_gaudi::LaunchParamsV1);
+  params->input_count = 1;
+  params->output_count = 2;
+  params->scalar_count = 0;
+  params->index_space_rank = 1;
+  params->block_size = static_cast<std::uint32_t>(block_size);
+  params->logical_size = static_cast<std::uint32_t>(n_cols);
+  params->tensor_dtype = 1U << 5; // manifest primary/output dtype is E4M3
+  params->kernel_kind = habana::triton_gaudi::KernelKind::DynamicQuant;
+  params->grid[0] = static_cast<std::uint64_t>(rows);
+  std::copy(
+      artifact_hash.begin(),
+      artifact_hash.end(),
+      params->artifact_hash.begin());
+  return params;
+}
+
+bool register_dynamic_quant() {
+  habana::custom_op::registerUserCustomOp(
+      kDynamicQuantSchema,
+      habana::triton_gaudi::kKernelGuid,
+      dynamic_quant_output_meta,
+      fill_dynamic_quant_params);
+  return true;
+}
+
+std::tuple<at::Tensor, at::Tensor> dynamic_quant(
+    const at::Tensor& input,
+    const std::string& artifact_hash,
+    std::int64_t block_size,
+    std::int64_t n_cols,
+    std::int64_t rows) {
+  auto descriptor =
+      habana::custom_op::UserCustomOpDescriptor::getUserCustomOpDescriptor(
+          kDynamicQuantSchema);
+  std::vector<c10::IValue> inputs{
+      input, artifact_hash, block_size, n_cols, rows};
+  auto outputs = descriptor.execute(inputs);
+  return {outputs.at(0), outputs.at(1)};
+}
+
+std::tuple<at::Tensor, at::Tensor> dynamic_quant_meta(
+    const at::Tensor& input,
+    const std::string&,
+    std::int64_t,
+    std::int64_t,
+    std::int64_t rows) {
+  return {
+      at::empty_like(input, input.options().dtype(at::kFloat8_e4m3fn)),
+      at::empty({rows}, input.options().dtype(at::kFloat)),
+  };
+}
+
+const bool kDynamicQuantRegistered = register_dynamic_quant();
 
 void validate_silu_and_mul_input(
     const at::Tensor& input,
@@ -888,6 +992,9 @@ TORCH_LIBRARY_FRAGMENT(triton_gaudi, module) {
       "str artifact_hash, int block_size, int n_cols, int rows, float epsilon) "
       "-> (Tensor, Tensor)");
   module.def(
+      "dynamic_quant(Tensor input, str artifact_hash, int block_size, "
+      "int n_cols, int rows) -> (Tensor, Tensor)");
+  module.def(
       "silu_and_mul(Tensor input, str artifact_hash, int block_size, "
       "int n_cols, int rows) -> Tensor");
   module.def(
@@ -913,6 +1020,7 @@ TORCH_LIBRARY_FRAGMENT(triton_gaudi, module) {
 
 TORCH_LIBRARY_IMPL(triton_gaudi, HPU, module) {
   module.impl("fused_add_rms_norm", fused_add_rms_norm);
+  module.impl("dynamic_quant", dynamic_quant);
   module.impl("silu_and_mul", silu_and_mul);
   module.impl("gdn_decode_packed", gdn_decode_packed);
   module.impl("gdn_decode_conv_packed", gdn_decode_conv_packed);
@@ -924,6 +1032,7 @@ TORCH_LIBRARY_IMPL(triton_gaudi, HPU, module) {
 
 TORCH_LIBRARY_IMPL(triton_gaudi, Meta, module) {
   module.impl("fused_add_rms_norm", fused_add_rms_norm_meta);
+  module.impl("dynamic_quant", dynamic_quant_meta);
   module.impl("silu_and_mul", silu_and_mul_meta);
   module.impl("gdn_decode_packed", gdn_decode_packed_meta);
   module.impl("gdn_decode_conv_packed", gdn_decode_conv_packed_meta);
