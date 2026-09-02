@@ -25,6 +25,13 @@ if _is_torch_fork:
         _hpu_setStream,
         _HpuEventBase,
         _HpuStreamBase,
+        _triton_gaudi_device_properties,
+        _triton_gaudi_launch,
+        _triton_gaudi_launch_v2,
+        _triton_gaudi_launch_abi,
+        _triton_gaudi_register_artifact,
+        _triton_gaudi_register_artifact_v2,
+        _triton_gaudi_unregister_artifact,
     )
 else:
     from habana_frameworks.torch.lib.upstream_pybind._hpu_C import *
@@ -36,4 +43,11 @@ else:
         _hpu_setStream,
         _HpuEventBase,
         _HpuStreamBase,
+        _triton_gaudi_device_properties,
+        _triton_gaudi_launch,
+        _triton_gaudi_launch_v2,
+        _triton_gaudi_launch_abi,
+        _triton_gaudi_register_artifact,
+        _triton_gaudi_register_artifact_v2,
+        _triton_gaudi_unregister_artifact,
     )

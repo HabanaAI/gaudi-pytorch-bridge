@@ -45,6 +45,16 @@ add_habana_library(
   passes/utils/subgraph_utils.cpp
   python/forked_pybind_utils.cpp)
 
+# SynapseAI 1.24.1's installed hl_logger headers define FMT_HEADER_ONLY even
+# when fmt::fmt-header-only has already supplied the same command-line define.
+# GCC does not attach a suppressible warning category to this diagnostic. The
+# JIT fork reaches fmt before and through hl_logger. Normalize the transitive
+# value to the empty definition used by that public header so fmt remains
+# header-only from the first include and the identical redefinition is quiet.
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  target_compile_options(jit_fork PRIVATE -UFMT_HEADER_ONLY -DFMT_HEADER_ONLY)
+endif()
+
 target_link_libraries(jit_fork PUBLIC bindings torch ${TORCH_PYTHON_LIBRARY})
 
 target_include_directories(jit_fork PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/..)

@@ -32,5 +32,6 @@ target_link_libraries(
          absl::variant
          absl::flat_hash_map
          absl::strings
+         npu::habana_pytorch_backend
          ${TORCH_PYTHON_LIBRARY})
 install(TARGETS _hpu_C LIBRARY DESTINATION habana_torch_plugin/${PYBIND_INSTALL_DIRNAME})
