@@ -1124,6 +1124,8 @@ std::shared_ptr<CompiledRecipe> compile_recipe(
     std::vector<std::int64_t> shape;
     std::vector<std::int64_t> stride;
     if (artifact->kernel_kind == KernelKind::SiluAndMul ||
+        artifact->kernel_kind == KernelKind::DynamicQuant ||
+        artifact->kernel_kind == KernelKind::SiluAndMulDynamicQuant ||
         artifact->kernel_kind == KernelKind::GdnDecodePacked ||
         artifact->kernel_kind == KernelKind::GdnDecodeConvPacked ||
         artifact->kernel_kind == KernelKind::GdnQkConvPacked ||
@@ -1345,9 +1347,14 @@ void launch(
   } else if (
       artifact->kernel_kind == KernelKind::SiluAndMulDynamicQuant) {
     const auto n_cols = artifact->logical_size;
+    const auto rows = static_cast<std::int64_t>(grid[0]);
     const auto matrix_elements = grid[0] * static_cast<std::uint64_t>(n_cols);
     require(
-        tensors.size() == 3 &&
+        tensors.size() == 3 && tensors[0].dim() == 2 &&
+            tensors[1].dim() == 2 && tensors[2].dim() == 2 &&
+            tensors[0].sizes() == at::IntArrayRef({rows, 2 * n_cols}) &&
+            tensors[1].sizes() == at::IntArrayRef({rows, n_cols}) &&
+            tensors[2].sizes() == at::IntArrayRef({rows, 1}) &&
             static_cast<std::uint64_t>(tensors[0].numel()) ==
                 2 * matrix_elements &&
             static_cast<std::uint64_t>(tensors[1].numel()) == matrix_elements &&
@@ -1355,9 +1362,14 @@ void launch(
         "fused SiLU-and-mul dynamic quantization tensor storage does not match grid rows and n_cols");
   } else if (artifact->kernel_kind == KernelKind::DynamicQuant) {
     const auto n_cols = artifact->logical_size;
+    const auto rows = static_cast<std::int64_t>(grid[0]);
     const auto matrix_elements = grid[0] * static_cast<std::uint64_t>(n_cols);
     require(
-        tensors.size() == 3 &&
+        tensors.size() == 3 && tensors[0].dim() == 2 &&
+            tensors[1].dim() == 2 && tensors[2].dim() == 2 &&
+            tensors[0].sizes() == at::IntArrayRef({rows, n_cols}) &&
+            tensors[1].sizes() == at::IntArrayRef({rows, n_cols}) &&
+            tensors[2].sizes() == at::IntArrayRef({rows, 1}) &&
             static_cast<std::uint64_t>(tensors[0].numel()) == matrix_elements &&
             static_cast<std::uint64_t>(tensors[1].numel()) == matrix_elements &&
             static_cast<std::uint64_t>(tensors[2].numel()) == grid[0],

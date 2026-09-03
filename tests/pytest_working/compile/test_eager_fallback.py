@@ -13,10 +13,16 @@
 # limitations under the License.
 ###############################################################################
 
+from types import SimpleNamespace
+
 import pytest
 import torch
 from habana_frameworks.torch.dynamo.compile_backend.random_utils import (
     HABANA_RANDOM_OPS,
+)
+from habana_frameworks.torch.dynamo.compile_backend.shared_layer import (
+    TRITON_GAUDI_GRAPH_OPS,
+    check_for_default_op_support,
 )
 from test_utils import (
     check_eager_fallback_reason,
@@ -101,6 +107,39 @@ def test_conditional_support():
     check_eager_fallback_reason(
         "sdpa_recomp_fwd_dropout", "Graph support based on hpu_supported_op_list", is_fallback=False
     )
+
+
+@pytest.mark.parametrize("op_name", sorted(TRITON_GAUDI_GRAPH_OPS))
+def test_triton_gaudi_ops_have_graph_support(op_name):
+    target = SimpleNamespace(
+        __name__=f"{op_name}.default",
+        namespace="triton_gaudi",
+    )
+
+    supported, reason = check_for_default_op_support(
+        op_name,
+        SimpleNamespace(target=target),
+        is_dynamic=False,
+    )
+
+    assert supported
+    assert reason == "Graph support for the Triton Gaudi launch ABI"
+
+
+def test_unknown_triton_gaudi_op_fails_closed():
+    target = SimpleNamespace(
+        __name__="unknown.default",
+        namespace="triton_gaudi",
+    )
+
+    supported, reason = check_for_default_op_support(
+        "unknown",
+        SimpleNamespace(target=target),
+        is_dynamic=False,
+    )
+
+    assert not supported
+    assert reason == ""
 
 
 def test_shared_layer_failed():

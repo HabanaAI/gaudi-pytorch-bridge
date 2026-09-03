@@ -122,6 +122,17 @@ if bc.get_pt_hpu_override_linear_matmul_eager():
 
 hpu_supported_ops_restricted = {}
 
+TRITON_GAUDI_GRAPH_OPS = {
+    "dynamic_quant",
+    "fused_add_rms_norm",
+    "gdn_decode_conv_packed",
+    "gdn_decode_packed",
+    "gdn_decode_value_conv_packed",
+    "gdn_qk_conv_packed",
+    "silu_and_mul",
+    "silu_and_mul_dynamic_quant",
+}
+
 if bc.get_pt_hpu_wrap_random_ops_compile():
     hpu_supported_op_list.update(["rand", "randint", "randn", "uniform", "habana_random_wrapper"])
     hpu_supported_ops_restricted.update(
@@ -273,6 +284,12 @@ def check_for_default_op_support(op_name, node, is_dynamic):
     # Enable torch.compile for user's CustomOp API
     if hasattr(node.target, "namespace") and node.target.namespace == "custom_op":
         return True, "Graph support for user's CustomOp"
+    if (
+        hasattr(node.target, "namespace")
+        and node.target.namespace == "triton_gaudi"
+        and op_name in TRITON_GAUDI_GRAPH_OPS
+    ):
+        return True, "Graph support for the Triton Gaudi launch ABI"
     return False, ""
 
 

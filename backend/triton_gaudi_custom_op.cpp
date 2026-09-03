@@ -195,7 +195,9 @@ void validate_dynamic_quant_input(
           rows <= static_cast<std::int64_t>(
                       std::numeric_limits<std::uint32_t>::max()) &&
           rows <= std::numeric_limits<std::int64_t>::max() / n_cols &&
-          input.is_contiguous() && input.dim() == 1 && input.numel() > 0 &&
+          input.is_contiguous() && input.dim() == 2 &&
+          input.size(0) == rows && input.size(1) == n_cols &&
+          input.numel() > 0 &&
           input.numel() == n_cols * rows,
       "Triton Gaudi dynamic quantization received incompatible tensor storage");
 }
@@ -207,8 +209,8 @@ habana::PartialOutputMetaDataVector dynamic_quant_output_meta(
   const auto rows = inputs.at(4).toInt();
   validate_dynamic_quant_input(input, inputs.at(2).toInt(), n_cols, rows);
   habana::PartialOutputMetaData quantized{
-      at::kFloat8_e4m3fn, input.sizes().vec()};
-  habana::PartialOutputMetaData scale{at::kFloat, {rows}};
+      at::kFloat8_e4m3fn, {rows, n_cols}};
+  habana::PartialOutputMetaData scale{at::kFloat, {rows, 1}};
   return {quantized, scale};
 }
 
@@ -270,11 +272,12 @@ std::tuple<at::Tensor, at::Tensor> dynamic_quant_meta(
     const at::Tensor& input,
     const std::string&,
     std::int64_t,
-    std::int64_t,
+    std::int64_t n_cols,
     std::int64_t rows) {
   return {
-      at::empty_like(input, input.options().dtype(at::kFloat8_e4m3fn)),
-      at::empty({rows}, input.options().dtype(at::kFloat)),
+      at::empty(
+          {rows, n_cols}, input.options().dtype(at::kFloat8_e4m3fn)),
+      at::empty({rows, 1}, input.options().dtype(at::kFloat)),
   };
 }
 
@@ -299,9 +302,20 @@ void validate_silu_and_mul_dynamic_quant_input(
           rows <= static_cast<std::int64_t>(
                       std::numeric_limits<std::uint32_t>::max()) &&
           rows <= std::numeric_limits<std::int64_t>::max() / (2 * n_cols) &&
-          input.is_contiguous() && input.dim() == 1 &&
+          input.is_contiguous() && input.dim() == 2 &&
+          input.size(0) == rows && input.size(1) == 2 * n_cols &&
           input.numel() == 2 * n_cols * rows,
-      "Triton Gaudi fused SiLU-and-mul dynamic quantization received incompatible tensor storage");
+      "Triton Gaudi fused SiLU-and-mul dynamic quantization received "
+      "incompatible tensor storage: sizes=",
+      input.sizes(),
+      ", contiguous=",
+      input.is_contiguous(),
+      ", numel=",
+      input.numel(),
+      ", rows=",
+      rows,
+      ", n_cols=",
+      n_cols);
 }
 
 habana::PartialOutputMetaDataVector silu_and_mul_dynamic_quant_output_meta(
@@ -311,11 +325,9 @@ habana::PartialOutputMetaDataVector silu_and_mul_dynamic_quant_output_meta(
   const auto rows = inputs.at(4).toInt();
   validate_silu_and_mul_dynamic_quant_input(
       input, inputs.at(2).toInt(), n_cols, rows);
-  // The fixed-GUID perf-library ABI is flattened. Callers can restore the
-  // logical [rows, n_cols] view without a copy after graph execution.
   habana::PartialOutputMetaData quantized{
-      at::kFloat8_e4m3fn, {rows * n_cols}};
-  habana::PartialOutputMetaData scale{at::kFloat, {rows}};
+      at::kFloat8_e4m3fn, {rows, n_cols}};
+  habana::PartialOutputMetaData scale{at::kFloat, {rows, 1}};
   return {quantized, scale};
 }
 
@@ -383,8 +395,8 @@ std::tuple<at::Tensor, at::Tensor> silu_and_mul_dynamic_quant_meta(
     std::int64_t rows) {
   return {
       at::empty(
-          {rows * n_cols}, input.options().dtype(at::kFloat8_e4m3fn)),
-      at::empty({rows}, input.options().dtype(at::kFloat)),
+          {rows, n_cols}, input.options().dtype(at::kFloat8_e4m3fn)),
+      at::empty({rows, 1}, input.options().dtype(at::kFloat)),
   };
 }
 
