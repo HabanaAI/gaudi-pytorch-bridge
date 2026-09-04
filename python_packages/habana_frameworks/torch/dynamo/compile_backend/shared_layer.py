@@ -122,6 +122,35 @@ if bc.get_pt_hpu_override_linear_matmul_eager():
 
 hpu_supported_ops_restricted = {}
 
+TRITON_GAUDI_GRAPH_OPS = {
+    "dynamic_quant",
+    "fused_add_rms_norm",
+    "silu_and_mul",
+    "silu_and_mul_dynamic_quant",
+}
+
+# Graph placement is valid for the batch-eight diagnostic recipe. Every other
+# shape stays on the custom-op partition path. The vLLM hybrid policy keeps all
+# stateful GDN kernels on the vendor graph until the end-to-end gate clears.
+TRITON_GAUDI_GDN_BATCH_ARGS = {
+    "gdn_decode_packed": 1,
+    "gdn_decode_value_conv_packed": 3,
+    "gdn_qk_conv_packed": 1,
+}
+TRITON_GAUDI_GDN_BATCHES = frozenset((8, ))
+
+
+def _is_supported_triton_gaudi_gdn_graph(op_name, node):
+    batch_arg = TRITON_GAUDI_GDN_BATCH_ARGS.get(op_name)
+    if batch_arg is None:
+        return False
+    try:
+        batch = node.val_args[batch_arg].shape[0]
+    except (AttributeError, IndexError, TypeError):
+        return False
+    return isinstance(batch, int) and batch in TRITON_GAUDI_GDN_BATCHES
+
+
 if bc.get_pt_hpu_wrap_random_ops_compile():
     hpu_supported_op_list.update(["rand", "randint", "randn", "uniform", "habana_random_wrapper"])
     hpu_supported_ops_restricted.update(
@@ -273,6 +302,14 @@ def check_for_default_op_support(op_name, node, is_dynamic):
     # Enable torch.compile for user's CustomOp API
     if hasattr(node.target, "namespace") and node.target.namespace == "custom_op":
         return True, "Graph support for user's CustomOp"
+    if (
+        hasattr(node.target, "namespace")
+        and node.target.namespace == "triton_gaudi"
+    ):
+        if op_name in TRITON_GAUDI_GRAPH_OPS:
+            return True, "Graph support for the Triton Gaudi launch ABI"
+        if _is_supported_triton_gaudi_gdn_graph(op_name, node):
+            return True, "Graph support for the Triton Gaudi gated-batch GDN ABI"
     return False, ""
 
 

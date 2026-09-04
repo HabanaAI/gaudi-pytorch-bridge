@@ -135,6 +135,7 @@ def get_passes(stage: OptimizationPassPlacement):
             pass_allreduce_parents,
             pass_pattern_rewriter,
             pass_scalar_reorder_jitfork,
+            pass_reinplace_triton_gaudi_gdn_decode,
             pass_fake_propagation,
             pass_reinplace_inplaceable_ops_v2,
             pass_weight_permutation,
@@ -2318,6 +2319,318 @@ def pass_reinplace_inplaceable_ops(ctx: OptimizerContext) -> bool:
         return graph_changed
 
     return reinplace_collective_ops(ctx.graph_module)
+
+
+def pass_reinplace_triton_gaudi_gdn_decode(ctx: OptimizerContext) -> bool:
+    """Remove AOTAutograd's full-cache copies around packed GDN decode.
+
+    This handles both the recurrent-only one-cache candidate and the fused
+    causal-conv + GDN two-cache kernel. Reinsert a mutating operator only when
+    every functionalized base has exactly one matching copy-back and no other
+    consumer. Any alias, extra state consumer, unexpected output ordering, or
+    malformed kwargs leaves the generic functionalization intact.
+    """
+    try:
+        auto_functionalized = torch.ops.higher_order.auto_functionalized_v2
+    except AttributeError:
+        return False
+
+    candidates = []
+    try:
+        candidates.append((
+            torch.ops.triton_gaudi.gdn_decode_packed.default,
+            ("state_cache",),
+            {
+                "packed_qkv",
+                "gate_a",
+                "gate_b",
+                "a_log",
+                "dt_bias",
+                "state_indices",
+                "artifact_hash",
+                "value_tile",
+            },
+        ))
+    except AttributeError:
+        pass
+    try:
+        candidates.append((
+            torch.ops.triton_gaudi.gdn_decode_conv_packed.default,
+            ("conv_state", "state_cache"),
+            {
+                "packed_qkv",
+                "gate_a",
+                "gate_b",
+                "a_log",
+                "dt_bias",
+                "state_indices",
+                "conv_weight_t",
+                "artifact_hash",
+            },
+        ))
+    except AttributeError:
+        pass
+    try:
+        candidates.append((
+            torch.ops.triton_gaudi.gdn_qk_conv_packed.default,
+            ("conv_state",),
+            {
+                "packed_qkv",
+                "state_indices",
+                "conv_weight_t",
+                "artifact_hash",
+            },
+        ))
+    except AttributeError:
+        pass
+    try:
+        candidates.append((
+            torch.ops.triton_gaudi.gdn_decode_value_conv_packed.default,
+            ("conv_state", "state_cache"),
+            {
+                "qk_conv",
+                "packed_qkv",
+                "gate_a",
+                "gate_b",
+                "a_log",
+                "dt_bias",
+                "state_indices",
+                "conv_weight_t",
+                "artifact_hash",
+                "value_tile",
+            },
+        ))
+    except AttributeError:
+        pass
+    if not candidates:
+        return False
+
+    graph = ctx.graph_module.graph
+    changed = False
+
+    # The split kernel forms a two-op mutation chain. Functionalization feeds
+    # the cloned conv cache returned by Q/K conv into value-conv + GDN, then
+    # copies only the final cache back to the original base. Rewrite the pair
+    # atomically; neither node is independently safe to reinplace first.
+    try:
+        qk_op = torch.ops.triton_gaudi.gdn_qk_conv_packed.default
+        value_op = torch.ops.triton_gaudi.gdn_decode_value_conv_packed.default
+    except AttributeError:
+        qk_op = None
+        value_op = None
+    if qk_op is not None and value_op is not None:
+        qk_public = {
+            "packed_qkv",
+            "state_indices",
+            "conv_weight_t",
+            "artifact_hash",
+        }
+        value_public = {
+            "qk_conv",
+            "packed_qkv",
+            "gate_a",
+            "gate_b",
+            "a_log",
+            "dt_bias",
+            "state_indices",
+            "conv_weight_t",
+            "artifact_hash",
+            "value_tile",
+        }
+        for value_node in list(graph.nodes):
+            if (value_node.op != "call_function" or
+                    value_node.target != auto_functionalized or
+                    len(value_node.args) != 1 or value_node.args[0] != value_op or
+                    set(value_node.kwargs) != value_public | {
+                        "_conv_state_base_index",
+                        "_state_cache_base_index",
+                        "_all_bases",
+                    } or value_node.kwargs["_conv_state_base_index"] != 0 or
+                    value_node.kwargs["_state_cache_base_index"] != 1):
+                continue
+            value_bases = value_node.kwargs["_all_bases"]
+            if (not isinstance(value_bases, (list, tuple)) or
+                    len(value_bases) != 2):
+                continue
+            intermediate_conv, state_base = value_bases
+            if (not isinstance(intermediate_conv, torch.fx.Node) or
+                    not isinstance(state_base, torch.fx.Node) or
+                    intermediate_conv.op != "call_function" or
+                    intermediate_conv.target != operator.getitem or
+                    len(intermediate_conv.args) != 2 or
+                    intermediate_conv.args[1] != 1):
+                continue
+            qk_node = intermediate_conv.args[0]
+            if (not isinstance(qk_node, torch.fx.Node) or
+                    qk_node.op != "call_function" or
+                    qk_node.target != auto_functionalized or
+                    len(qk_node.args) != 1 or qk_node.args[0] != qk_op or
+                    set(qk_node.kwargs) != qk_public | {
+                        "_conv_state_base_index",
+                        "_all_bases",
+                    } or qk_node.kwargs["_conv_state_base_index"] != 0):
+                continue
+            qk_bases = qk_node.kwargs["_all_bases"]
+            if (not isinstance(qk_bases, (list, tuple)) or len(qk_bases) != 1 or
+                    not isinstance(qk_bases[0], torch.fx.Node)):
+                continue
+            conv_base = qk_bases[0]
+            qk_getitems = {
+                user.args[1]: user
+                for user in qk_node.users
+                if user.op == "call_function" and
+                user.target == operator.getitem and len(user.args) == 2 and
+                user.args[0] is qk_node and isinstance(user.args[1], int)
+            }
+            value_getitems = {
+                user.args[1]: user
+                for user in value_node.users
+                if user.op == "call_function" and
+                user.target == operator.getitem and len(user.args) == 2 and
+                user.args[0] is value_node and isinstance(user.args[1], int)
+            }
+            if (set(qk_getitems) != {0, 1} or len(qk_node.users) != 2 or
+                    set(value_getitems) != {0, 1, 2} or
+                    len(value_node.users) != 3 or
+                    qk_getitems[1] is not intermediate_conv or
+                    value_node.kwargs["qk_conv"] is not qk_getitems[0] or
+                    set(intermediate_conv.users) != {value_node} or
+                    set(qk_getitems[0].users) != {value_node}):
+                continue
+            copies = []
+            valid = True
+            for base, getitem in (
+                    (conv_base, value_getitems[1]),
+                    (state_base, value_getitems[2]),
+            ):
+                users = list(getitem.users)
+                if len(users) != 1:
+                    valid = False
+                    break
+                copy_node = users[0]
+                if (copy_node.op != "call_function" or
+                        copy_node.target != torch.ops.aten.copy_.default or
+                        len(copy_node.args) < 2 or copy_node.args[0] is not base or
+                        copy_node.args[1] is not getitem):
+                    valid = False
+                    break
+                copies.append((base, getitem, copy_node))
+            if (not valid or set(conv_base.users) != {qk_node, copies[0][2]} or
+                    set(state_base.users) != {value_node, copies[1][2]}):
+                continue
+
+            with graph.inserting_before(qk_node):
+                direct_qk = graph.call_function(
+                    qk_op,
+                    kwargs={
+                        "conv_state": conv_base,
+                        **{name: qk_node.kwargs[name] for name in qk_public},
+                    },
+                )
+            direct_qk.meta = qk_getitems[0].meta.copy()
+            with graph.inserting_before(value_node):
+                direct_value = graph.call_function(
+                    value_op,
+                    kwargs={
+                        "conv_state": conv_base,
+                        "state_cache": state_base,
+                        "qk_conv": direct_qk,
+                        **{
+                            name: value_node.kwargs[name]
+                            for name in value_public if name != "qk_conv"
+                        },
+                    },
+                )
+            direct_value.meta = value_getitems[0].meta.copy()
+            value_getitems[0].replace_all_uses_with(direct_value)
+            for base, getitem, copy_node in copies:
+                copy_node.replace_all_uses_with(base)
+                graph.erase_node(copy_node)
+                graph.erase_node(getitem)
+            graph.erase_node(value_getitems[0])
+            graph.erase_node(value_node)
+            graph.erase_node(intermediate_conv)
+            graph.erase_node(qk_getitems[0])
+            graph.erase_node(qk_node)
+            changed = True
+
+    for node in list(graph.nodes):
+        if (node.op != "call_function" or
+                node.target != auto_functionalized or len(node.args) != 1):
+            continue
+        candidate = next((item for item in candidates
+                          if node.args[0] == item[0]), None)
+        if candidate is None:
+            continue
+        gdn_op, mutable_names, public_kwargs = candidate
+        internal_kwargs = {
+            *(f"_{name}_base_index" for name in mutable_names),
+            "_all_bases",
+        }
+        if (set(node.kwargs) != public_kwargs | internal_kwargs or any(
+                node.kwargs[f"_{name}_base_index"] != index
+                for index, name in enumerate(mutable_names))):
+            continue
+        bases = node.kwargs["_all_bases"]
+        if (not isinstance(bases, (list, tuple)) or
+                len(bases) != len(mutable_names) or
+                len(set(bases)) != len(bases) or
+                any(not isinstance(base, torch.fx.Node) for base in bases)):
+            continue
+
+        getitems = {
+            user.args[1]: user
+            for user in node.users
+            if user.op == "call_function"
+            and user.target == operator.getitem
+            and len(user.args) == 2
+            and user.args[0] is node
+            and isinstance(user.args[1], int)
+        }
+        expected_outputs = set(range(len(mutable_names) + 1))
+        if set(getitems) != expected_outputs or len(node.users) != len(expected_outputs):
+            continue
+        output_getitem = getitems[0]
+        copies = []
+        valid = True
+        for index, base in enumerate(bases, start=1):
+            mutated_getitem = getitems[index]
+            users = list(mutated_getitem.users)
+            if len(users) != 1:
+                valid = False
+                break
+            copy_node = users[0]
+            if (copy_node.op != "call_function" or
+                    copy_node.target != torch.ops.aten.copy_.default or
+                    len(copy_node.args) < 2 or copy_node.args[0] is not base or
+                    copy_node.args[1] is not mutated_getitem or
+                    set(base.users) != {node, copy_node}):
+                valid = False
+                break
+            copies.append((base, mutated_getitem, copy_node))
+        if not valid:
+            continue
+
+        direct_kwargs = {
+            **dict(zip(mutable_names, bases)),
+            **{name: node.kwargs[name] for name in public_kwargs},
+        }
+        with graph.inserting_before(node):
+            direct = graph.call_function(gdn_op, kwargs=direct_kwargs)
+        direct.meta = output_getitem.meta.copy()
+        output_getitem.replace_all_uses_with(direct)
+        for base, mutated_getitem, copy_node in copies:
+            copy_node.replace_all_uses_with(base)
+            graph.erase_node(copy_node)
+            graph.erase_node(mutated_getitem)
+        graph.erase_node(output_getitem)
+        graph.erase_node(node)
+        changed = True
+
+    if changed:
+        graph.lint()
+        ctx.graph_module.recompile()
+    return changed
 
 
 def pass_reinplace_inplaceable_ops_v2(ctx: OptimizerContext) -> bool:

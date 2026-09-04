@@ -14,6 +14,7 @@
 ###############################################################################
 
 add_subdirectory(synapse_helpers)
+find_package(OpenSSL REQUIRED COMPONENTS Crypto)
 
 add_habana_library(
   habana_pytorch_backend
@@ -27,6 +28,8 @@ add_habana_library(
   habana_operator.cpp
   scalar_cache.cpp
   random.cpp
+  triton_gaudi_custom_op.cpp
+  triton_gaudi_runtime.cpp
   cache/permute_cache.cpp
   kernel/constant_information.cpp
   kernel/control_edges_processing.cpp
@@ -97,6 +100,7 @@ target_link_libraries(
           npu::pytorch_synapse_utils_shim
           torch
           nlohmann_json::nlohmann_json
+          OpenSSL::Crypto
           absl::strings
           absl::str_format
           stdc++fs

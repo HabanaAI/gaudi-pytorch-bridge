@@ -28,9 +28,11 @@
 #include "backend/habana_device/HPUGraph.h"
 #include "backend/habana_device/HPUGuardImpl.h"
 #include "backend/habana_device/hpu_cached_devices.h"
+#include "backend/triton_gaudi_runtime.h"
 #include "backend/helpers/dynamic_shape_info.h"
 #include "backend/helpers/runtime_config.h"
 #include "backend/synapse_helpers/stream.h"
+#include "include/habanalabs/triton_gaudi_launch.h"
 #include "habana_lazy/view_utils.h"
 #include "hpu_ops/custom_op_outshape.h"
 #include "pytorch_helpers/habana_helpers/kernels_accumulation.h"
@@ -245,6 +247,79 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     return habana::HPUGlobalConfig::get().getDeterministic();
   });
   m.def("get_device_name", [](int id) { return get_device_name(id); });
+  m.def(
+      "_triton_gaudi_register_artifact",
+      [](const std::string& artifact_hash,
+         py::bytes elf_bytes,
+         const std::string& manifest_json,
+         int device_id) {
+        const std::string elf = elf_bytes;
+        return habana::triton_gaudi::register_artifact(
+            artifact_hash,
+            std::vector<std::uint8_t>(elf.begin(), elf.end()),
+            manifest_json,
+            device_id);
+      });
+  m.def(
+      "_triton_gaudi_register_artifact_v2",
+      [](py::bytes artifact_bytes, int device_id) {
+        const std::string artifact = artifact_bytes;
+        return habana::triton_gaudi::register_artifact_v2(
+            std::vector<std::uint8_t>(artifact.begin(), artifact.end()),
+            device_id);
+      });
+  m.def(
+      "_triton_gaudi_unregister_artifact",
+      [](std::uint64_t handle) {
+        habana::triton_gaudi::unregister_artifact(handle);
+      });
+  m.def("_triton_gaudi_launch_abi", []() {
+    using namespace pybind11::literals;
+    return py::dict(
+        "major"_a = habana::triton_gaudi::kBridgeLaunchAbiMajor,
+        "minor"_a = habana::triton_gaudi::kBridgeLaunchAbiMinor,
+        "target"_a = "gaudi2",
+        "kernel_guid"_a = habana::triton_gaudi::kBridgeKernelGuid,
+        "graph_op"_a = true,
+        "artifact_abi"_a = 2,
+        "typed_scalars"_a = true);
+  });
+  m.def(
+      "_triton_gaudi_launch",
+      [](std::uint64_t handle,
+         const std::vector<std::uint64_t>& grid,
+         std::uint64_t stream,
+         const std::vector<at::Tensor>& tensors,
+         const std::vector<std::uint32_t>& scalar_params) {
+        py::gil_scoped_release release;
+        habana::triton_gaudi::launch(
+            handle, grid, stream, tensors, scalar_params);
+      });
+  m.def(
+      "_triton_gaudi_launch_v2",
+      [](std::uint64_t handle,
+         std::uint64_t stream,
+         const std::vector<at::Tensor>& tensors,
+         py::bytes packet_bytes) {
+        const std::string packet = packet_bytes;
+        py::gil_scoped_release release;
+        habana::triton_gaudi::launch_v2(
+            handle,
+            stream,
+            tensors,
+            std::vector<std::uint8_t>(packet.begin(), packet.end()));
+      });
+  m.def("_triton_gaudi_device_properties", [](int device_id) {
+    HABANA_ASSERT(
+        device_id ==
+            static_cast<int>(habana::HPUDeviceContext::get_device().id()),
+        "Triton Gaudi device does not match the active HPU");
+    using namespace pybind11::literals;
+    return py::dict(
+        "max_shared_mem"_a = 0,
+        "max_index_space_rank"_a = 5,
+        "vector_width_bits"_a = 2048);
+  });
   m.def("set_autocast_hpu_enabled", [](py::object enabled) {
     at::autocast::set_autocast_enabled(at::kHPU, enabled.ptr() == Py_True);
   });
