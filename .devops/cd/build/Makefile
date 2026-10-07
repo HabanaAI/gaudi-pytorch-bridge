@@ -22,10 +22,10 @@ CSV_FILE_SUFFIX = current
 CACHE_DIR ?= $(HOME)/.cd_cache/pytorch/cache
 CCACHE_CONF ?= $(CURDIR)/ccache.conf
 
-DOCKER_IMAGE ?= artifactory-kfs.habana-labs.com/devops-docker-local/habana-builder-pt:$(BUILD_OS)-$(RELEASE_VERSION)
-DOCKER_IMAGE_NDA ?= artifactory-kfs.habana-labs.com/devops-docker-local/habana-tools-cd:nda
+DOCKER_IMAGE ?= artifactory-kfs.iil.labsad.intel.com/devops-docker-local/habana-builder-pt:$(BUILD_OS)-$(RELEASE_VERSION)
+DOCKER_IMAGE_NDA ?= artifactory-kfs.iil.labsad.intel.com/devops-docker-local/habana-tools-cd:nda
 
-SW_ARTIFACT_ROOT_URL ?= https://artifactory-kfs.habana-labs.com/artifactory/$(SW_META_REPO)/$(RELEASE_VERSION)/$(RELEASE_BUILD_ID)/$(subst .,,$(BUILD_OS))/binary
+SW_ARTIFACT_ROOT_URL ?= https://artifactory-kfs.iil.labsad.intel.com/artifactory/$(SW_META_REPO)/$(RELEASE_VERSION)/$(RELEASE_BUILD_ID)/$(subst .,,$(BUILD_OS))/binary
 
 PT_VERSION ?= $(shell cat $(SRC_DIR)/pytorch-fork/version.txt | egrep -o "[0-9]+\.[0-9]+\.[0-9]+")
 PYTHON_SUFFIX ?=

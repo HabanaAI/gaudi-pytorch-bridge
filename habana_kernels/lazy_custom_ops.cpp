@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025 Intel Corporation
+ * Copyright (c) 2025-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -345,6 +345,7 @@ at::Tensor mixture_of_experts_fp8_fused_weights_dynamic_lazy(
     std::string_view activation,
     int64_t experts_min,
     int64_t experts_max,
+    const bool is_gated,
     const int64_t chunk_size,
     const int64_t total_experts) {
   PT_LAZY_TRACE;
@@ -365,6 +366,7 @@ at::Tensor mixture_of_experts_fp8_fused_weights_dynamic_lazy(
       activation,
       experts_min,
       experts_max,
+      is_gated,
       chunk_size,
       total_experts};
 

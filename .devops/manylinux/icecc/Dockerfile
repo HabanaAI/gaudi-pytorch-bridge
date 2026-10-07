@@ -13,7 +13,7 @@
 # limitations under the License.
 ###############################################################################
 
-FROM artifactory-kfs.habana-labs.com/docker/manylinux/manylinux_2_28:latest
+FROM artifactory-kfs.iil.labsad.intel.com/docker/manylinux/manylinux_2_28:latest
 
 COPY setup-icecc.sh /setup-icecc.sh
 RUN bash /setup-icecc.sh && rm /setup-icecc.sh && dnf clean all

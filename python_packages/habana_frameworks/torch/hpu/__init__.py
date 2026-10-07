@@ -21,11 +21,13 @@ import warnings
 from types import TracebackType
 from typing import Any
 
+import habana_frameworks.torch.utils.experimental as htexp
 from habana_frameworks.torch import _hpu_C
 
 import torch
+import torch.utils.checkpoint as _checkpoint
 from torch.types import Device
-from torch.utils.checkpoint import DefaultDeviceType
+from torch.utils.checkpoint import CheckpointPolicy, DefaultDeviceType
 
 try:
     from habana_frameworks.torch.version import __version__, version
@@ -93,6 +95,55 @@ def _lazy_init() -> None:
     # However, default checkpointing device is 'cuda', so to avoid changing models,
     # we should set default device type to 'hpu'.
     DefaultDeviceType.set_device_type("hpu")
+
+    # Upstream PT commit 2d104aa unified plain-AC and SAC paths, routing both
+    # through checkpoint() with early_stop=False and _CachingTorchDispatchMode.
+    # The motivation was to fix ac_graph_id/recompute tag propagation through
+    # custom autograd.Function HOPs (e.g. bitsandbytes ops in QLoRA). However,
+    # the new path causes ops inside those HOPs to be tagged PREFER_RECOMPUTE,
+    # so the AOT partitioner recomputes them in backward instead of saving them.
+    # For expensive ops like bitsandbytes INT4 dequantization this regresses
+    # training throughput. Additionally, the early_stop=False argument has no
+    # effect on compiled models (backward is a static graph; the Python-level
+    # _StopRecomputationError mechanism is never invoked at runtime).
+    #
+    # HPU does not use Inductor's replace_random_passes (the source of the vmap
+    # nesting concern that motivated early_stop=False), so:
+    #   1. For vanilla AC: restore the old direct execution path (tag gmod nodes
+    #      and run the interpreter without the checkpoint() wrapper).
+    #   2. For SAC (custom context_fn): the SAC path still goes through
+    #      checkpoint(), but we re-enable early_stop so that in eager mode
+    #      recomputation aborts once all needed tensors are found (restoring the
+    #      pre-2d104aa default of early_stop=True for that path).
+    if htexp._get_device_type() != htexp.synDeviceType.synDeviceGaudi3:
+        return
+
+    _checkpoint._enable_checkpoint_early_stop = True
+    import torch._higher_order_ops.wrap as _wrap
+    import torch.fx.traceback as _fx_traceback
+    from torch.fx import Interpreter as _Interpreter
+
+    _original_tag_impl = _wrap.tag_activation_checkpoint_impl
+
+    def _hpu_tag_activation_checkpoint_impl(gmod, *args, **kwargs):
+        if "_checkpoint_context_fn" in gmod.meta:
+            # SAC path: keep upstream behaviour unchanged.
+            return _original_tag_impl(gmod, *args, **kwargs)
+        # Vanilla AC: restore pre-2d104aa direct execution path.
+        # Tag all top-level gmod nodes so the AOT partitioner marks them for
+        # recomputation. Ops inside custom autograd.Function HOPs are opaque at
+        # this level and are therefore left untagged — the partitioner will save
+        # their outputs rather than recomputing them, which is cheaper for
+        # expensive ops such as bitsandbytes INT4 dequantization in QLoRA.
+        unique_graph_id = next(_wrap.uid)
+        for node in gmod.graph.nodes:
+            if node.op in ("call_function", "call_method", "call_module"):
+                node.meta["ac_graph_id"] = unique_graph_id
+                node.meta["recompute"] = CheckpointPolicy.PREFER_RECOMPUTE
+        with _fx_traceback.preserve_node_meta():
+            return _Interpreter(gmod).run(*args)
+
+    _wrap.tag_activation_checkpoint_impl = _hpu_tag_activation_checkpoint_impl
 
 
 def is_initialized() -> bool:

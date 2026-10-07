@@ -157,6 +157,7 @@ add_habana_library(
   backend/fused_dropout_gen.cpp
   backend/gather_csr_gen.cpp
   backend/gather_gen.cpp
+  backend/gdn_read_decayed_state_gen.cpp
   backend/gelu_gen.cpp
   backend/geometric_gen.cpp
   backend/glu_gen.cpp

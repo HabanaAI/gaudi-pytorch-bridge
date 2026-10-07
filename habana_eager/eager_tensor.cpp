@@ -16,6 +16,7 @@
 #include "eager_tensor.h"
 #include "backend/backend_meta.h"
 #include "backend/synapse_helpers/env_flags.h"
+#include "pytorch_helpers/habana_helpers/pt_version_check.h"
 
 namespace habana::eager {
 
@@ -26,7 +27,11 @@ HbEagerTensorPool::HbEagerTensorPool() {
 void HbEagerTensorPool::extend_empty_tensor_pool() {
   handle_ = std::async(std::launch::async, [this]() {
     for (size_t i = 0; i < pool_size_; ++i) {
+#if IS_PYTORCH_AT_LEAST(2, 13)
+      tensor_pool_other_.push_front(at::empty({}));
+#else
       tensor_pool_other_.push_front(at::empty({}, std::nullopt));
+#endif
     }
   });
 }

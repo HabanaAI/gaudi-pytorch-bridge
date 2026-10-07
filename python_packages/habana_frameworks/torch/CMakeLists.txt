@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -61,5 +61,4 @@ add_subdirectory(utils/debug/csrc)
 add_subdirectory(utils/experimental/csrc)
 add_subdirectory(utils/event_dispatcher/csrc)
 add_subdirectory(utils/git_info/csrc)
-add_subdirectory(media_pyt_bridge/csrc)
 add_subdirectory(jit/csrc)

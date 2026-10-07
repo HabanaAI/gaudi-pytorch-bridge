@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -83,7 +83,6 @@ list(
   REQUIRED_ENV_VARIABLES
   HABANA_SOFTWARE_STACK
   HCL_INCLUDE_DIR
-  MEDIA_ROOT
   SPECS_EXT_ROOT
   SWTOOLS_SDK_ROOT
   SYNAPSE_INCLUDE_DIR

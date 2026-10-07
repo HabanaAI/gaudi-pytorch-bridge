@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 #include "generated/lazy/_fused_dropout.h"
 #include "generated/lazy/bernoulli.h"
 #include "generated/lazy/native_dropout.h"
+#include "pytorch_helpers/habana_helpers/pt_version_check.h"
 
 namespace habana {
 // Generators can't be represented in JIT graph
@@ -91,7 +92,9 @@ unsigned NativeDropoutEarlyExitCondition(
         at::full(
             {1},
             1,
+#if IS_PYTORCH_OLDER_THAN(2, 13)
             {},
+#endif
             c10::CppTypeToScalarType<bool>::value,
             input.options().layout_opt(),
             input.options().device_opt(),

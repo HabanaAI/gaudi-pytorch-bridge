@@ -37,6 +37,7 @@ from torch._dynamo.testing import same
 
 class CtxManagerTests(torch._dynamo.test_case.TestCase):
     @unittest.skipIf(not torch.hpu.is_available(), "requires hpu")
+    @pytest.mark.skip(reason="GAUDISW-248033 Fails after user-streams changes in PT 2.12 upstream")
     def test_hpu_stream_context_manager1(self):
         def fn(x):
             s = torch.hpu.Stream()
@@ -129,6 +130,7 @@ class CtxManagerTests(torch._dynamo.test_case.TestCase):
         self.assertEqual(cnts.op_count, 18)
 
     @unittest.skipIf(not torch.hpu.is_available(), "requires hpu")
+    @pytest.mark.skip(reason="GAUDISW-248033 Fails after user-streams changes in PT 2.12 upstream")
     def test_hpu_stream_method(self):
         def fn(x):
             x = torch.mul(x, 1)
@@ -239,6 +241,7 @@ class CtxManagerTests(torch._dynamo.test_case.TestCase):
         self.assertEqual(ref0, res0)
 
     @unittest.skipIf(not torch.hpu.is_available(), "requires hpu")
+    @pytest.mark.skip(reason="GAUDISW-248033 Fails after user-streams changes in PT 2.12 upstream")
     def test_hpu_event_method_create_stream_outside_of_compile(self):
         def fn(x, cur_stream, new_stream):
             x = torch.mul(x, 1)
@@ -277,6 +280,7 @@ class CtxManagerTests(torch._dynamo.test_case.TestCase):
         self.assertEqual(cnts.op_count, 16)
 
     @unittest.skipIf(not torch.hpu.is_available(), "requires hpu")
+    @pytest.mark.skip(reason="GAUDISW-248033 Fails after user-streams changes in PT 2.12 upstream")
     def test_hpu_event_method(self):
         def fn(x):
             x = torch.mul(x, 1)

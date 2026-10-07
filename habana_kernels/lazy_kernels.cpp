@@ -14,6 +14,10 @@
  */
 #include "habana_kernels/lazy_kernels.h"
 #include <ATen/InferSize.h>
+#include "pytorch_helpers/habana_helpers/pt_version_check.h"
+#if IS_PYTORCH_AT_LEAST(2, 13)
+#include <ATen/WrapDimUtils.h>
+#endif
 #include <ATen/native/TypeProperties.h>
 #include <c10/core/SymIntArrayRef.h>
 #include <cstdlib>

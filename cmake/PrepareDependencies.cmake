@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -105,7 +105,3 @@ endif()
 set_target_properties(SynapseUtils PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "$ENV{SYNAPSE_UTILS_INCLUDE_DIR}")
 target_link_libraries(SynapseUtils INTERFACE npu::Synapse npu::specs_external)
 add_library(npu::SynapseUtils ALIAS SynapseUtils)
-
-add_library(Media INTERFACE IMPORTED)
-list(APPEND MEDIA_INCLUDE_DIRS "$ENV{MEDIA_ROOT}/include")
-set_target_properties(Media PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${MEDIA_INCLUDE_DIRS}")

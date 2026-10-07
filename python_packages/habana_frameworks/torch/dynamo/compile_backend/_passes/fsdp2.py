@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2021-2025 Intel Corporation
+# Copyright (c) 2021-2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,30 +15,35 @@
 
 from habana_frameworks.torch.dynamo.compile_backend._passes.utils import OptimizerContext
 from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
+from habana_frameworks.torch.utils.version_checker import is_pytorch_older_than
 
 import torch
-from torch._inductor.comms import remove_fsdp2_unsharded_param_graph_input_usage
 
 logger = get_compile_backend_logger()
 
+"""
+TODO: Remove this file when we upgrade to PyTorch 2.13 (Slawomir Siwek, Silv3S)
+"""
+if is_pytorch_older_than("2.13"):
+    from torch._inductor.comms import remove_fsdp2_unsharded_param_graph_input_usage
 
-def pass_remove_fsdp2_unsharded_param_graph_input_usage(ctx: OptimizerContext):
-    """
-    During FSDP2 traicing unsharded params are traced as graph inputs
-    and then are filled by inplace copy from all_gather output tensors.
-    Those unsharded params are not actual inputs and all_gather outputs
-    should be used for computations.
-    This issue is adressed by dynamo and inductor, for specifics see:
-        - remove_fsdp2_unsharded_param_graph_input_usage (torch/_inductor/comms.py)
-        - init_unsharded_param (torch/distributed/fsdp/_fully_shard/_fsdp_param.py)
-        - copy_ (torch/distributed/fsdp/_fully_shard/_fsdp_param.py)
-    """
+    def pass_remove_fsdp2_unsharded_param_graph_input_usage(ctx: OptimizerContext):
+        """
+        During FSDP2 traicing unsharded params are traced as graph inputs
+        and then are filled by inplace copy from all_gather output tensors.
+        Those unsharded params are not actual inputs and all_gather outputs
+        should be used for computations.
+        This issue is adressed by dynamo and inductor, for specifics see:
+            - remove_fsdp2_unsharded_param_graph_input_usage (torch/_inductor/comms.py)
+            - init_unsharded_param (torch/distributed/fsdp/_fully_shard/_fsdp_param.py)
+            - copy_ (torch/distributed/fsdp/_fully_shard/_fsdp_param.py)
+        """
 
-    for idx, node in enumerate(ctx.graph_module.graph.nodes):
-        if node.op == "call_function" and node.target is torch.ops.inductor.resize_storage_bytes_.default:
-            logger.debug(
-                f"Found storage resize caused node at idx: {idx} by FSDP unsharding. Running Inductor pass to replace unsharded param usage with all_gather output"
-            )
-            remove_fsdp2_unsharded_param_graph_input_usage(ctx.graph_module.graph)
-            return True
-    return False
+        for idx, node in enumerate(ctx.graph_module.graph.nodes):
+            if node.op == "call_function" and node.target is torch.ops.inductor.resize_storage_bytes_.default:
+                logger.debug(
+                    f"Found storage resize caused node at idx: {idx} by FSDP unsharding. Running Inductor pass to replace unsharded param usage with all_gather output"
+                )
+                remove_fsdp2_unsharded_param_graph_input_usage(ctx.graph_module.graph)
+                return True
+        return False

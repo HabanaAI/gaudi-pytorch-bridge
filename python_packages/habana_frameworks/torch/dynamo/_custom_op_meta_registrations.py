@@ -456,6 +456,18 @@ def meta_kv_reorder(self, start, end, beam_idx):
     return self.new_empty(self.shape)
 
 
+@register_meta([torch.ops.hpu.gdn_read_decayed_state.default])
+def meta_gdn_read_decayed_state(state, sidx, gates):
+    # Use plain torch.empty instead of state.new_empty: new_empty can inherit
+    # non-contiguous strides from state (KV-cache views), and the TPC kernel
+    # writes a contiguous output.  The mismatch caused silent corruption under
+    # torch.compile (catastrophic accuracy loss in lm_eval gsm8k at
+    # batch >= ~16) until the dispatcher was wrapped in @torch._dynamo.disable.
+    # Output dtype matches state dtype (fp32 or bf16).
+    out_shape = (sidx.size(0), state.size(1), state.size(2), state.size(3))
+    return torch.empty(out_shape, dtype=state.dtype, device=state.device)
+
+
 @register_meta([torch.ops.hpu.scaled_masked_softmax])
 def meta_scaled_masked_softmax(input, mask, scale):
     return input.new_empty(input.shape)
@@ -1109,6 +1121,8 @@ def meta_mixture_of_experts_common(
         torch.ops.hpu.mixture_of_experts.mxfp4,
         torch.ops.hpu.mixture_of_experts.mxfp4_fused_weights,
         torch.ops.hpu.mixture_of_experts.bias_mxfp4_fused_weights,
+        torch.ops.hpu.mixture_of_experts.int4,
+        torch.ops.hpu.mixture_of_experts.int4_fused_weights,
     ]
 )
 def meta_mixture_of_experts_fp8_common(hidden_states, *args, **kwargs):

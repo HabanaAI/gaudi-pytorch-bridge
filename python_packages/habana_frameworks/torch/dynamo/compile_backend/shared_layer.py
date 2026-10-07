@@ -261,8 +261,10 @@ def check_for_default_op_support(op_name, node, is_dynamic):
         "mixture_of_experts.mxfp4",
         "mixture_of_experts.mxfp4_fused_weights",
         "mixture_of_experts.bias_mxfp4_fused_weights",
+        "mixture_of_experts.int4",
+        "mixture_of_experts.int4_fused_weights",
     }:
-        return True, "Graph support for mxfp4 mixture_of_experts op"
+        return True, "Graph support for mxfp4/int4 mixture_of_experts op"
     if op_name in hpu_supported_op_list:
         return True, "Graph support based on hpu_supported_op_list"
     if op_name in hpu_supported_ops_restricted:

@@ -42,7 +42,7 @@ from test_utils import (
     is_pytest_mode_eager,
 )
 
-ACTIVATIONS = ["silu"]
+ACTIVATIONS = ["silu", "relu2"]
 HIDDEN_DIMS = [64]
 FFN_DIMS = [128]
 NUM_EXPERTS = [3]
@@ -204,7 +204,7 @@ class MixtralBlockSparseMLP(torch.nn.Module):
         self.w1 = w1
         self.w2 = w2
         self.w3 = w3
-        activation_functions = {"gelu": F.gelu, "relu": F.relu, "silu": F.silu}
+        activation_functions = {"gelu": F.gelu, "relu": F.relu, "silu": F.silu, "relu2": lambda x: F.relu(x) ** 2}
         self.activation_fn = activation_functions[activation]
 
     def forward(self, hidden_states):
@@ -270,6 +270,9 @@ def test_mixture_of_experts_mxfp4(
     chunk_size,
     total_experts,
 ):
+    if activation == "relu2" and not is_pytest_mode_compile():
+        pytest.skip("relu2 supported only in compile mode")
+
     """Test hpu::mixture_of_experts.mxfp4 (non-fused separate w1/w2/w3 variant)."""
     hidden_states = torch.randn((num_tokens, hidden_dim), dtype=torch.bfloat16)
     router_weights_all = torch.randn((num_tokens, num_experts), dtype=torch.bfloat16)
@@ -375,6 +378,9 @@ def test_mixture_of_experts_mxfp4_fused_weights(
     chunk_size,
     total_experts,
 ):
+    if activation == "relu2" and not is_pytest_mode_compile():
+        pytest.skip("relu2 supported only in compile mode")
+
     """Test hpu::mixture_of_experts.mxfp4_fused_weights (fused w12 variant)."""
     hidden_states = torch.randn((num_tokens, hidden_dim), dtype=torch.bfloat16)
     router_weights_all = torch.randn((num_tokens, num_experts), dtype=torch.bfloat16)
@@ -842,9 +848,11 @@ def test_mixture_of_experts_bias_mxfp4_fused_weights(
 
 @pytest.mark.skipif(_is_simulator(), reason="Mixture of experts takes too long on sim")
 @pytest.mark.skipif(is_pytest_mode_eager(), reason="mxfp4 op not supported in eager mode (frontend_blocklist)")
-@pytest.mark.parametrize("activation", ["gelu", "relu"])
+@pytest.mark.parametrize("activation", ["gelu", "relu", "relu2"])
 def test_mixture_of_experts_mxfp4_activations(activation):
-    """Verify gelu and relu activations produce correct results (silu is covered by main tests)."""
+    if activation == "relu2" and not is_pytest_mode_compile():
+        pytest.skip("relu2 supported only in compile mode")
+    """Verify gelu, relu and relu2 activations produce correct results (silu is covered by main tests)."""
     num_tokens, hidden_dim, ffn_dim, num_experts, block_size = 16, 64, 128, 3, MXFP4_GROUP_SIZE
 
     hidden_states = torch.randn((num_tokens, hidden_dim), dtype=torch.bfloat16)

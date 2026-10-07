@@ -22,6 +22,7 @@
 #include "backend/profiling/profiling.h"
 #include "backend/profiling/trace_sources/bridge_logs_source.h"
 #include "backend/synapse_helpers/env_flags.h"
+#include "pytorch_helpers/habana_helpers/pt_version_check.h"
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 #include <kineto/output_base.h>
@@ -287,7 +288,12 @@ void GenericTraceActivitySink::addDevice(
     int64_t device) {
   int64_t sort_index = device < 8 ? device + 0x1000000LL : device;
   std::string dev_name = static_cast<std::string>(name);
+#if IS_PYTORCH_AT_LEAST(2, 13)
+  deviceInfos_.emplace_back(
+      libkineto::DeviceInfo{device, sort_index, dev_name, dev_name});
+#else
   deviceInfos_.emplace_back(device, sort_index, dev_name, dev_name);
+#endif
 }
 
 void GenericTraceActivitySink::addResource(
@@ -295,8 +301,14 @@ void GenericTraceActivitySink::addResource(
     int64_t device,
     int64_t resource,
     int64_t sort_index) {
+#if IS_PYTORCH_AT_LEAST(2, 13)
+  resourceInfos_.emplace_back(
+      libkineto::ResourceInfo{
+          device, resource, sort_index, static_cast<std::string>(name)});
+#else
   resourceInfos_.emplace_back(
       device, resource, sort_index, static_cast<std::string>(name));
+#endif
 }
 
 std::string GenericTraceActivitySink::getDeviceDetails() {

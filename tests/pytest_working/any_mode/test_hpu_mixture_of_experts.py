@@ -42,7 +42,7 @@ from test_utils import (
 from torch import nn
 
 DTYPES = [torch.bfloat16]  # [torch.float, torch.bfloat16]
-ACTIVATIONS = ["silu"]  # ["gelu", "relu", "silu"]
+ACTIVATIONS = ["silu", "relu2"]  # ["gelu", "relu", "silu", "relu2"]
 HIDDEN_DIMS = [64]
 FFN_DIMS = [128]
 NUM_EXPERTS = [3]
@@ -62,7 +62,7 @@ class MixtralBlockSparseMLP(nn.Module):
         self.w1 = w1
         self.w2 = w2
         self.w3 = w3
-        activation_functions = {"gelu": F.gelu, "relu": F.relu, "silu": F.silu}
+        activation_functions = {"gelu": F.gelu, "relu": F.relu, "silu": F.silu, "relu2": lambda x: F.relu(x) ** 2}
         self.activation_fn = activation_functions[activation]
 
         self.calc_first_amax = calc_first_amax
@@ -221,7 +221,7 @@ def mixture_of_experts_eager(
         .unsqueeze(-1)
     )
 
-    activation_functions = {"silu": F.silu, "gelu": F.gelu, "relu": F.relu}
+    activation_functions = {"silu": F.silu, "gelu": F.gelu, "relu": F.relu, "relu2": lambda x: F.relu(x) ** 2}
     activation_fn = activation_functions.get(activation)
     dynamic_quant = d_scale_intermediate_hidden_states is None
 
@@ -323,6 +323,9 @@ def test_mixture_of_experts(
     chunk_size,
     total_experts,
 ):
+    if activation == "relu2" and not is_pytest_mode_compile():
+        pytest.skip("relu2 supported only in compile mode")
+
     hidden_states = torch.randn((num_tokens, hidden_dim), dtype=dtype)
     router_weights_all = torch.randn((num_tokens, num_experts), dtype=dtype)
     router_weights, expert_routing_table = torch.topk(router_weights_all, 2)
@@ -439,6 +442,10 @@ def test_mixture_of_experts_fp8(
 
     if dynamic_scale and fp8_dtype == torch.float8_e5m2 and not is_pytest_mode_eager():
         pytest.skip("Dynamic scale is supported only for torch.float8_e4m3")
+
+    if activation == "relu2" and not is_pytest_mode_compile():
+        pytest.skip("relu2 supported only in compile mode")
+
     d_scale_w1 = handle_scales(fp8_scales["d_scale_w1"], num_experts)
     d_scale_w2 = handle_scales(d_scale_w1 if fused_weights else fp8_scales["d_scale_w2"], num_experts)
     d_scale_w3 = handle_scales(fp8_scales["d_scale_w3"], num_experts)
@@ -506,6 +513,140 @@ def test_mixture_of_experts_fp8(
             "total_experts": total_experts,
         }
         return fn(*common_inputs, *weights, *hidden_state_scales, *weights_scales, *common_params, **kwargs)
+
+    with torch.inference_mode():
+        result_hpu = call_moe_fn()
+
+    check_using_cosine_similarity(result_hpu, result_cpu.to(result_hpu.dtype), 0.975)
+
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir("mixture_of_experts")
+
+
+# --- Non-gated (is_act_and_mul=False) MoE, e.g. Nemotron-H squared-ReLU -------
+# Non-gated experts have a single I-wide up-projection (w1) and apply the
+# activation directly, with no gate/up split and no elementwise multiply:
+#     y = w2(act(w1 x))
+# This is selected by passing is_gated=False to torch.ops.hpu.mixture_of_experts.
+# Reference mirrors MixtralBlockSparseMLP but drops the gate multiply.
+class NonGatedExpertMLP(nn.Module):
+    def __init__(self, w1, w3, activation):
+        super().__init__()
+        self.w1 = w1  # up-projection [hidden, ffn]
+        self.w3 = w3  # down-projection [ffn, hidden]
+        activation_functions = {"gelu": F.gelu, "relu": F.relu, "silu": F.silu, "relu2": lambda x: F.relu(x) ** 2}
+        self.activation_fn = activation_functions[activation]
+
+    def forward(self, hidden_states):
+        # Mimic the fp8 weight round-trip used by the gated reference so the
+        # cosine-similarity tolerance matches the quantized op output.
+        self.w1 = self.w1.to(torch.float8_e5m2).to(torch.bfloat16)
+        hidden_states_w1 = self.activation_fn(torch.matmul(hidden_states, self.w1))
+        return torch.matmul(hidden_states_w1, self.w3)
+
+
+class NonGatedMoeBlock(nn.Module):
+    def __init__(self, hidden_dim, num_experts, w1, w3, activation):
+        super().__init__()
+        self.hidden_dim = hidden_dim
+        self.num_experts = num_experts
+        self.experts = nn.ModuleList([NonGatedExpertMLP(w1[i], w3[i], activation) for i in range(num_experts)])
+
+    def forward(self, hidden_states, selected_experts, routing_weights):
+        final_hidden_states = torch.zeros_like(hidden_states)
+        expert_mask = F.one_hot(selected_experts, num_classes=self.num_experts).permute(2, 1, 0)
+        for expert_idx in range(self.num_experts):
+            idx, top_x = torch.where(expert_mask[expert_idx])
+            current_state = hidden_states[None, top_x].reshape(-1, self.hidden_dim)
+            current_hidden_states = self.experts[expert_idx](current_state) * routing_weights[top_x, idx, None]
+            final_hidden_states.index_add_(0, top_x, current_hidden_states.to(hidden_states.dtype))
+        return final_hidden_states.reshape(hidden_states.size())
+
+
+@pytest.mark.skipif(_is_simulator(), reason="Mixture of experts takes too long on sim")
+@pytest.mark.parametrize("fp8_dtype", [torch.float8_e4m3fn], ids=format_tc)
+@pytest.mark.parametrize("activation", ["silu", "relu2"])
+@pytest.mark.parametrize("hidden_dim", HIDDEN_DIMS)
+@pytest.mark.parametrize("ffn_dim", FFN_DIMS)
+@pytest.mark.parametrize("num_experts", NUM_EXPERTS)
+@pytest.mark.parametrize("num_tokens", NUM_TOKENS)
+@pytest.mark.parametrize("permuted_weights", PERMUTED_WEIGHTS)
+@pytest.mark.parametrize("chunk_size, total_experts", [(0, 0)])
+@pytest.mark.parametrize(
+    "fp8_scales",
+    [
+        {
+            "d_scale_w1": [4.35, 1.49, 1.12, 2.22, 8.33, 1.28, 2.94, 1.79],
+            "d_scale_w3": [6.67, 1.09, 2.08, 2.70, 1.56, 1.23, 1.89, 3.85],
+            "d_scale_hidden_states": 3.17,
+        }
+    ],
+)
+def test_mixture_of_experts_fp8_dynamic_non_gated(
+    permuted_weights,
+    num_tokens,
+    num_experts,
+    activation,
+    hidden_dim,
+    ffn_dim,
+    fp8_dtype,
+    fp8_scales,
+    chunk_size,
+    total_experts,
+):
+    # Non-gated is only wired for the fused-weights dynamic-scale fp8 overload,
+    # and relu2 is compile-only -- match test_mixture_of_experts_fp8's gating.
+    if not is_pytest_mode_compile():
+        pytest.skip("Non-gated fp8-dynamic MoE is validated only in compile mode")
+
+    d_scale_w1 = handle_scales(fp8_scales["d_scale_w1"], num_experts)
+    # fused-weights non-gated reuses the single up-projection scale as w2's slot.
+    d_scale_w2 = d_scale_w1
+    d_scale_w3 = handle_scales(fp8_scales["d_scale_w3"], num_experts)
+    d_scale_hidden_states = handle_scales(fp8_scales["d_scale_hidden_states"], num_experts)
+
+    hidden_states_hpu = torch.randn((num_tokens, hidden_dim), dtype=torch.float).to(fp8_dtype).to(hpu)
+    router_weights_all = torch.randn((num_tokens, num_experts), dtype=torch.bfloat16).to(hpu)
+    router_weights_hpu, expert_routing_table_hpu = torch.topk(router_weights_all, 2)
+    hidden_states = hidden_states_hpu.to(torch.bfloat16).to(cpu)
+    hidden_states_hpu /= d_scale_hidden_states
+
+    expert_weights_cpu, expert_weights_hpu = generate_expert_weights(
+        hidden_dim, ffn_dim, num_experts, permuted_weights, fp8_dtype, (d_scale_w1, d_scale_w2, d_scale_w3)
+    )
+    w1_cpu, _w2_cpu, w3_cpu = expert_weights_cpu
+    w1_hpu, _w2_hpu, w3_hpu = expert_weights_hpu
+
+    d_scale_w1 = [torch.tensor(s).to(hpu) for s in d_scale_w1]
+    d_scale_w3 = [torch.tensor(s).to(hpu) for s in d_scale_w3]
+    d_scale_hidden_states = torch.tensor(d_scale_hidden_states).to(hpu)
+
+    # Non-gated reference: y = w3(act(w1 x)), no w2 gate multiply.
+    ref = NonGatedMoeBlock(hidden_dim, num_experts, w1_cpu, w3_cpu, activation)
+    result_cpu = ref(hidden_states, expert_routing_table_hpu.to(cpu), router_weights_hpu.to(torch.bfloat16).to(cpu))
+
+    fn = compile_function_if_compile_mode(torch.ops.hpu.mixture_of_experts)
+
+    def call_moe_fn():
+        # Fused non-gated: w12 is the single I-wide up-projection (w1 alone),
+        # NOT cat(w1, w2). is_gated=False makes the kernel skip the split+mul.
+        return fn(
+            hidden_states_hpu,
+            expert_routing_table_hpu,
+            router_weights_hpu,
+            w1_hpu,  # w12 (single projection)
+            w3_hpu,
+            d_scale_hidden_states,
+            d_scale_w1,  # d_scale_w12
+            d_scale_w3,
+            permuted_weights,
+            activation,
+            0,
+            num_experts - 1,
+            is_gated=False,
+            chunk_size=chunk_size,
+            total_experts=total_experts,
+        )
 
     with torch.inference_mode():
         result_hpu = call_moe_fn()
@@ -688,6 +829,9 @@ def test_mixture_of_experts_fp8_blockwise_quant(
     if fp8_dtype == torch.float8_e5m2 and not is_pytest_mode_eager():
         pytest.skip("Block-wise quantization is supported only for torch.float8_e4m3")
 
+    if activation == "relu2" and not is_pytest_mode_compile():
+        pytest.skip("relu2 supported only in compile mode")
+
     hidden_states = torch.randn((num_tokens, hidden_dim), dtype=torch.bfloat16)
     router_weights_all = torch.randn((num_tokens, num_experts), dtype=torch.bfloat16)
     router_weights, expert_routing_table = torch.topk(router_weights_all, 2)
@@ -793,6 +937,9 @@ def test_compare_graph_modes_to_eager_decomposition(
 ):
     if dynamic_scale and fp8_dtype == torch.float8_e5m2 and not is_pytest_mode_eager():
         pytest.skip("Dynamic scale is supported only for torch.float8_e4m3")
+    if activation == "relu2" and not is_pytest_mode_compile():
+        pytest.skip("relu2 supported only in compile mode")
+
     d_scale_w1 = fp8_scales["d_scale_w1"]
     d_scale_w2 = d_scale_w1 if fused_weights else fp8_scales["d_scale_w2"]
     d_scale_w3 = fp8_scales["d_scale_w3"]
@@ -900,6 +1047,9 @@ def test_mixture_of_experts_fwd_bwd(
     chunk_size,
     total_experts,
 ):
+    if activation == "relu2" and not is_pytest_mode_compile():
+        pytest.skip("relu2 supported only in compile mode")
+
     hidden_states = torch.randn((num_tokens, hidden_dim), dtype=dtype, requires_grad=True)
     router_weights_all = torch.randn((num_tokens, num_experts), dtype=dtype)
     router_weights, expert_routing_table = torch.topk(router_weights_all, 2)
@@ -1007,6 +1157,9 @@ def test_mixture_of_experts_fwd_bwd_view(
     dtype,
     recomp,
 ):
+    if activation == "relu2" and not is_pytest_mode_compile():
+        pytest.skip("relu2 supported only in compile mode")
+
     hidden_states = torch.randn((num_tokens, hidden_dim), dtype=dtype, requires_grad=True)
     router_weights_all = torch.randn((num_tokens, num_experts), dtype=dtype)
     router_weights, expert_routing_table = torch.topk(router_weights_all, 2)
@@ -1115,7 +1268,7 @@ class MixtralBlockSparseMLPFp8(nn.Module):
         self.w1 = w1
         self.w2 = w2
         self.w3 = w3
-        activation_functions = {"gelu": F.gelu, "relu": F.relu, "silu": F.silu}
+        activation_functions = {"gelu": F.gelu, "relu": F.relu, "silu": F.silu, "relu2": lambda x: F.relu(x) ** 2}
         self.activation_fn = activation_functions[activation]
 
         self.calc_first_amax = calc_first_amax
@@ -1616,6 +1769,9 @@ def test_mixture_of_experts_fp8_training(
     chunk_size,
     total_experts,
 ):
+    if activation == "relu2" and not is_pytest_mode_compile():
+        pytest.skip("relu2 supported only in compile mode")
+
     if Verbose:
         print("Recomp: ", recomp)
         print("Calc first amax: ", calc_first_amax)

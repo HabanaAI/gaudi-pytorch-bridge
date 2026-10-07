@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025-2025 Intel Corporation
+ * Copyright (c) 2025-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1635,12 +1635,25 @@ at::Tensor mixture_of_experts_fp8_fused_weights_dynamic(
     const std::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max,
+    const bool is_gated,
     const int64_t chunk_size,
     const int64_t total_experts) {
   PT_EAGER_TRACE;
+  // The eager reference splits w12 into (gate, up) halves unconditionally
+  // (see split_weights_tensor below), so it only implements the gated pattern.
+  // Non-gated experts (is_gated=false, single I-wide up-projection, e.g.
+  // Nemotron-H squared-ReLU) are only supported by the graph/OpBackend lowering
+  // (callMlpBlockFP8). This overload is also frontend_blocklist: [eager] in
+  // hpu_op.yaml; guard here so a direct eager call fails loudly instead of
+  // silently mis-splitting the projection.
+  TORCH_CHECK(
+      is_gated,
+      "Non-gated MoE (is_gated=false) is not supported in eager mode; run with "
+      "lazy / torch.compile (the fused non-gated path is implemented only in "
+      "the graph lowering).");
   PT_OP_INFO(
       "mixture_of_experts.fp8_fused_weights :",
-      DUMP_14ARGS(
+      DUMP_15ARGS(
           hidden_states,
           expert_routing_table,
           router_weights,
@@ -1653,6 +1666,7 @@ at::Tensor mixture_of_experts_fp8_fused_weights_dynamic(
           activation,
           experts_min,
           experts_max,
+          is_gated,
           chunk_size,
           total_experts));
   auto [w1, w2] = split_weights_tensor(w12, permuted_weights);

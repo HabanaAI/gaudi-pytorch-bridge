@@ -19,6 +19,7 @@ from itertools import accumulate
 import habana_frameworks.torch.internal.bridge_config as bc
 from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
 from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
+from habana_frameworks.torch.utils.version_checker import is_pytorch_older_than
 
 import torch
 import torch._prims_common as utils
@@ -110,8 +111,6 @@ hpu_backend_decompositions_list = [
     aten.im2col.default,
     aten.im2col.out,
     aten.index_select.out,
-    aten.index_select.dimname,
-    aten.index_select.dimname_out,
     aten.isneginf.default,
     aten.isneginf.out,
     aten.isposinf.default,
@@ -167,16 +166,12 @@ hpu_backend_decompositions_list = [
     aten.nll_loss_forward.output,
     aten.norm.Scalar,
     aten.norm.ScalarOpt_dim,
-    aten.norm.names_ScalarOpt_dim,
     aten.norm.ScalarOpt_dim_dtype,
     aten.norm.dtype_out,
     aten.norm.out,
     aten.norm.ScalarOpt_dtype,
     aten.norm.ScalarOpt_dtype_out,
     aten.norm.Scalar_out,
-    aten.norm.names_ScalarOpt_dim_dtype,
-    aten.norm.names_dtype_out,
-    aten.norm.names_out,
     aten.ones.default,
     aten.ones_like.default,
     aten.ones_like.out,
@@ -250,6 +245,18 @@ hpu_backend_decompositions_list = [
     aten.zeros_like.default,
     aten.zeros_like.out,
 ]
+
+if is_pytorch_older_than("2.13"):
+    hpu_backend_decompositions_list.extend(
+        [
+            aten.index_select.dimname,
+            aten.index_select.dimname_out,
+            aten.norm.names_ScalarOpt_dim,
+            aten.norm.names_ScalarOpt_dim_dtype,
+            aten.norm.names_dtype_out,
+            aten.norm.names_out,
+        ]
+    )
 
 hpu_backend_decompositions_common = get_decompositions(hpu_backend_decompositions_list)
 

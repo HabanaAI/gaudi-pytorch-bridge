@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,9 +14,12 @@
  */
 #pragma once
 
-#include <ATen/NamedTensorUtils.h>
 #include <ATen/core/TensorBody.h>
 #include "pytorch_helpers/habana_helpers/logging.h"
+#include "pytorch_helpers/habana_helpers/pt_version_check.h"
+#if IS_PYTORCH_OLDER_THAN(2, 13)
+#include <ATen/NamedTensorUtils.h>
+#endif
 
 namespace habana::eager {
 template <typename Vec>
@@ -37,7 +40,9 @@ at::Tensor alias_with_sizes_and_strides(
   self_tmp_->set_storage_offset(self.storage_offset());
   self_tmp_->set_sizes_and_strides(sizes, strides);
 
+#if IS_PYTORCH_OLDER_THAN(2, 13)
   at::namedinference::propagate_names(self_, self);
+#endif
   return self_;
 }
 

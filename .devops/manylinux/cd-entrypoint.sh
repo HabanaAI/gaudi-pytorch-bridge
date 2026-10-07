@@ -18,7 +18,7 @@ set -e
 
 RUN_ARGS=${@:-habana_help && echo -e '\\nPlease provide the command to run as arguments.'}
 
-HABANA_ARTIFACTORY_SERVER="artifactory-kfs.habana-labs.com"
+HABANA_ARTIFACTORY_SERVER="artifactory-kfs.iil.labsad.intel.com"
 HABANA_PIP_INDEX="https://${HABANA_ARTIFACTORY_SERVER}/artifactory/api/pypi/pypi-virtual"
 HABANA_PIP_INDEX_URL="$HABANA_PIP_INDEX/simple"
 # shellcheck disable=SC2034  # the var is used when sourcing habana_env

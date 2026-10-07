@@ -770,7 +770,8 @@ SharedMetaDataVector MixtureOfExpertsRecompBwdSharedMeta(
 static const std::map<std::string_view, MoeActivationMode_t> activationModeMap =
     {{"gelu", MoeActivationMode_t::MOE_ACTIVATION_MODE_GELU},
      {"relu", MoeActivationMode_t::MOE_ACTIVATION_MODE_RELU},
-     {"silu", MoeActivationMode_t::MOE_ACTIVATION_MODE_SILU}};
+     {"silu", MoeActivationMode_t::MOE_ACTIVATION_MODE_SILU},
+     {"relu2", MoeActivationMode_t::MOE_ACTIVATION_MODE_RELU2}};
 
 struct MixtureOfExpertsConfig {
   size_t permuted_weights_idx;
@@ -781,6 +782,7 @@ struct MixtureOfExpertsConfig {
   bool first_gemm_measurement_mode;
   bool hybrid_mode;
   bool scaled_swiglu;
+  bool non_gated = false;
   unsigned int chunk_size;
   unsigned int total_experts;
   bool gpt_swiglu = false;
@@ -830,6 +832,7 @@ FillParamsT FillMixtureOfExpertsParams(
   params->flags |= (cfg.hybrid_mode ? MoeFlags_t::MOE_FLAGS_FP8_HYBRID : 0);
   params->flags |=
       (cfg.scaled_swiglu ? MoeFlags_t::MOE_FLAGS_SCALED_SWIGLU : 0);
+  params->flags |= (cfg.non_gated ? MoeFlags_t::MOE_FLAGS_NON_GATED : 0);
   params->flags |= (cfg.gpt_swiglu ? MoeFlags_t::MOE_FLAGS_GPT_SWIGLU : 0);
   params->flags |=
       (cfg.permuted_weight_scales ? MoeFlags_t::MOE_FLAGS_PERMUTED_WEIGHT_SCALES
@@ -855,6 +858,7 @@ FillParamsT FillMixtureOfExpertsBiasParams(const at::Stack& stack) {
       false, /* first_gemm_measurement_mode */
       false, /* hybrid_mode */
       false, /* scaled_swiglu */
+      false, /* non_gated */
       static_cast<unsigned int>(
           stack.at(stack_size - 4).toInt()), /* chunk_size */
       static_cast<unsigned int>(
@@ -881,6 +885,7 @@ FillParamsT FillMixtureOfExpertsParams(const at::Stack& stack) {
       false, /* first_gemm_measurement_mode */
       false, /* hybrid_mode */
       false, /* scaled_swiglu */
+      false, /* non_gated */
       static_cast<unsigned int>(
           stack.at(stack_size - 2).toInt()), /* chunk_size */
       static_cast<unsigned int>(
@@ -900,6 +905,7 @@ FillParamsT FillMixtureOfExpertsBiasFp8Params(const at::Stack& stack) {
       false, /* first_gemm_measurement_mode */
       false, /* hybrid_mode */
       false, /* scaled_swiglu */
+      false, /* non_gated */
       static_cast<unsigned int>(
           stack.at(stack_size - 4).toInt()), /* chunk_size */
       static_cast<unsigned int>(
@@ -930,6 +936,7 @@ FillParamsT FillMixtureOfExpertsFwdFp8Params(const at::Stack& stack) {
       first_gemm_measurement_mode,
       hybdrid_mode,
       scaled_swiglu,
+      false, /* non_gated */
       static_cast<unsigned int>(
           stack.at(stack_size - 2).toInt()), /* chunk_size */
       static_cast<unsigned int>(
@@ -967,6 +974,7 @@ FillParamsT FillMixtureOfExpertsBwdFp8Params(const at::Stack& stack) {
       stack.at(stack_size - 4).toBool() /* first_gemm_measurement_mode */,
       stack.at(stack_size - 5).toBool() /* hybrid_mode */,
       stack.at(stack_size - 6).toBool() /* scaled_swiglu */,
+      false, /* non_gated */
       static_cast<unsigned int>(
           stack.at(stack_size - 2).toInt()) /* chunk_size */,
       static_cast<unsigned int>(
@@ -1012,6 +1020,7 @@ void MixtureOfExperts::AddNode(sh::graph& graph, const at::Stack& stack) {
       false, /* first_gemm_measurement_mode */
       false, /* hybrid_mode */
       false, /* scaled_swiglu */
+      false, /* non_gated */
       static_cast<unsigned int>(
           stack.at(stack_size - 2).toInt()) /* chunk_size */,
       static_cast<unsigned int>(
@@ -1089,6 +1098,7 @@ void MixtureOfExpertsFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
       false, /* first_gemm_measurement_mode */
       false, /* hybrid_mode */
       false, /* scaled_swiglu */
+      false, /* non_gated */
       static_cast<unsigned int>(
           stack.at(stack_size - 2).toInt()) /* chunk_size */,
       static_cast<unsigned int>(
@@ -1153,6 +1163,7 @@ void MixtureOfExpertsFp8Scalars::AddNode(
       false, /* first_gemm_measurement_mode */
       false, /* hybrid_mode */
       false, /* scaled_swiglu */
+      false, /* non_gated */
       static_cast<unsigned int>(
           stack.at(stack_size - 2).toInt()) /* chunk_size */,
       static_cast<unsigned int>(
@@ -1210,12 +1221,17 @@ void MixtureOfExpertsFp8BiasScalars::AddNode(
 void MixtureOfExpertsFp8Dynamic::AddNode(
     sh::graph& graph,
     const at::Stack& stack) {
-  const bool fused_weights = stack.size() == 14;
+  const size_t stack_size = stack.size();
+  const bool fused_weights = stack_size == 15;
+  // Only the fused-weights schema carries `is_gated`; on the non-fused overload
+  // that slot holds `experts_max` (an int), so it must not be read as a bool.
+  const bool is_gated =
+      fused_weights ? stack.at(stack_size - 3).toBool() : true;
   const size_t weights_and_scales_per_expert = fused_weights ? 4 : 6;
-  const size_t permuted_weights_idx = fused_weights ? 8 : 10;
+  const size_t permuted_weights_idx =
+      (weights_and_scales_per_expert == 4) ? 8 : 10;
   auto hidden_states = stack.at(0).toTensor();
   auto numExperts = stack.at(3).toTensorList().size();
-  const size_t stack_size = stack.size();
 
   std::vector<synTensor> inputs;
   const size_t num_inputs = 4 + (numExperts * weights_and_scales_per_expert);
@@ -1233,6 +1249,7 @@ void MixtureOfExpertsFp8Dynamic::AddNode(
       false, /* first_gemm_measurement_mode */
       false, /* hybrid_mode */
       false, /* scaled_swiglu */
+      not is_gated, /* non_gated */
       static_cast<unsigned int>(
           stack.at(stack_size - 2).toInt()) /* chunk_size */,
       static_cast<unsigned int>(
@@ -1293,6 +1310,7 @@ void MixtureOfExpertsFp8ScalarsDynamic::AddNode(
       false, /* first_gemm_measurement_mode */
       false, /* hybrid_mode */
       false, /* scaled_swiglu */
+      false, /* non_gated */
       static_cast<unsigned int>(
           stack.at(stack_size - 2).toInt()) /* chunk_size */,
       static_cast<unsigned int>(
@@ -1338,6 +1356,7 @@ void MixtureOfExpertsFp8BlockwiseQuantization::AddNode(
       false, /* first_gemm_measurement_mode */
       false, /* hybrid_mode */
       false, /* scaled_swiglu */
+      false, /* non_gated */
       static_cast<unsigned int>(
           stack.at(stack_size - 2).toInt()) /* chunk_size */,
       static_cast<unsigned int>(
@@ -1435,6 +1454,7 @@ void MixtureOfExpertsMxfp4::AddNode(sh::graph& graph, const at::Stack& stack) {
       false, /* first_gemm_measurement_mode */
       false, /* hybrid_mode */
       false, /* scaled_swiglu */
+      false, /* non_gated */
       chunk_size, /* chunk_size */
       static_cast<unsigned int>(
           stack.at(stack_size - 1).toInt()), /* total_experts */
@@ -1547,6 +1567,7 @@ void MixtureOfExpertsBiasMxfp4::AddNode(
       false, /* first_gemm_measurement_mode */
       false, /* hybrid_mode */
       false, /* scaled_swiglu */
+      false, /* non_gated */
       chunk_size, /* chunk_size */
       static_cast<unsigned int>(
           stack.at(stack_size - 3).toInt()), /* total_experts */
@@ -1562,6 +1583,151 @@ void MixtureOfExpertsBiasMxfp4::AddNode(
   // whether expert-parallelism chunking is active.
   params.paramsPtr<ns_MoeKernel::ParamsV5>()->block_size =
       static_cast<unsigned int>(stack.at(permuted_weights_idx - 1).toInt());
+  auto meta = MixtureOfExpertsFp8Meta(stack)[0];
+  auto moe_result = OpBackend::BuildNode(
+      this,
+      graph,
+      {get_guid_with_precision("moe"sv, hidden_states.scalar_type()),
+       std::move(inputs),
+       {{meta.shape, meta.dtype, 0}},
+       params.ptr(),
+       params.size()});
+  syn_out(0) = std::move(moe_result[0]);
+}
+
+// ─── INT4/UINT4 (WNA16) blockwise weight support ─────────────────────────────
+// Passes packed int4/uint4 weights + per-group bf16 scales (+ optional
+// zero-points) into the fused "moe" GUID, so cguid dequantizes only the routed
+// expert weights (reusing the dequantize_4_bit lowering) instead of vLLM
+// dequantizing every local expert up front. cguid derives the group size from
+// the scale-tensor shape, so no block_size parameter is needed for the int4
+// dequant path (unlike the FP8/MXFP4 blockwise-quantization path).
+//
+// Weights arrive int32-packed (8 nibbles per int32). They are reinterpret-cast
+// to syn_type_uint4/int4 with the last dim expanded x8 so cguid sees the
+// unpacked [D_out, D_in] shape and recognises isInt4PrecisionType().
+//
+// Operand order handed to the GUID matches the cguid contract:
+//   hidden_states, routing_table, router_weights | weights | scales | [zeros]
+// each group num_weight_lists*num_experts wide (zeros optional/symmetric).
+//
+// The int4 schema carries NO block_size arg (it is unused for int4). That also
+// keeps its lazy JIT-IR overload signature distinct from
+// mixture_of_experts.mxfp4 (whose first post-list scalar is int block_size,
+// vs int4's bool permuted_weights) — otherwise the fused+zero_point case (6
+// TensorLists + identical scalars) would match mxfp4 and mis-dispatch to the
+// MXFP4 backend.
+//
+// Non-fused stack (size==19):
+//   [0] hidden_states [1] routing_table [2] router_weights
+//   [3] w1 [4] w2 [5] w3
+//   [6] d_scale_w1 [7] d_scale_w2 [8] d_scale_w3
+//   [9] zp_w1 [10] zp_w2 [11] zp_w3            (optional TensorLists, may be
+//   None) [12] permuted_weights [13] activation [14] experts_min [15]
+//   experts_max [16] is_signed [17] chunk_size [18] total_experts
+// Fused stack (size==16): w12,w3 | d_scale_w12,d_scale_w3 | zp_w12,zp_w3 | ...
+void MixtureOfExpertsInt4BlockwiseQuantization::AddNode(
+    sh::graph& graph,
+    const at::Stack& stack) {
+  const auto& hidden_states = stack.at(0).toTensor();
+  const auto num_experts = stack.at(3).toTensorList().size();
+  // Fused (w12,w3) stack has 16 args; non-fused (w1,w2,w3) has 19. Detect by
+  // size (the fixed operand at index 5 is a TensorList in both variants, so
+  // isTensorList() cannot discriminate here). Optional zero-point lists always
+  // occupy their slots (None when absent), so the size is deterministic.
+  const bool fused_weights = (stack.size() == 16);
+  const size_t weights_per_expert = fused_weights ? 2 : 3;
+  const size_t permuted_weights_idx = fused_weights ? 9 : 12;
+  // is_signed sits two args after experts_max (permuted_weights_idx + 4):
+  // ... permuted_weights, activation, experts_min, experts_max, is_signed ...
+  const bool is_signed = stack.at(permuted_weights_idx + 4).toBool();
+  const synDataType weight_syn_type =
+      is_signed ? syn_type_int4 : syn_type_uint4;
+
+  // Weight lists occupy [3, 3 + weights_per_expert); scale lists follow, then
+  // the optional zero-point lists. The zero-point args are Tensor[]? and are
+  // None for symmetric quant, so probe whether the first zp slot holds a
+  // TensorList.
+  const size_t zp_list_begin = 3 + (2 * weights_per_expert);
+  const bool has_zero_point = stack.at(zp_list_begin).isTensorList();
+  // The syn_idx bookkeeping below assumes all weights_per_expert zero-point
+  // lists are present or absent together; a partial specification would
+  // silently misalign it and forward the wrong synapse tensors as zero-points.
+  for (size_t i = 1; i < weights_per_expert; i++) {
+    HABANA_ASSERT(
+        stack.at(zp_list_begin + i).isTensorList() == has_zero_point,
+        "mixture_of_experts int4: zero-point lists must be either all "
+        "present or all None across weight groups.");
+  }
+
+  const size_t stack_size = stack.size();
+
+  std::vector<synTensor> inputs;
+  inputs.reserve(
+      3 + ((2 + (has_zero_point ? 1 : 0)) * weights_per_expert * num_experts));
+
+  // Non-weight inputs: hidden_states, routing_table, router_weights.
+  for (size_t i = 0; i < 3; i++) {
+    inputs.push_back(syn_in(i));
+  }
+
+  // Packed int32 weights -> reinterpret to uint4/int4 with x8-expanded last
+  // dim. cast_tensors keeps the sh::tensor handles alive until after
+  // BuildNode("moe").
+  std::vector<sh::tensor> cast_tensors;
+  cast_tensors.reserve(weights_per_expert * num_experts);
+  size_t syn_idx = 3;
+  for (size_t list_idx = 3; list_idx < 3 + weights_per_expert; list_idx++) {
+    const auto& weight_list = stack.at(list_idx).toTensorList();
+    for (size_t expert_idx = 0; expert_idx < num_experts; expert_idx++) {
+      auto sizes = weight_list[expert_idx].sizes().vec();
+      if (!sizes.empty()) {
+        sizes.back() *= 8; // 8 int4 values packed per int32
+      }
+      auto cast_result = OpBackend::BuildNode(
+          this,
+          graph,
+          {"reinterpret_cast",
+           {syn_in(syn_idx)},
+           {{sizes,
+             c10::ScalarType::Int,
+             std::nullopt,
+             DATA_TENSOR,
+             weight_syn_type}}});
+      inputs.push_back(cast_result[0].get());
+      cast_tensors.push_back(std::move(cast_result[0]));
+      syn_idx++;
+    }
+  }
+
+  // Scale tensors (per-group bf16): pass through in order.
+  for (size_t e = 0; e < weights_per_expert * num_experts; e++) {
+    inputs.push_back(syn_in(syn_idx++));
+  }
+
+  // Optional zero-point tensors: forward only when provided (asymmetric quant).
+  if (has_zero_point) {
+    for (size_t e = 0; e < weights_per_expert * num_experts; e++) {
+      inputs.push_back(syn_in(syn_idx++));
+    }
+  }
+
+  const MixtureOfExpertsConfig cfg = {
+      permuted_weights_idx,
+      fused_weights,
+      false, /* measurement_mode */
+      false, /* dynamic_scale */
+      false, /* blockwise_quantization */
+      false, /* first_gemm_measurement_mode */
+      false, /* hybrid_mode */
+      false, /* scaled_swiglu */
+      false, /* non_gated */
+      static_cast<unsigned int>(
+          stack.at(stack_size - 2).toInt()), /* chunk_size */
+      static_cast<unsigned int>(
+          stack.at(stack_size - 1).toInt()) /* total_experts */};
+
+  auto params = FillMixtureOfExpertsParams(stack, cfg);
   auto meta = MixtureOfExpertsFp8Meta(stack)[0];
   auto moe_result = OpBackend::BuildNode(
       this,
@@ -1601,6 +1767,7 @@ void MixtureOfExpertsBwd::AddNode(sh::graph& graph, const at::Stack& stack) {
       false, /* first_gemm_measurement_mode */
       false, /* hybrid_mode */
       false, /* scaled_swiglu */
+      false, /* non_gated */
       0 /* chunk_size */,
       0 /* total_experts */};
 
@@ -1647,6 +1814,7 @@ void MixtureOfExpertsRecompBwd::AddNode(
       false, /* first_gemm_measurement_mode */
       false, /* hybrid_mode */
       false, /* scaled_swiglu */
+      false, /* non_gated */
       static_cast<unsigned int>(
           stack.at(stack_size - 2).toInt()) /* chunk_size */,
       static_cast<unsigned int>(

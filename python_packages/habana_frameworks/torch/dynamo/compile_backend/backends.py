@@ -27,6 +27,7 @@ from .decomposition import get_hpu_decompositions, override_composite_ops
 
 logger = logging.getLogger(__name__)
 
+torch._dynamo.config.use_recursive_dict_tags_for_guards = True
 
 """
 The following two functions are used to postone importing the compilers and hpu_partition until the actual usage of the backend

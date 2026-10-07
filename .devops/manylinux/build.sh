@@ -22,8 +22,8 @@
 set -e
 
 echo Building manylinux_2_28 docker
-docker build -t artifactory-kfs.habana-labs.com/docker/manylinux/manylinux_2_28:latest .
+docker build -t artifactory-kfs.iil.labsad.intel.com/docker/manylinux/manylinux_2_28:latest .
 
 echo
 echo Building an icecc-enabled Manylinux docker based on the one above
-docker build -t artifactory-kfs.habana-labs.com/docker/manylinux/manylinux_2_28-with-icecc:latest icecc
+docker build -t artifactory-kfs.iil.labsad.intel.com/docker/manylinux/manylinux_2_28-with-icecc:latest icecc

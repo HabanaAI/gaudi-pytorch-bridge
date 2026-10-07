@@ -37,7 +37,6 @@ EOF
 3. Install the requirements:
 ```bash
 pip install -r "$PYTORCH_MODULES_ROOT_PATH"/requirements.txt
-pip install habana-media-loader==$VERSION.$BUILD
 ```
 
 4. Allow the build command to install artifacts:
@@ -66,7 +65,6 @@ Once the one-time setup is complete, you can configure the necessary environment
 export HABANA_SOFTWARE_STACK="$(pwd)"
 
 export HCL_INCLUDE_DIR=/usr/include/habanalabs/
-export MEDIA_ROOT=$(python -c "import habana_frameworks.mediapipe, os;print(os.path.dirname(habana_frameworks.mediapipe.__file__))")
 export SPECS_EXT_ROOT=/usr/include/habanalabs/
 export SYNAPSE_INCLUDE_DIR=/usr/include/habanalabs/
 export SYNAPSE_UTILS_INCLUDE_DIR=/usr/include/habanalabs/

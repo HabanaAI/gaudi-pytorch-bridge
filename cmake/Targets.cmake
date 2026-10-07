@@ -114,7 +114,6 @@ function(enforce_hardening target_name)
       _hccl_lazy_C
       _hpex_C
       _hpu_C
-      _media_pyt_bridge_C
       _partition_bind_C
       _recipe_compiler_C
       _shared_layer_C
@@ -148,7 +147,6 @@ function(enforce_hardening target_name)
       _hccl_lazy_C
       _hpex_C
       _hpu_C
-      _media_pyt_bridge_C
       _partition_bind_C
       _recipe_compiler_C
       _shared_layer_C

@@ -8721,6 +8721,16 @@ kv_reorder_:
   namespaces: [torch.hpu]
   skip_slrg: true # TORCH_CHECK inside output_meta
 
+gdn_read_decayed_state:
+  custom_op_schema: "hpu::gdn_read_decayed_state(Tensor state, Tensor sidx, Tensor gates) -> Tensor"
+  output_meta: GdnReadDecayedStateMeta
+  guid: gdn_read_decayed_state_fwd
+  op_backend: GdnReadDecayedState
+  out_ids: [0]
+  op_validator: GdnReadDecayedStateSharedMeta
+  namespaces: [torch.hpu]
+  skip_slrg: true # TORCH_CHECK inside output_meta
+
 masked_batch_gemm:
   custom_op_schema: "hpu::masked_batch_gemm(Tensor a, Tensor b, Tensor mask_a, Tensor mask_b, bool trans_a, bool trans_b) -> Tensor"
   custom_fill_params: FillMaskedBatchGemmParams
@@ -9063,7 +9073,7 @@ mixture_of_experts.fp8_dynamic:
     override_fn: mixture_of_experts_fp8_dynamic_lazy
 
 mixture_of_experts.fp8_fused_weights_dynamic:
-  custom_op_schema: "hpu::mixture_of_experts.fp8_fused_weights_dynamic(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, Tensor d_scale_hidden_states, Tensor[] d_scale_w12, Tensor[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, int chunk_size=0, int total_experts=0) -> Tensor"
+  custom_op_schema: "hpu::mixture_of_experts.fp8_fused_weights_dynamic(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, Tensor d_scale_hidden_states, Tensor[] d_scale_w12, Tensor[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, bool is_gated=True, int chunk_size=0, int total_experts=0) -> Tensor"
   output_meta: MixtureOfExpertsFp8Meta
   op_backend: MixtureOfExpertsFp8Dynamic
   frontend_blocklist: [eager]
@@ -9144,6 +9154,26 @@ mixture_of_experts.bias_mxfp4_fused_weights:
   op_validator_exception: true # mxfp4 weights are uint8 (packed), unsupported by shared-layer dtype validation
   namespaces: [torch.hpu]
   skip_slrg: true # Exception - fp4
+
+mixture_of_experts.int4:
+  custom_op_schema: "hpu::mixture_of_experts.int4(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, Tensor[] d_scale_w1, Tensor[] d_scale_w2, Tensor[] d_scale_w3, Tensor[]? zero_point_w1, Tensor[]? zero_point_w2, Tensor[]? zero_point_w3, *, bool permuted_weights, str activation, int experts_min, int experts_max, bool is_signed, int chunk_size=0, int total_experts=0) -> Tensor"
+  output_meta: MixtureOfExpertsFp8Meta
+  op_backend: MixtureOfExpertsInt4BlockwiseQuantization
+  frontend_blocklist: [eager]
+  out_ids: [0]
+  op_validator_exception: true # int4/uint4 weights are int32 (packed), unsupported by shared-layer dtype validation
+  namespaces: [torch.hpu]
+  skip_slrg: true # Exception - int4
+
+mixture_of_experts.int4_fused_weights:
+  custom_op_schema: "hpu::mixture_of_experts.int4_fused_weights(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, Tensor[] d_scale_w12, Tensor[] d_scale_w3, Tensor[]? zero_point_w12, Tensor[]? zero_point_w3, *, bool permuted_weights, str activation, int experts_min, int experts_max, bool is_signed, int chunk_size=0, int total_experts=0) -> Tensor"
+  output_meta: MixtureOfExpertsFp8Meta
+  op_backend: MixtureOfExpertsInt4BlockwiseQuantization
+  frontend_blocklist: [eager]
+  out_ids: [0]
+  op_validator_exception: true # int4/uint4 weights are int32 (packed), unsupported by shared-layer dtype validation
+  namespaces: [torch.hpu]
+  skip_slrg: true # Exception - int4
 
 mixture_of_experts_fwd:
   custom_op_schema: "hpu::mixture_of_experts_fwd(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, int chunk_size=0, int total_experts=0) -> Tensor[]"

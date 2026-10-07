@@ -38,9 +38,9 @@ class GenericManylinuxRunner:
         self.py_versions = py_versions
         self.with_icecc = with_icecc
         if with_icecc:
-            self.image_name = f"artifactory-kfs.habana-labs.com/docker/manylinux/{self.policy}-with-icecc"
+            self.image_name = f"artifactory-kfs.iil.labsad.intel.com/docker/manylinux/{self.policy}-with-icecc"
         else:
-            self.image_name = f"artifactory-kfs.habana-labs.com/docker/manylinux/{self.policy}"
+            self.image_name = f"artifactory-kfs.iil.labsad.intel.com/docker/manylinux/{self.policy}"
 
     def run(self, recreate_venv: bool, raw_args: Iterable[str]):
         log.info("Performing a manylinux build")

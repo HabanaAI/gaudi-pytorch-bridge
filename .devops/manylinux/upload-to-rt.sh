@@ -17,7 +17,7 @@
 #
 # Uploads images built using build.sh to Artifactory
 #
-regular_image=artifactory-kfs.habana-labs.com/docker/manylinux/manylinux_2_28
+regular_image=artifactory-kfs.iil.labsad.intel.com/docker/manylinux/manylinux_2_28
 icecc_image=$regular_image-with-icecc
 
 date_tag=$(date +%Y%m%d_%H%M%S)

@@ -29,6 +29,13 @@ from habana_frameworks.torch.utils.internal import is_lazy
 from packaging.version import Version
 
 import torch
+import torch._functorch.config
+
+# Disable guess_tangent_strides_as_outputs to avoid expand operations with
+# non-standard stride patterns that cause runtime errors with channels_last.
+# This affects both CPU reference generation and HPU compilation.
+# See: https://github.com/pytorch/pytorch/pull/173668
+torch._functorch.config.guess_tangent_strides_as_outputs = False
 
 REQUIRED_VERSION_FILE = "required_version.txt"
 REQUIRED_VERSION_FILE_PATH = os.path.join(os.path.dirname(__file__), REQUIRED_VERSION_FILE)

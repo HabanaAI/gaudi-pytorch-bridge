@@ -35,6 +35,7 @@ from habana_frameworks.torch.dynamo.debug_utils.visualization.graph_dumping impo
 from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
 from habana_frameworks.torch.utils.debug.logger import LogLevel
 from habana_frameworks.torch.utils.internal import Timer
+from habana_frameworks.torch.utils.version_checker import is_pytorch_older_than
 
 import torch
 import torch.fx
@@ -61,7 +62,9 @@ from ._helpers import (
 )
 from ._passes.batch_as_strided import batch_as_strided, group_batch_as_strided
 from ._passes.debug.insert_debug_nan_asserts import pass_insert_debug_nan_asserts
-from ._passes.fsdp2 import pass_remove_fsdp2_unsharded_param_graph_input_usage
+
+if is_pytorch_older_than("2.13"):
+    from ._passes.fsdp2 import pass_remove_fsdp2_unsharded_param_graph_input_usage
 from ._passes.fuse_allreduce_calls import pass_fuse_collectives
 from ._passes.fuse_view_chains import pass_fuse_view_chains
 from ._passes.pattern_rewriter import pass_pattern_rewriter
@@ -78,7 +81,7 @@ from ._passes.utils import (
     SchedulePolicy,
 )
 from .cluster_compiler import pass_compile_clusters_jit_fork_version
-from .fx_graph_utils import remove_noop_alias_nodes
+from .fx_graph_utils import remove_noop_alias_nodes, remove_with_effects_nodes
 from .partitioner import HabanaPartitioner
 from .random_utils import is_backward_checkpoint_op
 from .recipe_compiler import get_callable_recipe
@@ -87,7 +90,7 @@ from .symbolic_execution import SymExprNodeManager
 
 logger = get_compile_backend_logger()
 
-host_call_functions = {"torch.ops.hpu.weight_permutation"}
+host_call_functions = {"torch.ops.hpu.weight_permutation", "torch.ops.aten._linalg_check_errors.default"}
 
 custom_pass_at_pre_stagepasses = []
 custom_pass_at_pre_partition = []
@@ -122,8 +125,8 @@ def get_passes(stage: OptimizationPassPlacement):
           for some debug levels? Or to add dependencies between passes instead of order?
           Could be overkill tho.
     """
-    stage_to_passes = {
-        OptimizationPassPlacement.PRE_PLACEMENT: [
+    if is_pytorch_older_than("2.13"):
+        _pre_placement_passes = [
             # this pass will flatten nested submodules by inlining
             pass_annotate_nodes_and_inline_submodule,
             # These passes will be ran once, they always get and produce a flat graph without submodules.
@@ -147,10 +150,40 @@ def get_passes(stage: OptimizationPassPlacement):
             pass_mark_collective_input,
             pass_mark_placement,
             pass_graph_print,
-        ],
+        ]
+    else:
+        _pre_placement_passes = [
+            # this pass will flatten nested submodules by inlining
+            pass_annotate_nodes_and_inline_submodule,
+            pass_replace_with_effects,
+            # These passes will be ran once, they always get and produce a flat graph without submodules.
+            pass_graph_print,
+            pass_reorder_custom_ops,
+            pass_propose_collective_blocks,
+            pass_fuse_collectives,
+            pass_allreduce_parents,
+            pass_pattern_rewriter,
+            pass_scalar_reorder_jitfork,
+            pass_fake_propagation,
+            pass_reinplace_inplaceable_ops_v2,
+            pass_weight_permutation,
+            pass_remove_unnecessary_full_copy,
+            pass_remove_unnecessary_expand,
+            pass_remove_unnecessary_bmm_view,
+            pass_wa_mixed_devices,  # This is W/A for Adam having CPU scalar tensors parameters.
+            pass_fix_arange_device,
+            pass_reinplace_inplaceable_ops,
+            pass_mark_collective_input,
+            pass_mark_placement,
+            pass_graph_print,
+        ]
+
+    stage_to_passes = {
+        OptimizationPassPlacement.PRE_PLACEMENT: _pre_placement_passes,
         OptimizationPassPlacement.PRE_PARTITIONER: [
             # These passes will prepare proper placement for some corner-cases.
             pass_graph_print,
+            pass_materialize_put_before_slice_scatter,
             pass_eagerize_leaf_views,
             pass_reinplace_index_copy_ops,  # we need the placement information in this pass
             pass_reinplace_add_ops,
@@ -2065,6 +2098,34 @@ def pass_stable_topological_sort(ctx: OptimizerContext):
     return True
 
 
+def pass_materialize_put_before_slice_scatter(ctx: OptimizerContext) -> bool:
+    graph_changed = False
+    graph = ctx.graph_module.graph
+
+    for node in graph.nodes:
+        if node.op != "call_function" or node.target != torch.ops.aten.slice_scatter.default:
+            continue
+
+        source = node.args[1]
+        if not isinstance(source, torch.fx.Node) or source.target != torch.ops.aten.put.default:
+            continue
+
+        with graph.inserting_before(node):
+            materialized_source = graph.call_function(
+                torch.ops.aten.add.Tensor,
+                args=(source, 0),
+            )
+            materialized_source.meta = source.meta.copy()
+        node.replace_input_with(source, materialized_source)
+        graph_changed = True
+
+    if graph_changed:
+        graph.lint()
+        ctx.graph_module.recompile()
+
+    return graph_changed
+
+
 def propagate_module_names(fx_graph: torch.fx.Graph, jit_graph: torch.Graph) -> None:
     """
     This function propagates the module names from the FX graph to the JIT IR nodes.
@@ -2576,6 +2637,17 @@ def pass_remove_noop_alias(ctx: OptimizerContext) -> bool:
 
     return any(
         remove_noop_alias_nodes(module)
+        for module in ctx.graph_module.modules()
+        if isinstance(module, torch.fx.GraphModule)
+    )
+
+
+def pass_replace_with_effects(ctx: OptimizerContext) -> bool:
+    if ctx.graph_module is None:
+        raise AssertionError("Missing graph module")
+
+    return any(
+        remove_with_effects_nodes(module)
         for module in ctx.graph_module.modules()
         if isinstance(module, torch.fx.GraphModule)
     )
